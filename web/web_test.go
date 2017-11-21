@@ -16,22 +16,7 @@ func init() {
 	r = Router()
 }
 
-func TestGetAssignments(t *testing.T) {
-	server := httptest.NewServer(r)
-	defer server.Close()
-
-	resp, err := http.Get(server.URL + "/assignments")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-
-	assert.Equal(t, 200, resp.StatusCode, "Response should indicate success")
-	assert.Equal(t, `{"assignments":[]}`, string(body), "Repsonse should return JSON")
-}
-
-func TestPostAssignments(t *testing.T) {
+func TestCreateAssignments(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
