@@ -6,7 +6,7 @@ import (
 
 func Router() *gin.Engine {
 	r := gin.Default()
-	asgn := AssignmentsController{}
-	r.POST("/assignments", asgn.Create)
+	j := JobsController{}
+	r.POST("/jobs", j.Create)
 	return r
 }

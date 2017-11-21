@@ -5,9 +5,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AssignmentsController struct{}
+type JobsController struct{}
 
-type Assignment struct {
+type Job struct {
 	Schedule string    `json:"schedule"`
 	Subtasks []Subtask `json:"subtasks"`
 }
@@ -17,13 +17,13 @@ type Subtask struct {
 	Params map[string]interface{} `json:"adapterParams"`
 }
 
-func (ac *AssignmentsController) Create(c *gin.Context) {
-	var a Assignment
-	if err := c.ShouldBindJSON(&a); err != nil {
+func (jc *JobsController) Create(c *gin.Context) {
+	var j Job
+	if err := c.ShouldBindJSON(&j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if _, err = a.valid(); err != nil {
+	} else if _, err = j.valid(); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -32,8 +32,8 @@ func (ac *AssignmentsController) Create(c *gin.Context) {
 	}
 }
 
-func (a *Assignment) valid() (bool, error) {
-	for _, s := range a.Subtasks {
+func (j *Job) valid() (bool, error) {
+	for _, s := range j.Subtasks {
 		if s.Type != "httpJSON" {
 			return false, errors.New(`"` + s.Type + `" is not a supported adapter type.`)
 		}

@@ -16,12 +16,12 @@ func init() {
 	r = Router()
 }
 
-func TestCreateAssignments(t *testing.T) {
+func TestCreateJobs(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
 	jsonStr := []byte(`{"subtasks":[{"adapterType": "httpJSON", "adapterParams": {"endpoint": "https://bitstamp.net/api/ticker/", "fields": ["last"]}}], "schedule": "* * * * *","version":"1.0.0"}`)
-	resp, err := http.Post(server.URL+"/assignments", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,12 +33,12 @@ func TestCreateAssignments(t *testing.T) {
 	assert.Equal(t, `{"id":1}`, string(body), "Repsonse should return JSON")
 }
 
-func TestCreateInvalidAssignments(t *testing.T) {
+func TestCreateInvalidJobs(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
 	jsonStr := []byte(`{"subtasks":[{"adapterType": "ethereumBytes32", "adapterParams": {}}], "schedule": "* * * * *","version":"1.0.0"}`)
-	resp, err := http.Post(server.URL+"/assignments", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
 	}
