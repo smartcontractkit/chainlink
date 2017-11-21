@@ -2,9 +2,11 @@ package models
 
 import (
 	"errors"
+	"github.com/jinzhu/gorm"
 )
 
 type Job struct {
+	gorm.Model
 	Schedule string    `json:"schedule"`
 	Subtasks []Subtask `json:"subtasks"`
 }

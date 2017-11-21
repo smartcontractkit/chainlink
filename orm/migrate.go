@@ -1,4 +1,4 @@
-package db
+package orm
 
 import (
 	"github.com/jinzhu/gorm"
@@ -16,13 +16,13 @@ func migrate() {
 			Migrate: func(tx *gorm.DB) error {
 				return tx.Exec(`
 					CREATE TABLE jobs (
-						id bigint NOT NULL,
-						schedule text
+						id INTEGER PRIMARY KEY,
+						schedule text,
+						created_at timestamp without time zone NOT NULL,
+						updated_at timestamp without time zone NOT NULL,
+						deleted_at timestamp without time zone
 					);
 				`).Error
-			},
-			Rollback: func(tx *gorm.DB) error {
-				return tx.DropTable("jobs").Error
 			},
 		},
 	})
@@ -31,5 +31,5 @@ func migrate() {
 		log.Fatalf("Could not migrate: %v", err)
 	}
 
-	log.Printf("Migration did run successfully")
+	log.Printf("Migration ran successfully")
 }

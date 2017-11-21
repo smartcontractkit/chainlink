@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-go/db"
+	"github.com/smartcontractkit/chainlink-go/orm"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"log"
 )
 
 func main() {
-	db.Init()
-	defer db.Close()
+	orm.Init()
+	defer orm.Close()
 	r := web.Router()
 	log.Fatal(r.Run())
 }

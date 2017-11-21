@@ -1,4 +1,4 @@
-package db
+package orm
 
 import (
 	"github.com/jinzhu/gorm"
@@ -33,5 +33,5 @@ func GetDB() *gorm.DB {
 }
 
 func Close() {
-	GetDB().Close()
+	db.Close()
 }
