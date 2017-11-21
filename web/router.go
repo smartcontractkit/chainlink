@@ -6,7 +6,8 @@ import (
 
 func Router() *gin.Engine {
 	r := gin.Default()
-	asgns := Assignments{}
-	r.GET("/assignments", asgns.Index)
+	asgn := Assignments{}
+	r.GET("/assignments", asgn.Index)
+	r.POST("/assignments", asgn.Create)
 	return r
 }

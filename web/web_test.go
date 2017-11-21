@@ -27,7 +27,7 @@ func TestGetAssignments(t *testing.T) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
+	assert.Equal(t, 200, resp.StatusCode, "Response should indicate success")
 	assert.Equal(t, `{"assignments":[]}`, string(body), "Repsonse should return JSON")
 }
 
@@ -41,5 +41,9 @@ func TestPostAssignments(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+	assert.Equal(t, 500, resp.StatusCode, "Response should indicate internal server error")
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Equal(t, `{"errors":["Error saving to database."]}`, string(body), "Repsonse should return JSON")
 }
