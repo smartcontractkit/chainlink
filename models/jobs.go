@@ -2,13 +2,14 @@ package models
 
 import (
 	"errors"
-	"github.com/jinzhu/gorm"
+	"time"
 )
 
 type Job struct {
-	gorm.Model
-	Schedule string    `json:"schedule"`
-	Subtasks []Subtask `json:"subtasks"`
+	ID        int       `storm:"id,increment"`
+	Schedule  string    `json:"schedule"`
+	Subtasks  []Subtask `json:"subtasks" storm:"inline"`
+	CreatedAt time.Time `storm:"index"`
 }
 
 type Subtask struct {

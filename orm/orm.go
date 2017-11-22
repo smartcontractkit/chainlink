@@ -1,14 +1,14 @@
 package orm
 
 import (
-	"github.com/jinzhu/gorm"
+	"github.com/asdine/storm"
 	homedir "github.com/mitchellh/go-homedir"
 	"log"
 	"os"
 	"path"
 )
 
-var db *gorm.DB
+var db *storm.DB
 
 func Init() {
 	dir, err := homedir.Expand("~/.chainlink")
@@ -17,18 +17,15 @@ func Init() {
 	}
 
 	os.MkdirAll(dir, os.FileMode(0700))
-	db, err = gorm.Open("sqlite3", path.Join(dir, "db.sqlite3"))
+	db, err = storm.Open(path.Join(dir, "db.bolt"))
 	if err != nil {
-		log.Fatal(err)
-	}
-	if err = db.DB().Ping(); err != nil {
 		log.Fatal(err)
 	}
 
 	migrate()
 }
 
-func GetDB() *gorm.DB {
+func GetDB() *storm.DB {
 	return db
 }
 
