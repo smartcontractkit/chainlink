@@ -3,13 +3,11 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/orm"
-	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -18,11 +16,10 @@ type JobJSON struct {
 }
 
 func TestCreateJobs(t *testing.T) {
-	server := httptest.NewServer(web.Router())
-	defer server.Close()
-	orm.InitTest()
-	defer orm.Close()
-	db := orm.GetDB()
+	db := cltest.SetUpDB()
+	defer cltest.TearDownDB()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
 
 	jsonStr := []byte(`{"subtasks":[{"adapterType": "httpJSON", "adapterParams": {"endpoint": "https://bitstamp.net/api/ticker/", "fields": ["last"]}}], "schedule": "* 7 * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -44,8 +41,8 @@ func TestCreateJobs(t *testing.T) {
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
-	server := httptest.NewServer(web.Router())
-	defer server.Close()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
 
 	jsonStr := []byte(`{"subtasks":[{"adapterType": "ethereumBytes32", "adapterParams": {}}], "schedule": "* * * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
