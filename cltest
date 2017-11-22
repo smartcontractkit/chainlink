@@ -1,0 +1,3 @@
+#!/bin/bash
+
+GIN_MODE=test go test "$@"
