@@ -3,7 +3,6 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/orm"
 	"github.com/smartcontractkit/chainlink-go/web"
@@ -14,18 +13,12 @@ import (
 	"testing"
 )
 
-var r *gin.Engine
-
-func init() {
-	r = web.Router()
-}
-
 type JobJSON struct {
 	ID string `json:"id"`
 }
 
 func TestCreateJobs(t *testing.T) {
-	server := httptest.NewServer(r)
+	server := httptest.NewServer(web.Router())
 	defer server.Close()
 	orm.InitTest()
 	defer orm.Close()
@@ -51,7 +44,7 @@ func TestCreateJobs(t *testing.T) {
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
-	server := httptest.NewServer(r)
+	server := httptest.NewServer(web.Router())
 	defer server.Close()
 
 	jsonStr := []byte(`{"subtasks":[{"adapterType": "ethereumBytes32", "adapterParams": {}}], "schedule": "* * * * *","version":"1.0.0"}`)

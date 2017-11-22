@@ -6,8 +6,11 @@ import (
 )
 
 func Router() *gin.Engine {
-	r := gin.Default()
+	engine := gin.New()
+	engine.Use(gin.Logger(), gin.Recovery())
+
 	j := controllers.JobsController{}
-	r.POST("/jobs", j.Create)
-	return r
+	engine.POST("/jobs", j.Create)
+
+	return engine
 }
