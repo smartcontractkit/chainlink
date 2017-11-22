@@ -56,3 +56,36 @@ func TestCreateInvalidJobs(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, `{"errors":["\"ethereumBytes32\" is not a supported adapter type."]}`, string(body), "Repsonse should return JSON")
 }
+
+func TestShowJobs(t *testing.T) {
+	db := cltest.SetUpDB()
+	defer cltest.TearDownDB()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
+
+	j := models.NewJob()
+	j.Schedule = "9 9 9 9 9"
+
+	db.Save(&j)
+
+	resp, err := http.Get(server.URL + "/jobs/" + j.ID)
+	assert.Nil(t, err)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	b, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	var respJob models.Job
+	json.Unmarshal(b, &respJob)
+	assert.Equal(t, respJob.Schedule, j.Schedule, "should have the same schedule")
+}
+
+func TestShowNotFoundJobs(t *testing.T) {
+	cltest.SetUpDB()
+	defer cltest.TearDownDB()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
+
+	resp, err := http.Get(server.URL + "/jobs/" + "garbage")
+	assert.Nil(t, err)
+	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+}
