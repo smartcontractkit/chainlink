@@ -5,11 +5,11 @@ import (
 	"github.com/smartcontractkit/chainlink-go/orm"
 	"github.com/stretchr/testify/assert"
 	"testing"
-	"time"
 )
 
 func TestSave(t *testing.T) {
-	j1 := models.Job{Schedule: "0 1 2 * *", CreatedAt: time.Now()}
+	j1 := models.NewJob()
+	j1.Schedule = "1 * * * *"
 	orm.Init()
 	defer orm.Close()
 

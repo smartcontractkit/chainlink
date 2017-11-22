@@ -2,11 +2,12 @@ package models
 
 import (
 	"errors"
+	uuid "github.com/satori/go.uuid"
 	"time"
 )
 
 type Job struct {
-	ID        int       `storm:"id,increment"`
+	ID        string    `storm:"id,index,unique"`
 	Schedule  string    `json:"schedule"`
 	Subtasks  []Subtask `json:"subtasks" storm:"inline"`
 	CreatedAt time.Time `storm:"index"`
@@ -24,4 +25,8 @@ func (j *Job) Valid() (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func NewJob() Job {
+	return Job{ID: uuid.NewV4().String(), CreatedAt: time.Now()}
 }
