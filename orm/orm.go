@@ -29,6 +29,7 @@ func Init() {
 }
 
 func InitTest() {
+	os.Remove(dbpath("test"))
 	db = ephemeralDB{initializeDatabase("test")}
 	migrate()
 }
@@ -51,7 +52,6 @@ func (d persistentDB) GetDB() *storm.DB {
 
 func (d ephemeralDB) Close() {
 	d.GetDB().Close()
-	os.Remove(dbpath("test"))
 }
 
 func (d persistentDB) Close() {
