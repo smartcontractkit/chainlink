@@ -1,26 +1,27 @@
-package web
+package controllers_test
 
 import (
 	"bytes"
-	"github.com/gin-gonic/gin"
+	"encoding/json"
+	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
-var r *gin.Engine
-
-func init() {
-	r = Router()
+type JobJSON struct {
+	ID string `json:"id"`
 }
 
 func TestCreateJobs(t *testing.T) {
-	server := httptest.NewServer(r)
-	defer server.Close()
+	db := cltest.SetUpDB()
+	defer cltest.TearDownDB()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
 
-	jsonStr := []byte(`{"subtasks":[{"adapterType": "httpJSON", "adapterParams": {"endpoint": "https://bitstamp.net/api/ticker/", "fields": ["last"]}}], "schedule": "* * * * *","version":"1.0.0"}`)
+	jsonStr := []byte(`{"subtasks":[{"adapterType": "httpJSON", "adapterParams": {"endpoint": "https://bitstamp.net/api/ticker/", "fields": ["last"]}}], "schedule": "* 7 * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
@@ -29,13 +30,19 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	assert.Equal(t, `{"id":1}`, string(body), "Repsonse should return JSON")
+	b, err := ioutil.ReadAll(resp.Body)
+	var respJSON JobJSON
+	json.Unmarshal(b, &respJSON)
+
+	var j models.Job
+	db.One("ID", respJSON.ID, &j)
+	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
+	assert.Equal(t, j.Schedule, "* 7 * * *", "Wrong schedule saved")
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
-	server := httptest.NewServer(r)
-	defer server.Close()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
 
 	jsonStr := []byte(`{"subtasks":[{"adapterType": "ethereumBytes32", "adapterParams": {}}], "schedule": "* * * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))

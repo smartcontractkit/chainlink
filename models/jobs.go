@@ -2,13 +2,15 @@ package models
 
 import (
 	"errors"
-	"github.com/jinzhu/gorm"
+	uuid "github.com/satori/go.uuid"
+	"time"
 )
 
 type Job struct {
-	gorm.Model
-	Schedule string    `json:"schedule"`
-	Subtasks []Subtask `json:"subtasks"`
+	ID        string    `storm:"id,index,unique"`
+	Schedule  string    `json:"schedule"`
+	Subtasks  []Subtask `json:"subtasks" storm:"inline"`
+	CreatedAt time.Time `storm:"index"`
 }
 
 type Subtask struct {
@@ -23,4 +25,8 @@ func (j *Job) Valid() (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func NewJob() Job {
+	return Job{ID: uuid.NewV4().String(), CreatedAt: time.Now()}
 }

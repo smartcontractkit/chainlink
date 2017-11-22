@@ -1,21 +1,23 @@
-package models
+package models_test
 
 import (
-	"github.com/smartcontractkit/chainlink-go/orm"
+	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestSave(t *testing.T) {
-	j1 := Job{Schedule: "0 1 2 * *"}
-	orm.Init()
-	defer orm.Close()
+	db := cltest.SetUpDB()
+	defer cltest.TearDownDB()
 
-	db := orm.GetDB()
-	db.Create(&j1)
+	j1 := models.NewJob()
+	j1.Schedule = "1 * * * *"
 
-	j2 := Job{}
-	db.First(&j2, j1.ID)
+	db.Save(&j1)
+
+	var j2 models.Job
+	db.One("ID", j1.ID, &j2)
 
 	assert.Equal(t, j1.Schedule, j2.Schedule)
 }
