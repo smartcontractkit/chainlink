@@ -10,7 +10,7 @@ import (
 func TestSave(t *testing.T) {
 	j1 := models.NewJob()
 	j1.Schedule = "1 * * * *"
-	orm.Init()
+	orm.InitTest()
 	defer orm.Close()
 
 	db := orm.GetDB()

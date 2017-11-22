@@ -1,4 +1,4 @@
-package web
+package controllers_test
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/orm"
+	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 var r *gin.Engine
 
 func init() {
-	r = Router()
+	r = web.Router()
 }
 
 type JobJSON struct {
@@ -26,7 +27,7 @@ type JobJSON struct {
 func TestCreateJobs(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
-	orm.Init()
+	orm.InitTest()
 	defer orm.Close()
 	db := orm.GetDB()
 

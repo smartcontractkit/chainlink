@@ -6,7 +6,7 @@ import (
 )
 
 func migrate() {
-	err := db.Init(&models.Job{})
+	err := GetDB().Init(&models.Job{})
 	if err != nil {
 		log.Fatal(err)
 	}
