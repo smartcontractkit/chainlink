@@ -21,7 +21,7 @@ func TestCreateJobs(t *testing.T) {
 	server := cltest.SetUpWeb()
 	defer cltest.TearDownWeb()
 
-	jsonStr := []byte(`{"subtasks":[{"adapterType": "httpJSON", "adapterParams": {"endpoint": "https://bitstamp.net/api/ticker/", "fields": ["last"]}}], "schedule": "* 7 * * *","version":"1.0.0"}`)
+	jsonStr := []byte(`{"tasks":[{"type": "HttpGet", "params": {"endpoint": "https://bitstamp.net/api/ticker/"}}], "schedule": "* 7 * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
@@ -38,13 +38,14 @@ func TestCreateJobs(t *testing.T) {
 	db.One("ID", respJSON.ID, &j)
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 	assert.Equal(t, j.Schedule, "* 7 * * *", "Wrong schedule saved")
+	assert.Equal(t, j.Tasks[0].Type, "HttpGet")
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
 	server := cltest.SetUpWeb()
 	defer cltest.TearDownWeb()
 
-	jsonStr := []byte(`{"subtasks":[{"adapterType": "ethereumBytes32", "adapterParams": {}}], "schedule": "* * * * *","version":"1.0.0"}`)
+	jsonStr := []byte(`{"tasks":[{"type": "ethereumBytes32", "params": {}}], "schedule": "* * * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
