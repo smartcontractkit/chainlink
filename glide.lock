@@ -1,0 +1,55 @@
+hash: 4cd9e0e1316646602a68f206cdfa0650e292537be5b59668223242bd6903d206
+updated: 2017-11-24T10:43:39.503319-05:00
+imports:
+- name: github.com/asdine/storm
+  version: dbb6ebff0bde8144b877711894533e16d3b7feda
+  subpackages:
+  - codec
+  - codec/json
+  - index
+  - internal
+  - q
+- name: github.com/coreos/bbolt
+  version: 32c383e75ce054674c53b5a07e55de85332aee14
+- name: github.com/gin-contrib/sse
+  version: 22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae
+- name: github.com/gin-gonic/gin
+  version: d459835d2b077e44f7c9b453505ee29881d5d12d
+  subpackages:
+  - binding
+  - render
+- name: github.com/golang/protobuf
+  version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
+  subpackages:
+  - proto
+- name: github.com/mattn/go-isatty
+  version: 6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c
+- name: github.com/mitchellh/go-homedir
+  version: b8bc1bf767474819792c23f32d8286a45736f1c6
+- name: github.com/satori/go.uuid
+  version: 879c5887cd475cd7864858769793b2ceb0d44feb
+- name: github.com/ugorji/go
+  version: 84cb69a8af8316eed8cf4a3c9368a56977850062
+  subpackages:
+  - codec
+- name: golang.org/x/sys
+  version: a13efeb2fd213cf4be7227992aa54519af3b2ac0
+  subpackages:
+  - unix
+- name: gopkg.in/go-playground/validator.v8
+  version: 5f1438d3fca68893a817e4a66806cea46a9e4ebf
+- name: gopkg.in/yaml.v2
+  version: 287cf08546ab5e7e37d55a84f7ed3fd1db036de5
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  subpackages:
+  - assert

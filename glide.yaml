@@ -1,0 +1,14 @@
+package: github.com/smartcontractkit/chainlink-go
+import:
+- package: github.com/asdine/storm
+  version: ^2.0.0-rc.1
+- package: github.com/gin-gonic/gin
+  version: ^1.2.0
+- package: github.com/mitchellh/go-homedir
+- package: github.com/satori/go.uuid
+  version: ^1.1.0
+testImport:
+- package: github.com/stretchr/testify
+  version: ^1.1.4
+  subpackages:
+  - assert
