@@ -38,7 +38,10 @@ func TestCreateJobs(t *testing.T) {
 	db.One("ID", respJSON.ID, &j)
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 	assert.Equal(t, j.Schedule, "* 7 * * *", "Wrong schedule saved")
-	assert.Equal(t, j.Tasks[0].Type, "HttpGet")
+
+	httpGet, err := j.Tasks[0].AsHttpGet()
+	assert.Nil(t, err)
+	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
