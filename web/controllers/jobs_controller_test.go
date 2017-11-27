@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/models/tasks"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -39,8 +40,7 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 	assert.Equal(t, j.Schedule, "* 7 * * *", "Wrong schedule saved")
 
-	httpGet, err := j.Tasks[0].AsHttpGet()
-	assert.Nil(t, err)
+	httpGet := j.Tasks[0].Adapter.(*tasks.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
 }
 

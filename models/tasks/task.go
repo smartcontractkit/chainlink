@@ -2,31 +2,25 @@ package tasks
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 )
 
 type Adapter interface {
 	Perform()
 }
 
-type Task struct {
+type TaskData struct {
 	Type   string          `json:"type" storm:"index"`
 	Params json.RawMessage `json:"params"`
+}
+
+type Task struct {
+	TaskData
 	Adapter
 }
 
-func (t *Task) Valid() bool {
-	switch t.Type {
-	case "HttpGet":
-		_, err := t.AsHttpGet()
-		return err == nil
-	}
-	return false
-}
-
 func (self *Task) UnmarshalJSON(b []byte) error {
-	type tempTask Task
-	err := json.Unmarshal(b, (*tempTask)(self))
+	err := json.Unmarshal(b, &self.TaskData)
 	if err != nil {
 		return err
 	}
@@ -42,5 +36,5 @@ func (self *Task) adapterFromRaw() (Adapter, error) {
 		return temp, err
 	}
 
-	return nil, errors.New(self.Type + " is not a supported adapter type")
+	return nil, fmt.Errorf("%s is not a supported adapter type", self.Type)
 }
