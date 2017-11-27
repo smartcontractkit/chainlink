@@ -1,0 +1,8 @@
+{
+  "tasks": [
+    { "type": "HttpGet", "params": { "endpoint": "https://bitstamp.net/api/ticker/" } },
+    { "type": "JsonParse", "params": { "path": ["last"] } }
+  ],
+  "schedule": "* 7 * * *",
+  "version": "1.0.0"
+}

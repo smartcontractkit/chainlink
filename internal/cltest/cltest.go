@@ -5,6 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/orm"
 	"github.com/smartcontractkit/chainlink-go/web"
+	"io/ioutil"
+	"log"
 	"net/http/httptest"
 )
 
@@ -28,4 +30,12 @@ func SetUpWeb() *httptest.Server {
 func TearDownWeb() {
 	gin.SetMode(gin.DebugMode)
 	server.Close()
+}
+
+func LoadJSON(file string) []byte {
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return content
 }

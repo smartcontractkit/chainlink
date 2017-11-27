@@ -1,0 +1,5 @@
+{
+  "tasks": [{ "type": "ethereumBytes32", "params": { } }],
+  "schedule": "* * * * *",
+  "version": "1.0.0"
+}
