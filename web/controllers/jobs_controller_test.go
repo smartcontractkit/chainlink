@@ -22,7 +22,7 @@ func TestCreateJobs(t *testing.T) {
 	server := cltest.SetUpWeb()
 	defer cltest.TearDownWeb()
 
-	jsonStr := []byte(`{"tasks":[{"type": "HttpGet", "params": {"endpoint": "https://bitstamp.net/api/ticker/"}}], "schedule": "* 7 * * *","version":"1.0.0"}`)
+	jsonStr := []byte(`{"tasks":[{"type": "HttpGet", "params": {"endpoint": "https://bitstamp.net/api/ticker/"}}, {"type": "JsonParse", "params": {"path": ["last"]}}], "schedule": "* 7 * * *","version":"1.0.0"}`)
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +42,9 @@ func TestCreateJobs(t *testing.T) {
 
 	httpGet := j.Tasks[0].Adapter.(*tasks.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
+
+	jsonParse := j.Tasks[1].Adapter.(*tasks.JsonParse)
+	assert.Equal(t, jsonParse.Path, []string{"last"})
 }
 
 func TestCreateInvalidJobs(t *testing.T) {

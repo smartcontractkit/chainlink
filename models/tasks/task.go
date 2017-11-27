@@ -34,6 +34,10 @@ func (self *Task) adapterFromRaw() (Adapter, error) {
 		temp := &HttpGet{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
+	case "JsonParse":
+		temp := &JsonParse{}
+		err := json.Unmarshal(self.Params, temp)
+		return temp, err
 	}
 
 	return nil, fmt.Errorf("%s is not a supported adapter type", self.Type)
