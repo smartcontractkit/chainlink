@@ -1,5 +1,5 @@
 {
-  "tasks": [{ "type": "ethereumBytes32", "params": { } }],
+  "tasks": [{ "type": "IdoNotExist", "params": { "description": "Or do I?"} }],
   "schedule": "* * * * *",
   "version": "1.0.0"
 }

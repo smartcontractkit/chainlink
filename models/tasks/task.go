@@ -38,6 +38,10 @@ func (self *Task) adapterFromRaw() (Adapter, error) {
 		temp := &JsonParse{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
+	case "EthBytes32":
+		temp := &EthBytes32{}
+		err := json.Unmarshal(self.Params, temp)
+		return temp, err
 	}
 
 	return nil, fmt.Errorf("%s is not a supported adapter type", self.Type)

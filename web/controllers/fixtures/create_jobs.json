@@ -1,7 +1,8 @@
 {
   "tasks": [
     { "type": "HttpGet", "params": { "endpoint": "https://bitstamp.net/api/ticker/" } },
-    { "type": "JsonParse", "params": { "path": ["last"] } }
+    { "type": "JsonParse", "params": { "path": ["last"] } },
+    { "type": "EthBytes32", "params": { "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3", "functionID": "12345679" } }
   ],
   "schedule": "* 7 * * *",
   "version": "1.0.0"
