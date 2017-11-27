@@ -58,7 +58,7 @@ func TestCreateInvalidJobs(t *testing.T) {
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	assert.Equal(t, `{"errors":["\"ethereumBytes32\" is not a supported adapter type."]}`, string(body), "Repsonse should return JSON")
+	assert.Equal(t, `{"errors":["ethereumBytes32 is not a supported adapter type"]}`, string(body), "Response should return JSON")
 }
 
 func TestShowJobs(t *testing.T) {

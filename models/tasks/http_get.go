@@ -13,3 +13,6 @@ func (t *Task) AsHttpGet() (HttpGet, error) {
 	err := json.Unmarshal(t.Params, &rval)
 	return rval, err
 }
+
+func (self HttpGet) Perform() {
+}

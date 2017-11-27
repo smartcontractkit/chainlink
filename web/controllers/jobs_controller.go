@@ -13,11 +13,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	db := orm.GetDB()
 	j := models.NewJob()
 
-	if err := c.BindJSON(&j); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
-	} else if _, err = j.Valid(); err != nil {
+	if err := c.ShouldBindJSON(&j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
