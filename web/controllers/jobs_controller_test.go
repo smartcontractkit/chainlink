@@ -39,7 +39,7 @@ func TestCreateJobs(t *testing.T) {
 	db.One("ID", respJSON.ID, &j)
 	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
-	assert.Equal(t, "* 7 * * *", sched.Cron, "Wrong cron schedule saved")
+	assert.Equal(t, "* 7 * * *", string(sched.Cron), "Wrong cron schedule saved")
 	assert.Equal(t, (*models.Time)(nil), sched.StartAt, "Wrong start at saved")
 	endAt := models.Time{cltest.TimeParse("2019-11-27T23:05:49Z")}
 	assert.Equal(t, endAt, *sched.EndAt, "Wrong end at saved")
@@ -74,6 +74,23 @@ func TestCreateInvalidJobs(t *testing.T) {
 	assert.Equal(t, `{"errors":["IdoNotExist is not a supported adapter type"]}`, string(body), "Response should return JSON")
 }
 
+func TestCreateInvalidCron(t *testing.T) {
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
+
+	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_cron.json")
+	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, 500, resp.StatusCode, "Response should be internal error")
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Equal(t, `{"errors":["Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"]}`, string(body), "Response should return JSON")
+}
+
 func TestShowJobs(t *testing.T) {
 	db := cltest.SetUpDB()
 	defer cltest.TearDownDB()
@@ -81,7 +98,7 @@ func TestShowJobs(t *testing.T) {
 	defer cltest.TearDownWeb()
 
 	j := models.NewJob()
-	j.Schedule = models.Schedule{Cron: "9 9 9 9 9"}
+	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
 
 	db.Save(&j)
 

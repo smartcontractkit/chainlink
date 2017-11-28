@@ -1,0 +1,5 @@
+{
+  "tasks": [{ "type": "HttpGet", "params": { "endpoint": "https://example.com/api"} }],
+  "schedule": {"cron": "! * * * *"},
+  "version": "1.0.0"
+}
