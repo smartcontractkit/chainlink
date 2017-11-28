@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/araddon/dateparse"
+  packages = ["."]
+  revision = "f30ca3179c19d723d2f1f8c878fcce1089775c05"
+
+[[projects]]
   name = "github.com/asdine/storm"
   packages = [".","codec","codec/json","index","internal","q"]
   revision = "dbb6ebff0bde8144b877711894533e16d3b7feda"
@@ -98,6 +104,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "509b2d2edc0b4fbc679df89b16562c54cfb7474e6c24a0c4c214ddd65fcbaff5"
+  inputs-digest = "64b24d9730d43c7d6bc85e035572a3923220c59227771f0b78f479857b6f7fe8"
   solver-name = "gps-cdcl"
   solver-version = 1
