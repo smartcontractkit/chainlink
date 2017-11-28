@@ -1,6 +1,7 @@
 package cltest
 
 import (
+	"github.com/araddon/dateparse"
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/orm"
@@ -8,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http/httptest"
+	"time"
 )
 
 var server *httptest.Server
@@ -38,4 +40,12 @@ func LoadJSON(file string) []byte {
 		log.Fatal(err)
 	}
 	return content
+}
+
+func TimeParse(s string) time.Time {
+	t, err := dateparse.ParseAny(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return t
 }

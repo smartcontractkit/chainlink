@@ -37,8 +37,14 @@ func TestCreateJobs(t *testing.T) {
 
 	var j models.Job
 	db.One("ID", respJSON.ID, &j)
+	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
-	assert.Equal(t, j.Schedule, "* 7 * * *", "Wrong schedule saved")
+	assert.Equal(t, "* 7 * * *", sched.Cron, "Wrong cron schedule saved")
+	assert.Equal(t, (*models.Time)(nil), sched.StartAt, "Wrong start at saved")
+	endAt := models.Time{cltest.TimeParse("2019-11-27T23:05:49Z")}
+	assert.Equal(t, endAt, *sched.EndAt, "Wrong end at saved")
+	runAt0 := models.Time{cltest.TimeParse("2018-11-27T23:05:49Z")}
+	assert.Equal(t, runAt0, sched.RunAt[0], "Wrong run at saved")
 
 	httpGet := j.Tasks[0].Adapter.(*tasks.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
@@ -75,7 +81,7 @@ func TestShowJobs(t *testing.T) {
 	defer cltest.TearDownWeb()
 
 	j := models.NewJob()
-	j.Schedule = "9 9 9 9 9"
+	j.Schedule = models.Schedule{Cron: "9 9 9 9 9"}
 
 	db.Save(&j)
 
