@@ -66,6 +66,12 @@
   revision = "d8ed2627bdf02c080bf22230dbb337003b7aba2d"
 
 [[projects]]
+  name = "github.com/robfig/cron"
+  packages = ["."]
+  revision = "b024fc5ea0e34bc3f83d9941c8d60b0622bfaca4"
+  version = "v1"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
@@ -104,6 +110,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "64b24d9730d43c7d6bc85e035572a3923220c59227771f0b78f479857b6f7fe8"
+  inputs-digest = "cba6f816ca5c3954597d37f84efc701032678e16518243fc35182241b1caf527"
   solver-name = "gps-cdcl"
   solver-version = 1
