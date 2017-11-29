@@ -17,7 +17,7 @@ type JobJSON struct {
 }
 
 func TestCreateJobs(t *testing.T) {
-	db := cltest.SetUpDB()
+	cltest.SetUpDB()
 	defer cltest.TearDownDB()
 	server := cltest.SetUpWeb()
 	defer cltest.TearDownWeb()
@@ -36,7 +36,7 @@ func TestCreateJobs(t *testing.T) {
 	json.Unmarshal(b, &respJSON)
 
 	var j models.Job
-	db.One("ID", respJSON.ID, &j)
+	models.Find("ID", respJSON.ID, &j)
 	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 	assert.Equal(t, "* 7 * * *", string(sched.Cron), "Wrong cron schedule saved")
@@ -92,7 +92,7 @@ func TestCreateInvalidCron(t *testing.T) {
 }
 
 func TestShowJobs(t *testing.T) {
-	db := cltest.SetUpDB()
+	cltest.SetUpDB()
 	defer cltest.TearDownDB()
 	server := cltest.SetUpWeb()
 	defer cltest.TearDownWeb()
@@ -100,7 +100,7 @@ func TestShowJobs(t *testing.T) {
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
 
-	db.Save(&j)
+	models.Save(&j)
 
 	resp, err := http.Get(server.URL + "/jobs/" + j.ID)
 	assert.Nil(t, err)

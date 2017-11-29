@@ -1,4 +1,4 @@
-package orm
+package models
 
 import (
 	"github.com/asdine/storm"
@@ -10,23 +10,27 @@ import (
 
 var db *storm.DB
 
-func Init() {
+func InitDB() {
 	db = initializeDatabase("production")
 	migrate()
 }
 
-func InitTest() {
+func InitDBTest() {
 	os.Remove(dbpath("test"))
 	db = initializeDatabase("test")
 	migrate()
 }
 
-func GetDB() *storm.DB {
+func getDB() *storm.DB {
 	return db
 }
 
-func Close() {
-	db.Close()
+func Save(value interface{}) error {
+	return getDB().Save(value)
+}
+
+func CloseDB() {
+	getDB().Close()
 }
 
 func initializeDatabase(env string) *storm.DB {
@@ -46,4 +50,8 @@ func dbpath(env string) string {
 
 	os.MkdirAll(dir, os.FileMode(0700))
 	return path.Join(dir, "db."+env+".bolt")
+}
+
+func Find(field string, value interface{}, instance interface{}) error {
+	return db.One(field, value, instance)
 }
