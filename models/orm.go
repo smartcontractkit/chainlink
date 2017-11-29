@@ -55,3 +55,7 @@ func dbpath(env string) string {
 func Find(field string, value interface{}, instance interface{}) error {
 	return db.One(field, value, instance)
 }
+
+func Where(field string, value interface{}, instance interface{}) error {
+	return db.Find(field, value, instance)
+}
