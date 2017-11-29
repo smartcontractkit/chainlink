@@ -11,7 +11,7 @@ type Adapter interface {
 
 type TaskData struct {
 	Type   string          `json:"type" storm:"index"`
-	Params json.RawMessage `json:"params"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
 
 type Task struct {
@@ -42,6 +42,8 @@ func (self *Task) adapterFromRaw() (Adapter, error) {
 		temp := &EthBytes32{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
+	case "NoOp":
+		return &NoOp{}, nil
 	}
 
 	return nil, fmt.Errorf("%s is not a supported adapter type", self.Type)
