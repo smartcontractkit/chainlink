@@ -35,3 +35,22 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(jobRuns), "No jobs should be created without the scheduler")
 }
+
+func TestAddJob(t *testing.T) {
+	RegisterTestingT(t)
+	cltest.SetUpDB()
+	defer cltest.TearDownDB()
+	sched, _ := scheduler.Start()
+	defer sched.Stop()
+
+	j := models.NewJob()
+	j.Schedule = models.Schedule{Cron: "* * * * *"}
+	_ = models.Save(&j)
+	sched.AddJob(j)
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		_ = models.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+}
