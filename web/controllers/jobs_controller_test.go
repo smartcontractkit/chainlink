@@ -3,18 +3,16 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
+	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/models/tasks"
+	"github.com/smartcontractkit/chainlink-go/scheduler"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"testing"
 )
-
-type JobJSON struct {
-	ID string `json:"id"`
-}
 
 func TestCreateJobs(t *testing.T) {
 	cltest.SetUpDB()
@@ -23,17 +21,9 @@ func TestCreateJobs(t *testing.T) {
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
-	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	respJSON := cltest.JobJSONFromResponse(resp)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	var respJSON JobJSON
-	json.Unmarshal(b, &respJSON)
 
 	var j models.Job
 	models.Find("ID", respJSON.ID, &j)
@@ -55,6 +45,28 @@ func TestCreateJobs(t *testing.T) {
 	bytes32 := j.Tasks[2].Adapter.(*tasks.EthBytes32)
 	assert.Equal(t, bytes32.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, bytes32.FunctionID, "12345679")
+}
+
+func TestCreateJobsIntegration(t *testing.T) {
+	RegisterTestingT(t)
+
+	cltest.SetUpDB()
+	defer cltest.TearDownDB()
+	server := cltest.SetUpWeb()
+	defer cltest.TearDownWeb()
+
+	jsonStr := cltest.LoadJSON("./fixtures/create_no_op_job.json")
+	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	respJSON := cltest.JobJSONFromResponse(resp)
+
+	sched, _ := scheduler.Start()
+	defer sched.Stop()
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		_ = models.Where("JobID", respJSON.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
