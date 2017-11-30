@@ -61,6 +61,12 @@
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
 
 [[projects]]
+  name = "github.com/onsi/gomega"
+  packages = [".","format","internal/assertion","internal/asyncassertion","internal/oraclematcher","internal/testingtsupport","matchers","matchers/support/goraph/bipartitegraph","matchers/support/goraph/edge","matchers/support/goraph/node","matchers/support/goraph/util","types"]
+  revision = "c893efa28eb45626cdaa76c9f653b62488858837"
+  version = "v1.2.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "d8ed2627bdf02c080bf22230dbb337003b7aba2d"
@@ -109,9 +115,21 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/net"
+  packages = ["html","html/atom","html/charset"]
+  revision = "a8b9294777976932365dabb6640cf1468d95c70f"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
   revision = "a13efeb2fd213cf4be7227992aa54519af3b2ac0"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/text"
+  packages = ["encoding","encoding/charmap","encoding/htmlindex","encoding/internal","encoding/internal/identifier","encoding/japanese","encoding/korean","encoding/simplifiedchinese","encoding/traditionalchinese","encoding/unicode","internal/gen","internal/tag","internal/utf8internal","language","runes","transform","unicode/cldr"]
+  revision = "572a2b141f625f4360cf42a41a43622067e0510b"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v8"
@@ -128,6 +146,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3f474273c6c18cc9f3f2159abedb64623ce1793803e107e41cdb45c12e59b72d"
+  inputs-digest = "b407ac61f575497a1db52ccd8a590d8a7e56fd362bd87649b078a400677bb3d5"
   solver-name = "gps-cdcl"
   solver-version = 1
