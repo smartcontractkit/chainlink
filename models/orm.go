@@ -59,3 +59,7 @@ func Find(field string, value interface{}, instance interface{}) error {
 func Where(field string, value interface{}, instance interface{}) error {
 	return db.Find(field, value, instance)
 }
+
+func All(instance interface{}) error {
+	return db.All(instance)
+}
