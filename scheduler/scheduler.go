@@ -15,10 +15,9 @@ func New() *Scheduler {
 }
 
 func (self *Scheduler) Start() error {
-	jobs := []models.Job{}
-	err := models.All(&jobs)
+	jobs, err := models.JobsWithCron()
 	if err != nil {
-		return fmt.Errorf("Scheduler: ", err)
+		return fmt.Errorf("Scheduler: %v", err)
 	}
 
 	for _, j := range jobs {

@@ -66,6 +66,10 @@ func Where(field string, value interface{}, instance interface{}) error {
 	return err
 }
 
+func AllIndexed(field string, instance interface{}) error {
+	return db.AllByIndex(field, instance)
+}
+
 func All(instance interface{}) error {
 	return db.All(instance)
 }

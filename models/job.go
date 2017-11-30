@@ -66,3 +66,9 @@ func (self *Cron) UnmarshalJSON(b []byte) error {
 	*self = Cron(s)
 	return nil
 }
+
+func JobsWithCron() ([]Job, error) {
+	jobs := []Job{}
+	err := AllIndexed("Cron", &jobs)
+	return jobs, err
+}
