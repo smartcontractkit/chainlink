@@ -50,6 +50,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
 	store := cltest.Store()
+	store.Start()
 	defer store.Close()
 	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
@@ -57,8 +58,6 @@ func TestCreateJobsIntegration(t *testing.T) {
 	jsonStr := cltest.LoadJSON("./fixtures/create_no_op_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	respJSON := cltest.JobJSONFromResponse(resp)
-
-	store.Start()
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {

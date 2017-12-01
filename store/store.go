@@ -26,3 +26,13 @@ func (self Store) Close() {
 	self.ORM.Close()
 	self.Scheduler.Stop()
 }
+
+func (self Store) AddJob(job models.Job) error {
+	err := self.Save(&job)
+	if err != nil {
+		return err
+	}
+
+	self.Scheduler.AddJob(job)
+	return nil
+}

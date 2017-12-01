@@ -29,7 +29,7 @@ func TestJobRunsIndex(t *testing.T) {
 	err := store.Save(&j)
 	assert.Nil(t, err)
 	jr := j.Run()
-	err = store.Save(jr)
+	err = store.Save(&jr)
 	assert.Nil(t, err)
 
 	resp, err := http.Get(server.URL + "/jobs/" + j.ID + "/runs")

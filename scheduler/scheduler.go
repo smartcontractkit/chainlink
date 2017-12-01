@@ -35,5 +35,8 @@ func (self *Scheduler) Stop() {
 
 func (self *Scheduler) AddJob(job models.Job) {
 	cronStr := string(job.Schedule.Cron)
-	self.cron.AddFunc(cronStr, func() { self.orm.Save(job.Run()) })
+	self.cron.AddFunc(cronStr, func() {
+		run := job.Run()
+		self.orm.Save(&run)
+	})
 }

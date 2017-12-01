@@ -18,7 +18,7 @@ func (self *JobsController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = self.Store.Save(&j); err != nil {
+	} else if err = self.Store.AddJob(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
