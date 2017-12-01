@@ -8,20 +8,15 @@ import (
 
 type Scheduler struct {
 	cron *cronlib.Cron
+	orm  models.ORM
 }
 
-func Start() (*Scheduler, error) {
-	sched := New()
-	err := sched.Start()
-	return sched, err
-}
-
-func New() *Scheduler {
-	return &Scheduler{cronlib.New()}
+func New(orm models.ORM) *Scheduler {
+	return &Scheduler{cronlib.New(), orm}
 }
 
 func (self *Scheduler) Start() error {
-	jobs, err := models.JobsWithCron()
+	jobs, err := self.orm.JobsWithCron()
 	if err != nil {
 		return fmt.Errorf("Scheduler: %v", err)
 	}
@@ -40,5 +35,5 @@ func (self *Scheduler) Stop() {
 
 func (self *Scheduler) AddJob(job models.Job) {
 	cronStr := string(job.Schedule.Cron)
-	self.cron.AddFunc(cronStr, func() { job.Run() })
+	self.cron.AddFunc(cronStr, func() { self.orm.Save(job.Run()) })
 }

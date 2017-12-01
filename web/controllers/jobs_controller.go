@@ -4,18 +4,21 @@ import (
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store"
 )
 
-type JobsController struct{}
+type JobsController struct {
+	Store store.Store
+}
 
-func (jc *JobsController) Create(c *gin.Context) {
+func (self *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = models.Save(&j); err != nil {
+	} else if err = self.Store.Save(&j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -24,10 +27,10 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 }
 
-func (jc *JobsController) Show(c *gin.Context) {
+func (self *JobsController) Show(c *gin.Context) {
 	id := c.Param("id")
 	var j models.Job
-	err := models.Find("ID", id, &j)
+	err := self.Store.One("ID", id, &j)
 
 	if err == storm.ErrNotFound {
 		c.JSON(404, gin.H{

@@ -11,46 +11,48 @@ import (
 
 func TestLoadingSavedSchedules(t *testing.T) {
 	RegisterTestingT(t)
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
+	store := cltest.Store()
+	defer store.Close()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "* * * * *"}
 	jobWoCron := models.NewJob()
-	_ = models.Save(&j)
-	_ = models.Save(&jobWoCron)
+	_ = store.Save(&j)
+	_ = store.Save(&jobWoCron)
 
-	sched := scheduler.New()
+	sched := scheduler.New(store.ORM)
 	err := sched.Start()
 	assert.Nil(t, err)
 	defer sched.Stop()
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		_ = models.Where("JobID", j.ID, &jobRuns)
+		_ = store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 
-	err = models.Where("JobID", jobWoCron.ID, &jobRuns)
+	err = store.Where("JobID", jobWoCron.ID, &jobRuns)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(jobRuns), "No jobs should be created without the scheduler")
 }
 
 func TestAddJob(t *testing.T) {
 	RegisterTestingT(t)
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	sched, _ := scheduler.Start()
+	store := cltest.Store()
+	defer store.Close()
+
+	sched := scheduler.New(store.ORM)
+	_ = sched.Start()
 	defer sched.Stop()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "* * * * *"}
-	_ = models.Save(&j)
+	_ = store.Save(&j)
 	sched.AddJob(j)
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		_ = models.Where("JobID", j.ID, &jobRuns)
+		_ = store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 }

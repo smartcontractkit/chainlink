@@ -9,33 +9,18 @@ import (
 	"reflect"
 )
 
-var db *storm.DB
-
-func InitDB() {
-	db = initializeDatabase("production")
-	migrate()
+type ORM struct {
+	*storm.DB
 }
 
-func InitDBTest() {
-	os.Remove(dbpath("test"))
-	db = initializeDatabase("test")
-	migrate()
-}
-
-func getDB() *storm.DB {
-	return db
-}
-
-func Save(value interface{}) error {
-	return getDB().Save(value)
-}
-
-func CloseDB() {
-	getDB().Close()
+func InitORM(env string) ORM {
+	orm := ORM{initializeDatabase(env)}
+	orm.migrate()
+	return orm
 }
 
 func initializeDatabase(env string) *storm.DB {
-	db, err := storm.Open(dbpath(env))
+	db, err := storm.Open(DBPath(env))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,7 +28,7 @@ func initializeDatabase(env string) *storm.DB {
 	return db
 }
 
-func dbpath(env string) string {
+func DBPath(env string) string {
 	dir, err := homedir.Expand("~/.chainlink")
 	if err != nil {
 		log.Fatal(err)
@@ -53,12 +38,8 @@ func dbpath(env string) string {
 	return path.Join(dir, "db."+env+".bolt")
 }
 
-func Find(field string, value interface{}, instance interface{}) error {
-	return db.One(field, value, instance)
-}
-
-func Where(field string, value interface{}, instance interface{}) error {
-	err := db.Find(field, value, instance)
+func (self ORM) Where(field string, value interface{}, instance interface{}) error {
+	err := self.Find(field, value, instance)
 	if err == storm.ErrNotFound {
 		emptySlice(instance)
 		return nil
@@ -66,12 +47,14 @@ func Where(field string, value interface{}, instance interface{}) error {
 	return err
 }
 
-func AllIndexed(field string, instance interface{}) error {
-	return db.AllByIndex(field, instance)
+func (self ORM) InitBucket(model interface{}) error {
+	return self.Init(model)
 }
 
-func All(instance interface{}) error {
-	return db.All(instance)
+func (self ORM) JobsWithCron() ([]Job, error) {
+	jobs := []Job{}
+	err := self.AllByIndex("Cron", &jobs)
+	return jobs, err
 }
 
 func emptySlice(to interface{}) {

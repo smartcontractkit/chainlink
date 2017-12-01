@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/models/tasks"
-	"github.com/smartcontractkit/chainlink-go/scheduler"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -15,9 +14,9 @@ import (
 )
 
 func TestCreateJobs(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
@@ -26,7 +25,7 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
 
 	var j models.Job
-	models.Find("ID", respJSON.ID, &j)
+	store.One("ID", respJSON.ID, &j)
 	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 	assert.Equal(t, "* 7 * * *", string(sched.Cron), "Wrong cron schedule saved")
@@ -50,27 +49,28 @@ func TestCreateJobs(t *testing.T) {
 func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_no_op_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	respJSON := cltest.JobJSONFromResponse(resp)
 
-	sched, _ := scheduler.Start()
-	defer sched.Stop()
+	store.Start()
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		_ = models.Where("JobID", respJSON.ID, &jobRuns)
+		_ = store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_jobs.json")
@@ -87,7 +87,9 @@ func TestCreateInvalidJobs(t *testing.T) {
 }
 
 func TestCreateInvalidCron(t *testing.T) {
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_cron.json")
@@ -104,15 +106,15 @@ func TestCreateInvalidCron(t *testing.T) {
 }
 
 func TestShowJobs(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
 
-	models.Save(&j)
+	store.Save(&j)
 
 	resp, err := http.Get(server.URL + "/jobs/" + j.ID)
 	assert.Nil(t, err)
@@ -126,9 +128,9 @@ func TestShowJobs(t *testing.T) {
 }
 
 func TestShowNotFoundJobs(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	resp, err := http.Get(server.URL + "/jobs/" + "garbage")

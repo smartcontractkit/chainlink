@@ -1,21 +1,18 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/scheduler"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"log"
 )
 
 func main() {
-	models.InitDB()
-	defer models.CloseDB()
-	sched, err := scheduler.Start()
+	store := store.New()
+	r := web.Router(store)
+	err := store.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sched.Stop()
-	r := web.Router()
-
+	defer store.Close()
 	log.Fatal(r.Run())
 }
