@@ -1,29 +1,55 @@
 package cltest
 
 import (
+	"encoding/json"
 	"github.com/araddon/dateparse"
 	"github.com/gin-gonic/gin"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/scheduler"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/http/httptest"
+	"os"
 	"time"
 )
 
+func init() {
+	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
+}
+
 var server *httptest.Server
 
-func SetUpDB() {
-	models.InitDBTest()
+type JobJSON struct {
+	ID string `json:"id"`
 }
 
-func TearDownDB() {
-	models.CloseDB()
+func JobJSONFromResponse(resp *http.Response) JobJSON {
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var respJSON JobJSON
+	json.Unmarshal(b, &respJSON)
+	return respJSON
 }
 
-func SetUpWeb() *httptest.Server {
+func Store() store.Store {
+	os.Remove(models.DBPath("test"))
+	orm := models.InitORM("test")
+	return store.Store{
+		ORM:       orm,
+		Scheduler: scheduler.New(orm),
+	}
+}
+
+func SetUpWeb(s store.Store) *httptest.Server {
 	gin.SetMode(gin.TestMode)
-	server = httptest.NewServer(web.Router())
+	server = httptest.NewServer(web.Router(s))
 	return server
 }
 

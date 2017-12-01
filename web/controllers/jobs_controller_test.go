@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
+	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/models/tasks"
@@ -12,31 +13,19 @@ import (
 	"testing"
 )
 
-type JobJSON struct {
-	ID string `json:"id"`
-}
-
 func TestCreateJobs(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
-	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	respJSON := cltest.JobJSONFromResponse(resp)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
 
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	var respJSON JobJSON
-	json.Unmarshal(b, &respJSON)
-
 	var j models.Job
-	models.Find("ID", respJSON.ID, &j)
+	store.One("ID", respJSON.ID, &j)
 	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 	assert.Equal(t, "* 7 * * *", string(sched.Cron), "Wrong cron schedule saved")
@@ -57,8 +46,30 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, bytes32.FunctionID, "12345679")
 }
 
+func TestCreateJobsIntegration(t *testing.T) {
+	RegisterTestingT(t)
+
+	store := cltest.Store()
+	store.Start()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
+	defer cltest.TearDownWeb()
+
+	jsonStr := cltest.LoadJSON("./fixtures/create_no_op_job.json")
+	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	respJSON := cltest.JobJSONFromResponse(resp)
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		_ = store.Where("JobID", respJSON.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+}
+
 func TestCreateInvalidJobs(t *testing.T) {
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_jobs.json")
@@ -75,7 +86,9 @@ func TestCreateInvalidJobs(t *testing.T) {
 }
 
 func TestCreateInvalidCron(t *testing.T) {
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_cron.json")
@@ -92,15 +105,15 @@ func TestCreateInvalidCron(t *testing.T) {
 }
 
 func TestShowJobs(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
 
-	models.Save(&j)
+	store.Save(&j)
 
 	resp, err := http.Get(server.URL + "/jobs/" + j.ID)
 	assert.Nil(t, err)
@@ -114,9 +127,9 @@ func TestShowJobs(t *testing.T) {
 }
 
 func TestShowNotFoundJobs(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	resp, err := http.Get(server.URL + "/jobs/" + "garbage")

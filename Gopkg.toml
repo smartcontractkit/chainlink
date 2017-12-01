@@ -46,8 +46,12 @@
 
 [[constraint]]
   name = "github.com/robfig/cron"
-  version = "1.0.0"
+  branch = "master"
 
 [[constraint]]
   name = "go.uber.org/zap"
   version = "1.7.1"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+  version = "1.2.0"

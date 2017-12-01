@@ -19,16 +19,17 @@ type JobRun struct {
 }
 
 func TestJobRunsIndex(t *testing.T) {
-	cltest.SetUpDB()
-	defer cltest.TearDownDB()
-	server := cltest.SetUpWeb()
+	store := cltest.Store()
+	defer store.Close()
+	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
-	err := models.Save(&j)
+	err := store.Save(&j)
 	assert.Nil(t, err)
-	jr, err := j.Run()
+	jr := j.Run()
+	err = store.Save(&jr)
 	assert.Nil(t, err)
 
 	resp, err := http.Get(server.URL + "/jobs/" + j.ID + "/runs")

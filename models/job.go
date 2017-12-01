@@ -12,13 +12,13 @@ import (
 
 type Job struct {
 	ID        string       `storm:"id,index,unique"`
-	Schedule  Schedule     `json:"schedule"`
+	Schedule  Schedule     `json:"schedule" storm:"inline"`
 	Tasks     []tasks.Task `json:"tasks" storm:"inline"`
 	CreatedAt time.Time    `storm:"index"`
 }
 
 type Schedule struct {
-	Cron    Cron   `json:"cron"`
+	Cron    Cron   `json:"cron" storm:"index"`
 	StartAt *Time  `json:"startAt"`
 	EndAt   *Time  `json:"endAt"`
 	RunAt   []Time `json:"runAt"`
@@ -34,15 +34,12 @@ func NewJob() Job {
 	return Job{ID: uuid.NewV4().String(), CreatedAt: time.Now()}
 }
 
-func (self *Job) Run() (*JobRun, error) {
-	run := &JobRun{
+func (self Job) Run() JobRun {
+	return JobRun{
 		ID:        uuid.NewV4().String(),
 		JobID:     self.ID,
 		CreatedAt: time.Now(),
 	}
-
-	err := Save(run)
-	return run, err
 }
 
 func (self *Time) UnmarshalJSON(b []byte) error {
