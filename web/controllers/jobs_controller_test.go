@@ -3,14 +3,15 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
-	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/models/tasks"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	. "github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/models/adapters"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateJobs(t *testing.T) {
@@ -35,13 +36,16 @@ func TestCreateJobs(t *testing.T) {
 	runAt0 := models.Time{cltest.TimeParse("2018-11-27T23:05:49Z")}
 	assert.Equal(t, runAt0, sched.RunAt[0], "Wrong run at saved")
 
-	httpGet := j.Tasks[0].Adapter.(*tasks.HttpGet)
+	adapter1, _ := j.Tasks[0].Adapter()
+	httpGet := adapter1.(*adapters.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
 
-	jsonParse := j.Tasks[1].Adapter.(*tasks.JsonParse)
+	adapter2, _ := j.Tasks[1].Adapter()
+	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	bytes32 := j.Tasks[2].Adapter.(*tasks.EthBytes32)
+	adapter3, _ := j.Tasks[2].Adapter()
+	bytes32 := adapter3.(*adapters.EthBytes32)
 	assert.Equal(t, bytes32.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, bytes32.FunctionID, "12345679")
 }

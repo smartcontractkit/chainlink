@@ -2,12 +2,13 @@ package controllers_test
 
 import (
 	"encoding/json"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/stretchr/testify/assert"
 )
 
 type JobRunsJSON struct {
@@ -28,7 +29,7 @@ func TestJobRunsIndex(t *testing.T) {
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
 	err := store.Save(&j)
 	assert.Nil(t, err)
-	jr := j.Run()
+	jr := j.NewRun()
 	err = store.Save(&jr)
 	assert.Nil(t, err)
 

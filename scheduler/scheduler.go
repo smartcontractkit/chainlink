@@ -2,8 +2,10 @@ package scheduler
 
 import (
 	"fmt"
+
 	cronlib "github.com/robfig/cron"
 	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/services"
 )
 
 type Scheduler struct {
@@ -36,7 +38,6 @@ func (self *Scheduler) Stop() {
 func (self *Scheduler) AddJob(job models.Job) {
 	cronStr := string(job.Schedule.Cron)
 	self.cron.AddFunc(cronStr, func() {
-		run := job.Run()
-		self.orm.Save(&run)
+		services.StartJob(job.NewRun(), self.orm)
 	})
 }
