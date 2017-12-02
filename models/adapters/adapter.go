@@ -5,6 +5,6 @@ type Adapter interface {
 }
 
 type RunResult struct {
-	Output map[string]interface{}
+	Output map[string]string
 	Error  error
 }

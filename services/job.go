@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/models/adapters"
 )
@@ -9,7 +11,7 @@ func StartJob(run models.JobRun, orm models.ORM) error {
 	run.Status = "in progress"
 	err := orm.Save(&run)
 	if err != nil {
-		return err
+		return runJobError(run, err)
 	}
 
 	var prevRun models.TaskRun
@@ -18,7 +20,7 @@ func StartJob(run models.JobRun, orm models.ORM) error {
 		run.TaskRuns[i] = prevRun
 		err = orm.Save(&run)
 		if err != nil {
-			return err
+			return runJobError(run, err)
 		}
 
 		if prevRun.Result.Error != nil {
@@ -33,7 +35,7 @@ func StartJob(run models.JobRun, orm models.ORM) error {
 		run.Status = "completed"
 	}
 
-	return orm.Save(&run)
+	return runJobError(run, orm.Save(&run))
 }
 
 func startTask(run models.TaskRun, input adapters.RunResult) models.TaskRun {
@@ -54,4 +56,11 @@ func startTask(run models.TaskRun, input adapters.RunResult) models.TaskRun {
 	}
 
 	return run
+}
+
+func runJobError(run models.JobRun, err error) error {
+	if err != nil {
+		return fmt.Errorf("StartJob#%v: %v", run.JobID, err)
+	}
+	return nil
 }

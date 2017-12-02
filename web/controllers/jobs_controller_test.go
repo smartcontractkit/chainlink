@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"testing"
 
+	gock "github.com/h2non/gock.git"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
@@ -52,6 +53,7 @@ func TestCreateJobs(t *testing.T) {
 
 func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
+	defer gock.Off()
 
 	store := cltest.Store()
 	store.Start()
@@ -59,15 +61,30 @@ func TestCreateJobsIntegration(t *testing.T) {
 	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_no_op_job.json")
+	jsonStr := cltest.LoadJSON("./fixtures/create_http_get_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	respJSON := cltest.JobJSONFromResponse(resp)
+
+	expectedResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
+	gock.New("https://www.bitstamp.net").
+		Get("/api/ticker").
+		Reply(200).
+		JSON(expectedResponse)
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
 		_ = store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
+
+	var job models.Job
+	err := store.One("ID", respJSON.ID, &job)
+	assert.Nil(t, err)
+
+	jobRuns, err = store.JobRunsFor(job)
+	assert.Nil(t, err)
+	jobRun := jobRuns[0]
+	assert.Equal(t, jobRun.Result.Output["value"], expectedResponse)
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
