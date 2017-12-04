@@ -43,6 +43,12 @@
   revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[projects]]
+  name = "github.com/h2non/gock"
+  packages = ["."]
+  revision = "84d599244901620fb3eb96473eb9e50619f69b47"
+  version = "v1.0.6"
+
+[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
@@ -146,6 +152,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3d106033487c2f78045e80b54c5fba68a794c9823d081c2b8a36973a919f7291"
+  inputs-digest = "a4b42c6647a4dca7bd6bd99509be0b104b194c1f46e7ef89b8629fbb936c3ea3"
   solver-name = "gps-cdcl"
   solver-version = 1

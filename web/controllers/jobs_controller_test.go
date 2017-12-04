@@ -3,14 +3,16 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
-	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/models/tasks"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	gock "github.com/h2non/gock.git"
+	. "github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/models/adapters"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateJobs(t *testing.T) {
@@ -35,19 +37,23 @@ func TestCreateJobs(t *testing.T) {
 	runAt0 := models.Time{cltest.TimeParse("2018-11-27T23:05:49Z")}
 	assert.Equal(t, runAt0, sched.RunAt[0], "Wrong run at saved")
 
-	httpGet := j.Tasks[0].Adapter.(*tasks.HttpGet)
+	adapter1, _ := j.Tasks[0].Adapter()
+	httpGet := adapter1.(*adapters.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
 
-	jsonParse := j.Tasks[1].Adapter.(*tasks.JsonParse)
+	adapter2, _ := j.Tasks[1].Adapter()
+	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	bytes32 := j.Tasks[2].Adapter.(*tasks.EthBytes32)
+	adapter3, _ := j.Tasks[2].Adapter()
+	bytes32 := adapter3.(*adapters.EthBytes32)
 	assert.Equal(t, bytes32.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, bytes32.FunctionID, "12345679")
 }
 
 func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
+	defer gock.Off()
 
 	store := cltest.Store()
 	store.Start()
@@ -55,15 +61,30 @@ func TestCreateJobsIntegration(t *testing.T) {
 	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_no_op_job.json")
+	jsonStr := cltest.LoadJSON("./fixtures/create_http_get_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	respJSON := cltest.JobJSONFromResponse(resp)
+
+	expectedResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
+	gock.New("https://www.bitstamp.net").
+		Get("/api/ticker").
+		Reply(200).
+		JSON(expectedResponse)
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
 		_ = store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
+
+	var job models.Job
+	err := store.One("ID", respJSON.ID, &job)
+	assert.Nil(t, err)
+
+	jobRuns, err = store.JobRunsFor(job)
+	assert.Nil(t, err)
+	jobRun := jobRuns[0]
+	assert.Equal(t, jobRun.Result.Output["value"], expectedResponse)
 }
 
 func TestCreateInvalidJobs(t *testing.T) {

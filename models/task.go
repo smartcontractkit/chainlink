@@ -1,49 +1,50 @@
-package tasks
+package models
 
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/smartcontractkit/chainlink-go/models/adapters"
 )
 
-type Adapter interface {
-	Perform()
-}
-
-type TaskData struct {
+type Task struct {
 	Type   string          `json:"type" storm:"index"`
 	Params json.RawMessage `json:"params,omitempty"`
 }
 
-type Task struct {
-	TaskData
-	Adapter
+type TaskRun struct {
+	ID string `storm:"id"`
+	Task
+	Status string
+	Result adapters.RunResult
 }
 
 func (self *Task) UnmarshalJSON(b []byte) error {
-	err := json.Unmarshal(b, &self.TaskData)
+	type tempType Task
+	err := json.Unmarshal(b, (*tempType)(self))
 	if err != nil {
 		return err
 	}
-	self.Adapter, err = self.adapterFromRaw()
+	_, err = self.Adapter()
 	return err
 }
 
-func (self *Task) adapterFromRaw() (Adapter, error) {
+func (self Task) Adapter() (adapters.Adapter, error) {
 	switch self.Type {
 	case "HttpGet":
-		temp := &HttpGet{}
+		temp := &adapters.HttpGet{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
 	case "JsonParse":
-		temp := &JsonParse{}
+		temp := &adapters.JsonParse{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
 	case "EthBytes32":
-		temp := &EthBytes32{}
+		temp := &adapters.EthBytes32{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
 	case "NoOp":
-		return &NoOp{}, nil
+		return &adapters.NoOp{}, nil
 	}
 
 	return nil, fmt.Errorf("%s is not a supported adapter type", self.Type)

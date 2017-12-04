@@ -3,18 +3,18 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/araddon/dateparse"
 	"github.com/robfig/cron"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink-go/models/tasks"
-	"time"
 )
 
 type Job struct {
-	ID        string       `storm:"id,index,unique"`
-	Schedule  Schedule     `json:"schedule" storm:"inline"`
-	Tasks     []tasks.Task `json:"tasks" storm:"inline"`
-	CreatedAt time.Time    `storm:"index"`
+	ID        string    `storm:"id,index,unique"`
+	Schedule  Schedule  `json:"schedule" storm:"inline"`
+	Tasks     []Task    `json:"tasks" storm:"inline"`
+	CreatedAt time.Time `storm:"index"`
 }
 
 type Schedule struct {
@@ -34,11 +34,20 @@ func NewJob() Job {
 	return Job{ID: uuid.NewV4().String(), CreatedAt: time.Now()}
 }
 
-func (self Job) Run() JobRun {
+func (self Job) NewRun() JobRun {
+	taskRuns := make([]TaskRun, len(self.Tasks))
+	for i, task := range self.Tasks {
+		taskRuns[i] = TaskRun{
+			ID:   uuid.NewV4().String(),
+			Task: task,
+		}
+	}
+
 	return JobRun{
 		ID:        uuid.NewV4().String(),
 		JobID:     self.ID,
 		CreatedAt: time.Now(),
+		TaskRuns:  taskRuns,
 	}
 }
 

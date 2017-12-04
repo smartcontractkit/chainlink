@@ -1,0 +1,7 @@
+{
+  "tasks": [
+    {"type": "HttpGet", "params": {"endpoint": "https://www.bitstamp.net/api/ticker"}}
+  ],
+  "schedule": {"endAt": "2222-11-27T23:05:49Z", "cron": "* * * * *"},
+  "version": "1.0.0"
+}
