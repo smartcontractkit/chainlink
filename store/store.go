@@ -2,19 +2,19 @@ package store
 
 import (
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/scheduler"
+	"github.com/smartcontractkit/chainlink-go/services"
 )
 
 type Store struct {
 	models.ORM
-	Scheduler *scheduler.Scheduler
+	Scheduler *services.Scheduler
 }
 
 func New() Store {
 	orm := models.InitORM("production")
 	return Store{
 		ORM:       orm,
-		Scheduler: scheduler.New(orm),
+		Scheduler: services.NewScheduler(orm),
 	}
 }
 

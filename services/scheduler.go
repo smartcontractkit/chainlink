@@ -1,13 +1,10 @@
-package scheduler
+package services
 
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-go/logger"
-
 	cronlib "github.com/robfig/cron"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/services"
 )
 
 type Scheduler struct {
@@ -15,7 +12,7 @@ type Scheduler struct {
 	orm  models.ORM
 }
 
-func New(orm models.ORM) *Scheduler {
+func NewScheduler(orm models.ORM) *Scheduler {
 	return &Scheduler{cronlib.New(), orm}
 }
 
@@ -40,9 +37,9 @@ func (self *Scheduler) Stop() {
 func (self *Scheduler) AddJob(job models.Job) {
 	cronStr := string(job.Schedule.Cron)
 	self.cron.AddFunc(cronStr, func() {
-		err := services.StartJob(job.NewRun(), self.orm)
+		err := StartJob(job.NewRun(), self.orm)
 		if err != nil {
-			logger.Get().Panic(err.Error())
+			GetLogger().Panic(err.Error())
 		}
 	})
 }

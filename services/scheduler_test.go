@@ -1,12 +1,13 @@
-package scheduler_test
+package services_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/scheduler"
+	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestLoadingSavedSchedules(t *testing.T) {
@@ -20,7 +21,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	_ = store.Save(&j)
 	_ = store.Save(&jobWoCron)
 
-	sched := scheduler.New(store.ORM)
+	sched := services.NewScheduler(store.ORM)
 	err := sched.Start()
 	assert.Nil(t, err)
 	defer sched.Stop()
@@ -41,7 +42,7 @@ func TestAddJob(t *testing.T) {
 	store := cltest.Store()
 	defer store.Close()
 
-	sched := scheduler.New(store.ORM)
+	sched := services.NewScheduler(store.ORM)
 	_ = sched.Start()
 	defer sched.Stop()
 

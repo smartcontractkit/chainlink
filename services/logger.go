@@ -1,10 +1,11 @@
-package logger
+package services
 
 import (
-	homedir "github.com/mitchellh/go-homedir"
-	"go.uber.org/zap"
 	"log"
 	"path"
+
+	homedir "github.com/mitchellh/go-homedir"
+	"go.uber.org/zap"
 )
 
 var logger *Logger
@@ -33,7 +34,7 @@ func init() {
 	logger = &Logger{zap}
 }
 
-func ForGin() *Logger {
+func LoggerWriter() *Logger {
 	config := generateConfig()
 	config.DisableCaller = true
 	zap, err := config.Build()
@@ -48,6 +49,6 @@ func (self *Logger) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-func Get() *Logger {
+func GetLogger() *Logger {
 	return logger
 }

@@ -2,19 +2,20 @@ package cltest
 
 import (
 	"encoding/json"
-	"github.com/araddon/dateparse"
-	"github.com/gin-gonic/gin"
-	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/scheduler"
-	"github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/web"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"time"
+
+	"github.com/araddon/dateparse"
+	"github.com/gin-gonic/gin"
+	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/web"
 )
 
 func init() {
@@ -43,7 +44,7 @@ func Store() store.Store {
 	orm := models.InitORM("test")
 	return store.Store{
 		ORM:       orm,
-		Scheduler: scheduler.New(orm),
+		Scheduler: services.NewScheduler(orm),
 	}
 }
 

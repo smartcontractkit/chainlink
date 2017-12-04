@@ -2,14 +2,14 @@ package web
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink-go/logger"
+	"github.com/smartcontractkit/chainlink-go/services"
 	storelib "github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web/controllers"
 )
 
 func Router(store storelib.Store) *gin.Engine {
 	engine := gin.New()
-	engine.Use(gin.LoggerWithWriter(logger.ForGin()), gin.Recovery())
+	engine.Use(gin.LoggerWithWriter(services.LoggerWriter()), gin.Recovery())
 
 	j := controllers.JobsController{store}
 	engine.POST("/jobs", j.Create)
