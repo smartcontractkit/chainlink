@@ -23,8 +23,8 @@ func (self Store) Start() error {
 }
 
 func (self Store) Close() {
-	self.ORM.Close()
 	self.Scheduler.Stop()
+	self.ORM.Close()
 }
 
 func (self Store) AddJob(job models.Job) error {

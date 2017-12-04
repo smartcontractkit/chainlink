@@ -20,6 +20,7 @@ import (
 
 func init() {
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
+	services.SetLogger(services.NewLogger("test"))
 }
 
 var server *httptest.Server
