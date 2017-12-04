@@ -11,7 +11,7 @@ import (
 var logger *Logger
 
 type Logger struct {
-	*zap.Logger
+	*zap.SugaredLogger
 }
 
 func generateConfig() zap.Config {
@@ -31,7 +31,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger = &Logger{zap}
+	logger = &Logger{zap.Sugar()}
 }
 
 func LoggerWriter() *Logger {
@@ -41,7 +41,7 @@ func LoggerWriter() *Logger {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{zap}
+	return &Logger{zap.Sugar()}
 }
 
 func (self *Logger) Write(b []byte) (n int, err error) {
