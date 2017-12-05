@@ -28,6 +28,7 @@ func NewLogger(env string) *Logger {
 }
 
 func SetLogger(newLogger *Logger) {
+	defer logger.Sync()
 	logger = newLogger
 }
 

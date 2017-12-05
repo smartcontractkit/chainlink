@@ -1,18 +1,20 @@
 package main
 
 import (
+	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
-	"log"
 )
 
 func main() {
+	logger := services.GetLogger()
+	defer logger.Sync()
 	store := store.New()
 	r := web.Router(store)
 	err := store.Start()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	defer store.Close()
-	log.Fatal(r.Run())
+	logger.Fatal(r.Run())
 }
