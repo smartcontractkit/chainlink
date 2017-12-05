@@ -7,9 +7,11 @@ type Adapter interface {
 }
 
 type RunResult struct {
-	Output map[string]null.String
+	Output Output
 	Error  error
 }
+
+type Output map[string]null.String
 
 func (self RunResult) Value() string {
 	return self.value().String
@@ -21,4 +23,10 @@ func (self RunResult) NullValue() bool {
 
 func (self RunResult) value() null.String {
 	return self.Output["value"]
+}
+
+func RunResultWithValue(val string) RunResult {
+	return RunResult{
+		Output: Output{"value": null.StringFrom(val)},
+	}
 }

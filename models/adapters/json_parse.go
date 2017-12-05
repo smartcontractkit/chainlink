@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	simplejson "github.com/bitly/go-simplejson"
-	null "gopkg.in/guregu/null.v3"
 )
 
 type JsonParse struct {
@@ -27,9 +26,7 @@ func (self *JsonParse) Perform(input RunResult) RunResult {
 		return RunResult{}
 	}
 
-	return RunResult{
-		Output: map[string]null.String{"value": null.StringFrom(rval.MustString())},
-	}
+	return RunResultWithValue(rval.MustString())
 }
 
 func checkEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {

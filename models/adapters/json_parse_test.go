@@ -5,13 +5,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-go/models/adapters"
 	"github.com/stretchr/testify/assert"
-	null "gopkg.in/guregu/null.v3"
 )
 
 func TestParseExistingPath(t *testing.T) {
-	input := adapters.RunResult{
-		Output: map[string]null.String{"value": null.StringFrom(`{"high": "11850.00", "last": "11779.99", "timestamp": "1512487535", "bid": "11779.89", "vwap": "11525.17", "volume": "12916.67066094", "low": "11100.00", "ask": "11779.99", "open": 11613.07}`)},
-	}
+	input := adapters.RunResultWithValue(`{"high": "11850.00", "last": "11779.99", "timestamp": "1512487535", "bid": "11779.89", "vwap": "11525.17", "volume": "12916.67066094", "low": "11100.00", "ask": "11779.99", "open": 11613.07}`)
 
 	adapter := adapters.JsonParse{[]string{"last"}}
 	result := adapter.Perform(input)
@@ -20,9 +17,7 @@ func TestParseExistingPath(t *testing.T) {
 }
 
 func TestParseNonExistingPath(t *testing.T) {
-	input := adapters.RunResult{
-		Output: map[string]null.String{"value": null.StringFrom(`{"high": "11850.00", "last": "11779.99", "timestamp": "1512487535", "bid": "11779.89", "vwap": "11525.17", "volume": "12916.67066094", "low": "11100.00", "ask": "11779.99", "open": 11613.07}`)},
-	}
+	input := adapters.RunResultWithValue(`{"high": "11850.00", "last": "11779.99", "timestamp": "1512487535", "bid": "11779.89", "vwap": "11525.17", "volume": "12916.67066094", "low": "11100.00", "ask": "11779.99", "open": 11613.07}`)
 
 	adapter := adapters.JsonParse{[]string{"doesnotexist"}}
 	result := adapter.Perform(input)
