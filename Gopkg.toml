@@ -59,3 +59,7 @@
 [[constraint]]
   name = "github.com/h2non/gock"
   version = "1.0.6"
+
+[[constraint]]
+  name = "github.com/bitly/go-simplejson"
+  version = "0.5.0"

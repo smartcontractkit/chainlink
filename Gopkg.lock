@@ -4,7 +4,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/araddon/dateparse"
-  packages = ["."]
+  mplepackages = ["."]
   revision = "f30ca3179c19d723d2f1f8c878fcce1089775c05"
 
 [[projects]]
@@ -12,6 +12,12 @@
   packages = [".","codec","codec/json","index","internal","q"]
   revision = "dbb6ebff0bde8144b877711894533e16d3b7feda"
   version = "v2.0.0-rc.1"
+
+[[projects]]
+  name = "github.com/bitly/go-simplejson"
+  packages = ["."]
+  revision = "aabad6e819789e569bd6aabf444c935aa9ba1e44"
+  version = "v0.5.0"
 
 [[projects]]
   name = "github.com/coreos/bbolt"
@@ -152,6 +158,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a4b42c6647a4dca7bd6bd99509be0b104b194c1f46e7ef89b8629fbb936c3ea3"
+  inputs-digest = "0dcf6adef4443586cb9300d2fd3be8becd0f4f5afb24a73e27e19518835b86e0"
   solver-name = "gps-cdcl"
   solver-version = 1

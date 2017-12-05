@@ -61,7 +61,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 	server := cltest.SetUpWeb(store)
 	defer cltest.TearDownWeb()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_http_get_job.json")
+	jsonStr := cltest.LoadJSON("./fixtures/create_hello_world_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	respJSON := cltest.JobJSONFromResponse(resp)
 
@@ -84,7 +84,9 @@ func TestCreateJobsIntegration(t *testing.T) {
 	jobRuns, err = store.JobRunsFor(job)
 	assert.Nil(t, err)
 	jobRun := jobRuns[0]
-	assert.Equal(t, jobRun.Result.Output["value"], expectedResponse)
+	assert.Equal(t, expectedResponse, jobRun.TaskRuns[0].Result.Value())
+	jobRun = jobRuns[0]
+	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
