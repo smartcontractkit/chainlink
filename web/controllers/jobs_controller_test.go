@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	gock "github.com/h2non/gock.git"
+	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"

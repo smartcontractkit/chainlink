@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	simplejson "github.com/bitly/go-simplejson"
+	null "gopkg.in/guregu/null.v3"
 )
 
 type JsonParse struct {
@@ -21,10 +22,13 @@ func (self *JsonParse) Perform(input RunResult) RunResult {
 		return RunResult{Error: err}
 	}
 
-	rval, _ := js.Get(self.Path[len(self.Path)-1]).String()
+	rval, ok := js.CheckGet(self.Path[len(self.Path)-1])
+	if !ok {
+		return RunResult{}
+	}
+
 	return RunResult{
-		Output: map[string]string{"value": rval},
-		Error:  nil,
+		Output: map[string]null.String{"value": null.StringFrom(rval.MustString())},
 	}
 }
 
@@ -33,7 +37,7 @@ func checkEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error
 	for _, k := range path[:len(path)-1] {
 		js, ok = js.CheckGet(k)
 		if !ok {
-			return js, errors.New("No value could be found for the key '"+ k + "'")
+			return js, errors.New("No value could be found for the key '" + k + "'")
 		}
 	}
 	return js, nil

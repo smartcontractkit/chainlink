@@ -4,7 +4,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/araddon/dateparse"
-  mplepackages = ["."]
+  packages = ["."]
   revision = "f30ca3179c19d723d2f1f8c878fcce1089775c05"
 
 [[projects]]
@@ -150,6 +150,12 @@
   version = "v8.18.2"
 
 [[projects]]
+  name = "gopkg.in/guregu/null.v3"
+  packages = ["."]
+  revision = "5d2d1e5a9e25088fb9cc0b0f7cb566250eb42bba"
+  version = "v3.2.0"
+
+[[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -158,6 +164,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0dcf6adef4443586cb9300d2fd3be8becd0f4f5afb24a73e27e19518835b86e0"
+  inputs-digest = "b538cfab2c0781a5d97db371aca4a088adaa44b9b677a10915bc949c45e52575"
   solver-name = "gps-cdcl"
   solver-version = 1

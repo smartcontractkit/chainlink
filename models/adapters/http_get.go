@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"gopkg.in/guregu/null.v3"
 )
 
 type HttpGet struct {
@@ -25,5 +27,5 @@ func (self *HttpGet) Perform(input RunResult) RunResult {
 		return RunResult{Error: fmt.Errorf(body)}
 	}
 
-	return RunResult{Output: map[string]string{"value": body}}
+	return RunResult{Output: map[string]null.String{"value": null.StringFrom(body)}}
 }
