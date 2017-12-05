@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 
-	cronlib "github.com/robfig/cron"
+	cronlib "github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
 
@@ -32,6 +32,7 @@ func (self *Scheduler) Start() error {
 
 func (self *Scheduler) Stop() {
 	self.cron.Stop()
+	self.cron.Wait()
 }
 
 func (self *Scheduler) AddJob(job models.Job) {

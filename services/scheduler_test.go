@@ -24,7 +24,6 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	sched := services.NewScheduler(store.ORM)
 	err := sched.Start()
 	assert.Nil(t, err)
-	defer sched.Stop()
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
@@ -32,6 +31,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 		return jobRuns
 	}).Should(HaveLen(1))
 
+	sched.Stop()
 	err = store.Where("JobID", jobWoCron.ID, &jobRuns)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(jobRuns), "No jobs should be created without the scheduler")

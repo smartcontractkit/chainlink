@@ -73,6 +73,12 @@
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/mrwonko/cron"
+  packages = ["."]
+  revision = "4f4eb26d696f4ef13acad8270f31e4a334ed7f5d"
+
+[[projects]]
   name = "github.com/onsi/gomega"
   packages = [".","format","internal/assertion","internal/asyncassertion","internal/oraclematcher","internal/testingtsupport","matchers","matchers/support/goraph/bipartitegraph","matchers/support/goraph/edge","matchers/support/goraph/node","matchers/support/goraph/util","types"]
   revision = "c893efa28eb45626cdaa76c9f653b62488858837"
@@ -82,12 +88,6 @@
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "d8ed2627bdf02c080bf22230dbb337003b7aba2d"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/robfig/cron"
-  packages = ["."]
-  revision = "2315d5715e36303a941d907f038da7f7c44c773b"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
@@ -164,6 +164,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b538cfab2c0781a5d97db371aca4a088adaa44b9b677a10915bc949c45e52575"
+  inputs-digest = "621dad33b91ebaa9e09d706ba43d73a5cf3ae59396767cfa480cb8b9e469c292"
   solver-name = "gps-cdcl"
   solver-version = 1

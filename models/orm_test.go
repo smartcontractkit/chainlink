@@ -1,10 +1,11 @@
 package models_test
 
 import (
+	"testing"
+
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestWhereNotFound(t *testing.T) {

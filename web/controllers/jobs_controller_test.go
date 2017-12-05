@@ -77,12 +77,15 @@ func TestCreateJobsIntegration(t *testing.T) {
 		return jobRuns
 	}).Should(HaveLen(1))
 
+	store.Scheduler.Stop()
+
 	var job models.Job
 	err := store.One("ID", respJSON.ID, &job)
 	assert.Nil(t, err)
 
 	jobRuns, err = store.JobRunsFor(job)
 	assert.Nil(t, err)
+	assert.Equal(t, 1, len(jobRuns))
 	jobRun := jobRuns[0]
 	assert.Equal(t, expectedResponse, jobRun.TaskRuns[0].Result.Value())
 	jobRun = jobRuns[0]
