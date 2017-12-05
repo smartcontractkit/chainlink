@@ -28,7 +28,12 @@ func (self Store) Close() {
 }
 
 func (self Store) AddJob(job models.Job) error {
-	err := self.Save(&job)
+	err := job.Validate()
+	if err != nil {
+		return err
+	}
+
+	err = self.Save(&job)
 	if err != nil {
 		return err
 	}

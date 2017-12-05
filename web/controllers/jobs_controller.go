@@ -13,7 +13,7 @@ type JobsController struct {
 
 func (self *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
-	// logger.GetLogger().Debugw("Create Job", c.Request...)
+
 	if err := c.ShouldBindJSON(&j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
