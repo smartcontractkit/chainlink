@@ -1,6 +1,12 @@
 package web
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/services"
 	storelib "github.com/smartcontractkit/chainlink-go/store"
@@ -9,7 +15,7 @@ import (
 
 func Router(store storelib.Store) *gin.Engine {
 	engine := gin.New()
-	engine.Use(gin.LoggerWithWriter(services.GetLogger()), gin.Recovery())
+	engine.Use(handlerFunc(services.GetLogger()), gin.Recovery())
 
 	j := controllers.JobsController{store}
 	engine.POST("/jobs", j.Create)
@@ -19,4 +25,37 @@ func Router(store storelib.Store) *gin.Engine {
 	engine.GET("/jobs/:id/runs", jr.Index)
 
 	return engine
+}
+
+// Inspired by https://github.com/gin-gonic/gin/issues/961
+func handlerFunc(logger *services.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		buf, _ := ioutil.ReadAll(c.Request.Body)
+		rdr := bytes.NewBuffer(buf)
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+
+		start := time.Now()
+		c.Next()
+		end := time.Now()
+
+		logger.Infow("Web request",
+			"method", c.Request.Method,
+			"status", c.Writer.Status(),
+			"path", c.Request.URL.Path,
+			"query", c.Request.URL.RawQuery,
+			"body", readBody(rdr),
+			"clientIP", c.ClientIP(),
+			"comment", c.Errors.ByType(gin.ErrorTypePrivate).String(),
+			"servedAt", end.Format("2006/01/02 - 15:04:05"),
+			"latency", fmt.Sprintf("%v", end.Sub(start)),
+		)
+	}
+}
+
+func readBody(reader io.Reader) string {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(reader)
+
+	s := buf.String()
+	return s
 }
