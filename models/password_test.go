@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
@@ -21,4 +22,13 @@ func TestNewPassword(t *testing.T) {
 
 	store.ORM.All(&passwords)
 	assert.Equal(t, 1, len(passwords))
+}
+
+func TestPasswordCheck(t *testing.T) {
+	hash, _ := base64.StdEncoding.DecodeString("/qlGjiuorAcE4tFURJzq4vG+SEaYb0KExvGpfMZ0jF0=")
+	salt, _ := base64.StdEncoding.DecodeString("+FTNZKzpDKl5BYTCp0CD/LYiHtzEQCph3s/UHKUZHyQ=")
+	password := models.Password{Hash: hash, Salt: salt}
+
+	assert.True(t, password.Check(phrase))
+	assert.False(t, password.Check("NotThePassword"))
 }
