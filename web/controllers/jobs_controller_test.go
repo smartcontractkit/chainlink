@@ -16,7 +16,6 @@ import (
 )
 
 func TestCreateJobs(t *testing.T) {
-	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 	server := cltest.SetUpWeb(store)
@@ -24,7 +23,8 @@ func TestCreateJobs(t *testing.T) {
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	respJSON := cltest.JobJSONFromResponse(resp)
+	defer resp.Body.Close()
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
 
 	var j models.Job
@@ -53,7 +53,6 @@ func TestCreateJobs(t *testing.T) {
 }
 
 func TestCreateJobsIntegration(t *testing.T) {
-	t.Parallel()
 	RegisterTestingT(t)
 	defer gock.Off()
 
@@ -65,7 +64,8 @@ func TestCreateJobsIntegration(t *testing.T) {
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_hello_world_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	respJSON := cltest.JobJSONFromResponse(resp)
+	defer resp.Body.Close()
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
 
 	expectedResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	gock.New("https://www.bitstamp.net").

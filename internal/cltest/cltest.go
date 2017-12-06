@@ -2,9 +2,9 @@ package cltest
 
 import (
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -34,9 +34,8 @@ type JobJSON struct {
 	ID string `json:"id"`
 }
 
-func JobJSONFromResponse(resp *http.Response) JobJSON {
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+func JobJSONFromResponse(body io.Reader) JobJSON {
+	b, err := ioutil.ReadAll(body)
 	if err != nil {
 		log.Fatal(err)
 	}
