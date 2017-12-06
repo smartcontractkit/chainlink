@@ -1,4 +1,4 @@
-package services
+package logger
 
 import (
 	"log"
@@ -48,6 +48,18 @@ func (self *Logger) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-func GetLogger() *Logger {
-	return logger
+func Infow(msg string, keysAndValues ...interface{}) {
+	logger.Infow(msg, keysAndValues...)
+}
+
+func Fatal(args ...interface{}) {
+	logger.Fatal(args)
+}
+
+func Panic(args ...interface{}) {
+	logger.Panic(args)
+}
+
+func Sync() error {
+	return logger.Sync()
 }

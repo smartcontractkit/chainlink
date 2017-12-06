@@ -1,13 +1,12 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
 )
 
 func main() {
-	logger := services.GetLogger()
 	defer logger.Sync()
 	store := store.New()
 	r := web.Router(store)

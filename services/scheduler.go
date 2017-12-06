@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	cronlib "github.com/mrwonko/cron"
+	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
 
@@ -40,7 +41,7 @@ func (self *Scheduler) AddJob(job models.Job) {
 	self.cron.AddFunc(cronStr, func() {
 		err := StartJob(job.NewRun(), self.orm)
 		if err != nil {
-			GetLogger().Panic(err.Error())
+			logger.Panic(err.Error())
 		}
 	})
 }

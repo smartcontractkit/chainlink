@@ -13,6 +13,7 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/gin-gonic/gin"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
@@ -25,7 +26,7 @@ func init() {
 	}
 
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
-	services.SetLogger(services.NewLogger("test"))
+	logger.SetLogger(logger.NewLogger("test"))
 }
 
 var server *httptest.Server

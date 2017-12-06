@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/models/adapters"
 )
@@ -14,7 +15,7 @@ func StartJob(run models.JobRun, orm models.ORM) error {
 		return runJobError(run, err)
 	}
 
-	GetLogger().Infow("Starting job", run.ForLogger()...)
+	logger.Infow("Starting job", run.ForLogger()...)
 	var prevRun models.TaskRun
 	for i, taskRun := range run.TaskRuns {
 		prevRun = startTask(taskRun, prevRun.Result)
@@ -24,7 +25,7 @@ func StartJob(run models.JobRun, orm models.ORM) error {
 			return runJobError(run, err)
 		}
 
-		GetLogger().Infow("Task finished", run.ForLogger("task", i, "result", prevRun.Result)...)
+		logger.Infow("Task finished", run.ForLogger("task", i, "result", prevRun.Result)...)
 		if prevRun.Result.Error != nil {
 			break
 		}
@@ -37,7 +38,7 @@ func StartJob(run models.JobRun, orm models.ORM) error {
 		run.Status = "completed"
 	}
 
-	GetLogger().Infow("Finished job", run.ForLogger()...)
+	logger.Infow("Finished job", run.ForLogger()...)
 	return runJobError(run, orm.Save(&run))
 }
 

@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink-go/logger"
 	storelib "github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web/controllers"
 )
 
 func Router(store storelib.Store) *gin.Engine {
 	engine := gin.New()
-	engine.Use(handlerFunc(services.GetLogger()), gin.Recovery())
+	engine.Use(handlerFunc(), gin.Recovery())
 
 	j := controllers.JobsController{store}
 	engine.POST("/jobs", j.Create)
@@ -28,7 +28,7 @@ func Router(store storelib.Store) *gin.Engine {
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
-func handlerFunc(logger *services.Logger) gin.HandlerFunc {
+func handlerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, _ := ioutil.ReadAll(c.Request.Body)
 		rdr := bytes.NewBuffer(buf)
