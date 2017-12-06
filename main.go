@@ -9,6 +9,8 @@ import (
 func main() {
 	defer logger.Sync()
 	store := services.NewStore()
+
+	services.Authenticate(store)
 	r := web.Router(store)
 	err := store.Start()
 	if err != nil {

@@ -2,6 +2,7 @@ package logger
 
 import (
 	"log"
+	"os"
 	"path"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -38,6 +39,8 @@ func generateConfig(env string) zap.Config {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	os.Mkdir(dir, os.FileMode(0700))
 	destination := path.Join(dir, "log."+env+".jsonl")
 	config.OutputPaths = []string{"stdout", destination}
 	return config
@@ -50,6 +53,10 @@ func (self *Logger) Write(b []byte) (n int, err error) {
 
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
+}
+
+func Info(args ...interface{}) {
+	logger.Info(args)
 }
 
 func Fatal(args ...interface{}) {

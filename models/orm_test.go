@@ -31,3 +31,13 @@ func TestAllIndexedNotFound(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
+
+func TestAllNotFound(t *testing.T) {
+	store := cltest.Store()
+	defer store.Close()
+
+	var jobs []models.Job
+	err := store.All(&jobs)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
+}
