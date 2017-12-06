@@ -67,3 +67,7 @@
 [[constraint]]
   name = "gopkg.in/guregu/null.v3"
   version = "3.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/crypto"

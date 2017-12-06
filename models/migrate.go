@@ -7,6 +7,7 @@ import (
 func (self ORM) migrate() {
 	self.initializeModel(&Job{})
 	self.initializeModel(&JobRun{})
+	self.initializeModel(&Password{})
 }
 
 func (self ORM) initializeModel(klass interface{}) {

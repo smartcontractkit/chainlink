@@ -127,6 +127,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["pbkdf2"]
+  revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = ["html","html/atom","html/charset"]
   revision = "a8b9294777976932365dabb6640cf1468d95c70f"
@@ -164,6 +170,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "621dad33b91ebaa9e09d706ba43d73a5cf3ae59396767cfa480cb8b9e469c292"
+  inputs-digest = "3e6dedf83dd1e2ef3c1e49752d1e1c2f1339fd2d0a0301b74ba05f7bc7170df9"
   solver-name = "gps-cdcl"
   solver-version = 1
