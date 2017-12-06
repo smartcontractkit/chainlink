@@ -16,6 +16,7 @@ import (
 )
 
 func TestCreateJobs(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 	server := cltest.SetUpWeb(store)
@@ -52,6 +53,7 @@ func TestCreateJobs(t *testing.T) {
 }
 
 func TestCreateJobsIntegration(t *testing.T) {
+	t.Parallel()
 	RegisterTestingT(t)
 	defer gock.Off()
 

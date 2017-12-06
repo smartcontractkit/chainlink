@@ -1,12 +1,15 @@
 package models
 
 import (
-	"github.com/asdine/storm"
-	homedir "github.com/mitchellh/go-homedir"
+	"fmt"
 	"log"
 	"os"
 	"path"
 	"reflect"
+	"time"
+
+	"github.com/asdine/storm"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 type ORM struct {
@@ -32,6 +35,12 @@ func DBPath(env string) string {
 	dir, err := homedir.Expand("~/.chainlink")
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if env == "test" {
+		dir = path.Join(dir, "tmp")
+		os.MkdirAll(dir, os.FileMode(0700))
+		return path.Join(dir, "db."+fmt.Sprintf("%d", time.Now().UnixNano())+".bolt")
 	}
 
 	os.MkdirAll(dir, os.FileMode(0700))

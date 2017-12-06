@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/araddon/dateparse"
@@ -19,6 +20,10 @@ import (
 )
 
 func init() {
+	if err := os.RemoveAll(filepath.Dir(models.DBPath("test"))); err != nil {
+		log.Println(err)
+	}
+
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
 	services.SetLogger(services.NewLogger("test"))
 }
@@ -41,7 +46,6 @@ func JobJSONFromResponse(resp *http.Response) JobJSON {
 }
 
 func Store() store.Store {
-	os.Remove(models.DBPath("test"))
 	orm := models.InitORM("test")
 	return store.Store{
 		ORM:       orm,
