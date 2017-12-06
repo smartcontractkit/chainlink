@@ -3,11 +3,11 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/services"
 )
 
 type JobRunsController struct {
-	Store store.Store
+	Store services.Store
 }
 
 func (self *JobRunsController) Index(c *gin.Context) {

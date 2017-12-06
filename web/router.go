@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/logger"
-	storelib "github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/web/controllers"
 )
 
-func Router(store storelib.Store) *gin.Engine {
+func Router(store services.Store) *gin.Engine {
 	engine := gin.New()
 	engine.Use(handlerFunc(), gin.Recovery())
 

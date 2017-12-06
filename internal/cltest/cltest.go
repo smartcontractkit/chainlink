@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/services"
-	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
 )
 
@@ -46,15 +45,15 @@ func JobJSONFromResponse(resp *http.Response) JobJSON {
 	return respJSON
 }
 
-func Store() store.Store {
+func Store() services.Store {
 	orm := models.InitORM("test")
-	return store.Store{
+	return services.Store{
 		ORM:       orm,
 		Scheduler: services.NewScheduler(orm),
 	}
 }
 
-func SetUpWeb(s store.Store) *httptest.Server {
+func SetUpWeb(s services.Store) *httptest.Server {
 	gin.SetMode(gin.TestMode)
 	server = httptest.NewServer(web.Router(s))
 	return server
