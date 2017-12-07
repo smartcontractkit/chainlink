@@ -28,7 +28,10 @@ func init() {
 	logger.SetLogger(logger.NewLogger("test"))
 }
 
-var server *httptest.Server
+type TestStore struct {
+	Server *httptest.Server
+	services.Store
+}
 
 type JobJSON struct {
 	ID string `json:"id"`
@@ -44,23 +47,30 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 	return respJSON
 }
 
-func Store() services.Store {
+func Store() TestStore {
 	orm := models.InitORM("test")
-	return services.Store{
+	store := services.Store{
 		ORM:       orm,
 		Scheduler: services.NewScheduler(orm),
 	}
+	return TestStore{
+		Store: store,
+	}
 }
 
-func SetUpWeb(s services.Store) *httptest.Server {
+func (self TestStore) SetUpWeb() *httptest.Server {
 	gin.SetMode(gin.TestMode)
-	server = httptest.NewServer(web.Router(s))
+	server := httptest.NewServer(web.Router(self.Store))
+	self.Server = server
 	return server
 }
 
-func TearDownWeb() {
-	gin.SetMode(gin.DebugMode)
-	server.Close()
+func (self TestStore) Close() {
+	self.Store.Close()
+	if self.Server != nil {
+		gin.SetMode(gin.DebugMode)
+		self.Server.Close()
+	}
 }
 
 func LoadJSON(file string) []byte {

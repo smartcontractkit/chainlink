@@ -10,6 +10,7 @@ import (
 )
 
 func TestRunningJob(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 

@@ -9,6 +9,7 @@ import (
 )
 
 func TestWhereNotFound(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 
@@ -21,6 +22,7 @@ func TestWhereNotFound(t *testing.T) {
 }
 
 func TestAllIndexedNotFound(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 
@@ -33,6 +35,7 @@ func TestAllIndexedNotFound(t *testing.T) {
 }
 
 func TestAllNotFound(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 

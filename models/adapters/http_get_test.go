@@ -9,6 +9,7 @@ import (
 )
 
 func TestHttpGetNotAUrlError(t *testing.T) {
+	t.Parallel()
 	httpGet := adapters.HttpGet{Endpoint: "NotAUrl"}
 	input := adapters.RunResult{}
 	result := httpGet.Perform(input)

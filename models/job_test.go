@@ -9,6 +9,7 @@ import (
 )
 
 func TestJobSave(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 
@@ -24,6 +25,7 @@ func TestJobSave(t *testing.T) {
 }
 
 func TestJobNewRun(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 

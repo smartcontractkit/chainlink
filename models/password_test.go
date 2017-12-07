@@ -12,6 +12,7 @@ import (
 const phrase = "p@ssword"
 
 func TestNewPassword(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 	var passwords []models.Password
@@ -25,6 +26,7 @@ func TestNewPassword(t *testing.T) {
 }
 
 func TestPasswordCheck(t *testing.T) {
+	t.Parallel()
 	hash, _ := base64.StdEncoding.DecodeString("/qlGjiuorAcE4tFURJzq4vG+SEaYb0KExvGpfMZ0jF0=")
 	salt, _ := base64.StdEncoding.DecodeString("+FTNZKzpDKl5BYTCp0CD/LYiHtzEQCph3s/UHKUZHyQ=")
 	password := models.Password{Hash: hash, Salt: salt}

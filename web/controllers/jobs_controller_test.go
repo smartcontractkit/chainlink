@@ -16,10 +16,10 @@ import (
 )
 
 func TestCreateJobs(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
+	server := store.SetUpWeb()
 	defer store.Close()
-	server := cltest.SetUpWeb(store)
-	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -58,9 +58,8 @@ func TestCreateJobsIntegration(t *testing.T) {
 
 	store := cltest.Store()
 	store.Start()
+	server := store.SetUpWeb()
 	defer store.Close()
-	server := cltest.SetUpWeb(store)
-	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_hello_world_job.json")
 	resp, _ := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -95,10 +94,10 @@ func TestCreateJobsIntegration(t *testing.T) {
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
+	server := store.SetUpWeb()
 	defer store.Close()
-	server := cltest.SetUpWeb(store)
-	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_jobs.json")
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -114,10 +113,10 @@ func TestCreateInvalidJobs(t *testing.T) {
 }
 
 func TestCreateInvalidCron(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
+	server := store.SetUpWeb()
 	defer store.Close()
-	server := cltest.SetUpWeb(store)
-	defer cltest.TearDownWeb()
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_cron.json")
 	resp, err := http.Post(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -133,10 +132,10 @@ func TestCreateInvalidCron(t *testing.T) {
 }
 
 func TestShowJobs(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
+	server := store.SetUpWeb()
 	defer store.Close()
-	server := cltest.SetUpWeb(store)
-	defer cltest.TearDownWeb()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
@@ -155,10 +154,10 @@ func TestShowJobs(t *testing.T) {
 }
 
 func TestShowNotFoundJobs(t *testing.T) {
+	t.Parallel()
 	store := cltest.Store()
+	server := store.SetUpWeb()
 	defer store.Close()
-	server := cltest.SetUpWeb(store)
-	defer cltest.TearDownWeb()
 
 	resp, err := http.Get(server.URL + "/jobs/" + "garbage")
 	assert.Nil(t, err)
