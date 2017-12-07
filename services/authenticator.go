@@ -46,6 +46,7 @@ func createPassword(store Store) {
 		phraseConfirmation := promptPassword("Confirm Password: ")
 		if phrase == phraseConfirmation {
 			store.AddPassword(models.NewPassword(phrase))
+			store.CreateKey(phrase)
 			printGreeting()
 			break
 		} else {

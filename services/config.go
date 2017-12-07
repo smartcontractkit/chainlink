@@ -3,6 +3,7 @@ package services
 import (
 	"log"
 	"os"
+	"path"
 
 	homedir "github.com/mitchellh/go-homedir"
 )
@@ -20,4 +21,8 @@ func NewConfig(dir string) Config {
 		log.Fatal(err)
 	}
 	return Config{dir}
+}
+
+func (self Config) KeysDir() string {
+	return path.Join(self.RootDir, "keys")
 }
