@@ -2,10 +2,8 @@ package logger
 
 import (
 	"log"
-	"os"
 	"path"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"go.uber.org/zap"
 )
 
@@ -16,11 +14,15 @@ type Logger struct {
 }
 
 func init() {
-	logger = NewLogger("production")
+	zapLogger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatal(err)
+	}
+	logger = &Logger{zapLogger.Sugar()}
 }
 
-func NewLogger(env string) *Logger {
-	config := generateConfig(env)
+func NewLogger(dir string) *Logger {
+	config := generateConfig(dir)
 	zap, err := config.Build()
 	if err != nil {
 		log.Fatal(err)
@@ -28,20 +30,14 @@ func NewLogger(env string) *Logger {
 	return &Logger{zap.Sugar()}
 }
 
-func SetLogger(newLogger *Logger) {
+func SetLoggerDir(dir string) {
 	defer logger.Sync()
-	logger = newLogger
+	logger = NewLogger(dir)
 }
 
-func generateConfig(env string) zap.Config {
+func generateConfig(dir string) zap.Config {
 	config := zap.NewProductionConfig()
-	dir, err := homedir.Expand("~/.chainlink")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	os.Mkdir(dir, os.FileMode(0700))
-	destination := path.Join(dir, "log."+env+".jsonl")
+	destination := path.Join(dir, "log.jsonl")
 	config.OutputPaths = []string{"stdout", destination}
 	return config
 }

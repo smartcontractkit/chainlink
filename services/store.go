@@ -7,13 +7,15 @@ import (
 type Store struct {
 	models.ORM
 	Scheduler *Scheduler
+	Config    Config
 }
 
-func NewStore() Store {
-	orm := models.InitORM("production")
+func NewStore(config Config) Store {
+	orm := models.InitORM(config.RootDir)
 	return Store{
 		ORM:       orm,
 		Scheduler: NewScheduler(orm),
+		Config:    config,
 	}
 }
 

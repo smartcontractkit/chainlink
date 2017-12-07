@@ -2,35 +2,42 @@ package cltest
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/araddon/dateparse"
 	"github.com/gin-gonic/gin"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/web"
 )
 
+const testRootDir = "../../tmp/test"
+
 func init() {
-	if err := os.RemoveAll(filepath.Dir(models.DBPath("test"))); err != nil {
+	dir, err := homedir.Expand(testRootDir)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	if err = os.RemoveAll(dir); err != nil {
 		log.Println(err)
 	}
 
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
-	logger.SetLogger(logger.NewLogger("test"))
 }
 
 type TestStore struct {
-	Server *httptest.Server
 	services.Store
+	Server *httptest.Server
 }
 
 type JobJSON struct {
@@ -48,11 +55,9 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 }
 
 func Store() TestStore {
-	orm := models.InitORM("test")
-	store := services.Store{
-		ORM:       orm,
-		Scheduler: services.NewScheduler(orm),
-	}
+	config := services.NewConfig(path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())))
+	logger.SetLoggerDir(config.RootDir)
+	store := services.NewStore(config)
 	return TestStore{
 		Store: store,
 	}
