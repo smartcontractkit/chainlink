@@ -17,3 +17,7 @@ func NewKeyStore(keyDir string) *KeyStore {
 
 	return &KeyStore{ks}
 }
+
+func (self *KeyStore) HasAccounts() bool {
+	return len(self.Accounts()) > 0
+}
