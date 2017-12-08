@@ -13,25 +13,15 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/gin-gonic/gin"
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/web"
 )
 
-const testRootDir = "../../tmp/test"
+const testRootDir = "/tmp/chainlink_test"
 
 func init() {
-	dir, err := homedir.Expand(testRootDir)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	if err = os.RemoveAll(dir); err != nil {
-		log.Println(err)
-	}
-
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
 }
 
@@ -72,6 +62,10 @@ func (self *TestStore) SetUpWeb() *httptest.Server {
 
 func (self *TestStore) Close() {
 	self.Store.Close()
+	if err := os.RemoveAll(self.Config.RootDir); err != nil {
+		log.Println(err)
+	}
+
 	if self.Server != nil {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
