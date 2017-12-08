@@ -1,8 +1,6 @@
 package services
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
 
@@ -55,13 +53,4 @@ func (self *Store) JobRunsFor(job models.Job) ([]models.JobRun, error) {
 	var runs []models.JobRun
 	err := self.Where("JobID", job.ID, &runs)
 	return runs, err
-}
-
-func (self *Store) CreateKey(password string) (common.Address, error) {
-	return keystore.StoreKey(
-		self.Config.KeysDir(),
-		password,
-		keystore.StandardScryptN,
-		keystore.StandardScryptP,
-	)
 }

@@ -8,13 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateKey(t *testing.T) {
+const passphrase = "p@ssword"
+
+func TestCreateEthereumAccount(t *testing.T) {
 	t.Parallel()
 	store := cltest.Store()
 	defer store.Close()
 
-	password := "p@ssword"
-	store.CreateKey(password)
+	_, err := store.KeyStore.NewAccount(passphrase)
+	assert.Nil(t, err)
 
 	files, _ := ioutil.ReadDir(store.Config.KeysDir())
 	assert.Equal(t, 1, len(files))

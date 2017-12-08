@@ -14,7 +14,7 @@ func Authenticate(store *Store) {
 	if ok {
 		checkPassword(password)
 	} else {
-		createPassword(store)
+		createAccount(store)
 	}
 }
 
@@ -40,13 +40,16 @@ func checkPassword(password models.Password) {
 	}
 }
 
-func createPassword(store *Store) {
+func createAccount(store *Store) {
 	for {
 		phrase := promptPassword("New Password:")
 		phraseConfirmation := promptPassword("Confirm Password: ")
 		if phrase == phraseConfirmation {
 			store.AddPassword(models.NewPassword(phrase))
-			store.CreateKey(phrase)
+			_, err := store.KeyStore.NewAccount(phrase)
+			if err != nil {
+				logger.Fatal(err)
+			}
 			printGreeting()
 			break
 		} else {
