@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func Authenticate(store Store) {
+func Authenticate(store *Store) {
 	password, ok := getExistingPassword(store)
 	if ok {
 		checkPassword(password)
@@ -18,7 +18,7 @@ func Authenticate(store Store) {
 	}
 }
 
-func getExistingPassword(store Store) (models.Password, bool) {
+func getExistingPassword(store *Store) (models.Password, bool) {
 	var passwords []models.Password
 	if err := store.All(&passwords); err != nil {
 		logger.Fatal(err)
@@ -40,7 +40,7 @@ func checkPassword(password models.Password) {
 	}
 }
 
-func createPassword(store Store) {
+func createPassword(store *Store) {
 	for {
 		phrase := promptPassword("New Password:")
 		phraseConfirmation := promptPassword("Confirm Password: ")

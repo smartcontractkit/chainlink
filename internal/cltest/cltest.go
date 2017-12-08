@@ -36,7 +36,7 @@ func init() {
 }
 
 type TestStore struct {
-	services.Store
+	*services.Store
 	Server *httptest.Server
 }
 
@@ -54,23 +54,23 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 	return respJSON
 }
 
-func Store() TestStore {
+func Store() *TestStore {
 	config := services.NewConfig(path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())))
 	logger.SetLoggerDir(config.RootDir)
 	store := services.NewStore(config)
-	return TestStore{
+	return &TestStore{
 		Store: store,
 	}
 }
 
-func (self TestStore) SetUpWeb() *httptest.Server {
+func (self *TestStore) SetUpWeb() *httptest.Server {
 	gin.SetMode(gin.TestMode)
 	server := httptest.NewServer(web.Router(self.Store))
 	self.Server = server
 	return server
 }
 
-func (self TestStore) Close() {
+func (self *TestStore) Close() {
 	self.Store.Close()
 	if self.Server != nil {
 		gin.SetMode(gin.DebugMode)

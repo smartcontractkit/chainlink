@@ -12,9 +12,9 @@ type ORM struct {
 	*storm.DB
 }
 
-func InitORM(dir string) ORM {
+func NewORM(dir string) *ORM {
 	path := path.Join(dir, "db.bolt")
-	orm := ORM{initializeDatabase(path)}
+	orm := &ORM{initializeDatabase(path)}
 	orm.migrate()
 	return orm
 }
@@ -28,7 +28,7 @@ func initializeDatabase(path string) *storm.DB {
 	return db
 }
 
-func (self ORM) Where(field string, value interface{}, instance interface{}) error {
+func (self *ORM) Where(field string, value interface{}, instance interface{}) error {
 	err := self.Find(field, value, instance)
 	if err == storm.ErrNotFound {
 		emptySlice(instance)
@@ -37,11 +37,11 @@ func (self ORM) Where(field string, value interface{}, instance interface{}) err
 	return err
 }
 
-func (self ORM) InitBucket(model interface{}) error {
+func (self *ORM) InitBucket(model interface{}) error {
 	return self.Init(model)
 }
 
-func (self ORM) JobsWithCron() ([]Job, error) {
+func (self *ORM) JobsWithCron() ([]Job, error) {
 	jobs := []Job{}
 	err := self.AllByIndex("Cron", &jobs)
 	return jobs, err

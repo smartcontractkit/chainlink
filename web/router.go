@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-go/web/controllers"
 )
 
-func Router(store services.Store) *gin.Engine {
+func Router(store *services.Store) *gin.Engine {
 	engine := gin.New()
 	engine.Use(handlerFunc(), gin.Recovery())
 
