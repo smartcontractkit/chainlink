@@ -21,3 +21,14 @@ func TestCreateEthereumAccount(t *testing.T) {
 	files, _ := ioutil.ReadDir(store.Config.KeysDir())
 	assert.Equal(t, 1, len(files))
 }
+
+func TestUnlockKey(t *testing.T) {
+	t.Parallel()
+	store := cltest.Store()
+	defer store.Close()
+
+	account, _ := store.KeyStore.NewAccount(passphrase)
+
+	assert.NotNil(t, store.KeyStore.Unlock(account, "wrong phrase"))
+	assert.Nil(t, store.KeyStore.Unlock(account, passphrase))
+}

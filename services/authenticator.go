@@ -12,7 +12,7 @@ import (
 func Authenticate(store *Store) {
 	password, ok := getExistingPassword(store)
 	if ok {
-		checkPassword(password)
+		checkPassword(password, store)
 	} else {
 		createAccount(store)
 	}
@@ -31,9 +31,17 @@ func getExistingPassword(store *Store) (models.Password, bool) {
 	}
 }
 
-func checkPassword(password models.Password) {
+func checkPassword(password models.Password, store *Store) {
 	for {
-		if password.Check(promptPassword("Enter Password:")) {
+		phrase := promptPassword("Enter Password:")
+		if password.Check(phrase) {
+			for _, account := range store.KeyStore.Accounts() {
+				err := store.KeyStore.Unlock(account, phrase)
+				if err != nil {
+					fmt.Printf("Invalid Password for Account %s. Please try again.\n", account)
+					continue
+				}
+			}
 			printGreeting()
 			break
 		}

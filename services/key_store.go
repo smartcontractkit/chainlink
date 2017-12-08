@@ -1,6 +1,8 @@
 package services
 
-import "github.com/ethereum/go-ethereum/accounts/keystore"
+import (
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+)
 
 type KeyStore struct {
 	*keystore.KeyStore
