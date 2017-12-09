@@ -5,28 +5,32 @@ import (
 )
 
 type Store struct {
-	models.ORM
+	*models.ORM
 	Scheduler *Scheduler
+	Config    Config
+	KeyStore  *KeyStore
 }
 
-func NewStore() Store {
-	orm := models.InitORM("production")
-	return Store{
+func NewStore(config Config) *Store {
+	orm := models.NewORM(config.RootDir)
+	return &Store{
 		ORM:       orm,
 		Scheduler: NewScheduler(orm),
+		Config:    config,
+		KeyStore:  NewKeyStore(config.KeysDir()),
 	}
 }
 
-func (self Store) Start() error {
+func (self *Store) Start() error {
 	return self.Scheduler.Start()
 }
 
-func (self Store) Close() {
+func (self *Store) Close() {
 	self.Scheduler.Stop()
 	self.ORM.Close()
 }
 
-func (self Store) AddJob(job models.Job) error {
+func (self *Store) AddJob(job models.Job) error {
 	err := job.Validate()
 	if err != nil {
 		return err
@@ -41,11 +45,7 @@ func (self Store) AddJob(job models.Job) error {
 	return nil
 }
 
-func (self Store) AddPassword(password models.Password) error {
-	return self.Save(&password)
-}
-
-func (self Store) JobRunsFor(job models.Job) ([]models.JobRun, error) {
+func (self *Store) JobRunsFor(job models.Job) ([]models.JobRun, error) {
 	var runs []models.JobRun
 	err := self.Where("JobID", job.ID, &runs)
 	return runs, err

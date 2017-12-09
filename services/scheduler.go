@@ -10,10 +10,10 @@ import (
 
 type Scheduler struct {
 	cron *cronlib.Cron
-	orm  models.ORM
+	orm  *models.ORM
 }
 
-func NewScheduler(orm models.ORM) *Scheduler {
+func NewScheduler(orm *models.ORM) *Scheduler {
 	return &Scheduler{cronlib.New(), orm}
 }
 

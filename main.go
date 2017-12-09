@@ -7,8 +7,10 @@ import (
 )
 
 func main() {
+	config := services.NewConfig("~/.chainlink")
+	logger.SetLoggerDir(config.RootDir)
 	defer logger.Sync()
-	store := services.NewStore()
+	store := services.NewStore(config)
 
 	services.Authenticate(store)
 	r := web.Router(store)

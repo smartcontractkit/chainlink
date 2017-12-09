@@ -8,7 +8,7 @@ import (
 )
 
 type JobsController struct {
-	Store services.Store
+	Store *services.Store
 }
 
 func (self *JobsController) Create(c *gin.Context) {

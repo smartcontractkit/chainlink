@@ -7,7 +7,7 @@ import (
 )
 
 type JobRunsController struct {
-	Store services.Store
+	Store *services.Store
 }
 
 func (self *JobRunsController) Index(c *gin.Context) {
