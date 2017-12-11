@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	config := services.NewConfig("~/.chainlink")
+	config := services.NewConfig()
 	logger.SetLoggerDir(config.RootDir)
 	defer logger.Sync()
 	store := services.NewStore(config)

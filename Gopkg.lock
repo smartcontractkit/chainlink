@@ -32,6 +32,12 @@
   revision = "2e60448ffcc6bf78332d1fe590260095f554dd78"
 
 [[projects]]
+  name = "github.com/caarlos0/env"
+  packages = ["."]
+  revision = "9de094f90fa8a13dc162e10ae8a3b95c0c2c33e1"
+  version = "v3.1.1"
+
+[[projects]]
   name = "github.com/coreos/bbolt"
   packages = ["."]
   revision = "32c383e75ce054674c53b5a07e55de85332aee14"
@@ -224,6 +230,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c817509e301a740874904d35ecb1f768ae157db0ee0533652590d59d832fe384"
+  inputs-digest = "193f08308fd1bec9f477ce650d933ef164c7f421bd51b9671787bdde830ba659"
   solver-name = "gps-cdcl"
   solver-version = 1
