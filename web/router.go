@@ -15,7 +15,7 @@ import (
 
 func Router(store *services.Store) *gin.Engine {
 	engine := gin.New()
-	engine.Use(handlerFunc(), gin.Recovery())
+	engine.Use(loggerFunc(), gin.Recovery(), basicAuth)
 
 	j := controllers.JobsController{store}
 	engine.POST("/jobs", j.Create)
@@ -28,7 +28,7 @@ func Router(store *services.Store) *gin.Engine {
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
-func handlerFunc() gin.HandlerFunc {
+func loggerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, _ := ioutil.ReadAll(c.Request.Body)
 		rdr := bytes.NewBuffer(buf)
