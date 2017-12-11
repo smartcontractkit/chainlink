@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
@@ -20,6 +21,8 @@ import (
 )
 
 const testRootDir = "/tmp/chainlink_test"
+const testUsername = "testusername"
+const testPassword = "testpassword"
 
 func init() {
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
@@ -45,7 +48,14 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 }
 
 func Store() *TestStore {
-	config := services.NewConfig(path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())))
+	config := services.Config{
+		path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+		testUsername,
+		testPassword,
+	}
+	if err := os.MkdirAll(config.RootDir, os.FileMode(0700)); err != nil {
+		log.Fatal(err)
+	}
 	logger.SetLoggerDir(config.RootDir)
 	store := services.NewStore(config)
 	return &TestStore{
@@ -86,4 +96,21 @@ func TimeParse(s string) time.Time {
 		log.Fatal(err)
 	}
 	return t
+}
+
+func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("POST", url, body)
+	request.Header.Set("Content-Type", contentType)
+	request.SetBasicAuth(testUsername, testPassword)
+	resp, err := client.Do(request)
+	return resp, err
+}
+
+func BasicAuthGet(url string) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("GET", url, nil)
+	request.SetBasicAuth(testUsername, testPassword)
+	resp, err := client.Do(request)
+	return resp, err
 }

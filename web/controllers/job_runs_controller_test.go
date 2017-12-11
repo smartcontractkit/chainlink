@@ -3,7 +3,6 @@ package controllers_test
 import (
 	"encoding/json"
 	"io/ioutil"
-	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
@@ -33,7 +32,7 @@ func TestJobRunsIndex(t *testing.T) {
 	err = store.Save(&jr)
 	assert.Nil(t, err)
 
-	resp, err := http.Get(server.URL + "/jobs/" + j.ID + "/runs")
+	resp, err := cltest.BasicAuthGet(server.URL + "/jobs/" + j.ID + "/runs")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 

@@ -75,3 +75,7 @@
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
   version = "1.7.3"
+
+[[constraint]]
+  name = "github.com/caarlos0/env"
+  version = "3.1.1"
