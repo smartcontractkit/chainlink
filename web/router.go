@@ -15,6 +15,7 @@ import (
 
 func Router(store *services.Store) *gin.Engine {
 	engine := gin.New()
+	basicAuth := gin.BasicAuth(gin.Accounts{"chainlink": "boguspassword"})
 	engine.Use(loggerFunc(), gin.Recovery(), basicAuth)
 
 	j := controllers.JobsController{store}

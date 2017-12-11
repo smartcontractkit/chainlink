@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
@@ -86,4 +87,21 @@ func TimeParse(s string) time.Time {
 		log.Fatal(err)
 	}
 	return t
+}
+
+func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("POST", url, body)
+	request.Header.Set("Content-Type", contentType)
+	request.SetBasicAuth("chainlink", "boguspassword")
+	resp, err := client.Do(request)
+	return resp, err
+}
+
+func BasicAuthGet(url string) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("GET", url, nil)
+	request.SetBasicAuth("chainlink", "boguspassword")
+	resp, err := client.Do(request)
+	return resp, err
 }
