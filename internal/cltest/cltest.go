@@ -21,6 +21,8 @@ import (
 )
 
 const testRootDir = "/tmp/chainlink_test"
+const testUsername = "testusername"
+const testPassword = "testpassword"
 
 func init() {
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
@@ -46,7 +48,11 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 }
 
 func Store() *TestStore {
-	config := services.NewConfig(path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())))
+	config := services.NewConfig(
+		path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+		testUsername,
+		testPassword,
+	)
 	logger.SetLoggerDir(config.RootDir)
 	store := services.NewStore(config)
 	return &TestStore{
@@ -93,7 +99,7 @@ func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Respon
 	client := &http.Client{}
 	request, _ := http.NewRequest("POST", url, body)
 	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth("chainlink", "boguspassword")
+	request.SetBasicAuth(testUsername, testPassword)
 	resp, err := client.Do(request)
 	return resp, err
 }
@@ -101,7 +107,7 @@ func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Respon
 func BasicAuthGet(url string) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("GET", url, nil)
-	request.SetBasicAuth("chainlink", "boguspassword")
+	request.SetBasicAuth(testUsername, testPassword)
 	resp, err := client.Do(request)
 	return resp, err
 }

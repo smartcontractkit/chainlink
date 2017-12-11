@@ -9,10 +9,12 @@ import (
 )
 
 type Config struct {
-	RootDir string
+	RootDir           string
+	BasicAuthUsername string
+	BasicAuthPassword string
 }
 
-func NewConfig(dir string) Config {
+func NewConfig(dir string, username string, password string) Config {
 	dir, err := homedir.Expand(dir)
 	if err != nil {
 		log.Fatal(err)
@@ -20,7 +22,7 @@ func NewConfig(dir string) Config {
 	if err = os.MkdirAll(dir, os.FileMode(0700)); err != nil {
 		log.Fatal(err)
 	}
-	return Config{dir}
+	return Config{dir, username, password}
 }
 
 func (self Config) KeysDir() string {
