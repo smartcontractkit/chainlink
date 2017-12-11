@@ -38,6 +38,10 @@ func (self Task) Adapter() (adapters.Adapter, error) {
 		temp := &adapters.EthBytes32{}
 		err := json.Unmarshal(self.Params, temp)
 		return temp, err
+	case "EthSendTx":
+		temp := &adapters.EthSendTx{}
+		err := json.Unmarshal(self.Params, temp)
+		return temp, err
 	case "NoOp":
 		return &adapters.NoOp{}, nil
 	}
