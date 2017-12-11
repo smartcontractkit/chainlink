@@ -15,6 +15,7 @@ type Store struct {
 	Config    Config
 	KeyStore  *KeyStore
 	sigs      chan os.Signal
+	Exiter    func(int)
 }
 
 func NewStore(config Config) *Store {
@@ -24,6 +25,7 @@ func NewStore(config Config) *Store {
 		Scheduler: NewScheduler(orm),
 		Config:    config,
 		KeyStore:  NewKeyStore(config.KeysDir()),
+		Exiter:    os.Exit,
 	}
 }
 
@@ -33,7 +35,7 @@ func (self *Store) Start() error {
 	go func() {
 		<-self.sigs
 		self.Close()
-		os.Exit(1)
+		self.Exiter(1)
 	}()
 	return self.Scheduler.Start()
 }
