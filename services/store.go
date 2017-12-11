@@ -33,7 +33,7 @@ func (self *Store) Start() error {
 	go func() {
 		<-self.sigs
 		self.Close()
-		os.Exit(0)
+		os.Exit(1)
 	}()
 	return self.Scheduler.Start()
 }
