@@ -43,22 +43,10 @@
   revision = "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/edsrzf/mmap-go"
-  packages = ["."]
-  revision = "0bce6a6887123b67a60366d2c9fe2dfb74289d2e"
-
-[[projects]]
   name = "github.com/ethereum/go-ethereum"
-  packages = [".","accounts","accounts/keystore","accounts/usbwallet","accounts/usbwallet/internal/trezor","cmd/utils","common","common/bitutil","common/hexutil","common/math","common/mclock","consensus","consensus/clique","consensus/ethash","consensus/misc","console","core","core/bloombits","core/state","core/types","core/vm","crypto","crypto/bn256","crypto/ecies","crypto/randentropy","crypto/secp256k1","crypto/sha3","dashboard","eth","eth/downloader","eth/fetcher","eth/filters","eth/gasprice","ethdb","ethstats","event","internal/debug","internal/ethapi","internal/jsre","internal/jsre/deps","internal/web3ext","les","les/flowcontrol","light","log","log/term","metrics","miner","node","p2p","p2p/discover","p2p/discv5","p2p/nat","p2p/netutil","params","rlp","rpc","trie","whisper/whisperv5"]
+  packages = [".","accounts","accounts/keystore","common","common/hexutil","common/math","common/mclock","core/types","crypto","crypto/randentropy","crypto/secp256k1","crypto/sha3","event","log","params","rlp","trie"]
   revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
   version = "v1.7.3"
-
-[[projects]]
-  name = "github.com/fatih/color"
-  packages = ["."]
-  revision = "570b54cabe6b8eb0bc2dfce68d964677d63b5260"
-  version = "v1.5.0"
 
 [[projects]]
   branch = "master"
@@ -81,14 +69,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
-  packages = ["proto","protoc-gen-go/descriptor"]
+  packages = ["proto"]
   revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  revision = "553a641470496b2327abcac10b36396bd98e45c9"
 
 [[projects]]
   name = "github.com/h2non/gock"
@@ -97,40 +79,10 @@
   version = "v1.0.6"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/hashicorp/golang-lru"
-  packages = [".","simplelru"]
-  revision = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/huin/goupnp"
-  packages = [".","dcps/internetgateway1","dcps/internetgateway2","httpu","scpd","soap","ssdp"]
-  revision = "dceda08e705b2acee36aab47d765ed801f64cfc7"
-
-[[projects]]
-  name = "github.com/jackpal/go-nat-pmp"
-  packages = ["."]
-  revision = "c9cfead9f2a36ddf3daa40ba269aa7f4bbba6b62"
-  version = "v1.0.1"
-
-[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
   version = "1.0.4"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/karalabe/hid"
-  packages = ["."]
-  revision = "93a94ab6671087f0768f1d4e701c0ec14f449df9"
-
-[[projects]]
-  name = "github.com/mattn/go-colorable"
-  packages = ["."]
-  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
-  version = "v0.0.9"
 
 [[projects]]
   branch = "master"
@@ -163,26 +115,14 @@
   version = "v1.1"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/peterh/liner"
-  packages = ["."]
-  revision = "3681c2a912330352991ecdd642f257efe5b85518"
-
-[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "d8ed2627bdf02c080bf22230dbb337003b7aba2d"
 
 [[projects]]
-  name = "github.com/prometheus/prometheus"
-  packages = ["util/flock"]
-  revision = "0a74f98628a0463dddc90528220c94de5032d1a0"
-  version = "v2.0.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/rcrowley/go-metrics"
-  packages = [".","exp"]
+  packages = ["."]
   revision = "e181e095bae94582363434144c61a9653aff6e50"
 
 [[projects]]
@@ -190,18 +130,6 @@
   name = "github.com/rjeczalik/notify"
   packages = ["."]
   revision = "767eb674ef14b09119b2fff3601e64558d530c47"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/robertkrimen/otto"
-  packages = [".","ast","dbg","file","parser","registry","token"]
-  revision = "3b44b4dcb6c00477273595c312908e2412d07da6"
-
-[[projects]]
-  name = "github.com/rs/cors"
-  packages = ["."]
-  revision = "7af7a1e09ba336d2ea14b1ce73bf693c6837dbf6"
-  version = "v1.2"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
@@ -214,12 +142,6 @@
   packages = ["assert"]
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
   version = "v1.1.4"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/syndtr/goleveldb"
-  packages = ["leveldb","leveldb/cache","leveldb/comparer","leveldb/errors","leveldb/filter","leveldb/iterator","leveldb/journal","leveldb/memdb","leveldb/opt","leveldb/storage","leveldb/table","leveldb/util"]
-  revision = "adf24ef3f94bd13ec4163060b21a5678f22b429b"
 
 [[projects]]
   branch = "master"
@@ -248,20 +170,14 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["pbkdf2","ripemd160","scrypt","ssh/terminal"]
+  packages = ["pbkdf2","scrypt","ssh/terminal"]
   revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["html","html/atom","html/charset","websocket"]
+  packages = ["html","html/atom","html/charset"]
   revision = "a8b9294777976932365dabb6640cf1468d95c70f"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/sync"
-  packages = ["syncmap"]
-  revision = "fd80eb99c8f653c847d294a001bdf2a3a6f768f5"
 
 [[projects]]
   branch = "master"
@@ -301,24 +217,6 @@
 
 [[projects]]
   branch = "v2"
-  name = "gopkg.in/natefinch/npipe.v2"
-  packages = ["."]
-  revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"
-
-[[projects]]
-  name = "gopkg.in/sourcemap.v1"
-  packages = [".","base64vlq"]
-  revision = "6e83acea0053641eff084973fee085f0c193c61a"
-  version = "v1.0.5"
-
-[[projects]]
-  name = "gopkg.in/urfave/cli.v1"
-  packages = ["."]
-  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
-  version = "v1.20.0"
-
-[[projects]]
-  branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
@@ -326,6 +224,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "942ee843e7fe198fce3698ff1d4f26d1f45099419ca8a14a5448e04b51d91664"
+  inputs-digest = "c817509e301a740874904d35ecb1f768ae157db0ee0533652590d59d832fe384"
   solver-name = "gps-cdcl"
   solver-version = 1
