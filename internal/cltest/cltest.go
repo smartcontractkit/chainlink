@@ -10,14 +10,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"testing"
 	"time"
 
 	"github.com/araddon/dateparse"
 	"github.com/gin-gonic/gin"
+	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/web"
+	"github.com/stretchr/testify/assert"
 )
 
 const testRootDir = "/tmp/chainlink_test"
@@ -80,6 +83,12 @@ func (self *TestStore) Close() {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
 	}
+}
+
+func CloseGock(t *testing.T) {
+	assert.True(t, gock.IsDone(), "Not all gock requests were fulfilled")
+	gock.DisableNetworking()
+	gock.Off()
 }
 
 func LoadJSON(file string) []byte {
