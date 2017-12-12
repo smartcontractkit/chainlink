@@ -54,25 +54,33 @@ func TestCreateJobs(t *testing.T) {
 
 func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
-	defer gock.Off()
-	defer gock.DisableNetworking()
-	gock.EnableNetworking()
 
 	store := cltest.Store()
-	store.Start()
 	server := store.SetUpWeb()
 	defer store.Close()
 
-	expectedResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
+	defer cltest.CloseGock(t)
+	gock.EnableNetworking()
+
+	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	gock.New("https://www.bitstamp.net").
-		Get("/api/ticker").
+		Get("/api/ticker/").
 		Reply(200).
-		JSON(expectedResponse)
+		JSON(tickerResponse)
+
+	ethResponse := `{"result": "0x0100"}`
+	gock.New("http://example.com").
+		Post("/api").
+		Reply(200).
+		JSON(ethResponse)
 
 	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
-	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	assert.Nil(t, err)
 	defer resp.Body.Close()
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
+
+	store.Start()
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
@@ -83,16 +91,16 @@ func TestCreateJobsIntegration(t *testing.T) {
 	store.Scheduler.Stop()
 
 	var job models.Job
-	err := store.One("ID", respJSON.ID, &job)
+	err = store.One("ID", respJSON.ID, &job)
 	assert.Nil(t, err)
 
 	jobRuns, err = store.JobRunsFor(job)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(jobRuns))
 	jobRun := jobRuns[0]
-	assert.Equal(t, expectedResponse, jobRun.TaskRuns[0].Result.Value())
-	jobRun = jobRuns[0]
+	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
+	assert.Equal(t, "0x0100", jobRun.Result.Value())
 }
 
 func TestCreateInvalidJobs(t *testing.T) {
