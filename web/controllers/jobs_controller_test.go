@@ -31,7 +31,7 @@ func TestCreateJobs(t *testing.T) {
 	store.One("ID", respJSON.ID, &j)
 	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
-	assert.Equal(t, "* 7 * * *", string(sched.Cron), "Wrong cron schedule saved")
+	assert.Equal(t, "* * * * *", string(sched.Cron), "Wrong cron schedule saved")
 	assert.Equal(t, (*models.Time)(nil), sched.StartAt, "Wrong start at saved")
 	endAt := models.Time{cltest.TimeParse("2019-11-27T23:05:49Z")}
 	assert.Equal(t, endAt, *sched.EndAt, "Wrong end at saved")
@@ -69,7 +69,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 		Reply(200).
 		JSON(expectedResponse)
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_hello_world_job.json")
+	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
 	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	defer resp.Body.Close()
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
