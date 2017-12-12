@@ -46,10 +46,10 @@ func TestCreateJobs(t *testing.T) {
 	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	adapter3, _ := j.Tasks[2].Adapter()
-	bytes32 := adapter3.(*adapters.EthBytes32)
-	assert.Equal(t, bytes32.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
-	assert.Equal(t, bytes32.FunctionID, "12345679")
+	adapter4, _ := j.Tasks[3].Adapter()
+	sendTx := adapter4.(*adapters.EthSendTx)
+	assert.Equal(t, sendTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
+	assert.Equal(t, sendTx.FunctionID, "12345679")
 }
 
 func TestCreateJobsIntegration(t *testing.T) {
