@@ -55,22 +55,24 @@ func TestCreateJobs(t *testing.T) {
 func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
 	defer gock.Off()
+	defer gock.DisableNetworking()
+	gock.EnableNetworking()
 
 	store := cltest.Store()
 	store.Start()
 	server := store.SetUpWeb()
 	defer store.Close()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_hello_world_job.json")
-	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	defer resp.Body.Close()
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-
 	expectedResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	gock.New("https://www.bitstamp.net").
 		Get("/api/ticker").
 		Reply(200).
 		JSON(expectedResponse)
+
+	jsonStr := cltest.LoadJSON("./fixtures/create_hello_world_job.json")
+	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	defer resp.Body.Close()
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
