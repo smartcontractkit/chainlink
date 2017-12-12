@@ -2,7 +2,8 @@
   "tasks": [
     { "type": "HttpGet", "params": { "endpoint": "https://bitstamp.net/api/ticker/" } },
     { "type": "JsonParse", "params": { "path": ["last"] } },
-    { "type": "EthBytes32", "params": { "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3", "functionID": "12345679" } }
+    { "type": "EthBytes32", "params": {} },
+    { "type": "EthSendTx", "params": { "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3", "functionID": "12345679" } }
   ],
   "schedule": {"endAt": "2019-11-27T23:05:49Z", "runAt": ["2018-11-27T23:05:49Z"], "cron": "* 7 * * *"},
   "version": "1.0.0"
