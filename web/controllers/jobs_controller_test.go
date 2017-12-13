@@ -9,9 +9,9 @@ import (
 
 	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
 	"github.com/stretchr/testify/assert"
 )
 

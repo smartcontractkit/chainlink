@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
+	"github.com/smartcontractkit/chainlink-go/adapters"
 )
 
 type Task struct {

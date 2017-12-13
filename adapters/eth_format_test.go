@@ -3,7 +3,7 @@ package adapters_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
+	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/stretchr/testify/assert"
 	null "gopkg.in/guregu/null.v3"
 )

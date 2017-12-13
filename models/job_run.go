@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
+	"github.com/smartcontractkit/chainlink-go/adapters"
 )
 
 type JobRun struct {
