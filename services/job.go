@@ -42,9 +42,9 @@ func StartJob(run models.JobRun, orm *models.ORM) error {
 	return runJobError(run, orm.Save(&run))
 }
 
-func startTask(run models.TaskRun, input adapters.RunResult) models.TaskRun {
+func startTask(run models.TaskRun, input models.RunResult) models.TaskRun {
 	run.Status = "in progress"
-	adapter, err := run.Adapter()
+	adapter, err := adapters.For(run.Task)
 
 	if err != nil {
 		run.Status = "errored"

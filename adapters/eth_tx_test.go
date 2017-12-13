@@ -6,6 +6,7 @@ import (
 	gock "github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +16,7 @@ func TestSendingEthereumTx(t *testing.T) {
 	address := "0x1234567890"
 	fid := "0x12345678"
 	value := "0000abcdef"
-	input := adapters.RunResultWithValue(value)
+	input := models.RunResultWithValue(value)
 
 	response := `{"result": "0x0100"}`
 	gock.New("http://example.com").
