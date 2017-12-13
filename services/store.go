@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
@@ -12,13 +13,13 @@ import (
 type Store struct {
 	*models.ORM
 	Scheduler *Scheduler
-	Config    Config
+	Config    configlib.Config
 	KeyStore  *KeyStore
 	sigs      chan os.Signal
 	Exiter    func(int)
 }
 
-func NewStore(config Config) *Store {
+func NewStore(config configlib.Config) *Store {
 	orm := models.NewORM(config.RootDir)
 	return &Store{
 		ORM:       orm,
