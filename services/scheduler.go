@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 
 	cronlib "github.com/mrwonko/cron"
@@ -9,15 +10,22 @@ import (
 )
 
 type Scheduler struct {
-	cron *cronlib.Cron
-	orm  *models.ORM
+	cron    *cronlib.Cron
+	orm     *models.ORM
+	started bool
 }
 
 func NewScheduler(orm *models.ORM) *Scheduler {
-	return &Scheduler{cronlib.New(), orm}
+	return &Scheduler{orm: orm}
 }
 
 func (self *Scheduler) Start() error {
+	if self.started {
+		return errors.New("Scheduler already started")
+	}
+	self.started = true
+	self.cron = cronlib.New()
+
 	jobs, err := self.orm.JobsWithCron()
 	if err != nil {
 		return fmt.Errorf("Scheduler: %v", err)
@@ -32,11 +40,17 @@ func (self *Scheduler) Start() error {
 }
 
 func (self *Scheduler) Stop() {
-	self.cron.Stop()
-	self.cron.Wait()
+	if self.started {
+		self.cron.Stop()
+		self.cron.Wait()
+		self.started = false
+	}
 }
 
 func (self *Scheduler) AddJob(job models.Job) {
+	if !self.started {
+		return
+	}
 	cronStr := string(job.Schedule.Cron)
 	self.cron.AddFunc(cronStr, func() {
 		err := StartJob(job.NewRun(), self.orm)

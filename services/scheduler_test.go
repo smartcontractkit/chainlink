@@ -59,3 +59,29 @@ func TestAddJob(t *testing.T) {
 		return jobRuns
 	}).Should(HaveLen(1))
 }
+
+func TestAddJobWhenStopped(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
+	store := cltest.Store()
+	defer store.Close()
+
+	sched := services.NewScheduler(store.ORM)
+
+	j := models.NewJob()
+	j.Schedule = models.Schedule{Cron: "* * * * *"}
+	_ = store.Save(&j)
+	sched.AddJob(j)
+
+	jobRuns := []models.JobRun{}
+	Consistently(func() []models.JobRun {
+		_ = store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(0))
+
+	sched.Start()
+	Eventually(func() []models.JobRun {
+		_ = store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+}
