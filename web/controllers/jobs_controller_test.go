@@ -38,15 +38,15 @@ func TestCreateJobs(t *testing.T) {
 	runAt0 := models.Time{cltest.TimeParse("2018-11-27T23:05:49Z")}
 	assert.Equal(t, runAt0, sched.RunAt[0], "Wrong run at saved")
 
-	adapter1, _ := j.Tasks[0].Adapter()
+	adapter1, _ := adapters.For(j.Tasks[0])
 	httpGet := adapter1.(*adapters.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := j.Tasks[1].Adapter()
+	adapter2, _ := adapters.For(j.Tasks[1])
 	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	adapter4, _ := j.Tasks[3].Adapter()
+	adapter4, _ := adapters.For(j.Tasks[3])
 	sendTx := adapter4.(*adapters.EthSendTx)
 	assert.Equal(t, sendTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, sendTx.FunctionID, "12345679")
