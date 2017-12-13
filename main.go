@@ -3,11 +3,12 @@ package main
 import (
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
+	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/web"
 )
 
 func main() {
-	config := services.NewConfig()
+	config := configlib.New()
 	logger.SetLoggerDir(config.RootDir)
 	defer logger.Sync()
 	store := services.NewStore(config)

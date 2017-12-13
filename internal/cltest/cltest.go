@@ -19,6 +19,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
+	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,7 +52,7 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 }
 
 func Store() *TestStore {
-	config := services.Config{
+	config := configlib.Config{
 		path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
 		testUsername,
 		testPassword,

@@ -15,7 +15,7 @@ type Config struct {
 	BasicAuthPassword string `env:"PASSWORD" envDefault:"twochains"`
 }
 
-func NewConfig() Config {
+func New() Config {
 	config := Config{}
 	env.Parse(&config)
 	dir, err := homedir.Expand(config.RootDir)
