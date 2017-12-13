@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	gock "github.com/h2non/gock"
+	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
 	"github.com/stretchr/testify/assert"
 )
 

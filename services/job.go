@@ -3,9 +3,9 @@ package services
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
 )
 
 func StartJob(run models.JobRun, orm *models.ORM) error {
