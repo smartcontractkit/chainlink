@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	cronlib "github.com/mrwonko/cron"
+	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
@@ -12,6 +13,7 @@ import (
 type Scheduler struct {
 	cron    *cronlib.Cron
 	orm     *models.ORM
+	config  configlib.Config
 	started bool
 }
 
@@ -53,7 +55,7 @@ func (self *Scheduler) AddJob(job models.Job) {
 	}
 	cronStr := string(job.Schedule.Cron)
 	self.cron.AddFunc(cronStr, func() {
-		err := StartJob(job.NewRun(), self.orm)
+		err := StartJob(job.NewRun(), self.orm, self.config)
 		if err != nil {
 			logger.Panic(err.Error())
 		}
