@@ -2,10 +2,12 @@ package adapters
 
 import (
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
 
 type EthSendTx struct {
+	Config     config.Config
 	Address    string `json:"address"`
 	FunctionID string `json:"functionID"`
 }
