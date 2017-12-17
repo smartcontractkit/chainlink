@@ -13,6 +13,7 @@ type Config struct {
 	RootDir           string `env:"ROOT" envDefault:"~/.chainlink"`
 	BasicAuthUsername string `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword string `env:"PASSWORD" envDefault:"twochains"`
+	EthereumURL       string `env:"ETHEREUM_URL" envDefault:"http://localhost:8545"`
 }
 
 func New() Config {
