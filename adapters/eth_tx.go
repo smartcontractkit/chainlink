@@ -13,7 +13,7 @@ type EthSendTx struct {
 }
 
 func (self *EthSendTx) Perform(input models.RunResult) models.RunResult {
-	eth, err := rpc.Dial("http://example.com/api")
+	eth, err := rpc.Dial(self.Config.EthereumURL)
 	if err != nil {
 		return models.RunResult{Error: err}
 	}
