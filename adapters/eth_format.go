@@ -5,7 +5,9 @@ import (
 	"github.com/smartcontractkit/chainlink-go/models"
 )
 
-type EthBytes32 struct{}
+type EthBytes32 struct {
+	AdapterBase
+}
 
 const maxBytes32HexLength = 32 * 2
 
