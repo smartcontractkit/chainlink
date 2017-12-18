@@ -13,36 +13,45 @@ type Adapter interface {
 	Perform(models.RunResult) models.RunResult
 }
 
-type adapterBase struct {
-	*config.Config
+type AdapterBase struct {
+	Config config.Config
 }
 
 type Output map[string]null.String
 
+type configSetter interface {
+	setConfig(config.Config)
+}
+
+type adapterConfigSetter interface {
+	Adapter
+	configSetter
+}
+
 func For(task models.Task, cf config.Config) (Adapter, error) {
+	var ac adapterConfigSetter
+	var err error
 	switch task.Type {
 	case "HttpGet":
-		temp := &HttpGet{}
-		err := json.Unmarshal(task.Params, temp)
-		return temp, err
+		ac = &HttpGet{}
+		err = json.Unmarshal(task.Params, ac)
 	case "JsonParse":
-		temp := &JsonParse{}
-		err := json.Unmarshal(task.Params, temp)
-		return temp, err
+		ac = &JsonParse{}
+		err = json.Unmarshal(task.Params, ac)
 	case "EthBytes32":
-		temp := &EthBytes32{}
-		err := unmarshalOrEmpty(task.Params, temp)
-		return temp, err
+		ac = &EthBytes32{}
+		err = unmarshalOrEmpty(task.Params, ac)
 	case "EthSendTx":
-		temp := &EthSendTx{}
-		err := json.Unmarshal(task.Params, temp)
-		temp.Config = cf
-		return temp, err
+		ac = &EthSendTx{}
+		err = json.Unmarshal(task.Params, ac)
 	case "NoOp":
-		return &NoOp{}, nil
+		ac, err = &NoOp{}, nil
+	default:
+		return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 	}
 
-	return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
+	ac.setConfig(cf)
+	return ac, err
 }
 
 func unmarshalOrEmpty(params json.RawMessage, dst interface{}) error {
@@ -67,4 +76,8 @@ func Validate(job models.Job) error {
 func validateTask(task models.Task) error {
 	_, err := For(task, config.Config{})
 	return err
+}
+
+func (self AdapterBase) setConfig(cf config.Config) {
+	self.Config = cf
 }

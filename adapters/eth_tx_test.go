@@ -26,9 +26,9 @@ func TestSendingEthereumTx(t *testing.T) {
 		JSON(response)
 
 	adapter := adapters.EthSendTx{
-		Address:    address,
-		FunctionID: fid,
-		Config:     config,
+		Address:     address,
+		FunctionID:  fid,
+		AdapterBase: adapters.AdapterBase{config},
 	}
 	result := adapter.Perform(input)
 	assert.Equal(t, "0x0100", result.Value())
