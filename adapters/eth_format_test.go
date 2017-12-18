@@ -48,6 +48,6 @@ func TestEthereumBytes32Formatting(t *testing.T) {
 		result := adapter.Perform(past)
 
 		assert.Equal(t, test.expected, result.Value())
-		assert.Nil(t, result.Error)
+		assert.Nil(t, result.GetError())
 	}
 }

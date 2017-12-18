@@ -15,12 +15,12 @@ type JsonParse struct {
 func (self *JsonParse) Perform(input models.RunResult) models.RunResult {
 	js, err := simplejson.NewJson([]byte(input.Value()))
 	if err != nil {
-		return models.RunResult{Error: err}
+		return models.RunResultWithError(err)
 	}
 
 	js, err = checkEarlyPath(js, self.Path)
 	if err != nil {
-		return models.RunResult{Error: err}
+		return models.RunResultWithError(err)
 	}
 
 	rval, ok := js.CheckGet(self.Path[len(self.Path)-1])

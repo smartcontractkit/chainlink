@@ -14,12 +14,12 @@ type EthSendTx struct {
 func (self *EthSendTx) Perform(input models.RunResult) models.RunResult {
 	eth, err := rpc.Dial(self.Config.EthereumURL)
 	if err != nil {
-		return models.RunResult{Error: err}
+		return models.RunResultWithError(err)
 	}
 	var result string
 	err = eth.Call(&result, "eth_sendRawTransaction", input.Value())
 	if err != nil {
-		return models.RunResult{Error: err}
+		return models.RunResultWithError(err)
 	}
 
 	return models.RunResultWithValue(result)
