@@ -47,9 +47,9 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
 	adapter4, _ := adapters.For(j.Tasks[3], store.Config)
-	sendTx := adapter4.(*adapters.EthSendTx)
-	assert.Equal(t, sendTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
-	assert.Equal(t, sendTx.FunctionID, "12345679")
+	signTx := adapter4.(*adapters.EthSignTx)
+	assert.Equal(t, signTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
+	assert.Equal(t, signTx.FunctionID, "12345679")
 }
 
 func TestCreateJobsIntegration(t *testing.T) {
