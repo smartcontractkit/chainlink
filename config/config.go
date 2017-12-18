@@ -1,4 +1,4 @@
-package services
+package config
 
 import (
 	"log"
@@ -13,9 +13,10 @@ type Config struct {
 	RootDir           string `env:"ROOT" envDefault:"~/.chainlink"`
 	BasicAuthUsername string `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword string `env:"PASSWORD" envDefault:"twochains"`
+	EthereumURL       string `env:"ETHEREUM_URL" envDefault:"http://localhost:8545"`
 }
 
-func NewConfig() Config {
+func New() Config {
 	config := Config{}
 	env.Parse(&config)
 	dir, err := homedir.Expand(config.RootDir)

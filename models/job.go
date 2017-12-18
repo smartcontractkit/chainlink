@@ -51,18 +51,6 @@ func (self Job) NewRun() JobRun {
 	}
 }
 
-func (self Job) Validate() error {
-	var err error
-	for _, t := range self.Tasks {
-		err = t.Validate()
-		if err != nil {
-			break
-		}
-	}
-
-	return err
-}
-
 func (self *Time) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)

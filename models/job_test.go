@@ -3,6 +3,7 @@ package models_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/stretchr/testify/assert"
@@ -38,6 +39,6 @@ func TestJobNewRun(t *testing.T) {
 	assert.Equal(t, 1, len(newRun.TaskRuns))
 	assert.Equal(t, "NoOp", job.Tasks[0].Type)
 	assert.Nil(t, job.Tasks[0].Params)
-	adapter, _ := job.Tasks[0].Adapter()
+	adapter, _ := adapters.For(job.Tasks[0], store.Config)
 	assert.NotNil(t, adapter)
 }
