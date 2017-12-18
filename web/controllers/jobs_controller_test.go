@@ -69,8 +69,8 @@ func TestCreateJobsIntegration(t *testing.T) {
 		JSON(tickerResponse)
 
 	ethResponse := `{"result": "0x0100"}`
-	gock.New("http://example.com").
-		Post("/api").
+	gock.New(store.Config.EthereumURL).
+		Post("").
 		Reply(200).
 		JSON(ethResponse)
 

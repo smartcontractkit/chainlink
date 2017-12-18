@@ -23,7 +23,7 @@ func NewStore(config configlib.Config) *Store {
 	orm := models.NewORM(config.RootDir)
 	return &Store{
 		ORM:       orm,
-		Scheduler: NewScheduler(orm),
+		Scheduler: NewScheduler(orm, config),
 		Config:    config,
 		KeyStore:  NewKeyStore(config.KeysDir()),
 		Exiter:    os.Exit,

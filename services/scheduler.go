@@ -17,8 +17,8 @@ type Scheduler struct {
 	started bool
 }
 
-func NewScheduler(orm *models.ORM) *Scheduler {
-	return &Scheduler{orm: orm}
+func NewScheduler(orm *models.ORM, cf configlib.Config) *Scheduler {
+	return &Scheduler{orm: orm, config: cf}
 }
 
 func (self *Scheduler) Start() error {
