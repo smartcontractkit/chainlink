@@ -78,6 +78,6 @@ func validateTask(task models.Task) error {
 	return err
 }
 
-func (self AdapterBase) setConfig(cf config.Config) {
+func (self *AdapterBase) setConfig(cf config.Config) {
 	self.Config = cf
 }

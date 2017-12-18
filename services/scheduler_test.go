@@ -22,7 +22,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	_ = store.Save(&j)
 	_ = store.Save(&jobWoCron)
 
-	sched := services.NewScheduler(store.ORM)
+	sched := services.NewScheduler(store.ORM, store.Config)
 	err := sched.Start()
 	assert.Nil(t, err)
 
@@ -44,7 +44,7 @@ func TestAddJob(t *testing.T) {
 	store := cltest.Store()
 	defer store.Close()
 
-	sched := services.NewScheduler(store.ORM)
+	sched := services.NewScheduler(store.ORM, store.Config)
 	_ = sched.Start()
 	defer sched.Stop()
 
@@ -66,7 +66,7 @@ func TestAddJobWhenStopped(t *testing.T) {
 	store := cltest.Store()
 	defer store.Close()
 
-	sched := services.NewScheduler(store.ORM)
+	sched := services.NewScheduler(store.ORM, store.Config)
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "* * * * *"}
