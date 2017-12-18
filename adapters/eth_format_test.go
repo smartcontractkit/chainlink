@@ -3,7 +3,8 @@ package adapters_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
+	"github.com/smartcontractkit/chainlink-go/adapters"
+	"github.com/smartcontractkit/chainlink-go/models"
 	"github.com/stretchr/testify/assert"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -40,13 +41,13 @@ func TestEthereumBytes32Formatting(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		past := adapters.RunResult{
-			Output: adapters.Output{"value": test.value},
+		past := models.RunResult{
+			Output: models.Output{"value": test.value},
 		}
 		adapter := adapters.EthBytes32{}
 		result := adapter.Perform(past)
 
 		assert.Equal(t, test.expected, result.Value())
-		assert.Nil(t, result.Error)
+		assert.Nil(t, result.GetError())
 	}
 }

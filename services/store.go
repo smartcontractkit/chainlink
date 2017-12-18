@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
 )
@@ -12,17 +13,17 @@ import (
 type Store struct {
 	*models.ORM
 	Scheduler *Scheduler
-	Config    Config
+	Config    configlib.Config
 	KeyStore  *KeyStore
 	sigs      chan os.Signal
 	Exiter    func(int)
 }
 
-func NewStore(config Config) *Store {
+func NewStore(config configlib.Config) *Store {
 	orm := models.NewORM(config.RootDir)
 	return &Store{
 		ORM:       orm,
-		Scheduler: NewScheduler(orm),
+		Scheduler: NewScheduler(orm, config),
 		Config:    config,
 		KeyStore:  NewKeyStore(config.KeysDir()),
 		Exiter:    os.Exit,
@@ -47,12 +48,7 @@ func (self *Store) Close() {
 }
 
 func (self *Store) AddJob(job models.Job) error {
-	err := job.Validate()
-	if err != nil {
-		return err
-	}
-
-	err = self.Save(&job)
+	err := self.Save(&job)
 	if err != nil {
 		return err
 	}

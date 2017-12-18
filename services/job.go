@@ -3,12 +3,13 @@ package services
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-go/adapters"
+	"github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
-	"github.com/smartcontractkit/chainlink-go/models/adapters"
 )
 
-func StartJob(run models.JobRun, orm *models.ORM) error {
+func StartJob(run models.JobRun, orm *models.ORM, cf config.Config) error {
 	run.Status = "in progress"
 	err := orm.Save(&run)
 	if err != nil {
@@ -18,7 +19,7 @@ func StartJob(run models.JobRun, orm *models.ORM) error {
 	logger.Infow("Starting job", run.ForLogger()...)
 	var prevRun models.TaskRun
 	for i, taskRun := range run.TaskRuns {
-		prevRun = startTask(taskRun, prevRun.Result)
+		prevRun = startTask(taskRun, prevRun.Result, cf)
 		run.TaskRuns[i] = prevRun
 		err = orm.Save(&run)
 		if err != nil {
@@ -26,13 +27,13 @@ func StartJob(run models.JobRun, orm *models.ORM) error {
 		}
 
 		logger.Infow("Task finished", run.ForLogger("task", i, "result", prevRun.Result)...)
-		if prevRun.Result.Error != nil {
+		if prevRun.Result.HasError() {
 			break
 		}
 	}
 
 	run.Result = prevRun.Result
-	if run.Result.Error != nil {
+	if run.Result.HasError() {
 		run.Status = "errored"
 	} else {
 		run.Status = "completed"
@@ -42,18 +43,18 @@ func StartJob(run models.JobRun, orm *models.ORM) error {
 	return runJobError(run, orm.Save(&run))
 }
 
-func startTask(run models.TaskRun, input adapters.RunResult) models.TaskRun {
+func startTask(run models.TaskRun, input models.RunResult, cf config.Config) models.TaskRun {
 	run.Status = "in progress"
-	adapter, err := run.Adapter()
+	adapter, err := adapters.For(run.Task, cf)
 
 	if err != nil {
 		run.Status = "errored"
-		run.Result.Error = err
+		run.Result.SetError(err)
 		return run
 	}
 	run.Result = adapter.Perform(input)
 
-	if run.Result.Error != nil {
+	if run.Result.HasError() {
 		run.Status = "errored"
 	} else {
 		run.Status = "completed"

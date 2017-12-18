@@ -21,7 +21,7 @@ func TestRunningJob(t *testing.T) {
 	run := job.NewRun()
 	assert.Equal(t, "", run.Status)
 
-	services.StartJob(run, store.ORM)
+	services.StartJob(run, store.ORM, store.Config)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, "completed", run.Status)
