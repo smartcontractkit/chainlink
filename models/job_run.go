@@ -14,14 +14,15 @@ type JobRun struct {
 }
 
 func (self JobRun) ForLogger(kvs ...interface{}) []interface{} {
-	var err string
-	if self.Result.Error != nil {
-		err = self.Result.Error.Error()
-	}
-	return append(kvs, []interface{}{
+	output := []interface{}{
 		"job", self.JobID,
 		"run", self.ID,
 		"status", self.Status,
-		"error", err,
-	}...)
+	}
+
+	if self.Result.HasError() {
+		output = append(output, "error", self.Result.Error())
+	}
+
+	return append(kvs, output...)
 }

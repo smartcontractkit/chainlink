@@ -27,13 +27,13 @@ func StartJob(run models.JobRun, orm *models.ORM, cf config.Config) error {
 		}
 
 		logger.Infow("Task finished", run.ForLogger("task", i, "result", prevRun.Result)...)
-		if prevRun.Result.Error != nil {
+		if prevRun.Result.HasError() {
 			break
 		}
 	}
 
 	run.Result = prevRun.Result
-	if run.Result.Error != nil {
+	if run.Result.HasError() {
 		run.Status = "errored"
 	} else {
 		run.Status = "completed"
@@ -49,12 +49,12 @@ func startTask(run models.TaskRun, input models.RunResult, cf config.Config) mod
 
 	if err != nil {
 		run.Status = "errored"
-		run.Result.Error = err
+		run.Result.SetError(err)
 		return run
 	}
 	run.Result = adapter.Perform(input)
 
-	if run.Result.Error != nil {
+	if run.Result.HasError() {
 		run.Status = "errored"
 	} else {
 		run.Status = "completed"
