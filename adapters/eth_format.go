@@ -2,7 +2,7 @@ package adapters
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type EthBytes32 struct {

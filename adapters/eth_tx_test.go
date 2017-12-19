@@ -6,7 +6,7 @@ import (
 	gock "github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	storelib "github.com/smartcontractkit/chainlink-go/store"
 	"github.com/stretchr/testify/assert"
 )
