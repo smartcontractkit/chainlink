@@ -8,11 +8,7 @@ import (
 )
 
 func main() {
-	config := store.NewConfig()
-	logger.SetLoggerDir(config.RootDir)
-	defer logger.Sync()
-	app := services.NewApplication(config)
-
+	app := services.NewApplication(store.NewConfig())
 	services.Authenticate(app.Store)
 	r := web.Router(app)
 

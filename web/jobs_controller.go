@@ -1,4 +1,4 @@
-package controllers
+package web
 
 import (
 	"github.com/asdine/storm"
