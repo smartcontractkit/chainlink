@@ -13,6 +13,7 @@ type Application struct {
 
 func NewApplication(config store.Config) *Application {
 	store := store.NewStore(config)
+	logger.SetLoggerDir(config.RootDir)
 	return &Application{
 		Scheduler: NewScheduler(store),
 		Store:     store,
@@ -25,6 +26,7 @@ func (self *Application) Start() error {
 }
 
 func (self *Application) Stop() error {
+	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	self.Scheduler.Stop()
 	return self.Store.Close()

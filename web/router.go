@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
-	"github.com/smartcontractkit/chainlink-go/web/controllers"
 )
 
 func Router(app *services.Application) *gin.Engine {
@@ -19,11 +18,11 @@ func Router(app *services.Application) *gin.Engine {
 	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
 	engine.Use(loggerFunc(), gin.Recovery(), basicAuth)
 
-	j := controllers.JobsController{app}
+	j := JobsController{app}
 	engine.POST("/jobs", j.Create)
 	engine.GET("/jobs/:id", j.Show)
 
-	jr := controllers.JobRunsController{app}
+	jr := JobRunsController{app}
 	engine.GET("/jobs/:id/runs", jr.Index)
 
 	return engine

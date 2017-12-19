@@ -1,4 +1,4 @@
-package controllers_test
+package web_test
 
 import (
 	"encoding/json"

@@ -17,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
@@ -51,9 +50,7 @@ func NewApplication() *TestApplication {
 }
 
 func NewApplicationWithConfig(config store.Config) *TestApplication {
-	app := &TestApplication{Application: services.NewApplication(config)}
-	logger.SetLoggerDir(config.RootDir)
-	return app
+	return &TestApplication{Application: services.NewApplication(config)}
 }
 
 func (self *TestApplication) NewServer() *httptest.Server {
