@@ -1,4 +1,4 @@
-package services_test
+package store_test
 
 import (
 	"syscall"
@@ -11,7 +11,7 @@ import (
 func TestGracefulShutdown(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
 	var completed bool

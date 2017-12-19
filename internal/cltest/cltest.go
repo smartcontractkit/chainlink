@@ -17,9 +17,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
-	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,9 +32,61 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
 }
 
-type TestStore struct {
-	*services.Store
+func NewConfig() store.Config {
+	return store.Config{
+		RootDir:           path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+		BasicAuthUsername: testUsername,
+		BasicAuthPassword: testPassword,
+		EthereumURL:       "http://example.com/api",
+	}
+}
+
+type TestApplication struct {
+	*services.Application
 	Server *httptest.Server
+}
+
+func NewApplication() *TestApplication {
+	return NewApplicationWithConfig(NewConfig())
+}
+
+func NewApplicationWithConfig(config store.Config) *TestApplication {
+	app := &TestApplication{Application: services.NewApplication(config)}
+	logger.SetLoggerDir(config.RootDir)
+	return app
+}
+
+func (self *TestApplication) NewServer() *httptest.Server {
+	gin.SetMode(gin.TestMode)
+	server := httptest.NewServer(web.Router(self.Application))
+	self.Server = server
+	return server
+}
+
+func (self *TestApplication) Stop() {
+	self.Application.Stop()
+	CleanUpStore(self.Store)
+	if self.Server != nil {
+		gin.SetMode(gin.DebugMode)
+		self.Server.Close()
+	}
+}
+
+func NewStore() *store.Store {
+	return store.NewStore(NewConfig())
+}
+
+func CleanUpStore(store *store.Store) {
+	store.Close()
+	if err := os.RemoveAll(store.Config.RootDir); err != nil {
+		log.Println(err)
+	}
+}
+
+func CloseGock(t *testing.T) {
+	assert.True(t, gock.IsDone(), "Not all gock requests were fulfilled")
+	gock.DisableNetworking()
+	gock.Off()
 }
 
 type JobJSON struct {
@@ -49,55 +101,6 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 	var respJSON JobJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
-}
-
-func Store() *TestStore {
-	return StoreWithConfig(NewConfig())
-}
-
-func StoreWithConfig(config configlib.Config) *TestStore {
-	if err := os.MkdirAll(config.RootDir, os.FileMode(0700)); err != nil {
-		log.Fatal(err)
-	}
-	logger.SetLoggerDir(config.RootDir)
-	store := services.NewStore(config)
-	return &TestStore{
-		Store: store,
-	}
-}
-
-func NewConfig() configlib.Config {
-	return configlib.Config{
-		RootDir:           path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
-		BasicAuthUsername: testUsername,
-		BasicAuthPassword: testPassword,
-		EthereumURL:       "http://example.com/api",
-	}
-}
-
-func (self *TestStore) SetUpWeb() *httptest.Server {
-	gin.SetMode(gin.TestMode)
-	server := httptest.NewServer(web.Router(self.Store))
-	self.Server = server
-	return server
-}
-
-func (self *TestStore) Close() {
-	self.Store.Close()
-	if err := os.RemoveAll(self.Config.RootDir); err != nil {
-		log.Println(err)
-	}
-
-	if self.Server != nil {
-		gin.SetMode(gin.DebugMode)
-		self.Server.Close()
-	}
-}
-
-func CloseGock(t *testing.T) {
-	assert.True(t, gock.IsDone(), "Not all gock requests were fulfilled")
-	gock.DisableNetworking()
-	gock.Off()
 }
 
 func LoadJSON(file string) []byte {
@@ -127,7 +130,7 @@ func CopyFile(src, dst string) {
 	}
 }
 
-func AddPrivateKey(config configlib.Config, src string) {
+func AddPrivateKey(config store.Config, src string) {
 	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
 	if err != nil {
 		log.Fatal(err)

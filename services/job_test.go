@@ -11,7 +11,7 @@ import (
 
 func TestRunningJob(t *testing.T) {
 	t.Parallel()
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
 	job := models.NewJob()
@@ -21,7 +21,7 @@ func TestRunningJob(t *testing.T) {
 	run := job.NewRun()
 	assert.Equal(t, "", run.Status)
 
-	services.StartJob(run, store.ORM, store.Config)
+	services.StartJob(run, store)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, "completed", run.Status)

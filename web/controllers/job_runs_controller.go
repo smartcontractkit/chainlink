@@ -7,15 +7,14 @@ import (
 )
 
 type JobRunsController struct {
-	Store *services.Store
+	App *services.Application
 }
 
 func (self *JobRunsController) Index(c *gin.Context) {
 	id := c.Param("id")
 	jobRuns := []models.JobRun{}
-	err := self.Store.Where("JobID", id, &jobRuns)
 
-	if err != nil {
+	if err := self.App.Store.Where("JobID", id, &jobRuns); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

@@ -47,6 +47,12 @@ func (self *ORM) JobsWithCron() ([]Job, error) {
 	return jobs, err
 }
 
+func (self *ORM) JobRunsFor(job Job) ([]JobRun, error) {
+	var runs []JobRun
+	err := self.Where("JobID", job.ID, &runs)
+	return runs, err
+}
+
 func emptySlice(to interface{}) {
 	ref := reflect.ValueOf(to)
 	results := reflect.MakeSlice(reflect.Indirect(ref).Type(), 0, 0)
