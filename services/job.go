@@ -4,25 +4,23 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-go/adapters"
-	"github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store"
 )
 
-func StartJob(run models.JobRun, orm *models.ORM, cf config.Config) error {
+func StartJob(run models.JobRun, store *store.Store) error {
 	run.Status = "in progress"
-	err := orm.Save(&run)
-	if err != nil {
+	if err := store.Save(&run); err != nil {
 		return runJobError(run, err)
 	}
 
 	logger.Infow("Starting job", run.ForLogger()...)
 	var prevRun models.TaskRun
 	for i, taskRun := range run.TaskRuns {
-		prevRun = startTask(taskRun, prevRun.Result, cf)
+		prevRun = startTask(taskRun, prevRun.Result, store)
 		run.TaskRuns[i] = prevRun
-		err = orm.Save(&run)
-		if err != nil {
+		if err := store.Save(&run); err != nil {
 			return runJobError(run, err)
 		}
 
@@ -40,12 +38,12 @@ func StartJob(run models.JobRun, orm *models.ORM, cf config.Config) error {
 	}
 
 	logger.Infow("Finished job", run.ForLogger()...)
-	return runJobError(run, orm.Save(&run))
+	return runJobError(run, store.Save(&run))
 }
 
-func startTask(run models.TaskRun, input models.RunResult, cf config.Config) models.TaskRun {
+func startTask(run models.TaskRun, input models.RunResult, store *store.Store) models.TaskRun {
 	run.Status = "in progress"
-	adapter, err := adapters.For(run.Task, cf)
+	adapter, err := adapters.For(run.Task, store)
 
 	if err != nil {
 		run.Status = "errored"

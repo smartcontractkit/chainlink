@@ -1,4 +1,4 @@
-package config
+package store
 
 import (
 	"log"
@@ -16,7 +16,7 @@ type Config struct {
 	EthereumURL       string `env:"ETHEREUM_URL" envDefault:"http://localhost:8545"`
 }
 
-func New() Config {
+func NewConfig() Config {
 	config := Config{}
 	env.Parse(&config)
 	dir, err := homedir.Expand(config.RootDir)

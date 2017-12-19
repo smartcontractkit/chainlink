@@ -21,7 +21,7 @@ type EthSignTx struct {
 }
 
 func (self *EthSendRawTx) Perform(input models.RunResult) models.RunResult {
-	eth, err := rpc.Dial(self.Config.EthereumURL)
+	eth, err := rpc.Dial(self.Store.Config.EthereumURL)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}

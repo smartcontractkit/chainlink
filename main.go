@@ -3,22 +3,22 @@ package main
 import (
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
-	configlib "github.com/smartcontractkit/chainlink-go/config"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
 )
 
 func main() {
-	config := configlib.New()
+	config := store.NewConfig()
 	logger.SetLoggerDir(config.RootDir)
 	defer logger.Sync()
-	store := services.NewStore(config)
+	app := services.NewApplication(config)
 
-	services.Authenticate(store)
-	r := web.Router(store)
-	err := store.Start()
-	if err != nil {
+	services.Authenticate(app.Store)
+	r := web.Router(app)
+
+	if err := app.Start(); err != nil {
 		logger.Fatal(err)
 	}
-	defer store.Close()
+	defer app.Stop()
 	logger.Fatal(r.Run())
 }

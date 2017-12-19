@@ -1,4 +1,4 @@
-package services_test
+package store_test
 
 import (
 	"io/ioutil"

@@ -7,10 +7,11 @@ import (
 	"syscall"
 
 	"github.com/smartcontractkit/chainlink-go/logger"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-func Authenticate(store *Store) {
+func Authenticate(store *store.Store) {
 	if store.KeyStore.HasAccounts() {
 		checkPassword(store)
 	} else {
@@ -18,7 +19,7 @@ func Authenticate(store *Store) {
 	}
 }
 
-func checkPassword(store *Store) {
+func checkPassword(store *store.Store) {
 	for {
 		phrase := promptPassword("Enter Password:")
 		if err := store.KeyStore.Unlock(phrase); err != nil {
@@ -30,7 +31,7 @@ func checkPassword(store *Store) {
 	}
 }
 
-func createAccount(store *Store) {
+func createAccount(store *store.Store) {
 	for {
 		phrase := promptPassword("New Password:")
 		phraseConfirmation := promptPassword("Confirm Password: ")
