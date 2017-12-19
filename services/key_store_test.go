@@ -27,10 +27,8 @@ func TestUnlockKey(t *testing.T) {
 	store := cltest.Store()
 	defer store.Close()
 
-	account, err := store.KeyStore.NewAccount(passphrase)
-	assert.Nil(t, err)
+	store.KeyStore.NewAccount(passphrase)
 
-	assert.NotNil(t, store.KeyStore.Unlock(account, "wrong phrase"))
-	err = store.KeyStore.Unlock(account, passphrase)
-	assert.Nil(t, err)
+	assert.NotNil(t, store.KeyStore.Unlock("wrong phrase"))
+	assert.Nil(t, store.KeyStore.Unlock(passphrase))
 }

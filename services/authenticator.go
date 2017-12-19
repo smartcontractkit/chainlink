@@ -20,16 +20,10 @@ func Authenticate(store *Store) {
 
 func checkPassword(store *Store) {
 	for {
-		ok := true
 		phrase := promptPassword("Enter Password:")
-		for _, account := range store.KeyStore.Accounts() {
-			err := store.KeyStore.Unlock(account, phrase)
-			if err != nil {
-				fmt.Printf("Invalid password for account: %s\nPlease try again.\n\n", account.Address.Hex())
-				ok = false
-			}
-		}
-		if ok {
+		if err := store.KeyStore.Unlock(phrase); err != nil {
+			fmt.Printf(err.Error())
+		} else {
 			printGreeting()
 			break
 		}
