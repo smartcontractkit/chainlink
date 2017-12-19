@@ -31,20 +31,27 @@ func TestSendingEthereumTx(t *testing.T) {
 }
 
 func TestSigningEthereumTx(t *testing.T) {
-	defer cltest.CloseGock(t)
+	config := cltest.NewConfig()
+	cltest.AddPrivateKey(config, "./fixtures/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	password := "password"
+
+	store := cltest.StoreWithConfig(config)
+	defer store.Close()
+
+	err := store.KeyStore.Unlock(password)
+	assert.Nil(t, err)
 
 	data := "0000abcdef"
-	address := "0xb70a511bac46ec6442ac6d598eac327334e634db"
+	recipient := "0xb70a511bac46ec6442ac6d598eac327334e634db"
 	fid := "0x12345678"
 	input := models.RunResultWithValue(data)
-	config := cltest.NewConfig()
 
 	adapter := adapters.EthSignTx{
-		Address:     address,
+		Address:     recipient,
 		FunctionID:  fid,
 		AdapterBase: adapters.AdapterBase{config},
 	}
 	result := adapter.Perform(input)
 	assert.Contains(t, result.Value(), data)
-	assert.Contains(t, result.Value(), address[2:len(address)])
+	assert.Contains(t, result.Value(), recipient[2:len(recipient)])
 }

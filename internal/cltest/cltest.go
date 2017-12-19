@@ -52,7 +52,10 @@ func JobJSONFromResponse(body io.Reader) JobJSON {
 }
 
 func Store() *TestStore {
-	config := NewConfig()
+	return StoreWithConfig(NewConfig())
+}
+
+func StoreWithConfig(config configlib.Config) *TestStore {
 	if err := os.MkdirAll(config.RootDir, os.FileMode(0700)); err != nil {
 		log.Fatal(err)
 	}
@@ -103,6 +106,35 @@ func LoadJSON(file string) []byte {
 		log.Fatal(err)
 	}
 	return content
+}
+
+func CopyFile(src, dst string) {
+	from, err := os.Open(src)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer from.Close()
+
+	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer to.Close()
+
+	_, err = io.Copy(to, from)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func AddPrivateKey(config configlib.Config, src string) {
+	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dst := config.KeysDir() + "/testwallet.json"
+	CopyFile(src, dst)
 }
 
 func TimeParse(s string) time.Time {

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 )
 
@@ -20,4 +22,14 @@ func NewKeyStore(keyDir string) *KeyStore {
 
 func (self *KeyStore) HasAccounts() bool {
 	return len(self.Accounts()) > 0
+}
+
+func (self *KeyStore) Unlock(phrase string) error {
+	for _, account := range self.KeyStore.Accounts() {
+		err := self.KeyStore.Unlock(account, phrase)
+		if err != nil {
+			return fmt.Errorf("Invalid password for account: %s\n\nPlease try again...\n", account.Address.Hex())
+		}
+	}
+	return nil
 }
