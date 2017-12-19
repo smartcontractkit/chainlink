@@ -14,6 +14,7 @@ type Config struct {
 	BasicAuthUsername string `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword string `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL       string `env:"ETHEREUM_URL" envDefault:"http://localhost:8545"`
+	ChainID           int64  `env:"ETHEREUM_CHAIN_ID" envDefault:0`
 }
 
 func NewConfig() Config {

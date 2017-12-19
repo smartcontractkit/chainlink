@@ -14,12 +14,6 @@ type EthSendRawTx struct {
 	AdapterBase
 }
 
-type EthSignTx struct {
-	AdapterBase
-	Address    string `json:"address"`
-	FunctionID string `json:"functionID"`
-}
-
 func (self *EthSendRawTx) Perform(input models.RunResult) models.RunResult {
 	eth, err := rpc.Dial(self.Store.Config.EthereumURL)
 	if err != nil {
@@ -34,6 +28,12 @@ func (self *EthSendRawTx) Perform(input models.RunResult) models.RunResult {
 	return models.RunResultWithValue(result)
 }
 
+type EthSignTx struct {
+	AdapterBase
+	Address    string `json:"address"`
+	FunctionID string `json:"functionID"`
+}
+
 func (self *EthSignTx) Perform(input models.RunResult) models.RunResult {
 	str := self.FunctionID + input.Value()
 	data := common.FromHex(str)
@@ -45,10 +45,13 @@ func (self *EthSignTx) Perform(input models.RunResult) models.RunResult {
 		big.NewInt(20000000000),
 		data,
 	)
+	signedTx, err := self.Store.KeyStore.SignTx(tx, self.Store.Config.ChainID)
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
 
 	buffer := new(bytes.Buffer)
-	err := tx.EncodeRLP(buffer)
-	if err != nil {
+	if err := signedTx.EncodeRLP(buffer); err != nil {
 		return models.RunResultWithError(err)
 	}
 	return models.RunResultWithValue(common.ToHex(buffer.Bytes()))
