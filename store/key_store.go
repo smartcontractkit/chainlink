@@ -2,8 +2,10 @@ package store
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type KeyStore struct {
@@ -25,11 +27,16 @@ func (self *KeyStore) HasAccounts() bool {
 }
 
 func (self *KeyStore) Unlock(phrase string) error {
-	for _, account := range self.KeyStore.Accounts() {
+	for _, account := range self.Accounts() {
 		err := self.KeyStore.Unlock(account, phrase)
 		if err != nil {
 			return fmt.Errorf("Invalid password for account: %s\n\nPlease try again...\n", account.Address.Hex())
 		}
 	}
 	return nil
+}
+
+func (self *KeyStore) SignTx(tx *types.Transaction, chainID int64) (*types.Transaction, error) {
+	acc := self.Accounts()[0]
+	return self.KeyStore.SignTx(acc, tx, big.NewInt(chainID))
 }

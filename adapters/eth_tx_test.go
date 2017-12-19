@@ -6,8 +6,9 @@ import (
 	gock "github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	storelib "github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,6 +37,7 @@ func TestSendingEthereumTx(t *testing.T) {
 func TestSigningEthereumTx(t *testing.T) {
 	config := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "./fixtures/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	sender := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 	password := "password"
 
 	store := storelib.NewStore(config)
@@ -57,4 +59,7 @@ func TestSigningEthereumTx(t *testing.T) {
 	result := adapter.Perform(input)
 	assert.Contains(t, result.Value(), data)
 	assert.Contains(t, result.Value(), recipient[2:len(recipient)])
+
+	actual, err := utils.SenderFromTxHex(result.Value(), config.ChainID)
+	assert.Equal(t, sender, actual.Hex())
 }

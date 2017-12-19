@@ -37,6 +37,7 @@ func NewConfig() store.Config {
 		BasicAuthUsername: testUsername,
 		BasicAuthPassword: testPassword,
 		EthereumURL:       "http://example.com/api",
+		ChainID:           3,
 	}
 }
 
