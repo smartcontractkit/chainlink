@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	simplejson "github.com/bitly/go-simplejson"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type JsonParse struct {

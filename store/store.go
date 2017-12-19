@@ -6,7 +6,7 @@ import (
 	"syscall"
 
 	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type Store struct {
