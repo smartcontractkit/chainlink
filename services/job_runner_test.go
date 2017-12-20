@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRunningJob(t *testing.T) {
 	t.Parallel()
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
 	job := models.NewJob()
@@ -21,7 +21,7 @@ func TestRunningJob(t *testing.T) {
 	run := job.NewRun()
 	assert.Equal(t, "", run.Status)
 
-	services.StartJob(run, store.ORM, store.Config)
+	services.StartJob(run, store)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, "completed", run.Status)

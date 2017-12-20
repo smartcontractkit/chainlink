@@ -1,4 +1,4 @@
-package controllers_test
+package web_test
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,16 +20,17 @@ type JobRun struct {
 
 func TestJobRunsIndex(t *testing.T) {
 	t.Parallel()
-	store := cltest.Store()
-	server := store.SetUpWeb()
-	defer store.Close()
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
-	err := store.Save(&j)
+	err := app.Store.Save(&j)
 	assert.Nil(t, err)
 	jr := j.NewRun()
-	err = store.Save(&jr)
+	err = app.Store.Save(&jr)
 	assert.Nil(t, err)
 
 	resp, err := cltest.BasicAuthGet(server.URL + "/jobs/" + j.ID + "/runs")

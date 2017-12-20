@@ -1,15 +1,15 @@
-package controllers
+package web
 
 import (
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink-go/adapters"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/services"
 )
 
 type JobsController struct {
-	Store *services.Store
+	App *services.Application
 }
 
 func (self *JobsController) Create(c *gin.Context) {
@@ -23,7 +23,7 @@ func (self *JobsController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = self.Store.AddJob(j); err != nil {
+	} else if err = self.App.AddJob(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -35,9 +35,8 @@ func (self *JobsController) Create(c *gin.Context) {
 func (self *JobsController) Show(c *gin.Context) {
 	id := c.Param("id")
 	var j models.Job
-	err := self.Store.One("ID", id, &j)
 
-	if err == storm.ErrNotFound {
+	if err := self.App.Store.One("ID", id, &j); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found."},
 		})

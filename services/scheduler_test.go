@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +13,7 @@ import (
 func TestLoadingSavedSchedules(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
 	j := models.NewJob()
@@ -22,7 +22,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	_ = store.Save(&j)
 	_ = store.Save(&jobWoCron)
 
-	sched := services.NewScheduler(store.ORM, store.Config)
+	sched := services.NewScheduler(store)
 	err := sched.Start()
 	assert.Nil(t, err)
 
@@ -41,10 +41,10 @@ func TestLoadingSavedSchedules(t *testing.T) {
 func TestAddJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
-	sched := services.NewScheduler(store.ORM, store.Config)
+	sched := services.NewScheduler(store)
 	_ = sched.Start()
 	defer sched.Stop()
 
@@ -63,10 +63,10 @@ func TestAddJob(t *testing.T) {
 func TestAddJobWhenStopped(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
-	sched := services.NewScheduler(store.ORM, store.Config)
+	sched := services.NewScheduler(store)
 
 	j := models.NewJob()
 	j.Schedule = models.Schedule{Cron: "* * * * *"}
