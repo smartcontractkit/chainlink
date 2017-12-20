@@ -5,20 +5,19 @@ import (
 	"fmt"
 
 	cronlib "github.com/mrwonko/cron"
-	configlib "github.com/smartcontractkit/chainlink-go/config"
 	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink-go/store"
 )
 
 type Scheduler struct {
 	cron    *cronlib.Cron
-	orm     *models.ORM
-	config  configlib.Config
+	store   *store.Store
 	started bool
 }
 
-func NewScheduler(orm *models.ORM, cf configlib.Config) *Scheduler {
-	return &Scheduler{orm: orm, config: cf}
+func NewScheduler(store *store.Store) *Scheduler {
+	return &Scheduler{store: store}
 }
 
 func (self *Scheduler) Start() error {
@@ -28,7 +27,7 @@ func (self *Scheduler) Start() error {
 	self.started = true
 	self.cron = cronlib.New()
 
-	jobs, err := self.orm.JobsWithCron()
+	jobs, err := self.store.JobsWithCron()
 	if err != nil {
 		return fmt.Errorf("Scheduler: %v", err)
 	}
@@ -55,7 +54,7 @@ func (self *Scheduler) AddJob(job models.Job) {
 	}
 	cronStr := string(job.Schedule.Cron)
 	self.cron.AddFunc(cronStr, func() {
-		err := StartJob(job.NewRun(), self.orm, self.config)
+		err := StartJob(job.NewRun(), self.store)
 		if err != nil {
 			logger.Panic(err.Error())
 		}

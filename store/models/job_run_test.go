@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
-	store := cltest.Store()
+	store := cltest.NewStore()
 	defer store.Close()
 
 	job := models.NewJob()

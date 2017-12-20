@@ -1,7 +1,7 @@
 package adapters
 
 import (
-	"github.com/smartcontractkit/chainlink-go/models"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type NoOp struct {
