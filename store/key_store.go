@@ -3,9 +3,13 @@ package store
 import (
 	"fmt"
 	"math/big"
+	"strconv"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type KeyStore struct {
@@ -37,6 +41,32 @@ func (self *KeyStore) Unlock(phrase string) error {
 }
 
 func (self *KeyStore) SignTx(tx *types.Transaction, chainID int64) (*types.Transaction, error) {
-	acc := self.Accounts()[0]
-	return self.KeyStore.SignTx(acc, tx, big.NewInt(chainID))
+	return self.KeyStore.SignTx(
+		self.GetAccount().Account,
+		tx, big.NewInt(chainID),
+	)
+}
+
+func (self *KeyStore) GetAccount() *Account {
+	return &Account{self.Accounts()[0]}
+}
+
+type Account struct {
+	accounts.Account
+}
+
+func (self *Account) GetNonce(config Config) (uint64, error) {
+	eth, err := rpc.Dial(config.EthereumURL)
+	if err != nil {
+		return 0, err
+	}
+	var result string
+	err = eth.Call(&result, "eth_getTransactionCount", self.Address.Hex())
+	if err != nil {
+		return 0, err
+	}
+	if strings.ToLower(result[0:2]) == "0x" {
+		result = result[2:]
+	}
+	return strconv.ParseUint(result, 16, 64)
 }

@@ -35,10 +35,18 @@ func TestSendingEthereumTx(t *testing.T) {
 }
 
 func TestSigningEthereumTx(t *testing.T) {
+	defer cltest.CloseGock(t)
+
 	config := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "./fixtures/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	sender := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 	password := "password"
+
+	response := `{"result": "0x11"}`
+	gock.New(config.EthereumURL).
+		Post("").
+		Reply(200).
+		JSON(response)
 
 	store := storelib.NewStore(config)
 	defer cltest.CleanUpStore(store)
@@ -59,6 +67,10 @@ func TestSigningEthereumTx(t *testing.T) {
 	result := adapter.Perform(input)
 	assert.Contains(t, result.Value(), data)
 	assert.Contains(t, result.Value(), recipient[2:len(recipient)])
+
+	tx, err := utils.DecodeTxFromHex(result.Value(), config.ChainID)
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(17), tx.Nonce())
 
 	actual, err := utils.SenderFromTxHex(result.Value(), config.ChainID)
 	assert.Equal(t, sender, actual.Hex())
