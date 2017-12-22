@@ -29,14 +29,7 @@ func TestCreateJobs(t *testing.T) {
 
 	var j models.Job
 	app.Store.One("ID", respJSON.ID, &j)
-	sched := j.Schedule
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
-	assert.Equal(t, "* * * * *", string(sched.Cron), "Wrong cron schedule saved")
-	assert.Equal(t, (*models.Time)(nil), sched.StartAt, "Wrong start at saved")
-	endAt := models.Time{cltest.TimeParse("2019-11-27T23:05:49Z")}
-	assert.Equal(t, endAt, *sched.EndAt, "Wrong end at saved")
-	runAt0 := models.Time{cltest.TimeParse("2018-11-27T23:05:49Z")}
-	assert.Equal(t, runAt0, sched.RunAt[0], "Wrong run at saved")
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := adapter1.(*adapters.HttpGet)
@@ -50,6 +43,11 @@ func TestCreateJobs(t *testing.T) {
 	signTx := adapter4.(*adapters.EthSignTx)
 	assert.Equal(t, signTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, signTx.FunctionID, "12345679")
+
+	var initr models.Initiator
+	app.Store.One("JobID", j.ID, &initr)
+	assert.Equal(t, "cron", initr.Type)
+	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
 func TestCreateJobsIntegration(t *testing.T) {
@@ -90,7 +88,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		_ = app.Store.Where("JobID", respJSON.ID, &jobRuns)
+		app.Store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 
@@ -153,9 +151,7 @@ func TestShowJobs(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	j := models.NewJob()
-	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
-
+	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.Save(&j)
 
 	resp, err := cltest.BasicAuthGet(server.URL + "/jobs/" + j.ID)
@@ -166,7 +162,7 @@ func TestShowJobs(t *testing.T) {
 
 	var respJob models.Job
 	json.Unmarshal(b, &respJob)
-	assert.Equal(t, respJob.Schedule, j.Schedule, "should have the same schedule")
+	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
 }
 
 func TestShowNotFoundJobs(t *testing.T) {

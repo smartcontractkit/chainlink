@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,8 +24,7 @@ func TestJobRunsIndex(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	j := models.NewJob()
-	j.Schedule = models.Schedule{Cron: "9 9 9 9 6"}
+	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	err := app.Store.Save(&j)
 	assert.Nil(t, err)
 	jr := j.NewRun()

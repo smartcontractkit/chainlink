@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +15,6 @@ func TestRunningJob(t *testing.T) {
 	defer store.Close()
 
 	job := models.NewJob()
-	job.Schedule = models.Schedule{Cron: "* * * * *"}
 	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}
 
 	run := job.NewRun()
