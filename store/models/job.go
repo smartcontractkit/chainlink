@@ -11,10 +11,17 @@ import (
 )
 
 type Job struct {
-	ID        string    `storm:"id,index,unique"`
-	Schedule  Schedule  `json:"schedule" storm:"inline"`
-	Tasks     []Task    `json:"tasks" storm:"inline"`
-	CreatedAt time.Time `storm:"index"`
+	ID         string      `storm:"id,index,unique"`
+	Initiators []Initiator `json:"initiators"`
+	Tasks      []Task      `json:"tasks" storm:"inline"`
+	CreatedAt  time.Time   `storm:"index"`
+}
+
+type Initiator struct {
+	ID       int    `storm:"id,increment"`
+	Type     string `json:"type" storm:"index"`
+	Schedule Cron   `json:"schedule"`
+	JobID    string `storm:"index"`
 }
 
 type Schedule struct {
@@ -49,6 +56,16 @@ func (self Job) NewRun() JobRun {
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
 	}
+}
+
+func (self Job) Schedules() []Initiator {
+	list := []Initiator{}
+	for _, initr := range self.Initiators {
+		if initr.Type == "cron" {
+			list = append(list, initr)
+		}
+	}
+	return list
 }
 
 func (self *Time) UnmarshalJSON(b []byte) error {

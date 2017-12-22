@@ -19,6 +19,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 )
@@ -161,4 +162,10 @@ func BasicAuthGet(url string) (*http.Response, error) {
 	request.SetBasicAuth(testUsername, testPassword)
 	resp, err := client.Do(request)
 	return resp, err
+}
+
+func NewJobWithSchedule(sched string) models.Job {
+	j := models.NewJob()
+	j.Initiators = []models.Initiator{{Type: "cron", Schedule: models.Cron(sched)}}
+	return j
 }

@@ -5,8 +5,8 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,10 +17,10 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	defer store.Close()
 
 	j := models.NewJob()
-	j.Schedule = models.Schedule{Cron: "* * * * *"}
+	j.Initiators = []models.Initiator{{Type: "cron", Schedule: "* * * * *"}}
 	jobWoCron := models.NewJob()
-	_ = store.Save(&j)
-	_ = store.Save(&jobWoCron)
+	assert.Nil(t, store.SaveJob(j))
+	assert.Nil(t, store.SaveJob(jobWoCron))
 
 	sched := services.NewScheduler(store)
 	err := sched.Start()
@@ -28,7 +28,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		_ = store.Where("JobID", j.ID, &jobRuns)
+		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 
@@ -45,17 +45,18 @@ func TestAddJob(t *testing.T) {
 	defer store.Close()
 
 	sched := services.NewScheduler(store)
-	_ = sched.Start()
+	sched.Start()
 	defer sched.Stop()
 
-	j := models.NewJob()
-	j.Schedule = models.Schedule{Cron: "* * * * *"}
-	_ = store.Save(&j)
+	j := cltest.NewJobWithSchedule("* * * * *")
+	err := store.SaveJob(j)
+	assert.Nil(t, err)
 	sched.AddJob(j)
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		_ = store.Where("JobID", j.ID, &jobRuns)
+		err = store.Where("JobID", j.ID, &jobRuns)
+		assert.Nil(t, err)
 		return jobRuns
 	}).Should(HaveLen(1))
 }
@@ -68,20 +69,19 @@ func TestAddJobWhenStopped(t *testing.T) {
 
 	sched := services.NewScheduler(store)
 
-	j := models.NewJob()
-	j.Schedule = models.Schedule{Cron: "* * * * *"}
-	_ = store.Save(&j)
+	j := cltest.NewJobWithSchedule("* * * * *")
+	assert.Nil(t, store.SaveJob(j))
 	sched.AddJob(j)
 
 	jobRuns := []models.JobRun{}
 	Consistently(func() []models.JobRun {
-		_ = store.Where("JobID", j.ID, &jobRuns)
+		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(0))
 
-	sched.Start()
+	assert.Nil(t, sched.Start())
 	Eventually(func() []models.JobRun {
-		_ = store.Where("JobID", j.ID, &jobRuns)
+		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 }

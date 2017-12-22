@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 )
 
 type ORM struct {
@@ -42,8 +43,18 @@ func (self *ORM) InitBucket(model interface{}) error {
 }
 
 func (self *ORM) JobsWithCron() ([]Job, error) {
+	initrs := []Initiator{}
+	self.Where("Type", "cron", &initrs)
+	jobIDs := []string{}
+	for _, initr := range initrs {
+		jobIDs = append(jobIDs, initr.JobID)
+	}
 	jobs := []Job{}
-	err := self.AllByIndex("Cron", &jobs)
+	err := self.Select(q.In("ID", jobIDs)).Find(&jobs)
+	if err == storm.ErrNotFound {
+		return jobs, nil
+	}
+
 	return jobs, err
 }
 
@@ -57,4 +68,23 @@ func emptySlice(to interface{}) {
 	ref := reflect.ValueOf(to)
 	results := reflect.MakeSlice(reflect.Indirect(ref).Type(), 0, 0)
 	reflect.Indirect(ref).Set(results)
+}
+
+func (self *ORM) SaveJob(job Job) error {
+	tx, err := self.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := tx.Save(&job); err != nil {
+		return err
+	}
+	for _, initr := range job.Initiators {
+		initr.JobID = job.ID
+		if err := tx.Save(&initr); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

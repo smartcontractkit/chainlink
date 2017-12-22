@@ -2,8 +2,8 @@ package services
 
 import (
 	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type Application struct {
@@ -33,7 +33,7 @@ func (self *Application) Stop() error {
 }
 
 func (self *Application) AddJob(job models.Job) error {
-	err := self.Store.Save(&job)
+	err := self.Store.SaveJob(job)
 	if err != nil {
 		return err
 	}
