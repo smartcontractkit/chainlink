@@ -21,7 +21,7 @@ func TestCreateJobs(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_jobs.json")
 	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	defer resp.Body.Close()
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
@@ -56,7 +56,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
 	config := cltest.NewConfig()
-	cltest.AddPrivateKey(config, "../adapters/fixtures/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	app := cltest.NewApplicationWithConfig(config)
 	server := app.NewServer()
 	defer app.Stop()
@@ -80,7 +80,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 		Reply(200).
 		JSON(ethResponse)
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_jobs.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_jobs.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	assert.Nil(t, err)
 	defer resp.Body.Close()
@@ -115,7 +115,7 @@ func TestCreateInvalidJobs(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_jobs.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_invalid_jobs.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestCreateInvalidCron(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("./fixtures/create_invalid_cron.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_invalid_cron.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
