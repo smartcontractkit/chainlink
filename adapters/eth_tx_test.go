@@ -38,7 +38,7 @@ func TestSigningEthereumTx(t *testing.T) {
 	defer cltest.CloseGock(t)
 
 	config := cltest.NewConfig()
-	cltest.AddPrivateKey(config, "./fixtures/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	sender := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 	password := "password"
 
