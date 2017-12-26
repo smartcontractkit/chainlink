@@ -24,6 +24,7 @@ func Router(app *services.Application) *gin.Engine {
 
 	jr := JobRunsController{app}
 	engine.GET("/jobs/:id/runs", jr.Index)
+	engine.POST("/jobs/:jobID/runs", jr.Create)
 
 	return engine
 }
