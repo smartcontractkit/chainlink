@@ -169,3 +169,9 @@ func NewJobWithSchedule(sched string) models.Job {
 	j.Initiators = []models.Initiator{{Type: "cron", Schedule: models.Cron(sched)}}
 	return j
 }
+
+func NewJobWithWebInitiator() models.Job {
+	j := models.NewJob()
+	j.Initiators = []models.Initiator{{Type: "web"}}
+	return j
+}

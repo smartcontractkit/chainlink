@@ -33,7 +33,7 @@ func (self *JobsController) Create(c *gin.Context) {
 }
 
 func (self *JobsController) Show(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("ID")
 	var j models.Job
 
 	if err := self.App.Store.One("ID", id, &j); err == storm.ErrNotFound {

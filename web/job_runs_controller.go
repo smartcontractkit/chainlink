@@ -13,7 +13,7 @@ type JobRunsController struct {
 }
 
 func (self *JobRunsController) Index(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("ID")
 	jobRuns := []models.JobRun{}
 
 	if err := self.App.Store.Where("JobID", id, &jobRuns); err != nil {
@@ -26,7 +26,7 @@ func (self *JobRunsController) Index(c *gin.Context) {
 }
 
 func (self *JobRunsController) Create(c *gin.Context) {
-	id := c.Param("jobID")
+	id := c.Param("JobID")
 	j := models.Job{}
 
 	if err := self.App.Store.One("ID", id, &j); err == storm.ErrNotFound {
@@ -36,6 +36,10 @@ func (self *JobRunsController) Create(c *gin.Context) {
 	} else if err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
+		})
+	} else if !j.WebAuthorized() {
+		c.JSON(403, gin.H{
+			"errors": []string{"Job not available on web API. Recreate with web initiator."},
 		})
 	} else if jr, err := startJob(j, self.App.Store); err != nil {
 		c.JSON(500, gin.H{
