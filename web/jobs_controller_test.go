@@ -56,6 +56,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 	config := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	app := cltest.NewApplicationWithConfig(config)
+	eth := app.MockEthClient()
 	server := app.NewServer()
 	defer app.Stop()
 
@@ -71,12 +72,9 @@ func TestCreateJobsIntegration(t *testing.T) {
 		Reply(200).
 		JSON(tickerResponse)
 
-	ethResponse := `{"result": "0x0100"}`
-	gock.New(app.Store.Config.EthereumURL).
-		Post("").
-		Times(2).
-		Reply(200).
-		JSON(ethResponse)
+	eth.Register("eth_getTransactionCount", `0x0100`)
+	rawTxResp := `0x6798b8110efe9c191a978d75954d0fbdd53bd866f7534fa0228802fa89d27b83`
+	eth.Register("eth_sendRawTransaction", rawTxResp)
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_jobs.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -104,7 +102,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 	jobRun := jobRuns[0]
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
-	assert.Equal(t, "0x0100", jobRun.Result.Value())
+	assert.Equal(t, rawTxResp, jobRun.Result.Value())
 }
 
 func TestCreateInvalidJobs(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"reflect"
 	"testing"
 	"time"
 
@@ -69,6 +70,44 @@ func (self *TestApplication) Stop() {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
 	}
+}
+
+func (self *TestApplication) MockEthClient() *EthMock {
+	mock := NewMockGethRpc()
+	self.Store.Eth = &store.Eth{mock}
+	return mock
+}
+
+func NewMockGethRpc() *EthMock {
+	return &EthMock{}
+}
+
+type EthMock struct {
+	Responses []MockResponse
+}
+
+type MockResponse struct {
+	methodName string
+	response   string
+}
+
+func (self *EthMock) Register(method, response string) {
+	res := MockResponse{
+		methodName: method,
+		response:   response,
+	}
+	self.Responses = append(self.Responses, res)
+}
+
+func (self *EthMock) Call(result interface{}, method string, args ...interface{}) error {
+	for _, resp := range self.Responses {
+		if resp.methodName == method {
+			ref := reflect.ValueOf(result)
+			reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
+			return nil
+		}
+	}
+	return fmt.Errorf("EthMock: Method %v not registered", method)
 }
 
 func NewStore() *store.Store {
