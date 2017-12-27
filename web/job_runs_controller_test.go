@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
@@ -45,6 +46,7 @@ func TestJobRunsIndex(t *testing.T) {
 
 func TestJobRunsCreate(t *testing.T) {
 	t.Parallel()
+	RegisterTestingT(t)
 
 	app := cltest.NewApplication()
 	server := app.NewServer()
@@ -58,6 +60,12 @@ func TestJobRunsCreate(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
 
 	jr := models.JobRun{}
 	assert.Nil(t, app.Store.One("ID", respJSON.ID, &jr))
