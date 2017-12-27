@@ -44,7 +44,7 @@ func TestJobRunsIndex(t *testing.T) {
 	assert.Equal(t, jr.ID, respJSON.Runs[0].ID, "expected the run IDs to match")
 }
 
-func TestJobRunsCreate(t *testing.T) {
+func TestJobRunsCreateSuccessfully(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
@@ -61,15 +61,17 @@ func TestJobRunsCreate(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
-
 	jr := models.JobRun{}
-	assert.Nil(t, app.Store.One("ID", respJSON.ID, &jr))
-	assert.Equal(t, jr.ID, respJSON.ID)
+	Eventually(func() string {
+		jobRuns := []models.JobRun{}
+		app.Store.Where("ID", respJSON.ID, &jobRuns)
+		if len(jobRuns) == 0 {
+			return ""
+		}
+		jr = jobRuns[0]
+		return jr.Status
+	}).Should(Equal("completed"))
+	assert.Equal(t, j.ID, jr.JobID)
 }
 
 func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
