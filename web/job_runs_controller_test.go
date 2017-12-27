@@ -1,11 +1,14 @@
 package web_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"testing"
 
+	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,17 +22,14 @@ type JobRun struct {
 
 func TestJobRunsIndex(t *testing.T) {
 	t.Parallel()
-
 	app := cltest.NewApplication()
 	server := app.NewServer()
 	defer app.Stop()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	err := app.Store.Save(&j)
-	assert.Nil(t, err)
+	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
-	err = app.Store.Save(&jr)
-	assert.Nil(t, err)
+	assert.Nil(t, app.Store.Save(&jr))
 
 	resp, err := cltest.BasicAuthGet(server.URL + "/jobs/" + j.ID + "/runs")
 	assert.Nil(t, err)
@@ -42,4 +42,63 @@ func TestJobRunsIndex(t *testing.T) {
 	json.Unmarshal(b, &respJSON)
 	assert.Equal(t, 1, len(respJSON.Runs), "expected no runs to be created")
 	assert.Equal(t, jr.ID, respJSON.Runs[0].ID, "expected the run IDs to match")
+}
+
+func TestJobRunsCreateSuccessfully(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(j))
+
+	url := server.URL + "/jobs/" + j.ID + "/runs"
+	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
+
+	jr := models.JobRun{}
+	Eventually(func() string {
+		jobRuns := []models.JobRun{}
+		app.Store.Where("ID", respJSON.ID, &jobRuns)
+		if len(jobRuns) == 0 {
+			return ""
+		}
+		jr = jobRuns[0]
+		return jr.Status
+	}).Should(Equal("completed"))
+	assert.Equal(t, j.ID, jr.JobID)
+}
+
+func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	j := cltest.NewJobWithSchedule("* * * * *")
+	assert.Nil(t, app.Store.SaveJob(j))
+
+	url := server.URL + "/jobs/" + j.ID + "/runs"
+	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
+}
+
+func TestJobRunsCreateNotFound(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	url := server.URL + "/jobs/garbageID/runs"
+	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
