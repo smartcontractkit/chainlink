@@ -20,10 +20,11 @@ func Router(app *services.Application) *gin.Engine {
 
 	j := JobsController{app}
 	engine.POST("/jobs", j.Create)
-	engine.GET("/jobs/:id", j.Show)
+	engine.GET("/jobs/:ID", j.Show)
 
 	jr := JobRunsController{app}
-	engine.GET("/jobs/:id/runs", jr.Index)
+	engine.GET("/jobs/:ID/runs", jr.Index)
+	engine.POST("/jobs/:JobID/runs", jr.Create)
 
 	return engine
 }
