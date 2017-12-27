@@ -3,6 +3,7 @@ package web
 import (
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
@@ -41,19 +42,18 @@ func (self *JobRunsController) Create(c *gin.Context) {
 		c.JSON(403, gin.H{
 			"errors": []string{"Job not available on web API. Recreate with web initiator."},
 		})
-	} else if jr, err := startJob(j, self.App.Store); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
 	} else {
+		jr := startJob(j, self.App.Store)
 		c.JSON(200, gin.H{"id": jr.ID})
 	}
 }
 
-func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
+func startJob(j models.Job, s *store.Store) models.JobRun {
 	jr := j.NewRun()
-	if err := services.StartJob(jr, s); err != nil {
-		return jr, err
-	}
-	return jr, nil
+	go func() {
+		if err := services.StartJob(jr, s); err != nil {
+			logger.Panic(err)
+		}
+	}()
+	return jr
 }
