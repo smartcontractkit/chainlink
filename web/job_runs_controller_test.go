@@ -21,7 +21,6 @@ type JobRun struct {
 
 func TestJobRunsIndex(t *testing.T) {
 	t.Parallel()
-
 	app := cltest.NewApplication()
 	server := app.NewServer()
 	defer app.Stop()
@@ -63,4 +62,17 @@ func TestJobRunsCreate(t *testing.T) {
 	jr := models.JobRun{}
 	assert.Nil(t, app.Store.One("ID", respJSON.ID, &jr))
 	assert.Equal(t, jr.ID, respJSON.ID)
+}
+
+func TestJobRunsCreateNotFound(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	url := server.URL + "/jobs/garbageID/runs"
+	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
