@@ -50,8 +50,8 @@ func TestJobRunsCreate(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	assert.Nil(t, app.Store.Save(&j))
+	j := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(j))
 
 	url := server.URL + "/jobs/" + j.ID + "/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
@@ -62,6 +62,22 @@ func TestJobRunsCreate(t *testing.T) {
 	jr := models.JobRun{}
 	assert.Nil(t, app.Store.One("ID", respJSON.ID, &jr))
 	assert.Equal(t, jr.ID, respJSON.ID)
+}
+
+func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
+	t.Parallel()
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	j := cltest.NewJobWithSchedule("* * * * *")
+	assert.Nil(t, app.Store.SaveJob(j))
+
+	url := server.URL + "/jobs/" + j.ID + "/runs"
+	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	assert.Nil(t, err)
+	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
 
 func TestJobRunsCreateNotFound(t *testing.T) {
