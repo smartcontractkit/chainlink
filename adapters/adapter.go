@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/store/models"
 	"gopkg.in/guregu/null.v3"
 )
 
