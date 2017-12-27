@@ -3,6 +3,7 @@ package adapters
 import (
 	"bytes"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -53,4 +54,22 @@ func (self *EthSignTx) Perform(input models.RunResult) models.RunResult {
 		return models.RunResultWithError(err)
 	}
 	return models.RunResultWithValue(common.ToHex(buffer.Bytes()))
+}
+
+type EthConfirmTx struct {
+	AdapterBase
+}
+
+func (self *EthConfirmTx) Perform(input models.RunResult) models.RunResult {
+	txid := input.Value()
+	for {
+		receipt, err := self.Store.Eth.GetTxReceipt(txid)
+		if err != nil {
+			return models.RunResultWithError(err)
+		} else if receipt.TxHash.Hex() == "" {
+			time.Sleep(1000 * time.Millisecond)
+		} else {
+			return models.RunResultWithValue(txid)
+		}
+	}
 }

@@ -88,10 +88,10 @@ type EthMock struct {
 
 type MockResponse struct {
 	methodName string
-	response   string
+	response   interface{}
 }
 
-func (self *EthMock) Register(method, response string) {
+func (self *EthMock) Register(method string, response interface{}) {
 	res := MockResponse{
 		methodName: method,
 		response:   response,

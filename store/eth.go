@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type Eth struct {
@@ -31,4 +32,10 @@ func (self *Eth) SendRawTx(hex string) (string, error) {
 	var result string
 	err := self.Call(&result, "eth_sendRawTransaction", hex)
 	return result, err
+}
+
+func (self *Eth) GetTxReceipt(txid string) (types.Receipt, error) {
+	receipt := types.Receipt{}
+	err := self.Call(&receipt, "eth_getTransactionReceipt", txid)
+	return receipt, err
 }
