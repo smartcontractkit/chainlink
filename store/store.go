@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
@@ -15,6 +16,7 @@ type Store struct {
 	KeyStore *KeyStore
 	sigs     chan os.Signal
 	Exiter   func(int)
+	Eth      *Eth
 }
 
 func NewStore(config Config) *Store {
@@ -23,11 +25,16 @@ func NewStore(config Config) *Store {
 		logger.Fatal(err)
 	}
 	orm := models.NewORM(config.RootDir)
+	ethrpc, err := rpc.Dial(config.EthereumURL)
+	if err != nil {
+		logger.Fatal(err)
+	}
 	store := &Store{
 		ORM:      orm,
 		Config:   config,
 		KeyStore: NewKeyStore(config.KeysDir()),
 		Exiter:   os.Exit,
+		Eth:      &Eth{ethrpc},
 	}
 	return store
 }

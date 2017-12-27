@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
@@ -15,16 +14,10 @@ type EthSendRawTx struct {
 }
 
 func (self *EthSendRawTx) Perform(input models.RunResult) models.RunResult {
-	eth, err := rpc.Dial(self.Store.Config.EthereumURL)
+	result, err := self.Store.Eth.SendRawTx(input.Value())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
-	var result string
-	err = eth.Call(&result, "eth_sendRawTransaction", input.Value())
-	if err != nil {
-		return models.RunResultWithError(err)
-	}
-
 	return models.RunResultWithValue(result)
 }
 
@@ -38,7 +31,7 @@ func (self *EthSignTx) Perform(input models.RunResult) models.RunResult {
 	str := self.FunctionID + input.Value()
 	data := common.FromHex(str)
 	keyStore := self.Store.KeyStore
-	nonce, err := keyStore.GetAccount().GetNonce(self.Store.Config)
+	nonce, err := self.Store.Eth.GetNonce(keyStore.GetAccount())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
