@@ -9,6 +9,7 @@ import (
 type RunResult struct {
 	Output       Output
 	ErrorMessage null.String
+	Pending      bool
 }
 
 type Output map[string]null.String
@@ -34,6 +35,14 @@ func RunResultWithValue(val string) RunResult {
 func RunResultWithError(err error) RunResult {
 	return RunResult{
 		ErrorMessage: null.StringFrom(err.Error()),
+	}
+}
+
+func RunResultPending(input RunResult) RunResult {
+	return RunResult{
+		Output:       input.Output,
+		ErrorMessage: input.ErrorMessage,
+		Pending:      true,
 	}
 }
 

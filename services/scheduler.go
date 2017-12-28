@@ -55,7 +55,7 @@ func (self *Scheduler) AddJob(job models.Job) {
 	for _, initr := range job.Schedules() {
 		cronStr := string(initr.Schedule)
 		self.cron.AddFunc(cronStr, func() {
-			err := StartJob(job.NewRun(), self.store)
+			_, err := StartJob(job.NewRun(), self.store)
 			if err != nil {
 				logger.Panic(err.Error())
 			}

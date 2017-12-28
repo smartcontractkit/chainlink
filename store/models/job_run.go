@@ -26,3 +26,17 @@ func (self JobRun) ForLogger(kvs ...interface{}) []interface{} {
 
 	return append(kvs, output...)
 }
+
+func (self JobRun) TasksToRun() []TaskRun {
+	unfinished := self.TaskRuns[:]
+	for _, tr := range self.TaskRuns {
+		if tr.Completed() {
+			unfinished = unfinished[1:]
+		} else if tr.Errored() {
+			return []TaskRun{}
+		} else {
+			return unfinished
+		}
+	}
+	return unfinished
+}

@@ -5,13 +5,15 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
+	t.Parallel()
 	store := cltest.NewStore()
-	defer store.Close()
+	defer cltest.CleanUpStore(store)
 
 	job := models.NewJob()
 	jr := job.NewRun()
@@ -24,4 +26,24 @@ func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, run.Result.HasError())
 	assert.Equal(t, "bad idea", run.Result.Error())
+}
+
+func TestTaskRunsToRun(t *testing.T) {
+	t.Parallel()
+	store := cltest.NewStore()
+	defer cltest.CleanUpStore(store)
+
+	j := models.NewJob()
+	j.Tasks = []models.Task{
+		{Type: "NoOp"},
+		{Type: "NoOpPend"},
+		{Type: "NoOp"},
+	}
+	assert.Nil(t, store.SaveJob(j))
+	jr := j.NewRun()
+	assert.Equal(t, jr.TaskRuns, jr.TasksToRun())
+
+	jr, err := services.StartJob(jr, store)
+	assert.Nil(t, err)
+	assert.Equal(t, jr.TaskRuns[1:], jr.TasksToRun())
 }

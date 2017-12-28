@@ -11,7 +11,7 @@ import (
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
 	store := cltest.NewStore()
-	defer store.Close()
+	defer cltest.CleanUpStore(store)
 
 	task := models.Task{Type: "NoOp"}
 	adapter, err := adapters.For(task)
