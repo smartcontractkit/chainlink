@@ -75,8 +75,8 @@ func TestCreateJobsIntegration(t *testing.T) {
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	rawTxResp := `0x6798b8110efe9c191a978d75954d0fbdd53bd866f7534fa0228802fa89d27b83`
 	eth.Register("eth_sendRawTransaction", rawTxResp)
+	eth.Register("eth_getTransactionReceipt", types.Receipt{})
 	eth.Register("eth_getTransactionReceipt", types.Receipt{TxHash: common.StringToHash(rawTxResp)})
-	eth.Register("eth_blockNumber", "0x0111")
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_jobs.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -92,16 +92,17 @@ func TestCreateJobsIntegration(t *testing.T) {
 		return jobRuns
 	}).Should(HaveLen(1))
 
-	app.Scheduler.Stop()
-
 	var job models.Job
 	err = app.Store.One("ID", respJSON.ID, &job)
 	assert.Nil(t, err)
 
 	jobRuns, err = app.Store.JobRunsFor(job)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(jobRuns))
 	jobRun := jobRuns[0]
+	Eventually(func() string {
+		assert.Nil(t, app.Store.One("ID", jobRun.ID, &jobRun))
+		return jobRun.Status
+	}).Should(Equal("completed"))
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
 	assert.Equal(t, rawTxResp, jobRun.TaskRuns[3].Result.Value())

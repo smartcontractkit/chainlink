@@ -41,9 +41,9 @@ func TestTaskRunsToRun(t *testing.T) {
 	}
 	assert.Nil(t, store.SaveJob(j))
 	jr := j.NewRun()
-	assert.Equal(t, jr.TaskRuns, jr.TasksToRun())
+	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
 	jr, err := services.StartJob(jr, store)
 	assert.Nil(t, err)
-	assert.Equal(t, jr.TaskRuns[1:], jr.TasksToRun())
+	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
