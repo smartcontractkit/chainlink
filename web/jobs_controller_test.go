@@ -33,15 +33,15 @@ func TestCreateJobs(t *testing.T) {
 	app.Store.One("ID", respJSON.ID, &j)
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 
-	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
+	adapter1, _ := adapters.For(j.Tasks[0])
 	httpGet := adapter1.(*adapters.HttpGet)
 	assert.Equal(t, httpGet.Endpoint, "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
+	adapter2, _ := adapters.For(j.Tasks[1])
 	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
+	adapter4, _ := adapters.For(j.Tasks[3])
 	signTx := adapter4.(*adapters.EthSignAndSendTx)
 	assert.Equal(t, signTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, signTx.FunctionID, "12345679")

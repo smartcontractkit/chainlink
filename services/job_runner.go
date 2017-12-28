@@ -43,14 +43,14 @@ func StartJob(run models.JobRun, store *store.Store) error {
 
 func startTask(run models.TaskRun, input models.RunResult, store *store.Store) models.TaskRun {
 	run.Status = "in progress"
-	adapter, err := adapters.For(run.Task, store)
+	adapter, err := adapters.For(run.Task)
 
 	if err != nil {
 		run.Status = "errored"
 		run.Result.SetError(err)
 		return run
 	}
-	run.Result = adapter.Perform(input)
+	run.Result = adapter.Perform(input, store)
 
 	if run.Result.HasError() {
 		run.Status = "errored"

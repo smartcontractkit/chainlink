@@ -26,10 +26,8 @@ func TestSendingEthereumTx(t *testing.T) {
 		Reply(200).
 		JSON(response)
 
-	adapter := adapters.EthSendRawTx{
-		AdapterBase: adapters.AdapterBase{store},
-	}
-	result := adapter.Perform(input)
+	adapter := adapters.EthSendRawTx{}
+	result := adapter.Perform(input, store)
 	assert.Equal(t, "0x0100", result.Value())
 }
 
@@ -60,9 +58,8 @@ func TestSigningEthereumTx(t *testing.T) {
 	adapter := adapters.EthSignTx{
 		Address:     recipient,
 		FunctionID:  fid,
-		AdapterBase: adapters.AdapterBase{store},
 	}
-	result := adapter.Perform(input)
+	result := adapter.Perform(input, store)
 	assert.Contains(t, result.Value(), data)
 	assert.Contains(t, result.Value(), recipient[2:len(recipient)])
 
@@ -86,10 +83,9 @@ func TestSigningAndSendingTx(t *testing.T) {
 	adapter := adapters.EthSignTx{
 		Address:     "recipient",
 		FunctionID:  "fid",
-		AdapterBase: adapters.AdapterBase{store},
 	}
 	input := models.RunResultWithValue("Hello World!")
-	output := adapter.Perform(input)
+	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
 	assert.Equal(t, output.Error(), "Cannot connect to nodes")
