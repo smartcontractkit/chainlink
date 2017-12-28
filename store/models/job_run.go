@@ -5,9 +5,9 @@ import (
 )
 
 type JobRun struct {
-	ID        string `storm:"id,index,unique"`
-	JobID     string `storm:"index"`
-	Status    string
+	ID        string    `storm:"id,index,unique"`
+	JobID     string    `storm:"index"`
+	Status    string    `storm:"index"`
 	CreatedAt time.Time `storm:"index"`
 	Result    RunResult `storm:"inline"`
 	TaskRuns  []TaskRun `storm:"inline"`
