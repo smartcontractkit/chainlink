@@ -10,18 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
-type EthSendRawTx struct {
-	AdapterBase
-}
-
-func (self *EthSendRawTx) Perform(input models.RunResult) models.RunResult {
-	result, err := self.Store.Eth.SendRawTx(input.Value())
-	if err != nil {
-		return models.RunResultWithError(err)
-	}
-	return models.RunResultWithValue(result)
-}
-
 type EthSignTx struct {
 	AdapterBase
 	Address    string `json:"address"`
@@ -56,6 +44,18 @@ func (self *EthSignTx) Perform(input models.RunResult) models.RunResult {
 	return models.RunResultWithValue(common.ToHex(buffer.Bytes()))
 }
 
+type EthSendRawTx struct {
+	AdapterBase
+}
+
+func (self *EthSendRawTx) Perform(input models.RunResult) models.RunResult {
+	result, err := self.Store.Eth.SendRawTx(input.Value())
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+	return models.RunResultWithValue(result)
+}
+
 type EthConfirmTx struct {
 	AdapterBase
 }
@@ -72,4 +72,34 @@ func (self *EthConfirmTx) Perform(input models.RunResult) models.RunResult {
 			return models.RunResultWithValue(txid)
 		}
 	}
+}
+
+type EthSignAndSendTx struct {
+	AdapterBase
+	Address    string `json:"address"`
+	FunctionID string `json:"functionID"`
+}
+
+func (self *EthSignAndSendTx) Perform(input models.RunResult) models.RunResult {
+	signer := &EthSignTx{
+		Address:     self.Address,
+		FunctionID:  self.FunctionID,
+		AdapterBase: AdapterBase{self.Store},
+	}
+	sender := &EthSendRawTx{
+		AdapterBase: AdapterBase{self.Store},
+	}
+	confirmer := &EthConfirmTx{
+		AdapterBase: AdapterBase{self.Store},
+	}
+
+	signed := signer.Perform(input)
+	if signed.HasError() {
+		return signed
+	}
+	sent := sender.Perform(signed)
+	if sent.HasError() {
+		return sent
+	}
+	return confirmer.Perform(sent)
 }
