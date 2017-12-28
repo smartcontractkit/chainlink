@@ -44,11 +44,14 @@ func For(task models.Task, s *store.Store) (Adapter, error) {
 	case "EthConfirmTx":
 		ac = &EthConfirmTx{}
 		err = unmarshalOrEmpty(task.Params, ac)
+	case "EthSendRawTx":
+		ac = &EthSendRawTx{}
+		err = unmarshalOrEmpty(task.Params, ac)
 	case "EthSignTx":
 		ac = &EthSignTx{}
 		err = json.Unmarshal(task.Params, ac)
-	case "EthSendRawTx":
-		ac = &EthSendRawTx{}
+	case "EthSignAndSendTx":
+		ac = &EthSignAndSendTx{}
 		err = unmarshalOrEmpty(task.Params, ac)
 	case "NoOp":
 		ac = &NoOp{}

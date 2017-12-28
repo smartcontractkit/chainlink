@@ -42,7 +42,7 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
-	signTx := adapter4.(*adapters.EthSignTx)
+	signTx := adapter4.(*adapters.EthSignAndSendTx)
 	assert.Equal(t, signTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
 	assert.Equal(t, signTx.FunctionID, "12345679")
 
@@ -55,9 +55,7 @@ func TestCreateJobs(t *testing.T) {
 func TestCreateJobsIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
-	config := cltest.NewConfig()
-	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	app := cltest.NewApplicationWithConfig(config)
+	app := cltest.NewApplicationWithKeyStore()
 	eth := app.MockEthClient()
 	server := app.NewServer()
 	defer app.Stop()
@@ -106,7 +104,7 @@ func TestCreateJobsIntegration(t *testing.T) {
 	jobRun := jobRuns[0]
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
-	assert.Equal(t, rawTxResp, jobRun.TaskRuns[5].Result.Value())
+	assert.Equal(t, rawTxResp, jobRun.TaskRuns[3].Result.Value())
 	assert.Equal(t, rawTxResp, jobRun.Result.Value())
 }
 

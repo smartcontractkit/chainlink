@@ -6,7 +6,6 @@ import (
 	gock "github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	storelib "github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/stretchr/testify/assert"
@@ -16,10 +15,10 @@ func TestSendingEthereumTx(t *testing.T) {
 	store := cltest.NewStore()
 	defer store.Close()
 	defer cltest.CloseGock(t)
+	config := store.Config
 
 	value := "0000abcdef"
 	input := models.RunResultWithValue(value)
-	config := store.Config
 
 	response := `{"result": "0x0100"}`
 	gock.New(config.EthereumURL).
@@ -37,9 +36,11 @@ func TestSendingEthereumTx(t *testing.T) {
 func TestSigningEthereumTx(t *testing.T) {
 	defer cltest.CloseGock(t)
 
-	config := cltest.NewConfig()
-	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	sender := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	app := cltest.NewApplicationWithKeyStore()
+	defer app.Stop()
+	store := app.Store
+	config := app.Store.Config
+	sender := store.KeyStore.GetAccount().Address.String()
 	password := "password"
 
 	response := `{"result": "0x11"}`
@@ -47,9 +48,6 @@ func TestSigningEthereumTx(t *testing.T) {
 		Post("").
 		Reply(200).
 		JSON(response)
-
-	store := storelib.NewStore(config)
-	defer cltest.CleanUpStore(store)
 
 	err := store.KeyStore.Unlock(password)
 	assert.Nil(t, err)
@@ -74,4 +72,25 @@ func TestSigningEthereumTx(t *testing.T) {
 
 	actual, err := utils.SenderFromTxHex(result.Value(), config.ChainID)
 	assert.Equal(t, sender, actual.Hex())
+}
+
+func TestSigningAndSendingTx(t *testing.T) {
+	defer cltest.CloseGock(t)
+
+	app := cltest.NewApplicationWithKeyStore()
+	defer app.Stop()
+	store := app.Store
+	eth := app.MockEthClient()
+	eth.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
+
+	adapter := adapters.EthSignTx{
+		Address:     "recipient",
+		FunctionID:  "fid",
+		AdapterBase: adapters.AdapterBase{store},
+	}
+	input := models.RunResultWithValue("Hello World!")
+	output := adapter.Perform(input)
+
+	assert.True(t, output.HasError())
+	assert.Equal(t, output.Error(), "Cannot connect to nodes")
 }
