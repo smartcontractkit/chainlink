@@ -13,7 +13,7 @@ import (
 
 func TestSendingEthereumTx(t *testing.T) {
 	store := cltest.NewStore()
-	defer store.Close()
+	defer cltest.CleanUpStore(store)
 	defer cltest.CloseGock(t)
 	config := store.Config
 

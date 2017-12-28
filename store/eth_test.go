@@ -10,7 +10,7 @@ import (
 
 func TestEthGetTxReceipt(t *testing.T) {
 	store := cltest.NewStore()
-	defer store.Close()
+	defer cltest.CleanUpStore(store)
 	eth := store.Eth
 
 	response := cltest.LoadJSON("../internal/fixtures/web/eth_getTransactionReceipt.json")

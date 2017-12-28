@@ -3,7 +3,6 @@ package adapters
 import (
 	"bytes"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -58,16 +57,13 @@ type EthConfirmTx struct{}
 
 func (self *EthConfirmTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	txid := input.Value()
-	for {
-		receipt, err := store.Eth.GetTxReceipt(txid)
-		if err != nil {
-			return models.RunResultWithError(err)
-		} else if receipt.TxHash.Hex() == "" {
-			time.Sleep(1000 * time.Millisecond)
-		} else {
-			return models.RunResultWithValue(txid)
-		}
+	receipt, err := store.Eth.GetTxReceipt(txid)
+	if err != nil {
+		return models.RunResultWithError(err)
+	} else if common.EmptyHash(receipt.TxHash) {
+		return models.RunResultPending(input)
 	}
+	return models.RunResultWithValue(txid)
 }
 
 type EthSignAndSendTx struct {
