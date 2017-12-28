@@ -79,13 +79,17 @@ func (self *EthSignAndSendTx) Perform(input models.RunResult, store *store.Store
 	sender := &EthSendRawTx{}
 	confirmer := &EthConfirmTx{}
 
-	signed := signer.Perform(input, store)
-	if signed.HasError() {
-		return signed
+	if !input.Pending {
+		signed := signer.Perform(input, store)
+		if signed.HasError() {
+			return signed
+		}
+		sent := sender.Perform(signed, store)
+		if sent.HasError() {
+			return sent
+		}
+		return confirmer.Perform(sent, store)
+	} else {
+		return confirmer.Perform(input, store)
 	}
-	sent := sender.Perform(signed, store)
-	if sent.HasError() {
-		return sent
-	}
-	return confirmer.Perform(sent, store)
 }
