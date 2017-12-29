@@ -5,15 +5,15 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type HttpGet struct {
-	AdapterBase
 	Endpoint string `json:"endpoint"`
 }
 
-func (self *HttpGet) Perform(input models.RunResult) models.RunResult {
+func (self *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	response, err := http.Get(self.Endpoint)
 	if err != nil {
 		return models.RunResultWithError(err)

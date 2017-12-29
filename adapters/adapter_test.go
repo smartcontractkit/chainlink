@@ -11,12 +11,10 @@ import (
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
 	store := cltest.NewStore()
-	defer store.Close()
+	defer cltest.CleanUpStore(store)
 
 	task := models.Task{Type: "NoOp"}
-	adapter, err := adapters.For(task, store)
-	adapter.Perform(models.RunResult{})
+	adapter, err := adapters.For(task)
+	adapter.Perform(models.RunResult{}, store)
 	assert.Nil(t, err)
-	rval := adapter.(*adapters.NoOp).Store.Config
-	assert.NotEqual(t, "", rval.EthereumURL)
 }

@@ -88,3 +88,9 @@ func (self *ORM) SaveJob(job Job) error {
 	}
 	return tx.Commit()
 }
+
+func (self *ORM) PendingJobRuns() ([]JobRun, error) {
+	var runs []JobRun
+	err := self.Where("Status", "pending", &runs)
+	return runs, err
+}

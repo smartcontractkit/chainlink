@@ -13,7 +13,7 @@ func TestHttpGetNotAUrlError(t *testing.T) {
 	t.Parallel()
 	httpGet := adapters.HttpGet{Endpoint: "NotAUrl"}
 	input := models.RunResult{}
-	result := httpGet.Perform(input)
+	result := httpGet.Perform(input, nil)
 	assert.Nil(t, result.Output)
 	assert.NotNil(t, result.Error)
 }
@@ -29,7 +29,7 @@ func TestHttpGetResponseError(t *testing.T) {
 
 	httpGet := adapters.HttpGet{Endpoint: url}
 	input := models.RunResult{}
-	result := httpGet.Perform(input)
+	result := httpGet.Perform(input, nil)
 	assert.Nil(t, result.Output)
 	assert.NotNil(t, result.Error)
 }
