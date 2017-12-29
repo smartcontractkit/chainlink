@@ -2,16 +2,15 @@ package adapters
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
-type EthBytes32 struct {
-	AdapterBase
-}
+type EthBytes32 struct{}
 
 const maxBytes32HexLength = 32 * 2
 
-func (self *EthBytes32) Perform(input models.RunResult) models.RunResult {
+func (self *EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	value := common.RightPadBytes([]byte(input.Value()), 32)
 	hex := removeHexPrefix(common.ToHex(value))
 

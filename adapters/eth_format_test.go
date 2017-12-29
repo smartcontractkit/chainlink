@@ -45,7 +45,7 @@ func TestEthereumBytes32Formatting(t *testing.T) {
 			Output: models.Output{"value": test.value},
 		}
 		adapter := adapters.EthBytes32{}
-		result := adapter.Perform(past)
+		result := adapter.Perform(past, nil)
 
 		assert.Equal(t, test.expected, result.Value())
 		assert.Nil(t, result.GetError())

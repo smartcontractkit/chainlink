@@ -4,15 +4,15 @@ import (
 	"errors"
 
 	simplejson "github.com/bitly/go-simplejson"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
 type JsonParse struct {
-	AdapterBase
 	Path []string `json:"path"`
 }
 
-func (self *JsonParse) Perform(input models.RunResult) models.RunResult {
+func (self *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	js, err := simplejson.NewJson([]byte(input.Value()))
 	if err != nil {
 		return models.RunResultWithError(err)
