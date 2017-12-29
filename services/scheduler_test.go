@@ -42,11 +42,12 @@ func TestAddJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
 
 	sched := services.NewScheduler(store)
 	sched.Start()
+
 	defer sched.Stop()
+	defer cltest.CleanUpStore(store)
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	err := store.SaveJob(j)
@@ -65,9 +66,10 @@ func TestAddJobWhenStopped(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
-
 	sched := services.NewScheduler(store)
+
+	defer sched.Stop()
+	defer cltest.CleanUpStore(store)
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, store.SaveJob(j))
