@@ -23,7 +23,7 @@ func TestCreateJobs(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_jobs.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
 	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	defer resp.Body.Close()
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
@@ -48,16 +48,43 @@ func TestCreateJobs(t *testing.T) {
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
+	assert.Equal(t, "web", initr.Type)
+}
+
+func TestCreateJobSchedulerIntegration(t *testing.T) {
+	RegisterTestingT(t)
+
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	app.Start()
+	defer app.Stop()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/no_op_job.json")
+	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	assert.Nil(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", respJSON.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+
+	var initr models.Initiator
+	app.Store.One("JobID", respJSON.ID, &initr)
 	assert.Equal(t, "cron", initr.Type)
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
-func TestCreateJobsIntegration(t *testing.T) {
+func TestCreateJobIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
 	app := cltest.NewApplicationWithKeyStore()
 	eth := app.MockEthClient()
 	server := app.NewServer()
+	app.Start()
 	defer app.Stop()
 
 	err := app.Store.KeyStore.Unlock("password")
@@ -78,27 +105,31 @@ func TestCreateJobsIntegration(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", types.Receipt{})
 	eth.Register("eth_getTransactionReceipt", types.Receipt{TxHash: common.StringToHash(rawTxResp)})
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_jobs.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	assert.Nil(t, err)
 	defer resp.Body.Close()
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
+	jobID := cltest.JobJSONFromResponse(resp.Body).ID
 
-	app.Start()
+	url := server.URL + "/jobs/" + jobID + "/runs"
+	resp, err = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	assert.Nil(t, err)
+	jrID := cltest.JobJSONFromResponse(resp.Body).ID
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", respJSON.ID, &jobRuns)
+		app.Store.Where("JobID", jobID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 
 	var job models.Job
-	err = app.Store.One("ID", respJSON.ID, &job)
+	err = app.Store.One("ID", jobID, &job)
 	assert.Nil(t, err)
 
 	jobRuns, err = app.Store.JobRunsFor(job)
 	assert.Nil(t, err)
 	jobRun := jobRuns[0]
+	assert.Equal(t, jrID, jobRun.ID)
 	Eventually(func() string {
 		assert.Nil(t, app.Store.One("ID", jobRun.ID, &jobRun))
 		return jobRun.Status
@@ -115,7 +146,7 @@ func TestCreateInvalidJobs(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_invalid_jobs.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)
@@ -134,7 +165,7 @@ func TestCreateInvalidCron(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/create_invalid_cron.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		t.Fatal(err)

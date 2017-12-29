@@ -1,0 +1,5 @@
+{
+  "initiators": [{ "type": "cron", "schedule": "! * * * *" }],
+  "tasks": [{ "type": "HttpGet", "params": { "endpoint": "https://example.com/api" } }],
+  "version": "1.0.0"
+}

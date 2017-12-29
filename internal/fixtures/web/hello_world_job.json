@@ -1,0 +1,14 @@
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    { "type": "HttpGet", "params": { "endpoint": "https://bitstamp.net/api/ticker/" } },
+    { "type": "JsonParse", "params": { "path": ["last"] } },
+    { "type": "EthBytes32" },
+    {
+      "type": "EthSignAndSendTx",
+      "params": { "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3", "functionID": "12345679" }
+    }
+  ],
+  "endAt": "2019-11-27T23:05:49Z",
+  "version": "2.0.0"
+}

@@ -1,5 +1,0 @@
-{
-  "tasks": [{ "type": "IdoNotExist", "params": { "description": "Or do I?"} }],
-  "schedule": {"cron": "* * * * *"},
-  "version": "1.0.0"
-}
