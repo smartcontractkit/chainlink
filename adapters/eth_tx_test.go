@@ -12,8 +12,9 @@ import (
 )
 
 func TestSendingEthereumTx(t *testing.T) {
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	app := cltest.NewApplicationWithKeyStore()
+	store := app.Store
+	defer app.Stop()
 	defer cltest.CloseGock(t)
 	config := store.Config
 

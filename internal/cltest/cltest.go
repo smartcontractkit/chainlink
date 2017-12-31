@@ -85,7 +85,9 @@ func (self *TestApplication) Stop() {
 
 func (self *TestApplication) MockEthClient() *EthMock {
 	mock := NewMockGethRpc()
-	self.Store.Eth = &store.Eth{mock}
+	eth := &store.Eth{mock}
+	self.Store.Eth = eth
+	self.Store.Tx.Eth = eth
 	return mock
 }
 
