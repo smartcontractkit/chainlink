@@ -37,10 +37,10 @@ func (self *KeyStore) Unlock(phrase string) error {
 	return nil
 }
 
-func (self *KeyStore) SignTx(tx *types.Transaction, chainID int64) (*types.Transaction, error) {
+func (self *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transaction, error) {
 	return self.KeyStore.SignTx(
 		self.GetAccount(),
-		tx, big.NewInt(chainID),
+		tx, big.NewInt(int64(chainID)),
 	)
 }
 

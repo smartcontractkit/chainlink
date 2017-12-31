@@ -14,7 +14,8 @@ type Config struct {
 	BasicAuthUsername string `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword string `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL       string `env:"ETHEREUM_URL" envDefault:"http://localhost:8545"`
-	ChainID           int64  `env:"ETHEREUM_CHAIN_ID" envDefault:0`
+	ChainID           uint64 `env:"ETHEREUM_CHAIN_ID" envDefault:0`
+	EthConfMin        uint64 `env:"ETHEREUM_CONF_MIN" envDefault:6`
 	PollingSchedule   string `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -103,9 +104,13 @@ func TestCreateJobIntegration(t *testing.T) {
 
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	txid := `0x83c52c31cd40a023728fbc21a570316acd4f90525f81f1d7c477fd958ffa467f`
+	confed := uint64(23456)
 	eth.Register("eth_sendRawTransaction", txid)
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TXID: txid})
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TXID: txid, BlockNumber: confed})
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TXID: txid, BlockNumber: confed})
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthConfMin-1))
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthConfMin))
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -140,6 +145,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
 	assert.Equal(t, txid, jobRun.TaskRuns[3].Result.Value())
 	assert.Equal(t, txid, jobRun.Result.Value())
+	assert.True(t, eth.AllCalled())
 }
 
 func TestCreateInvalidJobs(t *testing.T) {

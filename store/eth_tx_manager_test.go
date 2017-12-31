@@ -39,6 +39,7 @@ func TestTxManagerCreateTx(t *testing.T) {
 	rlpHex := common.ToHex(rlp.Bytes())
 	sender, err := utils.SenderFromTxHex(rlpHex, config.ChainID)
 	assert.Equal(t, signer, sender.Hex())
+
 	assert.True(t, ethMock.AllCalled())
 }
 
@@ -53,8 +54,8 @@ func TestTxManagerNewSignedTx(t *testing.T) {
 
 	data := "0000abcdef"
 	to := "0xb70a511baC46ec6442aC6D598eaC327334e634dB"
-	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionCount", "0x0100") // 256
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionCount", "0x0100") // 256
 
 	tx, err := manager.NewSignedTx(to, data)
 	assert.Nil(t, err)
@@ -68,6 +69,51 @@ func TestTxManagerNewSignedTx(t *testing.T) {
 	rlpHex := common.ToHex(rlp.Bytes())
 	sender, err := utils.SenderFromTxHex(rlpHex, config.ChainID)
 	assert.Equal(t, signer, sender.Hex())
+
+	assert.True(t, ethMock.AllCalled())
+}
+
+func TestTxManagerConfirmTxUnconfirmed(t *testing.T) {
+	t.Parallel()
+	app := cltest.NewApplicationWithKeyStore()
+	store := app.Store
+	defer app.Stop()
+	manager := store.Tx
+
+	txid := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+
+	confirmed, err := manager.TxConfirmed(txid)
+	assert.Nil(t, err)
+	assert.False(t, confirmed)
+
+	assert.True(t, ethMock.AllCalled())
+}
+
+func TestTxManagerConfirmTxNotEnoughConfs(t *testing.T) {
+	t.Parallel()
+	app := cltest.NewApplicationWithKeyStore()
+	store := app.Store
+	defer app.Stop()
+	config := store.Config
+	manager := store.Tx
+
+	txid := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
+	bNum := uint64(17)
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
+		TXID:        txid,
+		BlockNumber: bNum,
+	})
+	current := utils.Uint64ToHex(bNum + config.EthConfMin - 1)
+	ethMock.Register("eth_blockNumber", current)
+
+	confirmed, err := manager.TxConfirmed(txid)
+	assert.Nil(t, err)
+	assert.False(t, confirmed)
+
+	assert.True(t, ethMock.AllCalled())
 }
 
 func TestTxManagerConfirmTxTrue(t *testing.T) {
@@ -75,29 +121,22 @@ func TestTxManagerConfirmTxTrue(t *testing.T) {
 	app := cltest.NewApplicationWithKeyStore()
 	store := app.Store
 	defer app.Stop()
+	config := store.Config
 	manager := store.Tx
 
 	txid := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
-	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TXID: txid})
+	bNum := uint64(17)
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
+		TXID:        txid,
+		BlockNumber: bNum,
+	})
+	current := utils.Uint64ToHex(bNum + config.EthConfMin)
+	ethMock.Register("eth_blockNumber", current)
 
 	confirmed, err := manager.TxConfirmed(txid)
 	assert.Nil(t, err)
 	assert.True(t, confirmed)
-}
 
-func TestTxManagerConfirmTxFalse(t *testing.T) {
-	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
-	store := app.Store
-	defer app.Stop()
-	manager := store.Tx
-
-	txid := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
-	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
-
-	confirmed, err := manager.TxConfirmed(txid)
-	assert.Nil(t, err)
-	assert.False(t, confirmed)
+	assert.True(t, ethMock.AllCalled())
 }
