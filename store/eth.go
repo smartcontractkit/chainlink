@@ -1,73 +1,71 @@
 package store
 
 import (
-	"encoding/json"
-	"strconv"
+	"bytes"
+	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/smartcontractkit/chainlink-go/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type Eth struct {
-	Caller
+	*EthClient
+	KeyStore *KeyStore
+	Config   Config
 }
 
-type Caller interface {
-	Call(result interface{}, method string, args ...interface{}) error
-}
-
-func (self *Eth) GetNonce(account accounts.Account) (uint64, error) {
-	var result string
-	err := self.Call(&result, "eth_getTransactionCount", account.Address.Hex())
+func (self *Eth) CreateTx(to, data string) (*types.Transaction, error) {
+	tx, err := self.NewSignedTx(to, data)
 	if err != nil {
-		return 0, err
+		return tx, err
 	}
-	return utils.HexToUint64(result)
-}
-
-func (self *Eth) SendRawTx(hex string) (string, error) {
-	var result string
-	err := self.Call(&result, "eth_sendRawTransaction", hex)
-	return result, err
-}
-
-func (self *Eth) GetTxReceipt(txid string) (*TxReceipt, error) {
-	receipt := TxReceipt{}
-	err := self.Call(&receipt, "eth_getTransactionReceipt", txid)
-	return &receipt, err
-}
-
-func (self *Eth) BlockNumber() (uint64, error) {
-	result := ""
-	if err := self.Call(&result, "eth_blockNumber"); err != nil {
-		return 0, err
-	}
-	return utils.HexToUint64(result)
-}
-
-type TxReceipt struct {
-	BlockNumber uint64 `json:"blockNumber,string"`
-	TXID        string `json:"transactionHash"`
-}
-
-func (self *TxReceipt) UnmarshalJSON(b []byte) error {
-	type Rcpt struct {
-		BlockNumber string `json:"blockNumber"`
-		TXID        string `json:"transactionHash"`
-	}
-	var rcpt Rcpt
-	if err := json.Unmarshal(b, &rcpt); err != nil {
-		return err
-	}
-	block, err := strconv.ParseUint(rcpt.BlockNumber[2:], 16, 64)
+	hex, err := encodeTxToHex(tx)
 	if err != nil {
-		return err
+		return tx, err
 	}
-	self.BlockNumber = block
-	self.TXID = rcpt.TXID
-	return nil
+	if _, err = self.SendRawTx(hex); err != nil {
+		return tx, err
+	}
+	return tx, nil
 }
 
-func (self *TxReceipt) Unconfirmed() bool {
-	return self.TXID == ""
+func (self *Eth) NewSignedTx(to, data string) (*types.Transaction, error) {
+	account := self.KeyStore.GetAccount()
+	nonce, err := self.GetNonce(account)
+	if err != nil {
+		return nil, err
+	}
+	tx := types.NewTransaction(
+		nonce,
+		common.HexToAddress(to),
+		big.NewInt(0),
+		big.NewInt(500000),
+		big.NewInt(20000000000),
+		common.FromHex(data),
+	)
+	return self.KeyStore.SignTx(tx, self.Config.ChainID)
+}
+
+func (self *Eth) TxConfirmed(txid string) (bool, error) {
+	receipt, err := self.GetTxReceipt(txid)
+	if err != nil {
+		return false, err
+	} else if receipt.Unconfirmed() {
+		return false, nil
+	}
+
+	min := receipt.BlockNumber + self.Config.EthConfMin
+	current, err := self.BlockNumber()
+	if err != nil {
+		return false, err
+	}
+	return (min <= current), nil
+}
+
+func encodeTxToHex(tx *types.Transaction) (string, error) {
+	rlp := new(bytes.Buffer)
+	if err := tx.EncodeRLP(rlp); err != nil {
+		return "", err
+	}
+	return common.ToHex(rlp.Bytes()), nil
 }

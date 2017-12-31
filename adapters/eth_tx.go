@@ -13,7 +13,7 @@ type EthTx struct {
 func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !input.Pending {
 		data := self.FunctionID + input.Value()
-		tx, err := store.Tx.CreateTx(self.Address, data)
+		tx, err := store.Eth.CreateTx(self.Address, data)
 
 		if err != nil {
 			return models.RunResultWithError(err)
@@ -30,7 +30,7 @@ type EthConfirmTx struct{}
 
 func (self *EthConfirmTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	txid := input.Value()
-	confirmed, err := store.Tx.TxConfirmed(txid)
+	confirmed, err := store.Eth.TxConfirmed(txid)
 	if err != nil {
 		return models.RunResultWithError(err)
 	} else if !confirmed {
