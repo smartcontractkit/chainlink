@@ -123,6 +123,10 @@ func (self *EthMock) RegisterError(method, errMsg string) {
 	self.Responses = append(self.Responses, res)
 }
 
+func (self *EthMock) AllCalled() bool {
+	return len(self.Responses) == 0
+}
+
 func RemoveIndex(s []MockResponse, index int) []MockResponse {
 	return append(s[:index], s[index+1:]...)
 }
