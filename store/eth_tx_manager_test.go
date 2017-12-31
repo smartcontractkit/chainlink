@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	strpkg "github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -79,7 +79,7 @@ func TestTxManagerConfirmTxTrue(t *testing.T) {
 
 	txid := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
 	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionReceipt", types.Receipt{TxHash: common.StringToHash(txid)})
+	eth.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TXID: txid})
 
 	confirmed, err := manager.TxConfirmed(txid)
 	assert.Nil(t, err)
@@ -95,7 +95,7 @@ func TestTxManagerConfirmTxFalse(t *testing.T) {
 
 	txid := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
 	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionReceipt", types.Receipt{})
+	eth.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 
 	confirmed, err := manager.TxConfirmed(txid)
 	assert.Nil(t, err)

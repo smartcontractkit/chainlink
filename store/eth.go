@@ -1,11 +1,11 @@
 package store
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type Eth struct {
@@ -34,8 +34,35 @@ func (self *Eth) SendRawTx(hex string) (string, error) {
 	return result, err
 }
 
-func (self *Eth) GetTxReceipt(txid string) (types.Receipt, error) {
-	receipt := types.Receipt{}
+func (self *Eth) GetTxReceipt(txid string) (*TxReceipt, error) {
+	receipt := TxReceipt{}
 	err := self.Call(&receipt, "eth_getTransactionReceipt", txid)
-	return receipt, err
+	return &receipt, err
+}
+
+type TxReceipt struct {
+	BlockNumber uint64 `json:"blockNumber,string"`
+	TXID        string `json:"transactionHash"`
+}
+
+func (self *TxReceipt) UnmarshalJSON(b []byte) error {
+	type Rcpt struct {
+		BlockNumber string `json:"blockNumber"`
+		TXID        string `json:"transactionHash"`
+	}
+	var rcpt Rcpt
+	if err := json.Unmarshal(b, &rcpt); err != nil {
+		return err
+	}
+	block, err := strconv.ParseUint(rcpt.BlockNumber[2:], 16, 64)
+	if err != nil {
+		return err
+	}
+	self.BlockNumber = block
+	self.TXID = rcpt.TXID
+	return nil
+}
+
+func (self *TxReceipt) Unconfirmed() bool {
+	return self.TXID == ""
 }
