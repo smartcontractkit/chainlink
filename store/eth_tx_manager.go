@@ -53,7 +53,13 @@ func (self *EthTxManager) TxConfirmed(txid string) (bool, error) {
 	} else if receipt.Unconfirmed() {
 		return false, nil
 	}
-	return true, nil
+
+	min := receipt.BlockNumber + self.Config.EthConfMin
+	current, err := self.Eth.BlockNumber()
+	if err != nil {
+		return false, err
+	}
+	return (min <= current), nil
 }
 
 func encodeTxToHex(tx *types.Transaction) (string, error) {
