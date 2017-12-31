@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,21 @@ type EthTxManager struct {
 	KeyStore *KeyStore
 	Eth      *Eth
 	Config   Config
+}
+
+func (self *EthTxManager) CreateTx(to, data string) (*types.Transaction, error) {
+	tx, err := self.NewSignedTx(to, data)
+	if err != nil {
+		return tx, err
+	}
+	hex, err := encodeTxToHex(tx)
+	if err != nil {
+		return tx, err
+	}
+	if _, err = self.Eth.SendRawTx(hex); err != nil {
+		return tx, err
+	}
+	return tx, nil
 }
 
 func (self *EthTxManager) NewSignedTx(to, data string) (*types.Transaction, error) {
@@ -30,10 +46,6 @@ func (self *EthTxManager) NewSignedTx(to, data string) (*types.Transaction, erro
 	return self.KeyStore.SignTx(tx, self.Config.ChainID)
 }
 
-func (self *EthTxManager) SendRawTx(hex string) (string, error) {
-	return self.Eth.SendRawTx(hex)
-}
-
 func (self *EthTxManager) TxConfirmed(txid string) (bool, error) {
 	receipt, err := self.Eth.GetTxReceipt(txid)
 	if err != nil {
@@ -42,4 +54,12 @@ func (self *EthTxManager) TxConfirmed(txid string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func encodeTxToHex(tx *types.Transaction) (string, error) {
+	rlp := new(bytes.Buffer)
+	if err := tx.EncodeRLP(rlp); err != nil {
+		return "", err
+	}
+	return common.ToHex(rlp.Bytes()), nil
 }
