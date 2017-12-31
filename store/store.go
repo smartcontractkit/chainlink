@@ -17,6 +17,7 @@ type Store struct {
 	sigs     chan os.Signal
 	Exiter   func(int)
 	Eth      *Eth
+	Tx       *EthTxManager
 }
 
 func NewStore(config Config) *Store {
@@ -29,12 +30,15 @@ func NewStore(config Config) *Store {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	keyStore := NewKeyStore(config.KeysDir())
+	eth := &Eth{ethrpc}
 	store := &Store{
 		ORM:      orm,
 		Config:   config,
-		KeyStore: NewKeyStore(config.KeysDir()),
+		KeyStore: keyStore,
 		Exiter:   os.Exit,
 		Eth:      &Eth{ethrpc},
+		Tx:       &EthTxManager{keyStore, eth, config},
 	}
 	return store
 }
