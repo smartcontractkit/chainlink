@@ -16,7 +16,7 @@ func TestEthCreateTx(t *testing.T) {
 	app := cltest.NewApplicationWithKeyStore()
 	store := app.Store
 	defer app.Stop()
-	assert.Nil(t, store.KeyStore.Unlock("password"))
+	assert.Nil(t, store.KeyStore.Unlock(cltest.Password))
 	config := store.Config
 	manager := store.Eth
 
@@ -48,7 +48,7 @@ func TestEthNewSignedTx(t *testing.T) {
 	app := cltest.NewApplicationWithKeyStore()
 	store := app.Store
 	defer app.Stop()
-	assert.Nil(t, store.KeyStore.Unlock("password"))
+	assert.Nil(t, store.KeyStore.Unlock(cltest.Password))
 	config := store.Config
 	manager := store.Eth
 

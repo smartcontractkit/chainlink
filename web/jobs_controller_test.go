@@ -84,13 +84,13 @@ func TestCreateJobIntegration(t *testing.T) {
 	config := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	app := cltest.NewApplicationWithConfig(config)
-	app.Store.KeyStore.Unlock("password")
+	app.Store.KeyStore.Unlock(cltest.Password)
 	eth := app.MockEthClient()
 	server := app.NewServer()
 	app.Start()
 	defer app.Stop()
 
-	err := app.Store.KeyStore.Unlock("password")
+	err := app.Store.KeyStore.Unlock(cltest.Password)
 	assert.Nil(t, err)
 
 	defer cltest.CloseGock(t)
