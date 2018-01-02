@@ -26,9 +26,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testRootDir = "/tmp/chainlink_test"
-const testUsername = "testusername"
-const testPassword = "testpassword"
+const RootDir = "/tmp/chainlink_test"
+const Username = "testusername"
+const Password = "password"
 
 func init() {
 	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
@@ -36,9 +36,9 @@ func init() {
 
 func NewConfig() store.Config {
 	return store.Config{
-		RootDir:           path.Join(testRootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
-		BasicAuthUsername: testUsername,
-		BasicAuthPassword: testPassword,
+		RootDir:           path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+		BasicAuthUsername: Username,
+		BasicAuthPassword: Password,
 		EthereumURL:       "http://example.com/api",
 		ChainID:           3,
 		EthConfMin:        6,
@@ -61,7 +61,7 @@ func NewApplicationWithConfig(config store.Config) *TestApplication {
 
 func NewApplicationWithKeyStore() *TestApplication {
 	app := NewApplication()
-	_, err := app.Store.KeyStore.NewAccount("password")
+	_, err := app.Store.KeyStore.NewAccount(Password)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Respon
 	client := &http.Client{}
 	request, _ := http.NewRequest("POST", url, body)
 	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(testUsername, testPassword)
+	request.SetBasicAuth(Username, Password)
 	resp, err := client.Do(request)
 	return resp, err
 }
@@ -235,7 +235,7 @@ func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Respon
 func BasicAuthGet(url string) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("GET", url, nil)
-	request.SetBasicAuth(testUsername, testPassword)
+	request.SetBasicAuth(Username, Password)
 	resp, err := client.Do(request)
 	return resp, err
 }
