@@ -31,7 +31,7 @@ const Username = "testusername"
 const Password = "password"
 
 func init() {
-	gomega.SetDefaultEventuallyTimeout(2 * time.Second)
+	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 }
 
 func NewConfig() store.Config {
@@ -127,14 +127,14 @@ func (self *EthMock) AllCalled() bool {
 	return len(self.Responses) == 0
 }
 
-func RemoveIndex(s []MockResponse, index int) []MockResponse {
+func copyWithoutIndex(s []MockResponse, index int) []MockResponse {
 	return append(s[:index], s[index+1:]...)
 }
 
 func (self *EthMock) Call(result interface{}, method string, args ...interface{}) error {
-	for i, resp := range self.Responses[:] {
+	for i, resp := range self.Responses {
 		if resp.methodName == method {
-			self.Responses = RemoveIndex(self.Responses, i)
+			self.Responses = copyWithoutIndex(self.Responses, i)
 			if resp.hasError {
 				return fmt.Errorf(resp.errMsg)
 			} else {
