@@ -12,23 +12,23 @@ type EthTx struct {
 
 func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !input.Pending {
-		data := self.FunctionID + input.Value()
-		tx, err := store.Eth.CreateTx(self.Address, data)
-
-		if err != nil {
-			return models.RunResultWithError(err)
-		}
-		txid := tx.Hash().String()
-		input = models.RunResultWithValue(txid)
+		return createTxRunResult(self, input, store)
+	} else {
+		return ensureTxRunResult(input, store)
 	}
-
-	confirmer := &EthConfirmTx{}
-	return confirmer.Perform(input, store)
 }
 
-type EthConfirmTx struct{}
+func createTxRunResult(e *EthTx, input models.RunResult, store *store.Store) models.RunResult {
+	data := e.FunctionID + input.Value()
+	tx, err := store.Eth.CreateTx(e.Address, data)
 
-func (self *EthConfirmTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+	return ensureTxRunResult(models.RunResultWithValue(tx.TxID()), store)
+}
+
+func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
 	txid := input.Value()
 	confirmed, err := store.Eth.TxConfirmed(txid)
 	if err != nil {

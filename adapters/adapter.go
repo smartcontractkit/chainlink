@@ -23,9 +23,6 @@ func For(task models.Task) (ac Adapter, err error) {
 	case "EthBytes32":
 		ac = &EthBytes32{}
 		err = unmarshalOrEmpty(task.Params, ac)
-	case "EthConfirmTx":
-		ac = &EthConfirmTx{}
-		err = unmarshalOrEmpty(task.Params, ac)
 	case "EthTx":
 		ac = &EthTx{}
 		err = unmarshalOrEmpty(task.Params, ac)
