@@ -30,7 +30,7 @@ func createTxRunResult(e *EthTx, input models.RunResult, store *store.Store) mod
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
 	txid := input.Value()
-	confirmed, err := store.Eth.TxConfirmed(txid)
+	confirmed, err := store.Eth.EnsureTxConfirmed(txid)
 	if err != nil {
 		return models.RunResultWithError(err)
 	} else if !confirmed {

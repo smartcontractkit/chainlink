@@ -111,3 +111,22 @@ func (self *ORM) CreateEthTx(
 	}
 	return &tx, self.Save(&tx)
 }
+
+func (self *ORM) SaveTx(txr *EthTx) error {
+	tx, err := self.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := tx.Save(txr); err != nil {
+		return err
+	}
+	for _, attempt := range txr.Attempts {
+		attempt.EthTxID = txr.ID
+		if err := tx.Save(attempt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
