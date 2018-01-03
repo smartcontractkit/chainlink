@@ -84,14 +84,11 @@ func TestCreateJobIntegration(t *testing.T) {
 	config := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	app := cltest.NewApplicationWithConfig(config)
-	app.Store.KeyStore.Unlock(cltest.Password)
+	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
 	server := app.NewServer()
 	app.Start()
 	defer app.Stop()
-
-	err := app.Store.KeyStore.Unlock(cltest.Password)
-	assert.Nil(t, err)
 
 	defer cltest.CloseGock(t)
 	gock.EnableNetworking()
@@ -108,9 +105,9 @@ func TestCreateJobIntegration(t *testing.T) {
 	eth.Register("eth_sendRawTransaction", txid)
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TXID: txid, BlockNumber: confed})
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TXID: txid, BlockNumber: confed})
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthConfMin-1))
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthConfMin))
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations-1))
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations))
+	eth.Register("eth_sendRawTransaction", cltest.NewTxID())
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -145,6 +142,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
 	assert.Equal(t, txid, jobRun.TaskRuns[3].Result.Value())
 	assert.Equal(t, txid, jobRun.Result.Value())
+
 	assert.True(t, eth.AllCalled())
 }
 

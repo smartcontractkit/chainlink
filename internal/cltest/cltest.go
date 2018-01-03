@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,13 +36,15 @@ func init() {
 
 func NewConfig() store.Config {
 	return store.Config{
-		RootDir:           path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
-		BasicAuthUsername: Username,
-		BasicAuthPassword: Password,
-		EthereumURL:       "http://example.com/api",
-		ChainID:           3,
-		EthConfMin:        6,
-		PollingSchedule:   "* * * * * *",
+		RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+		BasicAuthUsername:   Username,
+		BasicAuthPassword:   Password,
+		EthereumURL:         "http://example.com/api",
+		ChainID:             3,
+		EthMinConfirmations: 6,
+		EthGasBumpWei:      big.NewInt(5000000000),
+		EthGasBumpThreshold: 3,
+		PollingSchedule:     "* * * * * *",
 	}
 }
 
@@ -61,8 +63,10 @@ func NewApplicationWithConfig(config store.Config) *TestApplication {
 
 func NewApplicationWithKeyStore() *TestApplication {
 	app := NewApplication()
-	_, err := app.Store.KeyStore.NewAccount(Password)
-	if err != nil {
+	if _, err := app.Store.KeyStore.NewAccount(Password); err != nil {
+		logger.Fatal(err)
+	}
+	if err := app.Store.KeyStore.Unlock(Password); err != nil {
 		logger.Fatal(err)
 	}
 	return app
@@ -186,7 +190,7 @@ func LoadJSON(file string) []byte {
 	return content
 }
 
-func CopyFile(src, dst string) {
+func copyFile(src, dst string) {
 	from, err := os.Open(src)
 	if err != nil {
 		log.Fatal(err)
@@ -212,7 +216,7 @@ func AddPrivateKey(config store.Config, src string) {
 	}
 
 	dst := config.KeysDir() + "/testwallet.json"
-	CopyFile(src, dst)
+	copyFile(src, dst)
 }
 
 func TimeParse(s string) time.Time {
@@ -238,22 +242,4 @@ func BasicAuthGet(url string) (*http.Response, error) {
 	request.SetBasicAuth(Username, Password)
 	resp, err := client.Do(request)
 	return resp, err
-}
-
-func NewJob() models.Job {
-	j := models.NewJob()
-	j.Tasks = []models.Task{{Type: "NoOp"}}
-	return j
-}
-
-func NewJobWithSchedule(sched string) models.Job {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{Type: "cron", Schedule: models.Cron(sched)}}
-	return j
-}
-
-func NewJobWithWebInitiator() models.Job {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{Type: "web"}}
-	return j
 }

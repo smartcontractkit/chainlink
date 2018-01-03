@@ -11,7 +11,7 @@ type Task struct {
 
 type TaskRun struct {
 	Task
-	ID     string `storm:"id"`
+	ID     string `storm:"id,index,unique"`
 	Status string
 	Result RunResult
 }

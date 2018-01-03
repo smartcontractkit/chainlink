@@ -21,6 +21,7 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 	if err != nil {
 		return nil, err
 	}
+	gasPrice := big.NewInt(20000000000)
 	txr, err := self.ORM.CreateEthTx(
 		account.Address.String(),
 		nonce,
@@ -28,21 +29,21 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 		data,
 		big.NewInt(0),
 		big.NewInt(500000),
-		big.NewInt(20000000000),
+		gasPrice,
 	)
 	if err != nil {
 		return txr, err
 	}
 
-	if err = self.createAttempt(txr); err != nil {
+	if err = self.createAttempt(txr, gasPrice); err != nil {
 		return txr, err
 	}
 
 	return txr, nil
 }
 
-func (self *Eth) createAttempt(txr *models.EthTx) error {
-	tx := txr.Signable()
+func (self *Eth) createAttempt(txr *models.EthTx, gasPrice *big.Int) error {
+	tx := txr.Signable(gasPrice)
 	tx, err := self.KeyStore.SignTx(tx, self.Config.ChainID)
 	if err != nil {
 		return err
@@ -53,7 +54,7 @@ func (self *Eth) createAttempt(txr *models.EthTx) error {
 	if err = self.sendTransaction(tx); err != nil {
 		return err
 	}
-	return self.ORM.Save(txr)
+	return self.ORM.SaveTx(txr)
 }
 
 func (self *Eth) sendTransaction(tx *types.Transaction) error {
@@ -67,18 +68,50 @@ func (self *Eth) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (self *Eth) TxConfirmed(txid string) (bool, error) {
+func (self *Eth) EnsureTxConfirmed(txid string) (bool, error) {
 	receipt, err := self.GetTxReceipt(txid)
 	if err != nil {
 		return false, err
-	} else if receipt.Unconfirmed() {
-		return false, nil
 	}
-
-	min := receipt.BlockNumber + self.Config.EthConfMin
-	current, err := self.BlockNumber()
+	blkNum, err := self.BlockNumber()
 	if err != nil {
 		return false, err
 	}
-	return (min <= current), nil
+	txat := &models.EthTxAttempt{}
+	if err := self.ORM.One("TxID", txid, txat); err != nil {
+		return false, err
+	}
+	if receipt.Unconfirmed() {
+		return self.handleUnconfirmed(receipt, txat, blkNum)
+	}
+	return self.handleConfirmed(receipt, txat, blkNum)
+}
+
+func (self *Eth) handleConfirmed(
+	rcpt *TxReceipt,
+	txat *models.EthTxAttempt,
+	blkNum uint64,
+) (bool, error) {
+	safeAt := rcpt.BlockNumber + self.Config.EthMinConfirmations
+	return blkNum >= safeAt, nil
+}
+
+func (self *Eth) handleUnconfirmed(
+	rcpt *TxReceipt,
+	txat *models.EthTxAttempt,
+	blkNum uint64,
+) (bool, error) {
+	if blkNum >= txat.SentAt+self.Config.EthGasBumpThreshold {
+		return false, self.bumpGas(txat)
+	}
+	return false, nil
+}
+
+func (self *Eth) bumpGas(txat *models.EthTxAttempt) error {
+	txr := &models.EthTx{}
+	if err := self.ORM.One("ID", txat.EthTxID, txr); err != nil {
+		return err
+	}
+	gasPrice := new(big.Int).Add(txr.GasPrice, self.Config.EthGasBumpWei)
+	return self.createAttempt(txr, gasPrice)
 }
