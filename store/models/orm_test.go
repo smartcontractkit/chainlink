@@ -85,9 +85,8 @@ func TestCreatingEthTx(t *testing.T) {
 	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
 	nonce := uint64(1232421)
 	gasLimit := big.NewInt(500000)
-	gasPrice := big.NewInt(20 * 1000000000)
 
-	_, err := store.CreateEthTx(from, nonce, to, data, value, gasLimit, gasPrice)
+	_, err := store.CreateEthTx(from, nonce, to, data, value, gasLimit)
 	assert.Nil(t, err)
 
 	txs := []models.EthTx{}
@@ -102,5 +101,4 @@ func TestCreatingEthTx(t *testing.T) {
 	assert.Equal(t, nonce, tx.Nonce)
 	assert.Equal(t, value, tx.Value)
 	assert.Equal(t, gasLimit, tx.GasLimit)
-	assert.Equal(t, gasPrice, tx.GasPrice)
 }

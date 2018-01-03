@@ -21,7 +21,6 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 	if err != nil {
 		return nil, err
 	}
-	gasPrice := big.NewInt(20000000000)
 	txr, err := self.ORM.CreateEthTx(
 		account.Address.String(),
 		nonce,
@@ -29,12 +28,12 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 		data,
 		big.NewInt(0),
 		big.NewInt(500000),
-		gasPrice,
 	)
 	if err != nil {
 		return txr, err
 	}
 
+	gasPrice := self.Config.EthGasPriceDefault
 	if err = self.createAttempt(txr, gasPrice); err != nil {
 		return txr, err
 	}
@@ -112,6 +111,6 @@ func (self *Eth) bumpGas(txat *models.EthTxAttempt) error {
 	if err := self.ORM.One("ID", txat.EthTxID, txr); err != nil {
 		return err
 	}
-	gasPrice := new(big.Int).Add(txr.GasPrice, self.Config.EthGasBumpWei)
+	gasPrice := new(big.Int).Add(txr.GasPrice(), self.Config.EthGasBumpWei)
 	return self.createAttempt(txr, gasPrice)
 }

@@ -32,7 +32,6 @@ func NewEthTx(from string, sentAt uint64) *models.EthTx {
 		Nonce:    0,
 		Data:     "deadbeef",
 		Value:    big.NewInt(0),
-		GasPrice: big.NewInt(20000000000),
 		GasLimit: big.NewInt(250000),
 		Attempts: []*models.EthTxAttempt{&models.EthTxAttempt{
 			TxID:     NewTxID(),

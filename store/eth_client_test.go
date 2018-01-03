@@ -22,6 +22,6 @@ func TestEthGetTxReceipt(t *testing.T) {
 	txid := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
 	receipt, err := eth.GetTxReceipt(txid)
 	assert.Nil(t, err)
-	assert.Equal(t, txid, receipt.TXID)
+	assert.Equal(t, txid, receipt.TxID)
 	assert.Equal(t, uint64(11), receipt.BlockNumber)
 }

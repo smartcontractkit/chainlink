@@ -104,7 +104,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	confed := uint64(23456)
 	eth.Register("eth_sendRawTransaction", txid)
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TXID: txid, BlockNumber: confed})
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TxID: txid, BlockNumber: confed})
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations-1))
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations))
 	eth.Register("eth_sendRawTransaction", cltest.NewTxID())
