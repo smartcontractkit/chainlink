@@ -47,13 +47,13 @@ func (self *EthClient) BlockNumber() (uint64, error) {
 
 type TxReceipt struct {
 	BlockNumber uint64 `json:"blockNumber,string"`
-	TXID        string `json:"transactionHash"`
+	TxID        string `json:"transactionHash"`
 }
 
 func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 	type Rcpt struct {
 		BlockNumber string `json:"blockNumber"`
-		TXID        string `json:"transactionHash"`
+		TxID        string `json:"transactionHash"`
 	}
 	var rcpt Rcpt
 	if err := json.Unmarshal(b, &rcpt); err != nil {
@@ -64,10 +64,10 @@ func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	self.BlockNumber = block
-	self.TXID = rcpt.TXID
+	self.TxID = rcpt.TxID
 	return nil
 }
 
 func (self *TxReceipt) Unconfirmed() bool {
-	return self.TXID == ""
+	return self.TxID == ""
 }

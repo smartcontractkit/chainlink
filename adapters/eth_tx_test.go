@@ -12,6 +12,7 @@ import (
 )
 
 func TestEthTxAdapterConfirmed(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationWithKeyStore()
 	defer app.Stop()
 	store := app.Store
@@ -22,7 +23,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	txid := cltest.NewTxID()
 	confed := uint64(23456)
 	ethMock.Register("eth_sendRawTransaction", txid)
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TXID: txid, BlockNumber: confed})
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TxID: txid, BlockNumber: confed})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations))
 
 	adapter := adapters.EthTx{
@@ -44,6 +45,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 }
 
 func TestEthTxAdapterFromPending(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationWithKeyStore()
 	defer app.Stop()
 	store := app.Store
@@ -70,6 +72,7 @@ func TestEthTxAdapterFromPending(t *testing.T) {
 }
 
 func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationWithKeyStore()
 	defer app.Stop()
 	store := app.Store
@@ -97,6 +100,7 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 }
 
 func TestEthTxAdapterWithError(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationWithKeyStore()
 	defer app.Stop()
 	store := app.Store

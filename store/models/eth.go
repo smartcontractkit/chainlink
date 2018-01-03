@@ -16,7 +16,6 @@ type EthTx struct {
 	Nonce    uint64
 	Value    *big.Int
 	GasLimit *big.Int
-	GasPrice *big.Int
 	Attempts []*EthTxAttempt `storm:"inline"`
 }
 
@@ -38,6 +37,10 @@ func (self *EthTx) NewAttempt(tx *types.Transaction) (*EthTxAttempt, error) {
 
 func (self *EthTx) TxID() string {
 	return self.Attempts[len(self.Attempts)-1].TxID
+}
+
+func (self *EthTx) GasPrice() *big.Int {
+	return self.Attempts[len(self.Attempts)-1].GasPrice
 }
 
 func (self *EthTx) Signable(gasPrice *big.Int) *types.Transaction {

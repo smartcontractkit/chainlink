@@ -42,8 +42,9 @@ func NewConfig() store.Config {
 		EthereumURL:         "http://example.com/api",
 		ChainID:             3,
 		EthMinConfirmations: 6,
-		EthGasBumpWei:      big.NewInt(5000000000),
+		EthGasBumpWei:       big.NewInt(5000000000),
 		EthGasBumpThreshold: 3,
+		EthGasPriceDefault:  big.NewInt(20000000000),
 		PollingSchedule:     "* * * * * *",
 	}
 }

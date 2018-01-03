@@ -104,7 +104,7 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		TXID:        cltest.NewTxID(),
+		TxID:        cltest.NewTxID(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
@@ -134,7 +134,7 @@ func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		TXID:        cltest.NewTxID(),
+		TxID:        cltest.NewTxID(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations-1))

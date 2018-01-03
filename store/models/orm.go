@@ -97,8 +97,8 @@ func (self *ORM) PendingJobRuns() ([]JobRun, error) {
 }
 
 func (self *ORM) CreateEthTx(
-	from string, nonce uint64, to string, data string, value *big.Int,
-	gasLimit *big.Int, gasPrice *big.Int,
+	from string, nonce uint64, to string, data string,
+	value *big.Int, gasLimit *big.Int,
 ) (*EthTx, error) {
 	tx := EthTx{
 		From:     from,
@@ -107,7 +107,6 @@ func (self *ORM) CreateEthTx(
 		Data:     data,
 		Value:    value,
 		GasLimit: gasLimit,
-		GasPrice: gasPrice,
 	}
 	return &tx, self.Save(&tx)
 }
