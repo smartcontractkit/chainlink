@@ -149,12 +149,11 @@ func (self *ORM) AddAttempt(
 		return nil, err
 	}
 	attempt := &EthTxAttempt{
-		Hash:      signable.Hash().String(),
-		GasPrice:  signable.GasPrice(),
-		Confirmed: false,
-		Hex:       hex,
-		EthTxID:   tx.ID,
-		SentAt:    blkNum,
+		Hash:     signable.Hash().String(),
+		GasPrice: signable.GasPrice(),
+		Hex:      hex,
+		EthTxID:  tx.ID,
+		SentAt:   blkNum,
 	}
 	if !tx.Confirmed {
 		tx.EthTxAttempt = *attempt

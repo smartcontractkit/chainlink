@@ -130,15 +130,11 @@ func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 
 	txr := cltest.NewEthTx(cltest.NewEthAddress(), sentAt)
 	assert.Nil(t, store.Save(txr))
-	a1, _ := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
-	a2, _ := store.AddAttempt(txr, txr.Signable(big.NewInt(2)), sentAt+1)
-	store.AddAttempt(txr, txr.Signable(big.NewInt(3)), sentAt+2)
-	a1.Bumped = true
-	a2.Bumped = true
-	assert.Nil(t, store.Save(a1))
-	assert.Nil(t, store.Save(a2))
+	store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
+	store.AddAttempt(txr, txr.Signable(big.NewInt(2)), sentAt+1)
+	a3, _ := store.AddAttempt(txr, txr.Signable(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a1.Hash))
+	input := models.RunResultPending(models.RunResultWithValue(a3.Hash))
 
 	assert.False(t, txr.Confirmed)
 
