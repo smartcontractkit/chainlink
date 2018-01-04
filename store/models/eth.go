@@ -8,17 +8,14 @@ import (
 )
 
 type EthTx struct {
-	ID        uint64 `storm:"id,increment,index"`
-	From      string
-	To        string
-	Data      string
-	Nonce     uint64
-	Value     *big.Int
-	GasLimit  *big.Int
-	TxID      string
-	GasPrice  *big.Int
-	Confirmed bool
-	Hex       string
+	ID       uint64 `storm:"id,increment,index"`
+	From     string
+	To       string
+	Data     string
+	Nonce    uint64
+	Value    *big.Int
+	GasLimit *big.Int
+	EthTxAttempt
 }
 
 func (self *EthTx) Signable(gasPrice *big.Int) *types.Transaction {

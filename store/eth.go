@@ -15,7 +15,7 @@ type Eth struct {
 	ORM      *models.ORM
 }
 
-func (self *Eth) CreateTx(to, data string) (*models.EthTxAttempt, error) {
+func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 	account := self.KeyStore.GetAccount()
 	nonce, err := self.GetNonce(account)
 	if err != nil {
@@ -38,12 +38,12 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTxAttempt, error) {
 	}
 
 	gasPrice := self.Config.EthGasPriceDefault
-	a, err := self.createAttempt(txr, gasPrice, blkNum)
+	_, err = self.createAttempt(txr, gasPrice, blkNum)
 	if err != nil {
-		return a, err
+		return txr, err
 	}
 
-	return a, nil
+	return txr, nil
 }
 
 func (self *Eth) createAttempt(

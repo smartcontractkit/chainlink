@@ -121,10 +121,7 @@ func (self *ORM) ConfirmTx(txr *EthTx, txat *EthTxAttempt) error {
 	defer tx.Rollback()
 
 	txat.Confirmed = true
-	txr.Confirmed = true
-	txr.TxID = txat.TxID
-	txr.GasPrice = txat.GasPrice
-	txr.Hex = txat.Hex
+	txr.EthTxAttempt = *txat
 	if err := tx.Save(txr); err != nil {
 		return err
 	}
@@ -159,6 +156,20 @@ func (self *ORM) AddAttempt(
 		EthTxID:   tx.ID,
 		SentAt:    blkNum,
 	}
+	if !tx.Confirmed {
+		tx.EthTxAttempt = *attempt
+	}
+	dbtx, err := self.Begin(true)
+	if err != nil {
+		return nil, err
+	}
+	defer dbtx.Rollback()
+	if err = dbtx.Save(tx); err != nil {
+		return nil, err
+	}
+	if err = dbtx.Save(attempt); err != nil {
+		return nil, err
+	}
 
-	return attempt, self.Save(attempt)
+	return attempt, dbtx.Commit()
 }
