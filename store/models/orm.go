@@ -149,7 +149,7 @@ func (self *ORM) AddAttempt(
 		return nil, err
 	}
 	attempt := &EthTxAttempt{
-		TxID:      signable.Hash().String(),
+		Hash:      signable.Hash().String(),
 		GasPrice:  signable.GasPrice(),
 		Confirmed: false,
 		Hex:       hex,

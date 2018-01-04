@@ -21,13 +21,13 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	txid := cltest.NewTxID()
+	hash := cltest.NewTxHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
-	ethMock.Register("eth_sendRawTransaction", txid)
+	ethMock.Register("eth_sendRawTransaction", hash)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TxID: txid, BlockNumber: confirmed})
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{Hash: hash, BlockNumber: confirmed})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
@@ -67,7 +67,7 @@ func TestEthTxAdapterFromPending(t *testing.T) {
 	a, err := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a.TxID))
+	input := models.RunResultPending(models.RunResultWithValue(a.Hash))
 
 	output := adapter.Perform(input, store)
 
@@ -91,7 +91,7 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
-	ethMock.Register("eth_sendRawTransaction", cltest.NewTxID())
+	ethMock.Register("eth_sendRawTransaction", cltest.NewTxHash())
 
 	from := store.KeyStore.GetAccount().Address.String()
 	txr := cltest.NewEthTx(from, sentAt)
@@ -99,7 +99,7 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 	a, err := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), 1)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a.TxID))
+	input := models.RunResultPending(models.RunResultWithValue(a.Hash))
 
 	output := adapter.Perform(input, store)
 
@@ -123,7 +123,7 @@ func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		TxID:        cltest.NewTxID(),
+		Hash:        cltest.NewTxHash(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
@@ -138,7 +138,7 @@ func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 	assert.Nil(t, store.Save(a1))
 	assert.Nil(t, store.Save(a2))
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a1.TxID))
+	input := models.RunResultPending(models.RunResultWithValue(a1.Hash))
 
 	assert.False(t, txr.Confirmed)
 

@@ -25,17 +25,17 @@ func createTxRunResult(e *EthTx, input models.RunResult, store *store.Store) mod
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
-	return ensureTxRunResult(models.RunResultWithValue(attempt.TxID), store)
+	return ensureTxRunResult(models.RunResultWithValue(attempt.Hash), store)
 }
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
-	txid := input.Value()
-	confirmed, err := store.Eth.EnsureTxConfirmed(txid)
+	hash := input.Value()
+	confirmed, err := store.Eth.EnsureTxConfirmed(hash)
 
 	if err != nil {
 		return models.RunResultWithError(err)
 	} else if !confirmed {
 		return models.RunResultPending(input)
 	}
-	return models.RunResultWithValue(txid)
+	return models.RunResultWithValue(hash)
 }

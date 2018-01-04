@@ -54,7 +54,7 @@ func CreateEthTxAndAttempt(
 	return txr
 }
 
-func NewTxID() string {
+func NewTxHash() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return hexutil.Encode(b)

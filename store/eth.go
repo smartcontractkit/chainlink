@@ -75,9 +75,9 @@ func (self *Eth) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (self *Eth) EnsureTxConfirmed(txid string) (bool, error) {
+func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
 	attempt := &models.EthTxAttempt{}
-	if err := self.ORM.One("TxID", txid, attempt); err != nil {
+	if err := self.ORM.One("Hash", hash, attempt); err != nil {
 		return false, err
 	}
 	blkNum, err := self.BlockNumber()
@@ -89,7 +89,7 @@ func (self *Eth) EnsureTxConfirmed(txid string) (bool, error) {
 		return false, err
 	}
 	for _, txat := range attempts {
-		receipt, err := self.GetTxReceipt(txat.TxID)
+		receipt, err := self.GetTxReceipt(txat.Hash)
 		if err != nil {
 			return false, err
 		}

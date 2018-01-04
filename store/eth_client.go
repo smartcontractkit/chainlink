@@ -31,9 +31,9 @@ func (self *EthClient) SendRawTx(hex string) (string, error) {
 	return result, err
 }
 
-func (self *EthClient) GetTxReceipt(txid string) (*TxReceipt, error) {
+func (self *EthClient) GetTxReceipt(hash string) (*TxReceipt, error) {
 	receipt := TxReceipt{}
-	err := self.Call(&receipt, "eth_getTransactionReceipt", txid)
+	err := self.Call(&receipt, "eth_getTransactionReceipt", hash)
 	return &receipt, err
 }
 
@@ -47,13 +47,13 @@ func (self *EthClient) BlockNumber() (uint64, error) {
 
 type TxReceipt struct {
 	BlockNumber uint64 `json:"blockNumber,string"`
-	TxID        string `json:"transactionHash"`
+	Hash        string `json:"transactionHash"`
 }
 
 func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 	type Rcpt struct {
 		BlockNumber string `json:"blockNumber"`
-		TxID        string `json:"transactionHash"`
+		Hash        string `json:"transactionHash"`
 	}
 	var rcpt Rcpt
 	if err := json.Unmarshal(b, &rcpt); err != nil {
@@ -64,10 +64,10 @@ func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	self.BlockNumber = block
-	self.TxID = rcpt.TxID
+	self.Hash = rcpt.Hash
 	return nil
 }
 
 func (self *TxReceipt) Unconfirmed() bool {
-	return self.TxID == ""
+	return self.Hash == ""
 }
