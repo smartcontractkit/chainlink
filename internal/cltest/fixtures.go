@@ -5,6 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink-go/logger"
+	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
@@ -33,16 +35,26 @@ func NewEthTx(from string, sentAt uint64) *models.EthTx {
 		Data:     "deadbeef",
 		Value:    big.NewInt(0),
 		GasLimit: big.NewInt(250000),
-		Attempts: []*models.EthTxAttempt{&models.EthTxAttempt{
-			TxID:     NewTxID(),
-			GasPrice: big.NewInt(20000000000),
-			Hex:      "0x0000",
-			SentAt:   sentAt,
-		}},
 	}
 }
 
-func NewTxID() string {
+func CreateEthTxAndAttempt(
+	store *store.Store,
+	from string,
+	sentAt uint64,
+) *models.EthTx {
+	txr := NewEthTx(from, sentAt)
+	if err := store.Save(txr); err != nil {
+		logger.Fatal(err)
+	}
+	_, err := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	return txr
+}
+
+func NewTxHash() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return hexutil.Encode(b)
