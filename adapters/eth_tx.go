@@ -1,95 +1,40 @@
 package adapters
 
 import (
-	"bytes"
-	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 )
 
-type EthSignTx struct {
+type EthTx struct {
 	Address    string `json:"address"`
 	FunctionID string `json:"functionID"`
 }
 
-func (self *EthSignTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	str := self.FunctionID + input.Value()
-	data := common.FromHex(str)
-	keyStore := store.KeyStore
-	nonce, err := store.Eth.GetNonce(keyStore.GetAccount())
-	if err != nil {
-		return models.RunResultWithError(err)
+func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
+	if !input.Pending {
+		return createTxRunResult(self, input, store)
+	} else {
+		return ensureTxRunResult(input, store)
 	}
-	tx := types.NewTransaction(
-		nonce,
-		common.HexToAddress(self.Address),
-		big.NewInt(0),
-		big.NewInt(500000),
-		big.NewInt(20000000000),
-		data,
-	)
-	signedTx, err := keyStore.SignTx(tx, store.Config.ChainID)
-	if err != nil {
-		return models.RunResultWithError(err)
-	}
-
-	buffer := new(bytes.Buffer)
-	if err := signedTx.EncodeRLP(buffer); err != nil {
-		return models.RunResultWithError(err)
-	}
-	return models.RunResultWithValue(common.ToHex(buffer.Bytes()))
 }
 
-type EthSendRawTx struct{}
+func createTxRunResult(e *EthTx, input models.RunResult, store *store.Store) models.RunResult {
+	data := e.FunctionID + input.Value()
+	tx, err := store.Eth.CreateTx(e.Address, data)
 
-func (self *EthSendRawTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	result, err := store.Eth.SendRawTx(input.Value())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
-	return models.RunResultWithValue(result)
+	return ensureTxRunResult(models.RunResultWithValue(tx.TxID()), store)
 }
 
-type EthConfirmTx struct{}
-
-func (self *EthConfirmTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
 	txid := input.Value()
-	receipt, err := store.Eth.GetTxReceipt(txid)
+	confirmed, err := store.Eth.EnsureTxConfirmed(txid)
 	if err != nil {
 		return models.RunResultWithError(err)
-	} else if common.EmptyHash(receipt.TxHash) {
+	} else if !confirmed {
 		return models.RunResultPending(input)
 	}
 	return models.RunResultWithValue(txid)
-}
-
-type EthSignAndSendTx struct {
-	Address    string `json:"address"`
-	FunctionID string `json:"functionID"`
-}
-
-func (self *EthSignAndSendTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	signer := &EthSignTx{
-		Address:    self.Address,
-		FunctionID: self.FunctionID,
-	}
-	sender := &EthSendRawTx{}
-	confirmer := &EthConfirmTx{}
-
-	if !input.Pending {
-		signed := signer.Perform(input, store)
-		if signed.HasError() {
-			return signed
-		}
-		sent := sender.Perform(signed, store)
-		if sent.HasError() {
-			return sent
-		}
-		return confirmer.Perform(sent, store)
-	} else {
-		return confirmer.Perform(input, store)
-	}
 }

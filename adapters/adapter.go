@@ -23,17 +23,8 @@ func For(task models.Task) (ac Adapter, err error) {
 	case "EthBytes32":
 		ac = &EthBytes32{}
 		err = unmarshalOrEmpty(task.Params, ac)
-	case "EthConfirmTx":
-		ac = &EthConfirmTx{}
-		err = unmarshalOrEmpty(task.Params, ac)
-	case "EthSendRawTx":
-		ac = &EthSendRawTx{}
-		err = unmarshalOrEmpty(task.Params, ac)
-	case "EthSignTx":
-		ac = &EthSignTx{}
-		err = json.Unmarshal(task.Params, ac)
-	case "EthSignAndSendTx":
-		ac = &EthSignAndSendTx{}
+	case "EthTx":
+		ac = &EthTx{}
 		err = unmarshalOrEmpty(task.Params, ac)
 	case "NoOp":
 		ac = &NoOp{}

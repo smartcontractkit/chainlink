@@ -28,7 +28,7 @@ func (self JobRun) ForLogger(kvs ...interface{}) []interface{} {
 }
 
 func (self JobRun) UnfinishedTaskRuns() []TaskRun {
-	unfinished := self.TaskRuns[:]
+	unfinished := self.TaskRuns
 	for _, tr := range self.TaskRuns {
 		if tr.Completed() {
 			unfinished = unfinished[1:]

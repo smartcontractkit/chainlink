@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
@@ -72,4 +73,32 @@ func TestPendingJobRuns(t *testing.T) {
 
 	assert.Contains(t, pendingIDs, pr.ID)
 	assert.NotContains(t, pendingIDs, npr.ID)
+}
+
+func TestCreatingEthTx(t *testing.T) {
+	store := cltest.NewStore()
+	defer cltest.CleanUpStore(store)
+
+	data := "0987612345abcdef"
+	from := "0x2C83ACd90367e7E0D3762eA31aC77F18faecE874"
+	to := "0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A"
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	nonce := uint64(1232421)
+	gasLimit := big.NewInt(500000)
+
+	_, err := store.CreateEthTx(from, nonce, to, data, value, gasLimit)
+	assert.Nil(t, err)
+
+	txs := []models.EthTx{}
+	assert.Nil(t, store.Where("Nonce", nonce, &txs))
+	assert.Equal(t, 1, len(txs))
+	tx := txs[0]
+
+	assert.NotNil(t, tx.ID)
+	assert.Equal(t, from, tx.From)
+	assert.Equal(t, to, tx.To)
+	assert.Equal(t, data, tx.Data)
+	assert.Equal(t, nonce, tx.Nonce)
+	assert.Equal(t, value, tx.Value)
+	assert.Equal(t, gasLimit, tx.GasLimit)
 }
