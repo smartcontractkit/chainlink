@@ -36,5 +36,4 @@ type EthTxAttempt struct {
 	Confirmed bool
 	Hex       string
 	SentAt    uint64
-	Bumped    bool
 }

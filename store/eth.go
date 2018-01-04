@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -46,6 +47,32 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 	return txr, nil
 }
 
+func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
+	blkNum, err := self.BlockNumber()
+	if err != nil {
+		return false, err
+	}
+	attempts, err := self.getAttempts(hash)
+	if err != nil {
+		return false, err
+	}
+	if len(attempts) == 0 {
+		return false, fmt.Errorf("Can only ensure transactions with attempts")
+	}
+	txr := models.EthTx{}
+	if err := self.ORM.One("ID", attempts[0].EthTxID, &txr); err != nil {
+		return false, err
+	}
+
+	for _, txat := range attempts {
+		success, err := self.checkAttempt(&txr, txat, blkNum)
+		if success {
+			return success, err
+		}
+	}
+	return false, nil
+}
+
 func (self *Eth) createAttempt(
 	txr *models.EthTx,
 	gasPrice *big.Int,
@@ -75,54 +102,44 @@ func (self *Eth) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
+func (self *Eth) getAttempts(hash string) ([]*models.EthTxAttempt, error) {
 	attempt := &models.EthTxAttempt{}
 	if err := self.ORM.One("Hash", hash, attempt); err != nil {
-		return false, err
-	}
-	blkNum, err := self.BlockNumber()
-	if err != nil {
-		return false, err
+		return []*models.EthTxAttempt{}, err
 	}
 	attempts, err := self.ORM.AttemptsFor(attempt.EthTxID)
 	if err != nil {
+		return []*models.EthTxAttempt{}, err
+	}
+	return attempts, nil
+}
+
+func (self *Eth) checkAttempt(
+	txr *models.EthTx,
+	txat *models.EthTxAttempt,
+	blkNum uint64,
+) (bool, error) {
+	receipt, err := self.GetTxReceipt(txat.Hash)
+	if err != nil {
 		return false, err
 	}
-	for _, txat := range attempts {
-		receipt, err := self.GetTxReceipt(txat.Hash)
-		if err != nil {
-			return false, err
-		}
-		if receipt.Unconfirmed() {
-			if _, err := self.handleUnconfirmed(receipt, txat, blkNum); err != nil {
-				return false, err
-			}
-			continue
-		}
-		ok, err := self.handleConfirmed(receipt, txat, blkNum)
-		if err != nil {
-			return false, err
-		} else if ok {
-			return ok, nil
-		}
+
+	if receipt.Unconfirmed() {
+		return self.handleUnconfirmed(txr, txat, blkNum)
 	}
-	return false, nil
+	return self.handleConfirmed(txr, txat, receipt, blkNum)
 }
 
 func (self *Eth) handleConfirmed(
-	rcpt *TxReceipt,
+	txr *models.EthTx,
 	txat *models.EthTxAttempt,
+	rcpt *TxReceipt,
 	blkNum uint64,
 ) (bool, error) {
 
 	safeAt := rcpt.BlockNumber + self.Config.EthMinConfirmations
 	if blkNum < safeAt {
 		return false, nil
-	}
-
-	txr := &models.EthTx{}
-	if err := self.ORM.One("ID", txat.EthTxID, txr); err != nil {
-		return false, err
 	}
 
 	if err := self.ORM.ConfirmTx(txr, txat); err != nil {
@@ -132,11 +149,13 @@ func (self *Eth) handleConfirmed(
 }
 
 func (self *Eth) handleUnconfirmed(
-	rcpt *TxReceipt,
+	txr *models.EthTx,
 	txat *models.EthTxAttempt,
 	blkNum uint64,
 ) (bool, error) {
-	if !txat.Bumped && blkNum >= txat.SentAt+self.Config.EthGasBumpThreshold {
+	bumpable := txr.Hash == txat.Hash
+	pastThreshold := blkNum >= txat.SentAt+self.Config.EthGasBumpThreshold
+	if bumpable && pastThreshold {
 		return false, self.bumpGas(txat, blkNum)
 	}
 	return false, nil
@@ -152,6 +171,5 @@ func (self *Eth) bumpGas(txat *models.EthTxAttempt, blkNum uint64) error {
 	if err != nil {
 		return err
 	}
-	txat.Bumped = true
 	return self.ORM.Save(txat)
 }
