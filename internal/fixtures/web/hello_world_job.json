@@ -5,7 +5,7 @@
     { "type": "JsonParse", "params": { "path": ["last"] } },
     { "type": "EthBytes32" },
     {
-      "type": "EthSignAndSendTx",
+      "type": "EthTx",
       "params": { "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3", "functionID": "12345679" }
     }
   ],

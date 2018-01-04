@@ -29,12 +29,18 @@ func NewStore(config Config) *Store {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	keyStore := NewKeyStore(config.KeysDir())
 	store := &Store{
 		ORM:      orm,
 		Config:   config,
-		KeyStore: NewKeyStore(config.KeysDir()),
+		KeyStore: keyStore,
 		Exiter:   os.Exit,
-		Eth:      &Eth{ethrpc},
+		Eth: &Eth{
+			Config:    config,
+			EthClient: &EthClient{ethrpc},
+			KeyStore:  keyStore,
+			ORM:       orm,
+		},
 	}
 	return store
 }

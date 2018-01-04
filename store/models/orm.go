@@ -2,6 +2,7 @@ package models
 
 import (
 	"log"
+	"math/big"
 	"path"
 	"reflect"
 
@@ -93,4 +94,38 @@ func (self *ORM) PendingJobRuns() ([]JobRun, error) {
 	var runs []JobRun
 	err := self.Where("Status", "pending", &runs)
 	return runs, err
+}
+
+func (self *ORM) CreateEthTx(
+	from string, nonce uint64, to string, data string,
+	value *big.Int, gasLimit *big.Int,
+) (*EthTx, error) {
+	tx := EthTx{
+		From:     from,
+		To:       to,
+		Nonce:    nonce,
+		Data:     data,
+		Value:    value,
+		GasLimit: gasLimit,
+	}
+	return &tx, self.Save(&tx)
+}
+
+func (self *ORM) SaveTx(txr *EthTx) error {
+	tx, err := self.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := tx.Save(txr); err != nil {
+		return err
+	}
+	for _, attempt := range txr.Attempts {
+		attempt.EthTxID = txr.ID
+		if err := tx.Save(attempt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
