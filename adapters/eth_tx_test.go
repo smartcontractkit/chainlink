@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/adapters"
@@ -21,10 +22,13 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	txid := cltest.NewTxID()
-	confed := uint64(23456)
+	sentAt := uint64(23456)
+	confirmed := sentAt + 1
+	safe := confirmed + config.EthMinConfirmations
 	ethMock.Register("eth_sendRawTransaction", txid)
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TxID: txid, BlockNumber: confed})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{TxID: txid, BlockNumber: confirmed})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
 		Address:    cltest.NewEthAddress(),
@@ -39,7 +43,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	txs := []models.EthTx{}
 	assert.Nil(t, store.Where("From", from, &txs))
 	assert.Equal(t, 1, len(txs))
-	assert.Equal(t, 1, len(txs[0].Attempts))
+	attempts, _ := store.AttemptsFor(txs[0].ID)
+	assert.Equal(t, 1, len(attempts))
 
 	assert.True(t, ethMock.AllCalled())
 }
@@ -58,15 +63,19 @@ func TestEthTxAdapterFromPending(t *testing.T) {
 
 	from := store.KeyStore.GetAccount().Address.String()
 	txr := cltest.NewEthTx(from, sentAt)
-	assert.Nil(t, store.SaveTx(txr))
-	adapter := adapters.EthTx{Address: cltest.NewEthAddress(), FunctionID: "12345678"}
-	input := models.RunResultPending(models.RunResultWithValue(txr.TxID()))
+	assert.Nil(t, store.Save(txr))
+	a, err := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
+	assert.Nil(t, err)
+	adapter := adapters.EthTx{}
+	input := models.RunResultPending(models.RunResultWithValue(a.TxID))
 
 	output := adapter.Perform(input, store)
 
+	assert.False(t, output.HasError())
 	assert.True(t, output.Pending)
 	assert.Nil(t, store.One("ID", txr.ID, txr))
-	assert.Equal(t, 1, len(txr.Attempts))
+	attempts, _ := store.AttemptsFor(txr.ID)
+	assert.Equal(t, 1, len(attempts))
 
 	assert.True(t, ethMock.AllCalled())
 }
@@ -86,15 +95,64 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 
 	from := store.KeyStore.GetAccount().Address.String()
 	txr := cltest.NewEthTx(from, sentAt)
-	assert.Nil(t, store.SaveTx(txr))
-	adapter := adapters.EthTx{Address: cltest.NewEthAddress(), FunctionID: "12345678"}
-	input := models.RunResultPending(models.RunResultWithValue(txr.TxID()))
+	assert.Nil(t, store.Save(txr))
+	a, err := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), 1)
+	assert.Nil(t, err)
+	adapter := adapters.EthTx{}
+	input := models.RunResultPending(models.RunResultWithValue(a.TxID))
 
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.Pending)
 	assert.Nil(t, store.One("ID", txr.ID, txr))
-	assert.Equal(t, 2, len(txr.Attempts))
+	attempts, _ := store.AttemptsFor(txr.ID)
+	assert.Equal(t, 2, len(attempts))
+
+	assert.True(t, ethMock.AllCalled())
+}
+
+func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
+	t.Parallel()
+	app := cltest.NewApplicationWithKeyStore()
+	defer app.Stop()
+	store := app.Store
+	config := store.Config
+
+	sentAt := uint64(23456)
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
+		TxID:        cltest.NewTxID(),
+		BlockNumber: sentAt,
+	})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
+
+	txr := cltest.NewEthTx(cltest.NewEthAddress(), sentAt)
+	assert.Nil(t, store.Save(txr))
+	a1, _ := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
+	a2, _ := store.AddAttempt(txr, txr.Signable(big.NewInt(2)), sentAt+1)
+	store.AddAttempt(txr, txr.Signable(big.NewInt(3)), sentAt+2)
+	a1.Bumped = true
+	a2.Bumped = true
+	assert.Nil(t, store.Save(a1))
+	assert.Nil(t, store.Save(a2))
+	adapter := adapters.EthTx{}
+	input := models.RunResultPending(models.RunResultWithValue(a1.TxID))
+
+	assert.False(t, txr.Confirmed)
+
+	output := adapter.Perform(input, store)
+
+	assert.False(t, output.Pending)
+	assert.False(t, output.HasError())
+
+	assert.Nil(t, store.One("ID", txr.ID, txr))
+	assert.True(t, txr.Confirmed)
+	attempts, _ := store.AttemptsFor(txr.ID)
+	assert.False(t, attempts[0].Confirmed)
+	assert.True(t, attempts[1].Confirmed)
+	assert.False(t, attempts[2].Confirmed)
 
 	assert.True(t, ethMock.AllCalled())
 }

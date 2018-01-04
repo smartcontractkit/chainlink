@@ -101,13 +101,15 @@ func TestCreateJobIntegration(t *testing.T) {
 
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	txid := `0x83c52c31cd40a023728fbc21a570316acd4f90525f81f1d7c477fd958ffa467f`
-	confed := uint64(23456)
+	sentAt := uint64(23456)
+	confirmed := sentAt + 1
+	safe := confirmed + config.EthMinConfirmations
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", txid)
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TxID: txid, BlockNumber: confed})
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations-1))
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(confed+config.EthMinConfirmations))
-	eth.Register("eth_sendRawTransaction", cltest.NewTxID())
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{TxID: txid, BlockNumber: confirmed})
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))

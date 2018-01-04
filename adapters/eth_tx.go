@@ -20,17 +20,18 @@ func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.Ru
 
 func createTxRunResult(e *EthTx, input models.RunResult, store *store.Store) models.RunResult {
 	data := e.FunctionID + input.Value()
-	tx, err := store.Eth.CreateTx(e.Address, data)
+	attempt, err := store.Eth.CreateTx(e.Address, data)
 
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
-	return ensureTxRunResult(models.RunResultWithValue(tx.TxID()), store)
+	return ensureTxRunResult(models.RunResultWithValue(attempt.TxID), store)
 }
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
 	txid := input.Value()
 	confirmed, err := store.Eth.EnsureTxConfirmed(txid)
+
 	if err != nil {
 		return models.RunResultWithError(err)
 	} else if !confirmed {
