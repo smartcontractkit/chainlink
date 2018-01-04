@@ -30,7 +30,7 @@ func (self *EthTx) Signable(gasPrice *big.Int) *types.Transaction {
 }
 
 type EthTxAttempt struct {
-	TxID      string `storm:"id,index,unique"`
+	Hash      string `storm:"id,index,unique"`
 	EthTxID   uint64 `storm:"index"`
 	GasPrice  *big.Int
 	Confirmed bool
