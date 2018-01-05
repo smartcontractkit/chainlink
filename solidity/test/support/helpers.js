@@ -7,6 +7,10 @@ moment = require('moment');
   before(async function () {
     accounts = await eth.accounts;
     Accounts = accounts.slice(1);
+
+    oracle = Accounts[0];
+    stranger = Accounts[1];
+    consumer = Accounts[2];
   });
 
   Eth = function sendEth(method, params) {
@@ -151,7 +155,9 @@ moment = require('moment');
       })
       .then(errorMessage => {
         assert(errorMessage, "Expected an error to be raised");
-        assert.include(errorMessage, "invalid opcode", 'expected error message to include "invalid JUMP"');
+        invalidOpcode = errorMessage.includes("invalid opcode")
+        reverted = errorMessage.includes("VM Exception while processing transaction: revert")
+        assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"');
         // see https://github.com/ethereumjs/testrpc/issues/39
         // for why the "invalid JUMP" is the throw related error when using TestRPC
       })
@@ -192,7 +198,7 @@ moment = require('moment');
   };
 
   functionID = function functionID(signature) {
-    return web3.sha3(signature).slice(2).slice(0, 8);
+    return "0x" + web3.sha3(signature).slice(2).slice(0, 8);
   };
 
 })();
