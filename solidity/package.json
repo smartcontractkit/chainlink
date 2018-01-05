@@ -1,0 +1,12 @@
+{
+  "name": "chainlink",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "bignumber.js": "^5.0.0",
+    "ganache-cli": "^6.0.3",
+    "moment": "^2.20.1",
+    "truffle": "^4.0.4"
+  }
+}
