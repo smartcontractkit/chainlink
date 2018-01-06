@@ -16,13 +16,13 @@ type Eth struct {
 	ORM      *models.ORM
 }
 
-func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
+func (self *Eth) CreateTx(to, data string) (*models.Tx, error) {
 	account := self.KeyStore.GetAccount()
 	nonce, err := self.GetNonce(account)
 	if err != nil {
 		return nil, err
 	}
-	txr, err := self.ORM.CreateEthTx(
+	tx, err := self.ORM.CreateTx(
 		account.Address.String(),
 		nonce,
 		to,
@@ -39,12 +39,12 @@ func (self *Eth) CreateTx(to, data string) (*models.EthTx, error) {
 	}
 
 	gasPrice := self.Config.EthGasPriceDefault
-	_, err = self.createAttempt(txr, gasPrice, blkNum)
+	_, err = self.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
-		return txr, err
+		return tx, err
 	}
 
-	return txr, nil
+	return tx, nil
 }
 
 func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
@@ -59,13 +59,13 @@ func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
 	if len(attempts) == 0 {
 		return false, fmt.Errorf("Can only ensure transactions with attempts")
 	}
-	txr := models.EthTx{}
-	if err := self.ORM.One("ID", attempts[0].EthTxID, &txr); err != nil {
+	tx := models.Tx{}
+	if err := self.ORM.One("ID", attempts[0].TxID, &tx); err != nil {
 		return false, err
 	}
 
 	for _, txat := range attempts {
-		success, err := self.checkAttempt(&txr, txat, blkNum)
+		success, err := self.checkAttempt(&tx, txat, blkNum)
 		if success {
 			return success, err
 		}
@@ -74,21 +74,21 @@ func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
 }
 
 func (self *Eth) createAttempt(
-	txr *models.EthTx,
+	tx *models.Tx,
 	gasPrice *big.Int,
 	blkNum uint64,
-) (*models.EthTxAttempt, error) {
-	signable := txr.Signable(gasPrice)
-	signable, err := self.KeyStore.SignTx(signable, self.Config.ChainID)
+) (*models.TxAttempt, error) {
+	etx := tx.EthTx(gasPrice)
+	etx, err := self.KeyStore.SignTx(etx, self.Config.ChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	a, err := self.ORM.AddAttempt(txr, signable, blkNum)
+	a, err := self.ORM.AddAttempt(tx, etx, blkNum)
 	if err != nil {
 		return nil, err
 	}
-	return a, self.sendTransaction(signable)
+	return a, self.sendTransaction(etx)
 }
 
 func (self *Eth) sendTransaction(tx *types.Transaction) error {
@@ -102,21 +102,21 @@ func (self *Eth) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (self *Eth) getAttempts(hash string) ([]*models.EthTxAttempt, error) {
-	attempt := &models.EthTxAttempt{}
+func (self *Eth) getAttempts(hash string) ([]*models.TxAttempt, error) {
+	attempt := &models.TxAttempt{}
 	if err := self.ORM.One("Hash", hash, attempt); err != nil {
-		return []*models.EthTxAttempt{}, err
+		return []*models.TxAttempt{}, err
 	}
-	attempts, err := self.ORM.AttemptsFor(attempt.EthTxID)
+	attempts, err := self.ORM.AttemptsFor(attempt.TxID)
 	if err != nil {
-		return []*models.EthTxAttempt{}, err
+		return []*models.TxAttempt{}, err
 	}
 	return attempts, nil
 }
 
 func (self *Eth) checkAttempt(
-	txr *models.EthTx,
-	txat *models.EthTxAttempt,
+	tx *models.Tx,
+	txat *models.TxAttempt,
 	blkNum uint64,
 ) (bool, error) {
 	receipt, err := self.GetTxReceipt(txat.Hash)
@@ -125,14 +125,14 @@ func (self *Eth) checkAttempt(
 	}
 
 	if receipt.Unconfirmed() {
-		return self.handleUnconfirmed(txr, txat, blkNum)
+		return self.handleUnconfirmed(tx, txat, blkNum)
 	}
-	return self.handleConfirmed(txr, txat, receipt, blkNum)
+	return self.handleConfirmed(tx, txat, receipt, blkNum)
 }
 
 func (self *Eth) handleConfirmed(
-	txr *models.EthTx,
-	txat *models.EthTxAttempt,
+	tx *models.Tx,
+	txat *models.TxAttempt,
 	rcpt *TxReceipt,
 	blkNum uint64,
 ) (bool, error) {
@@ -142,18 +142,18 @@ func (self *Eth) handleConfirmed(
 		return false, nil
 	}
 
-	if err := self.ORM.ConfirmTx(txr, txat); err != nil {
+	if err := self.ORM.ConfirmTx(tx, txat); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
 func (self *Eth) handleUnconfirmed(
-	txr *models.EthTx,
-	txat *models.EthTxAttempt,
+	tx *models.Tx,
+	txat *models.TxAttempt,
 	blkNum uint64,
 ) (bool, error) {
-	bumpable := txr.Hash == txat.Hash
+	bumpable := tx.Hash == txat.Hash
 	pastThreshold := blkNum >= txat.SentAt+self.Config.EthGasBumpThreshold
 	if bumpable && pastThreshold {
 		return false, self.bumpGas(txat, blkNum)
@@ -161,13 +161,13 @@ func (self *Eth) handleUnconfirmed(
 	return false, nil
 }
 
-func (self *Eth) bumpGas(txat *models.EthTxAttempt, blkNum uint64) error {
-	txr := &models.EthTx{}
-	if err := self.ORM.One("ID", txat.EthTxID, txr); err != nil {
+func (self *Eth) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
+	tx := &models.Tx{}
+	if err := self.ORM.One("ID", txat.TxID, tx); err != nil {
 		return err
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice, self.Config.EthGasBumpWei)
-	_, err := self.createAttempt(txr, gasPrice, blkNum)
+	_, err := self.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
 		return err
 	}
