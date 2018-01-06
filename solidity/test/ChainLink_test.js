@@ -45,6 +45,11 @@ contract('ChainLink', () => {
   });
 
   describe("#requestData", () => {
+    it("returns the id", async () => {
+      let nonce = await oc.requestData.call(to, fID);
+      assert.equal(1, nonce);
+    });
+
     it("logs an event", async () => {
       let tx = await oc.requestData(to, fID);
       assert.equal(1, tx.receipt.logs.length)
@@ -68,7 +73,8 @@ contract('ChainLink', () => {
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
-      let req = await oc.requestData(mock.address, functionID("setValue(bytes32)"));
+      let fid = functionID("setValue(uint256,bytes32)");
+      let req = await oc.requestData(mock.address, fid);
       nonce = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
 
@@ -89,8 +95,12 @@ contract('ChainLink', () => {
 
       it("sets the value on the requested contract", async () => {
         await oc.fulfillData(nonce, "Hello World!", {from: oracle});
-        let current = await mock.value.call();
-        assert.equal("Hello World!", web3.toUtf8(current));
+
+        let currentNonce = await mock.nonce.call();
+        assert.equal(nonce, web3.toDecimal(currentNonce));
+
+        let currentValue = await mock.value.call();
+        assert.equal("Hello World!", web3.toUtf8(currentValue));
       });
 
       it("does not allow a request to be fulfilled twice", async () => {
