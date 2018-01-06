@@ -28,8 +28,8 @@ func NewJobWithWebInitiator() models.Job {
 	return j
 }
 
-func NewEthTx(from string, sentAt uint64) *models.EthTx {
-	return &models.EthTx{
+func NewTx(from string, sentAt uint64) *models.Tx {
+	return &models.Tx{
 		From:     from,
 		Nonce:    0,
 		Data:     "deadbeef",
@@ -38,20 +38,20 @@ func NewEthTx(from string, sentAt uint64) *models.EthTx {
 	}
 }
 
-func CreateEthTxAndAttempt(
+func CreateTxAndAttempt(
 	store *store.Store,
 	from string,
 	sentAt uint64,
-) *models.EthTx {
-	txr := NewEthTx(from, sentAt)
-	if err := store.Save(txr); err != nil {
+) *models.Tx {
+	tx := NewTx(from, sentAt)
+	if err := store.Save(tx); err != nil {
 		logger.Fatal(err)
 	}
-	_, err := store.AddAttempt(txr, txr.Signable(big.NewInt(1)), sentAt)
+	_, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	return txr
+	return tx
 }
 
 func NewTxHash() string {

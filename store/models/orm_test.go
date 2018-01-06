@@ -75,7 +75,7 @@ func TestPendingJobRuns(t *testing.T) {
 	assert.NotContains(t, pendingIDs, npr.ID)
 }
 
-func TestCreatingEthTx(t *testing.T) {
+func TestCreatingTx(t *testing.T) {
 	store := cltest.NewStore()
 	defer cltest.CleanUpStore(store)
 
@@ -86,10 +86,10 @@ func TestCreatingEthTx(t *testing.T) {
 	nonce := uint64(1232421)
 	gasLimit := big.NewInt(500000)
 
-	_, err := store.CreateEthTx(from, nonce, to, data, value, gasLimit)
+	_, err := store.CreateTx(from, nonce, to, data, value, gasLimit)
 	assert.Nil(t, err)
 
-	txs := []models.EthTx{}
+	txs := []models.Tx{}
 	assert.Nil(t, store.Where("Nonce", nonce, &txs))
 	assert.Equal(t, 1, len(txs))
 	tx := txs[0]
