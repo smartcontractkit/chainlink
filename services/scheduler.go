@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	cronlib "github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink-go/logger"
@@ -11,39 +12,44 @@ import (
 )
 
 type Scheduler struct {
-	cron    *cronlib.Cron
-	store   *store.Store
-	started bool
+	Recurring *Recurring
+	OneTime   *OneTime
+	store     *store.Store
+	started   bool
 }
 
 func NewScheduler(store *store.Store) *Scheduler {
-	return &Scheduler{store: store}
+	return &Scheduler{
+		Recurring: &Recurring{store: store},
+		OneTime:   &OneTime{store: store},
+		store:     store,
+	}
 }
 
 func (self *Scheduler) Start() error {
 	if self.started {
 		return errors.New("Scheduler already started")
 	}
-	self.cron = cronlib.New()
-	jobs, err := self.store.JobsWithCron()
+	if err := self.Recurring.Start(); err != nil {
+		return err
+	}
+	self.started = true
+
+	jobs, err := self.store.Jobs()
 	if err != nil {
 		return fmt.Errorf("Scheduler: %v", err)
 	}
 
-	self.started = true
 	for _, j := range jobs {
 		self.AddJob(j)
 	}
 
-	self.addResumer()
-	self.cron.Start()
 	return nil
 }
 
 func (self *Scheduler) Stop() {
 	if self.started {
-		self.cron.Stop()
-		self.cron.Wait()
+		self.Recurring.Stop()
 		self.started = false
 	}
 }
@@ -52,7 +58,29 @@ func (self *Scheduler) AddJob(job models.Job) {
 	if !self.started {
 		return
 	}
-	for _, initr := range job.Schedules() {
+	self.Recurring.AddJob(job)
+	self.OneTime.AddJob(job)
+}
+
+type Recurring struct {
+	cron  *cronlib.Cron
+	store *store.Store
+}
+
+func (self *Recurring) Start() error {
+	self.cron = cronlib.New()
+	self.addResumer()
+	self.cron.Start()
+	return nil
+}
+
+func (self *Recurring) Stop() {
+	self.cron.Stop()
+	self.cron.Wait()
+}
+
+func (self *Recurring) AddJob(job models.Job) {
+	for _, initr := range job.InitiatorsFor("cron") {
 		cronStr := string(initr.Schedule)
 		self.cron.AddFunc(cronStr, func() {
 			_, err := StartJob(job.NewRun(), self.store)
@@ -63,7 +91,7 @@ func (self *Scheduler) AddJob(job models.Job) {
 	}
 }
 
-func (self *Scheduler) addResumer() {
+func (self *Recurring) addResumer() {
 	self.cron.AddFunc(self.store.Config.PollingSchedule, func() {
 		pendingRuns, err := self.store.PendingJobRuns()
 		if err != nil {
@@ -76,4 +104,31 @@ func (self *Scheduler) addResumer() {
 			}
 		}
 	})
+}
+
+type Sleeper interface {
+	Sleep(d time.Duration)
+}
+
+type Clock struct{}
+
+func (self *Clock) Sleep(d time.Duration) {
+	time.Sleep(d)
+}
+
+type OneTime struct {
+	store *store.Store
+	Clock Sleeper
+}
+
+func (self *OneTime) AddJob(job models.Job) {
+	for _, initr := range job.InitiatorsFor("runAt") {
+		go func() {
+			self.Clock.Sleep(initr.Time.DurationFromNow())
+			_, err := StartJob(job.NewRun(), self.store)
+			if err != nil {
+				logger.Panic(err.Error())
+			}
+		}()
+	}
 }
