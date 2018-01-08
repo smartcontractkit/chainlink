@@ -1,5 +1,4 @@
 {
   "initiators": [{ "type": "cron", "schedule": "* * * * *" }],
-  "tasks": [{ "type": "IdoNotExist", "params": { "description": "Or do I?" } }],
-  "version": "2.0.0"
+  "tasks": [{ "type": "IdoNotExist", "params": { "description": "Or do I?" } }]
 }
