@@ -162,6 +162,12 @@
   revision = "84cb69a8af8316eed8cf4a3c9368a56977850062"
 
 [[projects]]
+  name = "github.com/urfave/cli"
+  packages = ["."]
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
@@ -242,6 +248,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "de31d13d03a8b052ebc0bd9baf144428c37bfee8514f79b2cf984cc55a739b5b"
+  inputs-digest = "e866b00af1a5a4888622b2b56dc46a1ec0db56108cc307bd34a1b8213e624b76"
   solver-name = "gps-cdcl"
   solver-version = 1
