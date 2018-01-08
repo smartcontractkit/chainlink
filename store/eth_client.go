@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-go/utils"
 )
 
@@ -25,15 +26,15 @@ func (self *EthClient) GetNonce(account accounts.Account) (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-func (self *EthClient) SendRawTx(hex string) (string, error) {
-	var result string
+func (self *EthClient) SendRawTx(hex string) (common.Hash, error) {
+	result := common.Hash{}
 	err := self.Call(&result, "eth_sendRawTransaction", hex)
 	return result, err
 }
 
-func (self *EthClient) GetTxReceipt(hash string) (*TxReceipt, error) {
+func (self *EthClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
 	receipt := TxReceipt{}
-	err := self.Call(&receipt, "eth_getTransactionReceipt", hash)
+	err := self.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
@@ -46,8 +47,8 @@ func (self *EthClient) BlockNumber() (uint64, error) {
 }
 
 type TxReceipt struct {
-	BlockNumber uint64 `json:"blockNumber,string"`
-	Hash        string `json:"transactionHash"`
+	BlockNumber uint64      `json:"blockNumber,string"`
+	Hash        common.Hash `json:"transactionHash"`
 }
 
 func (self *TxReceipt) UnmarshalJSON(b []byte) error {
@@ -64,10 +65,12 @@ func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	self.BlockNumber = block
-	self.Hash = rcpt.Hash
+	if self.Hash, err = utils.StringToHash(rcpt.Hash); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (self *TxReceipt) Unconfirmed() bool {
-	return self.Hash == ""
+	return common.EmptyHash(self.Hash)
 }

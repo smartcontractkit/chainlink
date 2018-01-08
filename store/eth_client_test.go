@@ -5,6 +5,7 @@ import (
 
 	"github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +20,7 @@ func TestEthGetTxReceipt(t *testing.T) {
 		Reply(200).
 		JSON(response)
 
-	hash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+	hash, _ := utils.StringToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
 	receipt, err := eth.GetTxReceipt(hash)
 	assert.Nil(t, err)
 	assert.Equal(t, hash, receipt.Hash)

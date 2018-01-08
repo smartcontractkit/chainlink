@@ -7,31 +7,31 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-type EthTx struct {
+type Tx struct {
 	ID       uint64 `storm:"id,increment,index"`
-	From     string
-	To       string
-	Data     string
+	From     common.Address
+	To       common.Address
+	Data     []byte
 	Nonce    uint64
 	Value    *big.Int
 	GasLimit *big.Int
-	EthTxAttempt
+	TxAttempt
 }
 
-func (self *EthTx) Signable(gasPrice *big.Int) *types.Transaction {
+func (self *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
 	return types.NewTransaction(
 		self.Nonce,
-		common.HexToAddress(self.To),
+		self.To,
 		self.Value,
 		self.GasLimit,
 		gasPrice,
-		common.FromHex(self.Data),
+		self.Data,
 	)
 }
 
-type EthTxAttempt struct {
-	Hash      string `storm:"id,index,unique"`
-	EthTxID   uint64 `storm:"index"`
+type TxAttempt struct {
+	Hash      common.Hash `storm:"id,index,unique"`
+	TxID      uint64      `storm:"index"`
 	GasPrice  *big.Int
 	Confirmed bool
 	Hex       string
