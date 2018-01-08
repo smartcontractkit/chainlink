@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
@@ -17,9 +18,10 @@ func TestEthCreateTx(t *testing.T) {
 	defer app.Stop()
 	manager := store.Eth
 
-	to := "0xb70a511baC46ec6442aC6D598eaC327334e634dB"
-	data := "0000abcdef"
-	hash := "0x86300ee06a57eb27fbd8a6d5380783d4f8cb7210747689fe452e40f049d3de08"
+	to := cltest.NewEthAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.Nil(t, err)
+	hash := cltest.NewTxHash()
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
@@ -54,7 +56,7 @@ func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	eth := store.Eth
 
 	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
@@ -85,7 +87,7 @@ func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 	eth := store.Eth
 
 	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
@@ -117,7 +119,7 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 	eth := store.Eth
 
 	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
@@ -149,7 +151,7 @@ func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	eth := store.Eth
 
 	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{

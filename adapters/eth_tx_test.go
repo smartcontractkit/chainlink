@@ -27,11 +27,12 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	safe := confirmed + config.EthMinConfirmations
 	ethMock.Register("eth_sendRawTransaction", hash)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{Hash: hash, BlockNumber: confirmed})
+	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: confirmed}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
-		Address:    cltest.NewEthAddress(),
+		Address:    cltest.NewEthAddress().String(),
 		FunctionID: "12345678",
 	}
 	input := models.RunResultWithValue("")
@@ -39,7 +40,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 
 	assert.False(t, output.HasError())
 
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 	txs := []models.Tx{}
 	assert.Nil(t, store.Where("From", from, &txs))
 	assert.Equal(t, 1, len(txs))
@@ -61,13 +62,14 @@ func TestEthTxAdapterFromPending(t *testing.T) {
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold-1))
 
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.Save(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a.Hash))
+	sentResult := models.RunResultWithValue(a.Hash.String())
+	input := models.RunResultPending(sentResult)
 
 	output := adapter.Perform(input, store)
 
@@ -93,16 +95,18 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewTxHash())
 
-	from := store.KeyStore.GetAccount().Address.String()
+	from := store.KeyStore.GetAccount().Address
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.Save(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a.Hash))
+	sentResult := models.RunResultWithValue(a.Hash.String())
+	input := models.RunResultPending(sentResult)
 
 	output := adapter.Perform(input, store)
 
+	assert.False(t, output.HasError())
 	assert.True(t, output.Pending)
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
@@ -134,7 +138,8 @@ func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	input := models.RunResultPending(models.RunResultWithValue(a3.Hash))
+	sentResult := models.RunResultWithValue(a3.Hash.String())
+	input := models.RunResultPending(sentResult)
 
 	assert.False(t, tx.Confirmed)
 
@@ -162,10 +167,10 @@ func TestEthTxAdapterWithError(t *testing.T) {
 	eth.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
 
 	adapter := adapters.EthTx{
-		Address:    "recipient",
-		FunctionID: "fid",
+		Address:    cltest.NewEthAddress().String(),
+		FunctionID: "12345678",
 	}
-	input := models.RunResultWithValue("Hello World!")
+	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())

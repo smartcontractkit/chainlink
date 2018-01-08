@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
@@ -28,11 +28,11 @@ func NewJobWithWebInitiator() models.Job {
 	return j
 }
 
-func NewTx(from string, sentAt uint64) *models.Tx {
+func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return &models.Tx{
 		From:     from,
 		Nonce:    0,
-		Data:     "deadbeef",
+		Data:     []byte{},
 		Value:    big.NewInt(0),
 		GasLimit: big.NewInt(250000),
 	}
@@ -40,7 +40,7 @@ func NewTx(from string, sentAt uint64) *models.Tx {
 
 func CreateTxAndAttempt(
 	store *store.Store,
-	from string,
+	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
 	tx := NewTx(from, sentAt)
@@ -54,14 +54,14 @@ func CreateTxAndAttempt(
 	return tx
 }
 
-func NewTxHash() string {
+func NewTxHash() common.Hash {
 	b := make([]byte, 32)
 	rand.Read(b)
-	return hexutil.Encode(b)
+	return common.BytesToHash(b)
 }
 
-func NewEthAddress() string {
+func NewEthAddress() common.Address {
 	b := make([]byte, 20)
 	rand.Read(b)
-	return hexutil.Encode(b)
+	return common.BytesToAddress(b)
 }
