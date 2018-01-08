@@ -59,7 +59,7 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 	app.Start()
 	defer app.Stop()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/no_op_job.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/scheduler_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	assert.Nil(t, err)
 	defer resp.Body.Close()
