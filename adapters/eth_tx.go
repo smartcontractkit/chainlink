@@ -1,8 +1,11 @@
 package adapters
 
 import (
+	"encoding/hex"
+
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink-go/utils"
 )
 
 type EthTx struct {
@@ -18,18 +21,35 @@ func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.Ru
 	}
 }
 
-func createTxRunResult(e *EthTx, input models.RunResult, store *store.Store) models.RunResult {
-	data := e.FunctionID + input.Value()
-	attempt, err := store.Eth.CreateTx(e.Address, data)
-
+func createTxRunResult(
+	e *EthTx,
+	input models.RunResult,
+	store *store.Store,
+) models.RunResult {
+	recipient, err := utils.StringToAddress(e.Address)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
-	return ensureTxRunResult(models.RunResultWithValue(attempt.Hash), store)
+	data, err := hex.DecodeString(e.FunctionID + input.Value())
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	attempt, err := store.Eth.CreateTx(recipient, data)
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	sendResult := models.RunResultWithValue(attempt.Hash.String())
+	return ensureTxRunResult(sendResult, store)
 }
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
-	hash := input.Value()
+	hash, err := utils.StringToHash(input.Value())
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
 	confirmed, err := store.Eth.EnsureTxConfirmed(hash)
 
 	if err != nil {
@@ -37,5 +57,5 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 	} else if !confirmed {
 		return models.RunResultPending(input)
 	}
-	return models.RunResultWithValue(hash)
+	return models.RunResultWithValue(hash.String())
 }

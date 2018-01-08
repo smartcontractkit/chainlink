@@ -8,6 +8,7 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-go/utils"
 )
@@ -99,8 +100,12 @@ func (self *ORM) PendingJobRuns() ([]JobRun, error) {
 }
 
 func (self *ORM) CreateTx(
-	from string, nonce uint64, to string, data string,
-	value *big.Int, gasLimit *big.Int,
+	from common.Address,
+	nonce uint64,
+	to common.Address,
+	data []byte,
+	value *big.Int,
+	gasLimit *big.Int,
 ) (*Tx, error) {
 	tx := Tx{
 		From:     from,
@@ -149,7 +154,7 @@ func (self *ORM) AddAttempt(
 		return nil, err
 	}
 	attempt := &TxAttempt{
-		Hash:     etx.Hash().String(),
+		Hash:     etx.Hash(),
 		GasPrice: etx.GasPrice(),
 		Hex:      hex,
 		TxID:     tx.ID,

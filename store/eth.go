@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/utils"
@@ -16,14 +17,14 @@ type Eth struct {
 	ORM      *models.ORM
 }
 
-func (self *Eth) CreateTx(to, data string) (*models.Tx, error) {
+func (self *Eth) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	account := self.KeyStore.GetAccount()
 	nonce, err := self.GetNonce(account)
 	if err != nil {
 		return nil, err
 	}
 	tx, err := self.ORM.CreateTx(
-		account.Address.String(),
+		account.Address,
 		nonce,
 		to,
 		data,
@@ -47,7 +48,7 @@ func (self *Eth) CreateTx(to, data string) (*models.Tx, error) {
 	return tx, nil
 }
 
-func (self *Eth) EnsureTxConfirmed(hash string) (bool, error) {
+func (self *Eth) EnsureTxConfirmed(hash common.Hash) (bool, error) {
 	blkNum, err := self.BlockNumber()
 	if err != nil {
 		return false, err
@@ -102,7 +103,7 @@ func (self *Eth) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (self *Eth) getAttempts(hash string) ([]*models.TxAttempt, error) {
+func (self *Eth) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
 	attempt := &models.TxAttempt{}
 	if err := self.ORM.One("Hash", hash, attempt); err != nil {
 		return []*models.TxAttempt{}, err

@@ -6,7 +6,10 @@
     { "type": "EthBytes32" },
     {
       "type": "EthTx",
-      "params": { "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3", "functionID": "12345679" }
+      "params": {
+        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
+        "functionID": "12345679"
+      }
     }
   ],
   "endAt": "2019-11-27T23:05:49Z",

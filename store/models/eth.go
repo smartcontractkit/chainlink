@@ -9,9 +9,9 @@ import (
 
 type Tx struct {
 	ID       uint64 `storm:"id,increment,index"`
-	From     string
-	To       string
-	Data     string
+	From     common.Address
+	To       common.Address
+	Data     []byte
 	Nonce    uint64
 	Value    *big.Int
 	GasLimit *big.Int
@@ -21,17 +21,17 @@ type Tx struct {
 func (self *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
 	return types.NewTransaction(
 		self.Nonce,
-		common.HexToAddress(self.To),
+		self.To,
 		self.Value,
 		self.GasLimit,
 		gasPrice,
-		common.FromHex(self.Data),
+		self.Data,
 	)
 }
 
 type TxAttempt struct {
-	Hash      string `storm:"id,index,unique"`
-	TxID      uint64 `storm:"index"`
+	Hash      common.Hash `storm:"id,index,unique"`
+	TxID      uint64      `storm:"index"`
 	GasPrice  *big.Int
 	Confirmed bool
 	Hex       string
