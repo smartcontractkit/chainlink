@@ -100,7 +100,8 @@ func TestCreateJobIntegration(t *testing.T) {
 		JSON(tickerResponse)
 
 	eth.Register("eth_getTransactionCount", `0x0100`)
-	hash := `0x83c52c31cd40a023728fbc21a570316acd4f90525f81f1d7c477fd958ffa467f`
+	hash, err := utils.StringToHash("0x83c52c31cd40a023728fbc21a570316acd4f90525f81f1d7c477fd958ffa467f")
+	assert.Nil(t, err)
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
@@ -109,7 +110,10 @@ func TestCreateJobIntegration(t *testing.T) {
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{Hash: hash, BlockNumber: confirmed})
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+		Hash:        hash,
+		BlockNumber: confirmed,
+	})
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
 	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
@@ -142,8 +146,8 @@ func TestCreateJobIntegration(t *testing.T) {
 	}).Should(Equal("completed"))
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
-	assert.Equal(t, hash, jobRun.TaskRuns[3].Result.Value())
-	assert.Equal(t, hash, jobRun.Result.Value())
+	assert.Equal(t, hash.String(), jobRun.TaskRuns[3].Result.Value())
+	assert.Equal(t, hash.String(), jobRun.Result.Value())
 
 	assert.True(t, eth.AllCalled())
 }
