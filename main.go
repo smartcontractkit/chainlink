@@ -1,20 +1,38 @@
 package main
 
 import (
+	"os"
+
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/web"
+	"github.com/urfave/cli"
 )
 
 func main() {
-	app := services.NewApplication(store.NewConfig())
-	services.Authenticate(app.Store)
-	r := web.Router(app)
+	app := cli.NewApp()
+	app.Usage = "CLI for Chainlink"
+	app.Commands = []cli.Command{
+		{
+			Name:    "node",
+			Aliases: []string{"n"},
+			Usage:   "Run the chainlink node",
+			Action:  runNode,
+		},
+	}
+	app.Run(os.Args)
+}
 
-	if err := app.Start(); err != nil {
+func runNode(c *cli.Context) error {
+	cl := services.NewApplication(store.NewConfig())
+	services.Authenticate(cl.Store)
+	r := web.Router(cl)
+
+	if err := cl.Start(); err != nil {
 		logger.Fatal(err)
 	}
-	defer app.Stop()
+	defer cl.Stop()
 	logger.Fatal(r.Run())
+	return nil
 }
