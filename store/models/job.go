@@ -14,24 +14,11 @@ type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
-	CreatedAt  time.Time   `storm:"index"`
-}
-
-type Initiator struct {
-	ID       int    `storm:"id,increment"`
-	Type     string `json:"type" storm:"index"`
-	Schedule Cron   `json:"schedule"`
-	JobID    string `storm:"index"`
-}
-
-type Cron string
-
-type Time struct {
-	time.Time
+	CreatedAt  Time        `storm:"index"`
 }
 
 func NewJob() Job {
-	return Job{ID: uuid.NewV4().String(), CreatedAt: time.Now()}
+	return Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
 }
 
 func (self Job) NewRun() JobRun {
@@ -51,10 +38,10 @@ func (self Job) NewRun() JobRun {
 	}
 }
 
-func (self Job) Schedules() []Initiator {
+func (self Job) InitiatorsFor(t string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range self.Initiators {
-		if initr.Type == "cron" {
+		if initr.Type == t {
 			list = append(list, initr)
 		}
 	}
@@ -70,6 +57,19 @@ func (self Job) WebAuthorized() bool {
 	return false
 }
 
+type Initiator struct {
+	ID       int    `storm:"id,increment"`
+	JobID    string `storm:"index"`
+	Type     string `json:"type" storm:"index"`
+	Schedule Cron   `json:"schedule"`
+	Time     Time   `json:"time"`
+	Ran      bool   `json:"ranAt"`
+}
+
+type Time struct {
+	time.Time
+}
+
 func (self *Time) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
@@ -77,6 +77,16 @@ func (self *Time) UnmarshalJSON(b []byte) error {
 	self.Time = t
 	return err
 }
+
+func (self *Time) ISO8601() string {
+	return self.UTC().Format("2006-01-02T15:04:05Z07:00")
+}
+
+func (self *Time) DurationFromNow() time.Duration {
+	return time.Now().Sub(self.Time)
+}
+
+type Cron string
 
 func (self *Cron) UnmarshalJSON(b []byte) error {
 	var s string
