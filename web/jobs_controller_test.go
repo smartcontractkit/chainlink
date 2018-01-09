@@ -152,7 +152,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	assert.True(t, eth.AllCalled())
 }
 
-func TestCreateJobWithRunAt(t *testing.T) {
+func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app := cltest.NewApplication()
