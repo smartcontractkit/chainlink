@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
@@ -86,4 +87,35 @@ func TestAddJobWhenStopped(t *testing.T) {
 		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
+}
+
+func TestOneTimeRunJobAt(t *testing.T) {
+	RegisterTestingT(t)
+	t.Parallel()
+
+	store := cltest.NewStore()
+	defer cltest.CleanUpStore(store)
+
+	ot := services.OneTime{
+		Clock: &cltest.NeverClock{},
+		Store: store,
+	}
+	ot.Start()
+	j := cltest.NewJob()
+	assert.Nil(t, store.SaveJob(j))
+
+	var finished bool
+	go func() {
+		ot.RunJobAt(models.Time{time.Now().Add(time.Hour)}, j)
+		finished = true
+	}()
+
+	ot.Stop()
+
+	Eventually(func() bool {
+		return finished
+	}).Should(Equal(true))
+	jobRuns := []models.JobRun{}
+	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	assert.Equal(t, 0, len(jobRuns))
 }

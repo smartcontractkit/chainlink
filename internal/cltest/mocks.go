@@ -79,5 +79,14 @@ func (self *TestApplication) InstantClock() *InstantClock {
 
 type InstantClock struct{}
 
-func (self *InstantClock) Sleep(_ time.Duration) {
+func (self *InstantClock) After(_ time.Duration) <-chan time.Time {
+	c := make(chan time.Time, 100)
+	c <- time.Now()
+	return c
+}
+
+type NeverClock struct{}
+
+func (self *NeverClock) After(_ time.Duration) <-chan time.Time {
+	return make(chan time.Time)
 }

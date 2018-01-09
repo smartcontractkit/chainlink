@@ -21,14 +21,20 @@ type Scheduler struct {
 func NewScheduler(store *store.Store) *Scheduler {
 	return &Scheduler{
 		Recurring: &Recurring{store: store},
-		OneTime:   &OneTime{store: store},
-		store:     store,
+		OneTime: &OneTime{
+			Store: store,
+			Clock: &Clock{},
+		},
+		store: store,
 	}
 }
 
 func (self *Scheduler) Start() error {
 	if self.started {
 		return errors.New("Scheduler already started")
+	}
+	if err := self.OneTime.Start(); err != nil {
+		return err
 	}
 	if err := self.Recurring.Start(); err != nil {
 		return err
@@ -49,6 +55,7 @@ func (self *Scheduler) Start() error {
 
 func (self *Scheduler) Stop() {
 	if self.started {
+		self.OneTime.Stop()
 		self.Recurring.Stop()
 		self.started = false
 	}
@@ -106,29 +113,44 @@ func (self *Recurring) addResumer() {
 	})
 }
 
-type Sleeper interface {
-	Sleep(d time.Duration)
+type Afterer interface {
+	After(d time.Duration) <-chan time.Time
 }
 
 type Clock struct{}
 
-func (self *Clock) Sleep(d time.Duration) {
-	time.Sleep(d)
+func (self *Clock) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
 }
 
 type OneTime struct {
-	store *store.Store
-	Clock Sleeper
+	Store *store.Store
+	Clock Afterer
+	done  chan struct{}
+}
+
+func (self *OneTime) Start() error {
+	self.done = make(chan struct{})
+	return nil
 }
 
 func (self *OneTime) AddJob(job models.Job) {
 	for _, initr := range job.InitiatorsFor("runAt") {
-		go func() {
-			self.Clock.Sleep(initr.Time.DurationFromNow())
-			_, err := StartJob(job.NewRun(), self.store)
-			if err != nil {
-				logger.Panic(err.Error())
-			}
-		}()
+		go self.RunJobAt(initr.Time, job)
+	}
+}
+
+func (self *OneTime) Stop() {
+	close(self.done)
+}
+
+func (self *OneTime) RunJobAt(t models.Time, job models.Job) {
+	select {
+	case <-self.done:
+	case <-self.Clock.After(t.DurationFromNow()):
+		_, err := StartJob(job.NewRun(), self.Store)
+		if err != nil {
+			logger.Panic(err.Error())
+		}
 	}
 }
