@@ -2,7 +2,7 @@ package commands
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -31,13 +31,6 @@ func (self *Client) PrettyPrintJSON(v interface{}) error {
 	return nil
 }
 
-func (self *Client) cliError(err error) error {
-	if err != nil {
-		self.Write([]byte(err.Error()))
-	}
-	return err
-}
-
 func (self *Client) RunNode(c *cli.Context) error {
 	cl := services.NewApplication(store.NewConfig())
 	services.Authenticate(cl.Store)
@@ -54,7 +47,7 @@ func (self *Client) RunNode(c *cli.Context) error {
 func (self *Client) ShowJob(c *cli.Context) error {
 	cfg := store.NewConfig()
 	if !c.Args().Present() {
-		return self.cliError(fmt.Errorf("Must pass the job id to be shown"))
+		return self.cliError(errors.New("Must pass the job id to be shown"))
 	}
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
@@ -66,25 +59,7 @@ func (self *Client) ShowJob(c *cli.Context) error {
 	}
 	defer resp.Body.Close()
 	var job models.Job
-	err = deserializeResponse(resp, &job)
-	if err != nil {
-		return self.cliError(err)
-	}
-	return self.cliError(self.PrettyPrintJSON(job))
-}
-
-func deserializeResponse(resp *http.Response, dst interface{}) error {
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf(resp.Status)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(b, &dst); err != nil {
-		return err
-	}
-	return nil
+	return self.deserializeResponse(resp, &job)
 }
 
 func (self *Client) GetJobs(c *cli.Context) error {
@@ -100,9 +75,26 @@ func (self *Client) GetJobs(c *cli.Context) error {
 	defer resp.Body.Close()
 
 	var jobs []models.Job
-	err = deserializeResponse(resp, &jobs)
+	return self.deserializeResponse(resp, &jobs)
+}
+
+func (self *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
+	if resp.StatusCode >= 300 {
+		return self.cliError(errors.New(resp.Status))
+	}
+	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return self.cliError(err)
 	}
-	return self.cliError(self.PrettyPrintJSON(jobs))
+	if err = json.Unmarshal(b, &dst); err != nil {
+		return self.cliError(err)
+	}
+	return self.cliError(self.PrettyPrintJSON(dst))
+}
+
+func (self *Client) cliError(err error) error {
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	return nil
 }
