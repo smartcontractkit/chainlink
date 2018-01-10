@@ -17,6 +17,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestIndexJobs(t *testing.T) {
+	t.Parallel()
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	app.Store.Save(&j1)
+	j2 := cltest.NewJobWithWebInitiator()
+	app.Store.Save(&j2)
+
+	resp, err := cltest.BasicAuthGet(server.URL + "/jobs")
+	assert.Nil(t, err)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	b, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	var jobs []models.Job
+	json.Unmarshal(b, &jobs)
+	assert.Equal(t, jobs[0].Initiators[0].Schedule, j1.Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, jobs[1].Initiators[0].Type, "web", "should have the same type")
+}
+
 func TestCreateJobs(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplication()
