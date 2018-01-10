@@ -83,7 +83,7 @@ func (self *Time) ISO8601() string {
 }
 
 func (self *Time) DurationFromNow() time.Duration {
-	return time.Now().Sub(self.Time)
+	return self.Time.Sub(time.Now())
 }
 
 type Cron string
