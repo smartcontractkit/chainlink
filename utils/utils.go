@@ -8,7 +8,6 @@ import (
 	"log"
 	"math/big"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -97,11 +96,6 @@ func BasicAuthGet(username, password, url string) (*http.Response, error) {
 	return resp, err
 }
 
-func PrettyPrintJSON(v interface{}) error {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	_, err = os.Stdout.Write(b)
-	return err
+func FormatJSON(v interface{}) ([]byte, error) {
+	return json.MarshalIndent(v, "", "  ")
 }
