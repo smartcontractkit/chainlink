@@ -12,6 +12,17 @@ type JobsController struct {
 	App *services.Application
 }
 
+func (self *JobsController) Index(c *gin.Context) {
+	var jobs []models.Job
+	if err := self.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else {
+		c.JSON(200, jobs)
+	}
+}
+
 func (self *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 

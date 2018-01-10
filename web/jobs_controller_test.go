@@ -17,6 +17,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestIndexJobs(t *testing.T) {
+	t.Parallel()
+	app := cltest.NewApplication()
+	server := app.NewServer()
+	defer app.Stop()
+
+	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	app.Store.Save(&j1)
+	j2 := cltest.NewJobWithWebInitiator()
+	app.Store.Save(&j2)
+
+	resp, err := cltest.BasicAuthGet(server.URL + "/jobs")
+	assert.Nil(t, err)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	b, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	var jobs []models.Job
+	json.Unmarshal(b, &jobs)
+	assert.Equal(t, jobs[0].Initiators[0].Schedule, j1.Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, jobs[1].Initiators[0].Type, "web", "should have the same type")
+}
+
 func TestCreateJobs(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplication()
@@ -116,7 +139,11 @@ func TestCreateJobIntegration(t *testing.T) {
 	})
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
-	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := cltest.BasicAuthPost(
+		server.URL+"/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
 	assert.Nil(t, err)
 	defer resp.Body.Close()
 	jobID := cltest.JobJSONFromResponse(resp.Body).ID
@@ -161,7 +188,11 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	defer app.Stop()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_job.json")
-	resp, _ := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, _ := cltest.BasicAuthPost(
+		server.URL+"/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 	defer resp.Body.Close()
 
@@ -189,7 +220,11 @@ func TestCreateInvalidJobs(t *testing.T) {
 	defer app.Stop()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_job.json")
-	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := cltest.BasicAuthPost(
+		server.URL+"/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +243,11 @@ func TestCreateInvalidCron(t *testing.T) {
 	defer app.Stop()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
-	resp, err := cltest.BasicAuthPost(server.URL+"/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := cltest.BasicAuthPost(
+		server.URL+"/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

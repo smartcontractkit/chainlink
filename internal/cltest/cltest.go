@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/araddon/dateparse"
 	"github.com/gin-gonic/gin"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 )
@@ -156,27 +156,15 @@ func AddPrivateKey(config store.Config, src string) {
 	copyFile(src, dst)
 }
 
-func TimeParse(s string) time.Time {
-	t, err := dateparse.ParseAny(s)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return t
-}
-
 func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, _ := http.NewRequest("POST", url, body)
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(Username, Password)
-	resp, err := client.Do(request)
-	return resp, err
+	return utils.BasicAuthPost(
+		Username,
+		Password,
+		url,
+		contentType,
+		body)
 }
 
 func BasicAuthGet(url string) (*http.Response, error) {
-	client := &http.Client{}
-	request, _ := http.NewRequest("GET", url, nil)
-	request.SetBasicAuth(Username, Password)
-	resp, err := client.Do(request)
-	return resp, err
+	return utils.BasicAuthGet(Username, Password, url)
 }
