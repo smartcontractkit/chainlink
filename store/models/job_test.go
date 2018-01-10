@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-go/adapters"
 	"github.com/smartcontractkit/chainlink-go/internal/cltest"
@@ -39,4 +40,10 @@ func TestJobNewRun(t *testing.T) {
 	assert.Nil(t, job.Tasks[0].Params)
 	adapter, _ := adapters.For(job.Tasks[0])
 	assert.NotNil(t, adapter)
+}
+
+func TestTimeDurationFromNow(t *testing.T) {
+	future := models.Time{time.Now().Add(time.Second)}
+	duration := future.DurationFromNow()
+	assert.True(t, 0 < duration)
 }
