@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-go/logger"
 	"github.com/smartcontractkit/chainlink-go/services"
 	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink-go/utils"
 	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/urfave/cli"
 )
@@ -19,6 +20,12 @@ func main() {
 			Aliases: []string{"n"},
 			Usage:   "Run the chainlink node",
 			Action:  runNode,
+		},
+		{
+			Name:    "jobs",
+			Aliases: []string{"j"},
+			Usage:   "Get all jobs",
+			Action:  getJobs,
 		},
 	}
 	app.Run(os.Args)
@@ -34,5 +41,22 @@ func runNode(c *cli.Context) error {
 	}
 	defer cl.Stop()
 	logger.Fatal(r.Run())
+	return nil
+}
+
+func getJobs(c *cli.Context) error {
+	cfg := store.NewConfig()
+	resp, err := utils.BasicAuthGet(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		"http://localhost:8080/jobs",
+	)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if err = utils.PrettyPrintJSON(resp.Body); err != nil {
+		logger.Fatal(err)
+	}
 	return nil
 }

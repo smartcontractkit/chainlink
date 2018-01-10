@@ -19,6 +19,7 @@ func Router(app *services.Application) *gin.Engine {
 	engine.Use(loggerFunc(), gin.Recovery(), basicAuth)
 
 	j := JobsController{app}
+	engine.GET("/jobs", j.Index)
 	engine.POST("/jobs", j.Create)
 	engine.GET("/jobs/:ID", j.Show)
 
