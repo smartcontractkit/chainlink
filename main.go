@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/smartcontractkit/chainlink-go/logger"
@@ -27,8 +28,21 @@ func main() {
 			Usage:   "Get all jobs",
 			Action:  getJobs,
 		},
+		{
+			Name:    "show",
+			Aliases: []string{"s"},
+			Usage:   "Show a specific job",
+			Action:  showJob,
+		},
 	}
 	app.Run(os.Args)
+}
+
+func cliError(err error) error {
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	return err
 }
 
 func runNode(c *cli.Context) error {
@@ -52,11 +66,26 @@ func getJobs(c *cli.Context) error {
 		"http://localhost:8080/jobs",
 	)
 	if err != nil {
-		logger.Fatal(err)
+		return cliError(err)
 	}
 	defer resp.Body.Close()
-	if err = utils.PrettyPrintJSON(resp.Body); err != nil {
-		logger.Fatal(err)
+	return cliError(utils.PrettyPrintJSON(resp.Body))
+}
+
+func showJob(c *cli.Context) error {
+	cfg := store.NewConfig()
+	if !c.Args().Present() {
+		fmt.Println("Must pass the job id to be shown")
+		return nil
 	}
-	return nil
+	resp, err := utils.BasicAuthGet(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		"http://localhost:8080/jobs/"+c.Args().First(),
+	)
+	if err != nil {
+		return cliError(err)
+	}
+	defer resp.Body.Close()
+	return cliError(utils.PrettyPrintJSON(resp.Body))
 }
