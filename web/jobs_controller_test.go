@@ -277,7 +277,7 @@ func TestShowJobs(t *testing.T) {
 	b, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
-	var respJob web.JobResponse
+	var respJob web.JobPresenter
 	json.Unmarshal(b, &respJob)
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, respJob.Runs[0].ID, jr.ID, "should have the job runs")
