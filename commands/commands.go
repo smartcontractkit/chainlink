@@ -58,7 +58,7 @@ func (self *Client) ShowJob(c *cli.Context) error {
 		return self.cliError(err)
 	}
 	defer resp.Body.Close()
-	var job models.Job
+	var job web.JobPresenter
 	return self.deserializeResponse(resp, &job)
 }
 
