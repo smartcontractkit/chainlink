@@ -43,7 +43,7 @@ func (self *JobsController) Create(c *gin.Context) {
 	}
 }
 
-type JobResponse struct {
+type JobPresenter struct {
 	models.Job
 	Runs []models.JobRun `json:"runs,omitempty"`
 }
@@ -65,6 +65,6 @@ func (self *JobsController) Show(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, JobResponse{j, runs})
+		c.JSON(200, JobPresenter{j, runs})
 	}
 }
