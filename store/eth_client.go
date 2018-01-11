@@ -1,20 +1,23 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink-go/utils"
 )
 
 type EthClient struct {
-	Caller
+	CallerSubscriber
 }
 
-type Caller interface {
+type CallerSubscriber interface {
 	Call(result interface{}, method string, args ...interface{}) error
+	EthSubscribe(context.Context, interface{}, ...interface{}) (*rpc.ClientSubscription, error)
 }
 
 func (self *EthClient) GetNonce(account accounts.Account) (uint64, error) {
@@ -46,8 +49,14 @@ func (self *EthClient) BlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
+func (self *EthClient) Subscribe(channel chan EventLog, address string) error {
+	ctx := context.Background()
+	_, err := self.EthSubscribe(ctx, channel, "logs", address)
+	return err
+}
+
 type TxReceipt struct {
-	BlockNumber uint64      `json:"blockNumber,string"`
+	BlockNumber uint64      `json:"blockNumber"`
 	Hash        common.Hash `json:"transactionHash"`
 }
 
@@ -73,4 +82,9 @@ func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 
 func (self *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(self.Hash)
+}
+
+type EventLog struct {
+	Address   common.Address `json:"address"`
+	BlockHash common.Hash    `json:"blockHash"`
 }
