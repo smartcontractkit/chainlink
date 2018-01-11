@@ -31,7 +31,7 @@ func TestJobRunsIndex(t *testing.T) {
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(&jr))
 
-	resp, err := cltest.BasicAuthGet(server.URL + "/jobs/" + j.ID + "/runs")
+	resp, err := cltest.BasicAuthGet(server.URL + "/v2/jobs/" + j.ID + "/runs")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
@@ -55,7 +55,7 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(j))
 
-	url := server.URL + "/jobs/" + j.ID + "/runs"
+	url := server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -84,7 +84,7 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, app.Store.SaveJob(j))
 
-	url := server.URL + "/jobs/" + j.ID + "/runs"
+	url := server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
@@ -97,7 +97,7 @@ func TestJobRunsCreateNotFound(t *testing.T) {
 	server := app.NewServer()
 	defer app.Stop()
 
-	url := server.URL + "/jobs/garbageID/runs"
+	url := server.URL + "/v2/jobs/garbageID/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
