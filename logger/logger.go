@@ -47,6 +47,10 @@ func (self *Logger) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
+func Errorw(msg string, keysAndValues ...interface{}) {
+	logger.Errorw(msg, keysAndValues...)
+}
+
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
 }

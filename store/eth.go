@@ -12,9 +12,10 @@ import (
 
 type Eth struct {
 	*EthClient
-	KeyStore *KeyStore
-	Config   Config
-	ORM      *models.ORM
+	Subscription *EthClient
+	KeyStore     *KeyStore
+	Config       Config
+	ORM          *models.ORM
 }
 
 func (self *Eth) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
