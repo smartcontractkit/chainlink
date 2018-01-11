@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-go/store"
 	"github.com/smartcontractkit/chainlink-go/store/models"
 	"github.com/smartcontractkit/chainlink-go/utils"
+	"github.com/smartcontractkit/chainlink-go/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -267,6 +268,8 @@ func TestShowJobs(t *testing.T) {
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.Save(&j)
+	jr := j.NewRun()
+	app.Store.Save(&jr)
 
 	resp, err := cltest.BasicAuthGet(server.URL + "/v2/jobs/" + j.ID)
 	assert.Nil(t, err)
@@ -274,9 +277,10 @@ func TestShowJobs(t *testing.T) {
 	b, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
-	var respJob models.Job
+	var respJob web.JobPresenter
 	json.Unmarshal(b, &respJob)
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, respJob.Runs[0].ID, jr.ID, "should have the job runs")
 }
 
 func TestShowNotFoundJobs(t *testing.T) {
