@@ -13,9 +13,9 @@ import (
 
 func TestEthCreateTx(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
-	defer app.Stop()
 	manager := store.Eth
 
 	to := cltest.NewEthAddress()
@@ -49,9 +49,9 @@ func TestEthCreateTx(t *testing.T) {
 
 func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
-	defer app.Stop()
 	config := store.Config
 	eth := store.Eth
 
@@ -80,9 +80,9 @@ func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 
 func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
-	defer app.Stop()
 	config := store.Config
 	eth := store.Eth
 
@@ -112,9 +112,9 @@ func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 
 func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
-	defer app.Stop()
 	config := store.Config
 	eth := store.Eth
 
@@ -144,9 +144,9 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 
 func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
-	defer app.Stop()
 	config := store.Config
 	eth := store.Eth
 
