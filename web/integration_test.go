@@ -18,11 +18,10 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	server := app.NewServer()
 	app.Start()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/scheduler_job.json")
-	resp, err := cltest.BasicAuthPost(server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	assert.Nil(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
@@ -48,7 +47,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
-	server := app.NewServer()
+	server := app.Server
 	app.Start()
 	defer cleanup()
 
@@ -124,11 +123,10 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	app.InstantClock()
-	server := app.NewServer()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_job.json")
 	resp, _ := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -157,13 +155,12 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	server := app.NewServer()
 	eth := app.MockEthClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/eth_log_job.json")
 	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	resp, _ := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
