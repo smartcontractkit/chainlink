@@ -41,6 +41,12 @@ func (self *ORM) Where(field string, value interface{}, instance interface{}) er
 	return err
 }
 
+func (self *ORM) FindJob(id string) (Job, error) {
+	job := Job{}
+	err := self.One("ID", id, &job)
+	return job, err
+}
+
 func (self *ORM) InitBucket(model interface{}) error {
 	return self.Init(model)
 }

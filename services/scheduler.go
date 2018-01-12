@@ -23,7 +23,7 @@ func NewScheduler(store *store.Store) *Scheduler {
 		Recurring: &Recurring{store: store},
 		OneTime: &OneTime{
 			Store: store,
-			Clock: &Clock{},
+			Clock: Clock{},
 		},
 		store: store,
 	}
@@ -119,7 +119,7 @@ type Afterer interface {
 
 type Clock struct{}
 
-func (self *Clock) After(d time.Duration) <-chan time.Time {
+func (self Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
