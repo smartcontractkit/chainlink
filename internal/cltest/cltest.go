@@ -9,12 +9,14 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
@@ -33,32 +35,72 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 }
 
-func NewConfig() store.Config {
-	return store.Config{
-		RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
-		BasicAuthUsername:   Username,
-		BasicAuthPassword:   Password,
-		EthereumURL:         "http://example.com/api",
-		ChainID:             3,
-		EthMinConfirmations: 6,
-		EthGasBumpWei:       big.NewInt(5000000000),
-		EthGasBumpThreshold: 3,
-		EthGasPriceDefault:  big.NewInt(20000000000),
-		PollingSchedule:     "* * * * * *",
+type TestConfig struct {
+	store.Config
+	wsServer *httptest.Server
+}
+
+func NewConfig() *TestConfig {
+	config := TestConfig{
+		Config: store.Config{
+			RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+			BasicAuthUsername:   Username,
+			BasicAuthPassword:   Password,
+			ChainID:             3,
+			EthMinConfirmations: 6,
+			EthGasBumpWei:       big.NewInt(5000000000),
+			EthGasBumpThreshold: 3,
+			EthGasPriceDefault:  big.NewInt(20000000000),
+			PollingSchedule:     "* * * * * *",
+		},
 	}
+	config.SetEthereumServer(newWSServer())
+	return &config
+}
+
+func (self *TestConfig) SetEthereumServer(wss *httptest.Server) {
+	u, _ := url.Parse(wss.URL)
+	u.Scheme = "ws"
+	self.EthereumURL = u.String()
+	self.wsServer = wss
 }
 
 type TestApplication struct {
 	*services.Application
-	Server *httptest.Server
+	Server   *httptest.Server
+	wsServer *httptest.Server
+}
+
+func newWSServer() *httptest.Server {
+	return NewWSServer("")
+}
+
+func NewWSServer(msg string) *httptest.Server {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return true },
+		}
+		conn, _ := upgrader.Upgrade(w, r, nil)
+		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
+	})
+	server := httptest.NewServer(handler)
+	return server
 }
 
 func NewApplication() *TestApplication {
-	return NewApplicationWithConfig(NewConfig())
+	config := NewConfig()
+	a := NewApplicationWithConfig(config)
+	a.wsServer = config.wsServer
+	return a
 }
 
-func NewApplicationWithConfig(config store.Config) *TestApplication {
-	return &TestApplication{Application: services.NewApplication(config)}
+func NewApplicationWithConfig(config *TestConfig) *TestApplication {
+	app := services.NewApplication(config.Config)
+	return &TestApplication{
+		Application: app,
+		Server:      newServer(app),
+		wsServer:    config.wsServer,
+	}
 }
 
 func NewApplicationWithKeyStore() *TestApplication {
@@ -73,10 +115,13 @@ func NewApplicationWithKeyStore() *TestApplication {
 }
 
 func (self *TestApplication) NewServer() *httptest.Server {
+	self.Server = newServer(self.Application)
+	return self.Server
+}
+
+func newServer(app *services.Application) *httptest.Server {
 	gin.SetMode(gin.TestMode)
-	server := httptest.NewServer(web.Router(self.Application))
-	self.Server = server
-	return server
+	return httptest.NewServer(web.Router(app))
 }
 
 func (self *TestApplication) Stop() {
@@ -86,10 +131,17 @@ func (self *TestApplication) Stop() {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
 	}
+	if self.wsServer != nil {
+		self.wsServer.Close()
+	}
+}
+
+func NewStoreWithConfig(config *TestConfig) *store.Store {
+	return store.NewStore(config.Config)
 }
 
 func NewStore() *store.Store {
-	return store.NewStore(NewConfig())
+	return NewStoreWithConfig(NewConfig())
 }
 
 func CleanUpStore(store *store.Store) {
@@ -146,7 +198,7 @@ func copyFile(src, dst string) {
 	}
 }
 
-func AddPrivateKey(config store.Config, src string) {
+func AddPrivateKey(config *TestConfig, src string) {
 	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
 	if err != nil {
 		log.Fatal(err)

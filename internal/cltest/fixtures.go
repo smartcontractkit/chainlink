@@ -28,6 +28,15 @@ func NewJobWithWebInitiator() models.Job {
 	return j
 }
 
+func NewJobWithLogInitiator() models.Job {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		Type:    "ethLog",
+		Address: NewEthAddress(),
+	}}
+	return j
+}
+
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return &models.Tx{
 		From:     from,
