@@ -11,8 +11,8 @@ import (
 
 func TestRunningJob(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	job := models.NewJob()
 	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}
@@ -27,8 +27,8 @@ func TestRunningJob(t *testing.T) {
 
 func TestJobTransitionToPending(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	job := models.NewJob()
 	job.Tasks = []models.Task{models.Task{Type: "NoOpPend"}}

@@ -15,9 +15,9 @@ func TestEthGetTxReceipt(t *testing.T) {
 	response := cltest.LoadJSON("../internal/fixtures/web/eth_getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
 	config.SetEthereumServer(mockServer)
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
 
-	store := cltest.NewStoreWithConfig(config)
-	defer cltest.CleanUpStore(store)
 	eth := store.Eth
 
 	hash, _ := utils.StringToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")

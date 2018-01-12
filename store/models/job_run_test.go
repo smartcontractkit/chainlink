@@ -12,8 +12,8 @@ import (
 
 func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	job := models.NewJob()
 	jr := job.NewRun()
@@ -30,8 +30,8 @@ func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
 
 func TestTaskRunsToRun(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	j := models.NewJob()
 	j.Tasks = []models.Task{
