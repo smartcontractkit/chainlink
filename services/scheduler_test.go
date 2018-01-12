@@ -14,8 +14,8 @@ import (
 func TestLoadingSavedSchedules(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	j := cltest.NewJob()
 	j.Initiators = []models.Initiator{{Type: "cron", Schedule: "* * * * *"}}
@@ -42,13 +42,11 @@ func TestLoadingSavedSchedules(t *testing.T) {
 func TestAddJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.NewStore()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	sched := services.NewScheduler(store)
 	sched.Start()
-
-	defer sched.Stop()
-	defer cltest.CleanUpStore(store)
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	err := store.SaveJob(j)
@@ -66,11 +64,10 @@ func TestAddJob(t *testing.T) {
 func TestAddJobWhenStopped(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.NewStore()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 	sched := services.NewScheduler(store)
-
 	defer sched.Stop()
-	defer cltest.CleanUpStore(store)
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, store.SaveJob(j))
@@ -93,8 +90,8 @@ func TestOneTimeRunJobAt(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	ot := services.OneTime{
 		Clock: &cltest.NeverClock{},

@@ -14,8 +14,8 @@ import (
 func TestLogListenerStart(t *testing.T) {
 	t.Parallel()
 
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 	ll := services.LogListener{Store: store}
 	defer ll.Stop()
@@ -34,8 +34,8 @@ func TestLogListenerAddJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 	ll := services.LogListener{Store: store}
 	defer ll.Stop()

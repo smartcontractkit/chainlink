@@ -10,8 +10,8 @@ import (
 )
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	task := models.Task{Type: "NoOp"}
 	adapter, err := adapters.For(task)

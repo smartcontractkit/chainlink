@@ -12,8 +12,8 @@ import (
 
 func TestJobSave(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * *")
 
@@ -27,8 +27,6 @@ func TestJobSave(t *testing.T) {
 
 func TestJobNewRun(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
 	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}

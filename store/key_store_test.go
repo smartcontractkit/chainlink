@@ -12,8 +12,8 @@ const passphrase = "p@ssword"
 
 func TestCreateEthereumAccount(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	_, err := store.KeyStore.NewAccount(passphrase)
 	assert.Nil(t, err)
@@ -24,8 +24,8 @@ func TestCreateEthereumAccount(t *testing.T) {
 
 func TestUnlockKey(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	store.KeyStore.NewAccount(passphrase)
 

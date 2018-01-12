@@ -13,8 +13,8 @@ import (
 
 func TestWhereNotFound(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	j1 := models.NewJob()
 	jobs := []models.Job{j1}
@@ -26,8 +26,8 @@ func TestWhereNotFound(t *testing.T) {
 
 func TestAllNotFound(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	var jobs []models.Job
 	err := store.All(&jobs)
@@ -37,8 +37,8 @@ func TestAllNotFound(t *testing.T) {
 
 func TestORMSaveJob(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(j1)
@@ -54,8 +54,8 @@ func TestORMSaveJob(t *testing.T) {
 
 func TestPendingJobRuns(t *testing.T) {
 	t.Parallel()
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	j := models.NewJob()
 	assert.Nil(t, store.SaveJob(j))
@@ -78,8 +78,8 @@ func TestPendingJobRuns(t *testing.T) {
 }
 
 func TestCreatingTx(t *testing.T) {
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	from, _ := utils.StringToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
 	to, _ := utils.StringToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")

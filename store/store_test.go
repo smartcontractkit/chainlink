@@ -11,8 +11,8 @@ import (
 func TestGracefulShutdown(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
-	store := cltest.NewStore()
-	defer cltest.CleanUpStore(store)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	var completed bool
 	store.Exiter = func(code int) {

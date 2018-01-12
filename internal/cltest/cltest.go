@@ -126,7 +126,7 @@ func newServer(app *services.Application) *httptest.Server {
 
 func (self *TestApplication) Stop() {
 	self.Application.Stop()
-	CleanUpStore(self.Store)
+	cleanUpStore(self.Store)
 	if self.Server != nil {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
@@ -136,15 +136,18 @@ func (self *TestApplication) Stop() {
 	}
 }
 
-func NewStoreWithConfig(config *TestConfig) *store.Store {
-	return store.NewStore(config.Config)
+func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
+	s := store.NewStore(config.Config)
+	return s, func() {
+		cleanUpStore(s)
+	}
 }
 
-func NewStore() *store.Store {
+func NewStore() (*store.Store, func()) {
 	return NewStoreWithConfig(NewConfig())
 }
 
-func CleanUpStore(store *store.Store) {
+func cleanUpStore(store *store.Store) {
 	store.Close()
 	if err := os.RemoveAll(store.Config.RootDir); err != nil {
 		log.Println(err)
