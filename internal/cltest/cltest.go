@@ -35,64 +35,71 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 }
 
-func NewConfig() store.Config {
-	return store.Config{
-		RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
-		BasicAuthUsername:   Username,
-		BasicAuthPassword:   Password,
-		EthereumURL:         "http://example.com/api",
-		ChainID:             3,
-		EthMinConfirmations: 6,
-		EthGasBumpWei:       big.NewInt(5000000000),
-		EthGasBumpThreshold: 3,
-		EthGasPriceDefault:  big.NewInt(20000000000),
-		PollingSchedule:     "* * * * * *",
+type TestConfig struct {
+	store.Config
+	wsServer *httptest.Server
+}
+
+func NewConfig() *TestConfig {
+	config := TestConfig{
+		Config: store.Config{
+			RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+			BasicAuthUsername:   Username,
+			BasicAuthPassword:   Password,
+			ChainID:             3,
+			EthMinConfirmations: 6,
+			EthGasBumpWei:       big.NewInt(5000000000),
+			EthGasBumpThreshold: 3,
+			EthGasPriceDefault:  big.NewInt(20000000000),
+			PollingSchedule:     "* * * * * *",
+		},
 	}
+	config.SetEthereumServer(newWSServer())
+	return &config
+}
+
+func (self *TestConfig) SetEthereumServer(wss *httptest.Server) {
+	u, _ := url.Parse(wss.URL)
+	u.Scheme = "ws"
+	self.EthereumURL = u.String()
+	self.wsServer = wss
 }
 
 type TestApplication struct {
 	*services.Application
 	Server   *httptest.Server
-	WSServer *httptest.Server
+	wsServer *httptest.Server
 }
 
 func newWSServer() *httptest.Server {
+	return NewWSServer("")
+}
+
+func NewWSServer(msg string) *httptest.Server {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		upgrader := websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		}
 		conn, _ := upgrader.Upgrade(w, r, nil)
-		msg := ""
-		if err := conn.ReadJSON(&msg); err != nil {
-			return
-		}
+		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	})
 	server := httptest.NewServer(handler)
 	return server
 }
 
-func configureWSServer(c store.Config) (*httptest.Server, store.Config) {
-	wsserver := newWSServer()
-	u, _ := url.Parse(wsserver.URL)
-	u.Scheme = "ws"
-	c.EthereumURL = u.String()
-	return wsserver, c
-}
-
 func NewApplication() *TestApplication {
-	ws, c := configureWSServer(NewConfig())
-	a := NewApplicationWithConfig(c)
-	a.WSServer = ws
+	config := NewConfig()
+	a := NewApplicationWithConfig(config)
+	a.wsServer = config.wsServer
 	return a
 }
 
-func NewApplicationWithConfig(config store.Config) *TestApplication {
-	ws, config := configureWSServer(config)
-	app := services.NewApplication(config)
+func NewApplicationWithConfig(config *TestConfig) *TestApplication {
+	app := services.NewApplication(config.Config)
 	return &TestApplication{
 		Application: app,
-		WSServer:    ws,
 		Server:      newServer(app),
+		wsServer:    config.wsServer,
 	}
 }
 
@@ -124,13 +131,17 @@ func (self *TestApplication) Stop() {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
 	}
-	if self.WSServer != nil {
-		self.WSServer.Close()
+	if self.wsServer != nil {
+		self.wsServer.Close()
 	}
 }
 
+func NewStoreWithConfig(config *TestConfig) *store.Store {
+	return store.NewStore(config.Config)
+}
+
 func NewStore() *store.Store {
-	return store.NewStore(NewConfig())
+	return NewStoreWithConfig(NewConfig())
 }
 
 func CleanUpStore(store *store.Store) {
@@ -187,7 +198,7 @@ func copyFile(src, dst string) {
 	}
 }
 
-func AddPrivateKey(config store.Config, src string) {
+func AddPrivateKey(config *TestConfig, src string) {
 	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
 	if err != nil {
 		log.Fatal(err)
