@@ -18,7 +18,6 @@ func MockEthOnStore(s *store.Store) *EthMock {
 	mock := NewMockGethRpc()
 	eth := &store.EthClient{mock}
 	s.Eth.EthClient = eth
-	s.Eth.Subscription = eth
 	return mock
 }
 

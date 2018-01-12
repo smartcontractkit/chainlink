@@ -12,7 +12,6 @@ import (
 
 type Eth struct {
 	*EthClient
-	Subscription *EthClient
 	KeyStore     *KeyStore
 	Config       Config
 	ORM          *models.ORM
