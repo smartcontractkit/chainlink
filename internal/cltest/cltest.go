@@ -87,31 +87,31 @@ func NewWSServer(msg string) *httptest.Server {
 	return server
 }
 
-func NewApplication() *TestApplication {
-	config := NewConfig()
-	a := NewApplicationWithConfig(config)
-	a.wsServer = config.wsServer
-	return a
+func NewApplication() (*TestApplication, func()) {
+	return NewApplicationWithConfig(NewConfig())
 }
 
-func NewApplicationWithConfig(config *TestConfig) *TestApplication {
+func NewApplicationWithConfig(config *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(config.Config)
-	return &TestApplication{
+	ta := &TestApplication{
 		Application: app,
 		Server:      newServer(app),
 		wsServer:    config.wsServer,
 	}
+	return ta, func() {
+		ta.Stop()
+	}
 }
 
-func NewApplicationWithKeyStore() *TestApplication {
-	app := NewApplication()
+func NewApplicationWithKeyStore() (*TestApplication, func()) {
+	app, cleanup := NewApplication()
 	if _, err := app.Store.KeyStore.NewAccount(Password); err != nil {
 		logger.Fatal(err)
 	}
 	if err := app.Store.KeyStore.Unlock(Password); err != nil {
 		logger.Fatal(err)
 	}
-	return app
+	return app, cleanup
 }
 
 func (self *TestApplication) NewServer() *httptest.Server {

@@ -22,9 +22,9 @@ type JobRun struct {
 
 func TestJobRunsIndex(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	server := app.NewServer()
-	defer app.Stop()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	assert.Nil(t, app.Store.Save(&j))
@@ -48,9 +48,9 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
-	app := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	server := app.NewServer()
-	defer app.Stop()
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(j))
@@ -77,9 +77,9 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	server := app.NewServer()
-	defer app.Stop()
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, app.Store.SaveJob(j))
@@ -93,9 +93,9 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 func TestJobRunsCreateNotFound(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	server := app.NewServer()
-	defer app.Stop()
 
 	url := server.URL + "/v2/jobs/garbageID/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))

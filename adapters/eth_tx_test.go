@@ -14,8 +14,8 @@ import (
 
 func TestEthTxAdapterConfirmed(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
 	config := store.Config
 
@@ -52,8 +52,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 
 func TestEthTxAdapterFromPending(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
 	config := store.Config
 
@@ -84,8 +84,8 @@ func TestEthTxAdapterFromPending(t *testing.T) {
 
 func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
 	config := store.Config
 
@@ -117,8 +117,8 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 
 func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
 	store := app.Store
 	config := store.Config
 
@@ -160,8 +160,9 @@ func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 
 func TestEthTxAdapterWithError(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplicationWithKeyStore()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
 	store := app.Store
 	eth := app.MockEthClient()
 	eth.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
