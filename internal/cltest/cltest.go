@@ -9,12 +9,14 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-go/logger"
@@ -50,15 +52,48 @@ func NewConfig() store.Config {
 
 type TestApplication struct {
 	*services.Application
-	Server *httptest.Server
+	Server   *httptest.Server
+	WSServer *httptest.Server
+}
+
+func newWSServer() *httptest.Server {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return true },
+		}
+		conn, _ := upgrader.Upgrade(w, r, nil)
+		msg := ""
+		if err := conn.ReadJSON(&msg); err != nil {
+			return
+		}
+	})
+	server := httptest.NewServer(handler)
+	return server
+}
+
+func configureWSServer(c store.Config) (*httptest.Server, store.Config) {
+	wsserver := newWSServer()
+	u, _ := url.Parse(wsserver.URL)
+	u.Scheme = "ws"
+	c.EthereumURL = u.String()
+	return wsserver, c
 }
 
 func NewApplication() *TestApplication {
-	return NewApplicationWithConfig(NewConfig())
+	ws, c := configureWSServer(NewConfig())
+	a := NewApplicationWithConfig(c)
+	a.WSServer = ws
+	return a
 }
 
 func NewApplicationWithConfig(config store.Config) *TestApplication {
-	return &TestApplication{Application: services.NewApplication(config)}
+	ws, config := configureWSServer(config)
+	app := services.NewApplication(config)
+	return &TestApplication{
+		Application: app,
+		WSServer:    ws,
+		Server:      newServer(app),
+	}
 }
 
 func NewApplicationWithKeyStore() *TestApplication {
@@ -73,10 +108,13 @@ func NewApplicationWithKeyStore() *TestApplication {
 }
 
 func (self *TestApplication) NewServer() *httptest.Server {
+	self.Server = newServer(self.Application)
+	return self.Server
+}
+
+func newServer(app *services.Application) *httptest.Server {
 	gin.SetMode(gin.TestMode)
-	server := httptest.NewServer(web.Router(self.Application))
-	self.Server = server
-	return server
+	return httptest.NewServer(web.Router(app))
 }
 
 func (self *TestApplication) Stop() {
@@ -85,6 +123,9 @@ func (self *TestApplication) Stop() {
 	if self.Server != nil {
 		gin.SetMode(gin.DebugMode)
 		self.Server.Close()
+	}
+	if self.WSServer != nil {
+		self.WSServer.Close()
 	}
 }
 

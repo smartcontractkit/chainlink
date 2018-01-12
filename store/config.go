@@ -40,7 +40,3 @@ func NewConfig() Config {
 func (self Config) KeysDir() string {
 	return path.Join(self.RootDir, "keys")
 }
-
-func (self Config) EthereumSubscriptionURL() string {
-	return self.EthereumURL
-}
