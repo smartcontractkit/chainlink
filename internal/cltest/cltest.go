@@ -76,10 +76,11 @@ func newWSServer() *httptest.Server {
 }
 
 func NewWSServer(msg string) *httptest.Server {
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upgrader := websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
-		}
 		conn, _ := upgrader.Upgrade(w, r, nil)
 		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	})
@@ -112,11 +113,6 @@ func NewApplicationWithKeyStore() (*TestApplication, func()) {
 		logger.Fatal(err)
 	}
 	return app, cleanup
-}
-
-func (self *TestApplication) NewServer() *httptest.Server {
-	self.Server = newServer(self.Application)
-	return self.Server
 }
 
 func newServer(app *services.Application) *httptest.Server {
