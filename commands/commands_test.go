@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/h2non/gock"
-	"github.com/smartcontractkit/chainlink-go/commands"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink/commands"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 )

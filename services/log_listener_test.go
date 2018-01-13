@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/services"
-	strpkg "github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/services"
+	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
 

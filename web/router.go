@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/services"
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/services"
 )
 
 func Router(app *services.Application) *gin.Engine {

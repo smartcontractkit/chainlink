@@ -19,11 +19,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/services"
-	"github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/utils"
-	"github.com/smartcontractkit/chainlink-go/web"
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
 

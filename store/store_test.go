@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 )
 
 func TestGracefulShutdown(t *testing.T) {

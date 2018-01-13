@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	"github.com/smartcontractkit/chainlink-go/utils"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
