@@ -16,16 +16,15 @@ import (
 
 func TestIndexJobs(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.Save(&j1)
 	j2 := cltest.NewJobWithWebInitiator()
 	app.Store.Save(&j2)
 
-	resp, err := cltest.BasicAuthGet(server.URL + "/v2/jobs")
+	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	b, err := ioutil.ReadAll(resp.Body)
@@ -39,12 +38,11 @@ func TestIndexJobs(t *testing.T) {
 
 func TestCreateJobs(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
-	resp, _ := cltest.BasicAuthPost(server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, _ := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	defer resp.Body.Close()
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
@@ -73,13 +71,12 @@ func TestCreateJobs(t *testing.T) {
 
 func TestCreateInvalidJobs(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_job.json")
 	resp, err := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -96,13 +93,12 @@ func TestCreateInvalidJobs(t *testing.T) {
 
 func TestCreateInvalidCron(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
 	resp, err := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -119,16 +115,15 @@ func TestCreateInvalidCron(t *testing.T) {
 
 func TestShowJobs(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.Save(&j)
 	jr := j.NewRun()
 	app.Store.Save(&jr)
 
-	resp, err := cltest.BasicAuthGet(server.URL + "/v2/jobs/" + j.ID)
+	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	b, err := ioutil.ReadAll(resp.Body)
@@ -142,22 +137,20 @@ func TestShowJobs(t *testing.T) {
 
 func TestShowNotFoundJobs(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
-	resp, err := cltest.BasicAuthGet(server.URL + "/v2/jobs/" + "garbage")
+	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + "garbage")
 	assert.Nil(t, err)
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 
 func TestShowJobUnauthenticated(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
-	resp, err := http.Get(server.URL + "/v2/jobs/" + "garbage")
+	resp, err := http.Get(app.Server.URL + "/v2/jobs/" + "garbage")
 	assert.Nil(t, err)
 	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
 }

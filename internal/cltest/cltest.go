@@ -76,10 +76,11 @@ func newWSServer() *httptest.Server {
 }
 
 func NewWSServer(msg string) *httptest.Server {
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upgrader := websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
-		}
 		conn, _ := upgrader.Upgrade(w, r, nil)
 		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	})
@@ -87,36 +88,31 @@ func NewWSServer(msg string) *httptest.Server {
 	return server
 }
 
-func NewApplication() *TestApplication {
-	config := NewConfig()
-	a := NewApplicationWithConfig(config)
-	a.wsServer = config.wsServer
-	return a
+func NewApplication() (*TestApplication, func()) {
+	return NewApplicationWithConfig(NewConfig())
 }
 
-func NewApplicationWithConfig(config *TestConfig) *TestApplication {
+func NewApplicationWithConfig(config *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(config.Config)
-	return &TestApplication{
+	ta := &TestApplication{
 		Application: app,
 		Server:      newServer(app),
 		wsServer:    config.wsServer,
 	}
+	return ta, func() {
+		ta.Stop()
+	}
 }
 
-func NewApplicationWithKeyStore() *TestApplication {
-	app := NewApplication()
+func NewApplicationWithKeyStore() (*TestApplication, func()) {
+	app, cleanup := NewApplication()
 	if _, err := app.Store.KeyStore.NewAccount(Password); err != nil {
 		logger.Fatal(err)
 	}
 	if err := app.Store.KeyStore.Unlock(Password); err != nil {
 		logger.Fatal(err)
 	}
-	return app
-}
-
-func (self *TestApplication) NewServer() *httptest.Server {
-	self.Server = newServer(self.Application)
-	return self.Server
+	return app, cleanup
 }
 
 func newServer(app *services.Application) *httptest.Server {

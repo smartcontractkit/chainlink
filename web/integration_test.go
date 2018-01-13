@@ -16,13 +16,12 @@ import (
 func TestCreateJobSchedulerIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
-	app := cltest.NewApplication()
-	server := app.NewServer()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	app.Start()
-	defer app.Stop()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/scheduler_job.json")
-	resp, err := cltest.BasicAuthPost(server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp, err := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	assert.Nil(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
@@ -45,12 +44,12 @@ func TestCreateJobIntegration(t *testing.T) {
 
 	config := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	app := cltest.NewApplicationWithConfig(config)
+	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
-	server := app.NewServer()
+	server := app.Server
 	app.Start()
-	defer app.Stop()
+	defer cleanup()
 
 	defer cltest.CloseGock(t)
 	gock.EnableNetworking()
@@ -121,14 +120,13 @@ func TestCreateJobIntegration(t *testing.T) {
 func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
-	app := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	app.InstantClock()
-	server := app.NewServer()
-	defer app.Stop()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_job.json")
 	resp, _ := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -155,15 +153,14 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	eth := app.MockEthClient()
-	defer app.Stop()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/eth_log_job.json")
 	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	resp, _ := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
