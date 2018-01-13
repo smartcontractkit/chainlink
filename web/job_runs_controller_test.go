@@ -22,16 +22,15 @@ type JobRun struct {
 
 func TestJobRunsIndex(t *testing.T) {
 	t.Parallel()
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(&jr))
 
-	resp, err := cltest.BasicAuthGet(server.URL + "/v2/jobs/" + j.ID + "/runs")
+	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
@@ -48,14 +47,13 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(j))
 
-	url := server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -77,14 +75,13 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, app.Store.SaveJob(j))
 
-	url := server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
@@ -93,11 +90,10 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 func TestJobRunsCreateNotFound(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplication()
-	server := app.NewServer()
-	defer app.Stop()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 
-	url := server.URL + "/v2/jobs/garbageID/runs"
+	url := app.Server.URL + "/v2/jobs/garbageID/runs"
 	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Nil(t, err)
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
