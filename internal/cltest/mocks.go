@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink/store"
 )
 
 func (self *TestApplication) MockEthClient() *EthMock {

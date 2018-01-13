@@ -4,11 +4,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-go/adapters"
-	"github.com/smartcontractkit/chainlink-go/internal/cltest"
-	strpkg "github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/store/models"
-	"github.com/smartcontractkit/chainlink-go/utils"
+	"github.com/smartcontractkit/chainlink/adapters"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
+	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 

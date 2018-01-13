@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/store"
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

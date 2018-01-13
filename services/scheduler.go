@@ -6,9 +6,9 @@ import (
 	"time"
 
 	cronlib "github.com/mrwonko/cron"
-	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 )
 
 type Scheduler struct {

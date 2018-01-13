@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/smartcontractkit/chainlink-go/commands"
+	"github.com/smartcontractkit/chainlink/commands"
 	"github.com/urfave/cli"
 )
 

@@ -3,9 +3,9 @@ package adapters
 import (
 	"encoding/hex"
 
-	"github.com/smartcontractkit/chainlink-go/store"
-	"github.com/smartcontractkit/chainlink-go/store/models"
-	"github.com/smartcontractkit/chainlink-go/utils"
+	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 type EthTx struct {

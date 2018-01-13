@@ -6,8 +6,8 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/chainlink-go/logger"
-	"github.com/smartcontractkit/chainlink-go/store/models"
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store/models"
 )
 
 type Store struct {

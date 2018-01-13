@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/chainlink-go/utils"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 type EthClient struct {
