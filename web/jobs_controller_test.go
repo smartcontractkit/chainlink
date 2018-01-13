@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -24,14 +23,11 @@ func TestIndexJobs(t *testing.T) {
 	j2 := cltest.NewJobWithWebInitiator()
 	app.Store.Save(&j2)
 
-	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	b, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
 
 	var jobs []models.Job
-	json.Unmarshal(b, &jobs)
+	json.Unmarshal(cltest.ParseResponseBody(resp), &jobs)
 	assert.Equal(t, jobs[0].Initiators[0].Schedule, j1.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, jobs[1].Initiators[0].Type, "web", "should have the same type")
 }
@@ -42,7 +38,7 @@ func TestCreateJobs(t *testing.T) {
 	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
-	resp, _ := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	resp := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
 	defer resp.Body.Close()
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
@@ -75,20 +71,16 @@ func TestCreateInvalidJobs(t *testing.T) {
 	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_job.json")
-	resp, err := cltest.BasicAuthPost(
+	resp := cltest.BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	assert.Equal(t, 500, resp.StatusCode, "Response should be internal error")
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	assert.Equal(t, `{"errors":["IdoNotExist is not a supported adapter type"]}`, string(body), "Response should return JSON")
+	expected := `{"errors":["IdoNotExist is not a supported adapter type"]}`
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
 func TestCreateInvalidCron(t *testing.T) {
@@ -97,20 +89,16 @@ func TestCreateInvalidCron(t *testing.T) {
 	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
-	resp, err := cltest.BasicAuthPost(
+	resp := cltest.BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	assert.Equal(t, 500, resp.StatusCode, "Response should be internal error")
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	assert.Equal(t, `{"errors":["Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"]}`, string(body), "Response should return JSON")
+	expected := `{"errors":["Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"]}`
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
 func TestShowJobs(t *testing.T) {
@@ -123,14 +111,11 @@ func TestShowJobs(t *testing.T) {
 	jr := j.NewRun()
 	app.Store.Save(&jr)
 
-	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	b, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
 
 	var respJob web.JobPresenter
-	json.Unmarshal(b, &respJob)
+	json.Unmarshal(cltest.ParseResponseBody(resp), &respJob)
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, respJob.Runs[0].ID, jr.ID, "should have the job runs")
 }
@@ -140,8 +125,7 @@ func TestShowNotFoundJobs(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + "garbage")
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + "garbage")
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 

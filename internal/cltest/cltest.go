@@ -207,15 +207,32 @@ func AddPrivateKey(config *TestConfig, src string) {
 	copyFile(src, dst)
 }
 
-func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, error) {
-	return utils.BasicAuthPost(
+func BasicAuthPost(url string, contentType string, body io.Reader) *http.Response {
+	resp, err := utils.BasicAuthPost(
 		Username,
 		Password,
 		url,
 		contentType,
 		body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return resp
 }
 
-func BasicAuthGet(url string) (*http.Response, error) {
-	return utils.BasicAuthGet(Username, Password, url)
+func BasicAuthGet(url string) *http.Response {
+	resp, err := utils.BasicAuthGet(Username, Password, url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return resp
+}
+
+func ParseResponseBody(resp *http.Response) []byte {
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
 }
