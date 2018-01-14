@@ -16,7 +16,7 @@ func TestEthCreateTx(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
-	manager := store.Eth
+	manager := store.TxManager
 
 	to := cltest.NewEthAddress()
 	data, err := hex.DecodeString("0000abcdef")
@@ -53,7 +53,7 @@ func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	eth := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -84,7 +84,7 @@ func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	eth := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -116,7 +116,7 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	eth := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -148,7 +148,7 @@ func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	eth := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address

@@ -39,7 +39,7 @@ func (self *LogListener) Stop() error {
 func (self *LogListener) AddJob(job models.Job) error {
 	for _, initr := range job.InitiatorsFor("ethLog") {
 		address := initr.Address.String()
-		if err := self.Store.Eth.Subscribe(self.logs, address); err != nil {
+		if err := self.Store.TxManager.Subscribe(self.logs, address); err != nil {
 			return err
 		}
 	}
