@@ -18,7 +18,7 @@ func TestEthGetTxReceipt(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
-	eth := store.Eth
+	eth := store.TxManager
 
 	hash, _ := utils.StringToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
 	receipt, err := eth.GetTxReceipt(hash)

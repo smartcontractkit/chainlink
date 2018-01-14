@@ -35,7 +35,7 @@ func createTxRunResult(
 		return models.RunResultWithError(err)
 	}
 
-	attempt, err := store.Eth.CreateTx(recipient, data)
+	attempt, err := store.TxManager.CreateTx(recipient, data)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
@@ -50,7 +50,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return models.RunResultWithError(err)
 	}
 
-	confirmed, err := store.Eth.EnsureTxConfirmed(hash)
+	confirmed, err := store.TxManager.EnsureTxConfirmed(hash)
 
 	if err != nil {
 		return models.RunResultWithError(err)

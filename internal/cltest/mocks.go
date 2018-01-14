@@ -17,7 +17,7 @@ func (self *TestApplication) MockEthClient() *EthMock {
 func MockEthOnStore(s *store.Store) *EthMock {
 	mock := NewMockGethRpc()
 	eth := &store.EthClient{mock}
-	s.Eth.EthClient = eth
+	s.TxManager.EthClient = eth
 	return mock
 }
 

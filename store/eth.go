@@ -10,14 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-type Eth struct {
+type TxManager struct {
 	*EthClient
 	KeyStore     *KeyStore
 	Config       Config
 	ORM          *models.ORM
 }
 
-func (self *Eth) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
+func (self *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	account := self.KeyStore.GetAccount()
 	nonce, err := self.GetNonce(account)
 	if err != nil {
@@ -48,7 +48,7 @@ func (self *Eth) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	return tx, nil
 }
 
-func (self *Eth) EnsureTxConfirmed(hash common.Hash) (bool, error) {
+func (self *TxManager) EnsureTxConfirmed(hash common.Hash) (bool, error) {
 	blkNum, err := self.BlockNumber()
 	if err != nil {
 		return false, err
@@ -74,7 +74,7 @@ func (self *Eth) EnsureTxConfirmed(hash common.Hash) (bool, error) {
 	return false, nil
 }
 
-func (self *Eth) createAttempt(
+func (self *TxManager) createAttempt(
 	tx *models.Tx,
 	gasPrice *big.Int,
 	blkNum uint64,
@@ -92,7 +92,7 @@ func (self *Eth) createAttempt(
 	return a, self.sendTransaction(etx)
 }
 
-func (self *Eth) sendTransaction(tx *types.Transaction) error {
+func (self *TxManager) sendTransaction(tx *types.Transaction) error {
 	hex, err := utils.EncodeTxToHex(tx)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (self *Eth) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (self *Eth) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
+func (self *TxManager) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
 	attempt := &models.TxAttempt{}
 	if err := self.ORM.One("Hash", hash, attempt); err != nil {
 		return []*models.TxAttempt{}, err
@@ -115,7 +115,7 @@ func (self *Eth) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
 	return attempts, nil
 }
 
-func (self *Eth) checkAttempt(
+func (self *TxManager) checkAttempt(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
@@ -131,7 +131,7 @@ func (self *Eth) checkAttempt(
 	return self.handleConfirmed(tx, txat, receipt, blkNum)
 }
 
-func (self *Eth) handleConfirmed(
+func (self *TxManager) handleConfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	rcpt *TxReceipt,
@@ -149,7 +149,7 @@ func (self *Eth) handleConfirmed(
 	return true, nil
 }
 
-func (self *Eth) handleUnconfirmed(
+func (self *TxManager) handleUnconfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
@@ -162,7 +162,7 @@ func (self *Eth) handleUnconfirmed(
 	return false, nil
 }
 
-func (self *Eth) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
+func (self *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	tx := &models.Tx{}
 	if err := self.ORM.One("ID", txat.TxID, tx); err != nil {
 		return err
