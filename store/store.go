@@ -12,11 +12,11 @@ import (
 
 type Store struct {
 	*models.ORM
-	Config   Config
-	KeyStore *KeyStore
-	sigs     chan os.Signal
-	Exiter   func(int)
-	TxManager      *TxManager
+	Config    Config
+	KeyStore  *KeyStore
+	sigs      chan os.Signal
+	Exiter    func(int)
+	TxManager *TxManager
 }
 
 func NewStore(config Config) *Store {
@@ -45,12 +45,12 @@ func NewStore(config Config) *Store {
 	return store
 }
 
-func (self *Store) Start() {
-	self.sigs = make(chan os.Signal, 1)
-	signal.Notify(self.sigs, syscall.SIGINT, syscall.SIGTERM)
+func (s *Store) Start() {
+	s.sigs = make(chan os.Signal, 1)
+	signal.Notify(s.sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-self.sigs
-		self.Close()
-		self.Exiter(1)
+		<-s.sigs
+		s.Close()
+		s.Exiter(1)
 	}()
 }

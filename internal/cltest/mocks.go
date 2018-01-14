@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 )
 
-func (self *TestApplication) MockEthClient() *EthMock {
-	return MockEthOnStore(self.Store)
+func (ta *TestApplication) MockEthClient() *EthMock {
+	return MockEthOnStore(ta.Store)
 }
 
 func MockEthOnStore(s *store.Store) *EthMock {
@@ -37,31 +37,31 @@ type MockResponse struct {
 	hasError   bool
 }
 
-func (self *EthMock) Register(method string, response interface{}) {
+func (mock *EthMock) Register(method string, response interface{}) {
 	res := MockResponse{
 		methodName: method,
 		response:   response,
 	}
-	self.Responses = append(self.Responses, res)
+	mock.Responses = append(mock.Responses, res)
 }
 
-func (self *EthMock) RegisterError(method, errMsg string) {
+func (mock *EthMock) RegisterError(method, errMsg string) {
 	res := MockResponse{
 		methodName: method,
 		errMsg:     errMsg,
 		hasError:   true,
 	}
-	self.Responses = append(self.Responses, res)
+	mock.Responses = append(mock.Responses, res)
 }
 
-func (self *EthMock) AllCalled() bool {
-	return (len(self.Responses) == 0) && (len(self.Subscriptions) == 0)
+func (mock *EthMock) AllCalled() bool {
+	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
-func (self *EthMock) Call(result interface{}, method string, args ...interface{}) error {
-	for i, resp := range self.Responses {
+func (mock *EthMock) Call(result interface{}, method string, args ...interface{}) error {
+	for i, resp := range mock.Responses {
 		if resp.methodName == method {
-			self.Responses = append(self.Responses[:i], self.Responses[i+1:]...)
+			mock.Responses = append(mock.Responses[:i], mock.Responses[i+1:]...)
 			if resp.hasError {
 				return fmt.Errorf(resp.errMsg)
 			} else {
@@ -79,22 +79,22 @@ type MockSubscription struct {
 	channel interface{}
 }
 
-func (self *EthMock) RegisterSubscription(name string, channel interface{}) {
+func (mock *EthMock) RegisterSubscription(name string, channel interface{}) {
 	res := MockSubscription{
 		name:    name,
 		channel: channel,
 	}
-	self.Subscriptions = append(self.Subscriptions, res)
+	mock.Subscriptions = append(mock.Subscriptions, res)
 }
 
-func (self *EthMock) EthSubscribe(
+func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
 ) (*rpc.ClientSubscription, error) {
-	for i, sub := range self.Subscriptions {
+	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
-			self.Subscriptions = append(self.Subscriptions[:i], self.Subscriptions[i+1:]...)
+			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			mockChan := sub.channel.(chan store.EventLog)
 			logChan := channel.(chan store.EventLog)
 			go func() {
@@ -108,15 +108,15 @@ func (self *EthMock) EthSubscribe(
 	return &rpc.ClientSubscription{}, nil
 }
 
-func (self *TestApplication) InstantClock() InstantClock {
+func (ta *TestApplication) InstantClock() InstantClock {
 	clock := InstantClock{}
-	self.Scheduler.OneTime.Clock = clock
+	ta.Scheduler.OneTime.Clock = clock
 	return clock
 }
 
 type InstantClock struct{}
 
-func (self InstantClock) After(_ time.Duration) <-chan time.Time {
+func (InstantClock) After(_ time.Duration) <-chan time.Time {
 	c := make(chan time.Time, 100)
 	c <- time.Now()
 	return c
@@ -124,6 +124,6 @@ func (self InstantClock) After(_ time.Duration) <-chan time.Time {
 
 type NeverClock struct{}
 
-func (self NeverClock) After(_ time.Duration) <-chan time.Time {
+func (NeverClock) After(_ time.Duration) <-chan time.Time {
 	return make(chan time.Time)
 }

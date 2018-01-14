@@ -12,9 +12,9 @@ type JobsController struct {
 	App *services.Application
 }
 
-func (self *JobsController) Index(c *gin.Context) {
+func (jrc *JobsController) Index(c *gin.Context) {
 	var jobs []models.Job
-	if err := self.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
+	if err := jrc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -23,7 +23,7 @@ func (self *JobsController) Index(c *gin.Context) {
 	}
 }
 
-func (self *JobsController) Create(c *gin.Context) {
+func (jc *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
@@ -34,7 +34,7 @@ func (self *JobsController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = self.App.AddJob(j); err != nil {
+	} else if err = jc.App.AddJob(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -48,11 +48,11 @@ type JobPresenter struct {
 	Runs []models.JobRun `json:"runs,omitempty"`
 }
 
-func (self *JobsController) Show(c *gin.Context) {
+func (jc *JobsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 	var j models.Job
 
-	if err := self.App.Store.One("ID", id, &j); err == storm.ErrNotFound {
+	if err := jc.App.Store.One("ID", id, &j); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found."},
 		})
@@ -60,7 +60,7 @@ func (self *JobsController) Show(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if runs, err := self.App.Store.JobRunsFor(j); err != nil {
+	} else if runs, err := jc.App.Store.JobRunsFor(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

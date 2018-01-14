@@ -14,16 +14,16 @@ type RunResult struct {
 
 type Output map[string]null.String
 
-func (self RunResult) Value() string {
-	return self.value().String
+func (rr RunResult) Value() string {
+	return rr.value().String
 }
 
-func (self RunResult) NullValue() bool {
-	return !self.value().Valid
+func (rr RunResult) NullValue() bool {
+	return !rr.value().Valid
 }
 
-func (self RunResult) value() null.String {
-	return self.Output["value"]
+func (rr RunResult) value() null.String {
+	return rr.Output["value"]
 }
 
 func RunResultWithValue(val string) RunResult {
@@ -46,22 +46,22 @@ func RunResultPending(input RunResult) RunResult {
 	}
 }
 
-func (self RunResult) GetError() error {
-	if self.HasError() {
-		return fmt.Errorf("Run Result: ", self.Error())
+func (rr RunResult) GetError() error {
+	if rr.HasError() {
+		return fmt.Errorf("Run Result: ", rr.Error())
 	} else {
 		return nil
 	}
 }
 
-func (self RunResult) HasError() bool {
-	return self.ErrorMessage.Valid
+func (rr RunResult) HasError() bool {
+	return rr.ErrorMessage.Valid
 }
 
-func (self RunResult) Error() string {
-	return self.ErrorMessage.String
+func (rr RunResult) Error() string {
+	return rr.ErrorMessage.String
 }
 
-func (self RunResult) SetError(err error) {
-	self.ErrorMessage = null.StringFrom(err.Error())
+func (rr RunResult) SetError(err error) {
+	rr.ErrorMessage = null.StringFrom(err.Error())
 }

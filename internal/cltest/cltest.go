@@ -58,11 +58,11 @@ func NewConfig() *TestConfig {
 	return &config
 }
 
-func (self *TestConfig) SetEthereumServer(wss *httptest.Server) {
+func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	u, _ := url.Parse(wss.URL)
 	u.Scheme = "ws"
-	self.EthereumURL = u.String()
-	self.wsServer = wss
+	tc.EthereumURL = u.String()
+	tc.wsServer = wss
 }
 
 type TestApplication struct {
@@ -120,15 +120,15 @@ func newServer(app *services.Application) *httptest.Server {
 	return httptest.NewServer(web.Router(app))
 }
 
-func (self *TestApplication) Stop() {
-	self.Application.Stop()
-	cleanUpStore(self.Store)
-	if self.Server != nil {
+func (ta *TestApplication) Stop() {
+	ta.Application.Stop()
+	cleanUpStore(ta.Store)
+	if ta.Server != nil {
 		gin.SetMode(gin.DebugMode)
-		self.Server.Close()
+		ta.Server.Close()
 	}
-	if self.wsServer != nil {
-		self.wsServer.Close()
+	if ta.wsServer != nil {
+		ta.wsServer.Close()
 	}
 }
 
