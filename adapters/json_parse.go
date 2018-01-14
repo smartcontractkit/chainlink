@@ -12,18 +12,18 @@ type JsonParse struct {
 	Path []string `json:"path"`
 }
 
-func (self *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	js, err := simplejson.NewJson([]byte(input.Value()))
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
 
-	js, err = checkEarlyPath(js, self.Path)
+	js, err = checkEarlyPath(js, jpa.Path)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
 
-	rval, ok := js.CheckGet(self.Path[len(self.Path)-1])
+	rval, ok := js.CheckGet(jpa.Path[len(jpa.Path)-1])
 	if !ok {
 		return models.RunResult{}
 	}

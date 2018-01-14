@@ -10,7 +10,7 @@ type EthBytes32 struct{}
 
 const maxBytes32HexLength = 32 * 2
 
-func (self *EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (eba *EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	value := common.RightPadBytes([]byte(input.Value()), 32)
 	hex := removeHexPrefix(common.ToHex(value))
 

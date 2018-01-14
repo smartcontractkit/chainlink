@@ -13,25 +13,25 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
-	"github.com/urfave/cli"
+	clipkg "github.com/urfave/cli"
 )
 
 type Client struct {
 	io.Writer
 }
 
-func (self *Client) PrettyPrintJSON(v interface{}) error {
+func (cli *Client) PrettyPrintJSON(v interface{}) error {
 	b, err := utils.FormatJSON(v)
 	if err != nil {
 		return err
 	}
-	if _, err = self.Write(b); err != nil {
+	if _, err = cli.Write(b); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *Client) RunNode(c *cli.Context) error {
+func (cli *Client) RunNode(c *clipkg.Context) error {
 	cl := services.NewApplication(store.NewConfig())
 	services.Authenticate(cl.Store)
 	r := web.Router(cl)
@@ -44,10 +44,10 @@ func (self *Client) RunNode(c *cli.Context) error {
 	return nil
 }
 
-func (self *Client) ShowJob(c *cli.Context) error {
+func (cli *Client) ShowJob(c *clipkg.Context) error {
 	cfg := store.NewConfig()
 	if !c.Args().Present() {
-		return self.cliError(errors.New("Must pass the job id to be shown"))
+		return cli.errorOut(errors.New("Must pass the job id to be shown"))
 	}
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
@@ -55,14 +55,14 @@ func (self *Client) ShowJob(c *cli.Context) error {
 		"http://localhost:8080/jobs/"+c.Args().First(),
 	)
 	if err != nil {
-		return self.cliError(err)
+		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 	var job web.JobPresenter
-	return self.deserializeResponse(resp, &job)
+	return cli.deserializeResponse(resp, &job)
 }
 
-func (self *Client) GetJobs(c *cli.Context) error {
+func (cli *Client) GetJobs(c *clipkg.Context) error {
 	cfg := store.NewConfig()
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
@@ -70,31 +70,31 @@ func (self *Client) GetJobs(c *cli.Context) error {
 		"http://localhost:8080/jobs",
 	)
 	if err != nil {
-		return self.cliError(err)
+		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 
 	var jobs []models.Job
-	return self.deserializeResponse(resp, &jobs)
+	return cli.deserializeResponse(resp, &jobs)
 }
 
-func (self *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
+func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
 	if resp.StatusCode >= 300 {
-		return self.cliError(errors.New(resp.Status))
+		return cli.errorOut(errors.New(resp.Status))
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return self.cliError(err)
+		return cli.errorOut(err)
 	}
 	if err = json.Unmarshal(b, &dst); err != nil {
-		return self.cliError(err)
+		return cli.errorOut(err)
 	}
-	return self.cliError(self.PrettyPrintJSON(dst))
+	return cli.errorOut(cli.PrettyPrintJSON(dst))
 }
 
-func (self *Client) cliError(err error) error {
+func (cli *Client) errorOut(err error) error {
 	if err != nil {
-		return cli.NewExitError(err.Error(), 1)
+		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
 }

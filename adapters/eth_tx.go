@@ -13,9 +13,9 @@ type EthTx struct {
 	FunctionID string `json:"functionID"`
 }
 
-func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !input.Pending {
-		return createTxRunResult(self, input, store)
+		return createTxRunResult(etx, input, store)
 	} else {
 		return ensureTxRunResult(input, store)
 	}

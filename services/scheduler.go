@@ -29,44 +29,44 @@ func NewScheduler(store *store.Store) *Scheduler {
 	}
 }
 
-func (self *Scheduler) Start() error {
-	if self.started {
+func (s *Scheduler) Start() error {
+	if s.started {
 		return errors.New("Scheduler already started")
 	}
-	if err := self.OneTime.Start(); err != nil {
+	if err := s.OneTime.Start(); err != nil {
 		return err
 	}
-	if err := self.Recurring.Start(); err != nil {
+	if err := s.Recurring.Start(); err != nil {
 		return err
 	}
-	self.started = true
+	s.started = true
 
-	jobs, err := self.store.Jobs()
+	jobs, err := s.store.Jobs()
 	if err != nil {
 		return fmt.Errorf("Scheduler: %v", err)
 	}
 
 	for _, j := range jobs {
-		self.AddJob(j)
+		s.AddJob(j)
 	}
 
 	return nil
 }
 
-func (self *Scheduler) Stop() {
-	if self.started {
-		self.OneTime.Stop()
-		self.Recurring.Stop()
-		self.started = false
+func (s *Scheduler) Stop() {
+	if s.started {
+		s.OneTime.Stop()
+		s.Recurring.Stop()
+		s.started = false
 	}
 }
 
-func (self *Scheduler) AddJob(job models.Job) {
-	if !self.started {
+func (s *Scheduler) AddJob(job models.Job) {
+	if !s.started {
 		return
 	}
-	self.Recurring.AddJob(job)
-	self.OneTime.AddJob(job)
+	s.Recurring.AddJob(job)
+	s.OneTime.AddJob(job)
 }
 
 type Recurring struct {
@@ -74,23 +74,23 @@ type Recurring struct {
 	store *store.Store
 }
 
-func (self *Recurring) Start() error {
-	self.cron = cronlib.New()
-	self.addResumer()
-	self.cron.Start()
+func (r *Recurring) Start() error {
+	r.cron = cronlib.New()
+	r.addResumer()
+	r.cron.Start()
 	return nil
 }
 
-func (self *Recurring) Stop() {
-	self.cron.Stop()
-	self.cron.Wait()
+func (r *Recurring) Stop() {
+	r.cron.Stop()
+	r.cron.Wait()
 }
 
-func (self *Recurring) AddJob(job models.Job) {
+func (r *Recurring) AddJob(job models.Job) {
 	for _, initr := range job.InitiatorsFor("cron") {
 		cronStr := string(initr.Schedule)
-		self.cron.AddFunc(cronStr, func() {
-			_, err := StartJob(job.NewRun(), self.store)
+		r.cron.AddFunc(cronStr, func() {
+			_, err := StartJob(job.NewRun(), r.store)
 			if err != nil {
 				logger.Panic(err.Error())
 			}
@@ -98,14 +98,14 @@ func (self *Recurring) AddJob(job models.Job) {
 	}
 }
 
-func (self *Recurring) addResumer() {
-	self.cron.AddFunc(self.store.Config.PollingSchedule, func() {
-		pendingRuns, err := self.store.PendingJobRuns()
+func (r *Recurring) addResumer() {
+	r.cron.AddFunc(r.store.Config.PollingSchedule, func() {
+		pendingRuns, err := r.store.PendingJobRuns()
 		if err != nil {
 			logger.Panic(err.Error())
 		}
 		for _, jobRun := range pendingRuns {
-			_, err := StartJob(jobRun, self.store)
+			_, err := StartJob(jobRun, r.store)
 			if err != nil {
 				logger.Panic(err.Error())
 			}
@@ -119,7 +119,7 @@ type Afterer interface {
 
 type Clock struct{}
 
-func (self Clock) After(d time.Duration) <-chan time.Time {
+func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
@@ -129,26 +129,26 @@ type OneTime struct {
 	done  chan struct{}
 }
 
-func (self *OneTime) Start() error {
-	self.done = make(chan struct{})
+func (ot *OneTime) Start() error {
+	ot.done = make(chan struct{})
 	return nil
 }
 
-func (self *OneTime) AddJob(job models.Job) {
+func (ot *OneTime) AddJob(job models.Job) {
 	for _, initr := range job.InitiatorsFor("runAt") {
-		go self.RunJobAt(initr.Time, job)
+		go ot.RunJobAt(initr.Time, job)
 	}
 }
 
-func (self *OneTime) Stop() {
-	close(self.done)
+func (ot *OneTime) Stop() {
+	close(ot.done)
 }
 
-func (self *OneTime) RunJobAt(t models.Time, job models.Job) {
+func (ot *OneTime) RunJobAt(t models.Time, job models.Job) {
 	select {
-	case <-self.done:
-	case <-self.Clock.After(t.DurationFromNow()):
-		_, err := StartJob(job.NewRun(), self.Store)
+	case <-ot.done:
+	case <-ot.Clock.After(t.DurationFromNow()):
+		_, err := StartJob(job.NewRun(), ot.Store)
 		if err != nil {
 			logger.Panic(err.Error())
 		}

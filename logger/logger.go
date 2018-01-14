@@ -42,8 +42,8 @@ func generateConfig(dir string) zap.Config {
 	return config
 }
 
-func (self *Logger) Write(b []byte) (n int, err error) {
-	self.Info(string(b))
+func (l *Logger) Write(b []byte) (n int, err error) {
+	l.Info(string(b))
 	return len(b), nil
 }
 

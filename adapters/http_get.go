@@ -13,8 +13,8 @@ type HttpGet struct {
 	Endpoint string `json:"endpoint"`
 }
 
-func (self *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	response, err := http.Get(self.Endpoint)
+func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+	response, err := http.Get(hga.Endpoint)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
