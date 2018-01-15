@@ -15,6 +15,7 @@ import (
 
 func TestCreateJobSchedulerIntegration(t *testing.T) {
 	RegisterTestingT(t)
+	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()

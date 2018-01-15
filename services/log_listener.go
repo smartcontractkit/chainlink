@@ -31,7 +31,7 @@ func (ll *LogListener) Start() error {
 
 func (ll *LogListener) Stop() error {
 	if ll.logs != nil {
-		close(ll.logs) // this will crash if called without start
+		close(ll.logs)
 	}
 	return nil
 }
