@@ -32,7 +32,7 @@ const RootDir = "/tmp/chainlink_test"
 const Username = "testusername"
 const Password = "password"
 
-var storeCounter = int64(0)
+var storeCounter uint64 = 0
 
 func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
@@ -51,10 +51,11 @@ func NewConfig() *TestConfig {
 }
 
 func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
-	atomic.AddInt64(&storeCounter, +1)
+	count := atomic.AddUint64(&storeCounter, 1)
+	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
-			RootDir:             path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), storeCounter)),
+			RootDir:             rootdir,
 			BasicAuthUsername:   Username,
 			BasicAuthPassword:   Password,
 			ChainID:             3,
