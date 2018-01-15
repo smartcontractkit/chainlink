@@ -41,6 +41,10 @@ type TestConfig struct {
 }
 
 func NewConfig() *TestConfig {
+	return NewConfigWithWSServer(newWSServer())
+}
+
+func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	config := TestConfig{
 		Config: store.Config{
 			RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
@@ -54,7 +58,7 @@ func NewConfig() *TestConfig {
 			PollingSchedule:     "* * * * * *",
 		},
 	}
-	config.SetEthereumServer(newWSServer())
+	config.SetEthereumServer(wsserver)
 	return &config
 }
 
@@ -136,6 +140,9 @@ func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 	s := store.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(s)
+		if config.wsServer != nil {
+			config.wsServer.Close()
+		}
 	}
 }
 
