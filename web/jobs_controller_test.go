@@ -30,8 +30,8 @@ func TestIndexJobs(t *testing.T) {
 
 	var jobs []models.Job
 	json.Unmarshal(cltest.ParseResponseBody(resp), &jobs)
-	assert.Equal(t, jobs[0].Initiators[0].Schedule, j1.Initiators[0].Schedule, "should have the same schedule")
-	assert.Equal(t, jobs[1].Initiators[0].Type, "web", "should have the same type")
+	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, "web", jobs[1].Initiators[0].Type, "should have the same type")
 }
 
 func TestCreateJobs(t *testing.T) {
