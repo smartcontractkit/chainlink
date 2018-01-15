@@ -49,7 +49,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 func startJob(j models.Job, s *store.Store) models.JobRun {
 	jr := j.NewRun()
 	go func() {
-		if _, err := services.StartJob(jr, s); err != nil {
+		if _, err := services.ResumeRun(jr, s); err != nil {
 			logger.Panic(err)
 		}
 	}()
