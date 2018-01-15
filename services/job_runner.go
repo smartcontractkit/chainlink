@@ -9,18 +9,18 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-func CreateRun(job models.Job, store *store.Store) (models.JobRun, error) {
+func CreateRun(job models.Job, store *store.Store) (*models.JobRun, error) {
 	run := job.NewRun()
 	return executeRun(run, store)
 }
 
-func ResumeRun(run models.JobRun, store *store.Store) (models.JobRun, error) {
+func ResumeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) {
 	return executeRun(run, store)
 }
 
-func executeRun(run models.JobRun, store *store.Store) (models.JobRun, error) {
+func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) {
 	run.Status = models.StatusInProgress
-	if err := store.Save(&run); err != nil {
+	if err := store.Save(run); err != nil {
 		return run, runJobError(run, err)
 	}
 
@@ -31,7 +31,7 @@ func executeRun(run models.JobRun, store *store.Store) (models.JobRun, error) {
 	for i, taskRun := range unfinished {
 		prevRun = startTask(taskRun, prevRun.Result, store)
 		run.TaskRuns[i+offset] = prevRun
-		if err := store.Save(&run); err != nil {
+		if err := store.Save(run); err != nil {
 			return run, runJobError(run, err)
 		}
 
@@ -56,7 +56,7 @@ func executeRun(run models.JobRun, store *store.Store) (models.JobRun, error) {
 	}
 
 	logger.Infow("Finished job", run.ForLogger()...)
-	return run, runJobError(run, store.Save(&run))
+	return run, runJobError(run, store.Save(run))
 }
 
 func startTask(run models.TaskRun, input models.RunResult, store *store.Store) models.TaskRun {
@@ -81,9 +81,9 @@ func startTask(run models.TaskRun, input models.RunResult, store *store.Store) m
 	return run
 }
 
-func runJobError(run models.JobRun, err error) error {
+func runJobError(run *models.JobRun, err error) error {
 	if err != nil {
-		return fmt.Errorf("StartJob#%v: %v", run.JobID, err)
+		return fmt.Errorf("executeRun#%v: %v", run.JobID, err)
 	}
 	return nil
 }

@@ -57,8 +57,8 @@ func (orm *ORM) Jobs() ([]Job, error) {
 	return jobs, err
 }
 
-func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
-	var runs []JobRun
+func (orm *ORM) JobRunsFor(job Job) ([]*JobRun, error) {
+	runs := []*JobRun{}
 	err := orm.Where("JobID", job.ID, &runs)
 	return runs, err
 }
@@ -88,8 +88,8 @@ func (orm *ORM) SaveJob(job Job) error {
 	return tx.Commit()
 }
 
-func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
-	var runs []JobRun
+func (orm *ORM) PendingJobRuns() ([]*JobRun, error) {
+	runs := []*JobRun{}
 	err := orm.Where("Status", StatusPending, &runs)
 	return runs, err
 }

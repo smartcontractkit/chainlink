@@ -29,7 +29,7 @@ func NewJob() Job {
 	return Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
 }
 
-func (j Job) NewRun() JobRun {
+func (j Job) NewRun() *JobRun {
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
@@ -38,7 +38,7 @@ func (j Job) NewRun() JobRun {
 		}
 	}
 
-	return JobRun{
+	return &JobRun{
 		ID:        uuid.NewV4().String(),
 		JobID:     j.ID,
 		CreatedAt: time.Now(),

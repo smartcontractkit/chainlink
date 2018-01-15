@@ -13,7 +13,7 @@ type JobRun struct {
 	TaskRuns  []TaskRun `storm:"inline"`
 }
 
-func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
+func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", jr.JobID,
 		"run", jr.ID,
@@ -27,7 +27,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-func (jr JobRun) UnfinishedTaskRuns() []TaskRun {
+func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
 	unfinished := jr.TaskRuns
 	for _, tr := range jr.TaskRuns {
 		if tr.Completed() {
@@ -41,6 +41,6 @@ func (jr JobRun) UnfinishedTaskRuns() []TaskRun {
 	return unfinished
 }
 
-func (jr JobRun) NextTaskRun() TaskRun {
+func (jr *JobRun) NextTaskRun() TaskRun {
 	return jr.UnfinishedTaskRuns()[0]
 }
