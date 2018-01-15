@@ -35,10 +35,8 @@ const Password = "password"
 var storeCounter uint64 = 0
 
 func init() {
+	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
-	if err := os.RemoveAll(RootDir); err != nil {
-		fmt.Println(err)
-	}
 }
 
 type TestConfig struct {
@@ -128,7 +126,6 @@ func NewApplicationWithKeyStore() (*TestApplication, func()) {
 }
 
 func newServer(app *services.Application) *httptest.Server {
-	gin.SetMode(gin.TestMode)
 	return httptest.NewServer(web.Router(app))
 }
 
@@ -160,6 +157,11 @@ func NewStore() (*store.Store, func()) {
 func cleanUpStore(store *store.Store) {
 	logger.Sync()
 	store.Close()
+	go func() {
+		if err := os.RemoveAll(store.Config.RootDir); err != nil {
+			log.Println(err)
+		}
+	}()
 }
 
 func CloseGock(t *testing.T) {
@@ -201,10 +203,13 @@ func copyFile(src, dst string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer to.Close()
 
 	_, err = io.Copy(to, from)
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = to.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -241,9 +246,11 @@ func BasicAuthGet(url string) *http.Response {
 }
 
 func ParseResponseBody(resp *http.Response) []byte {
-	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err = resp.Body.Close(); err != nil {
 		log.Fatal(err)
 	}
 	return b
