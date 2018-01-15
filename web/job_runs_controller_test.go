@@ -62,7 +62,7 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 		}
 		jr = jobRuns[0]
 		return jr.Status
-	}).Should(Equal("completed"))
+	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, j.ID, jr.JobID)
 }
 

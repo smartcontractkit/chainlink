@@ -17,9 +17,9 @@ type TaskRun struct {
 }
 
 func (tr TaskRun) Completed() bool {
-	return tr.Status == "completed"
+	return tr.Status == StatusCompleted
 }
 
 func (tr TaskRun) Errored() bool {
-	return tr.Status == "errored"
+	return tr.Status == StatusErrored
 }
