@@ -10,7 +10,7 @@ import (
 )
 
 func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
-	run.Status = "in progress"
+	run.Status = models.StatusInProgress
 	if err := store.Save(&run); err != nil {
 		return run, runJobError(run, err)
 	}
@@ -39,11 +39,11 @@ func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
 
 	run.Result = prevRun.Result
 	if run.Result.HasError() {
-		run.Status = "errored"
+		run.Status = models.StatusErrored
 	} else if run.Result.Pending {
-		run.Status = "pending"
+		run.Status = models.StatusPending
 	} else {
-		run.Status = "completed"
+		run.Status = models.StatusCompleted
 	}
 
 	logger.Infow("Finished job", run.ForLogger()...)
@@ -51,22 +51,22 @@ func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
 }
 
 func startTask(run models.TaskRun, input models.RunResult, store *store.Store) models.TaskRun {
-	run.Status = "in progress"
+	run.Status = models.StatusInProgress
 	adapter, err := adapters.For(run.Task)
 
 	if err != nil {
-		run.Status = "errored"
+		run.Status = models.StatusErrored
 		run.Result.SetError(err)
 		return run
 	}
 	run.Result = adapter.Perform(input, store)
 
 	if run.Result.HasError() {
-		run.Status = "errored"
+		run.Status = models.StatusErrored
 	} else if run.Result.Pending {
-		run.Status = "pending"
+		run.Status = models.StatusPending
 	} else {
-		run.Status = "completed"
+		run.Status = models.StatusCompleted
 	}
 
 	return run

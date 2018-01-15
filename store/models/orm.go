@@ -90,7 +90,7 @@ func (orm *ORM) SaveJob(job Job) error {
 
 func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
 	var runs []JobRun
-	err := orm.Where("Status", "pending", &runs)
+	err := orm.Where("Status", StatusPending, &runs)
 	return runs, err
 }
 

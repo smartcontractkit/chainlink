@@ -11,6 +11,13 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const (
+	StatusInProgress = "in progress"
+	StatusPending    = "pending"
+	StatusErrored    = "errored"
+	StatusCompleted  = "completed"
+)
+
 type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`

@@ -105,7 +105,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	Eventually(func() string {
 		assert.Nil(t, app.Store.One("ID", jobRun.ID, &jobRun))
 		return jobRun.Status
-	}).Should(Equal("completed"))
+	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
 	assert.Equal(t, hash.String(), jobRun.TaskRuns[3].Result.Value())
