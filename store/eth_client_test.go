@@ -9,8 +9,6 @@ import (
 )
 
 func TestEthGetTxReceipt(t *testing.T) {
-	t.Parallel()
-
 	response := cltest.LoadJSON("../internal/fixtures/web/eth_getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
 	config := cltest.NewConfigWithWSServer(mockServer)
