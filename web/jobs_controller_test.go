@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -19,6 +20,7 @@ func TestIndexJobs(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
 	app.Store.Save(&j1)
 	j2 := cltest.NewJobWithWebInitiator()
 	app.Store.Save(&j2)
