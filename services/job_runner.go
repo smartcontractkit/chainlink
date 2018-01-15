@@ -9,7 +9,16 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
+func CreateRun(job models.Job, store *store.Store) (models.JobRun, error) {
+	run := job.NewRun()
+	return executeRun(run, store)
+}
+
+func ResumeRun(run models.JobRun, store *store.Store) (models.JobRun, error) {
+	return executeRun(run, store)
+}
+
+func executeRun(run models.JobRun, store *store.Store) (models.JobRun, error) {
 	run.Status = models.StatusInProgress
 	if err := store.Save(&run); err != nil {
 		return run, runJobError(run, err)
