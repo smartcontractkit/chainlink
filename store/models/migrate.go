@@ -4,16 +4,16 @@ import (
 	"log"
 )
 
-func (self ORM) migrate() {
-	self.initializeModel(&Job{})
-	self.initializeModel(&JobRun{})
-	self.initializeModel(&Initiator{})
-	self.initializeModel(&Tx{})
-	self.initializeModel(&TxAttempt{})
+func (orm ORM) migrate() {
+	orm.initializeModel(&Job{})
+	orm.initializeModel(&JobRun{})
+	orm.initializeModel(&Initiator{})
+	orm.initializeModel(&Tx{})
+	orm.initializeModel(&TxAttempt{})
 }
 
-func (self ORM) initializeModel(klass interface{}) {
-	err := self.InitBucket(klass)
+func (orm ORM) initializeModel(klass interface{}) {
+	err := orm.InitBucket(klass)
 	if err != nil {
 		log.Fatal(err)
 	}

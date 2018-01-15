@@ -22,26 +22,26 @@ func NewApplication(config store.Config) *Application {
 	}
 }
 
-func (self *Application) Start() error {
-	self.Store.Start()
-	self.LogListener.Start()
-	return self.Scheduler.Start()
+func (app *Application) Start() error {
+	app.Store.Start()
+	app.LogListener.Start()
+	return app.Scheduler.Start()
 }
 
-func (self *Application) Stop() error {
+func (app *Application) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
-	self.Scheduler.Stop()
-	self.LogListener.Stop()
-	return self.Store.Close()
+	app.Scheduler.Stop()
+	app.LogListener.Stop()
+	return app.Store.Close()
 }
 
-func (self *Application) AddJob(job models.Job) error {
-	err := self.Store.SaveJob(job)
+func (app *Application) AddJob(job models.Job) error {
+	err := app.Store.SaveJob(job)
 	if err != nil {
 		return err
 	}
 
-	self.Scheduler.AddJob(job)
+	app.Scheduler.AddJob(job)
 	return nil
 }

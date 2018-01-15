@@ -13,9 +13,9 @@ type EthTx struct {
 	FunctionID string `json:"functionID"`
 }
 
-func (self *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !input.Pending {
-		return createTxRunResult(self, input, store)
+		return createTxRunResult(etx, input, store)
 	} else {
 		return ensureTxRunResult(input, store)
 	}
@@ -35,7 +35,7 @@ func createTxRunResult(
 		return models.RunResultWithError(err)
 	}
 
-	attempt, err := store.Eth.CreateTx(recipient, data)
+	attempt, err := store.TxManager.CreateTx(recipient, data)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
@@ -50,7 +50,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return models.RunResultWithError(err)
 	}
 
-	confirmed, err := store.Eth.EnsureTxConfirmed(hash)
+	confirmed, err := store.TxManager.EnsureTxConfirmed(hash)
 
 	if err != nil {
 		return models.RunResultWithError(err)

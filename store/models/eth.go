@@ -18,14 +18,14 @@ type Tx struct {
 	TxAttempt
 }
 
-func (self *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
+func (tx *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
 	return types.NewTransaction(
-		self.Nonce,
-		self.To,
-		self.Value,
-		self.GasLimit,
+		tx.Nonce,
+		tx.To,
+		tx.Value,
+		tx.GasLimit,
 		gasPrice,
-		self.Data,
+		tx.Data,
 	)
 }
 
