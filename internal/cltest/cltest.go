@@ -36,6 +36,9 @@ var storeCounter = int64(0)
 
 func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
+	if err := os.RemoveAll(RootDir); err != nil {
+		fmt.Println(err)
+	}
 }
 
 type TestConfig struct {
@@ -132,7 +135,6 @@ func (ta *TestApplication) Stop() {
 	ta.Application.Stop()
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
-		gin.SetMode(gin.DebugMode)
 		ta.Server.Close()
 	}
 	if ta.wsServer != nil {
@@ -155,11 +157,8 @@ func NewStore() (*store.Store, func()) {
 }
 
 func cleanUpStore(store *store.Store) {
-	store.Close()
 	logger.Sync()
-	if err := os.RemoveAll(store.Config.RootDir); err != nil {
-		log.Println("Unable to remove dir: ", store.Config.RootDir, err)
-	}
+	store.Close()
 }
 
 func CloseGock(t *testing.T) {
