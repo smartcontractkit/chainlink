@@ -156,8 +156,9 @@ func NewStore() (*store.Store, func()) {
 
 func cleanUpStore(store *store.Store) {
 	store.Close()
+	logger.Sync()
 	if err := os.RemoveAll(store.Config.RootDir); err != nil {
-		log.Println(err)
+		log.Println("Unable to remove dir: ", store.Config.RootDir, err)
 	}
 }
 
