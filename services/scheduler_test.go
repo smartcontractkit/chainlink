@@ -47,6 +47,7 @@ func TestAddJob(t *testing.T) {
 
 	sched := services.NewScheduler(store)
 	sched.Start()
+	defer sched.Stop()
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	err := store.SaveJob(j)
