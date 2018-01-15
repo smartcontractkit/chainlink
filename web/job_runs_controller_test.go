@@ -27,7 +27,7 @@ func TestJobRunsIndex(t *testing.T) {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.Save(jr))
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -53,9 +53,9 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 
-	jr := models.JobRun{}
+	jr := &models.JobRun{}
 	Eventually(func() string {
-		jobRuns := []models.JobRun{}
+		jobRuns := []*models.JobRun{}
 		app.Store.Where("ID", respJSON.ID, &jobRuns)
 		if len(jobRuns) == 0 {
 			return ""

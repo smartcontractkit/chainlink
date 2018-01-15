@@ -89,8 +89,8 @@ func TestCreateJobIntegration(t *testing.T) {
 	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	jrID := cltest.JobJSONFromResponse(resp.Body).ID
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
+	jobRuns := []*models.JobRun{}
+	Eventually(func() []*models.JobRun {
 		app.Store.Where("JobID", jobID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
@@ -103,7 +103,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	jobRun := jobRuns[0]
 	assert.Equal(t, jrID, jobRun.ID)
 	Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jobRun.ID, &jobRun))
+		assert.Nil(t, app.Store.One("ID", jobRun.ID, jobRun))
 		return jobRun.Status
 	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())

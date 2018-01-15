@@ -15,7 +15,7 @@ type JobRunsController struct {
 
 func (jrc *JobRunsController) Index(c *gin.Context) {
 	id := c.Param("ID")
-	jobRuns := []models.JobRun{}
+	jobRuns := []*models.JobRun{}
 
 	if err := jrc.App.Store.Where("JobID", id, &jobRuns); err != nil {
 		c.JSON(500, gin.H{
@@ -46,7 +46,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	}
 }
 
-func startJob(j models.Job, s *store.Store) models.JobRun {
+func startJob(j models.Job, s *store.Store) *models.JobRun {
 	jr := j.NewRun()
 	go func() {
 		if _, err := services.ResumeRun(jr, s); err != nil {

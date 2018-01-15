@@ -110,7 +110,7 @@ func TestShowJobs(t *testing.T) {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.Save(&j)
 	jr := j.NewRun()
-	app.Store.Save(&jr)
+	app.Store.Save(jr)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
