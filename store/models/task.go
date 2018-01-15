@@ -16,10 +16,10 @@ type TaskRun struct {
 	Result RunResult
 }
 
-func (self TaskRun) Completed() bool {
-	return self.Status == "completed"
+func (tr TaskRun) Completed() bool {
+	return tr.Status == StatusCompleted
 }
 
-func (self TaskRun) Errored() bool {
-	return self.Status == "errored"
+func (tr TaskRun) Errored() bool {
+	return tr.Status == StatusErrored
 }

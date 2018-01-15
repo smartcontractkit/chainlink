@@ -21,8 +21,8 @@ func TestRunningJob(t *testing.T) {
 	services.StartJob(run, store)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, "completed", run.Status)
-	assert.Equal(t, "completed", run.TaskRuns[0].Status)
+	assert.Equal(t, models.StatusCompleted, run.Status)
+	assert.Equal(t, models.StatusCompleted, run.TaskRuns[0].Status)
 }
 
 func TestJobTransitionToPending(t *testing.T) {
@@ -37,5 +37,5 @@ func TestJobTransitionToPending(t *testing.T) {
 	services.StartJob(run, store)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, "pending", run.Status)
+	assert.Equal(t, models.StatusPending, run.Status)
 }

@@ -16,7 +16,7 @@ func TestEthCreateTx(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
-	manager := store.Eth
+	manager := store.TxManager
 
 	to := cltest.NewEthAddress()
 	data, err := hex.DecodeString("0000abcdef")
@@ -53,7 +53,7 @@ func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	txm := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -67,7 +67,7 @@ func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	a := attempts[0]
 
-	confirmed, err := eth.EnsureTxConfirmed(a.Hash)
+	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
 	assert.Nil(t, err)
 	assert.False(t, confirmed)
 	assert.Nil(t, store.One("ID", tx.ID, tx))
@@ -84,7 +84,7 @@ func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	txm := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -99,7 +99,7 @@ func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	a := attempts[0]
 
-	confirmed, err := eth.EnsureTxConfirmed(a.Hash)
+	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
 	assert.Nil(t, err)
 	assert.False(t, confirmed)
 	assert.Nil(t, store.One("ID", tx.ID, tx))
@@ -116,7 +116,7 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	txm := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -131,7 +131,7 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	a := tx.TxAttempt
 
-	confirmed, err := eth.EnsureTxConfirmed(a.Hash)
+	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
 	assert.Nil(t, err)
 	assert.True(t, confirmed)
 	assert.Nil(t, store.One("ID", tx.ID, tx))
@@ -148,7 +148,7 @@ func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	eth := store.Eth
+	txm := store.TxManager
 
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
@@ -163,7 +163,7 @@ func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	a := tx.TxAttempt
 
-	confirmed, err := eth.EnsureTxConfirmed(a.Hash)
+	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
 	assert.Nil(t, err)
 	assert.False(t, confirmed)
 	assert.Nil(t, store.One("ID", tx.ID, tx))

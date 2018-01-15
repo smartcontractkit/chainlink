@@ -11,6 +11,13 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const (
+	StatusInProgress = "in progress"
+	StatusPending    = "pending"
+	StatusErrored    = "errored"
+	StatusCompleted  = "completed"
+)
+
 type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
@@ -22,9 +29,9 @@ func NewJob() Job {
 	return Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
 }
 
-func (self Job) NewRun() JobRun {
-	taskRuns := make([]TaskRun, len(self.Tasks))
-	for i, task := range self.Tasks {
+func (j Job) NewRun() JobRun {
+	taskRuns := make([]TaskRun, len(j.Tasks))
+	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
 			ID:   uuid.NewV4().String(),
 			Task: task,
@@ -33,15 +40,15 @@ func (self Job) NewRun() JobRun {
 
 	return JobRun{
 		ID:        uuid.NewV4().String(),
-		JobID:     self.ID,
+		JobID:     j.ID,
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
 	}
 }
 
-func (self Job) InitiatorsFor(t string) []Initiator {
+func (j Job) InitiatorsFor(t string) []Initiator {
 	list := []Initiator{}
-	for _, initr := range self.Initiators {
+	for _, initr := range j.Initiators {
 		if initr.Type == t {
 			list = append(list, initr)
 		}
@@ -49,8 +56,8 @@ func (self Job) InitiatorsFor(t string) []Initiator {
 	return list
 }
 
-func (self Job) WebAuthorized() bool {
-	for _, initr := range self.Initiators {
+func (j Job) WebAuthorized() bool {
+	for _, initr := range j.Initiators {
 		if initr.Type == "web" {
 			return true
 		}
@@ -72,25 +79,25 @@ type Time struct {
 	time.Time
 }
 
-func (self *Time) UnmarshalJSON(b []byte) error {
+func (t *Time) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
-	t, err := dateparse.ParseAny(s)
-	self.Time = t
+	newTime, err := dateparse.ParseAny(s)
+	t.Time = newTime
 	return err
 }
 
-func (self *Time) ISO8601() string {
-	return self.UTC().Format("2006-01-02T15:04:05Z07:00")
+func (t *Time) ISO8601() string {
+	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
 }
 
-func (self *Time) DurationFromNow() time.Duration {
-	return self.Time.Sub(time.Now())
+func (t *Time) DurationFromNow() time.Duration {
+	return t.Time.Sub(time.Now())
 }
 
 type Cron string
 
-func (self *Cron) UnmarshalJSON(b []byte) error {
+func (c *Cron) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
 	if err != nil {
@@ -104,6 +111,6 @@ func (self *Cron) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return fmt.Errorf("Cron: %v", err)
 	}
-	*self = Cron(s)
+	*c = Cron(s)
 	return nil
 }

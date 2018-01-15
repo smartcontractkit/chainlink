@@ -20,38 +20,38 @@ type CallerSubscriber interface {
 	EthSubscribe(context.Context, interface{}, ...interface{}) (*rpc.ClientSubscription, error)
 }
 
-func (self *EthClient) GetNonce(account accounts.Account) (uint64, error) {
+func (eth *EthClient) GetNonce(account accounts.Account) (uint64, error) {
 	var result string
-	err := self.Call(&result, "eth_getTransactionCount", account.Address.Hex())
+	err := eth.Call(&result, "eth_getTransactionCount", account.Address.Hex())
 	if err != nil {
 		return 0, err
 	}
 	return utils.HexToUint64(result)
 }
 
-func (self *EthClient) SendRawTx(hex string) (common.Hash, error) {
+func (eth *EthClient) SendRawTx(hex string) (common.Hash, error) {
 	result := common.Hash{}
-	err := self.Call(&result, "eth_sendRawTransaction", hex)
+	err := eth.Call(&result, "eth_sendRawTransaction", hex)
 	return result, err
 }
 
-func (self *EthClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
+func (eth *EthClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
 	receipt := TxReceipt{}
-	err := self.Call(&receipt, "eth_getTransactionReceipt", hash.String())
+	err := eth.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
-func (self *EthClient) BlockNumber() (uint64, error) {
+func (eth *EthClient) BlockNumber() (uint64, error) {
 	result := ""
-	if err := self.Call(&result, "eth_blockNumber"); err != nil {
+	if err := eth.Call(&result, "eth_blockNumber"); err != nil {
 		return 0, err
 	}
 	return utils.HexToUint64(result)
 }
 
-func (self *EthClient) Subscribe(channel chan EventLog, address string) error {
+func (eth *EthClient) Subscribe(channel chan EventLog, address string) error {
 	ctx := context.Background()
-	_, err := self.EthSubscribe(ctx, channel, "logs", address)
+	_, err := eth.EthSubscribe(ctx, channel, "logs", address)
 	return err
 }
 
@@ -60,7 +60,7 @@ type TxReceipt struct {
 	Hash        common.Hash `json:"transactionHash"`
 }
 
-func (self *TxReceipt) UnmarshalJSON(b []byte) error {
+func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 	type Rcpt struct {
 		BlockNumber string `json:"blockNumber"`
 		Hash        string `json:"transactionHash"`
@@ -73,15 +73,15 @@ func (self *TxReceipt) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	self.BlockNumber = block
-	if self.Hash, err = utils.StringToHash(rcpt.Hash); err != nil {
+	txr.BlockNumber = block
+	if txr.Hash, err = utils.StringToHash(rcpt.Hash); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *TxReceipt) Unconfirmed() bool {
-	return common.EmptyHash(self.Hash)
+func (txr *TxReceipt) Unconfirmed() bool {
+	return common.EmptyHash(txr.Hash)
 }
 
 type EventLog struct {

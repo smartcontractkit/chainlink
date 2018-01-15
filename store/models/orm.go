@@ -32,8 +32,8 @@ func initializeDatabase(path string) *storm.DB {
 	return db
 }
 
-func (self *ORM) Where(field string, value interface{}, instance interface{}) error {
-	err := self.Find(field, value, instance)
+func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
+	err := orm.Find(field, value, instance)
 	if err == storm.ErrNotFound {
 		emptySlice(instance)
 		return nil
@@ -41,25 +41,25 @@ func (self *ORM) Where(field string, value interface{}, instance interface{}) er
 	return err
 }
 
-func (self *ORM) FindJob(id string) (Job, error) {
+func (orm *ORM) FindJob(id string) (Job, error) {
 	job := Job{}
-	err := self.One("ID", id, &job)
+	err := orm.One("ID", id, &job)
 	return job, err
 }
 
-func (self *ORM) InitBucket(model interface{}) error {
-	return self.Init(model)
+func (orm *ORM) InitBucket(model interface{}) error {
+	return orm.Init(model)
 }
 
-func (self *ORM) Jobs() ([]Job, error) {
+func (orm *ORM) Jobs() ([]Job, error) {
 	var jobs []Job
-	err := self.All(&jobs)
+	err := orm.All(&jobs)
 	return jobs, err
 }
 
-func (self *ORM) JobRunsFor(job Job) ([]JobRun, error) {
+func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
 	var runs []JobRun
-	err := self.Where("JobID", job.ID, &runs)
+	err := orm.Where("JobID", job.ID, &runs)
 	return runs, err
 }
 
@@ -69,8 +69,8 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
-func (self *ORM) SaveJob(job Job) error {
-	tx, err := self.Begin(true)
+func (orm *ORM) SaveJob(job Job) error {
+	tx, err := orm.Begin(true)
 	if err != nil {
 		return err
 	}
@@ -88,13 +88,13 @@ func (self *ORM) SaveJob(job Job) error {
 	return tx.Commit()
 }
 
-func (self *ORM) PendingJobRuns() ([]JobRun, error) {
+func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
 	var runs []JobRun
-	err := self.Where("Status", "pending", &runs)
+	err := orm.Where("Status", StatusPending, &runs)
 	return runs, err
 }
 
-func (self *ORM) CreateTx(
+func (orm *ORM) CreateTx(
 	from common.Address,
 	nonce uint64,
 	to common.Address,
@@ -110,11 +110,11 @@ func (self *ORM) CreateTx(
 		Value:    value,
 		GasLimit: gasLimit,
 	}
-	return &tx, self.Save(&tx)
+	return &tx, orm.Save(&tx)
 }
 
-func (self *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
-	dbtx, err := self.Begin(true)
+func (orm *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
+	dbtx, err := orm.Begin(true)
 	if err != nil {
 		return err
 	}
@@ -131,15 +131,15 @@ func (self *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
 	return dbtx.Commit()
 }
 
-func (self *ORM) AttemptsFor(id uint64) ([]*TxAttempt, error) {
+func (orm *ORM) AttemptsFor(id uint64) ([]*TxAttempt, error) {
 	attempts := []*TxAttempt{}
-	if err := self.Where("TxID", id, &attempts); err != nil {
+	if err := orm.Where("TxID", id, &attempts); err != nil {
 		return attempts, err
 	}
 	return attempts, nil
 }
 
-func (self *ORM) AddAttempt(
+func (orm *ORM) AddAttempt(
 	tx *Tx,
 	etx *types.Transaction,
 	blkNum uint64,
@@ -158,7 +158,7 @@ func (self *ORM) AddAttempt(
 	if !tx.Confirmed {
 		tx.TxAttempt = *attempt
 	}
-	dbtx, err := self.Begin(true)
+	dbtx, err := orm.Begin(true)
 	if err != nil {
 		return nil, err
 	}

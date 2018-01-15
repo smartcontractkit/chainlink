@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -30,15 +29,11 @@ func TestJobRunsIndex(t *testing.T) {
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(&jr))
 
-	resp, err := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-
 	var respJSON JobRunsJSON
-	json.Unmarshal(b, &respJSON)
+	json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON)
 	assert.Equal(t, 1, len(respJSON.Runs), "expected no runs to be created")
 	assert.Equal(t, jr.ID, respJSON.Runs[0].ID, "expected the run IDs to match")
 }
@@ -54,8 +49,7 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(j))
 
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 
@@ -68,7 +62,7 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 		}
 		jr = jobRuns[0]
 		return jr.Status
-	}).Should(Equal("completed"))
+	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, j.ID, jr.JobID)
 }
 
@@ -82,8 +76,7 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(j))
 
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
 
@@ -94,7 +87,6 @@ func TestJobRunsCreateNotFound(t *testing.T) {
 	defer cleanup()
 
 	url := app.Server.URL + "/v2/jobs/garbageID/runs"
-	resp, err := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
-	assert.Nil(t, err)
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }

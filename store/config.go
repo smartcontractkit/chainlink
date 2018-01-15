@@ -37,6 +37,6 @@ func NewConfig() Config {
 	return config
 }
 
-func (self Config) KeysDir() string {
-	return path.Join(self.RootDir, "keys")
+func (c Config) KeysDir() string {
+	return path.Join(c.RootDir, "keys")
 }

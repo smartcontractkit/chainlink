@@ -58,11 +58,11 @@ func NewConfig() *TestConfig {
 	return &config
 }
 
-func (self *TestConfig) SetEthereumServer(wss *httptest.Server) {
+func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	u, _ := url.Parse(wss.URL)
 	u.Scheme = "ws"
-	self.EthereumURL = u.String()
-	self.wsServer = wss
+	tc.EthereumURL = u.String()
+	tc.wsServer = wss
 }
 
 type TestApplication struct {
@@ -120,15 +120,15 @@ func newServer(app *services.Application) *httptest.Server {
 	return httptest.NewServer(web.Router(app))
 }
 
-func (self *TestApplication) Stop() {
-	self.Application.Stop()
-	cleanUpStore(self.Store)
-	if self.Server != nil {
+func (ta *TestApplication) Stop() {
+	ta.Application.Stop()
+	cleanUpStore(ta.Store)
+	if ta.Server != nil {
 		gin.SetMode(gin.DebugMode)
-		self.Server.Close()
+		ta.Server.Close()
 	}
-	if self.wsServer != nil {
-		self.wsServer.Close()
+	if ta.wsServer != nil {
+		ta.wsServer.Close()
 	}
 }
 
@@ -207,15 +207,32 @@ func AddPrivateKey(config *TestConfig, src string) {
 	copyFile(src, dst)
 }
 
-func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, error) {
-	return utils.BasicAuthPost(
+func BasicAuthPost(url string, contentType string, body io.Reader) *http.Response {
+	resp, err := utils.BasicAuthPost(
 		Username,
 		Password,
 		url,
 		contentType,
 		body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return resp
 }
 
-func BasicAuthGet(url string) (*http.Response, error) {
-	return utils.BasicAuthGet(Username, Password, url)
+func BasicAuthGet(url string) *http.Response {
+	resp, err := utils.BasicAuthGet(Username, Password, url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return resp
+}
+
+func ParseResponseBody(resp *http.Response) []byte {
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
 }

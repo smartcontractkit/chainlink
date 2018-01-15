@@ -9,7 +9,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestEthereumBytes32Formatting(t *testing.T) {
+func TestEthBytes32Formatting(t *testing.T) {
 	tests := []struct {
 		value    null.String
 		expected string
