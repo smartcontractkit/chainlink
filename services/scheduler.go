@@ -104,8 +104,7 @@ func (r *Recurring) addResumer() {
 			logger.Panic(err.Error())
 		}
 		for _, jobRun := range pendingRuns {
-			_, err := ResumeRun(jobRun, r.store)
-			if err != nil {
+			if err := ExecuteRun(jobRun, r.store); err != nil {
 				logger.Panic(err.Error())
 			}
 		}

@@ -52,13 +52,13 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 }
 
 func startJob(j models.Job, s *store.Store) (*models.JobRun, error) {
-	jr, err := services.NewRun(j, s)
+	jr, err := services.BuildRun(j, s)
 	if err != nil {
 		return jr, err
 	}
 
 	go func() {
-		if _, err = services.ResumeRun(jr, s); err != nil {
+		if err = services.ExecuteRun(jr, s); err != nil {
 			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
 		}
 	}()
