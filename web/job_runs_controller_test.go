@@ -25,7 +25,7 @@ func TestJobRunsIndex(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(j))
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(jr))
 

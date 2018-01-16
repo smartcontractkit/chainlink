@@ -44,7 +44,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 }
 
 type JobPresenter struct {
-	models.Job
+	*models.Job
 	Runs []*models.JobRun `json:"runs,omitempty"`
 }
 

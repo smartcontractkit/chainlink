@@ -27,11 +27,11 @@ type Job struct {
 	CreatedAt  Time        `storm:"index"`
 }
 
-func NewJob() Job {
-	return Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
+func NewJob() *Job {
+	return &Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
 }
 
-func (j Job) NewRun() *JobRun {
+func (j *Job) NewRun() *JobRun {
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
@@ -48,7 +48,7 @@ func (j Job) NewRun() *JobRun {
 	}
 }
 
-func (j Job) InitiatorsFor(t string) []Initiator {
+func (j *Job) InitiatorsFor(t string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
 		if initr.Type == t {
@@ -58,7 +58,7 @@ func (j Job) InitiatorsFor(t string) []Initiator {
 	return list
 }
 
-func (j Job) WebAuthorized() bool {
+func (j *Job) WebAuthorized() bool {
 	for _, initr := range j.Initiators {
 		if initr.Type == "web" {
 			return true
@@ -67,7 +67,7 @@ func (j Job) WebAuthorized() bool {
 	return false
 }
 
-func (j Job) Ended(now time.Time) bool {
+func (j *Job) Ended(now time.Time) bool {
 	if !j.EndAt.Valid {
 		return false
 	}
