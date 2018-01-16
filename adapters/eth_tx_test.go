@@ -33,7 +33,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 
 	adapter := adapters.EthTx{
 		Address:    cltest.NewEthAddress(),
-		FunctionID: "12345678",
+		FunctionID: models.HexToFunctionID("b3f98adc"),
 	}
 	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)
@@ -169,7 +169,7 @@ func TestEthTxAdapterWithError(t *testing.T) {
 
 	adapter := adapters.EthTx{
 		Address:    cltest.NewEthAddress(),
-		FunctionID: "12345678",
+		FunctionID: models.HexToFunctionID("0xb3f98adc"),
 	}
 	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)

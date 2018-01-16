@@ -10,8 +10,8 @@ import (
 )
 
 type EthTx struct {
-	Address    common.Address `json:"address"`
-	FunctionID string         `json:"functionID"`
+	Address    common.Address    `json:"address"`
+	FunctionID models.FunctionID `json:"functionID"`
 }
 
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
@@ -27,7 +27,7 @@ func createTxRunResult(
 	input models.RunResult,
 	store *store.Store,
 ) models.RunResult {
-	data, err := hex.DecodeString(e.FunctionID + input.Value())
+	data, err := hex.DecodeString(e.FunctionID.WithoutPrefix() + input.Value())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
