@@ -21,7 +21,7 @@ func TestRunningJob(t *testing.T) {
 	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}
 
 	run := job.NewRun()
-	services.ResumeRun(run, store)
+	services.ExecuteRun(run, store)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, models.StatusCompleted, run.Status)
@@ -37,7 +37,7 @@ func TestJobTransitionToPending(t *testing.T) {
 	job.Tasks = []models.Task{models.Task{Type: "NoOpPend"}}
 
 	run := job.NewRun()
-	services.ResumeRun(run, store)
+	services.ExecuteRun(run, store)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, models.StatusPending, run.Status)
@@ -81,7 +81,7 @@ func TestBeginRun(t *testing.T) {
 	}
 }
 
-func TestNewRun(t *testing.T) {
+func TestBuildRun(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -104,7 +104,7 @@ func TestNewRun(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(job))
 
-			run, err := services.NewRun(job, store)
+			run, err := services.BuildRun(job, store)
 
 			if test.errored {
 				assert.Nil(t, run)
