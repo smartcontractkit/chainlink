@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mrwonko/cron"
 	uuid "github.com/satori/go.uuid"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const (
@@ -22,6 +23,7 @@ type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
+	EndAt      null.Time   `storm:"index"`
 	CreatedAt  Time        `storm:"index"`
 }
 
@@ -63,6 +65,13 @@ func (j Job) WebAuthorized() bool {
 		}
 	}
 	return false
+}
+
+func (j Job) Ended(now time.Time) bool {
+	if j.EndAt.Time.IsZero() {
+		return false
+	}
+	return now.After(j.EndAt.Time)
 }
 
 type Initiator struct {
