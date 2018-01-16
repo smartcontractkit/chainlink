@@ -50,9 +50,7 @@ type JobPresenter struct {
 
 func (jc *JobsController) Show(c *gin.Context) {
 	id := c.Param("ID")
-	var j models.Job
-
-	if err := jc.App.Store.One("ID", id, &j); err == storm.ErrNotFound {
+	if j, err := jc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found."},
 		})
