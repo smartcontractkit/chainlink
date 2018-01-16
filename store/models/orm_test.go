@@ -17,7 +17,7 @@ func TestWhereNotFound(t *testing.T) {
 	defer cleanup()
 
 	j1 := models.NewJob()
-	jobs := []models.Job{j1}
+	jobs := []*models.Job{j1}
 
 	err := store.Where("ID", "bogus", &jobs)
 	assert.Nil(t, err)
@@ -59,11 +59,11 @@ func TestPendingJobRuns(t *testing.T) {
 	j := models.NewJob()
 	assert.Nil(t, store.SaveJob(j))
 	npr := j.NewRun()
-	assert.Nil(t, store.Save(&npr))
+	assert.Nil(t, store.Save(npr))
 
 	pr := j.NewRun()
 	pr.Status = models.StatusPending
-	assert.Nil(t, store.Save(&pr))
+	assert.Nil(t, store.Save(pr))
 
 	pending, err := store.PendingJobRuns()
 	assert.Nil(t, err)

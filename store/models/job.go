@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mrwonko/cron"
 	uuid "github.com/satori/go.uuid"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const (
@@ -22,14 +23,15 @@ type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
+	EndAt      null.Time   `storm:"index"`
 	CreatedAt  Time        `storm:"index"`
 }
 
-func NewJob() Job {
-	return Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
+func NewJob() *Job {
+	return &Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
 }
 
-func (j Job) NewRun() JobRun {
+func (j *Job) NewRun() *JobRun {
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
@@ -38,7 +40,7 @@ func (j Job) NewRun() JobRun {
 		}
 	}
 
-	return JobRun{
+	return &JobRun{
 		ID:        uuid.NewV4().String(),
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
@@ -46,7 +48,7 @@ func (j Job) NewRun() JobRun {
 	}
 }
 
-func (j Job) InitiatorsFor(t string) []Initiator {
+func (j *Job) InitiatorsFor(t string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
 		if initr.Type == t {
@@ -56,13 +58,20 @@ func (j Job) InitiatorsFor(t string) []Initiator {
 	return list
 }
 
-func (j Job) WebAuthorized() bool {
+func (j *Job) WebAuthorized() bool {
 	for _, initr := range j.Initiators {
 		if initr.Type == "web" {
 			return true
 		}
 	}
 	return false
+}
+
+func (j *Job) Ended(now time.Time) bool {
+	if !j.EndAt.Valid {
+		return false
+	}
+	return now.After(j.EndAt.Time)
 }
 
 type Initiator struct {

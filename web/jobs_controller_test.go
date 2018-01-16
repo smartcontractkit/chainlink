@@ -21,9 +21,9 @@ func TestIndexJobs(t *testing.T) {
 
 	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
 	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
-	app.Store.Save(&j1)
+	app.Store.SaveJob(j1)
 	j2 := cltest.NewJobWithWebInitiator()
-	app.Store.Save(&j2)
+	app.Store.Save(j2)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -108,9 +108,9 @@ func TestShowJobs(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	app.Store.Save(&j)
+	app.Store.SaveJob(j)
 	jr := j.NewRun()
-	app.Store.Save(&jr)
+	app.Store.Save(jr)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")

@@ -99,3 +99,11 @@ func BasicAuthGet(username, password, url string) (*http.Response, error) {
 func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
+
+func ParseISO8601(s string) time.Time {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		panic(err)
+	}
+	return t
+}

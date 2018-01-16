@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
@@ -89,8 +90,8 @@ func TestCreateJobIntegration(t *testing.T) {
 	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	jrID := cltest.JobJSONFromResponse(resp.Body).ID
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
+	jobRuns := []*models.JobRun{}
+	Eventually(func() []*models.JobRun {
 		app.Store.Where("JobID", jobID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
@@ -103,7 +104,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	jobRun := jobRuns[0]
 	assert.Equal(t, jrID, jobRun.ID)
 	Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jobRun.ID, &jobRun))
+		assert.Nil(t, app.Store.One("ID", jobRun.ID, jobRun))
 		return jobRun.Status
 	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
@@ -182,4 +183,40 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 		app.Store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
+}
+
+func TestCreateJobWithEndAtIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	clock := cltest.UseSettableClock(app.Store)
+	app.Start()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/end_at_job.json")
+	endAt := utils.ParseISO8601("2143-01-01T00:00:00.000Z")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
+	defer resp.Body.Close()
+
+	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
+	j := models.Job{}
+	app.Store.One("ID", respJSON.ID, &j)
+	assert.Equal(t, endAt, j.EndAt.Time)
+
+	clock.SetTime(endAt.Add(time.Nanosecond))
+
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	assert.Equal(t, 500, resp.StatusCode)
+
+	jobRuns := []models.JobRun{}
+	Consistently(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(0))
 }

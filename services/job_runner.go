@@ -9,10 +9,25 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
+func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
+	run, err := BuildRun(job, store)
+	if err != nil {
+		return nil, fmt.Errorf("BeginRun: %v", err.Error())
+	}
+	return run, ExecuteRun(run, store)
+}
+
+func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
+	if job.Ended(store.Clock.Now()) {
+		return nil, fmt.Errorf("NewRun: %v past Job's EndAt(%v)", store.Clock.Now(), job.EndAt)
+	}
+	return job.NewRun(), nil
+}
+
+func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	run.Status = models.StatusInProgress
-	if err := store.Save(&run); err != nil {
-		return run, runJobError(run, err)
+	if err := store.Save(run); err != nil {
+		return runJobError(run, err)
 	}
 
 	logger.Infow("Starting job", run.ForLogger()...)
@@ -22,8 +37,8 @@ func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
 	for i, taskRun := range unfinished {
 		prevRun = startTask(taskRun, prevRun.Result, store)
 		run.TaskRuns[i+offset] = prevRun
-		if err := store.Save(&run); err != nil {
-			return run, runJobError(run, err)
+		if err := store.Save(run); err != nil {
+			return runJobError(run, err)
 		}
 
 		if prevRun.Result.Pending {
@@ -47,10 +62,14 @@ func StartJob(run models.JobRun, store *store.Store) (models.JobRun, error) {
 	}
 
 	logger.Infow("Finished job", run.ForLogger()...)
-	return run, runJobError(run, store.Save(&run))
+	return runJobError(run, store.Save(run))
 }
 
-func startTask(run models.TaskRun, input models.RunResult, store *store.Store) models.TaskRun {
+func startTask(
+	run models.TaskRun,
+	input models.RunResult,
+	store *store.Store,
+) models.TaskRun {
 	run.Status = models.StatusInProgress
 	adapter, err := adapters.For(run.Task)
 
@@ -72,9 +91,9 @@ func startTask(run models.TaskRun, input models.RunResult, store *store.Store) m
 	return run
 }
 
-func runJobError(run models.JobRun, err error) error {
+func runJobError(run *models.JobRun, err error) error {
 	if err != nil {
-		return fmt.Errorf("StartJob#%v: %v", run.JobID, err)
+		return fmt.Errorf("executeRun#%v: %v", run.JobID, err)
 	}
 	return nil
 }

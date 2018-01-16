@@ -114,6 +114,12 @@ func (ta *TestApplication) InstantClock() InstantClock {
 	return clock
 }
 
+func UseSettableClock(s *store.Store) *SettableClock {
+	clock := &SettableClock{}
+	s.Clock = clock
+	return clock
+}
+
 type InstantClock struct{}
 
 func (InstantClock) After(_ time.Duration) <-chan time.Time {
@@ -126,4 +132,19 @@ type NeverClock struct{}
 
 func (NeverClock) After(_ time.Duration) <-chan time.Time {
 	return make(chan time.Time)
+}
+
+type SettableClock struct {
+	time time.Time
+}
+
+func (clock *SettableClock) Now() time.Time {
+	if clock.time.IsZero() {
+		return time.Now()
+	}
+	return clock.time
+}
+
+func (clock *SettableClock) SetTime(t time.Time) {
+	clock.time = t
 }

@@ -41,9 +41,9 @@ func (orm *ORM) Where(field string, value interface{}, instance interface{}) err
 	return err
 }
 
-func (orm *ORM) FindJob(id string) (Job, error) {
-	job := Job{}
-	err := orm.One("ID", id, &job)
+func (orm *ORM) FindJob(id string) (*Job, error) {
+	job := &Job{}
+	err := orm.One("ID", id, job)
 	return job, err
 }
 
@@ -51,14 +51,14 @@ func (orm *ORM) InitBucket(model interface{}) error {
 	return orm.Init(model)
 }
 
-func (orm *ORM) Jobs() ([]Job, error) {
-	var jobs []Job
+func (orm *ORM) Jobs() ([]*Job, error) {
+	var jobs []*Job
 	err := orm.All(&jobs)
 	return jobs, err
 }
 
-func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
-	var runs []JobRun
+func (orm *ORM) JobRunsFor(job *Job) ([]*JobRun, error) {
+	runs := []*JobRun{}
 	err := orm.Where("JobID", job.ID, &runs)
 	return runs, err
 }
@@ -69,14 +69,14 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
-func (orm *ORM) SaveJob(job Job) error {
+func (orm *ORM) SaveJob(job *Job) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	if err := tx.Save(&job); err != nil {
+	if err := tx.Save(job); err != nil {
 		return err
 	}
 	for _, initr := range job.Initiators {
@@ -88,8 +88,8 @@ func (orm *ORM) SaveJob(job Job) error {
 	return tx.Commit()
 }
 
-func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
-	var runs []JobRun
+func (orm *ORM) PendingJobRuns() ([]*JobRun, error) {
+	runs := []*JobRun{}
 	err := orm.Where("Status", StatusPending, &runs)
 	return runs, err
 }
