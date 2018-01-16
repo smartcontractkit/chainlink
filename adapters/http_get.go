@@ -10,11 +10,11 @@ import (
 )
 
 type HttpGet struct {
-	Endpoint string `json:"endpoint"`
+	Endpoint models.WebURL `json:"endpoint"`
 }
 
 func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	response, err := http.Get(hga.Endpoint)
+	response, err := http.Get(hga.Endpoint.String())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
