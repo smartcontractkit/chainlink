@@ -36,7 +36,7 @@ func (ll *LogListener) Stop() error {
 	return nil
 }
 
-func (ll *LogListener) AddJob(job models.Job) error {
+func (ll *LogListener) AddJob(job *models.Job) error {
 	for _, initr := range job.InitiatorsFor("ethLog") {
 		address := initr.Address.String()
 		if err := ll.Store.TxManager.Subscribe(ll.logs, address); err != nil {

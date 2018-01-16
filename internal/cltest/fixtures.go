@@ -10,25 +10,25 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-func NewJob() models.Job {
+func NewJob() *models.Job {
 	j := models.NewJob()
 	j.Tasks = []models.Task{{Type: "NoOp"}}
 	return j
 }
 
-func NewJobWithSchedule(sched string) models.Job {
+func NewJobWithSchedule(sched string) *models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: "cron", Schedule: models.Cron(sched)}}
 	return j
 }
 
-func NewJobWithWebInitiator() models.Job {
+func NewJobWithWebInitiator() *models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: "web"}}
 	return j
 }
 
-func NewJobWithLogInitiator() models.Job {
+func NewJobWithLogInitiator() *models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type:    "ethLog",

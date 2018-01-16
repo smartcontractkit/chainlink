@@ -45,7 +45,7 @@ func unmarshalOrEmpty(params json.RawMessage, dst interface{}) error {
 	return nil
 }
 
-func Validate(job models.Job) error {
+func Validate(job *models.Job) error {
 	var err error
 	for _, task := range job.Tasks {
 		err = validateTask(task)

@@ -51,7 +51,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	}
 }
 
-func startJob(j models.Job, s *store.Store) (*models.JobRun, error) {
+func startJob(j *models.Job, s *store.Store) (*models.JobRun, error) {
 	jr, err := services.BuildRun(j, s)
 	if err != nil {
 		return jr, err

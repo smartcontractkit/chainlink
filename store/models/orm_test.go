@@ -17,7 +17,7 @@ func TestWhereNotFound(t *testing.T) {
 	defer cleanup()
 
 	j1 := models.NewJob()
-	jobs := []models.Job{j1}
+	jobs := []*models.Job{j1}
 
 	err := store.Where("ID", "bogus", &jobs)
 	assert.Nil(t, err)

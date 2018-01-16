@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-func BeginRun(job models.Job, store *store.Store) (*models.JobRun, error) {
+func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
 		return nil, fmt.Errorf("BeginRun: %v", err.Error())
@@ -17,7 +17,7 @@ func BeginRun(job models.Job, store *store.Store) (*models.JobRun, error) {
 	return run, ExecuteRun(run, store)
 }
 
-func BuildRun(job models.Job, store *store.Store) (*models.JobRun, error) {
+func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	if job.Ended(store.Clock.Now()) {
 		return nil, fmt.Errorf("NewRun: %v past Job's EndAt(%v)", store.Clock.Now(), job.EndAt)
 	}

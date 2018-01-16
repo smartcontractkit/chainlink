@@ -18,8 +18,9 @@ func TestJobSave(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	assert.Nil(t, store.SaveJob(j1))
 
-	store.Save(&j1)
+	store.Save(j1)
 	j2, _ := store.FindJob(j1.ID)
 	assert.Equal(t, j1.Initiators[0].Schedule, j2.Initiators[0].Schedule)
 }

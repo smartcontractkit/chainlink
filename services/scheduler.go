@@ -61,7 +61,7 @@ func (s *Scheduler) Stop() {
 	}
 }
 
-func (s *Scheduler) AddJob(job models.Job) {
+func (s *Scheduler) AddJob(job *models.Job) {
 	if !s.started {
 		return
 	}
@@ -86,7 +86,7 @@ func (r *Recurring) Stop() {
 	r.cron.Wait()
 }
 
-func (r *Recurring) AddJob(job models.Job) {
+func (r *Recurring) AddJob(job *models.Job) {
 	for _, initr := range job.InitiatorsFor("cron") {
 		cronStr := string(initr.Schedule)
 		r.cron.AddFunc(cronStr, func() {
@@ -132,7 +132,7 @@ func (ot *OneTime) Start() error {
 	return nil
 }
 
-func (ot *OneTime) AddJob(job models.Job) {
+func (ot *OneTime) AddJob(job *models.Job) {
 	for _, initr := range job.InitiatorsFor("runAt") {
 		go ot.RunJobAt(initr.Time, job)
 	}
@@ -142,7 +142,7 @@ func (ot *OneTime) Stop() {
 	close(ot.done)
 }
 
-func (ot *OneTime) RunJobAt(t models.Time, job models.Job) {
+func (ot *OneTime) RunJobAt(t models.Time, job *models.Job) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(t.DurationFromNow()):
