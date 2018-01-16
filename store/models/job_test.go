@@ -15,7 +15,7 @@ func TestJobSave(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * *")
+	j1 := cltest.NewJobWithSchedule("* * * * 7")
 
 	store.Save(&j1)
 

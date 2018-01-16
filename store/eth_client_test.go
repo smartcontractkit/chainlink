@@ -9,12 +9,9 @@ import (
 )
 
 func TestEthGetTxReceipt(t *testing.T) {
-	t.Parallel()
-
-	config := cltest.NewConfig()
 	response := cltest.LoadJSON("../internal/fixtures/web/eth_getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
-	config.SetEthereumServer(mockServer)
+	config := cltest.NewConfigWithWSServer(mockServer)
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 

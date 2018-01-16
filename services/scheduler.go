@@ -55,8 +55,8 @@ func (s *Scheduler) Start() error {
 
 func (s *Scheduler) Stop() {
 	if s.started {
-		s.OneTime.Stop()
 		s.Recurring.Stop()
+		s.OneTime.Stop()
 		s.started = false
 	}
 }

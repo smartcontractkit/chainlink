@@ -31,7 +31,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	Eventually(func() []models.JobRun {
 		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
-	}).Should(HaveLen(1))
+	}).Should(cltest.HaveLenAtLeast(1))
 
 	sched.Stop()
 	err = store.Where("JobID", jobWoCron.ID, &jobRuns)
@@ -39,7 +39,7 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	assert.Equal(t, 0, len(jobRuns), "No jobs should be created without the scheduler")
 }
 
-func TestAddJob(t *testing.T) {
+func TestAddScheduledJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 	store, cleanup := cltest.NewStore()
@@ -47,6 +47,7 @@ func TestAddJob(t *testing.T) {
 
 	sched := services.NewScheduler(store)
 	sched.Start()
+	defer sched.Stop()
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	err := store.SaveJob(j)
@@ -58,10 +59,10 @@ func TestAddJob(t *testing.T) {
 		err = store.Where("JobID", j.ID, &jobRuns)
 		assert.Nil(t, err)
 		return jobRuns
-	}).Should(HaveLen(1))
+	}).Should(cltest.HaveLenAtLeast(1))
 }
 
-func TestAddJobWhenStopped(t *testing.T) {
+func TestAddScheduledJobWhenStopped(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 	store, cleanup := cltest.NewStore()
@@ -83,7 +84,7 @@ func TestAddJobWhenStopped(t *testing.T) {
 	Eventually(func() []models.JobRun {
 		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
-	}).Should(HaveLen(1))
+	}).Should(cltest.HaveLenAtLeast(1))
 }
 
 func TestOneTimeRunJobAt(t *testing.T) {

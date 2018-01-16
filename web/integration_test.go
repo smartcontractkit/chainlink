@@ -15,6 +15,7 @@ import (
 
 func TestCreateJobSchedulerIntegration(t *testing.T) {
 	RegisterTestingT(t)
+	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -30,7 +31,7 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 	Eventually(func() []models.JobRun {
 		app.Store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
-	}).Should(HaveLen(1))
+	}).Should(cltest.HaveLenAtLeast(1))
 
 	var initr models.Initiator
 	app.Store.One("JobID", respJSON.ID, &initr)

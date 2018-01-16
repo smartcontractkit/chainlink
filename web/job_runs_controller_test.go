@@ -72,7 +72,7 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.NewJobWithSchedule("* * * * *")
+	j := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(j))
 
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,7 +32,10 @@ const RootDir = "/tmp/chainlink_test"
 const Username = "testusername"
 const Password = "password"
 
+var storeCounter uint64 = 0
+
 func init() {
+	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 }
 
@@ -41,9 +45,15 @@ type TestConfig struct {
 }
 
 func NewConfig() *TestConfig {
+	return NewConfigWithWSServer(newWSServer())
+}
+
+func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
+	count := atomic.AddUint64(&storeCounter, 1)
+	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
-			RootDir:             path.Join(RootDir, fmt.Sprintf("%d", time.Now().UnixNano())),
+			RootDir:             rootdir,
 			BasicAuthUsername:   Username,
 			BasicAuthPassword:   Password,
 			ChainID:             3,
@@ -54,7 +64,7 @@ func NewConfig() *TestConfig {
 			PollingSchedule:     "* * * * * *",
 		},
 	}
-	config.SetEthereumServer(newWSServer())
+	config.SetEthereumServer(wsserver)
 	return &config
 }
 
@@ -116,7 +126,6 @@ func NewApplicationWithKeyStore() (*TestApplication, func()) {
 }
 
 func newServer(app *services.Application) *httptest.Server {
-	gin.SetMode(gin.TestMode)
 	return httptest.NewServer(web.Router(app))
 }
 
@@ -124,7 +133,6 @@ func (ta *TestApplication) Stop() {
 	ta.Application.Stop()
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
-		gin.SetMode(gin.DebugMode)
 		ta.Server.Close()
 	}
 	if ta.wsServer != nil {
@@ -136,6 +144,9 @@ func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 	s := store.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(s)
+		if config.wsServer != nil {
+			config.wsServer.Close()
+		}
 	}
 }
 
@@ -144,10 +155,13 @@ func NewStore() (*store.Store, func()) {
 }
 
 func cleanUpStore(store *store.Store) {
+	logger.Sync()
 	store.Close()
-	if err := os.RemoveAll(store.Config.RootDir); err != nil {
-		log.Println(err)
-	}
+	go func() {
+		if err := os.RemoveAll(store.Config.RootDir); err != nil {
+			log.Println(err)
+		}
+	}()
 }
 
 func CloseGock(t *testing.T) {
@@ -189,10 +203,13 @@ func copyFile(src, dst string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer to.Close()
 
 	_, err = io.Copy(to, from)
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = to.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -229,9 +246,11 @@ func BasicAuthGet(url string) *http.Response {
 }
 
 func ParseResponseBody(resp *http.Response) []byte {
-	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err = resp.Body.Close(); err != nil {
 		log.Fatal(err)
 	}
 	return b
