@@ -40,12 +40,6 @@ func TestJobNewRun(t *testing.T) {
 	assert.NotNil(t, adapter)
 }
 
-func TestTimeDurationFromNow(t *testing.T) {
-	future := models.Time{time.Now().Add(time.Second)}
-	duration := future.DurationFromNow()
-	assert.True(t, 0 < duration)
-}
-
 func TestJobEnded(t *testing.T) {
 	t.Parallel()
 

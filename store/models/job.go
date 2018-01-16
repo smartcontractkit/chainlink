@@ -1,13 +1,9 @@
 package models
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mrwonko/cron"
 	uuid "github.com/satori/go.uuid"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -82,44 +78,4 @@ type Initiator struct {
 	Time     Time           `json:"time,omitempty"`
 	Ran      bool           `json:"ranAt,omitempty"`
 	Address  common.Address `json:"address,omitempty" storm:"index"`
-}
-
-type Time struct {
-	time.Time
-}
-
-func (t *Time) UnmarshalJSON(b []byte) error {
-	var s string
-	err := json.Unmarshal(b, &s)
-	newTime, err := dateparse.ParseAny(s)
-	t.Time = newTime
-	return err
-}
-
-func (t *Time) ISO8601() string {
-	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
-}
-
-func (t *Time) DurationFromNow() time.Duration {
-	return t.Time.Sub(time.Now())
-}
-
-type Cron string
-
-func (c *Cron) UnmarshalJSON(b []byte) error {
-	var s string
-	err := json.Unmarshal(b, &s)
-	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
-	}
-	if s == "" {
-		return nil
-	}
-
-	_, err = cron.Parse(s)
-	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
-	}
-	*c = Cron(s)
-	return nil
 }
