@@ -3,14 +3,15 @@ package adapters
 import (
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
 type EthTx struct {
-	Address    string `json:"address"`
-	FunctionID string `json:"functionID"`
+	Address    common.Address `json:"address"`
+	FunctionID string         `json:"functionID"`
 }
 
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
@@ -26,16 +27,12 @@ func createTxRunResult(
 	input models.RunResult,
 	store *store.Store,
 ) models.RunResult {
-	recipient, err := utils.StringToAddress(e.Address)
-	if err != nil {
-		return models.RunResultWithError(err)
-	}
 	data, err := hex.DecodeString(e.FunctionID + input.Value())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
 
-	attempt, err := store.TxManager.CreateTx(recipient, data)
+	attempt, err := store.TxManager.CreateTx(e.Address, data)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
