@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -13,10 +14,11 @@ import (
 type Store struct {
 	*models.ORM
 	Config    Config
-	KeyStore  *KeyStore
-	sigs      chan os.Signal
+	Clock     Timer
 	Exiter    func(int)
+	KeyStore  *KeyStore
 	TxManager *TxManager
+	sigs      chan os.Signal
 }
 
 func NewStore(config Config) *Store {
@@ -35,6 +37,7 @@ func NewStore(config Config) *Store {
 		Config:   config,
 		KeyStore: keyStore,
 		Exiter:   os.Exit,
+		Clock:    Clock{},
 		TxManager: &TxManager{
 			Config:    config,
 			EthClient: &EthClient{ethrpc},
@@ -53,4 +56,14 @@ func (s *Store) Start() {
 		s.Close()
 		s.Exiter(1)
 	}()
+}
+
+type Timer interface {
+	Now() time.Time
+}
+
+type Clock struct{}
+
+func (Clock) Now() time.Time {
+	return time.Now()
 }

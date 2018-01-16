@@ -36,7 +36,7 @@ func (app *Application) Stop() error {
 	return app.Store.Close()
 }
 
-func (app *Application) AddJob(job models.Job) error {
+func (app *Application) AddJob(job *models.Job) error {
 	err := app.Store.SaveJob(job)
 	if err != nil {
 		return err

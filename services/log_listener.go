@@ -36,7 +36,7 @@ func (ll *LogListener) Stop() error {
 	return nil
 }
 
-func (ll *LogListener) AddJob(job models.Job) error {
+func (ll *LogListener) AddJob(job *models.Job) error {
 	for _, initr := range job.InitiatorsFor("ethLog") {
 		address := initr.Address.String()
 		if err := ll.Store.TxManager.Subscribe(ll.logs, address); err != nil {
@@ -53,7 +53,7 @@ func (ll *LogListener) listenToLogs() {
 				msg := fmt.Sprintf("Initiating job from log: %v", err)
 				logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
 			} else {
-				StartJob(job.NewRun(), ll.Store)
+				BeginRun(job, ll.Store)
 			}
 		}
 	}
