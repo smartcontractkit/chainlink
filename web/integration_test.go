@@ -95,8 +95,7 @@ func TestCreateJobIntegration(t *testing.T) {
 		return jobRuns
 	}).Should(HaveLen(1))
 
-	var job models.Job
-	err = app.Store.One("ID", jobID, &job)
+	job, err := app.Store.FindJob(jobID)
 	assert.Nil(t, err)
 
 	jobRuns, err = app.Store.JobRunsFor(job)
@@ -132,8 +131,7 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	var j models.Job
-	app.Store.One("ID", respJSON.ID, &j)
+	j, _ := app.Store.FindJob(respJSON.ID)
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -166,8 +164,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	var j models.Job
-	app.Store.One("ID", respJSON.ID, &j)
+	j, _ := app.Store.FindJob(respJSON.ID)
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
