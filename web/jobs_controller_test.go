@@ -58,8 +58,8 @@ func TestCreateJobs(t *testing.T) {
 
 	adapter4, _ := adapters.For(j.Tasks[3])
 	signTx := adapter4.(*adapters.EthTx)
-	assert.Equal(t, signTx.Address, "0x356a04bce728ba4c62a30294a55e6a8600a320b3")
-	assert.Equal(t, signTx.FunctionID, "12345679")
+	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
+	assert.Equal(t, "12345679", signTx.FunctionID)
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
