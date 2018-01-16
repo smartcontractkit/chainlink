@@ -43,8 +43,7 @@ func TestORMSaveJob(t *testing.T) {
 	j1 := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(j1)
 
-	var j2 models.Job
-	store.One("ID", j1.ID, &j2)
+	j2, _ := store.FindJob(j1.ID)
 	assert.Equal(t, j1.ID, j2.ID)
 
 	var initr models.Initiator

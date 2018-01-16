@@ -28,9 +28,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
-	j := models.Job{}
-
-	if err := jrc.App.Store.One("ID", id, &j); err == storm.ErrNotFound {
+	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found"},
 		})
