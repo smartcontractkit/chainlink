@@ -45,8 +45,7 @@ func TestCreateJobs(t *testing.T) {
 	respJSON := cltest.JobJSONFromResponse(resp.Body)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
 
-	var j models.Job
-	app.Store.One("ID", respJSON.ID, &j)
+	j, _ := app.Store.FindJob(respJSON.ID)
 	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
 
 	adapter1, _ := adapters.For(j.Tasks[0])
