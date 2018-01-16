@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
@@ -182,4 +183,40 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 		app.Store.Where("JobID", respJSON.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
+}
+
+func TestCreateJobWithEndAtIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	clock := cltest.UseSettableClock(app.Store)
+	app.Start()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/end_at_job.json")
+	endAt := utils.ParseISO8601("2143-01-01T00:00:00.000Z")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
+	defer resp.Body.Close()
+
+	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
+	j := models.Job{}
+	app.Store.One("ID", respJSON.ID, &j)
+	assert.Equal(t, endAt, j.EndAt.Time)
+
+	clock.SetTime(endAt.Add(time.Nanosecond))
+
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	assert.Equal(t, 500, resp.StatusCode)
+
+	jobRuns := []models.JobRun{}
+	Consistently(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(0))
 }
