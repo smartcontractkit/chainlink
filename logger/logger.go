@@ -59,6 +59,10 @@ func Info(args ...interface{}) {
 	logger.Info(args)
 }
 
+func Error(args ...interface{}) {
+	logger.Error(args)
+}
+
 func Fatal(args ...interface{}) {
 	logger.Fatal(args)
 }

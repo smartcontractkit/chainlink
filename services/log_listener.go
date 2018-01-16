@@ -53,7 +53,7 @@ func (ll *LogListener) listenToLogs() {
 				msg := fmt.Sprintf("Initiating job from log: %v", err)
 				logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
 			} else {
-				CreateRun(job, ll.Store)
+				BeginRun(job, ll.Store)
 			}
 		}
 	}

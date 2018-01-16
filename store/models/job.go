@@ -68,7 +68,7 @@ func (j Job) WebAuthorized() bool {
 }
 
 func (j Job) Ended(now time.Time) bool {
-	if j.EndAt.Time.IsZero() {
+	if !j.EndAt.Valid {
 		return false
 	}
 	return now.After(j.EndAt.Time)
