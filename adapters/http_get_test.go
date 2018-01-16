@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"net/url"
 	"testing"
 
 	gock "github.com/h2non/gock"
@@ -11,7 +12,10 @@ import (
 
 func TestHttpGetNotAUrlError(t *testing.T) {
 	t.Parallel()
-	httpGet := adapters.HttpGet{Endpoint: "NotAUrl"}
+	u, err := url.Parse("NotAUrl")
+	assert.Nil(t, err)
+
+	httpGet := adapters.HttpGet{Endpoint: models.WebURL{u}}
 	input := models.RunResult{}
 	result := httpGet.Perform(input, nil)
 	assert.Nil(t, result.Output)
@@ -20,14 +24,15 @@ func TestHttpGetNotAUrlError(t *testing.T) {
 
 func TestHttpGetResponseError(t *testing.T) {
 	defer gock.Off()
-	url := `https://example.com/api`
+	u, err := url.Parse(`https://example.com/api`)
+	assert.Nil(t, err)
 
-	gock.New(url).
+	gock.New(u.String()).
 		Get("").
 		Reply(400).
 		JSON(`Invalid request`)
 
-	httpGet := adapters.HttpGet{Endpoint: url}
+	httpGet := adapters.HttpGet{Endpoint: models.WebURL{u}}
 	input := models.RunResult{}
 	result := httpGet.Perform(input, nil)
 	assert.Nil(t, result.Output)

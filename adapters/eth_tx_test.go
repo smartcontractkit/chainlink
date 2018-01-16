@@ -32,8 +32,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
-		Address:    cltest.NewEthAddress().String(),
-		FunctionID: "12345678",
+		Address:    cltest.NewEthAddress(),
+		FunctionID: models.HexToFunctionID("b3f98adc"),
 	}
 	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)
@@ -168,8 +168,8 @@ func TestEthTxAdapterWithError(t *testing.T) {
 	eth.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
 
 	adapter := adapters.EthTx{
-		Address:    cltest.NewEthAddress().String(),
-		FunctionID: "12345678",
+		Address:    cltest.NewEthAddress(),
+		FunctionID: models.HexToFunctionID("0xb3f98adc"),
 	}
 	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)
