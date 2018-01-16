@@ -9,7 +9,6 @@ import (
 )
 
 func TestGracefulShutdown(t *testing.T) {
-	t.Parallel()
 	RegisterTestingT(t)
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
