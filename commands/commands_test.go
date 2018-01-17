@@ -2,7 +2,6 @@ package commands_test
 
 import (
 	"flag"
-	"io/ioutil"
 	"testing"
 
 	"github.com/h2non/gock"
@@ -20,7 +19,7 @@ func TestCommandShowJob(t *testing.T) {
 		Reply(200).
 		JSON(job)
 
-	client := commands.Client{ioutil.Discard}
+	client := commands.Client{commands.RendererNoOp{}}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
@@ -34,7 +33,7 @@ func TestCommandShowJobNotFound(t *testing.T) {
 		Get("/jobs/bogus-ID").
 		Reply(404)
 
-	client := commands.Client{ioutil.Discard}
+	client := commands.Client{commands.RendererNoOp{}}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})

@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -17,18 +16,7 @@ import (
 )
 
 type Client struct {
-	io.Writer
-}
-
-func (cli *Client) PrettyPrintJSON(v interface{}) error {
-	b, err := utils.FormatJSON(v)
-	if err != nil {
-		return err
-	}
-	if _, err = cli.Write(b); err != nil {
-		return err
-	}
-	return nil
+	Renderer
 }
 
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -89,7 +77,7 @@ func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) err
 	if err = json.Unmarshal(b, &dst); err != nil {
 		return cli.errorOut(err)
 	}
-	return cli.errorOut(cli.PrettyPrintJSON(dst))
+	return cli.errorOut(cli.Render(dst))
 }
 
 func (cli *Client) errorOut(err error) error {
