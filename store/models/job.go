@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -78,4 +79,9 @@ type Initiator struct {
 	Time     Time           `json:"time,omitempty"`
 	Ran      bool           `json:"ranAt,omitempty"`
 	Address  common.Address `json:"address,omitempty" storm:"index"`
+}
+
+type Task struct {
+	Type   string          `json:"type" storm:"index"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
