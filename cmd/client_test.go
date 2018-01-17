@@ -1,17 +1,17 @@
-package commands_test
+package cmd_test
 
 import (
 	"flag"
 	"testing"
 
 	"github.com/h2non/gock"
-	"github.com/smartcontractkit/chainlink/commands"
+	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 )
 
-func TestCommandShowJob(t *testing.T) {
+func TestClientShowJob(t *testing.T) {
 	defer cltest.CloseGock(t)
 	job := cltest.NewJob()
 	gock.New("http://localhost:8080").
@@ -19,7 +19,7 @@ func TestCommandShowJob(t *testing.T) {
 		Reply(200).
 		JSON(job)
 
-	client := commands.Client{commands.RendererNoOp{}}
+	client := cmd.Client{cmd.RendererNoOp{}}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
@@ -27,13 +27,13 @@ func TestCommandShowJob(t *testing.T) {
 	assert.Nil(t, client.ShowJob(c))
 }
 
-func TestCommandShowJobNotFound(t *testing.T) {
+func TestClientShowJobNotFound(t *testing.T) {
 	defer cltest.CloseGock(t)
 	gock.New("http://localhost:8080").
 		Get("/v2/jobs/bogus-ID").
 		Reply(404)
 
-	client := commands.Client{commands.RendererNoOp{}}
+	client := cmd.Client{cmd.RendererNoOp{}}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})
