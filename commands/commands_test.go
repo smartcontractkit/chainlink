@@ -15,7 +15,7 @@ func TestCommandShowJob(t *testing.T) {
 	defer cltest.CloseGock(t)
 	job := cltest.NewJob()
 	gock.New("http://localhost:8080").
-		Get("/jobs/" + job.ID).
+		Get("/v2/jobs/" + job.ID).
 		Reply(200).
 		JSON(job)
 
@@ -30,7 +30,7 @@ func TestCommandShowJob(t *testing.T) {
 func TestCommandShowJobNotFound(t *testing.T) {
 	defer cltest.CloseGock(t)
 	gock.New("http://localhost:8080").
-		Get("/jobs/bogus-ID").
+		Get("/v2/jobs/bogus-ID").
 		Reply(404)
 
 	client := commands.Client{commands.RendererNoOp{}}

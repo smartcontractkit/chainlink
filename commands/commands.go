@@ -40,7 +40,7 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		"http://localhost:8080/jobs/"+c.Args().First(),
+		"http://localhost:8080/v2/jobs/"+c.Args().First(),
 	)
 	if err != nil {
 		return cli.errorOut(err)
@@ -55,7 +55,7 @@ func (cli *Client) GetJobs(c *clipkg.Context) error {
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		"http://localhost:8080/jobs",
+		"http://localhost:8080/v2/jobs",
 	)
 	if err != nil {
 		return cli.errorOut(err)
