@@ -43,17 +43,24 @@ func TestJobTransitionToPending(t *testing.T) {
 	assert.Equal(t, models.StatusPending, run.Status)
 }
 
-func TestBeginRun(t *testing.T) {
+func TestJobRunnerBeginRun(t *testing.T) {
 	t.Parallel()
+
+	pastTime := null.Time{Time: utils.ParseISO8601("2000-01-01T00:00:00.000Z"), Valid: true}
+	futureTime := null.Time{Time: utils.ParseISO8601("3000-01-01T00:00:00.000Z"), Valid: true}
+	nullTime := null.Time{Valid: false}
 
 	tests := []struct {
 		name     string
+		startAt  null.Time
 		endAt    null.Time
-		runCount int
 		errored  bool
+		runCount int
 	}{
-		{"job ended", null.Time{Time: utils.ParseISO8601("1999-12-31T23:59:59.000Z"), Valid: true}, 0, true},
-		{"job not ended", null.Time{Valid: false}, 1, false},
+		{"job not started", futureTime, nullTime, true, 0},
+		{"job started", pastTime, futureTime, false, 1},
+		{"job with no time range", nullTime, nullTime, false, 1},
+		{"job ended", nullTime, pastTime, true, 0},
 	}
 
 	for _, test := range tests {
@@ -62,6 +69,7 @@ func TestBeginRun(t *testing.T) {
 			defer cleanup()
 
 			job := cltest.NewJob()
+			job.StartAt = test.startAt
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(job))
 
@@ -81,16 +89,23 @@ func TestBeginRun(t *testing.T) {
 	}
 }
 
-func TestBuildRun(t *testing.T) {
+func TestJobRunnerBuildRun(t *testing.T) {
 	t.Parallel()
+
+	pastTime := null.Time{Time: utils.ParseISO8601("2000-01-01T00:00:00.000Z"), Valid: true}
+	futureTime := null.Time{Time: utils.ParseISO8601("3000-01-01T00:00:00.000Z"), Valid: true}
+	nullTime := null.Time{Valid: false}
 
 	tests := []struct {
 		name    string
+		startAt null.Time
 		endAt   null.Time
 		errored bool
 	}{
-		{"job ended", null.Time{Time: utils.ParseISO8601("1999-12-31T23:59:59.000Z"), Valid: true}, true},
-		{"job not ended", null.Time{Valid: false}, false},
+		{"job not started", futureTime, nullTime, true},
+		{"job started", pastTime, futureTime, false},
+		{"job with no time range", nullTime, nullTime, false},
+		{"job ended", nullTime, pastTime, true},
 	}
 
 	for _, test := range tests {
@@ -101,6 +116,7 @@ func TestBuildRun(t *testing.T) {
 			defer cleanup()
 
 			job := cltest.NewJob()
+			job.StartAt = test.startAt
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(job))
 

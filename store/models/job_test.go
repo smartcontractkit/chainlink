@@ -67,3 +67,31 @@ func TestJobEnded(t *testing.T) {
 		})
 	}
 }
+
+func TestJobStarted(t *testing.T) {
+	t.Parallel()
+
+	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
+	startAtNullable := null.Time{Time: startAt, Valid: true}
+
+	tests := []struct {
+		name    string
+		startAt null.Time
+		current time.Time
+		want    bool
+	}{
+		{"no start at", null.Time{Valid: false}, startAt, true},
+		{"before start at", startAtNullable, startAt.Add(-time.Nanosecond), false},
+		{"at start at", startAtNullable, startAt, true},
+		{"after start at", startAtNullable, startAt.Add(time.Nanosecond), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job := cltest.NewJob()
+			job.StartAt = test.startAt
+
+			assert.Equal(t, test.want, job.Started(test.current))
+		})
+	}
+}

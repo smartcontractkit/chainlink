@@ -186,15 +186,16 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 }
 
 func TestCreateJobWithEndAtIntegration(t *testing.T) {
-	RegisterTestingT(t)
 	t.Parallel()
+	RegisterTestingT(t)
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/end_at_job.json")
-	endAt := utils.ParseISO8601("2143-01-01T00:00:00.000Z")
+	endAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
 	resp := cltest.BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
@@ -204,19 +205,68 @@ func TestCreateJobWithEndAtIntegration(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	j := models.Job{}
-	app.Store.One("ID", respJSON.ID, &j)
+	j, _ := app.Store.FindJob(respJSON.ID)
 	assert.Equal(t, endAt, j.EndAt.Time)
+
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	jobRuns := []models.JobRun{}
+
+	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	assert.Equal(t, 200, resp.StatusCode)
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
 
 	clock.SetTime(endAt.Add(time.Nanosecond))
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
+	Consistently(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+}
 
+func TestCreateJobWithStartAtIntegration(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	clock := cltest.UseSettableClock(app.Store)
+	app.Start()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/start_at_job.json")
+	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
+	defer resp.Body.Close()
+
+	assert.Equal(t, 200, resp.StatusCode)
+	j, _ := app.Store.FindJob(respJSON.ID)
+	assert.Equal(t, startAt, j.StartAt.Time)
+
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	jobRuns := []models.JobRun{}
+
+	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	assert.Equal(t, 500, resp.StatusCode)
 	Consistently(func() []models.JobRun {
 		app.Store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(0))
+
+	clock.SetTime(startAt)
+
+	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	assert.Equal(t, 200, resp.StatusCode)
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
 }

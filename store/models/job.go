@@ -20,6 +20,7 @@ type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
+	StartAt    null.Time   `storm:"index"`
 	EndAt      null.Time   `storm:"index"`
 	CreatedAt  Time        `storm:"index"`
 }
@@ -69,6 +70,13 @@ func (j *Job) Ended(now time.Time) bool {
 		return false
 	}
 	return now.After(j.EndAt.Time)
+}
+
+func (j *Job) Started(now time.Time) bool {
+	if !j.StartAt.Valid {
+		return true
+	}
+	return now.After(j.StartAt.Time) || now.Equal(j.StartAt.Time)
 }
 
 type Initiator struct {
