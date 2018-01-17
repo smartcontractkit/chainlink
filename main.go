@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	client := commands.Client{os.Stdout}
+	client := commands.Client{commands.RendererJSON{os.Stdout}}
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Commands = []cli.Command{
