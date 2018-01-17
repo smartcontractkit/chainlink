@@ -120,20 +120,6 @@ func UseSettableClock(s *store.Store) *SettableClock {
 	return clock
 }
 
-type InstantClock struct{}
-
-func (InstantClock) After(_ time.Duration) <-chan time.Time {
-	c := make(chan time.Time, 100)
-	c <- time.Now()
-	return c
-}
-
-type NeverClock struct{}
-
-func (NeverClock) After(_ time.Duration) <-chan time.Time {
-	return make(chan time.Time)
-}
-
 type SettableClock struct {
 	time time.Time
 }
@@ -147,4 +133,32 @@ func (clock *SettableClock) Now() time.Time {
 
 func (clock *SettableClock) SetTime(t time.Time) {
 	clock.time = t
+}
+
+func (*SettableClock) After(_ time.Duration) <-chan time.Time {
+	channel := make(chan time.Time, 1)
+	channel <- time.Now()
+	return channel
+}
+
+type InstantClock struct{}
+
+func (InstantClock) Now() time.Time {
+	return time.Now()
+}
+
+func (InstantClock) After(_ time.Duration) <-chan time.Time {
+	c := make(chan time.Time, 100)
+	c <- time.Now()
+	return c
+}
+
+type NeverClock struct{}
+
+func (NeverClock) After(_ time.Duration) <-chan time.Time {
+	return make(chan time.Time)
+}
+
+func (NeverClock) Now() time.Time {
+	return time.Now()
 }
