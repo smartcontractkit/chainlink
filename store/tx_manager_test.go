@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEthCreateTx(t *testing.T) {
+func TestTxManagerCreateTx(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -47,7 +47,7 @@ func TestEthCreateTx(t *testing.T) {
 	assert.True(t, ethMock.AllCalled())
 }
 
-func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
+func TestTxManagerEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -78,7 +78,7 @@ func TestEthEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	assert.True(t, ethMock.AllCalled())
 }
 
-func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
+func TestTxManagerEnsureTxConfirmedAtThreshold(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -110,7 +110,7 @@ func TestEthEnsureTxConfirmedAtThreshold(t *testing.T) {
 	assert.True(t, ethMock.AllCalled())
 }
 
-func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
+func TestTxManagerEnsureTxConfirmedWhenSafe(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -142,7 +142,7 @@ func TestEthEnsureTxConfirmedWhenSafe(t *testing.T) {
 	assert.True(t, ethMock.AllCalled())
 }
 
-func TestEthEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
+func TestTxManagerEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
