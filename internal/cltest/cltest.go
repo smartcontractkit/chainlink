@@ -102,12 +102,15 @@ func NewApplication() (*TestApplication, func()) {
 	return NewApplicationWithConfig(NewConfig())
 }
 
-func NewApplicationWithConfig(config *TestConfig) (*TestApplication, func()) {
-	app := services.NewApplication(config.Config)
+func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
+	app := services.NewApplication(tc.Config)
+	server := newServer(app)
+	tc.Config.NodeURL = server.URL
+	app.Store.Config = tc.Config
 	ta := &TestApplication{
 		Application: app,
-		Server:      newServer(app),
-		wsServer:    config.wsServer,
+		Server:      server,
+		wsServer:    tc.wsServer,
 	}
 	return ta, func() {
 		ta.Stop()

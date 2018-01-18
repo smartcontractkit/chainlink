@@ -4,7 +4,6 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
@@ -12,14 +11,12 @@ import (
 )
 
 func TestClientShowJob(t *testing.T) {
-	defer cltest.CloseGock(t)
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
 	job := cltest.NewJob()
-	gock.New("http://localhost:8080").
-		Get("/v2/jobs/" + job.ID).
-		Reply(200).
-		JSON(job)
+	app.Store.SaveJob(job)
 
-	client := cmd.Client{cmd.RendererNoOp{}}
+	client := cmd.Client{cmd.RendererNoOp{}, app.Store.Config}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
@@ -28,12 +25,9 @@ func TestClientShowJob(t *testing.T) {
 }
 
 func TestClientShowJobNotFound(t *testing.T) {
-	defer cltest.CloseGock(t)
-	gock.New("http://localhost:8080").
-		Get("/v2/jobs/bogus-ID").
-		Reply(404)
-
-	client := cmd.Client{cmd.RendererNoOp{}}
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client := cmd.Client{cmd.RendererNoOp{}, app.Store.Config}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})
