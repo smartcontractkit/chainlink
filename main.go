@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
+	client := cmd.Client{cmd.RendererTable{os.Stdout}, store.NewConfig()}
 	app := cli.NewApp()
-	client := cmd.Client{cmd.RendererJSON{os.Stdout}, store.NewConfig()}
 	app.Usage = "CLI for Chainlink"
 	app.Commands = []cli.Command{
 		{
