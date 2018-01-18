@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
 type JobsController struct {
@@ -43,11 +44,6 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 }
 
-type JobPresenter struct {
-	*models.Job
-	Runs []*models.JobRun `json:"runs,omitempty"`
-}
-
 func (jc *JobsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 	if j, err := jc.App.Store.FindJob(id); err == storm.ErrNotFound {
@@ -63,6 +59,6 @@ func (jc *JobsController) Show(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, JobPresenter{j, runs})
+		c.JSON(200, presenters.Job{j, runs})
 	}
 }
