@@ -67,3 +67,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	*c = Cron(s)
 	return nil
 }
+
+func (c Cron) String() string {
+	return string(c)
+}
