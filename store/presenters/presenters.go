@@ -6,9 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
-
-const TIME_FORMAT = "2006-01-02 15:04:05 MST"
 
 type Job struct {
 	*models.Job
@@ -16,12 +15,12 @@ type Job struct {
 }
 
 func (job Job) FriendlyCreatedAt() string {
-	return job.CreatedAt.Format(TIME_FORMAT)
+	return job.CreatedAt.HumanString()
 }
 
 func (job Job) FriendlyEndAt() string {
 	if job.EndAt.Valid {
-		end = job.EndAt.Time.Format(TIME_FORMAT)
+		return utils.HumanTimeString(job.EndAt.Time)
 	}
 	return ""
 }
@@ -49,7 +48,7 @@ type Initiator struct {
 
 func (i Initiator) FriendlyRunAt() string {
 	if i.Type == "cron" {
-		return i.Time.Format(TIME_FORMAT)
+		return i.Time.HumanString()
 	}
 	return ""
 }
