@@ -4,12 +4,13 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink/cmd"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/urfave/cli"
 )
 
 func main() {
-	client := cmd.Client{cmd.RendererJSON{os.Stdout}}
 	app := cli.NewApp()
+	client := cmd.Client{cmd.RendererJSON{os.Stdout}, store.NewConfig()}
 	app.Usage = "CLI for Chainlink"
 	app.Commands = []cli.Command{
 		{

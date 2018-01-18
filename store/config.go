@@ -21,6 +21,7 @@ type Config struct {
 	EthGasPriceDefault  *big.Int `env:"ETH_GAS_PRICE_DEFAULT" envDefault:20000000000`
 	EthGasBumpThreshold uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:12`
 	PollingSchedule     string   `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
+	NodeURL             string   `env:"NODE_URL" envDefault:"http://localhost:8080"`
 }
 
 func NewConfig() Config {

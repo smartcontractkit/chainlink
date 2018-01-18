@@ -17,10 +17,11 @@ import (
 
 type Client struct {
 	Renderer
+	Config store.Config
 }
 
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	cl := services.NewApplication(store.NewConfig())
+	cl := services.NewApplication(cli.Config)
 	services.Authenticate(cl.Store)
 	r := web.Router(cl)
 
@@ -33,14 +34,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) ShowJob(c *clipkg.Context) error {
-	cfg := store.NewConfig()
+	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
 	}
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		"http://localhost:8080/v2/jobs/"+c.Args().First(),
+		cfg.NodeURL+"/v2/jobs/"+c.Args().First(),
 	)
 	if err != nil {
 		return cli.errorOut(err)
@@ -51,11 +52,11 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 }
 
 func (cli *Client) GetJobs(c *clipkg.Context) error {
-	cfg := store.NewConfig()
+	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		"http://localhost:8080/v2/jobs",
+		cfg.NodeURL+"/v2/jobs",
 	)
 	if err != nil {
 		return cli.errorOut(err)
