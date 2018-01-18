@@ -65,18 +65,18 @@ func (j *Job) WebAuthorized() bool {
 	return false
 }
 
-func (j *Job) Ended(now time.Time) bool {
+func (j *Job) Ended(t time.Time) bool {
 	if !j.EndAt.Valid {
 		return false
 	}
-	return now.After(j.EndAt.Time)
+	return t.After(j.EndAt.Time)
 }
 
-func (j *Job) Started(now time.Time) bool {
+func (j *Job) Started(t time.Time) bool {
 	if !j.StartAt.Valid {
 		return true
 	}
-	return now.After(j.StartAt.Time) || now.Equal(j.StartAt.Time)
+	return t.After(j.StartAt.Time) || t.Equal(j.StartAt.Time)
 }
 
 type Initiator struct {
