@@ -18,6 +18,9 @@ contract('Consumer', () => {
 
       let events = await getEvents(oc);
       assert.equal(1, events.length)
+      let event = events[0]
+      assert.equal(event.args.url, "https://etherprice.com/api")
+      assert.equal(event.args.path, "recent,usd")
     });
   });
 });

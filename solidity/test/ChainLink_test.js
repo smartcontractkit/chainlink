@@ -46,12 +46,12 @@ contract('ChainLink', () => {
 
   describe("#requestData", () => {
     it("returns the id", async () => {
-      let nonce = await oc.requestData.call(to, fID);
+      let nonce = await oc.requestData.call(to, fID, "", "");
       assert.equal(1, nonce);
     });
 
     it("logs an event", async () => {
-      let tx = await oc.requestData(to, fID);
+      let tx = await oc.requestData(to, fID, "", "");
       assert.equal(1, tx.receipt.logs.length)
 
       let log = tx.receipt.logs[0]
@@ -59,9 +59,9 @@ contract('ChainLink', () => {
     });
 
     it("increments the nonce", async () => {
-      let tx1 = await oc.requestData(to, fID);
+      let tx1 = await oc.requestData(to, fID, "", "");
       let nonce1 = web3.toDecimal(tx1.receipt.logs[0].topics[1]);
-      let tx2 = await oc.requestData(to, fID);
+      let tx2 = await oc.requestData(to, fID, "", "");
       let nonce2 = web3.toDecimal(tx2.receipt.logs[0].topics[1]);
 
       assert.notEqual(nonce1, nonce2);
@@ -74,7 +74,7 @@ contract('ChainLink', () => {
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fid = functionID("setValue(uint256,bytes32)");
-      let req = await oc.requestData(mock.address, fid);
+      let req = await oc.requestData(mock.address, fid, "", "");
       nonce = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
 

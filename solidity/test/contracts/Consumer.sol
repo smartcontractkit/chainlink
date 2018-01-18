@@ -12,7 +12,7 @@ contract Consumer {
 
   function requestEthereumPrice() public {
     bytes4 fid = bytes4(keccak256("callback(uint256,bytes32)"));
-    nonce = chainLink.requestData(this, fid);
+    nonce = chainLink.requestData(this, fid, "https://etherprice.com/api", "recent,usd");
   }
 
   function callback(uint256 _nonce, bytes32 _data) public {
