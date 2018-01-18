@@ -20,6 +20,8 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
+
 func SenderFromTxHex(value string, chainID uint64) (common.Address, error) {
 	tx, err := DecodeTxFromHex(value, chainID)
 	if err != nil {
@@ -78,6 +80,10 @@ func TimeParse(s string) time.Time {
 		log.Fatal(err)
 	}
 	return t
+}
+
+func ISO8601UTC(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
 }
 
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {

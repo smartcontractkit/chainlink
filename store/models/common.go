@@ -8,6 +8,7 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/mrwonko/cron"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 type WebURL struct {
@@ -48,6 +49,10 @@ func (t *Time) DurationFromNow() time.Duration {
 	return t.Time.Sub(time.Now())
 }
 
+func (t *Time) HumanString() string {
+	return utils.ISO8601UTC(t.Time)
+}
+
 type Cron string
 
 func (c *Cron) UnmarshalJSON(b []byte) error {
@@ -66,4 +71,8 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	}
 	*c = Cron(s)
 	return nil
+}
+
+func (c Cron) String() string {
+	return string(c)
 }
