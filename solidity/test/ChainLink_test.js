@@ -10,7 +10,7 @@ contract('ChainLink', () => {
   let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
 
   beforeEach(async () => {
-    oc = await ChainLink.new({from: oracle});
+    oc = await ChainLink.new({from: oracleNode});
   });
 
   it("has a limited public interface", () => {
@@ -25,7 +25,7 @@ contract('ChainLink', () => {
   describe("#transferOwnership", () => {
     context("when called by the owner", () => {
       beforeEach( async () => {
-        await oc.transferOwnership(stranger, {from: oracle});
+        await oc.transferOwnership(stranger, {from: oracleNode});
       });
 
       it("can change the owner", async () => {
@@ -89,12 +89,12 @@ contract('ChainLink', () => {
     context("when called by an owner", () => {
       it("raises an error if the request ID does not exist", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData(nonce + 1, "Hello World!", {from: oracle});
+          await oc.fulfillData(nonce + 1, "Hello World!", {from: oracleNode});
         });
       });
 
       it("sets the value on the requested contract", async () => {
-        await oc.fulfillData(nonce, "Hello World!", {from: oracle});
+        await oc.fulfillData(nonce, "Hello World!", {from: oracleNode});
 
         let currentNonce = await mock.nonce.call();
         assert.equal(nonce, web3.toDecimal(currentNonce));
@@ -104,9 +104,9 @@ contract('ChainLink', () => {
       });
 
       it("does not allow a request to be fulfilled twice", async () => {
-        await oc.fulfillData(nonce, "First message!", {from: oracle});
+        await oc.fulfillData(nonce, "First message!", {from: oracleNode});
         await assertActionThrows(async () => {
-          await oc.fulfillData(nonce, "Second message!!", {from: oracle});
+          await oc.fulfillData(nonce, "Second message!!", {from: oracleNode});
         });
       });
     });
