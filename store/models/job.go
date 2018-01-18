@@ -20,6 +20,7 @@ type Job struct {
 	ID         string      `storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
+	StartAt    null.Time   `storm:"index"`
 	EndAt      null.Time   `storm:"index"`
 	CreatedAt  Time        `storm:"index"`
 }
@@ -64,11 +65,18 @@ func (j *Job) WebAuthorized() bool {
 	return false
 }
 
-func (j *Job) Ended(now time.Time) bool {
+func (j *Job) Ended(t time.Time) bool {
 	if !j.EndAt.Valid {
 		return false
 	}
-	return now.After(j.EndAt.Time)
+	return t.After(j.EndAt.Time)
+}
+
+func (j *Job) Started(t time.Time) bool {
+	if !j.StartAt.Valid {
+		return true
+	}
+	return t.After(j.StartAt.Time) || t.Equal(j.StartAt.Time)
 }
 
 type Initiator struct {

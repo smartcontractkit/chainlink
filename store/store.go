@@ -14,7 +14,7 @@ import (
 type Store struct {
 	*models.ORM
 	Config    Config
-	Clock     Timer
+	Clock     AfterNower
 	Exiter    func(int)
 	KeyStore  *KeyStore
 	TxManager *TxManager
@@ -58,7 +58,8 @@ func (s *Store) Start() {
 	}()
 }
 
-type Timer interface {
+type AfterNower interface {
+	After(d time.Duration) <-chan time.Time
 	Now() time.Time
 }
 
@@ -66,4 +67,8 @@ type Clock struct{}
 
 func (Clock) Now() time.Time {
 	return time.Now()
+}
+
+func (Clock) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
 }

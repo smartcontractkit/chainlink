@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func SenderFromTxHex(value string, chainID uint64) (common.Address, error) {
@@ -106,4 +107,12 @@ func ParseISO8601(s string) time.Time {
 		panic(err)
 	}
 	return t
+}
+
+func NullableTime(t time.Time) null.Time {
+	return null.Time{Time: t, Valid: true}
+}
+
+func ParseNullableTime(s string) null.Time {
+	return NullableTime(ParseISO8601(s))
 }
