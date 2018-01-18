@@ -105,7 +105,7 @@ func NewApplication() (*TestApplication, func()) {
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(tc.Config)
 	server := newServer(app)
-	tc.Config.NodeURL = server.URL
+	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
 	ta := &TestApplication{
 		Application: app,
