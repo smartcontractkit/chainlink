@@ -162,3 +162,12 @@ func (NeverClock) After(_ time.Duration) <-chan time.Time {
 func (NeverClock) Now() time.Time {
 	return time.Now()
 }
+
+type RendererMock struct {
+	Renders []interface{}
+}
+
+func (rm *RendererMock) Render(v interface{}) error {
+	rm.Renders = append(rm.Renders, v)
+	return nil
+}

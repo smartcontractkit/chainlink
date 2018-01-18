@@ -1,9 +1,8 @@
-package commands
+package cmd
 
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -11,28 +10,19 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	clipkg "github.com/urfave/cli"
 )
 
 type Client struct {
-	io.Writer
-}
-
-func (cli *Client) PrettyPrintJSON(v interface{}) error {
-	b, err := utils.FormatJSON(v)
-	if err != nil {
-		return err
-	}
-	if _, err = cli.Write(b); err != nil {
-		return err
-	}
-	return nil
+	Renderer
+	Config store.Config
 }
 
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	cl := services.NewApplication(store.NewConfig())
+	cl := services.NewApplication(cli.Config)
 	services.Authenticate(cl.Store)
 	r := web.Router(cl)
 
@@ -45,29 +35,29 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) ShowJob(c *clipkg.Context) error {
-	cfg := store.NewConfig()
+	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
 	}
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		"http://localhost:8080/jobs/"+c.Args().First(),
+		cfg.ClientNodeURL+"/v2/jobs/"+c.Args().First(),
 	)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
-	var job web.JobPresenter
+	var job presenters.Job
 	return cli.deserializeResponse(resp, &job)
 }
 
 func (cli *Client) GetJobs(c *clipkg.Context) error {
-	cfg := store.NewConfig()
+	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		"http://localhost:8080/jobs",
+		cfg.ClientNodeURL+"/v2/jobs",
 	)
 	if err != nil {
 		return cli.errorOut(err)
@@ -89,7 +79,7 @@ func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) err
 	if err = json.Unmarshal(b, &dst); err != nil {
 		return cli.errorOut(err)
 	}
-	return cli.errorOut(cli.PrettyPrintJSON(dst))
+	return cli.errorOut(cli.Render(dst))
 }
 
 func (cli *Client) errorOut(err error) error {
