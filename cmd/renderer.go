@@ -51,11 +51,6 @@ func (rt RendererTable) Render(v interface{}) error {
 	return nil
 }
 
-func (rt RendererTable) println(s string) error {
-	_, err := rt.Write([]byte(s))
-	return err
-}
-
 func (rt RendererTable) renderJobs(jobs []models.Job) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"ID", "Created", "Initiators", "Tasks", "End"})
@@ -88,6 +83,10 @@ func (rt RendererTable) renderJob(job presenters.Job) error {
 	}
 
 	if err := rt.renderJobTasks(job); err != nil {
+		return err
+	}
+
+	if err := rt.renderJobRuns(job); err != nil {
 		return err
 	}
 
@@ -130,6 +129,27 @@ func (rt RendererTable) renderJobTasks(j presenters.Job) error {
 		}
 
 		table.Append([]string{strconv.Itoa(o), p.Type, params})
+	}
+
+	table.Render()
+	return nil
+}
+
+func (rt RendererTable) renderJobRuns(j presenters.Job) error {
+	table := tablewriter.NewWriter(rt)
+	table.SetHeader([]string{"Job Run", "Status", "Created", "Result", "Error"})
+	for _, jr := range j.Runs {
+		output, err := jr.Result.Output.String()
+		if err != nil {
+			return err
+		}
+		table.Append([]string{
+			jr.ID,
+			jr.Status,
+			utils.HumanTimeString(jr.CreatedAt),
+			output,
+			jr.Result.ErrorMessage.String,
+		})
 	}
 
 	table.Render()

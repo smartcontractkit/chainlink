@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -57,6 +58,15 @@ func (tr TaskRun) Completed() bool { return tr.Status == StatusCompleted }
 func (tr TaskRun) Errored() bool   { return tr.Status == StatusErrored }
 
 type Output map[string]null.String
+
+func (o Output) String() (string, error) {
+	bytes, err := json.Marshal(o)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
+}
 
 type RunResult struct {
 	Output       Output
