@@ -148,3 +148,12 @@ func (clock *SettableClock) Now() time.Time {
 func (clock *SettableClock) SetTime(t time.Time) {
 	clock.time = t
 }
+
+type RendererMock struct {
+	Renders []interface{}
+}
+
+func (rm *RendererMock) Render(v interface{}) error {
+	rm.Renders = append(rm.Renders, v)
+	return nil
+}
