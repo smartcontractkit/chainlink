@@ -103,6 +103,12 @@
   revision = "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c"
 
 [[projects]]
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
+  version = "v0.0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
@@ -113,6 +119,12 @@
   name = "github.com/mrwonko/cron"
   packages = ["."]
   revision = "4f4eb26d696f4ef13acad8270f31e4a334ed7f5d"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/olekukonko/tablewriter"
+  packages = ["."]
+  revision = "96aac992fc8b1a4c83841a6c3e7178d20d989625"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -254,6 +266,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fcb060bdf58c7fa52b75db399ed4e93ac42408001f17ae776bc6f91103551240"
+  inputs-digest = "41a6e2720633fef3d5389b7d8a1b90c12488a4abe2113a857416cffa79d2cf0d"
   solver-name = "gps-cdcl"
   solver-version = 1
