@@ -50,7 +50,7 @@ func (t *Time) DurationFromNow() time.Duration {
 }
 
 func (t *Time) HumanString() string {
-	return utils.HumanTimeString(t.Time)
+	return utils.ISO8601UTC(t.Time)
 }
 
 type Cron string

@@ -81,8 +81,8 @@ func TimeParse(s string) time.Time {
 	return t
 }
 
-func HumanTimeString(t time.Time) string {
-	return t.Format(HUMAN_TIME_FORMAT)
+func ISO8601UTC(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
 }
 
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
