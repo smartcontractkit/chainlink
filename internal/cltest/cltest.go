@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
-	null "gopkg.in/guregu/null.v3"
 )
 
 const RootDir = "/tmp/chainlink_test"
@@ -255,8 +254,4 @@ func ParseResponseBody(resp *http.Response) []byte {
 		log.Fatal(err)
 	}
 	return b
-}
-
-func NullableTime(t time.Time) null.Time {
-	return null.Time{Time: t, Valid: true}
 }
