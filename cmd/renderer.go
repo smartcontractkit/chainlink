@@ -146,7 +146,7 @@ func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 		table.Append([]string{
 			jr.ID,
 			jr.Status,
-			utils.HumanTimeString(jr.CreatedAt),
+			utils.ISO8601UTC(jr.CreatedAt),
 			output,
 			jr.Result.ErrorMessage.String,
 		})

@@ -20,7 +20,7 @@ func (job Job) FriendlyCreatedAt() string {
 
 func (job Job) FriendlyEndAt() string {
 	if job.EndAt.Valid {
-		return utils.HumanTimeString(job.EndAt.Time)
+		return utils.ISO8601UTC(job.EndAt.Time)
 	}
 	return ""
 }
