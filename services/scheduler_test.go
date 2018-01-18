@@ -129,7 +129,7 @@ func TestSchedulerAddingUnstartedJob(t *testing.T) {
 
 	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
 	j := cltest.NewJobWithSchedule("* * * * *")
-	j.StartAt = cltest.NullableTime(startAt)
+	j.StartAt = utils.NullableTime(startAt)
 	assert.Nil(t, store.Save(j))
 
 	sched := services.NewScheduler(store)

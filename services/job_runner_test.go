@@ -46,8 +46,8 @@ func TestJobTransitionToPending(t *testing.T) {
 func TestJobRunnerBeginRun(t *testing.T) {
 	t.Parallel()
 
-	pastTime := null.Time{Time: utils.ParseISO8601("2000-01-01T00:00:00.000Z"), Valid: true}
-	futureTime := null.Time{Time: utils.ParseISO8601("3000-01-01T00:00:00.000Z"), Valid: true}
+	pastTime := utils.ParseNullableTime("2000-01-01T00:00:00.000Z")
+	futureTime := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
 
 	tests := []struct {
@@ -92,8 +92,8 @@ func TestJobRunnerBeginRun(t *testing.T) {
 func TestJobRunnerBuildRun(t *testing.T) {
 	t.Parallel()
 
-	pastTime := null.Time{Time: utils.ParseISO8601("2000-01-01T00:00:00.000Z"), Valid: true}
-	futureTime := null.Time{Time: utils.ParseISO8601("3000-01-01T00:00:00.000Z"), Valid: true}
+	pastTime := utils.ParseNullableTime("2000-01-01T00:00:00.000Z")
+	futureTime := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
 
 	tests := []struct {
