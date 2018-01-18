@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -116,4 +117,36 @@ func TestOneTimeRunJobAt(t *testing.T) {
 	jobRuns := []models.JobRun{}
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
 	assert.Equal(t, 0, len(jobRuns))
+}
+
+func TestSchedulerAddingUnstartedJob(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	clock := cltest.UseSettableClock(store)
+
+	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
+	j := cltest.NewJobWithSchedule("* * * * *")
+	j.StartAt = utils.NullableTime(startAt)
+	assert.Nil(t, store.Save(j))
+
+	sched := services.NewScheduler(store)
+	assert.Nil(t, sched.Start())
+
+	sched.AddJob(j)
+	Consistently(func() int {
+		runs, err := store.JobRunsFor(j)
+		assert.Nil(t, err)
+		return len(runs)
+	}).Should(Equal(0))
+
+	clock.SetTime(startAt)
+
+	Eventually(func() int {
+		runs, err := store.JobRunsFor(j)
+		assert.Nil(t, err)
+		return len(runs)
+	}).Should(Equal(2))
 }

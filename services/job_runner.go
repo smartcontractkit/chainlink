@@ -18,8 +18,12 @@ func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 }
 
 func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
-	if job.Ended(store.Clock.Now()) {
-		return nil, fmt.Errorf("NewRun: %v past Job's EndAt(%v)", store.Clock.Now(), job.EndAt)
+	now := store.Clock.Now()
+	if !job.Started(now) {
+		return nil, fmt.Errorf("BeginRun: %v before job's start time(%v)", now, job.StartAt)
+	}
+	if job.Ended(now) {
+		return nil, fmt.Errorf("BeginRun: %v past job's end time(%v)", now, job.EndAt)
 	}
 	return job.NewRun(), nil
 }

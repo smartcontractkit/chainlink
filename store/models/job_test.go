@@ -43,8 +43,7 @@ func TestJobNewRun(t *testing.T) {
 func TestJobEnded(t *testing.T) {
 	t.Parallel()
 
-	endAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
-	endAtNullable := null.Time{Time: endAt, Valid: true}
+	endAt := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
 
 	tests := []struct {
 		name    string
@@ -52,10 +51,10 @@ func TestJobEnded(t *testing.T) {
 		current time.Time
 		want    bool
 	}{
-		{"no end at", null.Time{Valid: false}, endAt, false},
-		{"before end at", endAtNullable, endAt.Add(-time.Nanosecond), false},
-		{"at end at", endAtNullable, endAt, false},
-		{"after end at", endAtNullable, endAt.Add(time.Nanosecond), true},
+		{"no end at", null.Time{Valid: false}, endAt.Time, false},
+		{"before end at", endAt, endAt.Time.Add(-time.Nanosecond), false},
+		{"at end at", endAt, endAt.Time, false},
+		{"after end at", endAt, endAt.Time.Add(time.Nanosecond), true},
 	}
 
 	for _, test := range tests {
@@ -64,6 +63,33 @@ func TestJobEnded(t *testing.T) {
 			job.EndAt = test.endAt
 
 			assert.Equal(t, test.want, job.Ended(test.current))
+		})
+	}
+}
+
+func TestJobStarted(t *testing.T) {
+	t.Parallel()
+
+	startAt := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
+
+	tests := []struct {
+		name    string
+		startAt null.Time
+		current time.Time
+		want    bool
+	}{
+		{"no start at", null.Time{Valid: false}, startAt.Time, true},
+		{"before start at", startAt, startAt.Time.Add(-time.Nanosecond), false},
+		{"at start at", startAt, startAt.Time, true},
+		{"after start at", startAt, startAt.Time.Add(time.Nanosecond), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job := cltest.NewJob()
+			job.StartAt = test.startAt
+
+			assert.Equal(t, test.want, job.Started(test.current))
 		})
 	}
 }
