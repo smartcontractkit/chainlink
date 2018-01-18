@@ -10,8 +10,21 @@ import (
 
 func main() {
 	client := cmd.Client{cmd.RendererTable{os.Stdout}, store.NewConfig()}
+
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "json, j",
+			Usage: "json output as opposed to table",
+		},
+	}
+	app.Before = func(c *cli.Context) error {
+		if c.Bool("json") {
+			client.Renderer = cmd.RendererJSON{os.Stdout}
+		}
+		return nil
+	}
 	app.Commands = []cli.Command{
 		{
 			Name:    "node",
