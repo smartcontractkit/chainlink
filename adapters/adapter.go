@@ -3,6 +3,7 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -13,23 +14,23 @@ type Adapter interface {
 }
 
 func For(task models.Task) (ac Adapter, err error) {
-	switch task.Type {
-	case "HttpGet":
+	switch strings.ToLower(task.Type) {
+	case "httpget":
 		ac = &HttpGet{}
 		err = json.Unmarshal(task.Params, ac)
-	case "JsonParse":
+	case "jsonparse":
 		ac = &JsonParse{}
 		err = json.Unmarshal(task.Params, ac)
-	case "EthBytes32":
+	case "ethbytes32":
 		ac = &EthBytes32{}
 		err = unmarshalOrEmpty(task.Params, ac)
-	case "EthTx":
+	case "ethtx":
 		ac = &EthTx{}
 		err = unmarshalOrEmpty(task.Params, ac)
-	case "NoOp":
+	case "noop":
 		ac = &NoOp{}
 		err = unmarshalOrEmpty(task.Params, ac)
-	case "NoOpPend":
+	case "nooppend":
 		ac = &NoOpPend{}
 		err = unmarshalOrEmpty(task.Params, ac)
 	default:
