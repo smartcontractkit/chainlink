@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -87,6 +88,13 @@ const (
 	InitiatorEthLog = "ethlog"
 )
 
+var initiatorWhitelist = map[string]bool{
+	InitiatorWeb:    true,
+	InitiatorCron:   true,
+	InitiatorRunAt:  true,
+	InitiatorEthLog: true,
+}
+
 type Initiator struct {
 	ID       int            `storm:"id,increment"`
 	JobID    string         `storm:"index"`
@@ -106,6 +114,9 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 
 	*i = Initiator(aux)
 	i.Type = strings.ToLower(aux.Type)
+	if _, valid := initiatorWhitelist[i.Type]; !valid {
+		return fmt.Errorf("Initiator %v does not exist", aux.Type)
+	}
 	return nil
 }
 
