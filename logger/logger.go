@@ -10,30 +10,44 @@ import (
 var logger *Logger
 
 func init() {
-	zapLogger, err := zap.NewProduction()
+	zl, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger = &Logger{zapLogger.Sugar()}
+	SetLogger(NewLogger(zl))
 }
 
-func NewLogger(dir string) *Logger {
+type Logger struct {
+	*zap.SugaredLogger
+}
+
+func (l *Logger) Write(b []byte) (n int, err error) {
+	l.Info(string(b))
+	return len(b), nil
+}
+
+func NewLogger(zl *zap.Logger) *Logger {
+	return &Logger{zl.Sugar()}
+}
+
+func NewLoggerFromDir(dir string) *Logger {
 	config := generateConfig(dir)
-	zap, err := config.Build()
+	zl, err := config.Build()
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{zap.Sugar()}
+	return NewLogger(zl)
+}
+
+func SetLogger(l *Logger) {
+	if logger != nil {
+		defer logger.Sync()
+	}
+	logger = l
 }
 
 func SetLoggerDir(dir string) {
-	defer logger.Sync()
-	logger = NewLogger(dir)
-}
-
-func SetLogger(zl *zap.Logger) {
-	defer logger.Sync()
-	logger = &Logger{zl.Sugar()}
+	SetLogger(NewLoggerFromDir(dir))
 }
 
 func generateConfig(dir string) zap.Config {
@@ -69,13 +83,4 @@ func Panic(args ...interface{}) {
 
 func Sync() error {
 	return logger.Sync()
-}
-
-type Logger struct {
-	*zap.SugaredLogger
-}
-
-func (l *Logger) Write(b []byte) (n int, err error) {
-	l.Info(string(b))
-	return len(b), nil
 }
