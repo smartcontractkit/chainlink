@@ -1,11 +1,14 @@
 package store_test
 
 import (
+	"math/big"
 	"syscall"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGracefulShutdown(t *testing.T) {
@@ -24,4 +27,10 @@ func TestGracefulShutdown(t *testing.T) {
 	Eventually(func() bool {
 		return completed
 	}).Should(BeTrue())
+}
+
+func TestConfigDefaults(t *testing.T) {
+	config := store.NewConfig()
+	assert.Equal(t, uint64(0), config.ChainID)
+	assert.Equal(t, *big.NewInt(20000000000), config.EthGasPriceDefault)
 }
