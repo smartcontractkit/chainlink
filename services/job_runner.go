@@ -12,7 +12,7 @@ import (
 func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
-		return nil, fmt.Errorf("BeginRun: %v", err.Error())
+		return nil, err
 	}
 	return run, ExecuteRun(run, store)
 }
@@ -20,10 +20,14 @@ func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
-		return nil, fmt.Errorf("BeginRun: %v before job's start time(%v)", now, job.StartAt)
+		return nil, JobRunnerError{
+			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+		}
 	}
 	if job.Ended(now) {
-		return nil, fmt.Errorf("BeginRun: %v past job's end time(%v)", now, job.EndAt)
+		return nil, JobRunnerError{
+			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+		}
 	}
 	return job.NewRun(), nil
 }
@@ -31,7 +35,7 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {
-		return runJobError(run, err)
+		return wrapError(run, err)
 	}
 
 	logger.Infow("Starting job", run.ForLogger()...)
@@ -42,7 +46,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store) error {
 		prevRun = startTask(taskRun, prevRun.Result, store)
 		run.TaskRuns[i+offset] = prevRun
 		if err := store.Save(run); err != nil {
-			return runJobError(run, err)
+			return wrapError(run, err)
 		}
 
 		if prevRun.Result.Pending {
@@ -66,7 +70,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	}
 
 	logger.Infow("Finished job", run.ForLogger()...)
-	return runJobError(run, store.Save(run))
+	return wrapError(run, store.Save(run))
 }
 
 func startTask(
@@ -95,9 +99,17 @@ func startTask(
 	return run
 }
 
-func runJobError(run *models.JobRun, err error) error {
+func wrapError(run *models.JobRun, err error) error {
 	if err != nil {
-		return fmt.Errorf("executeRun#%v: %v", run.JobID, err)
+		return fmt.Errorf("ExecuteRun: Job#%v: %v", run.JobID, err)
 	}
 	return nil
+}
+
+type JobRunnerError struct {
+	msg string
+}
+
+func (err JobRunnerError) Error() string {
+	return err.msg
 }
