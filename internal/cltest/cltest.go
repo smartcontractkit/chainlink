@@ -26,6 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 const RootDir = "/tmp/chainlink_test"
@@ -257,4 +260,11 @@ func ParseResponseBody(resp *http.Response) []byte {
 		log.Fatal(err)
 	}
 	return b
+}
+
+func ObserveLogs() *observer.ObservedLogs {
+	core, observed := observer.New(zapcore.DebugLevel)
+	logr := zap.New(core)
+	logger.SetLogger(logr)
+	return observed
 }

@@ -9,10 +9,6 @@ import (
 
 var logger *Logger
 
-type Logger struct {
-	*zap.SugaredLogger
-}
-
 func init() {
 	zapLogger, err := zap.NewProduction()
 	if err != nil {
@@ -35,16 +31,16 @@ func SetLoggerDir(dir string) {
 	logger = NewLogger(dir)
 }
 
+func SetLogger(zl *zap.Logger) {
+	defer logger.Sync()
+	logger = &Logger{zl.Sugar()}
+}
+
 func generateConfig(dir string) zap.Config {
 	config := zap.NewProductionConfig()
 	destination := path.Join(dir, "log.jsonl")
 	config.OutputPaths = []string{"stdout", destination}
 	return config
-}
-
-func (l *Logger) Write(b []byte) (n int, err error) {
-	l.Info(string(b))
-	return len(b), nil
 }
 
 func Errorw(msg string, keysAndValues ...interface{}) {
@@ -73,4 +69,13 @@ func Panic(args ...interface{}) {
 
 func Sync() error {
 	return logger.Sync()
+}
+
+type Logger struct {
+	*zap.SugaredLogger
+}
+
+func (l *Logger) Write(b []byte) (n int, err error) {
+	l.Info(string(b))
+	return len(b), nil
 }
