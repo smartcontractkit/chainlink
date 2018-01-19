@@ -66,6 +66,39 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 }
 
+func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/caseinsensitive_hello_world_job.json")
+	resp := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
+	defer resp.Body.Close()
+	respJSON := cltest.JobJSONFromResponse(resp.Body)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
+
+	j, _ := app.Store.FindJob(respJSON.ID)
+	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
+
+	adapter1, _ := adapters.For(j.Tasks[0])
+	httpGet := adapter1.(*adapters.HttpGet)
+	assert.Equal(t, httpGet.Endpoint.String(), "https://bitstamp.net/api/ticker/")
+
+	adapter2, _ := adapters.For(j.Tasks[1])
+	jsonParse := adapter2.(*adapters.JsonParse)
+	assert.Equal(t, jsonParse.Path, []string{"last"})
+
+	assert.Equal(t, "ethbytes32", j.Tasks[2].Type)
+
+	adapter4, _ := adapters.For(j.Tasks[3])
+	signTx := adapter4.(*adapters.EthTx)
+	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
+	assert.Equal(t, "0x609ff1bd", signTx.FunctionID.String())
+
+	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
+	assert.Equal(t, models.InitiatorRunAt, j.Initiators[1].Type)
+}
+
 func TestCreateInvalidJobs(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -80,7 +113,7 @@ func TestCreateInvalidJobs(t *testing.T) {
 
 	assert.Equal(t, 500, resp.StatusCode, "Response should be internal error")
 
-	expected := `{"errors":["IdoNotExist is not a supported adapter type"]}`
+	expected := `{"errors":["idonotexist is not a supported adapter type"]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 

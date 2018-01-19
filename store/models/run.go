@@ -48,7 +48,7 @@ func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
 func (jr *JobRun) NextTaskRun() TaskRun { return jr.UnfinishedTaskRuns()[0] }
 
 type TaskRun struct {
-	Task
+	Task   Task
 	ID     string `storm:"id,index,unique"`
 	Status string
 	Result RunResult
@@ -56,6 +56,9 @@ type TaskRun struct {
 
 func (tr TaskRun) Completed() bool { return tr.Status == StatusCompleted }
 func (tr TaskRun) Errored() bool   { return tr.Status == StatusErrored }
+func (tr TaskRun) String() string {
+	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
+}
 
 type Output map[string]null.String
 
