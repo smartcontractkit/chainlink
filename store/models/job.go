@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -82,8 +83,8 @@ func (j *Job) Started(t time.Time) bool {
 const (
 	InitiatorWeb    = "web"
 	InitiatorCron   = "cron"
-	InitiatorRunAt  = "runAt"
-	InitiatorEthLog = "ethLog"
+	InitiatorRunAt  = "runat"
+	InitiatorEthLog = "ethlog"
 )
 
 type Initiator struct {
@@ -96,7 +97,31 @@ type Initiator struct {
 	Address  common.Address `json:"address,omitempty" storm:"index"`
 }
 
+func (i *Initiator) UnmarshalJSON(input []byte) error {
+	type Alias Initiator
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+
+	*i = Initiator(aux)
+	i.Type = strings.ToLower(aux.Type)
+	return nil
+}
+
 type Task struct {
 	Type   string          `json:"type" storm:"index"`
 	Params json.RawMessage `json:"params,omitempty"`
+}
+
+func (t *Task) UnmarshalJSON(input []byte) error {
+	type Alias Task
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+
+	*t = Task(aux)
+	t.Type = strings.ToLower(aux.Type)
+	return nil
 }
