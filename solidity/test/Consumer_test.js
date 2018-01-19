@@ -23,4 +23,52 @@ contract('Consumer', () => {
       assert.equal(event.args.path, "recent,usd")
     });
   });
+
+  describe("#fulfillData", () => {
+    let response = "1,000,000.00";
+    let nonce;
+
+    beforeEach(async () => {
+      await cc.requestEthereumPrice();
+      let event = await getLatestEvent(oc);
+      nonce = event.args.nonce
+    });
+
+    it("records the data given to it by the oracle", async () => {
+      await oc.fulfillData(nonce, response, {from: oracleNode})
+
+      let received = await cc.currentPrice.call();
+      assert.equal(web3.toUtf8(received), response);
+    });
+
+    context("when the consumer does not recognize the nonce", () => {
+      beforeEach(async () => {
+        await oc.requestData(cc.address, functionID("fulfill(uint256,bytes32)"), "", "");
+        let event = await getLatestEvent(oc);
+        nonce = event.args.nonce
+      });
+
+      it("does not accept the data provided", async () => {
+        let tx = await cc.requestEthereumPrice();
+
+        await assertActionThrows(async () => {
+          await oc.fulfillData(nonce, response, {from: oracleNode})
+        });
+
+        let received = await cc.currentPrice.call();
+        assert.equal(web3.toUtf8(received), "");
+      });
+    });
+
+    context("when called by anyone other than the oracle contract", () => {
+      it("does not accept the data provided", async () => {
+        await assertActionThrows(async () => {
+          await cc.fulfill(nonce, response, {from: oracleNode})
+        });
+
+        let received = await cc.currentPrice.call();
+        assert.equal(web3.toUtf8(received), "");
+      });
+    });
+  });
 });
