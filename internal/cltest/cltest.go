@@ -264,7 +264,6 @@ func ParseResponseBody(resp *http.Response) []byte {
 
 func ObserveLogs() *observer.ObservedLogs {
 	core, observed := observer.New(zapcore.DebugLevel)
-	logr := zap.New(core)
-	logger.SetLogger(logr)
+	logger.SetLogger(logger.NewLogger(zap.New(core)))
 	return observed
 }
