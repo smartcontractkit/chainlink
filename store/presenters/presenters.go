@@ -47,7 +47,7 @@ type Initiator struct {
 }
 
 func (i Initiator) FriendlyRunAt() string {
-	if i.Type == "cron" {
+	if i.Type == models.InitiatorCron {
 		return i.Time.HumanString()
 	}
 	return ""
