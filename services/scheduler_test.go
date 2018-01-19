@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestLoadingSavedSchedules(t *testing.T) {
@@ -120,11 +121,10 @@ func TestOneTimeRunJobAt(t *testing.T) {
 }
 
 func TestSchedulerAddingUnstartedJob(t *testing.T) {
-	t.Parallel()
 	RegisterTestingT(t)
+	logs := cltest.ObserveLogs()
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
+	store, cleanupStore := cltest.NewStore()
 	clock := cltest.UseSettableClock(store)
 
 	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
@@ -134,13 +134,14 @@ func TestSchedulerAddingUnstartedJob(t *testing.T) {
 
 	sched := services.NewScheduler(store)
 	assert.Nil(t, sched.Start())
+	defer sched.Stop()
+	defer cleanupStore()
 
-	sched.AddJob(j)
 	Consistently(func() int {
 		runs, err := store.JobRunsFor(j)
 		assert.Nil(t, err)
 		return len(runs)
-	}).Should(Equal(0))
+	}, (2 * time.Second)).Should(Equal(0))
 
 	clock.SetTime(startAt)
 
@@ -149,4 +150,8 @@ func TestSchedulerAddingUnstartedJob(t *testing.T) {
 		assert.Nil(t, err)
 		return len(runs)
 	}).Should(Equal(2))
+
+	for _, log := range logs.All() {
+		assert.True(t, log.Level <= zapcore.WarnLevel)
+	}
 }

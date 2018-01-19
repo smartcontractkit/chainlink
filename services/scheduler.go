@@ -90,7 +90,8 @@ func (r *Recurring) AddJob(job *models.Job) {
 	for _, initr := range job.InitiatorsFor("cron") {
 		cronStr := string(initr.Schedule)
 		r.cron.AddFunc(cronStr, func() {
-			if _, err := BeginRun(job, r.store); err != nil {
+			_, err := BeginRun(job, r.store)
+			if err != nil && !expectedRecurringError(err) {
 				logger.Panic(err.Error())
 			}
 		})
@@ -144,5 +145,16 @@ func (ot *OneTime) RunJobAt(t models.Time, job *models.Job) {
 		if err != nil {
 			logger.Panic(err.Error())
 		}
+	}
+}
+
+func expectedRecurringError(err error) bool {
+	switch err.(type) {
+	case JobUnstartedError:
+		return true
+	case JobEndedError:
+		return true
+	default:
+		return false
 	}
 }
