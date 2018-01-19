@@ -58,7 +58,7 @@ func (j *Job) InitiatorsFor(t string) []Initiator {
 
 func (j *Job) WebAuthorized() bool {
 	for _, initr := range j.Initiators {
-		if initr.Type == "web" {
+		if initr.Type == InitiatorWeb {
 			return true
 		}
 	}
@@ -78,6 +78,13 @@ func (j *Job) Started(t time.Time) bool {
 	}
 	return t.After(j.StartAt.Time) || t.Equal(j.StartAt.Time)
 }
+
+const (
+	InitiatorWeb    = "web"
+	InitiatorCron   = "cron"
+	InitiatorRunAt  = "runAt"
+	InitiatorEthLog = "ethLog"
+)
 
 type Initiator struct {
 	ID       int            `storm:"id,increment"`

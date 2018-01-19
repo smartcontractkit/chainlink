@@ -37,7 +37,7 @@ func (ll *LogListener) Stop() error {
 }
 
 func (ll *LogListener) AddJob(job *models.Job) error {
-	for _, initr := range job.InitiatorsFor("ethLog") {
+	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
 		address := initr.Address.String()
 		if err := ll.Store.TxManager.Subscribe(ll.logs, address); err != nil {
 			return err
@@ -63,7 +63,7 @@ func (ll *LogListener) initrsWithLogAndAddress(address common.Address) []models.
 	initrs := []models.Initiator{}
 	query := ll.Store.Select(q.And(
 		q.Eq("Address", address),
-		q.Re("Type", "ethLog"),
+		q.Re("Type", models.InitiatorEthLog),
 	))
 	if err := query.Find(&initrs); err != nil {
 		msg := fmt.Sprintf("Initiating job from log: %v", err)
