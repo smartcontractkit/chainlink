@@ -36,7 +36,7 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 
 	var initr models.Initiator
 	app.Store.One("JobID", respJSON.ID, &initr)
-	assert.Equal(t, "cron", initr.Type)
+	assert.Equal(t, models.InitiatorCron, initr.Type)
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
@@ -136,7 +136,7 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
-	assert.Equal(t, "runAt", initr.Type)
+	assert.Equal(t, models.InitiatorRunAt, initr.Type)
 	assert.Equal(t, "2018-01-08T18:12:01Z", initr.Time.ISO8601())
 
 	app.Start()
@@ -169,7 +169,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
-	assert.Equal(t, "ethLog", initr.Type)
+	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
 	logs := make(chan store.EventLog, 1)
