@@ -12,9 +12,9 @@ import (
 
 type TxManager struct {
 	*EthClient
-	KeyStore     *KeyStore
-	Config       Config
-	ORM          *models.ORM
+	KeyStore *KeyStore
+	Config   Config
+	ORM      *models.ORM
 }
 
 func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
@@ -39,7 +39,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 		return nil, err
 	}
 
-	gasPrice := txm.Config.EthGasPriceDefault
+	gasPrice := &txm.Config.EthGasPriceDefault
 	_, err = txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
 		return tx, err
@@ -167,7 +167,7 @@ func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	if err := txm.ORM.One("ID", txat.TxID, tx); err != nil {
 		return err
 	}
-	gasPrice := new(big.Int).Add(txat.GasPrice, txm.Config.EthGasBumpWei)
+	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.Config.EthGasBumpWei)
 	_, err := txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
 		return err
