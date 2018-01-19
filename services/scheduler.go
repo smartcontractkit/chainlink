@@ -87,7 +87,7 @@ func (r *Recurring) Stop() {
 }
 
 func (r *Recurring) AddJob(job *models.Job) {
-	for _, initr := range job.InitiatorsFor("cron") {
+	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		cronStr := string(initr.Schedule)
 		r.cron.AddFunc(cronStr, func() {
 			if _, err := BeginRun(job, r.store); err != nil {
@@ -127,7 +127,7 @@ func (ot *OneTime) Start() error {
 }
 
 func (ot *OneTime) AddJob(job *models.Job) {
-	for _, initr := range job.InitiatorsFor("runAt") {
+	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
 		go ot.RunJobAt(initr.Time, job)
 	}
 }
