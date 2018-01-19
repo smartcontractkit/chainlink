@@ -150,9 +150,7 @@ func (ot *OneTime) RunJobAt(t models.Time, job *models.Job) {
 
 func expectedRecurringError(err error) bool {
 	switch err.(type) {
-	case JobUnstartedError:
-		return true
-	case JobEndedError:
+	case JobRunnerError:
 		return true
 	default:
 		return false

@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -21,10 +20,14 @@ func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
-		return nil, NewJobUnstartedError(job, now)
+		return nil, JobRunnerError{
+			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+		}
 	}
 	if job.Ended(now) {
-		return nil, NewJobEndedError(job, now)
+		return nil, JobRunnerError{
+			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+		}
 	}
 	return job.NewRun(), nil
 }
@@ -32,7 +35,7 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {
-		return runJobError(run, err)
+		return wrapError(run, err)
 	}
 
 	logger.Infow("Starting job", run.ForLogger()...)
@@ -43,7 +46,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store) error {
 		prevRun = startTask(taskRun, prevRun.Result, store)
 		run.TaskRuns[i+offset] = prevRun
 		if err := store.Save(run); err != nil {
-			return runJobError(run, err)
+			return wrapError(run, err)
 		}
 
 		if prevRun.Result.Pending {
@@ -67,7 +70,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	}
 
 	logger.Infow("Finished job", run.ForLogger()...)
-	return runJobError(run, store.Save(run))
+	return wrapError(run, store.Save(run))
 }
 
 func startTask(
@@ -96,37 +99,17 @@ func startTask(
 	return run
 }
 
-func runJobError(run *models.JobRun, err error) error {
+func wrapError(run *models.JobRun, err error) error {
 	if err != nil {
-		return fmt.Errorf("executeRun#%v: %v", run.JobID, err)
+		return fmt.Errorf("ExecuteRun: Job#%v: %v", run.JobID, err)
 	}
 	return nil
 }
 
-type JobEndedError struct {
+type JobRunnerError struct {
 	msg string
 }
 
-func (err JobEndedError) Error() string {
+func (err JobRunnerError) Error() string {
 	return err.msg
-}
-
-func NewJobEndedError(j *models.Job, t time.Time) JobEndedError {
-	return JobEndedError{
-		fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", j.ID, t, j.EndAt),
-	}
-}
-
-type JobUnstartedError struct {
-	msg string
-}
-
-func (err JobUnstartedError) Error() string {
-	return err.msg
-}
-
-func NewJobUnstartedError(j *models.Job, t time.Time) JobUnstartedError {
-	return JobUnstartedError{
-		fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", j.ID, t, j.EndAt),
-	}
 }
