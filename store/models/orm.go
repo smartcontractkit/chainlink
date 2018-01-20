@@ -76,14 +76,15 @@ func (orm *ORM) SaveJob(job *Job) error {
 	}
 	defer tx.Rollback()
 
-	if err := tx.Save(job); err != nil {
-		return err
-	}
-	for _, initr := range job.Initiators {
+	for i, initr := range job.Initiators {
+		job.Initiators[i].JobID = job.ID
 		initr.JobID = job.ID
 		if err := tx.Save(&initr); err != nil {
 			return err
 		}
+	}
+	if err := tx.Save(job); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
