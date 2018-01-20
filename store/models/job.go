@@ -101,7 +101,7 @@ type Initiator struct {
 	Type     string         `json:"type" storm:"index"`
 	Schedule Cron           `json:"schedule,omitempty"`
 	Time     Time           `json:"time,omitempty"`
-	Ran      bool           `json:"ranAt,omitempty"`
+	Ran      bool           `json:"ran,omitempty"`
 	Address  common.Address `json:"address,omitempty" storm:"index"`
 }
 

@@ -23,6 +23,7 @@ func TestIndexJobs(t *testing.T) {
 	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
 	app.Store.SaveJob(j1)
 	j2 := cltest.NewJobWithWebInitiator()
+	j2.Initiators[0].Ran = true
 	app.Store.Save(j2)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
@@ -32,6 +33,7 @@ func TestIndexJobs(t *testing.T) {
 	json.Unmarshal(cltest.ParseResponseBody(resp), &jobs)
 	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, models.InitiatorWeb, jobs[1].Initiators[0].Type, "should have the same type")
+	assert.NotEqual(t, true, jobs[1].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
 func TestCreateJobs(t *testing.T) {
