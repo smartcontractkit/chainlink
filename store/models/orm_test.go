@@ -46,6 +46,8 @@ func TestORMSaveJob(t *testing.T) {
 	j2, _ := store.FindJob(j1.ID)
 	assert.Equal(t, j1.ID, j2.ID)
 
+	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
+
 	var initr models.Initiator
 	store.One("JobID", j1.ID, &initr)
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
