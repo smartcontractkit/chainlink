@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,8 +11,23 @@ import (
 )
 
 type Job struct {
-	*models.Job
+	models.Job
 	Runs []*models.JobRun `json:"runs,omitempty"`
+}
+
+func (j Job) MarshalJSON() ([]byte, error) {
+	type Alias Job
+	pis := make([]Initiator, len(j.Initiators))
+	for i, modelInitr := range j.Initiators {
+		pis[i] = Initiator{modelInitr}
+	}
+	return json.Marshal(&struct {
+		Initiators []Initiator `json:"initiators"`
+		Alias
+	}{
+		pis,
+		Alias(j),
+	})
 }
 
 func (job Job) FriendlyCreatedAt() string {
@@ -44,6 +60,45 @@ func (job Job) FriendlyTasks() string {
 
 type Initiator struct {
 	models.Initiator
+}
+
+func (i Initiator) MarshalJSON() ([]byte, error) {
+	switch i.Type {
+	case models.InitiatorWeb:
+		return json.Marshal(&struct {
+			Type string `json:"type"`
+		}{
+			models.InitiatorWeb,
+		})
+	case models.InitiatorCron:
+		return json.Marshal(&struct {
+			Type     string      `json:"type"`
+			Schedule models.Cron `json:"schedule"`
+		}{
+			models.InitiatorCron,
+			i.Schedule,
+		})
+	case models.InitiatorRunAt:
+		return json.Marshal(&struct {
+			Type string      `json:"type"`
+			Time models.Time `json:"time"`
+			Ran  bool        `json:"ran"`
+		}{
+			models.InitiatorRunAt,
+			i.Time,
+			i.Ran,
+		})
+	case models.InitiatorEthLog:
+		return json.Marshal(&struct {
+			Type    string         `json:"type"`
+			Address common.Address `json:"address"`
+		}{
+			models.InitiatorEthLog,
+			i.Address,
+		})
+	default:
+		return nil, fmt.Errorf("Cannot marshal unsupported initiator type %v", i.Type)
+	}
 }
 
 func (i Initiator) FriendlyRunAt() string {

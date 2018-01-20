@@ -20,7 +20,11 @@ func (jrc *JobsController) Index(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, jobs)
+		pjs := make([]presenters.Job, len(jobs))
+		for i, j := range jobs {
+			pjs[i] = presenters.Job{Job: j}
+		}
+		c.JSON(200, pjs)
 	}
 }
 
@@ -59,6 +63,6 @@ func (jc *JobsController) Show(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, presenters.Job{j, runs})
+		c.JSON(200, presenters.Job{*j, runs})
 	}
 }
