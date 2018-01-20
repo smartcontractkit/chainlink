@@ -9,12 +9,12 @@ import (
 )
 
 type JobRun struct {
-	ID        string    `storm:"id,index,unique"`
-	JobID     string    `storm:"index"`
-	Status    string    `storm:"index"`
-	CreatedAt time.Time `storm:"index"`
-	Result    RunResult `storm:"inline"`
-	TaskRuns  []TaskRun `storm:"inline"`
+	ID        string    `json:"id" storm:"id,index,unique"`
+	JobID     string    `json:"jobId" storm:"index"`
+	Status    string    `json:"status" storm:"index"`
+	CreatedAt time.Time `json:"createdAt" storm:"index"`
+	Result    RunResult `json:"result" storm:"inline"`
+	TaskRuns  []TaskRun `json:"taskRuns" storm:"inline"`
 }
 
 func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
@@ -48,10 +48,10 @@ func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
 func (jr *JobRun) NextTaskRun() TaskRun { return jr.UnfinishedTaskRuns()[0] }
 
 type TaskRun struct {
-	Task   Task
-	ID     string `storm:"id,index,unique"`
-	Status string
-	Result RunResult
+	Task   Task      `json:"task"`
+	ID     string    `json:"id" storm:"id,index,unique"`
+	Status string    `json:"status"`
+	Result RunResult `json:"result"`
 }
 
 func (tr TaskRun) Completed() bool { return tr.Status == StatusCompleted }
@@ -72,9 +72,9 @@ func (o Output) String() (string, error) {
 }
 
 type RunResult struct {
-	Output       Output
-	ErrorMessage null.String
-	Pending      bool
+	Output       Output      `json:"output"`
+	ErrorMessage null.String `json:"error"`
+	Pending      bool        `json:"pending"`
 }
 
 func RunResultWithValue(val string) RunResult {
