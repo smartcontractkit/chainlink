@@ -41,14 +41,7 @@ func TestCreateJobs(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
-	resp := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	defer resp.Body.Close()
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-
-	j, _ := app.Store.FindJob(respJSON.ID)
-	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
+	j := cltest.CreateJobFromFixture(t, app, "../internal/fixtures/web/hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0])
 	httpGet := adapter1.(*adapters.HttpGet)
@@ -73,14 +66,7 @@ func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/caseinsensitive_hello_world_job.json")
-	resp := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	defer resp.Body.Close()
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-
-	j, _ := app.Store.FindJob(respJSON.ID)
-	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
+	j := cltest.CreateJobFromFixture(t, app, "../internal/fixtures/web/caseinsensitive_hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0])
 	httpGet := adapter1.(*adapters.HttpGet)
