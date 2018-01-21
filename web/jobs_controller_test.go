@@ -41,7 +41,7 @@ func TestCreateJobs(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.CreateJobFromFixture(t, app, "../internal/fixtures/web/hello_world_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0])
 	httpGet := adapter1.(*adapters.HttpGet)
@@ -66,7 +66,7 @@ func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.CreateJobFromFixture(t, app, "../internal/fixtures/web/caseinsensitive_hello_world_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/caseinsensitive_hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0])
 	httpGet := adapter1.(*adapters.HttpGet)
