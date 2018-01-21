@@ -9,7 +9,7 @@ import (
 )
 
 func TestEthGetTxReceipt(t *testing.T) {
-	response := cltest.LoadJSON("../internal/fixtures/web/eth_getTransactionReceipt.json")
+	response := cltest.LoadJSON("../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
 	config := cltest.NewConfigWithWSServer(mockServer)
 	store, cleanup := cltest.NewStoreWithConfig(config)
