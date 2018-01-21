@@ -118,8 +118,8 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app.Store.Config = tc.Config
 	ta := &TestApplication{
 		ChainlinkApplication: app,
-		Server:          server,
-		wsServer:        tc.wsServer,
+		Server:               server,
+		wsServer:             tc.wsServer,
 	}
 	return ta, func() {
 		ta.Stop()
@@ -318,4 +318,16 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 		EmptyRunner{},
 	}
 	return client, r
+}
+
+func WaitForJobRunToComplete(
+	t *testing.T,
+	app *TestApplication,
+	jr *models.JobRun,
+) *models.JobRun {
+	Eventually(func() string {
+		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
+		return jr.Status
+	}).Should(Equal(models.StatusCompleted))
+	return jr
 }
