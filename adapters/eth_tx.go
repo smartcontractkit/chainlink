@@ -11,7 +11,7 @@ import (
 
 type EthTx struct {
 	Address    common.Address    `json:"address"`
-	FunctionID models.FunctionID `json:"functionID"`
+	FunctionID models.FunctionID `json:"functionId"`
 }
 
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
