@@ -1,6 +1,7 @@
 package cltest
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
@@ -266,4 +268,22 @@ func ObserveLogs() *observer.ObservedLogs {
 	core, observed := observer.New(zapcore.DebugLevel)
 	logger.SetLogger(logger.NewLogger(zap.New(core)))
 	return observed
+}
+
+func CreateJobFromFixture(t *testing.T, app *TestApplication, path string) *models.Job {
+	jsonStr := LoadJSON(path)
+	resp := BasicAuthPost(
+		app.Server.URL+"/v2/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+	assert.Equal(t, 200, resp.StatusCode)
+
+	respJSON := JobJSONFromResponse(resp.Body)
+	defer resp.Body.Close()
+	j, err := app.Store.FindJob(respJSON.ID)
+	assert.Equal(t, j.ID, respJSON.ID, "Wrong job returned")
+	assert.Nil(t, err)
+
+	return j
 }
