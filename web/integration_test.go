@@ -74,11 +74,8 @@ func TestCreateJobIntegration(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	cltest.WaitForJobRunToComplete(t, app, jr)
 
-	Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
-		return jr.Status
-	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, tickerResponse, jr.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jr.TaskRuns[1].Result.Value())
 	assert.Equal(t, hash.String(), jr.TaskRuns[3].Result.Value())
