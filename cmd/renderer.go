@@ -63,7 +63,7 @@ func (rt RendererTable) renderJobs(jobs []models.Job) error {
 }
 
 func jobRowToStrings(job models.Job) []string {
-	p := presenters.Job{&job, nil}
+	p := presenters.Job{job, nil}
 	return []string{
 		p.ID,
 		p.FriendlyCreatedAt(),

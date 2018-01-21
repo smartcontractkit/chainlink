@@ -122,3 +122,15 @@ func NullableTime(t time.Time) null.Time {
 func ParseNullableTime(s string) null.Time {
 	return NullableTime(ParseISO8601(s))
 }
+
+func GetStringKeys(v map[string]interface{}) []string {
+	keys := make([]string, len(v))
+
+	i := 0
+	for k := range v {
+		keys[i] = k
+		i++
+	}
+
+	return keys
+}
