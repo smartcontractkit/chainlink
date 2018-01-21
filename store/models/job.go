@@ -19,12 +19,12 @@ const (
 )
 
 type Job struct {
-	ID         string      `storm:"id,index,unique"`
+	ID         string      `json:"id" storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
-	StartAt    null.Time   `storm:"index"`
-	EndAt      null.Time   `storm:"index"`
-	CreatedAt  Time        `storm:"index"`
+	StartAt    null.Time   `json:"startAt" storm:"index"`
+	EndAt      null.Time   `json:"endAt" storm:"index"`
+	CreatedAt  Time        `json:"createdAt" storm:"index"`
 }
 
 func NewJob() *Job {
@@ -96,8 +96,8 @@ var initiatorWhitelist = map[string]bool{
 }
 
 type Initiator struct {
-	ID       int            `storm:"id,increment"`
-	JobID    string         `storm:"index"`
+	ID       int            `json:"id" storm:"id,increment"`
+	JobID    string         `json:"jobId" storm:"index"`
 	Type     string         `json:"type" storm:"index"`
 	Schedule Cron           `json:"schedule,omitempty"`
 	Time     Time           `json:"time,omitempty"`
