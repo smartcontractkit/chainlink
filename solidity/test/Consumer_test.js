@@ -19,8 +19,7 @@ contract('Consumer', () => {
       let events = await getEvents(oc);
       assert.equal(1, events.length)
       let event = events[0]
-      assert.equal(event.args.url, "https://etherprice.com/api")
-      assert.equal(event.args.path, "recent,usd")
+      assert.equal(event.args.data, `{url:"https://etherprice.com/api",path:"recent,usd"}`)
     });
   });
 
@@ -43,7 +42,7 @@ contract('Consumer', () => {
 
     context("when the consumer does not recognize the nonce", () => {
       beforeEach(async () => {
-        await oc.requestData(cc.address, functionID("fulfill(uint256,bytes32)"), "", "");
+        await oc.requestData(cc.address, functionID("fulfill(uint256,bytes32)"), "");
         let event = await getLatestEvent(oc);
         nonce = event.args.nonce
       });

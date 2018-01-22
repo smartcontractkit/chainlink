@@ -16,23 +16,21 @@ contract ChainLink is Ownable {
     uint256 indexed nonce,
     address indexed to,
     bytes4 indexed fid,
-		string url,
-		string path
+    string data
   );
 
   function requestData(
-		address _callbackAddress,
-		bytes4 _callbackFID, 
-		string _url,
-		string _path
-	)
+    address _callbackAddress,
+    bytes4 _callbackFID,
+    string _data
+  )
     public
     returns (uint256)
   {
     nonce += 1;
     Callback memory cb = Callback(_callbackAddress, _callbackFID);
     callbacks[nonce] = cb;
-    Request(nonce, cb.addr, cb.fid, _url, _path);
+    Request(nonce, cb.addr, cb.fid, _data);
     return nonce;
   }
 
