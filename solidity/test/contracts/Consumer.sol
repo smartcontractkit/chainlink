@@ -1,8 +1,11 @@
 pragma solidity ^0.4.18;
 
+import "solidity-stringutils/strings.sol";
 import "../../contracts/ChainLink.sol";
 
 contract Consumer {
+  using strings for *;
+
   ChainLink private chainLink;
   uint256 private nonce;
   bytes32 public currentPrice;
