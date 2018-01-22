@@ -16,7 +16,27 @@ contract Consumer {
 
   function requestEthereumPrice() public {
     bytes4 fid = bytes4(keccak256("fulfill(uint256,bytes32)"));
-    nonce = chainLink.requestData(this, fid, "https://etherprice.com/api", "recent,usd");
+    string memory payload = "{";
+    payload = addParameter(payload, "url", "https://etherprice.com/api");
+    payload = addParameter(payload, "path", "recent,usd");
+    nonce = chainLink.requestData(this, fid, closeJSON(payload));
+  }
+
+  function addParameter(
+    string data,
+    string key,
+    string value
+  ) returns(string) {
+    data = data.toSlice().concat(key.toSlice());
+    data = data.toSlice().concat(":\"".toSlice());
+    data = data.toSlice().concat(value.toSlice());
+    return data.toSlice().concat("\",".toSlice());
+  }
+
+  function closeJSON(string data) returns (string) {
+    var slice = data.toSlice();
+    slice._len -= 1;
+    return slice.concat("}".toSlice());
   }
 
   function fulfill(uint256 _nonce, bytes32 _data)
