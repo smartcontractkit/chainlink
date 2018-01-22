@@ -1,6 +1,7 @@
 package cltest
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,9 +21,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
@@ -266,4 +269,37 @@ func ObserveLogs() *observer.ObservedLogs {
 	core, observed := observer.New(zapcore.DebugLevel)
 	logger.SetLogger(logger.NewLogger(zap.New(core)))
 	return observed
+}
+
+func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *models.Job {
+	jsonStr := LoadJSON(path)
+	resp := BasicAuthPost(
+		app.Server.URL+"/v2/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+	j, err := app.Store.FindJob(JobJSONFromResponse(resp.Body).ID)
+	assert.Nil(t, err)
+
+	return j
+}
+
+func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *models.JobRun {
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+	jrID := JobJSONFromResponse(resp.Body).ID
+
+	jrs := []*models.JobRun{}
+	Eventually(func() []*models.JobRun {
+		assert.Nil(t, app.Store.Where("ID", jrID, &jrs))
+		return jrs
+	}).Should(HaveLen(1))
+	jr := jrs[0]
+	assert.Equal(t, j.ID, jr.JobID)
+
+	return jr
 }

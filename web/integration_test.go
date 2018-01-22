@@ -22,20 +22,16 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/scheduler_job.json")
-	resp := cltest.BasicAuthPost(app.Server.URL+"/v2/jobs", "application/json", bytes.NewBuffer(jsonStr))
-	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/scheduler_job.json")
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", respJSON.ID, &jobRuns)
+		app.Store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(cltest.HaveLenAtLeast(1))
 
 	var initr models.Initiator
-	app.Store.One("JobID", respJSON.ID, &initr)
+	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorCron, initr.Type)
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
@@ -48,7 +44,6 @@ func TestCreateJobIntegration(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
-	server := app.Server
 	app.Start()
 	defer cleanup()
 
@@ -77,40 +72,17 @@ func TestCreateJobIntegration(t *testing.T) {
 		BlockNumber: confirmed,
 	})
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")
-	resp := cltest.BasicAuthPost(
-		server.URL+"/v2/jobs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
-	defer resp.Body.Close()
-	jobID := cltest.JobJSONFromResponse(resp.Body).ID
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
 
-	url := server.URL + "/v2/jobs/" + jobID + "/runs"
-	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
-	jrID := cltest.JobJSONFromResponse(resp.Body).ID
-
-	jobRuns := []*models.JobRun{}
-	Eventually(func() []*models.JobRun {
-		app.Store.Where("JobID", jobID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
-
-	job, err := app.Store.FindJob(jobID)
-	assert.Nil(t, err)
-
-	jobRuns, err = app.Store.JobRunsFor(job)
-	assert.Nil(t, err)
-	jobRun := jobRuns[0]
-	assert.Equal(t, jrID, jobRun.ID)
 	Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jobRun.ID, jobRun))
-		return jobRun.Status
+		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
+		return jr.Status
 	}).Should(Equal(models.StatusCompleted))
-	assert.Equal(t, tickerResponse, jobRun.TaskRuns[0].Result.Value())
-	assert.Equal(t, "10583.75", jobRun.TaskRuns[1].Result.Value())
-	assert.Equal(t, hash.String(), jobRun.TaskRuns[3].Result.Value())
-	assert.Equal(t, hash.String(), jobRun.Result.Value())
+	assert.Equal(t, tickerResponse, jr.TaskRuns[0].Result.Value())
+	assert.Equal(t, "10583.75", jr.TaskRuns[1].Result.Value())
+	assert.Equal(t, hash.String(), jr.TaskRuns[3].Result.Value())
+	assert.Equal(t, hash.String(), jr.Result.Value())
 
 	assert.True(t, eth.AllCalled())
 }
@@ -122,17 +94,7 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	defer cleanup()
 	app.InstantClock()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_job.json")
-	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-	defer resp.Body.Close()
-
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	j, _ := app.Store.FindJob(respJSON.ID)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -142,7 +104,7 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	app.Start()
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", respJSON.ID, &jobRuns)
+		app.Store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 }
@@ -154,18 +116,8 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	defer cleanup()
 	eth := app.MockEthClient()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/eth_log_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/eth_log_job.json")
 	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-	defer resp.Body.Close()
-
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	j, _ := app.Store.FindJob(respJSON.ID)
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -180,7 +132,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", respJSON.ID, &jobRuns)
+		app.Store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
 }
@@ -194,34 +146,18 @@ func TestCreateJobWithEndAtIntegration(t *testing.T) {
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/end_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/end_at_job.json")
 	endAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
-	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-	defer resp.Body.Close()
-
-	assert.Equal(t, 200, resp.StatusCode, "Response should be success")
-	j, _ := app.Store.FindJob(respJSON.ID)
 	assert.Equal(t, endAt, j.EndAt.Time)
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	jobRuns := []models.JobRun{}
-
-	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
-	assert.Equal(t, 200, resp.StatusCode)
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+	cltest.CreateJobRunViaWeb(t, app, j)
 
 	clock.SetTime(endAt.Add(time.Nanosecond))
 
-	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
+	jobRuns := []models.JobRun{}
 	Consistently(func() []models.JobRun {
 		app.Store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
@@ -237,25 +173,14 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/start_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/start_at_job.json")
 	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
-	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-	defer resp.Body.Close()
-
-	assert.Equal(t, 200, resp.StatusCode)
-	j, _ := app.Store.FindJob(respJSON.ID)
 	assert.Equal(t, startAt, j.StartAt.Time)
 
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	jobRuns := []models.JobRun{}
-
-	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
+	jobRuns := []models.JobRun{}
 	Consistently(func() []models.JobRun {
 		app.Store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
@@ -263,10 +188,5 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 
 	clock.SetTime(startAt)
 
-	resp = cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
-	assert.Equal(t, 200, resp.StatusCode)
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+	cltest.CreateJobRunViaWeb(t, app, j)
 }
