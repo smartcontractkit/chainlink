@@ -1,15 +1,13 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
-    { "type": "HttpGet", "params": { "endpoint": "https://bitstamp.net/api/ticker/" } },
-    { "type": "JsonParse", "params": { "path": ["last"] } },
+    { "type": "HttpGet", "endpoint": "https://bitstamp.net/api/ticker/" },
+    { "type": "JsonParse", "path": ["last"] },
     { "type": "EthBytes32" },
     {
       "type": "EthTx",
-      "params": {
-        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
-        "functionId": "0x609ff1bd"
-      }
+      "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
+      "functionId": "0x609ff1bd"
     }
   ]
 }
