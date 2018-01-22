@@ -7,6 +7,8 @@
     "bignumber.js": "^5.0.0",
     "ganache-cli": "^6.0.3",
     "moment": "^2.20.1",
-    "truffle": "^4.0.4"
+    "solidity-stringutils": "https://github.com/Arachnid/solidity-stringutils",
+    "truffle": "^4.0.4",
+    "zeppelin-solidity": "https://github.com/OpenZeppelin/zeppelin-solidity"
   }
 }

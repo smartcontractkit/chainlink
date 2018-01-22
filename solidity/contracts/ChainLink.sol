@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "./zeppelin/Ownable.sol";
+import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract ChainLink is Ownable {
 
