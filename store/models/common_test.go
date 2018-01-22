@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/json"
+	"net/url"
 	"testing"
 	"time"
 
@@ -23,6 +24,18 @@ func TestWebURLUnmarshalJSON(t *testing.T) {
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
 	assert.Nil(t, err)
+}
+
+func TestWebURLMarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	str := "http://www.duckduckgo.com"
+	parsed, err := url.ParseRequestURI(str)
+	assert.Nil(t, err)
+	wurl := &models.WebURL{parsed}
+	b, err := json.Marshal(wurl)
+	assert.Nil(t, err)
+	assert.Equal(t, `"`+str+`"`, string(b))
 }
 
 func TestTimeDurationFromNow(t *testing.T) {
