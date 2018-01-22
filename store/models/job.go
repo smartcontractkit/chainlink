@@ -146,3 +146,15 @@ func (t *Task) UnmarshalJSON(input []byte) error {
 func (t Task) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.Params)
 }
+
+type TaskType struct {
+	ID         string `json:"id" storm:"id,index,unique"`
+	Name       string `json:"Name"`
+	HandlerURL string `json:"handlerUrl"`
+}
+
+func NewTaskType() *TaskType {
+	return &TaskType{
+		ID: uuid.NewV4().String(),
+	}
+}
