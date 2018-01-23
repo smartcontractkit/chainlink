@@ -43,15 +43,15 @@ func TestCreateJobs(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
 
-	adapter1, _ := adapters.For(j.Tasks[0])
+	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := adapter1.(*adapters.HttpGet)
 	assert.Equal(t, httpGet.Endpoint.String(), "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1])
+	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
 	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	adapter4, _ := adapters.For(j.Tasks[3])
+	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
 	signTx := adapter4.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionID.String())
@@ -68,17 +68,17 @@ func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/caseinsensitive_hello_world_job.json")
 
-	adapter1, _ := adapters.For(j.Tasks[0])
+	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := adapter1.(*adapters.HttpGet)
 	assert.Equal(t, httpGet.Endpoint.String(), "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1])
+	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
 	jsonParse := adapter2.(*adapters.JsonParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
 	assert.Equal(t, "ethbytes32", j.Tasks[2].Type)
 
-	adapter4, _ := adapters.For(j.Tasks[3])
+	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
 	signTx := adapter4.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionID.String())
