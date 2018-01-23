@@ -2,7 +2,7 @@ pragma solidity ^0.4.18;
 
 import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract ChainLink is Ownable {
+contract Oracle is Ownable {
 
   struct Callback {
     address addr;

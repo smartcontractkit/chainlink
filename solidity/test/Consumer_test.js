@@ -3,23 +3,23 @@
 require('./support/helpers.js')
 
 contract('Consumer', () => {
-  let ChainLink = artifacts.require("./contracts/ChainLink.sol");
+  let Oracle = artifacts.require("./contracts/Oracle.sol");
   let Consumer = artifacts.require("./test/contracts/Consumer.sol");
   let oc, cc;
 
   beforeEach(async () => {
-    oc = await ChainLink.new({from: oracleNode});
+    oc = await Oracle.new({from: oracleNode});
     cc = await Consumer.new(oc.address, {from: stranger});
   });
 
   describe("#requestEthereumPrice", () => {
-    it("triggers a log event in the ChainLink contract", async () => {
+    it("triggers a log event in the Oracle contract", async () => {
       let tx = await cc.requestEthereumPrice();
 
       let events = await getEvents(oc);
       assert.equal(1, events.length)
       let event = events[0]
-      assert.equal(event.args.data, `{url:"https://etherprice.com/api",path:"recent,usd"}`)
+      assert.equal(event.args.data, `{"url":"https://etherprice.com/api","path":"recent,usd"}`)
     });
   });
 
