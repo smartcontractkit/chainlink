@@ -30,7 +30,7 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 }
 
 func (w *WebURL) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%v"`, w)), nil
+	return json.Marshal(w.String())
 }
 
 type Time struct {
