@@ -120,3 +120,30 @@ func TestInitiatorUnmarshallingValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestTaskUnmarshalling(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		json string
+	}{
+		{"noop", `{"type":"NoOp"}`},
+		{"httpget", `{"type":"httpget","url":"http://www.no.com"}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var task models.Task
+			err := json.Unmarshal([]byte(test.json), &task)
+			assert.Nil(t, err)
+
+			assert.Equal(t, test.name, task.Type)
+			_, err = adapters.For(task)
+			assert.Nil(t, err)
+
+			s, err := json.Marshal(task)
+			assert.Equal(t, test.json, string(s))
+		})
+	}
+}
