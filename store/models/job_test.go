@@ -129,7 +129,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 		json string
 	}{
 		{"noop", `{"type":"NoOp"}`},
-		{"httpget", `{"type":"httpget","url":"http://www.no.com"}`},
+		{"httpget", `{"type":"httpget","endpoint":"http://www.no.com"}`},
 	}
 
 	for _, test := range tests {
