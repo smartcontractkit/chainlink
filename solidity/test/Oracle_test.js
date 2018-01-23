@@ -2,19 +2,19 @@
 
 require('./support/helpers.js')
 
-contract('ChainLink', () => {
-  let ChainLink = artifacts.require("./contracts/ChainLink.sol");
+contract('Oracle', () => {
+  let Oracle = artifacts.require("./contracts/Oracle.sol");
   let GetterSetter = artifacts.require("./test/contracts/GetterSetter.sol");
   let oc;
   let fID = "0x12345678";
   let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
 
   beforeEach(async () => {
-    oc = await ChainLink.new({from: oracleNode});
+    oc = await Oracle.new({from: oracleNode});
   });
 
   it("has a limited public interface", () => {
-    checkPublicABI(ChainLink, [
+    checkPublicABI(Oracle, [
       "owner",
       "transferOwnership",
       "requestData",
