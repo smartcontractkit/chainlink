@@ -121,8 +121,8 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 }
 
 type Task struct {
-	Type   string          `json:"type" storm:"index"`
-	Params json.RawMessage `json:"params,omitempty"`
+	Type   string `json:"type" storm:"index"`
+	Params json.RawMessage
 }
 
 func (t *Task) UnmarshalJSON(input []byte) error {
@@ -132,7 +132,17 @@ func (t *Task) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	*t = Task(aux)
 	t.Type = strings.ToLower(aux.Type)
+
+	var params json.RawMessage
+	if err := json.Unmarshal(input, &params); err != nil {
+		return err
+	}
+
+	t.Params = params
 	return nil
+}
+
+func (t Task) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Params)
 }
