@@ -35,7 +35,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = adapters.Validate(j); err != nil {
+	} else if err = adapters.Validate(j, jc.App.Store); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

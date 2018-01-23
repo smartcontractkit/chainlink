@@ -16,7 +16,7 @@ type Adapter interface {
 }
 
 // For determines the adapter type to use for a given task
-func For(task models.Task) (ac Adapter, err error) {
+func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	switch strings.ToLower(task.Type) {
 	case "httpget":
 		ac = &HttpGet{}
@@ -37,7 +37,12 @@ func For(task models.Task) (ac Adapter, err error) {
 		ac = &NoOpPend{}
 		err = unmarshalOrEmpty(task.Params, ac)
 	default:
-		return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
+		if tt, err := store.TaskTypeFor(task.Type); err != nil {
+			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
+		} else {
+			ac = &ExternalBridge{tt}
+			err = unmarshalOrEmpty(task.Params, ac)
+		}
 	}
 	return ac, err
 }
@@ -50,10 +55,10 @@ func unmarshalOrEmpty(params json.RawMessage, dst interface{}) error {
 }
 
 // Validate that there were no errors in any of the tasks of a job
-func Validate(job *models.Job) error {
+func Validate(job *models.Job, store *store.Store) error {
 	var err error
 	for _, task := range job.Tasks {
-		err = validateTask(task)
+		err = validateTask(task, store)
 		if err != nil {
 			break
 		}
@@ -62,7 +67,7 @@ func Validate(job *models.Job) error {
 	return err
 }
 
-func validateTask(task models.Task) error {
-	_, err := For(task)
+func validateTask(task models.Task, store *store.Store) error {
+	_, err := For(task, store)
 	return err
 }
