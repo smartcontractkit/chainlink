@@ -60,6 +60,13 @@ Run the binary
 $ ./chainlink
 ```
 
+### Testing
+
+```bash
+$ cd $(go env GOPATH)/src/github.com/smartcontractkit/chainlink
+$ go test ./...
+```
+
 ### Direnv
 
 We use [direnv](https://github.com/direnv/direnv/) to set up PATH and aliases 
