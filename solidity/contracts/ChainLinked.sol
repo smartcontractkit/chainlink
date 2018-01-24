@@ -1,33 +1,28 @@
 pragma solidity ^0.4.18;
 
-
-import "solidity-stringutils/strings.sol";
-
-library Json {
-  using strings for *;
-
-  struct Params {
-    string payload;
-  }
-
-  function add(Params self, string key, string value) internal {
-    self.payload = self.payload.toSlice().concat('"'.toSlice());
-    self.payload = self.payload.toSlice().concat(key.toSlice());
-    self.payload = self.payload.toSlice().concat('":"'.toSlice());
-    self.payload = self.payload.toSlice().concat(value.toSlice());
-    self.payload = self.payload.toSlice().concat('",'.toSlice());
-  }
-
-  function close(Params self) internal returns (string) {
-    var slice = self.payload.toSlice();
-    slice = "{".toSlice().concat(slice).toSlice();
-    slice._len -= 1;
-    return slice.concat("}".toSlice());
-  }
-
-}
+import "./Oracle.sol";
+import "./ChainLink.sol";
 
 
 contract ChainLinked {
-  using Json for Json.Params;
+  using ChainLink for ChainLink.Run;
+
+  Oracle internal oracle;
+
+  function NewRun(
+    bytes32 _jobId,
+    address _cbReceiver,
+    string _cbSignature
+  ) internal returns (ChainLink.Run) {
+    ChainLink.Run memory run;
+    run.jobId = _jobId;
+    run.receiver = _cbReceiver;
+    run.functionHash = bytes4(keccak256(_cbSignature));
+    return run;
+  }
+
+  modifier onlyOracle() {
+    require(msg.sender == address(oracle));
+    _;
+  }
 }
