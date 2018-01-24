@@ -1,10 +1,9 @@
 pragma solidity ^0.4.18;
 
-import "../../contracts/Oracle.sol";
 import "../../contracts/ChainLinked.sol";
+import "../../contracts/Oracle.sol";
 
 contract Consumer is ChainLinked {
-  Oracle private oracle;
   uint256 private nonce;
   bytes32 public currentPrice;
 
@@ -13,28 +12,23 @@ contract Consumer is ChainLinked {
   }
 
   function requestEthereumPrice() public {
-    bytes4 fid = bytes4(keccak256("fulfill(uint256,bytes32)"));
-    Json.Params memory ps;
-    ps.add("url", "https://etherprice.com/api");
-    ps.add("path", "recent,usd");
-    nonce = oracle.requestData(this, fid, ps.close());
+    ChainLink.Run memory run = NewRun("1234", this, "fulfill(uint256,bytes32)");
+    run.add("url", "https://etherprice.com/api");
+    run.add("path", "recent,usd");
+    nonce = oracle.requestData(run.receiver, run.functionHash, run.close());
   }
 
   function fulfill(uint256 _nonce, bytes32 _data)
     public
-    checkSender
+    onlyOracle
     checkNonce(_nonce)
   {
     currentPrice = _data;
-  }
-
-  modifier checkSender() {
-    require(msg.sender == address(oracle));
-    _;
   }
 
   modifier checkNonce(uint256 _nonce) {
     require(nonce == _nonce);
     _;
   }
+
 }
