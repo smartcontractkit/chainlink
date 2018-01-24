@@ -27,10 +27,11 @@
 
 [[constraint]]
   name = "github.com/gin-gonic/gin"
-	branch = "master"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/mitchellh/go-homedir"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/satori/go.uuid"
