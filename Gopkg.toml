@@ -78,10 +78,6 @@
   version = "1.7.3"
 
 [[constraint]]
-  name = "github.com/caarlos0/env"
-  version = "3.1.1"
-
-[[constraint]]
   name = "github.com/gorilla/websocket"
   version = "1.2.0"
 
