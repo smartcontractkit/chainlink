@@ -6,7 +6,7 @@ import (
 )
 
 type ExternalBridge struct {
-	*models.TaskType
+	*models.CustomTaskType
 }
 
 func (eb *ExternalBridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {

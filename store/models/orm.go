@@ -174,8 +174,8 @@ func (orm *ORM) AddAttempt(
 	return attempt, dbtx.Commit()
 }
 
-func (orm *ORM) TaskTypeFor(name string) (*TaskType, error) {
-	tt := &TaskType{}
+func (orm *ORM) CustomTaskTypeFor(name string) (*CustomTaskType, error) {
+	tt := &CustomTaskType{}
 	err := orm.One("Name", name, tt)
 	return tt, err
 }

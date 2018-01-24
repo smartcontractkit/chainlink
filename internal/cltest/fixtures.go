@@ -3,6 +3,7 @@ package cltest
 import (
 	"crypto/rand"
 	"math/big"
+	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -73,4 +74,15 @@ func NewEthAddress() common.Address {
 	b := make([]byte, 20)
 	rand.Read(b)
 	return common.BytesToAddress(b)
+}
+
+func NewCustomTaskType() *models.CustomTaskType {
+	tt := &models.CustomTaskType{}
+	tt.Name = "fixtureCustomTaskType"
+	u, err := url.Parse("https://d.example.eth")
+	if err != nil {
+		panic(err)
+	}
+	tt.URL = models.WebURL{u}
+	return tt
 }

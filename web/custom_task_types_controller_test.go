@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateTaskType(t *testing.T) {
+func TestCreateCustomTaskType(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -23,9 +23,9 @@ func TestCreateTaskType(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 	ttID := cltest.JobJSONFromResponse(resp.Body).ID
 
-	tt := &models.TaskType{}
+	tt := &models.CustomTaskType{}
 	assert.Nil(t, app.Store.One("ID", ttID, tt))
 	assert.Equal(t, ttID, tt.ID)
 	assert.Equal(t, "randomNumber", tt.Name)
-	assert.Equal(t, "https://example.smartcontract.com/randomNumber", tt.HandlerURL.String())
+	assert.Equal(t, "https://example.smartcontract.com/randomNumber", tt.URL.String())
 }
