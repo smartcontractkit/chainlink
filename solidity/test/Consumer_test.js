@@ -12,6 +12,11 @@ contract('Consumer', () => {
     cc = await Consumer.new(oc.address, {from: stranger});
   });
 
+  it("has a predictable gas price", async () => {
+    let rec = await eth.getTransactionReceipt(cc.transactionHash);
+    assert.isBelow(rec.gasUsed, 725000);
+  });
+
   describe("#requestEthereumPrice", () => {
     it("triggers a log event in the Oracle contract", async () => {
       let tx = await cc.requestEthereumPrice();
@@ -20,6 +25,11 @@ contract('Consumer', () => {
       assert.equal(1, events.length)
       let event = events[0]
       assert.equal(event.args.data, `{"url":"https://etherprice.com/api","path":"recent,usd"}`)
+    });
+
+    it("has a reasonable gas cost", async () => {
+      let tx = await cc.requestEthereumPrice();
+      assert.equal(tx.receipt.gasUsed, 112282);
     });
   });
 
