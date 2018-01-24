@@ -2,7 +2,7 @@
 
 ## Developer Setup
 
-### Install [Go](https://golang.org/dl/)
+### Install [Go 1.9+](https://golang.org/dl/)
 
 Create the Go workspace (`~/go` given as an example)
 
