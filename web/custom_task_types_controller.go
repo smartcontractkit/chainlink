@@ -6,12 +6,12 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-type TaskTypesController struct {
+type CustomTaskTypesController struct {
 	App *services.Application
 }
 
-func (ttc *TaskTypesController) Create(c *gin.Context) {
-	tt := models.NewTaskType()
+func (ttc *CustomTaskTypesController) Create(c *gin.Context) {
+	tt := models.NewCustomTaskType()
 
 	if err := c.ShouldBindJSON(tt); err != nil {
 		c.JSON(500, gin.H{

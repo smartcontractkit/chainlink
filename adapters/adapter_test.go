@@ -28,11 +28,11 @@ func TestAdapterFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.NewTaskType()
+	tt := models.NewCustomTaskType()
 	tt.Name = "rideShare"
 	u, err := url.Parse("https://dUber.eth")
 	assert.Nil(t, err)
-	tt.HandlerURL = models.WebURL{u}
+	tt.URL = models.WebURL{u}
 	assert.Nil(t, store.Save(tt))
 
 	cases := []struct {

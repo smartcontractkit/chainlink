@@ -108,33 +108,33 @@ func TestCreatingTx(t *testing.T) {
 	assert.Equal(t, gasLimit, tx.GasLimit)
 }
 
-func TestTaskTypeFor(t *testing.T) {
+func TestCustomTaskTypeFor(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.NewTaskType()
+	tt := models.NewCustomTaskType()
 	tt.Name = "solarGridReporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)
-	tt.HandlerURL = models.WebURL{u}
+	tt.URL = models.WebURL{u}
 	assert.Nil(t, store.Save(tt))
 
 	cases := []struct {
 		description string
 		name        string
-		want        *models.TaskType
+		want        *models.CustomTaskType
 		errored     bool
 	}{
 		{"actual external adapter", tt.Name, tt, false},
-		{"core adapter", "ethtx", &models.TaskType{}, true},
-		{"non-existent adapter", "nonExistent", &models.TaskType{}, true},
+		{"core adapter", "ethtx", &models.CustomTaskType{}, true},
+		{"non-existent adapter", "nonExistent", &models.CustomTaskType{}, true},
 	}
 
 	for _, test := range cases {
 		t.Run(test.description, func(t *testing.T) {
-			tt, err := store.TaskTypeFor(test.name)
+			tt, err := store.CustomTaskTypeFor(test.name)
 			assert.Equal(t, test.want, tt)
 			assert.Equal(t, test.errored, err != nil)
 		})
