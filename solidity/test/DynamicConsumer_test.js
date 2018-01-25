@@ -2,9 +2,9 @@
 
 require('./support/helpers.js')
 
-contract('Consumer', () => {
+contract('DynamicConsumer', () => {
   let Oracle = artifacts.require("./contracts/Oracle.sol");
-  let Consumer = artifacts.require("./test/contracts/Consumer.sol");
+  let Consumer = artifacts.require("./test/contracts/DynamicConsumer.sol");
   let oc, cc;
 
   beforeEach(async () => {

@@ -3,11 +3,11 @@ pragma solidity ^0.4.18;
 import "../../contracts/ChainLinked.sol";
 import "../../contracts/Oracle.sol";
 
-contract Consumer is ChainLinked {
+contract DynamicConsumer is ChainLinked {
   uint256 private nonce;
   bytes32 public currentPrice;
 
-  function Consumer(address _oracle) public {
+  function DynamicConsumer(address _oracle) public {
     oracle = Oracle(_oracle);
   }
 
