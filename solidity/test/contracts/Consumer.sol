@@ -11,10 +11,13 @@ contract Consumer is ChainLinked {
     oracle = Oracle(_oracle);
   }
 
-  function requestEthereumPrice() public {
+  function requestEthereumPrice(string _currency) public {
     ChainLink.Run memory run = newRun("1234", this, "fulfill(uint256,bytes32)");
     run.add("url", "https://etherprice.com/api");
-    run.add("path", "recent,usd");
+    string[] memory path = new string[](2);
+    path[0] = "recent";
+    path[1] = _currency;
+    run.add("path", path);
     nonce = chainlinkRequest(run);
   }
 
