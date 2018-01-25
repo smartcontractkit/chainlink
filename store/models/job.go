@@ -149,8 +149,8 @@ func (t Task) MarshalJSON() ([]byte, error) {
 
 type CustomTaskType struct {
 	ID   string `json:"id" storm:"id,index,unique"`
-	Name string `json:"Name"`
-	URL  WebURL `json:"handlerUrl"`
+	Name string `json:"name"`
+	URL  WebURL `json:"url"`
 }
 
 func NewCustomTaskType() *CustomTaskType {

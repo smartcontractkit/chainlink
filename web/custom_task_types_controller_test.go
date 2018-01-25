@@ -27,5 +27,5 @@ func TestCreateCustomTaskType(t *testing.T) {
 	assert.Nil(t, app.Store.One("ID", ttID, tt))
 	assert.Equal(t, ttID, tt.ID)
 	assert.Equal(t, "randomNumber", tt.Name)
-	assert.Equal(t, "https://example.smartcontract.com/randomNumber", tt.URL.String())
+	assert.Equal(t, "http://localhost:8080/randomNumber", tt.URL.String())
 }
