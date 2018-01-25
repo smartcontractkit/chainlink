@@ -22,6 +22,12 @@ func (eb *ExternalBridge) Perform(input models.RunResult, _ *store.Store) models
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 300 {
+		b, _ := ioutil.ReadAll(resp.Body)
+		err = fmt.Errorf("%v %v", resp.StatusCode, string(b))
+		return ebRunResultError("POST reponse", err)
+	}
+
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return ebRunResultError("reading response body", err)

@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const RootDir = "/tmp/chainlink_test"
@@ -330,4 +331,13 @@ func WaitForJobRunToComplete(
 		return jr.Status
 	}).Should(Equal(models.StatusCompleted))
 	return jr
+}
+
+func NullString(val interface{}) null.String {
+	switch val.(type) {
+	case string:
+		return null.StringFrom(val.(string))
+	default:
+		return null.NewString("", false)
+	}
 }
