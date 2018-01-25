@@ -1,4 +1,4 @@
 {
   "name": "randomNumber",
-  "handlerUrl": "https://example.smartcontract.com/randomNumber"
+  "url": "http://localhost:8080/randomNumber"
 }
