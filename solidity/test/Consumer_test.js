@@ -14,22 +14,22 @@ contract('Consumer', () => {
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 750000);
+    assert.isBelow(rec.gasUsed, 900000);
   });
 
   describe("#requestEthereumPrice", () => {
     it("triggers a log event in the Oracle contract", async () => {
-      let tx = await cc.requestEthereumPrice();
+      let tx = await cc.requestEthereumPrice("usd");
 
       let events = await getEvents(oc);
       assert.equal(1, events.length)
       let event = events[0]
-      assert.equal(event.args.data, `{"url":"https://etherprice.com/api","path":"recent,usd"}`)
+      assert.equal(event.args.data, `{"url":"https://etherprice.com/api","path":["recent","usd"]}`)
     });
 
     it("has a reasonable gas cost", async () => {
-      let tx = await cc.requestEthereumPrice();
-      assert.equal(tx.receipt.gasUsed, 112325);
+      let tx = await cc.requestEthereumPrice("usd");
+      assert.isBelow(tx.receipt.gasUsed, 120000);
     });
   });
 
@@ -38,7 +38,7 @@ contract('Consumer', () => {
     let nonce;
 
     beforeEach(async () => {
-      await cc.requestEthereumPrice();
+      await cc.requestEthereumPrice("usd");
       let event = await getLatestEvent(oc);
       nonce = event.args.nonce
     });
@@ -58,7 +58,7 @@ contract('Consumer', () => {
       });
 
       it("does not accept the data provided", async () => {
-        let tx = await cc.requestEthereumPrice();
+        let tx = await cc.requestEthereumPrice("usd");
 
         await assertActionThrows(async () => {
           await oc.fulfillData(nonce, response, {from: oracleNode})

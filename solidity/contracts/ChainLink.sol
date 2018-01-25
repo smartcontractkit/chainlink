@@ -13,18 +13,36 @@ library ChainLink {
   }
 
   function add(Run self, string _key, string _value) internal {
-    self.payload = self.payload.toSlice().concat('"'.toSlice());
-    self.payload = self.payload.toSlice().concat(_key.toSlice());
-    self.payload = self.payload.toSlice().concat('":"'.toSlice());
-    self.payload = self.payload.toSlice().concat(_value.toSlice());
-    self.payload = self.payload.toSlice().concat('",'.toSlice());
+    self.payload = addKey(self, _key)
+      .concat('":"'.toSlice()).toSlice()
+      .concat(_value.toSlice()).toSlice()
+      .concat('",'.toSlice());
+  }
+
+  function add(Run self, string _key, string[] _values) internal {
+    strings.slice memory payload = addKey(self, _key)
+      .concat('":["'.toSlice()).toSlice();
+    for(uint256 i=0;i<_values.length-1;i++) {
+      payload = payload.concat(_values[i].toSlice()).toSlice()
+        .concat('","'.toSlice()).toSlice();
+    }
+
+    self.payload = payload.concat(_values[_values.length-1].toSlice())
+      .toSlice().concat('"],'.toSlice());
   }
 
   function close(Run self) internal returns (string) {
     var slice = self.payload.toSlice();
-    slice = "{".toSlice().concat(slice).toSlice();
     slice._len -= 1;
-    return slice.concat("}".toSlice());
+    return "{".toSlice()
+      .concat(slice).toSlice()
+      .concat("}".toSlice());
+  }
+
+  function addKey(Run run, string _key) private returns (strings.slice) {
+    return run.payload.toSlice()
+      .concat('"'.toSlice()).toSlice()
+      .concat(_key.toSlice()).toSlice();
   }
 
 }
