@@ -5,6 +5,7 @@ require('./support/helpers.js')
 contract('DynamicConsumer', () => {
   let Oracle = artifacts.require("./contracts/Oracle.sol");
   let Consumer = artifacts.require("./test/contracts/DynamicConsumer.sol");
+  let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let oc, cc;
 
   beforeEach(async () => {
@@ -14,7 +15,7 @@ contract('DynamicConsumer', () => {
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 900000);
+    assert.isBelow(rec.gasUsed, 910000);
   });
 
   describe("#requestEthereumPrice", () => {
@@ -25,6 +26,7 @@ contract('DynamicConsumer', () => {
       assert.equal(1, events.length)
       let event = events[0]
       assert.equal(event.args.data, `{"url":"https://etherprice.com/api","path":["recent","usd"]}`)
+      assert.equal(web3.toUtf8(event.args.jobId), "someJobId");
     });
 
     it("has a reasonable gas cost", async () => {
@@ -52,7 +54,7 @@ contract('DynamicConsumer', () => {
 
     context("when the consumer does not recognize the nonce", () => {
       beforeEach(async () => {
-        await oc.requestData(cc.address, functionID("fulfill(uint256,bytes32)"), "");
+        await oc.requestData(jobId, cc.address, functionID("fulfill(uint256,bytes32)"), "");
         let event = await getLatestEvent(oc);
         nonce = event.args.nonce
       });

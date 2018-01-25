@@ -5,9 +5,10 @@ require('./support/helpers.js')
 contract('Oracle', () => {
   let Oracle = artifacts.require("./contracts/Oracle.sol");
   let GetterSetter = artifacts.require("./test/contracts/GetterSetter.sol");
-  let oc;
-  let fID = "0x12345678";
+  let fHash = "0x12345678";
+  let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
+  let oc;
 
   beforeEach(async () => {
     oc = await Oracle.new({from: oracleNode});
@@ -46,22 +47,22 @@ contract('Oracle', () => {
 
   describe("#requestData", () => {
     it("returns the id", async () => {
-      let nonce = await oc.requestData.call(to, fID, "");
+      let nonce = await oc.requestData.call(jobId, to, fHash, "");
       assert.equal(1, nonce);
     });
 
     it("logs an event", async () => {
-      let tx = await oc.requestData(to, fID, "");
+      let tx = await oc.requestData(jobId, to, fHash, "");
       assert.equal(1, tx.receipt.logs.length)
 
-      let log = tx.receipt.logs[0]
-      assert.equal(to, hexToAddress(log.topics[2]))
+      let log = tx.receipt.logs[0];
+      assert.equal(jobId, web3.toUtf8(log.topics[2]));
     });
 
     it("increments the nonce", async () => {
-      let tx1 = await oc.requestData(to, fID, "");
+      let tx1 = await oc.requestData(jobId, to, fHash, "");
       let nonce1 = web3.toDecimal(tx1.receipt.logs[0].topics[1]);
-      let tx2 = await oc.requestData(to, fID, "");
+      let tx2 = await oc.requestData(jobId, to, fHash, "");
       let nonce2 = web3.toDecimal(tx2.receipt.logs[0].topics[1]);
 
       assert.notEqual(nonce1, nonce2);
@@ -73,8 +74,8 @@ contract('Oracle', () => {
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
-      let fid = functionID("setValue(uint256,bytes32)");
-      let req = await oc.requestData(mock.address, fid, "");
+      let fHash = functionID("setValue(uint256,bytes32)");
+      let req = await oc.requestData(jobId, mock.address, fHash, "");
       nonce = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
 

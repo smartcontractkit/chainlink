@@ -14,12 +14,12 @@ contract Oracle is Ownable {
 
   event Request(
     uint256 indexed nonce,
-    address indexed to,
-    bytes4 indexed fid,
+    bytes32 indexed jobId,
     string data
   );
 
   function requestData(
+    bytes32 _jobId,
     address _callbackAddress,
     bytes4 _callbackFID,
     string _data
@@ -30,7 +30,7 @@ contract Oracle is Ownable {
     nonce += 1;
     Callback memory cb = Callback(_callbackAddress, _callbackFID);
     callbacks[nonce] = cb;
-    Request(nonce, cb.addr, cb.fid, _data);
+    Request(nonce, _jobId, _data);
     return nonce;
   }
 

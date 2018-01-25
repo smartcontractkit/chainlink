@@ -22,7 +22,7 @@ contract ChainLinked {
   }
 
   function chainlinkRequest(ChainLink.Run _run) internal returns(uint256) {
-    return oracle.requestData(_run.receiver, _run.functionHash, _run.close());
+    return oracle.requestData(_run.jobId, _run.receiver, _run.functionHash, _run.close());
   }
 
   modifier onlyOracle() {
