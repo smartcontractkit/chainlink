@@ -12,10 +12,10 @@ contract Consumer is ChainLinked {
   }
 
   function requestEthereumPrice() public {
-    ChainLink.Run memory run = NewRun("1234", this, "fulfill(uint256,bytes32)");
+    ChainLink.Run memory run = newRun("1234", this, "fulfill(uint256,bytes32)");
     run.add("url", "https://etherprice.com/api");
     run.add("path", "recent,usd");
-    nonce = oracle.requestData(run.receiver, run.functionHash, run.close());
+    nonce = chainlinkRequest(run);
   }
 
   function fulfill(uint256 _nonce, bytes32 _data)
