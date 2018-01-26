@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	uuid "github.com/satori/go.uuid"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -133,4 +134,8 @@ func GetStringKeys(v map[string]interface{}) []string {
 	}
 
 	return keys
+}
+
+func NewBytes32ID() string {
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
