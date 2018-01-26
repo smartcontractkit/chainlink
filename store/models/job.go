@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/utils"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -28,20 +28,23 @@ type Job struct {
 }
 
 func NewJob() *Job {
-	return &Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
+	return &Job{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: Time{Time: time.Now()},
+	}
 }
 
 func (j *Job) NewRun() *JobRun {
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
-			ID:   uuid.NewV4().String(),
+			ID:   utils.NewBytes32ID(),
 			Task: task,
 		}
 	}
 
 	return &JobRun{
-		ID:        uuid.NewV4().String(),
+		ID:        utils.NewBytes32ID(),
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
