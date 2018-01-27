@@ -158,3 +158,17 @@ func NewCustomTaskType() *CustomTaskType {
 		ID: uuid.NewV4().String(),
 	}
 }
+
+func (t *CustomTaskType) UnmarshalJSON(input []byte) error {
+	type Alias CustomTaskType
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+	t.Name = strings.ToLower(aux.Name)
+	t.URL = aux.URL
+	if aux.ID != "" {
+		t.ID = aux.ID
+	}
+	return nil
+}

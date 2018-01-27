@@ -7,7 +7,7 @@ import (
 )
 
 type CustomTaskTypesController struct {
-	App *services.Application
+	App services.Application
 }
 
 func (ttc *CustomTaskTypesController) Create(c *gin.Context) {
@@ -17,7 +17,7 @@ func (ttc *CustomTaskTypesController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = ttc.App.Store.Save(tt); err != nil {
+	} else if err = ttc.App.GetStore().Save(tt); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

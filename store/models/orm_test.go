@@ -115,7 +115,7 @@ func TestCustomTaskTypeFor(t *testing.T) {
 	defer cleanup()
 
 	tt := models.NewCustomTaskType()
-	tt.Name = "solarGridReporting"
+	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)
 	tt.URL = models.WebURL{u}

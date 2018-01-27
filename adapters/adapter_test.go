@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -44,6 +45,7 @@ func TestAdapterFor(t *testing.T) {
 		{"EthTx", "*adapters.EthTx", false},
 		{"nonExistent", "<nil>", true},
 		{tt.Name, "*adapters.ExternalBridge", false},
+		{strings.ToLower(tt.Name), "*adapters.ExternalBridge", false},
 	}
 
 	for _, test := range cases {
