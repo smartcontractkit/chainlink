@@ -53,7 +53,8 @@ func SetLoggerDir(dir string) {
 func generateConfig(dir string) zap.Config {
 	config := zap.NewProductionConfig()
 	destination := path.Join(dir, "log.jsonl")
-	config.OutputPaths = []string{"stdout", destination}
+	config.OutputPaths = []string{"stderr", destination}
+	config.ErrorOutputPaths = []string{"stderr", destination}
 	return config
 }
 
