@@ -17,19 +17,35 @@ import (
 // account which is unlocked by the given password will be used.
 func Authenticate(store *store.Store) {
 	if store.KeyStore.HasAccounts() {
-		checkPassword(store)
+		promptAndCheckPassword(store)
 	} else {
 		createAccount(store)
 	}
 }
 
-func checkPassword(store *store.Store) {
+func AuthenticateWithPwd(store *store.Store, pwd string) {
+	if !store.KeyStore.HasAccounts() {
+		fmt.Println("Cannot authenticate with password because there are no accounts")
+		os.Exit(1)
+	} else if err := checkPassword(store, pwd); err != nil {
+		os.Exit(1)
+	}
+}
+
+func checkPassword(store *store.Store, phrase string) error {
+	if err := store.KeyStore.Unlock(phrase); err != nil {
+		fmt.Println(err.Error())
+		return err
+	} else {
+		printGreeting()
+		return nil
+	}
+}
+
+func promptAndCheckPassword(store *store.Store) {
 	for {
 		phrase := promptPassword("Enter Password:")
-		if err := store.KeyStore.Unlock(phrase); err != nil {
-			fmt.Printf(err.Error())
-		} else {
-			printGreeting()
+		if checkPassword(store, phrase) == nil {
 			break
 		}
 	}
