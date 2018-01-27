@@ -23,7 +23,12 @@ type Client struct {
 
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	cl := services.NewApplication(cli.Config)
-	services.Authenticate(cl.Store)
+	pwdParam := c.String("password")
+	if len(pwdParam) != 0 {
+		services.AuthenticateWithPwd(cl.Store, pwdParam)
+	} else {
+		services.Authenticate(cl.Store)
+	}
 	r := web.Router(cl)
 
 	if err := cl.Start(); err != nil {

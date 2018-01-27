@@ -29,8 +29,14 @@ func main() {
 		{
 			Name:    "node",
 			Aliases: []string{"n"},
-			Usage:   "Run the chainlink node",
-			Action:  client.RunNode,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "password for the node's account",
+				},
+			},
+			Usage:  "Run the chainlink node",
+			Action: client.RunNode,
 		},
 		{
 			Name:    "jobs",
