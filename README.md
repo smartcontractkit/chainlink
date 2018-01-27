@@ -13,14 +13,14 @@ $ mkdir ~/go && cd ~/go
 Set environment variables
 
 ```bash
-$ export GOPATH=`pwd`
-$ export PATH=$PATH:$(go env GOPATH)/bin
+$ export GOPATH=$(pwd)
+$ export PATH=$PATH:$GOPATH/bin
 ```
 
 ### Create Project Directories
 
 ```bash
-$ cd $(go env GOPATH)
+$ cd $GOPATH
 $ mkdir -p src/github.com/smartcontractkit
 $ cd src/github.com/smartcontractkit
 ```
@@ -63,7 +63,7 @@ $ ./chainlink
 ### Testing
 
 ```bash
-$ cd $(go env GOPATH)/src/github.com/smartcontractkit/chainlink
+$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
 $ go test ./...
 ```
 
@@ -73,8 +73,9 @@ We use [direnv](https://github.com/direnv/direnv/) to set up PATH and aliases
 for a friendlier developer experience. Here is an example `.envrc` that we use:
 
 ```bash
-$ PATH_add tmp
-$ PATH_add solidity/node_modules/.bin
+$ cat .envrc
+PATH_add tmp
+PATH_add solidity/node_modules/.bin
 ```
 
 Direnv can be installed by running
@@ -83,7 +84,7 @@ Direnv can be installed by running
 $ go get -u github.com/direnv/direnv
 ```
 
-Environment variables, along with their default values that can be used:
+Environment variables that can be set in .envrc, along with default values that get used if no corresponding enviornment variable is found:
 
     ROOT                     Default: ~/.chainlink
     USERNAME                 Default: chainlink
@@ -98,6 +99,8 @@ Environment variables, along with their default values that can be used:
     ETH_GAS_PRICE_DEFAULT    Default: 20000000000
 
 ### Solidity Development setup
+
+Before proceeding, make sure you have installed [yarn](https://yarnpkg.com/lang/en/docs/install)
 
 ```bash
 $ cd solidity
