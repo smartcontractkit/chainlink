@@ -20,12 +20,12 @@ func TestCreateCustomTaskType(t *testing.T) {
 		"application/json",
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_task_type.json")),
 	)
-	assert.Equal(t, 200, resp.StatusCode)
+	cltest.CheckStatusCode(t, resp, 200)
 	ttID := cltest.JobJSONFromResponse(resp.Body).ID
 
 	tt := &models.CustomTaskType{}
 	assert.Nil(t, app.Store.One("ID", ttID, tt))
 	assert.Equal(t, ttID, tt.ID)
-	assert.Equal(t, "randomNumber", tt.Name)
-	assert.Equal(t, "http://localhost:8080/randomNumber", tt.URL.String())
+	assert.Equal(t, "randomnumber", tt.Name)
+	assert.Equal(t, "https://example.lvh.me/randomNumber", tt.URL.String())
 }

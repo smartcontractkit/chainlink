@@ -277,14 +277,13 @@ func ObserveLogs() *observer.ObservedLogs {
 }
 
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *models.Job {
-	jsonStr := LoadJSON(path)
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
-		bytes.NewBuffer(jsonStr),
+		bytes.NewBuffer(LoadJSON(path)),
 	)
 	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
+	CheckStatusCode(t, resp, 200)
 	j, err := app.Store.FindJob(JobJSONFromResponse(resp.Body).ID)
 	assert.Nil(t, err)
 
@@ -295,7 +294,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
+	CheckStatusCode(t, resp, 200)
 	jrID := JobJSONFromResponse(resp.Body).ID
 
 	jrs := []*models.JobRun{}
@@ -319,6 +318,16 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 		EmptyRunner{},
 	}
 	return client, r
+}
+
+func CheckStatusCode(t *testing.T, resp *http.Response, expected int) {
+	assert.Equal(t, expected, resp.StatusCode)
+	if resp.StatusCode != expected {
+		buf, err := ioutil.ReadAll(resp.Body)
+		assert.Nil(t, err)
+		resp.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+		fmt.Printf("\n\nERROR unexpected HTML Response: %v\n\n", string(buf))
+	}
 }
 
 func WaitForJobRunToComplete(

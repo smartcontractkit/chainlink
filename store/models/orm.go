@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"path"
 	"reflect"
+	"strings"
 
 	"github.com/asdine/storm"
 	"github.com/ethereum/go-ethereum/common"
@@ -176,6 +177,6 @@ func (orm *ORM) AddAttempt(
 
 func (orm *ORM) CustomTaskTypeFor(name string) (*CustomTaskType, error) {
 	tt := &CustomTaskType{}
-	err := orm.One("Name", name, tt)
+	err := orm.One("Name", strings.ToLower(name), tt)
 	return tt, err
 }
