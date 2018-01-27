@@ -13,6 +13,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
+	app.Version = "0.2.0"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
