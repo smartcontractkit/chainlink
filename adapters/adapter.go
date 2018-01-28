@@ -43,7 +43,6 @@ func For(task models.Task) (ac Adapter, err error) {
 	return ac, err
 }
 
-// Returns the error if an unsupported adapter type was given
 func unmarshalOrEmpty(params json.RawMessage, dst interface{}) error {
 	if len(params) > 0 {
 		return json.Unmarshal(params, dst)
@@ -64,7 +63,6 @@ func Validate(job *models.Job) error {
 	return err
 }
 
-// Returns the error for a given task if present
 func validateTask(task models.Task) error {
 	_, err := For(task)
 	return err
