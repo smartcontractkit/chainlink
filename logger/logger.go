@@ -30,9 +30,9 @@ func NewLogger(zl *zap.Logger) *Logger {
 	return &Logger{zl.Sugar()}
 }
 
-func NewLoggerFromDir(dir string) *Logger {
+func newLoggerForDir(dir string) *Logger {
 	config := generateConfig(dir)
-	zl, err := config.Build()
+	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,13 +47,14 @@ func SetLogger(l *Logger) {
 }
 
 func SetLoggerDir(dir string) {
-	SetLogger(NewLoggerFromDir(dir))
+	SetLogger(newLoggerForDir(dir))
 }
 
 func generateConfig(dir string) zap.Config {
 	config := zap.NewProductionConfig()
 	destination := path.Join(dir, "log.jsonl")
-	config.OutputPaths = []string{"stdout", destination}
+	config.OutputPaths = []string{"stderr", destination}
+	config.ErrorOutputPaths = []string{"stderr", destination}
 	return config
 }
 
