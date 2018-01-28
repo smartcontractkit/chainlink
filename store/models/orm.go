@@ -175,8 +175,8 @@ func (orm *ORM) AddAttempt(
 	return attempt, dbtx.Commit()
 }
 
-func (orm *ORM) CustomTaskTypeFor(name string) (*CustomTaskType, error) {
-	tt := &CustomTaskType{}
+func (orm *ORM) BridgeTypeFor(name string) (*BridgeType, error) {
+	tt := &BridgeType{}
 	err := orm.One("Name", strings.ToLower(name), tt)
 	return tt, err
 }

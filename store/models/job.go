@@ -147,28 +147,28 @@ func (t Task) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.Params)
 }
 
-type CustomTaskType struct {
+type BridgeType struct {
 	ID   string `json:"id" storm:"id,index,unique"`
 	Name string `json:"name"`
 	URL  WebURL `json:"url"`
 }
 
-func NewCustomTaskType() *CustomTaskType {
-	return &CustomTaskType{
+func NewBridgeType() *BridgeType {
+	return &BridgeType{
 		ID: uuid.NewV4().String(),
 	}
 }
 
-func (t *CustomTaskType) UnmarshalJSON(input []byte) error {
-	type Alias CustomTaskType
+func (bt *BridgeType) UnmarshalJSON(input []byte) error {
+	type Alias BridgeType
 	var aux Alias
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
 	}
-	t.Name = strings.ToLower(aux.Name)
-	t.URL = aux.URL
+	bt.Name = strings.ToLower(aux.Name)
+	bt.URL = aux.URL
 	if aux.ID != "" {
-		t.ID = aux.ID
+		bt.ID = aux.ID
 	}
 	return nil
 }

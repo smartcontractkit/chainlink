@@ -29,23 +29,23 @@ func TestAdapterFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.NewCustomTaskType()
-	tt.Name = "rideShare"
+	bt := models.NewBridgeType()
+	bt.Name = "rideShare"
 	u, err := url.Parse("https://dUber.eth")
 	assert.Nil(t, err)
-	tt.URL = models.WebURL{u}
-	assert.Nil(t, store.Save(tt))
+	bt.URL = models.WebURL{u}
+	assert.Nil(t, store.Save(bt))
 
 	cases := []struct {
-		taskType string
-		want     string
-		errored  bool
+		bridgeName string
+		want       string
+		errored    bool
 	}{
 		{"NoOp", "*adapters.NoOp", false},
 		{"EthTx", "*adapters.EthTx", false},
 		{"nonExistent", "<nil>", true},
-		{tt.Name, "*adapters.ExternalBridge", false},
-		{strings.ToLower(tt.Name), "*adapters.ExternalBridge", false},
+		{bt.Name, "*adapters.Bridge", false},
+		{strings.ToLower(bt.Name), "*adapters.Bridge", false},
 	}
 
 	for _, test := range cases {
@@ -53,7 +53,7 @@ func TestAdapterFor(t *testing.T) {
 			raw := json.RawMessage{}
 			assert.Nil(t, json.Unmarshal([]byte(`{}`), &raw))
 			task := models.Task{
-				Type:   test.taskType,
+				Type:   test.bridgeName,
 				Params: raw,
 			}
 			adapter, err := adapters.For(task, store)

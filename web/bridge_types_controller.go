@@ -6,22 +6,22 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-type CustomTaskTypesController struct {
+type BridgeTypesController struct {
 	App services.Application
 }
 
-func (ttc *CustomTaskTypesController) Create(c *gin.Context) {
-	tt := models.NewCustomTaskType()
+func (btc *BridgeTypesController) Create(c *gin.Context) {
+	bt := models.NewBridgeType()
 
-	if err := c.ShouldBindJSON(tt); err != nil {
+	if err := c.ShouldBindJSON(bt); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = ttc.App.GetStore().Save(tt); err != nil {
+	} else if err = btc.App.GetStore().Save(bt); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, gin.H{"id": tt.ID})
+		c.JSON(200, gin.H{"id": bt.ID})
 	}
 }

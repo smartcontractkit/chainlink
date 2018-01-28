@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateCustomTaskType(t *testing.T) {
+func TestCreateBridgeType(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -21,11 +21,11 @@ func TestCreateCustomTaskType(t *testing.T) {
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_task_type.json")),
 	)
 	cltest.CheckStatusCode(t, resp, 200)
-	ttID := cltest.JobJSONFromResponse(resp.Body).ID
+	btID := cltest.JobJSONFromResponse(resp.Body).ID
 
-	tt := &models.CustomTaskType{}
-	assert.Nil(t, app.Store.One("ID", ttID, tt))
-	assert.Equal(t, ttID, tt.ID)
-	assert.Equal(t, "randomnumber", tt.Name)
-	assert.Equal(t, "https://example.com/randomNumber", tt.URL.String())
+	bt := &models.BridgeType{}
+	assert.Nil(t, app.Store.One("ID", btID, bt))
+	assert.Equal(t, btID, bt.ID)
+	assert.Equal(t, "randomnumber", bt.Name)
+	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 }
