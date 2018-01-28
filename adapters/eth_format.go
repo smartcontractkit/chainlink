@@ -6,10 +6,17 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// EthBytes32 holds no fields
 type EthBytes32 struct{}
 
 const maxBytes32HexLength = 32 * 2
 
+// Perform returns the hex value of a given string so that it
+// is in the proper format to be written to the blockchain.
+//
+// For example, after converting the string "16800.00" to hex for
+// the blockchain, it would be:
+// "31363830302e3030000000000000000000000000000000000000000000000000"
 func (eba *EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	value := common.RightPadBytes([]byte(input.Value()), 32)
 	hex := removeHexPrefix(common.ToHex(value))
