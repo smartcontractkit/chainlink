@@ -8,10 +8,20 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// JsonParse holds the path to the desired field in a JSON object
 type JsonParse struct {
 	Path []string `json:"path"`
 }
 
+// Perform returns the value associated to the desired field for a
+// given JSON object.
+//
+// For example, if the JSON data looks like this:
+//   {
+//     "last": "1400"
+//   }
+//
+// Then "last" would be the path, and "1400" would be the returned value
 func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	js, err := simplejson.NewJson([]byte(input.Value()))
 	if err != nil {

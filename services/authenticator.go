@@ -11,6 +11,10 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// Authenticate checks to see if there are accounts present in
+// the KeyStore, if there are none, a new account will be created
+// by providing a password. If there are accounts present, the
+// account which is unlocked by the given password will be used.
 func Authenticate(store *store.Store) {
 	if store.KeyStore.HasAccounts() {
 		checkPassword(store)

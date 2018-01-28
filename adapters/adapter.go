@@ -1,3 +1,4 @@
+// Package adapters contains the core adapters used by the ChainLink node.
 package adapters
 
 import (
@@ -9,10 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// The Adapter interface applies to all core adapters.
+// Each implementation must return a RunResult.
 type Adapter interface {
 	Perform(models.RunResult, *store.Store) models.RunResult
 }
 
+// For determines the adapter type to use for a given task
 func For(task models.Task) (ac Adapter, err error) {
 	switch strings.ToLower(task.Type) {
 	case "httpget":
@@ -46,6 +50,7 @@ func unmarshalOrEmpty(params json.RawMessage, dst interface{}) error {
 	return nil
 }
 
+// Validate that there were no errors in any of the tasks of a job
 func Validate(job *models.Job) error {
 	var err error
 	for _, task := range job.Tasks {

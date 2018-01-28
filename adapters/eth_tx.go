@@ -9,11 +9,16 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+// EthTx holds the Address to send the result to and the FunctionID
+// to execute.
 type EthTx struct {
 	Address    common.Address    `json:"address"`
 	FunctionID models.FunctionID `json:"functionId"`
 }
 
+// Perform creates the run result for the transaction if the existing run result
+// is not currently pending. Then it confirms the transaction was confirmed on
+// the blockchain.
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !input.Pending {
 		return createTxRunResult(etx, input, store)
