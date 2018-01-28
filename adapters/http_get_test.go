@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Gives a non-URL and returns an error
 func TestHttpGetNotAUrlError(t *testing.T) {
 	t.Parallel()
 	u, err := url.Parse("NotAUrl")
@@ -23,7 +22,6 @@ func TestHttpGetNotAUrlError(t *testing.T) {
 	assert.NotNil(t, result.Error)
 }
 
-// Gives a valid URL that does not respond and returns an error
 func TestHttpGetResponseError(t *testing.T) {
 	defer gock.Off()
 	u, err := url.Parse(`https://example.com/api`)

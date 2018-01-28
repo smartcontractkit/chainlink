@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Creates a basic 'NoOp' adapter type and ensures no errors were present
 func TestCreatingAdapterWithConfig(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
