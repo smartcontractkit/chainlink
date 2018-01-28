@@ -108,13 +108,13 @@ func TestCreatingTx(t *testing.T) {
 	assert.Equal(t, gasLimit, tx.GasLimit)
 }
 
-func TestCustomTaskTypeFor(t *testing.T) {
+func TestBridgeTypeFor(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.NewCustomTaskType()
+	tt := models.NewBridgeType()
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)
@@ -124,17 +124,17 @@ func TestCustomTaskTypeFor(t *testing.T) {
 	cases := []struct {
 		description string
 		name        string
-		want        *models.CustomTaskType
+		want        *models.BridgeType
 		errored     bool
 	}{
 		{"actual external adapter", tt.Name, tt, false},
-		{"core adapter", "ethtx", &models.CustomTaskType{}, true},
-		{"non-existent adapter", "nonExistent", &models.CustomTaskType{}, true},
+		{"core adapter", "ethtx", &models.BridgeType{}, true},
+		{"non-existent adapter", "nonExistent", &models.BridgeType{}, true},
 	}
 
 	for _, test := range cases {
 		t.Run(test.description, func(t *testing.T) {
-			tt, err := store.CustomTaskTypeFor(test.name)
+			tt, err := store.BridgeTypeFor(test.name)
 			assert.Equal(t, test.want, tt)
 			assert.Equal(t, test.errored, err != nil)
 		})

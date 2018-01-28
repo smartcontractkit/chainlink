@@ -37,10 +37,10 @@ func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 		ac = &NoOpPend{}
 		err = unmarshalOrEmpty(task.Params, ac)
 	default:
-		if tt, err := store.CustomTaskTypeFor(task.Type); err != nil {
+		if bt, err := store.BridgeTypeFor(task.Type); err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		} else {
-			ac = &ExternalBridge{tt}
+			ac = &Bridge{bt}
 		}
 	}
 	return ac, err

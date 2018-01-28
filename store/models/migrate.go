@@ -10,7 +10,7 @@ func (orm ORM) migrate() {
 	orm.initializeModel(&Initiator{})
 	orm.initializeModel(&Tx{})
 	orm.initializeModel(&TxAttempt{})
-	orm.initializeModel(&CustomTaskType{})
+	orm.initializeModel(&BridgeType{})
 }
 
 func (orm ORM) initializeModel(klass interface{}) {

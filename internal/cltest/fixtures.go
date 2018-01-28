@@ -76,13 +76,13 @@ func NewEthAddress() common.Address {
 	return common.BytesToAddress(b)
 }
 
-func NewCustomTaskType() *models.CustomTaskType {
-	tt := &models.CustomTaskType{}
-	tt.Name = "fixtureCustomTaskType"
+func NewBridgeType() *models.BridgeType {
+	bt := &models.BridgeType{}
+	bt.Name = "fixtureBridgeType"
 	u, err := url.Parse("https://d.example.eth")
 	if err != nil {
 		panic(err)
 	}
-	tt.URL = models.WebURL{u}
-	return tt
+	bt.URL = models.WebURL{u}
+	return bt
 }

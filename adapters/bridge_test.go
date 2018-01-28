@@ -12,7 +12,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestExternalBridgeAdapterPerform(t *testing.T) {
+func TestBridgeAdapterPerform(t *testing.T) {
 	nilString := cltest.NullString(nil)
 	cases := []struct {
 		name     string
@@ -28,12 +28,12 @@ func TestExternalBridgeAdapterPerform(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	tt := models.NewCustomTaskType()
+	tt := models.NewBridgeType()
 	tt.Name = "auctionBidding"
 	u, err := url.Parse("https://dbay.eth/api")
 	assert.Nil(t, err)
 	tt.URL = models.WebURL{u}
-	eb := &adapters.ExternalBridge{tt}
+	eb := &adapters.Bridge{tt}
 	input := models.RunResultWithValue("lot 49")
 
 	for _, test := range cases {

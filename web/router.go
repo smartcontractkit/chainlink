@@ -29,7 +29,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		v2.GET("/jobs/:ID/runs", jr.Index)
 		v2.POST("/jobs/:JobID/runs", jr.Create)
 
-		tt := CustomTaskTypesController{app}
+		tt := BridgeTypesController{app}
 		v2.POST("/task_types", tt.Create)
 	}
 
