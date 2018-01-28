@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -185,4 +186,37 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 	clock.SetTime(startAt)
 
 	cltest.CreateJobRunViaWeb(t, app, j)
+}
+
+func TestCreateJobExternalAdapterIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	eaValue := "87698118359"
+	eaResponse := fmt.Sprintf(`{"value": "%v"}`, eaValue)
+	gock.New("https://example.com").
+		Post("/randomNumber").
+		Reply(200).
+		JSON(eaResponse)
+
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/task_types",
+		"application/json",
+		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_task_type.json")),
+	)
+	assert.Equal(t, 200, resp.StatusCode)
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/ea_random_number_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, "randomnumber", tr.Task.Type)
+	assert.Equal(t, eaValue, tr.Result.Value())
+	assert.Equal(t, eaValue, jr.Result.Value())
 }
