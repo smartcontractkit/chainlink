@@ -11,10 +11,15 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// Bridge adapter is responsible for connecting the task pipeline to external
+// adapters, allowing for custom computations to be executed and included in runs.
 type Bridge struct {
 	*models.BridgeType
 }
 
+// Perform sends a POST request containing the JSON of the input RunResult to
+// the external adapter specified in the BridgeType. Perform exits early if and
+// returns an errored RunResult if any errors are encountered during execution.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	in, err := json.Marshal(&input)
 	if err != nil {
