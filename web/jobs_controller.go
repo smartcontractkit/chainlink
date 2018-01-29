@@ -10,7 +10,7 @@ import (
 )
 
 type JobsController struct {
-	App *services.Application
+	App *services.ChainlinkApplication
 }
 
 func (jrc *JobsController) Index(c *gin.Context) {

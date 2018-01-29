@@ -6,11 +6,28 @@ import (
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 )
+
+func TestRunNode(t *testing.T) {
+	tc, cleanup := cltest.NewConfig()
+	defer cleanup()
+	r := &cltest.RendererMock{}
+	var called bool
+	auth := cltest.CallbackAuthenticator{func(*store.Store, string) { called = true }}
+	client := cmd.Client{r, tc.Config, cltest.EmptyAppFactory{}, auth, cltest.EmptyRunner{}}
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{""})
+	c := cli.NewContext(nil, set, nil)
+
+	client.RunNode(c)
+	assert.True(t, called)
+}
 
 func TestClientGetJobs(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
@@ -21,8 +38,7 @@ func TestClientGetJobs(t *testing.T) {
 	j2 := cltest.NewJob()
 	app.Store.SaveJob(j2)
 
-	r := &cltest.RendererMock{}
-	client := cmd.Client{r, app.Store.Config}
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
 	assert.Nil(t, client.GetJobs(nil))
 	jobs := *r.Renders[0].(*[]models.Job)
@@ -36,8 +52,7 @@ func TestClientShowJob(t *testing.T) {
 	job := cltest.NewJob()
 	app.Store.SaveJob(job)
 
-	r := &cltest.RendererMock{}
-	client := cmd.Client{r, app.Store.Config}
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
@@ -51,8 +66,7 @@ func TestClientShowJobNotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	r := &cltest.RendererMock{}
-	client := cmd.Client{r, app.Store.Config}
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 )
 
@@ -169,5 +170,39 @@ type RendererMock struct {
 
 func (rm *RendererMock) Render(v interface{}) error {
 	rm.Renders = append(rm.Renders, v)
+	return nil
+}
+
+type EmptyAppFactory struct{}
+
+func (f EmptyAppFactory) NewApplication(config store.Config) services.Application {
+	return &EmptyApplication{}
+}
+
+type EmptyApplication struct{}
+
+func (a *EmptyApplication) Start() error {
+	return nil
+}
+
+func (a *EmptyApplication) Stop() error {
+	return nil
+}
+
+func (a *EmptyApplication) GetStore() *store.Store {
+	return nil
+}
+
+type CallbackAuthenticator struct {
+	Callback func(*store.Store, string)
+}
+
+func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) {
+	a.Callback(store, pwd)
+}
+
+type EmptyRunner struct{}
+
+func (r EmptyRunner) Run(app services.Application) error {
 	return nil
 }
