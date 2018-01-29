@@ -198,7 +198,8 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 	app.Start()
 
 	eaValue := "87698118359"
-	eaResponse := fmt.Sprintf(`{"value": "%v"}`, eaValue)
+	eaExtra := "other values to be used by external adapters"
+	eaResponse := fmt.Sprintf(`{"output":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
 	gock.New("https://example.com").
 		Post("/randomNumber").
 		Reply(200).
@@ -218,5 +219,6 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
 	assert.Equal(t, eaValue, tr.Result.Value())
+	assert.Equal(t, eaExtra, tr.Result.Output["extra"].String)
 	assert.Equal(t, eaValue, jr.Result.Value())
 }
