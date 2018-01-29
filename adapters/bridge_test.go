@@ -1,7 +1,6 @@
 package adapters_test
 
 import (
-	"net/url"
 	"testing"
 
 	gock "github.com/h2non/gock"
@@ -29,12 +28,8 @@ func TestBridgeAdapterPerform(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	tt := models.NewBridgeType()
-	tt.Name = "auctionBidding"
-	u, err := url.Parse("https://dbay.eth/api")
-	assert.Nil(t, err)
-	tt.URL = models.WebURL{u}
-	eb := &adapters.Bridge{tt}
+	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
+	eb := &adapters.Bridge{bt}
 	input := models.RunResultWithValue("lot 49")
 
 	for _, test := range cases {
