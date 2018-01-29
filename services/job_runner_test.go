@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -13,19 +14,38 @@ import (
 )
 
 func TestRunningJob(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job := models.NewJob()
-	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}
+	tests := []struct {
+		name         string
+		runResult    string
+		wantedStatus string
+	}{
+		{"success", `{"output":{"value":"100"}}`, models.StatusCompleted},
+		{"errored", `{"error":"too much"}`, models.StatusErrored},
+		{"errored with a value", `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored},
+	}
 
-	run := job.NewRun()
-	services.ExecuteRun(run, store)
+	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
+	assert.Nil(t, store.Save(bt))
 
-	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.StatusCompleted, run.Status)
-	assert.Equal(t, models.StatusCompleted, run.TaskRuns[0].Status)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gock.New("https://dbay.eth").Post("/api").Reply(200).JSON(test.runResult)
+
+			job := models.NewJob()
+			job.Tasks = []models.Task{{Type: bt.Name}}
+			assert.Nil(t, store.Save(job))
+
+			run := job.NewRun()
+			services.ExecuteRun(run, store)
+
+			store.One("ID", run.ID, &run)
+			assert.Equal(t, test.wantedStatus, run.TaskRuns[0].Status)
+			assert.Equal(t, test.wantedStatus, run.Status)
+		})
+	}
 }
 
 func TestJobTransitionToPending(t *testing.T) {
