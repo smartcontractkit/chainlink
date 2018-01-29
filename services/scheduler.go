@@ -11,6 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// Scheduler contains fields for Recurring and OneTime for occurrences,
+// a pointer to the store and a started field to indicate if the Scheduler
+// has started or not.
 type Scheduler struct {
 	Recurring *Recurring
 	OneTime   *OneTime
@@ -18,6 +21,8 @@ type Scheduler struct {
 	started   bool
 }
 
+// NewScheduler initializes the Scheduler instances with both Recurring
+// and OneTime fields since jobs can contain tasks which utilize both.
 func NewScheduler(store *store.Store) *Scheduler {
 	return &Scheduler{
 		Recurring: &Recurring{store: store},
@@ -29,6 +34,10 @@ func NewScheduler(store *store.Store) *Scheduler {
 	}
 }
 
+// Start checks to ensure the Scheduler has not already started,
+// calls the Start function for both Recurring and OneTime types,
+// sets the started field to true, and adds jobs relevant to its
+// initiator ("cron" and "runat").
 func (s *Scheduler) Start() error {
 	if s.started {
 		return errors.New("Scheduler already started")
@@ -53,6 +62,8 @@ func (s *Scheduler) Start() error {
 	return nil
 }
 
+// Stop is the governing function for both Recurring and OneTime
+// Stop function. Sets the started field to false.
 func (s *Scheduler) Stop() {
 	if s.started {
 		s.Recurring.Stop()
@@ -61,6 +72,8 @@ func (s *Scheduler) Stop() {
 	}
 }
 
+// AddJob is the governing function for Recurring and OneTime,
+// and will only execute if the Scheduler has not already started.
 func (s *Scheduler) AddJob(job *models.Job) {
 	if !s.started {
 		return
@@ -69,11 +82,15 @@ func (s *Scheduler) AddJob(job *models.Job) {
 	s.OneTime.AddJob(job)
 }
 
+// Recurring is used for runs that need to execute on a schedule,
+// and is configured with cron.
 type Recurring struct {
 	cron  *cronlib.Cron
 	store *store.Store
 }
 
+// Start for Recurring types executes tasks with a "cron" initiator
+// based on the configured schedule for the run.
 func (r *Recurring) Start() error {
 	r.cron = cronlib.New()
 	r.addResumer()
@@ -81,11 +98,14 @@ func (r *Recurring) Start() error {
 	return nil
 }
 
+// Stop stops the cron scheduler and waits for running jobs to finish.
 func (r *Recurring) Stop() {
 	r.cron.Stop()
 	r.cron.Wait()
 }
 
+// AddJob looks for "cron" initiators, adds them to cron's schedule
+// for execution when specified.
 func (r *Recurring) AddJob(job *models.Job) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		cronStr := string(initr.Schedule)
@@ -112,31 +132,38 @@ func (r *Recurring) addResumer() {
 	})
 }
 
+// Afterer represents the time after a specified time.
 type Afterer interface {
 	After(d time.Duration) <-chan time.Time
 }
 
+// OneTime represents runs that are to be executed only once.
 type OneTime struct {
 	Store *store.Store
 	Clock Afterer
 	done  chan struct{}
 }
 
+// Start allocates a channel for the "done" field with an empty struct.
 func (ot *OneTime) Start() error {
 	ot.done = make(chan struct{})
 	return nil
 }
 
+// AddJob runs the job at the time specified for the "runat" initiator.
 func (ot *OneTime) AddJob(job *models.Job) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
 		go ot.RunJobAt(initr.Time, job)
 	}
 }
 
+// Stop closes the "done" field's channel.
 func (ot *OneTime) Stop() {
 	close(ot.done)
 }
 
+// RunJobAt wait until the Stop() function has been called on the run
+// or the specified time for the run is after the present time.
 func (ot *OneTime) RunJobAt(t models.Time, job *models.Job) {
 	select {
 	case <-ot.done:
