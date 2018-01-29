@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// BeginRun creates a new run if the job is valid and starts the job.
 func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
@@ -17,6 +18,8 @@ func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	return run, ExecuteRun(run, store)
 }
 
+// BuildRun checks to ensure the given job has not started or ended before
+// creating a new run for the job.
 func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
@@ -32,6 +35,9 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 	return job.NewRun(), nil
 }
 
+// ExecuteRun starts the job and executes task runs within that job in the
+// order defined in the run for as long as they do not return errors. Results
+// are saved in the store (db).
 func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {

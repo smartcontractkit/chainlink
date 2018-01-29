@@ -1,5 +1,3 @@
-// Package services contains the key components of the ChainLink
-// node.
 package services
 
 import (
@@ -31,8 +29,7 @@ func NewApplication(config store.Config) *Application {
 	}
 }
 
-// Start runs the Store, LogListener, and Scheduler. If successful,
-// nil will be returned.
+// Start runs the Store, LogListener, and Scheduler.
 func (app *Application) Start() error {
 	app.Store.Start()
 	app.LogListener.Start()
