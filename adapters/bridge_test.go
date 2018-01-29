@@ -21,8 +21,9 @@ func TestBridgeAdapterPerform(t *testing.T) {
 		errored  bool
 		response string
 	}{
-		{"success", 200, cltest.NullString("purchased"), false, `{"value": "purchased"}`},
-		{"server error", 500, nilString, true, `{"errors": "too many"}`},
+		{"success", 200, cltest.NullString("purchased"), false, `{"output":{"value": "purchased"}}`},
+		{"run error", 200, nilString, true, `{"error": "too many errors", "output": {}}`},
+		{"server error", 500, nilString, true, `big error`},
 		{"JSON parse error", 200, nilString, true, `}`},
 	}
 

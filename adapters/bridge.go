@@ -33,12 +33,12 @@ func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResu
 		return baRunResultError("reading response body", err)
 	}
 
-	output := models.Output{}
-	err = json.Unmarshal(b, &output)
+	rr := models.RunResult{}
+	err = json.Unmarshal(b, &rr)
 	if err != nil {
 		return baRunResultError("unmarshaling JSON", err)
 	}
-	return models.RunResult{Output: output}
+	return rr
 }
 
 func baRunResultError(str string, err error) models.RunResult {
