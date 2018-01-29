@@ -36,6 +36,8 @@ func TestBridgeAdapterPerform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			gock.New("https://dbay.eth").
 				Post("/api").
+				MatchType("json").
+				JSON(map[string]string{"value": "lot 49"}).
 				Reply(test.status).
 				JSON(test.response)
 			defer cltest.CloseGock(t)

@@ -16,7 +16,12 @@ type Bridge struct {
 }
 
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	resp, err := http.Post(ba.URL.String(), "application/json", &bytes.Buffer{})
+	in, err := json.Marshal(&input)
+	if err != nil {
+		return baRunResultError("marshaling request body", err)
+	}
+
+	resp, err := http.Post(ba.URL.String(), "application/json", bytes.NewBuffer(in))
 	if err != nil {
 		return baRunResultError("POST request", err)
 	}
