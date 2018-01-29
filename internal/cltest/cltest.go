@@ -22,6 +22,7 @@ import (
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -50,8 +51,9 @@ type TestConfig struct {
 	wsServer *httptest.Server
 }
 
-func NewConfig() *TestConfig {
-	return NewConfigWithWSServer(newWSServer())
+func NewConfig() (*TestConfig, func()) {
+	wsserver := newWSServer()
+	return NewConfigWithWSServer(wsserver), func() { wsserver.Close() }
 }
 
 func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
@@ -82,7 +84,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 }
 
 type TestApplication struct {
-	*services.Application
+	*services.ChainlinkApplication
 	Server   *httptest.Server
 	wsServer *httptest.Server
 }
@@ -105,18 +107,19 @@ func NewWSServer(msg string) *httptest.Server {
 }
 
 func NewApplication() (*TestApplication, func()) {
-	return NewApplicationWithConfig(NewConfig())
+	c, _ := NewConfig()
+	return NewApplicationWithConfig(c)
 }
 
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
-	app := services.NewApplication(tc.Config)
+	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
 	server := newServer(app)
 	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
 	ta := &TestApplication{
-		Application: app,
-		Server:      server,
-		wsServer:    tc.wsServer,
+		ChainlinkApplication: app,
+		Server:          server,
+		wsServer:        tc.wsServer,
 	}
 	return ta, func() {
 		ta.Stop()
@@ -134,12 +137,12 @@ func NewApplicationWithKeyStore() (*TestApplication, func()) {
 	return app, cleanup
 }
 
-func newServer(app *services.Application) *httptest.Server {
+func newServer(app *services.ChainlinkApplication) *httptest.Server {
 	return httptest.NewServer(web.Router(app))
 }
 
 func (ta *TestApplication) Stop() {
-	ta.Application.Stop()
+	ta.ChainlinkApplication.Stop()
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -160,7 +163,8 @@ func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 }
 
 func NewStore() (*store.Store, func()) {
-	return NewStoreWithConfig(NewConfig())
+	c, _ := NewConfig()
+	return NewStoreWithConfig(c)
 }
 
 func cleanUpStore(store *store.Store) {
@@ -302,4 +306,16 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	assert.Equal(t, j.ID, jr.JobID)
 
 	return jr
+}
+
+func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
+	r := &RendererMock{}
+	client := &cmd.Client{
+		r,
+		config,
+		EmptyAppFactory{},
+		CallbackAuthenticator{func(*store.Store, string) {}},
+		EmptyRunner{},
+	}
+	return client, r
 }

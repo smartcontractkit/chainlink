@@ -39,7 +39,7 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 func TestCreateJobIntegration(t *testing.T) {
 	RegisterTestingT(t)
 
-	config := cltest.NewConfig()
+	config, _ := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))

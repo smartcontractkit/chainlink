@@ -1,4 +1,4 @@
-package services
+package cmd
 
 import (
 	"fmt"
@@ -11,11 +11,25 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// Authenticate checks to see if there are accounts present in
-// the KeyStore, if there are none, a new account will be created
-// by providing a password. If there are accounts present, the
+type Authenticator interface {
+	Authenticate(*store.Store, string)
+}
+
+type TerminalAuthenticator struct{}
+
+func (k TerminalAuthenticator) Authenticate(store *store.Store, pwd string) {
+	if len(pwd) != 0 {
+		AuthenticateWithPwd(store, pwd)
+	} else {
+		AuthenticationPrompt(store)
+	}
+}
+
+// AuthenticationPrompt checks to see if there are accounts present in
+// the KeyStore, and if there are none, a new account will be created
+// by prompting for a password. If there are accounts present, the
 // account which is unlocked by the given password will be used.
-func Authenticate(store *store.Store) {
+func AuthenticationPrompt(store *store.Store) {
 	if store.KeyStore.HasAccounts() {
 		promptAndCheckPassword(store)
 	} else {
