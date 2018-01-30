@@ -9,10 +9,10 @@ import (
 )
 
 func main() {
-	client := cmd.Client{cmd.RendererTable{os.Stdout}, store.NewConfig()}
-
+	client := newProductionClient()
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
+	app.Version = "0.2.0"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
@@ -29,8 +29,14 @@ func main() {
 		{
 			Name:    "node",
 			Aliases: []string{"n"},
-			Usage:   "Run the chainlink node",
-			Action:  client.RunNode,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "password for the node's account",
+				},
+			},
+			Usage:  "Run the chainlink node",
+			Action: client.RunNode,
 		},
 		{
 			Name:    "jobs",
@@ -46,4 +52,14 @@ func main() {
 		},
 	}
 	app.Run(os.Args)
+}
+
+func newProductionClient() *cmd.Client {
+	return &cmd.Client{
+		cmd.RendererTable{os.Stdout},
+		store.NewConfig(),
+		cmd.NodeAppFactory{},
+		cmd.TerminalAuthenticator{},
+		cmd.NodeRunner{},
+	}
 }

@@ -12,7 +12,7 @@ import (
 )
 
 type JobRunsController struct {
-	App *services.Application
+	App *services.ChainlinkApplication
 }
 
 func (jrc *JobRunsController) Index(c *gin.Context) {
