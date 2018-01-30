@@ -59,7 +59,7 @@ func newProductionClient() *cmd.Client {
 		cmd.RendererTable{os.Stdout},
 		store.NewConfig(),
 		cmd.NodeAppFactory{},
-		cmd.TerminalAuthenticator{},
+		cmd.TerminalAuthenticator{os.Exit},
 		cmd.NodeRunner{},
 	}
 }
