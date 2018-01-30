@@ -206,13 +206,13 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 		JSON(eaResponse)
 
 	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/task_types",
+		app.Server.URL+"/v2/bridge_types",
 		"application/json",
-		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_task_type.json")),
+		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
 	)
 	assert.Equal(t, 200, resp.StatusCode)
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/ea_random_number_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToComplete(t, app, jr)
 

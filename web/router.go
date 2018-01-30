@@ -30,7 +30,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		v2.POST("/jobs/:JobID/runs", jr.Create)
 
 		tt := BridgeTypesController{app}
-		v2.POST("/task_types", tt.Create)
+		v2.POST("/bridge_types", tt.Create)
 	}
 
 	return engine
