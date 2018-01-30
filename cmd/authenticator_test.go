@@ -8,35 +8,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTerminalAuthenticatorWithCorrectPwd(t *testing.T) {
+func TestTerminalAuthenticatorWithAcctWithPwd(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	var exited bool
-	var rval int
-	auth := cmd.TerminalAuthenticator{func(i int) {
-		exited = true
-		rval = i
-	}}
 
-	auth.Authenticate(app.Store, cltest.Password)
-	assert.False(t, exited)
-}
+	tests := []struct {
+		password   string
+		wantExited bool
+		wantRval   int
+	}{
+		{cltest.Password, false, 0},
+		{"wrongpassword", true, 1},
+	}
 
-func TestTerminalAuthenticatorWithWrongPwd(t *testing.T) {
-	t.Parallel()
+	for _, test := range tests {
+		t.Run(test.password, func(t *testing.T) {
+			var exited bool
+			var rval int
+			auth := cmd.TerminalAuthenticator{func(i int) {
+				exited = true
+				rval = i
+			}}
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-	var exited bool
-	var rval int
-	auth := cmd.TerminalAuthenticator{func(i int) {
-		exited = true
-		rval = i
-	}}
-
-	auth.Authenticate(app.Store, "wrongpassword")
-	assert.True(t, exited)
-	assert.Equal(t, 1, rval)
+			auth.Authenticate(app.Store, test.password)
+			assert.Equal(t, test.wantExited, exited)
+			assert.Equal(t, test.wantRval, rval)
+		})
+	}
 }
