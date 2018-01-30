@@ -206,3 +206,14 @@ type EmptyRunner struct{}
 func (r EmptyRunner) Run(app services.Application) error {
 	return nil
 }
+
+type MockCountingPrompt struct {
+	EnteredStrings []string
+	Count          int
+}
+
+func (p *MockCountingPrompt) Prompt(string) string {
+	i := p.Count
+	p.Count++
+	return p.EnteredStrings[i]
+}
