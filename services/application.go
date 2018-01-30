@@ -8,10 +8,16 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+type Application interface {
+	Start() error
+	Stop() error
+	GetStore() *store.Store
+}
+
 // Application contains fields for the LogListener, Scheduler,
 // and Store. The LogListener and Scheduler are also available
 // in the services package, but the Store has its own package.
-type Application struct {
+type ChainlinkApplication struct {
 	LogListener *LogListener
 	Scheduler   *Scheduler
 	Store       *store.Store
@@ -21,10 +27,10 @@ type Application struct {
 // present at the configured rood directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config store.Config) *Application {
+func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	logger.SetLoggerDir(config.RootDir)
-	return &Application{
+	return &ChainlinkApplication{
 		LogListener: &LogListener{Store: store},
 		Scheduler:   NewScheduler(store),
 		Store:       store,
@@ -33,7 +39,7 @@ func NewApplication(config store.Config) *Application {
 
 // Start runs the Store, LogListener, and Scheduler. If successful,
 // nil will be returned.
-func (app *Application) Start() error {
+func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
 	app.LogListener.Start()
 	return app.Scheduler.Start()
@@ -41,7 +47,7 @@ func (app *Application) Start() error {
 
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
-func (app *Application) Stop() error {
+func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
@@ -49,10 +55,14 @@ func (app *Application) Stop() error {
 	return app.Store.Close()
 }
 
+func (app *ChainlinkApplication) GetStore() *store.Store {
+	return app.Store
+}
+
 // AddJob adds a job to the store and the scheduler. If there was
 // an error from adding the job to the store, the job will not be
 // added to the scheduler.
-func (app *Application) AddJob(job *models.Job) error {
+func (app *ChainlinkApplication) AddJob(job *models.Job) error {
 	err := app.Store.SaveJob(job)
 	if err != nil {
 		return err

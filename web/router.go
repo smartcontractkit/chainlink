@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 )
 
-func Router(app *services.Application) *gin.Engine {
+func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
 	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
