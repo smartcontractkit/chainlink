@@ -114,7 +114,7 @@ func TestBridgeTypeFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.NewBridgeType()
+	tt := &models.BridgeType{}
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)

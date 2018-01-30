@@ -18,8 +18,7 @@ type Bridge struct {
 }
 
 // Perform sends a POST request containing the JSON of the input RunResult to
-// the external adapter specified in the BridgeType. Perform exits early if and
-// returns an errored RunResult if any errors are encountered during execution.
+// the external adapter specified in the BridgeType.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	in, err := json.Marshal(&input.Output)
 	if err != nil {

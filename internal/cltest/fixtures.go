@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 	"net/url"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -77,12 +78,12 @@ func NewEthAddress() common.Address {
 }
 
 func NewBridgeType(info ...string) *models.BridgeType {
-	bt := models.NewBridgeType()
+	bt := models.BridgeType{}
 
 	if len(info) > 0 {
-		bt.Name = info[0]
+		bt.Name = strings.ToLower(info[0])
 	} else {
-		bt.Name = "defaultFixtureBridgeType"
+		bt.Name = strings.ToLower("defaultFixtureBridgeType")
 	}
 
 	if len(info) > 1 {
@@ -91,7 +92,7 @@ func NewBridgeType(info ...string) *models.BridgeType {
 		bt.URL = WebURL("https://bridge.example.com/api")
 	}
 
-	return bt
+	return &bt
 }
 
 func WebURL(unparsed string) models.WebURL {

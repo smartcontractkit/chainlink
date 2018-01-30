@@ -7,11 +7,11 @@ import (
 )
 
 type BridgeTypesController struct {
-	App services.Application
+	App *services.ChainlinkApplication
 }
 
 func (btc *BridgeTypesController) Create(c *gin.Context) {
-	bt := models.NewBridgeType()
+	bt := &models.BridgeType{}
 
 	if err := c.ShouldBindJSON(bt); err != nil {
 		c.JSON(500, gin.H{
@@ -22,6 +22,6 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, gin.H{"id": bt.ID})
+		c.JSON(200, bt)
 	}
 }

@@ -184,16 +184,17 @@ func CloseGock(t *testing.T) {
 	gock.Off()
 }
 
-type JobJSON struct {
-	ID string `json:"id"`
+type CommonJSON struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
-func JobJSONFromResponse(body io.Reader) JobJSON {
+func ParseCommonJSON(body io.Reader) CommonJSON {
 	b, err := ioutil.ReadAll(body)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var respJSON JobJSON
+	var respJSON CommonJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
 }
@@ -284,7 +285,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *mo
 	)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)
-	j, err := app.Store.FindJob(JobJSONFromResponse(resp.Body).ID)
+	j, err := app.Store.FindJob(ParseCommonJSON(resp.Body).ID)
 	assert.Nil(t, err)
 
 	return j
@@ -295,7 +296,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)
-	jrID := JobJSONFromResponse(resp.Body).ID
+	jrID := ParseCommonJSON(resp.Body).ID
 
 	jrs := []*models.JobRun{}
 	Eventually(func() []*models.JobRun {
