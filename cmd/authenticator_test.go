@@ -8,7 +8,37 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTerminalAuthenticatorWithAcctWithPwd(t *testing.T) {
+func TestTerminalAuthenticatorWithAcctNoInitialPwd(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	tests := []struct {
+		password string
+		prompts  int
+	}{
+		{cltest.Password, 1},
+		{"wrongpassword", 2},
+	}
+
+	for _, test := range tests {
+		t.Run(test.password, func(t *testing.T) {
+			var exited bool
+			prompt := &cltest.MockCountingPrompt{
+				EnteredStrings: []string{test.password, cltest.Password},
+			}
+
+			auth := cmd.TerminalAuthenticator{prompt, func(i int) { exited = true }}
+
+			auth.Authenticate(app.Store, "")
+			assert.False(t, exited)
+			assert.Equal(t, test.prompts, prompt.Count)
+		})
+	}
+}
+
+func TestTerminalAuthenticatorWithAcctAndPwd(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -27,7 +57,7 @@ func TestTerminalAuthenticatorWithAcctWithPwd(t *testing.T) {
 		t.Run(test.password, func(t *testing.T) {
 			var exited bool
 			var rval int
-			auth := cmd.TerminalAuthenticator{func(i int) {
+			auth := cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, func(i int) {
 				exited = true
 				rval = i
 			}}
