@@ -93,9 +93,9 @@ type AppFactory interface {
 	NewApplication(store.Config) services.Application
 }
 
-type NodeAppFactory struct{}
+type ChainlinkAppFactory struct{}
 
-func (n NodeAppFactory) NewApplication(config store.Config) services.Application {
+func (n ChainlinkAppFactory) NewApplication(config store.Config) services.Application {
 	return services.NewApplication(config)
 }
 
