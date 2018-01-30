@@ -6,13 +6,14 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// Application implements the common functions used in the core node.
 type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *store.Store
 }
 
-// Application contains fields for the LogListener, Scheduler,
+// ChainlinkApplication contains fields for the LogListener, Scheduler,
 // and Store. The LogListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
@@ -53,6 +54,7 @@ func (app *ChainlinkApplication) Stop() error {
 	return app.Store.Close()
 }
 
+// GetStore returns the pointer to the store for the ChainLinkApplication.
 func (app *ChainlinkApplication) GetStore() *store.Store {
 	return app.Store
 }
