@@ -24,7 +24,7 @@ type ChainlinkApplication struct {
 }
 
 // NewApplication initializes a new store if one is not already
-// present at the configured rood directory (default: ~/.chainlink),
+// present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config store.Config) Application {
