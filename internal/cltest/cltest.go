@@ -346,7 +346,9 @@ func NullString(val interface{}) null.String {
 	switch val.(type) {
 	case string:
 		return null.StringFrom(val.(string))
-	default:
+	case nil:
 		return null.NewString("", false)
+	default:
+		panic("cannot create a null string of any type other than string or nil")
 	}
 }
