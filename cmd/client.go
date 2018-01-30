@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -18,20 +17,21 @@ import (
 
 type Client struct {
 	Renderer
-	Config store.Config
+	Config     store.Config
+	AppFactory AppFactory
+	Auth       Authenticator
+	Runner     Runner
 }
 
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	cl := services.NewApplication(cli.Config)
-	services.Authenticate(cl.Store)
-	r := web.Router(cl)
+	app := cli.AppFactory.NewApplication(cli.Config)
+	cli.Auth.Authenticate(app.GetStore(), c.String("password"))
 
-	if err := cl.Start(); err != nil {
-		logger.Fatal(err)
+	if err := app.Start(); err != nil {
+		return cli.errorOut(err)
 	}
-	defer cl.Stop()
-	logger.Fatal(r.Run())
-	return nil
+	defer app.Stop()
+	return cli.errorOut(cli.Runner.Run(app))
 }
 
 func (cli *Client) ShowJob(c *clipkg.Context) error {
@@ -87,4 +87,24 @@ func (cli *Client) errorOut(err error) error {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
+}
+
+type AppFactory interface {
+	NewApplication(store.Config) services.Application
+}
+
+type NodeAppFactory struct{}
+
+func (n NodeAppFactory) NewApplication(config store.Config) services.Application {
+	return services.NewApplication(config)
+}
+
+type Runner interface {
+	Run(services.Application) error
+}
+
+type NodeRunner struct{}
+
+func (n NodeRunner) Run(app services.Application) error {
+	return web.Router(app.(*services.ChainlinkApplication)).Run()
 }
