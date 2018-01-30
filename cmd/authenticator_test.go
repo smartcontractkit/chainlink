@@ -8,6 +8,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestTerminalAuthenticatorWithNoAcctWithInitialPwd(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	var exited bool
+	var rval int
+	auth := cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, func(i int) {
+		exited = true
+		rval = i
+	}}
+
+	auth.Authenticate(app.Store, "somepassword")
+	assert.Equal(t, true, exited)
+	assert.Equal(t, 1, rval)
+}
+
 func TestTerminalAuthenticatorWithAcctNoInitialPwd(t *testing.T) {
 	t.Parallel()
 
