@@ -39,7 +39,7 @@ func TestRunningJob(t *testing.T) {
 			assert.Nil(t, store.Save(job))
 
 			run := job.NewRun()
-			services.ExecuteRun(run, store)
+			assert.Nil(t, services.ExecuteRun(run, store))
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantedStatus, run.TaskRuns[0].Status)

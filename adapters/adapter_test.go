@@ -2,7 +2,6 @@ package adapters_test
 
 import (
 	"encoding/json"
-	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -29,11 +28,7 @@ func TestAdapterFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	bt := models.NewBridgeType()
-	bt.Name = "rideShare"
-	u, err := url.Parse("https://dUber.eth")
-	assert.Nil(t, err)
-	bt.URL = models.WebURL{u}
+	bt := cltest.NewBridgeType("rideShare", "https://dUber.eth")
 	assert.Nil(t, store.Save(bt))
 
 	cases := []struct {

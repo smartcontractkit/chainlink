@@ -21,11 +21,10 @@ func TestCreateBridgeType(t *testing.T) {
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
 	)
 	cltest.CheckStatusCode(t, resp, 200)
-	btID := cltest.JobJSONFromResponse(resp.Body).ID
+	btName := cltest.ParseCommonJSON(resp.Body).Name
 
 	bt := &models.BridgeType{}
-	assert.Nil(t, app.Store.One("ID", btID, bt))
-	assert.Equal(t, btID, bt.ID)
+	assert.Nil(t, app.Store.One("Name", btName, bt))
 	assert.Equal(t, "randomnumber", bt.Name)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 }
