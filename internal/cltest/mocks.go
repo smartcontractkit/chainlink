@@ -3,12 +3,18 @@ package cltest
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/stretchr/testify/assert"
 )
 
 func (ta *TestApplication) MockEthClient() *EthMock {
@@ -216,4 +222,26 @@ func (p *MockCountingPrompt) Prompt(string) string {
 	i := p.Count
 	p.Count++
 	return p.EnteredStrings[i]
+}
+
+func NewHTTPMockServer(
+	t *testing.T,
+	status int,
+	want string,
+	response string,
+) (*httptest.Server, func()) {
+	called := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := ioutil.ReadAll(r.Body)
+		assert.Nil(t, err)
+		assert.Equal(t, want, string(b))
+		called = true
+
+		w.WriteHeader(status)
+		io.WriteString(w, response)
+	})
+
+	return httptest.NewServer(handler), func() {
+		assert.True(t, called)
+	}
 }

@@ -21,7 +21,7 @@ type Bridge struct {
 // the external adapter specified in the BridgeType. Perform exits early if and
 // returns an errored RunResult if any errors are encountered during execution.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	in, err := json.Marshal(&input)
+	in, err := json.Marshal(&input.Output)
 	if err != nil {
 		return baRunResultError("marshaling request body", err)
 	}
