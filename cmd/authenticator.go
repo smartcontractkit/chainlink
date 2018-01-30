@@ -15,21 +15,23 @@ type Authenticator interface {
 	Authenticate(*store.Store, string)
 }
 
-type TerminalAuthenticator struct{}
-
-func (k TerminalAuthenticator) Authenticate(store *store.Store, pwd string) {
-	if len(pwd) != 0 {
-		AuthenticateWithPwd(store, pwd)
-	} else {
-		AuthenticationPrompt(store)
-	}
+type TerminalAuthenticator struct {
+	Exiter func(int)
 }
 
-// AuthenticationPrompt checks to see if there are accounts present in
+// Authenticate checks to see if there are accounts present in
 // the KeyStore, and if there are none, a new account will be created
 // by prompting for a password. If there are accounts present, the
 // account which is unlocked by the given password will be used.
-func AuthenticationPrompt(store *store.Store) {
+func (k TerminalAuthenticator) Authenticate(store *store.Store, pwd string) {
+	if len(pwd) != 0 {
+		k.authenticateWithPwd(store, pwd)
+	} else {
+		k.authenticationPrompt(store)
+	}
+}
+
+func (k TerminalAuthenticator) authenticationPrompt(store *store.Store) {
 	if store.KeyStore.HasAccounts() {
 		promptAndCheckPassword(store)
 	} else {
@@ -37,12 +39,12 @@ func AuthenticationPrompt(store *store.Store) {
 	}
 }
 
-func AuthenticateWithPwd(store *store.Store, pwd string) {
+func (k TerminalAuthenticator) authenticateWithPwd(store *store.Store, pwd string) {
 	if !store.KeyStore.HasAccounts() {
 		fmt.Println("Cannot authenticate with password because there are no accounts")
-		os.Exit(1)
+		k.Exiter(1)
 	} else if err := checkPassword(store, pwd); err != nil {
-		os.Exit(1)
+		k.Exiter(1)
 	}
 }
 
@@ -67,7 +69,7 @@ func promptAndCheckPassword(store *store.Store) {
 
 func createAccount(store *store.Store) {
 	for {
-		phrase := promptPassword("New Password:")
+		phrase := promptPassword("New Password: ")
 		phraseConfirmation := promptPassword("Confirm Password: ")
 		if phrase == phraseConfirmation {
 			_, err := store.KeyStore.NewAccount(phrase)
