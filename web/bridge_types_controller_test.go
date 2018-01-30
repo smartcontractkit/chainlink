@@ -16,9 +16,9 @@ func TestCreateBridgeType(t *testing.T) {
 	defer cleanup()
 
 	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/task_types",
+		app.Server.URL+"/v2/bridge_types",
 		"application/json",
-		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_task_type.json")),
+		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
 	)
 	cltest.CheckStatusCode(t, resp, 200)
 	btID := cltest.JobJSONFromResponse(resp.Body).ID
