@@ -10,11 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// LogListener contains fields for the pointer of the store and
+// a channel to the EventLog (as the field 'logs').
 type LogListener struct {
 	Store *store.Store
 	logs  chan store.EventLog
 }
 
+// Start obtains the jobs from the store and begins execution
+// of the jobs' given runs.
 func (ll *LogListener) Start() error {
 	jobs, err := ll.Store.Jobs()
 	if err != nil {
@@ -29,6 +33,7 @@ func (ll *LogListener) Start() error {
 	return nil
 }
 
+// Stop gracefully closes its access to the store's EventLog.
 func (ll *LogListener) Stop() error {
 	if ll.logs != nil {
 		close(ll.logs)
@@ -36,6 +41,8 @@ func (ll *LogListener) Stop() error {
 	return nil
 }
 
+// AddJob looks for "ethlog" Initiators for a given job and watches
+// the Ethereum blockchain for the addresses in the job.
 func (ll *LogListener) AddJob(job *models.Job) error {
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
 		address := initr.Address.String()

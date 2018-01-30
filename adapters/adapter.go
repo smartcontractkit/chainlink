@@ -1,4 +1,3 @@
-// Package adapters contains the core adapters used by the ChainLink node.
 package adapters
 
 import (
