@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -33,12 +34,16 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		cli.Config.LogLevel = store.LogLevel{zapcore.DebugLevel}
 	}
 	app := cli.AppFactory.NewApplication(cli.Config)
-	cli.Auth.Authenticate(app.GetStore(), c.String("password"))
-
+	store := app.GetStore()
+	cli.Auth.Authenticate(store, c.String("password"))
 	if err := app.Start(); err != nil {
 		return cli.errorOut(err)
 	}
 	defer app.Stop()
+	if c.Bool("debug") {
+		displayString := store.KeyStore.ShowEthBalance(store.TxManager)
+		logger.Infow(displayString)
+	}
 	return cli.errorOut(cli.Runner.Run(app))
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
+	"math/big"
 )
 
 // EthClient holds the CallerSubscriber interface for the Ethereum blockchain.
@@ -25,12 +26,31 @@ type CallerSubscriber interface {
 
 // GetNonce returns the nonce (transaction count) for a given address.
 func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
-	var result string
+	result := ""
 	err := eth.Call(&result, "eth_getTransactionCount", address.Hex())
 	if err != nil {
 		return 0, err
 	}
 	return utils.HexToUint64(result)
+}
+
+func (eth *EthClient) GetWeiBalance(address common.Address) (*big.Int, error) {
+	result := ""
+	numWeiBigInt := new(big.Int)
+	err := eth.Call(&result, "eth_getBalance", address.Hex(), "latest")
+	if err != nil {
+		return numWeiBigInt, err
+	}
+	numWeiBigInt.SetString(result, 0)
+	return numWeiBigInt, nil
+}
+
+func (eth *EthClient) GetEthBalance(address common.Address) (float64, error) {
+	numWei, err := eth.GetWeiBalance(address)
+	if err != nil {
+		return 0, err
+	}
+	return utils.WeiToEth(numWei), nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.

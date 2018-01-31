@@ -9,6 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
+const (
+	NodeWarningString       = "WARNING: Chainlink node may not be fully functional. "
+	NoETHConnectivityString = "Unable to query the provided ETH wallet's balance. " +
+		"Are you connected to the Ethereum network? " + NodeWarningString
+	MissingWalletString  = "No ETH wallet found. " + NodeWarningString
+	ZeroETHBalanceString = "Zero balance in the provided ETH wallet. " + NodeWarningString
+)
+
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
 	*keystore.KeyStore
@@ -54,4 +62,24 @@ func (ks *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transa
 // GetAccount returns the unlocked account in the KeyStore object.
 func (ks *KeyStore) GetAccount() accounts.Account {
 	return ks.Accounts()[0]
+}
+
+func (ks *KeyStore) ShowEthBalance(txm *TxManager) string {
+	result := ""
+	if ks.HasAccounts() {
+		account := ks.GetAccount()
+		balance, err := txm.GetEthBalance(account.Address)
+		if err != nil {
+			result = NoETHConnectivityString + err.Error()
+		} else {
+			address := account.Address.Hex()
+			result += fmt.Sprintf("ETH Balance for %v: %v. ", address, balance)
+			if balance == 0 {
+				result += ZeroETHBalanceString
+			}
+		}
+	} else {
+		result += MissingWalletString
+	}
+	return result
 }
