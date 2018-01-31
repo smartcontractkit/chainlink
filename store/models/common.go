@@ -29,6 +29,10 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 	return nil
 }
 
+func (w *WebURL) MarshalJSON() ([]byte, error) {
+	return json.Marshal(w.String())
+}
+
 type Time struct {
 	time.Time
 }

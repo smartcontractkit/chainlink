@@ -1,6 +1,9 @@
 package adapters_test
 
 import (
+	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -14,7 +17,47 @@ func TestCreatingAdapterWithConfig(t *testing.T) {
 	defer cleanup()
 
 	task := models.Task{Type: "NoOp"}
-	adapter, err := adapters.For(task)
+	adapter, err := adapters.For(task, store)
 	adapter.Perform(models.RunResult{}, store)
 	assert.Nil(t, err)
+}
+
+func TestAdapterFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	bt := cltest.NewBridgeType("rideShare", "https://dUber.eth")
+	assert.Nil(t, store.Save(bt))
+
+	cases := []struct {
+		bridgeName string
+		want       string
+		errored    bool
+	}{
+		{"NoOp", "*adapters.NoOp", false},
+		{"EthTx", "*adapters.EthTx", false},
+		{"nonExistent", "<nil>", true},
+		{bt.Name, "*adapters.Bridge", false},
+		{strings.ToLower(bt.Name), "*adapters.Bridge", false},
+	}
+
+	for _, test := range cases {
+		t.Run(test.want, func(t *testing.T) {
+			raw := json.RawMessage{}
+			assert.Nil(t, json.Unmarshal([]byte(`{}`), &raw))
+			task := models.Task{
+				Type:   test.bridgeName,
+				Params: raw,
+			}
+			adapter, err := adapters.For(task, store)
+			if test.errored {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, test.want, reflect.TypeOf(adapter).String())
+			}
+		})
+	}
 }

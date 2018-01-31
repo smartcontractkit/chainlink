@@ -37,7 +37,7 @@ func TestJobNewRun(t *testing.T) {
 	assert.Equal(t, 1, len(newRun.TaskRuns))
 	assert.Equal(t, "NoOp", job.Tasks[0].Type)
 	assert.Nil(t, job.Tasks[0].Params)
-	adapter, _ := adapters.For(job.Tasks[0])
+	adapter, _ := adapters.For(job.Tasks[0], nil)
 	assert.NotNil(t, adapter)
 }
 
@@ -139,7 +139,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 			assert.Nil(t, err)
 
 			assert.Equal(t, test.name, task.Type)
-			_, err = adapters.For(task)
+			_, err = adapters.For(task, nil)
 			assert.Nil(t, err)
 
 			s, err := json.Marshal(task)

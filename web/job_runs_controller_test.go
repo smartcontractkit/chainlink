@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,22 +47,8 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(j))
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	respJSON := cltest.JobJSONFromResponse(resp.Body)
-
-	jr := &models.JobRun{}
-	Eventually(func() string {
-		jobRuns := []*models.JobRun{}
-		app.Store.Where("ID", respJSON.ID, &jobRuns)
-		if len(jobRuns) == 0 {
-			return ""
-		}
-		jr = jobRuns[0]
-		return jr.Status
-	}).Should(Equal(models.StatusCompleted))
-	assert.Equal(t, j.ID, jr.JobID)
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	cltest.WaitForJobRunToComplete(t, app, jr)
 }
 
 func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {

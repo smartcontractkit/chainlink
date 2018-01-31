@@ -146,3 +146,19 @@ func (t *Task) UnmarshalJSON(input []byte) error {
 func (t Task) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.Params)
 }
+
+type BridgeType struct {
+	Name string `json:"name" storm:"id,index,unique"`
+	URL  WebURL `json:"url"`
+}
+
+func (bt *BridgeType) UnmarshalJSON(input []byte) error {
+	type Alias BridgeType
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+	bt.Name = strings.ToLower(aux.Name)
+	bt.URL = aux.URL
+	return nil
+}

@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -38,6 +39,8 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 
 func TestCreateJobIntegration(t *testing.T) {
 	RegisterTestingT(t)
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
 
 	config, _ := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
@@ -46,9 +49,6 @@ func TestCreateJobIntegration(t *testing.T) {
 	eth := app.MockEthClient()
 	app.Start()
 	defer cleanup()
-
-	defer cltest.CloseGock(t)
-	gock.EnableNetworking()
 
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	gock.New("https://www.bitstamp.net").
@@ -74,11 +74,8 @@ func TestCreateJobIntegration(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	cltest.WaitForJobRunToComplete(t, app, jr)
 
-	Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
-		return jr.Status
-	}).Should(Equal(models.StatusCompleted))
 	assert.Equal(t, tickerResponse, jr.TaskRuns[0].Result.Value())
 	assert.Equal(t, "10583.75", jr.TaskRuns[1].Result.Value())
 	assert.Equal(t, hash.String(), jr.TaskRuns[3].Result.Value())
@@ -189,4 +186,39 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 	clock.SetTime(startAt)
 
 	cltest.CreateJobRunViaWeb(t, app, j)
+}
+
+func TestCreateJobExternalAdapterIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	eaValue := "87698118359"
+	eaExtra := "other values to be used by external adapters"
+	eaResponse := fmt.Sprintf(`{"output":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	gock.New("https://example.com").
+		Post("/randomNumber").
+		Reply(200).
+		JSON(eaResponse)
+
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/bridge_types",
+		"application/json",
+		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
+	)
+	assert.Equal(t, 200, resp.StatusCode)
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, "randomnumber", tr.Task.Type)
+	assert.Equal(t, eaValue, tr.Result.Value())
+	assert.Equal(t, eaExtra, tr.Result.Output["extra"].String)
+	assert.Equal(t, eaValue, jr.Result.Value())
 }

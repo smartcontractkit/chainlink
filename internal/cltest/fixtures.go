@@ -3,6 +3,8 @@ package cltest
 import (
 	"crypto/rand"
 	"math/big"
+	"net/url"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -73,4 +75,30 @@ func NewEthAddress() common.Address {
 	b := make([]byte, 20)
 	rand.Read(b)
 	return common.BytesToAddress(b)
+}
+
+func NewBridgeType(info ...string) *models.BridgeType {
+	bt := models.BridgeType{}
+
+	if len(info) > 0 {
+		bt.Name = strings.ToLower(info[0])
+	} else {
+		bt.Name = strings.ToLower("defaultFixtureBridgeType")
+	}
+
+	if len(info) > 1 {
+		bt.URL = WebURL(info[1])
+	} else {
+		bt.URL = WebURL("https://bridge.example.com/api")
+	}
+
+	return &bt
+}
+
+func WebURL(unparsed string) models.WebURL {
+	parsed, err := url.Parse(unparsed)
+	if err != nil {
+		panic(err)
+	}
+	return models.WebURL{parsed}
 }
