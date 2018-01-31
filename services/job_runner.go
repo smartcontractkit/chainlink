@@ -85,7 +85,7 @@ func startTask(
 	store *store.Store,
 ) models.TaskRun {
 	run.Status = models.StatusInProgress
-	adapter, err := adapters.For(run.Task)
+	adapter, err := adapters.For(run.Task, store)
 
 	if err != nil {
 		run.Status = models.StatusErrored

@@ -3,6 +3,7 @@ package models_test
 import (
 	"encoding/hex"
 	"math/big"
+	"net/url"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -105,4 +106,37 @@ func TestCreatingTx(t *testing.T) {
 	assert.Equal(t, nonce, tx.Nonce)
 	assert.Equal(t, value, tx.Value)
 	assert.Equal(t, gasLimit, tx.GasLimit)
+}
+
+func TestBridgeTypeFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	tt := &models.BridgeType{}
+	tt.Name = "solargridreporting"
+	u, err := url.Parse("https://denergy.eth")
+	assert.Nil(t, err)
+	tt.URL = models.WebURL{u}
+	assert.Nil(t, store.Save(tt))
+
+	cases := []struct {
+		description string
+		name        string
+		want        *models.BridgeType
+		errored     bool
+	}{
+		{"actual external adapter", tt.Name, tt, false},
+		{"core adapter", "ethtx", &models.BridgeType{}, true},
+		{"non-existent adapter", "nonExistent", &models.BridgeType{}, true},
+	}
+
+	for _, test := range cases {
+		t.Run(test.description, func(t *testing.T) {
+			tt, err := store.BridgeTypeFor(test.name)
+			assert.Equal(t, test.want, tt)
+			assert.Equal(t, test.errored, err != nil)
+		})
+	}
 }

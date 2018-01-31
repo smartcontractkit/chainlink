@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"path"
 	"reflect"
+	"strings"
 
 	"github.com/asdine/storm"
 	"github.com/ethereum/go-ethereum/common"
@@ -172,4 +173,10 @@ func (orm *ORM) AddAttempt(
 	}
 
 	return attempt, dbtx.Commit()
+}
+
+func (orm *ORM) BridgeTypeFor(name string) (*BridgeType, error) {
+	tt := &BridgeType{}
+	err := orm.One("Name", strings.ToLower(name), tt)
+	return tt, err
 }

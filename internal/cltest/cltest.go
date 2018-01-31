@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const RootDir = "/tmp/chainlink_test"
@@ -118,8 +119,8 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app.Store.Config = tc.Config
 	ta := &TestApplication{
 		ChainlinkApplication: app,
-		Server:          server,
-		wsServer:        tc.wsServer,
+		Server:               server,
+		wsServer:             tc.wsServer,
 	}
 	return ta, func() {
 		ta.Stop()
@@ -183,16 +184,17 @@ func CloseGock(t *testing.T) {
 	gock.Off()
 }
 
-type JobJSON struct {
-	ID string `json:"id"`
+type CommonJSON struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
-func JobJSONFromResponse(body io.Reader) JobJSON {
+func ParseCommonJSON(body io.Reader) CommonJSON {
 	b, err := ioutil.ReadAll(body)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var respJSON JobJSON
+	var respJSON CommonJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
 }
@@ -276,15 +278,14 @@ func ObserveLogs() *observer.ObservedLogs {
 }
 
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *models.Job {
-	jsonStr := LoadJSON(path)
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
-		bytes.NewBuffer(jsonStr),
+		bytes.NewBuffer(LoadJSON(path)),
 	)
 	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
-	j, err := app.Store.FindJob(JobJSONFromResponse(resp.Body).ID)
+	CheckStatusCode(t, resp, 200)
+	j, err := app.Store.FindJob(ParseCommonJSON(resp.Body).ID)
 	assert.Nil(t, err)
 
 	return j
@@ -294,8 +295,8 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	defer resp.Body.Close()
-	assert.Equal(t, 200, resp.StatusCode)
-	jrID := JobJSONFromResponse(resp.Body).ID
+	CheckStatusCode(t, resp, 200)
+	jrID := ParseCommonJSON(resp.Body).ID
 
 	jrs := []*models.JobRun{}
 	Eventually(func() []*models.JobRun {
@@ -318,4 +319,37 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 		EmptyRunner{},
 	}
 	return client, r
+}
+
+func CheckStatusCode(t *testing.T, resp *http.Response, expected int) {
+	assert.Equal(t, expected, resp.StatusCode)
+	if resp.StatusCode != expected {
+		buf, err := ioutil.ReadAll(resp.Body)
+		assert.Nil(t, err)
+		resp.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+		fmt.Printf("\n\nERROR unexpected HTML Response: %v\n\n", string(buf))
+	}
+}
+
+func WaitForJobRunToComplete(
+	t *testing.T,
+	app *TestApplication,
+	jr *models.JobRun,
+) *models.JobRun {
+	Eventually(func() string {
+		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
+		return jr.Status
+	}).Should(Equal(models.StatusCompleted))
+	return jr
+}
+
+func NullString(val interface{}) null.String {
+	switch val.(type) {
+	case string:
+		return null.StringFrom(val.(string))
+	case nil:
+		return null.NewString("", false)
+	default:
+		panic("cannot create a null string of any type other than string or nil")
+	}
 }
