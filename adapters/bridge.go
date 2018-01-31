@@ -47,6 +47,7 @@ func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResu
 	if err != nil {
 		return baRunResultError("unmarshaling JSON", err)
 	}
+	rr.Pending = false
 	return rr
 }
 
