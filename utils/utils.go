@@ -23,6 +23,8 @@ import (
 
 const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
 
+var ZeroAddress = common.Address{}
+
 func SenderFromTxHex(value string, chainID uint64) (common.Address, error) {
 	tx, err := DecodeTxFromHex(value, chainID)
 	if err != nil {
