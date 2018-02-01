@@ -10,65 +10,71 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// LogListener contains fields for the pointer of the store and
-// a channel to the EventLog (as the field 'logs').
-type LogListener struct {
+// NotificationListener contains fields for the pointer of the store and
+// a channel to the EthNotification (as the field 'logs').
+type NotificationListener struct {
 	Store *store.Store
-	logs  chan store.EventLog
+	logs  chan store.EthNotification
 }
 
 // Start obtains the jobs from the store and begins execution
 // of the jobs' given runs.
-func (ll *LogListener) Start() error {
-	jobs, err := ll.Store.Jobs()
+func (nl *NotificationListener) Start() error {
+	jobs, err := nl.Store.Jobs()
 	if err != nil {
 		return err
 	}
 
-	ll.logs = make(chan store.EventLog)
-	go ll.listenToLogs()
+	nl.logs = make(chan store.EthNotification)
+	go nl.listenToLogs()
 	for _, j := range jobs {
-		ll.AddJob(j)
+		nl.AddJob(j)
 	}
 	return nil
 }
 
-// Stop gracefully closes its access to the store's EventLog.
-func (ll *LogListener) Stop() error {
-	if ll.logs != nil {
-		close(ll.logs)
+// Stop gracefully closes its access to the store's EthNotifications.
+func (nl *NotificationListener) Stop() error {
+	if nl.logs != nil {
+		close(nl.logs)
 	}
 	return nil
 }
 
 // AddJob looks for "ethlog" Initiators for a given job and watches
 // the Ethereum blockchain for the addresses in the job.
-func (ll *LogListener) AddJob(job *models.Job) error {
+func (nl *NotificationListener) AddJob(job *models.Job) error {
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
 		address := initr.Address.String()
-		if err := ll.Store.TxManager.Subscribe(ll.logs, address); err != nil {
+		if err := nl.Store.TxManager.Subscribe(nl.logs, address); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (ll *LogListener) listenToLogs() {
-	for l := range ll.logs {
-		for _, initr := range ll.initrsWithLogAndAddress(l.Address) {
-			if job, err := ll.Store.FindJob(initr.JobID); err != nil {
+func (nl *NotificationListener) listenToLogs() {
+	for l := range nl.logs {
+		el, err := l.UnmarshalLog()
+		if err != nil {
+			logger.Errorw("Unable to unmarshal log", "log", l)
+			continue
+		}
+
+		for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
+			if job, err := nl.Store.FindJob(initr.JobID); err != nil {
 				msg := fmt.Sprintf("Initiating job from log: %v", err)
 				logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
 			} else {
-				BeginRun(job, ll.Store)
+				BeginRun(job, nl.Store)
 			}
 		}
 	}
 }
 
-func (ll *LogListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {
+func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {
 	initrs := []models.Initiator{}
-	query := ll.Store.Select(q.And(
+	query := nl.Store.Select(q.And(
 		q.Eq("Address", address),
 		q.Re("Type", models.InitiatorEthLog),
 	))

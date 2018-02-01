@@ -11,45 +11,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLogListenerStart(t *testing.T) {
+func TestNotificationListenerStart(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ll := services.LogListener{Store: store}
-	defer ll.Stop()
+	nl := services.NotificationListener{Store: store}
+	defer nl.Stop()
 
 	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
 	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
-	eth.RegisterSubscription("logs", make(chan strpkg.EventLog))
-	eth.RegisterSubscription("logs", make(chan strpkg.EventLog))
+	eth.RegisterSubscription("logs", make(chan strpkg.EthNotification))
+	eth.RegisterSubscription("logs", make(chan strpkg.EthNotification))
 
-	ll.Start()
+	nl.Start()
 
 	assert.True(t, eth.AllCalled())
 }
 
-func TestLogListenerAddJob(t *testing.T) {
+func TestNotificationListenerAddJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ll := services.LogListener{Store: store}
-	defer ll.Stop()
-	ll.Start()
+	nl := services.NotificationListener{Store: store}
+	defer nl.Stop()
+	nl.Start()
 
 	j := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.SaveJob(j))
-	logChan := make(chan strpkg.EventLog, 1)
+	logChan := make(chan strpkg.EthNotification, 1)
 	initr := j.Initiators[0]
 	eth.RegisterSubscription("logs", logChan)
 
-	ll.AddJob(j)
+	nl.AddJob(j)
 
-	logChan <- strpkg.EventLog{Address: initr.Address}
+	logChan <- cltest.NewEthNotification(strpkg.EventLog{Address: initr.Address})
 	jobRuns := []*models.JobRun{}
 	Eventually(func() []*models.JobRun {
 		store.Where("JobID", j.ID, &jobRuns)

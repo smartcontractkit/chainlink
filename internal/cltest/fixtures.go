@@ -2,14 +2,19 @@ package cltest
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func NewJob() *models.Job {
@@ -101,4 +106,35 @@ func WebURL(unparsed string) models.WebURL {
 		panic(err)
 	}
 	return models.WebURL{parsed}
+}
+
+func NullString(val interface{}) null.String {
+	switch val.(type) {
+	case string:
+		return null.StringFrom(val.(string))
+	case nil:
+		return null.NewString("", false)
+	default:
+		panic("cannot create a null string of any type other than string or nil")
+	}
+}
+
+func NullTime(val interface{}) null.Time {
+	switch val.(type) {
+	case string:
+		return utils.ParseNullableTime(val.(string))
+	case nil:
+		return null.NewTime(time.Unix(0, 0), false)
+	default:
+		panic("cannot create a null time of any type other than string or nil")
+	}
+}
+
+func NewEthNotification(el store.EventLog) store.EthNotification {
+	b, err := json.Marshal(el)
+	if err != nil {
+		panic(err)
+	}
+	params := json.RawMessage(fmt.Sprintf(`{"result":%v}`, string(b)))
+	return store.EthNotification{Params: params}
 }

@@ -51,7 +51,7 @@ func (eth *EthClient) BlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-func (eth *EthClient) Subscribe(channel chan EventLog, address string) error {
+func (eth *EthClient) Subscribe(channel chan EthNotification, address string) error {
 	ctx := context.Background()
 	_, err := eth.EthSubscribe(ctx, channel, "logs", address)
 	return err
