@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -87,4 +88,27 @@ func (txr *TxReceipt) Unconfirmed() bool {
 type EventLog struct {
 	Address   common.Address `json:"address"`
 	BlockHash common.Hash    `json:"blockHash"`
+}
+
+type EthNotification struct {
+	Params json.RawMessage `json:"params"`
+}
+
+func (en EthNotification) UnmarshalLog() (EventLog, error) {
+	var el EventLog
+	var rval map[string]json.RawMessage
+
+	if err := json.Unmarshal(en.Params, &rval); err != nil {
+		return el, err
+	}
+
+	if err := json.Unmarshal(rval["result"], &el); err != nil {
+		return el, err
+	}
+
+	if el.Address == utils.ZeroAddress {
+		return el, errors.New("Cannot unmarshal a log with a zero address")
+	}
+
+	return el, nil
 }
