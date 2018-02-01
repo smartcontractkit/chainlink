@@ -77,6 +77,12 @@ func StringToAddress(str string) (common.Address, error) {
 	return common.BytesToAddress(b), nil
 }
 
+func StringToBytes(str string) (hexutil.Bytes, error) {
+	var b hexutil.Bytes
+	err := b.UnmarshalText([]byte(str))
+	return b, err
+}
+
 func TimeParse(s string) time.Time {
 	t, err := dateparse.ParseAny(s)
 	if err != nil {
