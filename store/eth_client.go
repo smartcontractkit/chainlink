@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -86,8 +87,11 @@ func (txr *TxReceipt) Unconfirmed() bool {
 }
 
 type EventLog struct {
-	Address   common.Address `json:"address"`
-	BlockHash common.Hash    `json:"blockHash"`
+	Address   common.Address  `json:"address"`
+	BlockHash common.Hash     `json:"blockHash"`
+	TxHash    common.Hash     `json:"transactionHash"`
+	Data      hexutil.Bytes   `json:"data"`
+	Topics    []hexutil.Bytes `json:"topics"`
 }
 
 type EthNotification struct {
