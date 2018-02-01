@@ -254,14 +254,21 @@ func NewMockCron() *MockCron {
 	return &MockCron{}
 }
 
-func (mc *MockCron) Start() {}
-func (mc *MockCron) Stop()  {}
+func (*MockCron) Start() {}
+func (*MockCron) Stop()  {}
+
 func (mc *MockCron) AddFunc(schd string, fn func()) error {
 	mc.Entries = append(mc.Entries, MockCronEntry{
 		Schedule: schd,
 		Function: fn,
 	})
 	return nil
+}
+
+func (mc *MockCron) RunEntries() {
+	for _, entry := range mc.Entries {
+		entry.Function()
+	}
 }
 
 type MockCronEntry struct {
