@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -121,11 +122,14 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	logs := make(chan store.EventLog, 1)
+	logs := make(chan store.EthNotification, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
-	logs <- store.EventLog{Address: address}
+	var en store.EthNotification
+	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	assert.Nil(t, json.Unmarshal(logFixture, &en))
+	logs <- en
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {

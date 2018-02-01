@@ -33,7 +33,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
-	null "gopkg.in/guregu/null.v3"
 )
 
 const RootDir = "/tmp/chainlink_test"
@@ -341,26 +340,4 @@ func WaitForJobRunToComplete(
 		return jr.Status
 	}).Should(Equal(models.StatusCompleted))
 	return jr
-}
-
-func NullString(val interface{}) null.String {
-	switch val.(type) {
-	case string:
-		return null.StringFrom(val.(string))
-	case nil:
-		return null.NewString("", false)
-	default:
-		panic("cannot create a null string of any type other than string or nil")
-	}
-}
-
-func NullTime(val interface{}) null.Time {
-	switch val.(type) {
-	case string:
-		return utils.ParseNullableTime(val.(string))
-	case nil:
-		return null.NewTime(time.Unix(0, 0), false)
-	default:
-		panic("cannot create a null time of any type other than string or nil")
-	}
 }
