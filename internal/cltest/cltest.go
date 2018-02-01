@@ -359,7 +359,7 @@ func NullTime(val interface{}) null.Time {
 	case string:
 		return utils.ParseNullableTime(val.(string))
 	case nil:
-		return null.NewTime(time.Now(), false)
+		return null.NewTime(time.Unix(0, 0), false)
 	default:
 		panic("cannot create a null time of any type other than string or nil")
 	}
