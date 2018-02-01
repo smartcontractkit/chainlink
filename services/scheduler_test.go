@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func TestLoadingSavedSchedules(t *testing.T) {
@@ -41,27 +42,52 @@ func TestLoadingSavedSchedules(t *testing.T) {
 	assert.Equal(t, 0, len(jobRuns), "No jobs should be created without the scheduler")
 }
 
-func TestAddScheduledJob(t *testing.T) {
+func TestRecurringAddJob(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	sched := services.NewScheduler(store)
-	sched.Start()
-	defer sched.Stop()
+	nullTime := cltest.NullTime(nil)
+	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
+	futureTime := cltest.NullTime("3000-01-01T00:00:00.000Z")
+	tests := []struct {
+		name        string
+		startAt     null.Time
+		endAt       null.Time
+		wantEntries int
+		wantRuns    int
+	}{
+		{"before start at", futureTime, nullTime, 1, 0},
+		{"before end at", nullTime, futureTime, 1, 1},
+		{"after start at", pastTime, nullTime, 1, 1},
+		{"after end at", nullTime, pastTime, 0, 0},
+		{"no range", nullTime, nullTime, 1, 1},
+		{"start at after end at", futureTime, pastTime, 0, 0},
+	}
 
-	j := cltest.NewJobWithSchedule("* * * * *")
-	err := store.SaveJob(j)
-	assert.Nil(t, err)
-	sched.AddJob(j)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := services.NewRecurring(store)
+			cron := cltest.NewMockCron()
+			r.Cron = cron
+			defer r.Stop()
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		err = store.Where("JobID", j.ID, &jobRuns)
-		assert.Nil(t, err)
-		return jobRuns
-	}).Should(cltest.HaveLenAtLeast(1))
+			j := cltest.NewJobWithSchedule("* * * * *")
+			j.StartAt = test.startAt
+			j.EndAt = test.endAt
+
+			r.AddJob(j)
+
+			assert.Equal(t, test.wantEntries, len(cron.Entries))
+
+			cron.RunEntries()
+			jobRuns := []models.JobRun{}
+			store.Where("JobID", j.ID, &jobRuns)
+			assert.Equal(t, test.wantRuns, len(jobRuns))
+		})
+	}
 }
 
 func TestAddScheduledJobWhenStopped(t *testing.T) {
@@ -82,30 +108,6 @@ func TestAddScheduledJobWhenStopped(t *testing.T) {
 		return jobRuns
 	}).Should(HaveLen(0))
 
-	assert.Nil(t, sched.Start())
-	Eventually(func() []models.JobRun {
-		store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(cltest.HaveLenAtLeast(1))
-}
-
-func TestRecurringAddJobAfterEndAt(t *testing.T) {
-	t.Parallel()
-	RegisterTestingT(t)
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	r := services.NewRecurring(store)
-	cron := cltest.NewMockCron()
-	r.Cron = cron
-	defer r.Stop()
-
-	j := cltest.NewJobWithSchedule("* * * * *")
-	j.EndAt = utils.ParseNullableTime("2000-01-01T00:00:00.000Z")
-
-	r.AddJob(j)
-
-	assert.Equal(t, 0, len(cron.Entries))
 }
 
 func TestOneTimeRunJobAt(t *testing.T) {
