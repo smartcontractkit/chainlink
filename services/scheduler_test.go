@@ -89,6 +89,25 @@ func TestAddScheduledJobWhenStopped(t *testing.T) {
 	}).Should(cltest.HaveLenAtLeast(1))
 }
 
+func TestRecurringAddJobAfterEndAt(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	r := services.NewRecurring(store)
+	cron := cltest.NewMockCron()
+	r.Cron = cron
+	defer r.Stop()
+
+	j := cltest.NewJobWithSchedule("* * * * *")
+	j.EndAt = utils.ParseNullableTime("2000-01-01T00:00:00.000Z")
+
+	r.AddJob(j)
+
+	assert.Equal(t, 0, len(cron.Entries))
+}
+
 func TestOneTimeRunJobAt(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()

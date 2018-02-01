@@ -245,3 +245,26 @@ func NewHTTPMockServer(
 		assert.True(t, called)
 	}
 }
+
+type MockCron struct {
+	Entries []MockCronEntry
+}
+
+func NewMockCron() *MockCron {
+	return &MockCron{}
+}
+
+func (mc *MockCron) Start() {}
+func (mc *MockCron) Stop()  {}
+func (mc *MockCron) AddFunc(schd string, fn func()) error {
+	mc.Entries = append(mc.Entries, MockCronEntry{
+		Schedule: schd,
+		Function: fn,
+	})
+	return nil
+}
+
+type MockCronEntry struct {
+	Schedule string
+	Function func()
+}

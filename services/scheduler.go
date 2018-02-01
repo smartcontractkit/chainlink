@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	cronlib "github.com/mrwonko/cron"
+	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -25,7 +25,7 @@ type Scheduler struct {
 // and OneTime fields since jobs can contain tasks which utilize both.
 func NewScheduler(store *store.Store) *Scheduler {
 	return &Scheduler{
-		Recurring: &Recurring{store: store},
+		Recurring: NewRecurring(store),
 		OneTime: &OneTime{
 			Store: store,
 			Clock: store.Clock,
@@ -84,24 +84,33 @@ func (s *Scheduler) AddJob(job *models.Job) {
 
 // Recurring is used for runs that need to execute on a schedule,
 // and is configured with cron.
+// Instances of Recurring must be initialized using NewRecurring().
 type Recurring struct {
-	cron  *cronlib.Cron
+	Cron  Cron
+	Clock Nower
 	store *store.Store
+}
+
+// NewRecurring create a new instance of Recurring, ready to use.
+func NewRecurring(store *store.Store) *Recurring {
+	return &Recurring{
+		store: store,
+		Clock: store.Clock,
+	}
 }
 
 // Start for Recurring types executes tasks with a "cron" initiator
 // based on the configured schedule for the run.
 func (r *Recurring) Start() error {
-	r.cron = cronlib.New()
+	r.Cron = newChainlinkCron()
 	r.addResumer()
-	r.cron.Start()
+	r.Cron.Start()
 	return nil
 }
 
 // Stop stops the cron scheduler and waits for running jobs to finish.
 func (r *Recurring) Stop() {
-	r.cron.Stop()
-	r.cron.Wait()
+	r.Cron.Stop()
 }
 
 // AddJob looks for "cron" initiators, adds them to cron's schedule
@@ -109,17 +118,19 @@ func (r *Recurring) Stop() {
 func (r *Recurring) AddJob(job *models.Job) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		cronStr := string(initr.Schedule)
-		r.cron.AddFunc(cronStr, func() {
-			_, err := BeginRun(job, r.store)
-			if err != nil && !expectedRecurringError(err) {
-				logger.Panic(err.Error())
-			}
-		})
+		if !job.Ended(r.Clock.Now()) {
+			r.Cron.AddFunc(cronStr, func() {
+				_, err := BeginRun(job, r.store)
+				if err != nil && !expectedRecurringError(err) {
+					logger.Panic(err.Error())
+				}
+			})
+		}
 	}
 }
 
 func (r *Recurring) addResumer() {
-	r.cron.AddFunc(r.store.Config.PollingSchedule, func() {
+	r.Cron.AddFunc(r.store.Config.PollingSchedule, func() {
 		pendingRuns, err := r.store.PendingJobRuns()
 		if err != nil {
 			logger.Panic(err.Error())
@@ -130,11 +141,6 @@ func (r *Recurring) addResumer() {
 			}
 		}
 	})
-}
-
-// Afterer represents the time after a specified time.
-type Afterer interface {
-	After(d time.Duration) <-chan time.Time
 }
 
 // OneTime represents runs that are to be executed only once.
@@ -182,4 +188,38 @@ func expectedRecurringError(err error) bool {
 	default:
 		return false
 	}
+}
+
+// Cron is an interface for scheduling recurring functions to run.
+// Cron's schedule format is similar to the standard cron format
+// but with an extra field at the beginning for seconds.
+type Cron interface {
+	Start()
+	Stop()
+	AddFunc(string, func()) error
+}
+
+type chainlinkCron struct {
+	*cron.Cron
+}
+
+func newChainlinkCron() *chainlinkCron {
+	return &chainlinkCron{cron.New()}
+}
+
+func (cc *chainlinkCron) Stop() {
+	cc.Cron.Stop()
+	cc.Cron.Wait()
+}
+
+// Nower is an interface that fulfills the Now method,
+// following the behavior of time.Now.
+type Nower interface {
+	Now() time.Time
+}
+
+// Afterer is an interface that fulfills the After method,
+// following the behavior of time.After.
+type Afterer interface {
+	After(d time.Duration) <-chan time.Time
 }
