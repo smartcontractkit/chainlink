@@ -353,3 +353,14 @@ func NullString(val interface{}) null.String {
 		panic("cannot create a null string of any type other than string or nil")
 	}
 }
+
+func NullTime(val interface{}) null.Time {
+	switch val.(type) {
+	case string:
+		return utils.ParseNullableTime(val.(string))
+	case nil:
+		return null.NewTime(time.Unix(0, 0), false)
+	default:
+		panic("cannot create a null time of any type other than string or nil")
+	}
+}
