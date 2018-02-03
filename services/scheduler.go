@@ -120,7 +120,7 @@ func (r *Recurring) AddJob(job *models.Job) {
 		cronStr := string(initr.Schedule)
 		if !job.Ended(r.Clock.Now()) {
 			r.Cron.AddFunc(cronStr, func() {
-				_, err := BeginRun(job, r.store)
+				_, err := BeginRun(job, r.store, models.Output{})
 				if err != nil && !expectedRecurringError(err) {
 					logger.Panic(err.Error())
 				}
@@ -136,7 +136,7 @@ func (r *Recurring) addResumer() {
 			logger.Panic(err.Error())
 		}
 		for _, jobRun := range pendingRuns {
-			if err := ExecuteRun(jobRun, r.store); err != nil {
+			if err := ExecuteRun(jobRun, r.store, models.Output{}); err != nil {
 				logger.Panic(err.Error())
 			}
 		}
@@ -174,7 +174,7 @@ func (ot *OneTime) RunJobAt(t models.Time, job *models.Job) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(t.DurationFromNow()):
-		_, err := BeginRun(job, ot.Store)
+		_, err := BeginRun(job, ot.Store, models.Output{})
 		if err != nil {
 			logger.Panic(err.Error())
 		}
