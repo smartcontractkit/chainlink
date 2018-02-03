@@ -1,6 +1,8 @@
 package services
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/asdine/storm/q"
@@ -70,6 +72,33 @@ func (nl *NotificationListener) listenToLogs() {
 			}
 		}
 	}
+}
+
+// FormatLogOutput uses the Initiator to decide how to format the EventLog
+// as an Output object.
+func FormatLogOutput(initr models.Initiator, el store.EventLog) (models.Output, error) {
+	if initr.Type == models.InitiatorEthLog {
+		return convertEventLogToOutput(el)
+	} else if initr.Type == models.InitiatorChainlinkLog {
+		out, err := parseEventLogJSON(el)
+		return out, err
+	}
+	return models.Output{}, fmt.Errorf("no supported initiator type was found")
+}
+
+func convertEventLogToOutput(el store.EventLog) (models.Output, error) {
+	var out models.Output
+	b, err := json.Marshal(el)
+	if err != nil {
+		return out, err
+	}
+	return out, json.Unmarshal(b, &out)
+}
+
+func parseEventLogJSON(el store.EventLog) (models.Output, error) {
+	var out models.Output
+	hex := []byte(string([]byte(el.Data)[64:]))
+	return out, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &out)
 }
 
 func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {
