@@ -44,7 +44,7 @@ func TestTaskRunsToRun(t *testing.T) {
 	jr := j.NewRun()
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
-	err := services.ExecuteRun(jr, store)
+	err := services.ExecuteRun(jr, store, models.Output{})
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }

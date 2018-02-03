@@ -39,7 +39,7 @@ func TestRunningJob(t *testing.T) {
 			assert.Nil(t, store.Save(job))
 
 			run := job.NewRun()
-			assert.Nil(t, services.ExecuteRun(run, store))
+			assert.Nil(t, services.ExecuteRun(run, store, models.Output{}))
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantedStatus, run.TaskRuns[0].Status)
@@ -57,7 +57,7 @@ func TestJobTransitionToPending(t *testing.T) {
 	job.Tasks = []models.Task{models.Task{Type: "NoOpPend"}}
 
 	run := job.NewRun()
-	services.ExecuteRun(run, store)
+	services.ExecuteRun(run, store, models.Output{})
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, models.StatusPending, run.Status)
@@ -93,7 +93,7 @@ func TestJobRunnerBeginRun(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(job))
 
-			run, err := services.BeginRun(job, store)
+			run, err := services.BeginRun(job, store, models.Output{})
 
 			if test.errored {
 				assert.Nil(t, run)
