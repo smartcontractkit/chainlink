@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -46,4 +47,56 @@ func TestTaskRunsToRun(t *testing.T) {
 	err := services.ExecuteRun(jr, store)
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
+}
+
+func TestOutputUnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		json        string
+		wantErrored bool
+	}{
+		{"basic", `{"number": 100, "string": "100", "bool": true}`, false},
+		{"invalid JSON", `{`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var o models.Output
+			err := json.Unmarshal([]byte(test.json), &o)
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
+}
+
+func TestRunResultValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		json        string
+		want        string
+		wantErrored bool
+	}{
+		{"string", `{"value": "100", "other": "101"}`, "100", false},
+		{"integer", `{"value": 100}`, "", true},
+		{"float", `{"value": 100.01}`, "", true},
+		{"boolean", `{"value": true}`, "", true},
+		{"null", `{"value": null}`, "", true},
+		{"no key", `{"other": 100}`, "", true},
+		{"no JSON", ``, "", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output models.Output
+			json.Unmarshal([]byte(test.json), &output)
+			rr := models.RunResult{Output: &output}
+
+			val, err := rr.Value()
+			assert.Equal(t, test.want, val)
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
 }
