@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -33,6 +34,9 @@ func TestEventLogUnmarshalJSON(t *testing.T) {
 	txHash, _ := utils.StringToHash("0xe044554a0a55067caafd07f8020ab9f2af60bdfe337e395ecd84b4877a3d1ab4")
 	topic1, _ := utils.StringToBytes("0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902")
 	data, _ := utils.StringToBytes("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003")
+	blockNumber := hexutil.Uint64(171655)
+	logIndex := hexutil.Uint64(66)
+	txIndex := hexutil.Uint64(23)
 
 	en := store.EthNotification{}
 	assert.Nil(t, json.Unmarshal(notification, &en))
@@ -46,6 +50,9 @@ func TestEventLogUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, 1, len(el.Topics))
 	assert.Equal(t, topic1, el.Topics[0])
 	assert.Equal(t, data, el.Data)
+	assert.Equal(t, blockNumber, el.BlockNumber)
+	assert.Equal(t, logIndex, el.LogIndex)
+	assert.Equal(t, txIndex, el.TxIndex)
 }
 
 func TestEventLogUnmarshalJSONError(t *testing.T) {

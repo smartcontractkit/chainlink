@@ -87,11 +87,14 @@ func (txr *TxReceipt) Unconfirmed() bool {
 }
 
 type EventLog struct {
-	Address   common.Address  `json:"address"`
-	BlockHash common.Hash     `json:"blockHash"`
-	TxHash    common.Hash     `json:"transactionHash"`
-	Data      hexutil.Bytes   `json:"data"`
-	Topics    []hexutil.Bytes `json:"topics"`
+	Address     common.Address  `json:"address"`
+	BlockHash   common.Hash     `json:"blockHash"`
+	BlockNumber hexutil.Uint64  `json:"blockNumber"`
+	Data        hexutil.Bytes   `json:"data"`
+	LogIndex    hexutil.Uint64  `json:"logIndex"`
+	Topics      []hexutil.Bytes `json:"topics"`
+	TxHash      common.Hash     `json:"transactionHash"`
+	TxIndex     hexutil.Uint64  `json:"transactionIndex"`
 }
 
 type EthNotification struct {
