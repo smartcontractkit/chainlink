@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -97,10 +98,8 @@ func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
-	if _, err = txm.SendRawTx(hex); err != nil {
-		return err
-	}
-	return nil
+	_, err = txm.SendRawTx(hex)
+	return err
 }
 
 func (txm *TxManager) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
