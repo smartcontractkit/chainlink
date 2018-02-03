@@ -7,25 +7,24 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
-	null "gopkg.in/guregu/null.v3"
 )
 
 func TestBridgeAdapterPerform(t *testing.T) {
 	t.Parallel()
 
-	nilString := cltest.NullString(nil)
 	cases := []struct {
 		name        string
 		status      int
-		want        null.String
+		want        string
+		wantExists  bool
 		wantErrored bool
 		response    string
 	}{
-		{"success", 200, cltest.NullString("purchased"), false, `{"output":{"value": "purchased"}}`},
-		{"run error", 200, nilString, true, `{"error": "overload", "output": {}}`},
-		{"server error", 500, nilString, true, `big error`},
-		{"JSON parse error", 200, nilString, true, `}`},
-		{"pending response", 200, cltest.NullString(nil), false, `{"pending":true}`},
+		{"success", 200, "purchased", true, false, `{"output":{"value": "purchased"}}`},
+		{"run error", 200, "", false, true, `{"error": "overload", "output": {}}`},
+		{"server error", 500, "", false, true, `big error`},
+		{"JSON parse error", 200, "", false, true, `}`},
+		{"pending response", 200, "", false, false, `{"pending":true}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -41,10 +40,12 @@ func TestBridgeAdapterPerform(t *testing.T) {
 			eb := &adapters.Bridge{bt}
 			input := models.RunResultWithValue("lot 49")
 
-			output := eb.Perform(input, store)
-			assert.Equal(t, test.want, output.Output["value"])
-			assert.Equal(t, test.wantErrored, output.HasError())
-			assert.Equal(t, false, output.Pending)
+			result := eb.Perform(input, store)
+			val, _ := result.Get("value")
+			assert.Equal(t, test.want, val.String())
+			assert.Equal(t, test.wantExists, val.Exists())
+			assert.Equal(t, test.wantErrored, result.HasError())
+			assert.Equal(t, false, result.Pending)
 		})
 	}
 }
