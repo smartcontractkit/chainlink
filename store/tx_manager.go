@@ -146,6 +146,7 @@ func (txm *TxManager) handleConfirmed(
 	if err := txm.ORM.ConfirmTx(tx, txat); err != nil {
 		return false, err
 	}
+	logger.Infow(fmt.Sprintf("Confirmed tx %v", txat.Hash.String()), "txat", txat, "receipt", rcpt)
 	return true, nil
 }
 
@@ -168,9 +169,7 @@ func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 		return err
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.Config.EthGasBumpWei)
-	_, err := txm.createAttempt(tx, gasPrice, blkNum)
-	if err != nil {
-		return err
-	}
-	return txm.ORM.Save(txat)
+	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
+	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
+	return err
 }
