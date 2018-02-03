@@ -77,10 +77,18 @@ func TestCreateJobIntegration(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	cltest.WaitForJobRunToComplete(t, app, jr)
 
-	assert.Equal(t, tickerResponse, jr.TaskRuns[0].Result.Value())
-	assert.Equal(t, "10583.75", jr.TaskRuns[1].Result.Value())
-	assert.Equal(t, hash.String(), jr.TaskRuns[3].Result.Value())
-	assert.Equal(t, hash.String(), jr.Result.Value())
+	val, err := jr.TaskRuns[0].Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, tickerResponse, val)
+	val, err = jr.TaskRuns[1].Result.Value()
+	assert.Equal(t, "10583.75", val)
+	assert.Nil(t, err)
+	val, err = jr.TaskRuns[3].Result.Value()
+	assert.Equal(t, hash.String(), val)
+	assert.Nil(t, err)
+	val, err = jr.Result.Value()
+	assert.Equal(t, hash.String(), val)
+	assert.Nil(t, err)
 
 	assert.True(t, eth.AllCalled())
 }
@@ -222,7 +230,10 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
-	assert.Equal(t, eaValue, tr.Result.Value())
-	assert.Equal(t, eaExtra, tr.Result.Output["extra"].String)
-	assert.Equal(t, eaValue, jr.Result.Value())
+	val, err := tr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, eaValue, val)
+	res, err := tr.Result.Get("extra")
+	assert.Nil(t, err)
+	assert.Equal(t, eaExtra, res.String())
 }

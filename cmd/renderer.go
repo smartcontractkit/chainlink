@@ -139,9 +139,9 @@ func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Job Run", "Status", "Created", "Result", "Error"})
 	for _, jr := range j.Runs {
-		output, err := jr.Result.Output.String()
-		if err != nil {
-			return err
+		var output string
+		if jr.Result.Output != nil {
+			output = jr.Result.Output.String()
 		}
 		table.Append([]string{
 			jr.ID,

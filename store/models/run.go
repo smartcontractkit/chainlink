@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -75,26 +77,43 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-type Output map[string]null.String
+type Output struct {
+	Body string
+}
 
-func (o Output) String() (string, error) {
-	bytes, err := json.Marshal(o)
-	if err != nil {
-		return "", err
+func (o *Output) Get(path string) gjson.Result {
+	return gjson.Get(o.String(), path)
+}
+
+func (o *Output) String() string {
+	return o.Body
+}
+
+func (o *Output) UnmarshalJSON(b []byte) error {
+	if !json.Valid(b) {
+		return fmt.Errorf("invalid JSON: %v", string(b))
 	}
+	o.Body = string(b)
+	return nil
+}
 
-	return string(bytes), nil
+func (o *Output) MarshalJSON() ([]byte, error) {
+	return []byte(o.Body), nil
 }
 
 type RunResult struct {
-	Output       Output      `json:"output"`
+	Output       *Output     `json:"output"`
 	ErrorMessage null.String `json:"error"`
 	Pending      bool        `json:"pending"`
 }
 
 func RunResultWithValue(val string) RunResult {
+	b, err := json.Marshal(map[string]string{"value": val})
+	if err != nil {
+		logger.Fatal(err)
+	}
 	return RunResult{
-		Output: Output{"value": null.StringFrom(val)},
+		Output: &Output{string(b)},
 	}
 }
 
@@ -112,11 +131,35 @@ func RunResultPending(input RunResult) RunResult {
 	}
 }
 
-func (rr RunResult) Value() string      { return rr.value().String }
-func (rr RunResult) NullValue() bool    { return !rr.value().Valid }
-func (rr RunResult) HasError() bool     { return rr.ErrorMessage.Valid }
-func (rr RunResult) Error() string      { return rr.ErrorMessage.String }
-func (rr RunResult) value() null.String { return rr.Output["value"] }
+func (rr RunResult) Get(path string) (gjson.Result, error) {
+	if rr.Output == nil {
+		return gjson.Result{}, fmt.Errorf("no Output set")
+	}
+	return rr.Output.Get(path), nil
+}
+
+func (rr RunResult) value() (gjson.Result, error) {
+	return rr.Get("value")
+}
+
+func (rr RunResult) Value() (string, error) {
+	val, err := rr.value()
+	if err != nil {
+		return "", err
+	}
+	if val.Type != gjson.String {
+		return "", fmt.Errorf("non string value")
+	}
+	return val.String(), nil
+}
+
+func (rr RunResult) HasError() bool {
+	return rr.ErrorMessage.Valid
+}
+
+func (rr RunResult) Error() string {
+	return rr.ErrorMessage.String
+}
 
 func (rr RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
