@@ -68,7 +68,7 @@ func (nl *NotificationListener) listenToLogs() {
 				msg := fmt.Sprintf("Initiating job from log: %v", err)
 				logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
 			} else {
-				BeginRun(job, nl.Store)
+				BeginRun(job, nl.Store, models.Output{})
 			}
 		}
 	}
