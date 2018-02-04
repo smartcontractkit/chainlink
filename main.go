@@ -34,6 +34,10 @@ func main() {
 					Name:  "password, p",
 					Usage: "password for the node's account",
 				},
+				cli.BoolFlag{
+					Name:  "debug, d",
+					Usage: "set logger level to debug",
+				},
 			},
 			Usage:  "Run the chainlink node",
 			Action: client.RunNode,
