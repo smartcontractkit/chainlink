@@ -95,8 +95,8 @@ Environment variables that can be set in .envrc, along with default values that 
     CLIENT_NODE_URL          Default: http://localhost:8080
     ETH_MIN_CONFIRMATIONS    Default: 12
     ETH_GAS_BUMP_THRESHOLD   Default: 12
-    ETH_GAS_BUMP_GWEI        Default: 5000000000
-    ETH_GAS_PRICE_DEFAULT    Default: 20000000000
+    ETH_GAS_BUMP_GWEI        Default: 5
+    ETH_GAS_PRICE_DEFAULT    Default: 20
 
 ### Solidity Development setup
 

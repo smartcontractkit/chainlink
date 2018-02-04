@@ -30,7 +30,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 		to,
 		data,
 		big.NewInt(0),
-		big.NewInt(500000),
+		big.NewInt(50000),
 	)
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	if err := txm.ORM.One("ID", txat.TxID, tx); err != nil {
 		return err
 	}
-	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.Config.EthGasBumpWei)
+	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.Config.EthGasBumpGwei)
 	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
 	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
 	return err
