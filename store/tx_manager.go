@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+var defaultGasLimit = big.NewInt(50000)
+
 type TxManager struct {
 	*EthClient
 	KeyStore *KeyStore
@@ -30,7 +32,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 		to,
 		data,
 		big.NewInt(0),
-		big.NewInt(50000),
+		defaultGasLimit,
 	)
 	if err != nil {
 		return nil, err
