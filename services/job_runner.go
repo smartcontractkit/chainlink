@@ -50,7 +50,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	prevRun := run.NextTaskRun()
 	for i, taskRun := range unfinished {
 		prevRun = startTask(taskRun, prevRun.Result, store)
-		logger.Debugw("Produced run result", "run_result", prevRun)
+		logger.Debugw("Produced task run", "tr", prevRun)
 		run.TaskRuns[i+offset] = prevRun
 		if err := store.Save(run); err != nil {
 			return wrapError(run, err)
