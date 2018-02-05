@@ -57,19 +57,19 @@ type TaskRun struct {
 	Result RunResult `json:"result"`
 }
 
-func (tr *TaskRun) Completed() bool {
+func (tr TaskRun) Completed() bool {
 	return tr.Status == StatusCompleted
 }
 
-func (tr *TaskRun) Errored() bool {
+func (tr TaskRun) Errored() bool {
 	return tr.Status == StatusErrored
 }
 
-func (tr *TaskRun) String() string {
+func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
 }
 
-func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"type", tr.Task.Type,
 		"params", tr.Task.Params,
@@ -84,21 +84,23 @@ func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-func (tr *TaskRun) Merge(j2 JSON) error {
-	j := JSON{}
+func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
+	paramsJSON := JSON{}
 	if len(tr.Task.Params) != 0 {
-		err := json.Unmarshal(tr.Task.Params, &j)
+		err := json.Unmarshal(tr.Task.Params, &paramsJSON)
 		if err != nil {
-			return fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
+			return TaskRun{}, fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
 		}
 	}
 
-	merged, err := j.Merge(j2)
+	merged, err := paramsJSON.Merge(j)
 	if err != nil {
-		return fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+		return TaskRun{}, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
 	}
-	tr.Task.Params = json.RawMessage(merged.String())
-	return nil
+
+	rval := tr
+	rval.Task.Params = json.RawMessage(merged.String())
+	return rval, nil
 }
 
 type JSON struct {
