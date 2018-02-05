@@ -31,7 +31,7 @@ func TestEthBytes32Formatting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			past := models.RunResult{
-				Output: cltest.OutputFromString(test.json),
+				Output: cltest.JSONFromString(test.json),
 			}
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)

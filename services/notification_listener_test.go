@@ -61,7 +61,7 @@ func TestNotificationListenerAddJob(t *testing.T) {
 }
 
 func outputFromFixture(path string) models.JSON {
-	fix := cltest.OutputFromFixture(path)
+	fix := cltest.JSONFromFixture(path)
 	res := fix.Get("params.result")
 	var out models.JSON
 	if err := json.Unmarshal([]byte(res.String()), &out); err != nil {
