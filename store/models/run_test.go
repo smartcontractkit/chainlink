@@ -153,9 +153,10 @@ func TestTaskRunMerge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			orig := `{"url":"https://OLD.example.com/api"}`
 			tr := models.TaskRun{
 				Task: models.Task{
-					Params: json.RawMessage(`{"url":"https://OLD.example.com/api"}`),
+					Params: json.RawMessage(orig),
 					Type:   "httpget",
 				},
 			}
@@ -164,6 +165,7 @@ func TestTaskRunMerge(t *testing.T) {
 			merged, err := tr.MergeTaskParams(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
 			assert.JSONEq(t, test.want, string(merged.Task.Params))
+			assert.JSONEq(t, orig, string(tr.Task.Params))
 		})
 	}
 }
