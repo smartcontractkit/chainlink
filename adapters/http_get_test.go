@@ -15,7 +15,7 @@ func TestHttpGetNotAUrlError(t *testing.T) {
 	u, err := url.Parse("NotAUrl")
 	assert.Nil(t, err)
 
-	httpGet := adapters.HttpGet{Endpoint: models.WebURL{u}}
+	httpGet := adapters.HttpGet{URL: models.WebURL{u}}
 	input := models.RunResult{}
 	result := httpGet.Perform(input, nil)
 	assert.Nil(t, result.Output)
@@ -32,7 +32,7 @@ func TestHttpGetResponseError(t *testing.T) {
 		Reply(400).
 		JSON(`Invalid request`)
 
-	httpGet := adapters.HttpGet{Endpoint: models.WebURL{u}}
+	httpGet := adapters.HttpGet{URL: models.WebURL{u}}
 	input := models.RunResult{}
 	result := httpGet.Perform(input, nil)
 	assert.Nil(t, result.Output)

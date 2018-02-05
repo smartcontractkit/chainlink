@@ -3,7 +3,7 @@
 // HttpGet
 //
 // The HttpGet adapter is used to grab the JSON data from the given URL.
-//  { "type": "HttpGet", "endpoint": "https://some-api-example.net/api" }
+//  { "type": "HttpGet", "url": "https://some-api-example.net/api" }
 //
 // JsonParse
 //
