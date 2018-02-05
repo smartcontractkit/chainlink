@@ -32,5 +32,5 @@ func TestGracefulShutdown(t *testing.T) {
 func TestConfigDefaults(t *testing.T) {
 	config := store.NewConfig()
 	assert.Equal(t, uint64(0), config.ChainID)
-	assert.Equal(t, *big.NewInt(20), config.EthGasPriceDefault)
+	assert.Equal(t, *big.NewInt(20000000000), config.EthGasPriceDefault)
 }
