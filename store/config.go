@@ -24,8 +24,8 @@ type Config struct {
 	ClientNodeURL       string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:8080"`
 	EthMinConfirmations uint64   `env:"ETH_MIN_CONFIRMATIONS" envDefault:"12"`
 	EthGasBumpThreshold uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
-	EthGasBumpGwei      big.Int  `env:"ETH_GAS_BUMP_GWEI" envDefault:"5"`
-	EthGasPriceDefault  big.Int  `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20"`
+	EthGasBumpWei       big.Int  `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
+	EthGasPriceDefault  big.Int  `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
 }
 
 func NewConfig() Config {
