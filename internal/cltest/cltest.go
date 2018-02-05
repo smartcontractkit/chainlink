@@ -67,9 +67,9 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			BasicAuthPassword:   Password,
 			ChainID:             3,
 			EthMinConfirmations: 6,
-			EthGasBumpGwei:      *big.NewInt(5),
+			EthGasBumpWei:       *big.NewInt(5000000000),
 			EthGasBumpThreshold: 3,
-			EthGasPriceDefault:  *big.NewInt(20),
+			EthGasPriceDefault:  *big.NewInt(20000000000),
 			PollingSchedule:     "* * * * * *",
 		},
 	}
