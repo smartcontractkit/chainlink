@@ -11,10 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+// WebURL contains the URL of the endpoint.
 type WebURL struct {
 	*url.URL
 }
 
+// UnmarshalJSON parses the raw URL stored in JSON-encoded
+// data to a URL structure and sets it to the URL field.
 func (w *WebURL) UnmarshalJSON(j []byte) error {
 	var v string
 	err := json.Unmarshal(j, &v)
@@ -29,14 +32,18 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 	return nil
 }
 
+// MarshalJSON returns the JSON-encoded string of the given data.
 func (w *WebURL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(w.String())
 }
 
+// Time holds a common field for time.
 type Time struct {
 	time.Time
 }
 
+// UnmarshalJSON parses the raw time stored in JSON-encoded
+// data and stores it to the Time field.
 func (t *Time) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
@@ -45,20 +52,27 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// ISO8601 formats and returns the time in ISO 8601 standard.
 func (t *Time) ISO8601() string {
 	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
 }
 
+// DurationFromNow returns the amount of time since the Time
+// field was last updated.
 func (t *Time) DurationFromNow() time.Duration {
 	return t.Time.Sub(time.Now())
 }
 
+// HumanString formats and returns the time in RFC 3339 standard.
 func (t *Time) HumanString() string {
 	return utils.ISO8601UTC(t.Time)
 }
 
+// Cron holds the string that will represent the spec of the cron-job.
 type Cron string
 
+// UnmarshalJSON parses the raw spec stored in JSON-encoded
+// data and stores it to the Cron string.
 func (c *Cron) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
@@ -77,6 +91,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// String returns the current Cron spec string.
 func (c Cron) String() string {
 	return string(c)
 }
