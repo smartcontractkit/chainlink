@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -45,7 +46,9 @@ func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
 	return unfinished
 }
 
-func (jr *JobRun) NextTaskRun() TaskRun { return jr.UnfinishedTaskRuns()[0] }
+func (jr *JobRun) NextTaskRun() TaskRun {
+	return jr.UnfinishedTaskRuns()[0]
+}
 
 type TaskRun struct {
 	Task   Task      `json:"task"`
@@ -54,13 +57,19 @@ type TaskRun struct {
 	Result RunResult `json:"result"`
 }
 
-func (tr TaskRun) Completed() bool { return tr.Status == StatusCompleted }
-func (tr TaskRun) Errored() bool   { return tr.Status == StatusErrored }
-func (tr TaskRun) String() string {
+func (tr *TaskRun) Completed() bool {
+	return tr.Status == StatusCompleted
+}
+
+func (tr *TaskRun) Errored() bool {
+	return tr.Status == StatusErrored
+}
+
+func (tr *TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
 }
 
-func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"type", tr.Task.Type,
 		"params", tr.Task.Params,
@@ -75,15 +84,79 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-type Output map[string]null.String
-
-func (o Output) String() (string, error) {
-	bytes, err := json.Marshal(o)
-	if err != nil {
-		return "", err
+func (tr *TaskRun) Merge(o2 Output) error {
+	o1 := Output{}
+	if len(tr.Task.Params) != 0 {
+		err := json.Unmarshal(tr.Task.Params, &o1)
+		if err != nil {
+			return fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
+		}
 	}
 
-	return string(bytes), nil
+	if err := o1.Merge(o2); err != nil {
+		return fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+	}
+	tr.Task.Params = json.RawMessage(o1.String())
+	return nil
+}
+
+type Output struct {
+	Body gjson.Result
+}
+
+func (o Output) Get(path string) gjson.Result {
+	return gjson.Get(o.String(), path)
+}
+
+func (o Output) String() string {
+	return o.Body.String()
+}
+
+func (o *Output) UnmarshalJSON(b []byte) error {
+	if !gjson.Valid(string(b)) {
+		return fmt.Errorf("invalid JSON: %v", string(b))
+	}
+	o.Body = gjson.ParseBytes(b)
+	return nil
+}
+
+func (o Output) MarshalJSON() ([]byte, error) {
+	if o.Body.Exists() {
+		return []byte(o.Body.String()), nil
+	}
+	return []byte("{}"), nil
+}
+
+func (o1 *Output) Merge(o2 Output) error {
+	body := o1.Body.Map()
+	for key, value := range o2.Body.Map() {
+		body[key] = value
+	}
+	str, err := convertToJSON(body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(str), o1)
+}
+
+func convertToJSON(body map[string]gjson.Result) (string, error) {
+	str := "{"
+	first := true
+
+	for key, value := range body {
+		if first {
+			first = false
+		} else {
+			str += ","
+		}
+		b, err := json.Marshal(value.Value())
+		if err != nil {
+			return "", err
+		}
+		str += fmt.Sprintf(`"%v": %v`, key, string(b))
+	}
+
+	return (str + "}"), nil
 }
 
 type RunResult struct {
@@ -93,9 +166,17 @@ type RunResult struct {
 }
 
 func RunResultWithValue(val string) RunResult {
-	return RunResult{
-		Output: Output{"value": null.StringFrom(val)},
+	b, err := json.Marshal(map[string]string{"value": val})
+	if err != nil {
+		return RunResultWithError(err)
 	}
+
+	var output Output
+	if err = json.Unmarshal(b, &output); err != nil {
+		return RunResultWithError(err)
+	}
+
+	return RunResult{Output: output}
 }
 
 func RunResultWithError(err error) RunResult {
@@ -112,11 +193,32 @@ func RunResultPending(input RunResult) RunResult {
 	}
 }
 
-func (rr RunResult) Value() string      { return rr.value().String }
-func (rr RunResult) NullValue() bool    { return !rr.value().Valid }
-func (rr RunResult) HasError() bool     { return rr.ErrorMessage.Valid }
-func (rr RunResult) Error() string      { return rr.ErrorMessage.String }
-func (rr RunResult) value() null.String { return rr.Output["value"] }
+func (rr RunResult) Get(path string) (gjson.Result, error) {
+	return rr.Output.Get(path), nil
+}
+
+func (rr RunResult) value() (gjson.Result, error) {
+	return rr.Get("value")
+}
+
+func (rr RunResult) Value() (string, error) {
+	val, err := rr.value()
+	if err != nil {
+		return "", err
+	}
+	if val.Type != gjson.String {
+		return "", fmt.Errorf("non string value")
+	}
+	return val.String(), nil
+}
+
+func (rr RunResult) HasError() bool {
+	return rr.ErrorMessage.Valid
+}
+
+func (rr RunResult) Error() string {
+	return rr.ErrorMessage.String
+}
 
 func (rr RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())

@@ -58,7 +58,7 @@ func startJob(j *models.Job, s *store.Store) (*models.JobRun, error) {
 	}
 
 	go func() {
-		if err = services.ExecuteRun(jr, s); err != nil {
+		if err = services.ExecuteRun(jr, s, models.Output{}); err != nil {
 			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
 		}
 	}()

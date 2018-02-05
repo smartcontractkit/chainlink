@@ -32,7 +32,12 @@ func createTxRunResult(
 	input models.RunResult,
 	store *store.Store,
 ) models.RunResult {
-	data, err := hex.DecodeString(e.FunctionID.WithoutPrefix() + input.Value())
+	val, err := input.Value()
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	data, err := hex.DecodeString(e.FunctionID.WithoutPrefix() + val)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
@@ -47,7 +52,12 @@ func createTxRunResult(
 }
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
-	hash, err := utils.StringToHash(input.Value())
+	val, err := input.Value()
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	hash, err := utils.StringToHash(val)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
