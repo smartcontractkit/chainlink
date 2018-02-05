@@ -133,3 +133,35 @@ func TestOutputMerge(t *testing.T) {
 		})
 	}
 }
+
+func TestTaskRunMerge(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		want        string
+		wantErrored bool
+	}{
+		{"replace field", `{"url":"https://NEW.example.com/api"}`,
+			`{"url":"https://NEW.example.com/api"}`, false},
+		{"replace and add field", `{"url":"https://NEW.example.com/api","extra":1}`,
+			`{"url":"https://NEW.example.com/api","extra":1}`, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tr := models.TaskRun{
+				Task: models.Task{
+					Params: json.RawMessage(`{"url":"https://OLD.example.com/api"}`),
+					Type:   "httpget",
+				},
+			}
+			input := cltest.OutputFromString(test.input)
+
+			err := tr.Merge(*input)
+			assert.Equal(t, test.wantErrored, (err != nil))
+			assert.JSONEq(t, test.want, string(tr.Task.Params))
+		})
+	}
+}
