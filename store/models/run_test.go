@@ -161,9 +161,9 @@ func TestTaskRunMerge(t *testing.T) {
 			}
 			input := cltest.OutputFromString(test.input)
 
-			err := tr.Merge(input)
+			merged, err := tr.MergeTaskParams(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, string(tr.Task.Params))
+			assert.JSONEq(t, test.want, string(merged.Task.Params))
 		})
 	}
 }
