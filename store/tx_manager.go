@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-var defaultGasLimit = big.NewInt(50000)
+var defaultGasLimit = big.NewInt(500000)
 
 type TxManager struct {
 	*EthClient

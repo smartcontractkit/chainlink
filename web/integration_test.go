@@ -57,7 +57,7 @@ func TestCreateJobIntegration(t *testing.T) {
 		JSON(tickerResponse)
 
 	eth.Register("eth_getTransactionCount", `0x0100`)
-	hash, err := utils.StringToHash("0x437246a769d5492210df6fec57794b4805d07e6a7e62d315e556d8782fc61ca9")
+	hash, err := utils.StringToHash("0x07271ad102cecb6744a78a17043aadad5e28456a6cb6a76dd9b9a50d03c72041")
 	assert.Nil(t, err)
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
