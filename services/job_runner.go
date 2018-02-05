@@ -10,7 +10,7 @@ import (
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(job *models.Job, store *store.Store, input models.Output) (*models.JobRun, error) {
+func BeginRun(job *models.Job, store *store.Store, input models.JSON) (*models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run *models.JobRun, store *store.Store, input models.Output) error {
+func ExecuteRun(run *models.JobRun, store *store.Store, input models.JSON) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {
 		return wrapError(run, err)
