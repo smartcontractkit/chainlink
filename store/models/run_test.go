@@ -124,12 +124,14 @@ func TestOutputMerge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			o1 := cltest.OutputFromString(`{"value":"OLD","other":1}`)
+			orig := `{"value":"OLD","other":1}`
+			o1 := cltest.OutputFromString(orig)
 			o2 := cltest.OutputFromString(test.input)
 
-			err := o1.Merge(o2)
+			merged, err := o1.Merge(o2)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, o1.String())
+			assert.JSONEq(t, test.want, merged.String())
+			assert.JSONEq(t, orig, o1.String())
 		})
 	}
 }

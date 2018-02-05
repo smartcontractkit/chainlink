@@ -93,10 +93,11 @@ func (tr *TaskRun) Merge(j2 JSON) error {
 		}
 	}
 
-	if err := j.Merge(j2); err != nil {
+	merged, err := j.Merge(j2)
+	if err != nil {
 		return fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
 	}
-	tr.Task.Params = json.RawMessage(j.String())
+	tr.Task.Params = json.RawMessage(merged.String())
 	return nil
 }
 
@@ -127,16 +128,18 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-func (j *JSON) Merge(j2 JSON) error {
+func (j JSON) Merge(j2 JSON) (JSON, error) {
 	body := j.Body.Map()
 	for key, value := range j2.Body.Map() {
 		body[key] = value
 	}
 	str, err := convertToJSON(body)
 	if err != nil {
-		return err
+		return JSON{}, err
 	}
-	return json.Unmarshal([]byte(str), j)
+
+	var rval JSON
+	return rval, gjson.Unmarshal([]byte(str), &rval)
 }
 
 func convertToJSON(body map[string]gjson.Result) (string, error) {
