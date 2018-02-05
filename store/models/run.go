@@ -70,7 +70,7 @@ func (tr *TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
 }
 
-func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"type", tr.Task.Type,
 		"params", tr.Task.Params,
@@ -94,7 +94,7 @@ func (tr *TaskRun) Merge(o2 Output) error {
 		}
 	}
 
-	if err := o1.Merge(&o2); err != nil {
+	if err := o1.Merge(o2); err != nil {
 		return fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
 	}
 	tr.Task.Params = json.RawMessage(o1.String())
@@ -105,11 +105,11 @@ type Output struct {
 	Body gjson.Result
 }
 
-func (o *Output) Get(path string) gjson.Result {
+func (o Output) Get(path string) gjson.Result {
 	return gjson.Get(o.String(), path)
 }
 
-func (o *Output) String() string {
+func (o Output) String() string {
 	return o.Body.String()
 }
 
@@ -121,11 +121,14 @@ func (o *Output) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (o *Output) MarshalJSON() ([]byte, error) {
-	return []byte(o.Body.String()), nil
+func (o Output) MarshalJSON() ([]byte, error) {
+	if o.Body.Exists() {
+		return []byte(o.Body.String()), nil
+	}
+	return []byte("{}"), nil
 }
 
-func (o1 *Output) Merge(o2 *Output) error {
+func (o1 *Output) Merge(o2 Output) error {
 	body := o1.Body.Map()
 	for key, value := range o2.Body.Map() {
 		body[key] = value
@@ -158,7 +161,7 @@ func convertToJSON(body map[string]gjson.Result) (string, error) {
 }
 
 type RunResult struct {
-	Output       *Output     `json:"output"`
+	Output       Output      `json:"output"`
 	ErrorMessage null.String `json:"error"`
 	Pending      bool        `json:"pending"`
 }
@@ -174,7 +177,7 @@ func RunResultWithValue(val string) RunResult {
 		logger.Fatal(err)
 	}
 
-	return RunResult{Output: &output}
+	return RunResult{Output: output}
 }
 
 func RunResultWithError(err error) RunResult {
@@ -192,9 +195,6 @@ func RunResultPending(input RunResult) RunResult {
 }
 
 func (rr RunResult) Get(path string) (gjson.Result, error) {
-	if rr.Output == nil {
-		return gjson.Result{}, fmt.Errorf("no Output set")
-	}
 	return rr.Output.Get(path), nil
 }
 
