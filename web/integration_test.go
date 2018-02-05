@@ -146,6 +146,44 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
+func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	eth := app.MockEthClient()
+
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
+	gock.New("https://etherprice.com").
+		Get("/api").
+		Reply(200).
+		JSON(`{}`)
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/chainlink_log_job.json")
+	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+
+	var initr models.Initiator
+	app.Store.One("JobID", j.ID, &initr)
+	assert.Equal(t, models.InitiatorChainlinkLog, initr.Type)
+	assert.Equal(t, address, initr.Address)
+
+	logs := make(chan store.EthNotification, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
+
+	var en store.EthNotification
+	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	assert.Nil(t, json.Unmarshal(logFixture, &en))
+	logs <- en
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+}
+
 func TestCreateJobWithEndAtIntegration(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)

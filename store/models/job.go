@@ -51,11 +51,13 @@ func (j *Job) NewRun() *JobRun {
 	}
 }
 
-func (j *Job) InitiatorsFor(t string) []Initiator {
+func (j *Job) InitiatorsFor(types ...string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
-		if initr.Type == t {
-			list = append(list, initr)
+		for _, t := range types {
+			if initr.Type == t {
+				list = append(list, initr)
+			}
 		}
 	}
 	return list
