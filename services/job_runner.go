@@ -112,10 +112,12 @@ func wrapError(run *models.JobRun, err error) error {
 	return nil
 }
 
+// JobRunnerError contains the field for the error message.
 type JobRunnerError struct {
 	msg string
 }
 
+// Error returns the error message for the run.
 func (err JobRunnerError) Error() string {
 	return err.msg
 }
