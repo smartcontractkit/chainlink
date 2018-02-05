@@ -38,7 +38,7 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run *models.JobRun, store *store.Store, _ models.Output) error {
+func ExecuteRun(run *models.JobRun, store *store.Store, input models.Output) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {
 		return wrapError(run, err)
@@ -47,7 +47,11 @@ func ExecuteRun(run *models.JobRun, store *store.Store, _ models.Output) error {
 	logger.Infow("Starting job", run.ForLogger()...)
 	unfinished := run.UnfinishedTaskRuns()
 	offset := len(run.TaskRuns) - len(unfinished)
-	prevRun := run.NextTaskRun()
+	prevRun := unfinished[0]
+	if err := prevRun.Merge(input); err != nil {
+		return wrapError(run, err)
+	}
+	unfinished[0] = prevRun
 	for i, taskRun := range unfinished {
 		prevRun = startTask(taskRun, prevRun.Result, store)
 		run.TaskRuns[i+offset] = prevRun
