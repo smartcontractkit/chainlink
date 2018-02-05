@@ -125,8 +125,8 @@ func TestOutputMerge(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			orig := `{"value":"OLD","other":1}`
-			o1 := cltest.OutputFromString(orig)
-			o2 := cltest.OutputFromString(test.input)
+			o1 := cltest.JSONFromString(orig)
+			o2 := cltest.JSONFromString(test.input)
 
 			merged, err := o1.Merge(o2)
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -159,7 +159,7 @@ func TestTaskRunMerge(t *testing.T) {
 					Type:   "httpget",
 				},
 			}
-			input := cltest.OutputFromString(test.input)
+			input := cltest.JSONFromString(test.input)
 
 			merged, err := tr.MergeTaskParams(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
