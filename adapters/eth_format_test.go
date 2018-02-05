@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,7 +30,9 @@ func TestEthBytes32Formatting(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			past := models.RunResult{Output: &models.Output{test.json}}
+			past := models.RunResult{
+				Output: cltest.OutputFromString(test.json),
+			}
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)
 
