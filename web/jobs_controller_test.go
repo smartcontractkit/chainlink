@@ -45,7 +45,7 @@ func TestCreateJobs(t *testing.T) {
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := adapter1.(*adapters.HttpGet)
-	assert.Equal(t, httpGet.Endpoint.String(), "https://bitstamp.net/api/ticker/")
+	assert.Equal(t, httpGet.URL.String(), "https://bitstamp.net/api/ticker/")
 
 	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
 	jsonParse := adapter2.(*adapters.JsonParse)
@@ -70,7 +70,7 @@ func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := adapter1.(*adapters.HttpGet)
-	assert.Equal(t, httpGet.Endpoint.String(), "https://bitstamp.net/api/ticker/")
+	assert.Equal(t, httpGet.URL.String(), "https://bitstamp.net/api/ticker/")
 
 	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
 	jsonParse := adapter2.(*adapters.JsonParse)
