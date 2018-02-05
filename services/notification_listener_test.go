@@ -1,6 +1,8 @@
 package services_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -57,4 +59,49 @@ func TestNotificationListenerAddJob(t *testing.T) {
 	}).Should(HaveLen(1))
 
 	assert.True(t, eth.AllCalled())
+}
+
+func outputFromFixture(path string) models.Output {
+	fix := cltest.OutputFromFixture(path)
+	res := fix.Get("params.result")
+	var out models.Output
+	if err := json.Unmarshal([]byte(res.String()), &out); err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func TestStoreFormatLogOutput(t *testing.T) {
+	t.Parallel()
+
+	var clData models.Output
+	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"]}`
+	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
+
+	hwEvent := cltest.EventLogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	exampleEvent := cltest.EventLogFromFixture("../internal/fixtures/eth/subscription_logs.json")
+	tests := []struct {
+		name        string
+		el          strpkg.EventLog
+		initr       models.Initiator
+		wantErrored bool
+		wantOutput  models.Output
+	}{
+		{"example ethLog", exampleEvent, models.Initiator{Type: "ethlog"}, false,
+			outputFromFixture("../internal/fixtures/eth/subscription_logs.json")},
+		{"hello world ethLog", hwEvent, models.Initiator{Type: "ethlog"}, false,
+			outputFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
+		{"hello world chainlinkLog", hwEvent, models.Initiator{Type: "chainlinklog"}, false,
+			clData},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := services.FormatLogOutput(test.initr, test.el)
+			fmt.Println("want", test.wantOutput.String())
+			fmt.Println("got", output.String())
+			assert.JSONEq(t, test.wantOutput.String(), output.String())
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
 }

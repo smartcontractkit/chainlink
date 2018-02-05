@@ -77,10 +77,18 @@ func TestCreateJobIntegration(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	cltest.WaitForJobRunToComplete(t, app, jr)
 
-	assert.Equal(t, tickerResponse, jr.TaskRuns[0].Result.Value())
-	assert.Equal(t, "10583.75", jr.TaskRuns[1].Result.Value())
-	assert.Equal(t, hash.String(), jr.TaskRuns[3].Result.Value())
-	assert.Equal(t, hash.String(), jr.Result.Value())
+	val, err := jr.TaskRuns[0].Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, tickerResponse, val)
+	val, err = jr.TaskRuns[1].Result.Value()
+	assert.Equal(t, "10583.75", val)
+	assert.Nil(t, err)
+	val, err = jr.TaskRuns[3].Result.Value()
+	assert.Equal(t, hash.String(), val)
+	assert.Nil(t, err)
+	val, err = jr.Result.Value()
+	assert.Equal(t, hash.String(), val)
+	assert.Nil(t, err)
 
 	assert.True(t, eth.AllCalled())
 }
@@ -120,6 +128,44 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
+	assert.Equal(t, address, initr.Address)
+
+	logs := make(chan store.EthNotification, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
+
+	var en store.EthNotification
+	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	assert.Nil(t, json.Unmarshal(logFixture, &en))
+	logs <- en
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+}
+
+func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	eth := app.MockEthClient()
+
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
+	gock.New("https://etherprice.com").
+		Get("/api").
+		Reply(200).
+		JSON(`{}`)
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/chainlink_log_job.json")
+	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+
+	var initr models.Initiator
+	app.Store.One("JobID", j.ID, &initr)
+	assert.Equal(t, models.InitiatorChainlinkLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
 	logs := make(chan store.EthNotification, 1)
@@ -222,7 +268,10 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
-	assert.Equal(t, eaValue, tr.Result.Value())
-	assert.Equal(t, eaExtra, tr.Result.Output["extra"].String)
-	assert.Equal(t, eaValue, jr.Result.Value())
+	val, err := tr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, eaValue, val)
+	res, err := tr.Result.Get("extra")
+	assert.Nil(t, err)
+	assert.Equal(t, eaExtra, res.String())
 }

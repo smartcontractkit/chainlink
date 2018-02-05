@@ -51,11 +51,13 @@ func (j *Job) NewRun() *JobRun {
 	}
 }
 
-func (j *Job) InitiatorsFor(t string) []Initiator {
+func (j *Job) InitiatorsFor(types ...string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
-		if initr.Type == t {
-			list = append(list, initr)
+		for _, t := range types {
+			if initr.Type == t {
+				list = append(list, initr)
+			}
 		}
 	}
 	return list
@@ -85,17 +87,19 @@ func (j *Job) Started(t time.Time) bool {
 }
 
 const (
-	InitiatorWeb    = "web"
-	InitiatorCron   = "cron"
-	InitiatorRunAt  = "runat"
-	InitiatorEthLog = "ethlog"
+	InitiatorChainlinkLog = "chainlinklog"
+	InitiatorCron         = "cron"
+	InitiatorEthLog       = "ethlog"
+	InitiatorRunAt        = "runat"
+	InitiatorWeb          = "web"
 )
 
 var initiatorWhitelist = map[string]bool{
-	InitiatorWeb:    true,
-	InitiatorCron:   true,
-	InitiatorRunAt:  true,
-	InitiatorEthLog: true,
+	InitiatorChainlinkLog: true,
+	InitiatorCron:         true,
+	InitiatorEthLog:       true,
+	InitiatorRunAt:        true,
+	InitiatorWeb:          true,
 }
 
 type Initiator struct {

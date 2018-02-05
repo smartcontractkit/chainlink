@@ -18,7 +18,12 @@ const maxBytes32HexLength = 32 * 2
 // the blockchain, it would be:
 // "31363830302e3030000000000000000000000000000000000000000000000000"
 func (eba *EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	value := common.RightPadBytes([]byte(input.Value()), 32)
+	result, err := input.Get("value")
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	value := common.RightPadBytes([]byte(result.String()), 32)
 	hex := removeHexPrefix(common.ToHex(value))
 
 	if len(hex) > maxBytes32HexLength {

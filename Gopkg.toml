@@ -88,3 +88,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/smartcontractkit/env"
+
+[[constraint]]
+  name = "github.com/tidwall/gjson"
+  version = "1.0.6"

@@ -138,3 +138,30 @@ func NewEthNotification(el store.EventLog) store.EthNotification {
 	params := json.RawMessage(fmt.Sprintf(`{"result":%v}`, string(b)))
 	return store.EthNotification{Params: params}
 }
+
+func EventLogFromFixture(path string) store.EventLog {
+	var en store.EthNotification
+	err := json.Unmarshal([]byte(LoadJSON(path)), &en)
+	if err != nil {
+		panic(err)
+	}
+
+	el, err := en.UnmarshalLog()
+	if err != nil {
+		panic(err)
+	}
+
+	return el
+}
+
+func OutputFromFixture(path string) *models.Output {
+	return OutputFromString(string(LoadJSON(path)))
+}
+
+func OutputFromString(body string) *models.Output {
+	var o models.Output
+	if err := json.Unmarshal([]byte(body), &o); err != nil {
+		panic(err)
+	}
+	return &o
+}
