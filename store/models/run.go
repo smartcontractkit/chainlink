@@ -47,7 +47,9 @@ func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
 	return unfinished
 }
 
-func (jr *JobRun) NextTaskRun() TaskRun { return jr.UnfinishedTaskRuns()[0] }
+func (jr *JobRun) NextTaskRun() TaskRun {
+	return jr.UnfinishedTaskRuns()[0]
+}
 
 type TaskRun struct {
 	Task   Task      `json:"task"`
@@ -56,8 +58,14 @@ type TaskRun struct {
 	Result RunResult `json:"result"`
 }
 
-func (tr TaskRun) Completed() bool { return tr.Status == StatusCompleted }
-func (tr TaskRun) Errored() bool   { return tr.Status == StatusErrored }
+func (tr TaskRun) Completed() bool {
+	return tr.Status == StatusCompleted
+}
+
+func (tr TaskRun) Errored() bool {
+	return tr.Status == StatusErrored
+}
+
 func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
 }
@@ -84,6 +92,38 @@ func (o *Output) UnmarshalJSON(b []byte) error {
 
 func (o *Output) MarshalJSON() ([]byte, error) {
 	return []byte(o.Body.String()), nil
+}
+
+func (o1 *Output) Merge(o2 *Output) error {
+	body := o1.Body.Map()
+	for key, value := range o2.Body.Map() {
+		body[key] = value
+	}
+	str, err := convertToJSON(body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(str), o1)
+}
+
+func convertToJSON(body map[string]gjson.Result) (string, error) {
+	str := "{"
+	first := true
+
+	for key, value := range body {
+		if first {
+			first = false
+		} else {
+			str += ","
+		}
+		b, err := json.Marshal(value.Value())
+		if err != nil {
+			return "", err
+		}
+		str += fmt.Sprintf(`"%v": %v`, key, string(b))
+	}
+
+	return (str + "}"), nil
 }
 
 type RunResult struct {

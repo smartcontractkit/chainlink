@@ -100,3 +100,36 @@ func TestRunResultValue(t *testing.T) {
 		})
 	}
 }
+
+func TestOutputMerge(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		want        string
+		wantErrored bool
+	}{
+		{"new field", `{"extra":"fields"}`,
+			`{"value":"OLD","other":1,"extra":"fields"}`, false},
+		{"overwritting fields", `{"value":["new","new"],"extra":2}`,
+			`{"value":["new","new"],"other":1,"extra":2}`, false},
+		{"nested JSON", `{"extra":{"fields": ["more", 1]}}`,
+			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`, false},
+		{"empty JSON", `{}`,
+			`{"value":"OLD","other":1}`, false},
+		{"null values", `{"value":null}`,
+			`{"value":null,"other":1}`, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			o1 := cltest.OutputFromString(`{"value":"OLD","other":1}`)
+			o2 := cltest.OutputFromString(test.input)
+
+			err := o1.Merge(o2)
+			assert.Equal(t, test.wantErrored, (err != nil))
+			assert.JSONEq(t, test.want, o1.String())
+		})
+	}
+}
