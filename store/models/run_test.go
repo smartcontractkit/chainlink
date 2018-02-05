@@ -92,7 +92,7 @@ func TestRunResultValue(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output models.Output
 			json.Unmarshal([]byte(test.json), &output)
-			rr := models.RunResult{Output: &output}
+			rr := models.RunResult{Output: output}
 
 			val, err := rr.Value()
 			assert.Equal(t, test.want, val)
@@ -159,7 +159,7 @@ func TestTaskRunMerge(t *testing.T) {
 			}
 			input := cltest.OutputFromString(test.input)
 
-			err := tr.Merge(*input)
+			err := tr.Merge(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
 			assert.JSONEq(t, test.want, string(tr.Task.Params))
 		})
