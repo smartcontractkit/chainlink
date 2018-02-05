@@ -154,14 +154,14 @@ func EventLogFromFixture(path string) store.EventLog {
 	return el
 }
 
-func OutputFromFixture(path string) models.Output {
+func OutputFromFixture(path string) models.JSON {
 	return OutputFromString(string(LoadJSON(path)))
 }
 
-func OutputFromString(body string) models.Output {
-	var o models.Output
-	if err := json.Unmarshal([]byte(body), &o); err != nil {
+func OutputFromString(body string) models.JSON {
+	var j models.JSON
+	if err := json.Unmarshal([]byte(body), &j); err != nil {
 		panic(err)
 	}
-	return o
+	return j
 }

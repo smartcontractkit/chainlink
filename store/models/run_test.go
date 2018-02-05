@@ -44,7 +44,7 @@ func TestTaskRunsToRun(t *testing.T) {
 	jr := j.NewRun()
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
-	err := services.ExecuteRun(jr, store, models.Output{})
+	err := services.ExecuteRun(jr, store, models.JSON{})
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
@@ -63,8 +63,8 @@ func TestOutputUnmarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var o models.Output
-			err := json.Unmarshal([]byte(test.json), &o)
+			var j models.JSON
+			err := json.Unmarshal([]byte(test.json), &j)
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
@@ -90,7 +90,7 @@ func TestRunResultValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var output models.Output
+			var output models.JSON
 			json.Unmarshal([]byte(test.json), &output)
 			rr := models.RunResult{Output: output}
 

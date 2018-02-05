@@ -84,18 +84,18 @@ func (nl *NotificationListener) listenToLogs() {
 
 // FormatLogOutput uses the Initiator to decide how to format the EventLog
 // as an Output object.
-func FormatLogOutput(initr models.Initiator, el store.EventLog) (models.Output, error) {
+func FormatLogOutput(initr models.Initiator, el store.EventLog) (models.JSON, error) {
 	if initr.Type == models.InitiatorEthLog {
 		return convertEventLogToOutput(el)
 	} else if initr.Type == models.InitiatorChainlinkLog {
 		out, err := parseEventLogJSON(el)
 		return out, err
 	}
-	return models.Output{}, fmt.Errorf("no supported initiator type was found")
+	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
 }
 
-func convertEventLogToOutput(el store.EventLog) (models.Output, error) {
-	var out models.Output
+func convertEventLogToOutput(el store.EventLog) (models.JSON, error) {
+	var out models.JSON
 	b, err := json.Marshal(el)
 	if err != nil {
 		return out, err
@@ -103,8 +103,8 @@ func convertEventLogToOutput(el store.EventLog) (models.Output, error) {
 	return out, json.Unmarshal(b, &out)
 }
 
-func parseEventLogJSON(el store.EventLog) (models.Output, error) {
-	var out models.Output
+func parseEventLogJSON(el store.EventLog) (models.JSON, error) {
+	var out models.JSON
 	hex := []byte(string([]byte(el.Data)[64:]))
 	return out, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &out)
 }

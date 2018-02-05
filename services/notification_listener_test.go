@@ -61,10 +61,10 @@ func TestNotificationListenerAddJob(t *testing.T) {
 	assert.True(t, eth.AllCalled())
 }
 
-func outputFromFixture(path string) models.Output {
+func outputFromFixture(path string) models.JSON {
 	fix := cltest.OutputFromFixture(path)
 	res := fix.Get("params.result")
-	var out models.Output
+	var out models.JSON
 	if err := json.Unmarshal([]byte(res.String()), &out); err != nil {
 		panic(err)
 	}
@@ -74,7 +74,7 @@ func outputFromFixture(path string) models.Output {
 func TestStoreFormatLogOutput(t *testing.T) {
 	t.Parallel()
 
-	var clData models.Output
+	var clData models.JSON
 	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"]}`
 	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
 
@@ -85,7 +85,7 @@ func TestStoreFormatLogOutput(t *testing.T) {
 		el          strpkg.EventLog
 		initr       models.Initiator
 		wantErrored bool
-		wantOutput  models.Output
+		wantOutput  models.JSON
 	}{
 		{"example ethLog", exampleEvent, models.Initiator{Type: "ethlog"}, false,
 			outputFromFixture("../internal/fixtures/eth/subscription_logs.json")},
