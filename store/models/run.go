@@ -63,7 +63,7 @@ func (tr TaskRun) String() string {
 }
 
 type Output struct {
-	Body string
+	Body gjson.Result
 }
 
 func (o *Output) Get(path string) gjson.Result {
@@ -71,19 +71,19 @@ func (o *Output) Get(path string) gjson.Result {
 }
 
 func (o *Output) String() string {
-	return o.Body
+	return o.Body.String()
 }
 
 func (o *Output) UnmarshalJSON(b []byte) error {
-	if !json.Valid(b) {
+	if !gjson.Valid(string(b)) {
 		return fmt.Errorf("invalid JSON: %v", string(b))
 	}
-	o.Body = string(b)
+	o.Body = gjson.ParseBytes(b)
 	return nil
 }
 
 func (o *Output) MarshalJSON() ([]byte, error) {
-	return []byte(o.Body), nil
+	return []byte(o.Body.String()), nil
 }
 
 type RunResult struct {
@@ -97,9 +97,13 @@ func RunResultWithValue(val string) RunResult {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	return RunResult{
-		Output: &Output{string(b)},
+
+	var output Output
+	if err = json.Unmarshal(b, &output); err != nil {
+		logger.Fatal(err)
 	}
+
+	return RunResult{Output: &output}
 }
 
 func RunResultWithError(err error) RunResult {
