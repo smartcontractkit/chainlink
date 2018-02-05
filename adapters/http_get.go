@@ -12,13 +12,13 @@ import (
 // HttpGet holds the endpoint for the actual URL of the service or
 // external adapter which will return the JSON object
 type HttpGet struct {
-	Endpoint models.WebURL `json:"endpoint"`
+	URL models.WebURL `json:"url"`
 }
 
-// Perform ensures that the http Endpoint responded without errors
+// Perform ensures that the http URL responded without errors
 // and returns the JSON result if successful
 func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	response, err := http.Get(hga.Endpoint.String())
+	response, err := http.Get(hga.URL.String())
 	if err != nil {
 		return models.RunResultWithError(err)
 	}

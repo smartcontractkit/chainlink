@@ -168,6 +168,10 @@ block-stream@*:
   dependencies:
     inherits "~2.0.0"
 
+bn.js@4.11.6:
+  version "4.11.6"
+  resolved "https://registry.yarnpkg.com/bn.js/-/bn.js-4.11.6.tgz#53344adb14617a13f6e8dd2ce28905d1c0ba3215"
+
 bn.js@^4.0.0, bn.js@^4.1.0, bn.js@^4.1.1, bn.js@^4.4.0:
   version "4.11.8"
   resolved "https://registry.yarnpkg.com/bn.js/-/bn.js-4.11.8.tgz#2cde09eb5ee341f484746bb0309b3253b1b1442f"
@@ -504,6 +508,10 @@ domain-browser@^1.1.1:
   version "1.1.7"
   resolved "https://registry.yarnpkg.com/domain-browser/-/domain-browser-1.1.7.tgz#867aa4b093faa05f1de08c06f4d7b21fdf8698bc"
 
+dotenv@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-4.0.0.tgz#864ef1379aced55ce6f95debecdce179f7a0cd1d"
+
 ecc-jsbn@~0.1.1:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/ecc-jsbn/-/ecc-jsbn-0.1.1.tgz#0fc73a9ed5f0d53c38193398523ef7e543777505"
@@ -622,6 +630,14 @@ esrecurse@^4.1.0:
 estraverse@^4.1.0, estraverse@^4.1.1:
   version "4.2.0"
   resolved "https://registry.yarnpkg.com/estraverse/-/estraverse-4.2.0.tgz#0dee3fed31fcd469618ce7342099fc1afa0bdb13"
+
+ethjs-abi@^0.2.1:
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/ethjs-abi/-/ethjs-abi-0.2.1.tgz#e0a7a93a7e81163a94477bad56ede524ab6de533"
+  dependencies:
+    bn.js "4.11.6"
+    js-sha3 "0.5.5"
+    number-to-bn "1.7.0"
 
 event-emitter@~0.3.5:
   version "0.3.5"
@@ -1031,6 +1047,10 @@ is-glob@^2.0.0, is-glob@^2.0.1:
   dependencies:
     is-extglob "^1.0.0"
 
+is-hex-prefixed@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/is-hex-prefixed/-/is-hex-prefixed-1.0.0.tgz#7d8d37e6ad77e5d127148913c573e082d777f554"
+
 is-number@^2.1.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/is-number/-/is-number-2.1.0.tgz#01fcbbb393463a548f2f466cce16dece49db908f"
@@ -1080,6 +1100,10 @@ isobject@^2.0.0:
 isstream@~0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/isstream/-/isstream-0.1.2.tgz#47e63f7af55afa6f92e1500e690eb8b8529c099a"
+
+js-sha3@0.5.5:
+  version "0.5.5"
+  resolved "https://registry.yarnpkg.com/js-sha3/-/js-sha3-0.5.5.tgz#baf0c0e8c54ad5903447df96ade7a4a1bca79a4a"
 
 jsbn@~0.1.0:
   version "0.1.1"
@@ -1470,6 +1494,13 @@ npmlog@^4.0.2:
 number-is-nan@^1.0.0:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/number-is-nan/-/number-is-nan-1.0.1.tgz#097b602b53422a522c1afb8790318336941a011d"
+
+number-to-bn@1.7.0:
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/number-to-bn/-/number-to-bn-1.7.0.tgz#bb3623592f7e5f9e0030b1977bd41a0c53fe1ea0"
+  dependencies:
+    bn.js "4.11.6"
+    strip-hex-prefix "1.0.0"
 
 oauth-sign@~0.8.1:
   version "0.8.2"
@@ -1905,6 +1936,10 @@ solc@0.4.18:
     semver "^5.3.0"
     yargs "^4.7.1"
 
+"solidity-stringutils@https://github.com/Arachnid/solidity-stringutils":
+  version "0.0.0"
+  resolved "https://github.com/Arachnid/solidity-stringutils#4c36b494ded3661fdd2210b56fd6acc27d9a8d2a"
+
 source-list-map@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/source-list-map/-/source-list-map-2.0.0.tgz#aaa47403f7b245a92fbc97ea08f250d6087ed085"
@@ -2012,6 +2047,12 @@ strip-bom@^3.0.0:
 strip-eof@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/strip-eof/-/strip-eof-1.0.0.tgz#bb43ff5598a6eb05d89b59fcd129c983313606bf"
+
+strip-hex-prefix@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/strip-hex-prefix/-/strip-hex-prefix-1.0.0.tgz#0c5f155fef1151373377de9dbb588da05500e36f"
+  dependencies:
+    is-hex-prefixed "1.0.0"
 
 strip-json-comments@~2.0.1:
   version "2.0.1"
@@ -2314,3 +2355,10 @@ yargs@~3.10.0:
     cliui "^2.1.0"
     decamelize "^1.0.0"
     window-size "0.1.0"
+
+"zeppelin-solidity@https://github.com/OpenZeppelin/zeppelin-solidity":
+  version "1.5.0"
+  resolved "https://github.com/OpenZeppelin/zeppelin-solidity#370e6a882aef6b9600949594d3a3e4854260d51e"
+  dependencies:
+    dotenv "^4.0.0"
+    ethjs-abi "^0.2.1"

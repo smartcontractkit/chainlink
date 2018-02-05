@@ -8,7 +8,7 @@ moment = require('moment');
     accounts = await eth.accounts;
     Accounts = accounts.slice(1);
 
-    oracle = Accounts[0];
+    oracleNode = Accounts[0];
     stranger = Accounts[1];
     consumer = Accounts[2];
   });
@@ -122,7 +122,6 @@ moment = require('moment');
         if (error) {
           reject(error);
         } else {
-          console.log(events)
           resolve(events);
         };
       });
