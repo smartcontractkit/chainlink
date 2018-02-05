@@ -58,16 +58,32 @@ type TaskRun struct {
 	Result RunResult `json:"result"`
 }
 
-func (tr TaskRun) Completed() bool {
+func (tr *TaskRun) Completed() bool {
 	return tr.Status == StatusCompleted
 }
 
-func (tr TaskRun) Errored() bool {
+func (tr *TaskRun) Errored() bool {
 	return tr.Status == StatusErrored
 }
 
-func (tr TaskRun) String() string {
+func (tr *TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
+}
+
+func (tr *TaskRun) Merge(o2 Output) error {
+	o1 := Output{}
+	if len(tr.Task.Params) != 0 {
+		err := json.Unmarshal(tr.Task.Params, &o1)
+		if err != nil {
+			return fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
+		}
+	}
+
+	if err := o1.Merge(&o2); err != nil {
+		return fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+	}
+	tr.Task.Params = json.RawMessage(o1.String())
+	return nil
 }
 
 type Output struct {
