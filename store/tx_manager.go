@@ -6,9 +6,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
+
+var defaultGasLimit = big.NewInt(500000)
 
 type TxManager struct {
 	*EthClient
@@ -29,7 +32,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 		to,
 		data,
 		big.NewInt(0),
-		big.NewInt(500000),
+		defaultGasLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -97,10 +100,8 @@ func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
-	if _, err = txm.SendRawTx(hex); err != nil {
-		return err
-	}
-	return nil
+	_, err = txm.SendRawTx(hex)
+	return err
 }
 
 func (txm *TxManager) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
@@ -146,6 +147,7 @@ func (txm *TxManager) handleConfirmed(
 	if err := txm.ORM.ConfirmTx(tx, txat); err != nil {
 		return false, err
 	}
+	logger.Infow(fmt.Sprintf("Confirmed tx %v", txat.Hash.String()), "txat", txat, "receipt", rcpt)
 	return true, nil
 }
 
@@ -168,9 +170,7 @@ func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 		return err
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.Config.EthGasBumpWei)
-	_, err := txm.createAttempt(tx, gasPrice, blkNum)
-	if err != nil {
-		return err
-	}
-	return txm.ORM.Save(txat)
+	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
+	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
+	return err
 }

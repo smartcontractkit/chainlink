@@ -60,6 +60,21 @@ func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
 }
 
+func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+	output := []interface{}{
+		"type", tr.Task.Type,
+		"params", tr.Task.Params,
+		"taskrun", tr.ID,
+		"status", tr.Status,
+	}
+
+	if tr.Result.HasError() {
+		output = append(output, "error", tr.Result.Error())
+	}
+
+	return append(kvs, output...)
+}
+
 type Output map[string]null.String
 
 func (o Output) String() (string, error) {

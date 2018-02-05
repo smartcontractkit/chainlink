@@ -28,7 +28,7 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
-	logger.SetLoggerDir(config.RootDir)
+	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
 	return &ChainlinkApplication{
 		LogListener: &LogListener{Store: store},
 		Scheduler:   NewScheduler(store),

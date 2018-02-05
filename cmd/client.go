@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	clipkg "github.com/urfave/cli"
+	"go.uber.org/zap/zapcore"
 )
 
 type Client struct {
@@ -24,6 +25,9 @@ type Client struct {
 }
 
 func (cli *Client) RunNode(c *clipkg.Context) error {
+	if c.Bool("debug") {
+		cli.Config.LogLevel = store.LogLevel{zapcore.DebugLevel}
+	}
 	app := cli.AppFactory.NewApplication(cli.Config)
 	cli.Auth.Authenticate(app.GetStore(), c.String("password"))
 
