@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -169,12 +168,12 @@ type RunResult struct {
 func RunResultWithValue(val string) RunResult {
 	b, err := json.Marshal(map[string]string{"value": val})
 	if err != nil {
-		logger.Fatal(err)
+		return RunResultWithError(err)
 	}
 
 	var output Output
 	if err = json.Unmarshal(b, &output); err != nil {
-		logger.Fatal(err)
+		return RunResultWithError(err)
 	}
 
 	return RunResult{Output: output}
