@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -98,8 +97,6 @@ func TestStoreFormatLogOutput(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			output, err := services.FormatLogOutput(test.initr, test.el)
-			fmt.Println("want", test.wantOutput.String())
-			fmt.Println("got", output.String())
 			assert.JSONEq(t, test.wantOutput.String(), output.String())
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
