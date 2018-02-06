@@ -22,6 +22,6 @@ func TestRendererTableRenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{ioutil.Discard}
 	job := cltest.NewJob()
 	run := job.NewRun()
-	p := presenters.Job{*job, []*models.JobRun{run}}
+	p := presenters.Job{*job, []models.JobRun{*run}}
 	assert.Nil(t, r.Render(&p))
 }

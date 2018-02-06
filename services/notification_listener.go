@@ -30,7 +30,7 @@ func (nl *NotificationListener) Start() error {
 	nl.logs = make(chan store.EthNotification)
 	go nl.listenToLogs()
 	for _, j := range jobs {
-		nl.AddJob(j)
+		nl.AddJob(&j)
 	}
 	return nil
 }
