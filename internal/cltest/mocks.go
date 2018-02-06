@@ -102,8 +102,8 @@ func (mock *EthMock) EthSubscribe(
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
-			mockChan := sub.channel.(chan store.EventLog)
-			logChan := channel.(chan store.EventLog)
+			mockChan := sub.channel.(chan store.EthNotification)
+			logChan := channel.(chan store.EthNotification)
 			go func() {
 				for e := range mockChan {
 					logChan <- e

@@ -1,46 +1,48 @@
 pragma solidity ^0.4.18;
 
-import "./zeppelin/Ownable.sol";
+import "solidity-stringutils/strings.sol";
 
-contract ChainLink is Ownable {
+library ChainLink {
+  using strings for *;
 
-  struct Callback {
-    address addr;
-    bytes4 fid;
+  struct Run {
+    string payload;
+    bytes32 jobId;
+    address receiver;
+    bytes4 functionHash;
   }
 
-  uint256 private nonce;
-  mapping(uint256 => Callback) private callbacks;
-
-  event Request(
-    uint256 indexed nonce,
-    address indexed to,
-    bytes4 indexed fid
-  );
-
-  function requestData(address _callbackAddress, bytes4 _callbackFID)
-    public
-    returns (uint256)
-  {
-    nonce += 1;
-    Callback memory cb = Callback(_callbackAddress, _callbackFID);
-    callbacks[nonce] = cb;
-    Request(nonce, cb.addr, cb.fid);
-    return nonce;
+  function add(Run self, string _key, string _value) internal {
+    self.payload = addKey(self, _key)
+      .concat('":"'.toSlice()).toSlice()
+      .concat(_value.toSlice()).toSlice()
+      .concat('",'.toSlice());
   }
 
-  function fulfillData(uint256 _nonce, bytes32 _data)
-    public
-    onlyOwner
-    hasNonce(_nonce)
-  {
-    Callback memory cb = callbacks[_nonce];
-    require(cb.addr.call(cb.fid, _nonce, _data));
-    delete callbacks[_nonce];
+  function add(Run self, string _key, string[] _values) internal {
+    strings.slice memory payload = addKey(self, _key)
+      .concat('":["'.toSlice()).toSlice();
+    for(uint256 i=0;i<_values.length-1;i++) {
+      payload = payload.concat(_values[i].toSlice()).toSlice()
+        .concat('","'.toSlice()).toSlice();
+    }
+
+    self.payload = payload.concat(_values[_values.length-1].toSlice())
+      .toSlice().concat('"],'.toSlice());
   }
 
-  modifier hasNonce(uint256 _nonce) {
-    require(callbacks[_nonce].addr != address(0));
-    _;
+  function close(Run self) internal returns (string) {
+    var slice = self.payload.toSlice();
+    slice._len -= 1;
+    return "{".toSlice()
+      .concat(slice).toSlice()
+      .concat("}".toSlice());
   }
+
+  function addKey(Run run, string _key) private returns (strings.slice) {
+    return run.payload.toSlice()
+      .concat('"'.toSlice()).toSlice()
+      .concat(_key.toSlice()).toSlice();
+  }
+
 }

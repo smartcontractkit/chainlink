@@ -3,10 +3,12 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -49,7 +51,7 @@ func (eth *EthClient) BlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-func (eth *EthClient) Subscribe(channel chan EventLog, address string) error {
+func (eth *EthClient) Subscribe(channel chan EthNotification, address string) error {
 	ctx := context.Background()
 	_, err := eth.EthSubscribe(ctx, channel, "logs", address)
 	return err
@@ -85,6 +87,35 @@ func (txr *TxReceipt) Unconfirmed() bool {
 }
 
 type EventLog struct {
-	Address   common.Address `json:"address"`
-	BlockHash common.Hash    `json:"blockHash"`
+	Address     common.Address  `json:"address"`
+	BlockHash   common.Hash     `json:"blockHash"`
+	BlockNumber hexutil.Uint64  `json:"blockNumber"`
+	Data        hexutil.Bytes   `json:"data"`
+	LogIndex    hexutil.Uint64  `json:"logIndex"`
+	Topics      []hexutil.Bytes `json:"topics"`
+	TxHash      common.Hash     `json:"transactionHash"`
+	TxIndex     hexutil.Uint64  `json:"transactionIndex"`
+}
+
+type EthNotification struct {
+	Params json.RawMessage `json:"params"`
+}
+
+func (en EthNotification) UnmarshalLog() (EventLog, error) {
+	var el EventLog
+	var rval map[string]json.RawMessage
+
+	if err := json.Unmarshal(en.Params, &rval); err != nil {
+		return el, err
+	}
+
+	if err := json.Unmarshal(rval["result"], &el); err != nil {
+		return el, err
+	}
+
+	if el.Address == utils.ZeroAddress {
+		return el, errors.New("Cannot unmarshal a log with a zero address")
+	}
+
+	return el, nil
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/utils"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -39,7 +39,10 @@ type Job struct {
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
 func NewJob() *Job {
-	return &Job{ID: uuid.NewV4().String(), CreatedAt: Time{Time: time.Now()}}
+	return &Job{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: Time{Time: time.Now()},
+	}
 }
 
 // NewRun initializes the job by creating the IDs for the job
@@ -48,25 +51,26 @@ func (j *Job) NewRun() *JobRun {
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
-			ID:   uuid.NewV4().String(),
+			ID:   utils.NewBytes32ID(),
 			Task: task,
 		}
 	}
 
 	return &JobRun{
-		ID:        uuid.NewV4().String(),
+		ID:        utils.NewBytes32ID(),
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
 	}
 }
 
-// InitiatorsFor returns a list of Initiators of the given type.
-func (j *Job) InitiatorsFor(t string) []Initiator {
+func (j *Job) InitiatorsFor(types ...string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
-		if initr.Type == t {
-			list = append(list, initr)
+		for _, t := range types {
+			if initr.Type == t {
+				list = append(list, initr)
+			}
 		}
 	}
 	return list
@@ -99,17 +103,19 @@ func (j *Job) Started(t time.Time) bool {
 }
 
 const (
-	InitiatorWeb    = "web"
-	InitiatorCron   = "cron"
-	InitiatorRunAt  = "runat"
-	InitiatorEthLog = "ethlog"
+	InitiatorChainlinkLog = "chainlinklog"
+	InitiatorCron         = "cron"
+	InitiatorEthLog       = "ethlog"
+	InitiatorRunAt        = "runat"
+	InitiatorWeb          = "web"
 )
 
 var initiatorWhitelist = map[string]bool{
-	InitiatorWeb:    true,
-	InitiatorCron:   true,
-	InitiatorRunAt:  true,
-	InitiatorEthLog: true,
+	InitiatorChainlinkLog: true,
+	InitiatorCron:         true,
+	InitiatorEthLog:       true,
+	InitiatorRunAt:        true,
+	InitiatorWeb:          true,
 }
 
 // Initiator categorizes tasks so that they may be performed

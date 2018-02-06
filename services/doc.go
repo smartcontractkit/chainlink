@@ -1,4 +1,4 @@
-// Package services contains the key components of the ChainLink
+// Package services contain the key components of the ChainLink
 // node. This includes the Application, JobRunner, LogListener,
 // and Scheduler.
 //

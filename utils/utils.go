@@ -17,10 +17,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	uuid "github.com/satori/go.uuid"
 	null "gopkg.in/guregu/null.v3"
 )
 
 const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
+
+var ZeroAddress = common.Address{}
 
 func SenderFromTxHex(value string, chainID uint64) (common.Address, error) {
 	tx, err := DecodeTxFromHex(value, chainID)
@@ -72,6 +75,12 @@ func StringToAddress(str string) (common.Address, error) {
 		return common.Address{}, err
 	}
 	return common.BytesToAddress(b), nil
+}
+
+func StringToBytes(str string) (hexutil.Bytes, error) {
+	var b hexutil.Bytes
+	err := b.UnmarshalText([]byte(str))
+	return b, err
 }
 
 func TimeParse(s string) time.Time {
@@ -133,4 +142,8 @@ func GetStringKeys(v map[string]interface{}) []string {
 	}
 
 	return keys
+}
+
+func NewBytes32ID() string {
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
