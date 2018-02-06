@@ -119,13 +119,19 @@ func (j JSON) Merge(j2 JSON) (JSON, error) {
 	for key, value := range j2.Map() {
 		body[key] = value
 	}
-	str, err := convertToJSON(body)
+
+	cleaned := map[string]interface{}{}
+	for k, v := range body {
+		cleaned[k] = v.Value()
+	}
+
+	b, err := json.Marshal(cleaned)
 	if err != nil {
 		return JSON{}, err
 	}
 
 	var rval JSON
-	return rval, gjson.Unmarshal([]byte(str), &rval)
+	return rval, gjson.Unmarshal(b, &rval)
 }
 
 func (j JSON) Empty() bool {
@@ -134,26 +140,6 @@ func (j JSON) Empty() bool {
 
 func (j JSON) Bytes() []byte {
 	return []byte(j.String())
-}
-
-func convertToJSON(body map[string]gjson.Result) (string, error) {
-	str := "{"
-	first := true
-
-	for key, value := range body {
-		if first {
-			first = false
-		} else {
-			str += ","
-		}
-		b, err := json.Marshal(value.Value())
-		if err != nil {
-			return "", err
-		}
-		str += fmt.Sprintf(`"%v": %v`, key, string(b))
-	}
-
-	return (str + "}"), nil
 }
 
 type RunResult struct {
