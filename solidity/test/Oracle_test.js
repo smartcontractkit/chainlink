@@ -3,8 +3,8 @@
 require('./support/helpers.js')
 
 contract('Oracle', () => {
-  let Oracle = artifacts.require("./contracts/Oracle.sol");
-  let GetterSetter = artifacts.require("./test/contracts/GetterSetter.sol");
+  let Oracle = artifacts.require("Oracle.sol");
+  let GetterSetter = artifacts.require("examples/GetterSetter.sol");
   let fHash = "0x12345678";
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
