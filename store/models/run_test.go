@@ -44,7 +44,7 @@ func TestTaskRunsToRun(t *testing.T) {
 	jr := j.NewRun()
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
-	err := services.ExecuteRun(jr, store, models.Output{})
+	err := services.ExecuteRun(jr, store, models.JSON{})
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
@@ -63,8 +63,8 @@ func TestOutputUnmarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var o models.Output
-			err := json.Unmarshal([]byte(test.json), &o)
+			var j models.JSON
+			err := json.Unmarshal([]byte(test.json), &j)
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
@@ -90,7 +90,7 @@ func TestRunResultValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var output models.Output
+			var output models.JSON
 			json.Unmarshal([]byte(test.json), &output)
 			rr := models.RunResult{Output: output}
 
@@ -124,12 +124,14 @@ func TestOutputMerge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			o1 := cltest.OutputFromString(`{"value":"OLD","other":1}`)
-			o2 := cltest.OutputFromString(test.input)
+			orig := `{"value":"OLD","other":1}`
+			o1 := cltest.JSONFromString(orig)
+			o2 := cltest.JSONFromString(test.input)
 
-			err := o1.Merge(o2)
+			merged, err := o1.Merge(o2)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, o1.String())
+			assert.JSONEq(t, test.want, merged.String())
+			assert.JSONEq(t, orig, o1.String())
 		})
 	}
 }
@@ -151,17 +153,19 @@ func TestTaskRunMerge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			orig := `{"url":"https://OLD.example.com/api"}`
 			tr := models.TaskRun{
 				Task: models.Task{
-					Params: json.RawMessage(`{"url":"https://OLD.example.com/api"}`),
+					Params: json.RawMessage(orig),
 					Type:   "httpget",
 				},
 			}
-			input := cltest.OutputFromString(test.input)
+			input := cltest.JSONFromString(test.input)
 
-			err := tr.Merge(input)
+			merged, err := tr.MergeTaskParams(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, string(tr.Task.Params))
+			assert.JSONEq(t, test.want, string(merged.Task.Params))
+			assert.JSONEq(t, orig, string(tr.Task.Params))
 		})
 	}
 }

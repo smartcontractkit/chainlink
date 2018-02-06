@@ -57,19 +57,19 @@ type TaskRun struct {
 	Result RunResult `json:"result"`
 }
 
-func (tr *TaskRun) Completed() bool {
+func (tr TaskRun) Completed() bool {
 	return tr.Status == StatusCompleted
 }
 
-func (tr *TaskRun) Errored() bool {
+func (tr TaskRun) Errored() bool {
 	return tr.Status == StatusErrored
 }
 
-func (tr *TaskRun) String() string {
+func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
 }
 
-func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"type", tr.Task.Type,
 		"params", tr.Task.Params,
@@ -84,59 +84,64 @@ func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-func (tr *TaskRun) Merge(o2 Output) error {
-	o1 := Output{}
+func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
+	paramsJSON := JSON{}
 	if len(tr.Task.Params) != 0 {
-		err := json.Unmarshal(tr.Task.Params, &o1)
+		err := json.Unmarshal(tr.Task.Params, &paramsJSON)
 		if err != nil {
-			return fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
+			return TaskRun{}, fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
 		}
 	}
 
-	if err := o1.Merge(o2); err != nil {
-		return fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+	merged, err := paramsJSON.Merge(j)
+	if err != nil {
+		return TaskRun{}, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
 	}
-	tr.Task.Params = json.RawMessage(o1.String())
-	return nil
+
+	rval := tr
+	rval.Task.Params = json.RawMessage(merged.String())
+	return rval, nil
 }
 
-type Output struct {
+type JSON struct {
 	Body gjson.Result
 }
 
-func (o Output) Get(path string) gjson.Result {
-	return gjson.Get(o.String(), path)
+func (j JSON) Get(path string) gjson.Result {
+	return gjson.Get(j.String(), path)
 }
 
-func (o Output) String() string {
-	return o.Body.String()
+func (j JSON) String() string {
+	return j.Body.String()
 }
 
-func (o *Output) UnmarshalJSON(b []byte) error {
+func (j *JSON) UnmarshalJSON(b []byte) error {
 	if !gjson.Valid(string(b)) {
 		return fmt.Errorf("invalid JSON: %v", string(b))
 	}
-	o.Body = gjson.ParseBytes(b)
+	j.Body = gjson.ParseBytes(b)
 	return nil
 }
 
-func (o Output) MarshalJSON() ([]byte, error) {
-	if o.Body.Exists() {
-		return []byte(o.Body.String()), nil
+func (j JSON) MarshalJSON() ([]byte, error) {
+	if j.Body.Exists() {
+		return []byte(j.Body.String()), nil
 	}
 	return []byte("{}"), nil
 }
 
-func (o1 *Output) Merge(o2 Output) error {
-	body := o1.Body.Map()
-	for key, value := range o2.Body.Map() {
+func (j JSON) Merge(j2 JSON) (JSON, error) {
+	body := j.Body.Map()
+	for key, value := range j2.Body.Map() {
 		body[key] = value
 	}
 	str, err := convertToJSON(body)
 	if err != nil {
-		return err
+		return JSON{}, err
 	}
-	return json.Unmarshal([]byte(str), o1)
+
+	var rval JSON
+	return rval, gjson.Unmarshal([]byte(str), &rval)
 }
 
 func convertToJSON(body map[string]gjson.Result) (string, error) {
@@ -160,7 +165,7 @@ func convertToJSON(body map[string]gjson.Result) (string, error) {
 }
 
 type RunResult struct {
-	Output       Output      `json:"output"`
+	Output       JSON        `json:"output"`
 	ErrorMessage null.String `json:"error"`
 	Pending      bool        `json:"pending"`
 }
@@ -171,7 +176,7 @@ func RunResultWithValue(val string) RunResult {
 		return RunResultWithError(err)
 	}
 
-	var output Output
+	var output JSON
 	if err = json.Unmarshal(b, &output); err != nil {
 		return RunResultWithError(err)
 	}
