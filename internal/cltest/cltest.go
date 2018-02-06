@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
@@ -359,4 +360,32 @@ func WaitForJobRunToComplete(
 		return jr.Status
 	}).Should(Equal(models.StatusCompleted))
 	return jr
+}
+
+func StringToBytes(str string) hexutil.Bytes {
+	b, err := utils.StringToBytes(str)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func WaitForJobRuns(j *models.Job, store *store.Store, want int) {
+	if want == 0 {
+		Consistently(func() []models.JobRun {
+			jrs, err := store.JobRunsFor(j)
+			if err != nil {
+				panic(err)
+			}
+			return jrs
+		}).Should(HaveLen(want))
+		return
+	}
+	Eventually(func() []models.JobRun {
+		jrs, err := store.JobRunsFor(j)
+		if err != nil {
+			panic(err)
+		}
+		return jrs
+	}).Should(HaveLen(want))
 }
