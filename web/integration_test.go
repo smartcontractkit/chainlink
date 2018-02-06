@@ -255,12 +255,7 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 		Reply(200).
 		JSON(eaResponse)
 
-	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
-		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
-	)
-	assert.Equal(t, 200, resp.StatusCode)
+	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
@@ -274,4 +269,41 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 	res, err := tr.Result.Get("extra")
 	assert.Nil(t, err)
 	assert.Equal(t, eaExtra, res.String())
+}
+
+func TestCreateJobOverridingBridgeAdapterFailsIntegration(t *testing.T) {
+	RegisterTestingT(t)
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	eth := app.MockEthClient()
+	logs := make(chan store.EthNotification, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
+
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
+	eaValue := "87698118359"
+	gock.New("https://example.com").
+		Post("/randomNumber").
+		Reply(200).
+		JSON(fmt.Sprintf(`{"output":{"value": "%v"}}`, eaValue))
+
+	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/chainlink_log_random_number_job.json")
+
+	var en store.EthNotification
+	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	assert.Nil(t, json.Unmarshal(logFixture, &en))
+	logs <- en
+
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
+		app.Store.Where("JobID", j.ID, &jobRuns)
+		return jobRuns
+	}).Should(HaveLen(1))
+	jr := cltest.WaitForJobRunToComplete(t, app, &jobRuns[0])
+	val, err := jr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, eaValue, val)
 }
