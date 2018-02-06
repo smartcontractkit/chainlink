@@ -1,4 +1,4 @@
-// Package adapters contains the core adapters used by the ChainLink node.
+// Package adapters contains the core adapters used by the Chainlink node.
 //
 // HttpGet
 //
