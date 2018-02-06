@@ -13,13 +13,13 @@ type Application interface {
 	GetStore() *store.Store
 }
 
-// ChainlinkApplication contains fields for the LogListener, Scheduler,
-// and Store. The LogListener and Scheduler are also available
+// ChainlinkApplication contains fields for the NotificationListener, Scheduler,
+// and Store. The NotificationListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	LogListener *LogListener
-	Scheduler   *Scheduler
-	Store       *store.Store
+	NotificationListener *NotificationListener
+	Scheduler            *Scheduler
+	Store                *store.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -28,19 +28,19 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
-	logger.SetLoggerDir(config.RootDir)
+	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
 	return &ChainlinkApplication{
-		LogListener: &LogListener{Store: store},
-		Scheduler:   NewScheduler(store),
-		Store:       store,
+		NotificationListener: &NotificationListener{Store: store},
+		Scheduler:            NewScheduler(store),
+		Store:                store,
 	}
 }
 
-// Start runs the Store, LogListener, and Scheduler. If successful,
+// Start runs the Store, NotificationListener, and Scheduler. If successful,
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	app.LogListener.Start()
+	app.NotificationListener.Start()
 	return app.Scheduler.Start()
 }
 
@@ -50,7 +50,7 @@ func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
-	app.LogListener.Stop()
+	app.NotificationListener.Stop()
 	return app.Store.Close()
 }
 

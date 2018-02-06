@@ -5,6 +5,7 @@ import (
 	"path"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger *Logger
@@ -30,15 +31,6 @@ func NewLogger(zl *zap.Logger) *Logger {
 	return &Logger{zl.Sugar()}
 }
 
-func newLoggerForDir(dir string) *Logger {
-	config := generateConfig(dir)
-	zl, err := config.Build(zap.AddCallerSkip(1))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return NewLogger(zl)
-}
-
 func SetLogger(l *Logger) {
 	if logger != nil {
 		defer logger.Sync()
@@ -46,8 +38,14 @@ func SetLogger(l *Logger) {
 	logger = l
 }
 
-func SetLoggerDir(dir string) {
-	SetLogger(newLoggerForDir(dir))
+func Reconfigure(dir string, lvl zapcore.Level) {
+	config := generateConfig(dir)
+	config.Level.SetLevel(lvl)
+	zl, err := config.Build(zap.AddCallerSkip(1))
+	if err != nil {
+		log.Fatal(err)
+	}
+	SetLogger(NewLogger(zl))
 }
 
 func generateConfig(dir string) zap.Config {
@@ -64,6 +62,10 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
+}
+
+func Debugw(msg string, keysAndValues ...interface{}) {
+	logger.Debugw(msg, keysAndValues...)
 }
 
 func Info(args ...interface{}) {

@@ -23,7 +23,12 @@ type JsonParse struct {
 //
 // Then "last" would be the path, and "1400" would be the returned value
 func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	js, err := simplejson.NewJson([]byte(input.Value()))
+	val, err := input.Value()
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	js, err := simplejson.NewJson([]byte(val))
 	if err != nil {
 		return models.RunResultWithError(err)
 	}

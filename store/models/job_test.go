@@ -102,6 +102,10 @@ func TestInitiatorUnmarshallingValidation(t *testing.T) {
 		name  string
 		valid bool
 	}{
+		{models.InitiatorChainlinkLog, true},
+		{models.InitiatorCron, true},
+		{models.InitiatorEthLog, true},
+		{models.InitiatorRunAt, true},
 		{models.InitiatorWeb, true},
 		{"smokesignals", false},
 	}
@@ -129,7 +133,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 		json string
 	}{
 		{"noop", `{"type":"NoOp"}`},
-		{"httpget", `{"type":"httpget","endpoint":"http://www.no.com"}`},
+		{"httpget", `{"type":"httpget","url":"http://www.no.com"}`},
 	}
 
 	for _, test := range tests {

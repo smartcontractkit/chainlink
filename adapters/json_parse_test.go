@@ -14,7 +14,9 @@ func TestParseExistingPath(t *testing.T) {
 
 	adapter := adapters.JsonParse{Path: []string{"last"}}
 	result := adapter.Perform(input, nil)
-	assert.Equal(t, "11779.99", result.Value())
+	val, err := result.Value()
+	assert.Equal(t, "11779.99", val)
+	assert.Nil(t, err)
 	assert.Nil(t, result.GetError())
 }
 
@@ -24,21 +26,13 @@ func TestParseNonExistingPath(t *testing.T) {
 
 	adapter := adapters.JsonParse{Path: []string{"doesnotexist"}}
 	result := adapter.Perform(input, nil)
-	assert.Equal(t, true, result.NullValue())
+	_, err := result.Value()
+	assert.NotNil(t, err)
 	assert.Nil(t, result.GetError())
 
 	adapter = adapters.JsonParse{Path: []string{"doesnotexist", "noreally"}}
 	result = adapter.Perform(input, nil)
-	assert.Equal(t, true, result.NullValue())
+	_, err = result.Value()
+	assert.NotNil(t, err)
 	assert.NotNil(t, result.GetError())
-}
-
-func TestParseNullValue(t *testing.T) {
-	t.Parallel()
-	input := models.RunResult{}
-
-	adapter := adapters.JsonParse{Path: []string{"last"}}
-	result := adapter.Perform(input, nil)
-	assert.Equal(t, true, result.NullValue())
-	assert.NotNil(t, result.Error)
 }

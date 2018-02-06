@@ -10,12 +10,12 @@ import (
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
+func BeginRun(job *models.Job, store *store.Store, input models.JSON) (*models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
 		return nil, err
 	}
-	return run, ExecuteRun(run, store)
+	return run, ExecuteRun(run, store, input)
 }
 
 // BuildRun checks to ensure the given job has not started or ended before
@@ -38,7 +38,7 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run *models.JobRun, store *store.Store) error {
+func ExecuteRun(run *models.JobRun, store *store.Store, taskOverrides models.JSON) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {
 		return wrapError(run, err)
@@ -47,19 +47,25 @@ func ExecuteRun(run *models.JobRun, store *store.Store) error {
 	logger.Infow("Starting job", run.ForLogger()...)
 	unfinished := run.UnfinishedTaskRuns()
 	offset := len(run.TaskRuns) - len(unfinished)
-	prevRun := run.NextTaskRun()
-	for i, taskRun := range unfinished {
+	prevRun := unfinished[0]
+
+	for i, taskRunTemplate := range unfinished {
+		taskRun, err := taskRunTemplate.MergeTaskParams(taskOverrides)
+		if err != nil {
+			return wrapError(run, err)
+		}
 		prevRun = startTask(taskRun, prevRun.Result, store)
+		logger.Debugw("Produced task run", "tr", prevRun)
 		run.TaskRuns[i+offset] = prevRun
 		if err := store.Save(run); err != nil {
 			return wrapError(run, err)
 		}
 
 		if prevRun.Result.Pending {
-			logger.Infow("Task pending", run.ForLogger("task", i, "result", prevRun.Result)...)
+			logger.Infow(fmt.Sprintf("Task %v pending", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			break
 		} else {
-			logger.Infow("Task finished", run.ForLogger("task", i, "result", prevRun.Result)...)
+			logger.Infow(fmt.Sprintf("Task %v finished", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			if prevRun.Result.HasError() {
 				break
 			}
