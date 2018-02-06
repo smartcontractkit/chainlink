@@ -1,3 +1,5 @@
+global.h = require('./helpers');
+
 module.exports = {
   networks: {
     devnet: {
