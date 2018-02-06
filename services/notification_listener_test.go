@@ -3,7 +3,6 @@ package services_test
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
@@ -45,10 +44,13 @@ func TestNotificationListenerAddJob(t *testing.T) {
 		name       string
 		initType   string
 		logAddress common.Address
+		data       string
 		want       int
 	}{
-		{"basic eth log", "ethlog", initrAddress, 1},
-		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0},
+		{"basic eth log", "ethlog", initrAddress, "", 1},
+		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), "", 0},
+		{"basic cllog", "chainlinklog", initrAddress, "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003c7b2275726c223a2268747470733a2f2f657468657270726963652e636f6d2f617069222c2270617468223a5b22726563656e74222c22757364225d7d00000000", 1},
+		{"cllog non-matching", "chainlinklog", cltest.NewEthAddress(), "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003c7b2275726c223a2268747470733a2f2f657468657270726963652e636f6d2f617069222c2270617468223a5b22726563656e74222c22757364225d7d00000000", 0},
 	}
 
 	for _, test := range tests {
@@ -72,12 +74,10 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			logChan <- cltest.NewEthNotification(strpkg.EventLog{
 				Address: test.logAddress,
+				Data:    cltest.StringToBytes(test.data),
 			})
-			<-time.After(100 * time.Millisecond)
 
-			jrs, err := store.JobRunsFor(j)
-			assert.Nil(t, err)
-			assert.Equal(t, test.want, len(jrs))
+			cltest.WaitForJobRuns(j, store, test.want)
 
 			assert.True(t, eth.AllCalled())
 		})
