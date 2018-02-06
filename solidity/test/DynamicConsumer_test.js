@@ -3,8 +3,8 @@
 require('./support/helpers.js')
 
 contract('DynamicConsumer', () => {
-  let Oracle = artifacts.require("./contracts/Oracle.sol");
-  let Consumer = artifacts.require("./test/contracts/DynamicConsumer.sol");
+  let Oracle = artifacts.require("Oracle.sol");
+  let Consumer = artifacts.require("examples/DynamicConsumer.sol");
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let oc, cc;
 
