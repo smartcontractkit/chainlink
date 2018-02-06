@@ -1,11 +1,11 @@
-// Package services contain the key components of the ChainLink
+// Package services contain the key components of the Chainlink
 // node. This includes the Application, JobRunner, LogListener,
 // and Scheduler.
 //
 // Application
 //
 // The Application is the main component used for starting and
-// stopping the ChainLink node.
+// stopping the Chainlink node.
 //
 // JobRunner
 //

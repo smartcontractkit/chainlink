@@ -1,9 +1,9 @@
 pragma solidity ^0.4.18;
 
-import "../../contracts/ChainLinked.sol";
+import "../../contracts/Chainlinked.sol";
 import "../../contracts/Oracle.sol";
 
-contract SimpleConsumer is ChainLinked {
+contract SimpleConsumer is Chainlinked {
   uint256 private nonce;
   bytes32 public currentPrice;
 
