@@ -20,22 +20,22 @@ func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	switch strings.ToLower(task.Type) {
 	case "httpget":
 		ac = &HttpGet{}
-		err = json.Unmarshal(task.Params, ac)
+		err = unmarshalParams(task.Params, ac)
 	case "jsonparse":
 		ac = &JsonParse{}
-		err = json.Unmarshal(task.Params, ac)
+		err = unmarshalParams(task.Params, ac)
 	case "ethbytes32":
 		ac = &EthBytes32{}
-		err = unmarshalOrEmpty(task.Params, ac)
+		err = unmarshalParams(task.Params, ac)
 	case "ethtx":
 		ac = &EthTx{}
-		err = unmarshalOrEmpty(task.Params, ac)
+		err = unmarshalParams(task.Params, ac)
 	case "noop":
 		ac = &NoOp{}
-		err = unmarshalOrEmpty(task.Params, ac)
+		err = unmarshalParams(task.Params, ac)
 	case "nooppend":
 		ac = &NoOpPend{}
-		err = unmarshalOrEmpty(task.Params, ac)
+		err = unmarshalParams(task.Params, ac)
 	default:
 		if bt, err := store.BridgeTypeFor(task.Type); err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
@@ -46,11 +46,12 @@ func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	return ac, err
 }
 
-func unmarshalOrEmpty(params json.RawMessage, dst interface{}) error {
-	if len(params) > 0 {
-		return json.Unmarshal(params, dst)
+func unmarshalParams(params models.JSON, dst interface{}) error {
+	bytes, err := params.MarshalJSON()
+	if err != nil {
+		return err
 	}
-	return nil
+	return json.Unmarshal(bytes, dst)
 }
 
 // Validate that there were no errors in any of the tasks of a job
