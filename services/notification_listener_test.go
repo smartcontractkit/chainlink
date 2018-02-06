@@ -51,8 +51,8 @@ func TestNotificationListenerAddJob(t *testing.T) {
 	nl.AddJob(j)
 
 	logChan <- cltest.NewEthNotification(strpkg.EventLog{Address: initr.Address})
-	jobRuns := []*models.JobRun{}
-	Eventually(func() []*models.JobRun {
+	jobRuns := []models.JobRun{}
+	Eventually(func() []models.JobRun {
 		store.Where("JobID", j.ID, &jobRuns)
 		return jobRuns
 	}).Should(HaveLen(1))
