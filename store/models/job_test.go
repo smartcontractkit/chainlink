@@ -36,7 +36,7 @@ func TestJobNewRun(t *testing.T) {
 	assert.Equal(t, job.ID, newRun.JobID)
 	assert.Equal(t, 1, len(newRun.TaskRuns))
 	assert.Equal(t, "NoOp", job.Tasks[0].Type)
-	assert.Nil(t, job.Tasks[0].Params)
+	assert.True(t, job.Tasks[0].Params.Empty())
 	adapter, _ := adapters.For(job.Tasks[0], nil)
 	assert.NotNil(t, adapter)
 }
