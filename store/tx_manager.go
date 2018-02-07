@@ -69,7 +69,7 @@ func (txm *TxManager) EnsureTxConfirmed(hash common.Hash) (bool, error) {
 	}
 
 	for _, txat := range attempts {
-		success, err := txm.checkAttempt(&tx, txat, blkNum)
+		success, err := txm.checkAttempt(&tx, &txat, blkNum)
 		if success {
 			return success, err
 		}
@@ -104,14 +104,14 @@ func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
 	return err
 }
 
-func (txm *TxManager) getAttempts(hash common.Hash) ([]*models.TxAttempt, error) {
+func (txm *TxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {
 	attempt := &models.TxAttempt{}
 	if err := txm.ORM.One("Hash", hash, attempt); err != nil {
-		return []*models.TxAttempt{}, err
+		return []models.TxAttempt{}, err
 	}
 	attempts, err := txm.ORM.AttemptsFor(attempt.TxID)
 	if err != nil {
-		return []*models.TxAttempt{}, err
+		return []models.TxAttempt{}, err
 	}
 	return attempts, nil
 }
