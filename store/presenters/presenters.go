@@ -12,7 +12,7 @@ import (
 
 type Job struct {
 	models.Job
-	Runs []*models.JobRun `json:"runs,omitempty"`
+	Runs []models.JobRun `json:"runs,omitempty"`
 }
 
 func (j Job) MarshalJSON() ([]byte, error) {
