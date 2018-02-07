@@ -56,7 +56,7 @@ func (s *Scheduler) Start() error {
 	}
 
 	for _, j := range jobs {
-		s.AddJob(j)
+		s.AddJob(&j)
 	}
 
 	return nil
@@ -135,8 +135,8 @@ func (r *Recurring) addResumer() {
 		if err != nil {
 			logger.Panic(err.Error())
 		}
-		for _, jobRun := range pendingRuns {
-			if err := ExecuteRun(jobRun, r.store, models.JSON{}); err != nil {
+		for _, jr := range pendingRuns {
+			if err := ExecuteRun(&jr, r.store, models.JSON{}); err != nil {
 				logger.Panic(err.Error())
 			}
 		}

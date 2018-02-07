@@ -52,14 +52,14 @@ func (orm *ORM) InitBucket(model interface{}) error {
 	return orm.Init(model)
 }
 
-func (orm *ORM) Jobs() ([]*Job, error) {
-	var jobs []*Job
+func (orm *ORM) Jobs() ([]Job, error) {
+	var jobs []Job
 	err := orm.All(&jobs)
 	return jobs, err
 }
 
-func (orm *ORM) JobRunsFor(job *Job) ([]*JobRun, error) {
-	runs := []*JobRun{}
+func (orm *ORM) JobRunsFor(job *Job) ([]JobRun, error) {
+	runs := []JobRun{}
 	err := orm.Where("JobID", job.ID, &runs)
 	return runs, err
 }
@@ -90,8 +90,8 @@ func (orm *ORM) SaveJob(job *Job) error {
 	return tx.Commit()
 }
 
-func (orm *ORM) PendingJobRuns() ([]*JobRun, error) {
-	runs := []*JobRun{}
+func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
+	runs := []JobRun{}
 	err := orm.Where("Status", StatusPending, &runs)
 	return runs, err
 }
@@ -133,8 +133,8 @@ func (orm *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
 	return dbtx.Commit()
 }
 
-func (orm *ORM) AttemptsFor(id uint64) ([]*TxAttempt, error) {
-	attempts := []*TxAttempt{}
+func (orm *ORM) AttemptsFor(id uint64) ([]TxAttempt, error) {
+	attempts := []TxAttempt{}
 	if err := orm.Where("TxID", id, &attempts); err != nil {
 		return attempts, err
 	}

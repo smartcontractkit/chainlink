@@ -297,15 +297,15 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	CheckStatusCode(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
 
-	jrs := []*models.JobRun{}
-	Eventually(func() []*models.JobRun {
+	jrs := []models.JobRun{}
+	Eventually(func() []models.JobRun {
 		assert.Nil(t, app.Store.Where("ID", jrID, &jrs))
 		return jrs
 	}).Should(HaveLen(1))
 	jr := jrs[0]
 	assert.Equal(t, j.ID, jr.JobID)
 
-	return jr
+	return &jr
 }
 
 func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
