@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -298,15 +299,15 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	CheckStatusCode(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
 
-	jrs := []models.JobRun{}
-	Eventually(func() []models.JobRun {
+	jrs := []*models.JobRun{}
+	Eventually(func() []*models.JobRun {
 		assert.Nil(t, app.Store.Where("ID", jrID, &jrs))
 		return jrs
 	}).Should(HaveLen(1))
 	jr := jrs[0]
 	assert.Equal(t, j.ID, jr.JobID)
 
-	return &jr
+	return jr
 }
 
 func FixtureCreateBridgeTypeViaWeb(
@@ -388,4 +389,22 @@ func WaitForJobRuns(j *models.Job, store *store.Store, want int) {
 		}
 		return jrs
 	}).Should(HaveLen(want))
+}
+
+func StringToRunLogPayload(str string) hexutil.Bytes {
+	length := len([]byte(str))
+	lenHex := hexutil.EncodeUint64(uint64(length))
+	if len(lenHex[2:]) < 64 {
+		lenHex = "0x" + strings.Repeat("0", 64-len(lenHex[2:])) + lenHex[2:]
+	}
+
+	data := hexutil.Encode([]byte(str))
+	prefix := "0x0000000000000000000000000000000000000000000000000000000000000020"
+
+	var endPad string
+	if length%32 != 0 {
+		endPad = strings.Repeat("00", (32 - (length % 32)))
+	}
+	fmt.Println("data:", data)
+	return StringToBytes(prefix + lenHex[2:] + data[2:] + endPad)
 }

@@ -79,6 +79,7 @@ func StringToAddress(str string) (common.Address, error) {
 
 func StringToBytes(str string) (hexutil.Bytes, error) {
 	var b hexutil.Bytes
+	fmt.Println("str", str)
 	err := b.UnmarshalText([]byte(str))
 	return b, err
 }
