@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
+// TX contains fields necessary for an Ethereum transaction with
+// an additional field for the TxAttempt.
 type Tx struct {
 	ID       uint64 `storm:"id,increment,index"`
 	From     common.Address
@@ -21,6 +23,8 @@ type Tx struct {
 	TxAttempt
 }
 
+// EthTx creates a new Ethereum transaction with a given gasPrice
+// that is ready to be signed.
 func (tx *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
 	return types.NewTransaction(
 		tx.Nonce,
@@ -32,6 +36,10 @@ func (tx *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
 	)
 }
 
+// TxAttempt is used for keeping track of transactions that
+// have been written to the Ethereum blockchain. This makes
+// it so that if the network is busy, a transaction can be
+// resubmitted with a higher GasPrice.
 type TxAttempt struct {
 	Hash      common.Hash `storm:"id,index,unique"`
 	TxID      uint64      `storm:"index"`
@@ -41,22 +49,33 @@ type TxAttempt struct {
 	SentAt    uint64
 }
 
+// FunctionID is the data to be included in the transaction.
 type FunctionID [FunctionIDLength]byte
 
+// FunctionIDLength should always be a length of 4 as a byte.
 const FunctionIDLength = 4
 
+// BytesToFunctionID converts the given bytes to a FunctionID.
 func BytesToFunctionID(b []byte) FunctionID {
 	var f FunctionID
 	f.SetBytes(b)
 	return f
 }
 
+// HexToFunctionID converts the given string to a FunctionID.
 func HexToFunctionID(s string) FunctionID { return BytesToFunctionID(common.FromHex(s)) }
 
-func (f FunctionID) String() string        { return hexutil.Encode(f[:]) }
-func (f FunctionID) WithoutPrefix() string { return f.String()[2:] }
-func (f *FunctionID) SetBytes(b []byte)    { copy(f[:], b[:FunctionIDLength]) }
+// String returns the FunctionID as a string type.
+func (f FunctionID) String() string { return hexutil.Encode(f[:]) }
 
+// WithoutPrefix returns the FunctionID as a string without the '0x' prefix.
+func (f FunctionID) WithoutPrefix() string { return f.String()[2:] }
+
+// SetBytes sets the FunctionID to that of the given bytes (will trim).
+func (f *FunctionID) SetBytes(b []byte) { copy(f[:], b[:FunctionIDLength]) }
+
+// UnmarshalJSON parses the raw FunctionID and sets the FunctionID
+// type to the given input.
 func (f *FunctionID) UnmarshalJSON(input []byte) error {
 	var s string
 	err := json.Unmarshal(input, &s)
