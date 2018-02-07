@@ -308,6 +308,25 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	return &jr
 }
 
+func FixtureCreateBridgeTypeViaWeb(
+	t *testing.T,
+	app *TestApplication,
+	path string,
+) models.BridgeType {
+	resp := BasicAuthPost(
+		app.Server.URL+"/v2/bridge_types",
+		"application/json",
+		bytes.NewBuffer(LoadJSON(path)),
+	)
+	defer resp.Body.Close()
+	CheckStatusCode(t, resp, 200)
+	var bt models.BridgeType
+	name := ParseCommonJSON(resp.Body).Name
+	assert.Nil(t, app.Store.One("Name", name, &bt))
+
+	return bt
+}
+
 func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
