@@ -8,6 +8,7 @@ import (
 	"path"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/env"
 	"go.uber.org/zap/zapcore"
@@ -71,4 +72,13 @@ func levelParser(str string) (interface{}, error) {
 
 type LogLevel struct {
 	zapcore.Level
+}
+
+func (ll LogLevel) ForGin() string {
+	switch {
+	case ll.Level < zapcore.InfoLevel:
+		return gin.DebugMode
+	default:
+		return gin.ReleaseMode
+	}
 }

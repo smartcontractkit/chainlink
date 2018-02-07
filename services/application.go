@@ -54,7 +54,7 @@ func (app *ChainlinkApplication) Stop() error {
 	return app.Store.Close()
 }
 
-// GetStore returns the pointer to the store for the ChainLinkApplication.
+// GetStore returns the pointer to the store for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStore() *store.Store {
 	return app.Store
 }

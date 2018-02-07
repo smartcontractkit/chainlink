@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 )
 
 func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
@@ -156,7 +157,7 @@ func TestTaskRunMerge(t *testing.T) {
 			orig := `{"url":"https://OLD.example.com/api"}`
 			tr := models.TaskRun{
 				Task: models.Task{
-					Params: json.RawMessage(orig),
+					Params: models.JSON{gjson.Parse(orig)},
 					Type:   "httpget",
 				},
 			}
@@ -164,8 +165,8 @@ func TestTaskRunMerge(t *testing.T) {
 
 			merged, err := tr.MergeTaskParams(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, string(merged.Task.Params))
-			assert.JSONEq(t, orig, string(tr.Task.Params))
+			assert.JSONEq(t, test.want, merged.Task.Params.String())
+			assert.JSONEq(t, orig, tr.Task.Params.String())
 		})
 	}
 }

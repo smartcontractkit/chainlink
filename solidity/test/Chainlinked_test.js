@@ -2,11 +2,11 @@
 
 require('./support/helpers.js')
 
-contract('ChainLinked', () => {
+contract('Chainlinked', () => {
   let Oracle = artifacts.require("./contracts/Oracle.sol");
-  let ChainLinked = artifacts.require("./contracts/ChainLinked.sol");
+  let Chainlinked = artifacts.require("./contracts/Chainlinked.sol");
 
   it("has a limited public interface", () => {
-    checkPublicABI(ChainLinked, []);
+    checkPublicABI(Chainlinked, []);
   });
 });

@@ -1,7 +1,6 @@
 package adapters_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -45,12 +44,7 @@ func TestAdapterFor(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.want, func(t *testing.T) {
-			raw := json.RawMessage{}
-			assert.Nil(t, json.Unmarshal([]byte(`{}`), &raw))
-			task := models.Task{
-				Type:   test.bridgeName,
-				Params: raw,
-			}
+			task := models.Task{Type: test.bridgeName}
 			adapter, err := adapters.For(task, store)
 			if test.errored {
 				assert.NotNil(t, err)

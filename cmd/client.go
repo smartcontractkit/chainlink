@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -110,5 +111,6 @@ type Runner interface {
 type NodeRunner struct{}
 
 func (n NodeRunner) Run(app services.Application) error {
+	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
 	return web.Router(app.(*services.ChainlinkApplication)).Run()
 }
