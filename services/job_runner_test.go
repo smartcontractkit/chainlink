@@ -19,12 +19,14 @@ func TestRunningJob(t *testing.T) {
 
 	tests := []struct {
 		name         string
+		input        string
 		runResult    string
 		wantedStatus string
 	}{
-		{"success", `{"output":{"value":"100"}}`, models.StatusCompleted},
-		{"errored", `{"error":"too much"}`, models.StatusErrored},
-		{"errored with a value", `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored},
+		{"success", `{}`, `{"output":{"value":"100"}}`, models.StatusCompleted},
+		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored},
+		{"errored with a value", `{}`, `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored},
+		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"output":{"value":"100"}}`, models.StatusCompleted},
 	}
 
 	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
@@ -39,7 +41,8 @@ func TestRunningJob(t *testing.T) {
 			assert.Nil(t, store.Save(job))
 
 			run := job.NewRun()
-			assert.Nil(t, services.ExecuteRun(run, store, models.JSON{}))
+			input := cltest.JSONFromString(test.input)
+			assert.Nil(t, services.ExecuteRun(run, store, input))
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantedStatus, run.TaskRuns[0].Status)
