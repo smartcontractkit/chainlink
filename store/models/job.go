@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -154,7 +155,7 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 // additional information that adapter would need to operate.
 type Task struct {
 	Type   string `json:"type" storm:"index"`
-	Params json.RawMessage
+	Params JSON
 }
 
 // UnmarshalJSON parses the given input and updates the Task.
@@ -166,13 +167,12 @@ func (t *Task) UnmarshalJSON(input []byte) error {
 	}
 
 	t.Type = strings.ToLower(aux.Type)
-
 	var params json.RawMessage
 	if err := json.Unmarshal(input, &params); err != nil {
 		return err
 	}
 
-	t.Params = params
+	t.Params = JSON{gjson.ParseBytes(params)}
 	return nil
 }
 

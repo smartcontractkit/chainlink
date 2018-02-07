@@ -85,83 +85,61 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 }
 
 func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
-	paramsJSON := JSON{}
-	if len(tr.Task.Params) != 0 {
-		err := json.Unmarshal(tr.Task.Params, &paramsJSON)
-		if err != nil {
-			return TaskRun{}, fmt.Errorf("TaskRun#Merge unmarshaling JSON: %v", err.Error())
-		}
-	}
-
-	merged, err := paramsJSON.Merge(j)
+	merged, err := tr.Task.Params.Merge(j)
 	if err != nil {
 		return TaskRun{}, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
 	}
 
 	rval := tr
-	rval.Task.Params = json.RawMessage(merged.String())
+	rval.Task.Params = merged
 	return rval, nil
 }
 
 type JSON struct {
-	Body gjson.Result
-}
-
-func (j JSON) Get(path string) gjson.Result {
-	return gjson.Get(j.String(), path)
-}
-
-func (j JSON) String() string {
-	return j.Body.String()
+	gjson.Result
 }
 
 func (j *JSON) UnmarshalJSON(b []byte) error {
 	if !gjson.Valid(string(b)) {
 		return fmt.Errorf("invalid JSON: %v", string(b))
 	}
-	j.Body = gjson.ParseBytes(b)
+	*j = JSON{gjson.ParseBytes(b)}
 	return nil
 }
 
 func (j JSON) MarshalJSON() ([]byte, error) {
-	if j.Body.Exists() {
-		return []byte(j.Body.String()), nil
+	if j.Exists() {
+		return j.Bytes(), nil
 	}
 	return []byte("{}"), nil
 }
 
 func (j JSON) Merge(j2 JSON) (JSON, error) {
-	body := j.Body.Map()
-	for key, value := range j2.Body.Map() {
+	body := j.Map()
+	for key, value := range j2.Map() {
 		body[key] = value
 	}
-	str, err := convertToJSON(body)
+
+	cleaned := map[string]interface{}{}
+	for k, v := range body {
+		cleaned[k] = v.Value()
+	}
+
+	b, err := json.Marshal(cleaned)
 	if err != nil {
 		return JSON{}, err
 	}
 
 	var rval JSON
-	return rval, gjson.Unmarshal([]byte(str), &rval)
+	return rval, gjson.Unmarshal(b, &rval)
 }
 
-func convertToJSON(body map[string]gjson.Result) (string, error) {
-	str := "{"
-	first := true
+func (j JSON) Empty() bool {
+	return !j.Exists()
+}
 
-	for key, value := range body {
-		if first {
-			first = false
-		} else {
-			str += ","
-		}
-		b, err := json.Marshal(value.Value())
-		if err != nil {
-			return "", err
-		}
-		str += fmt.Sprintf(`"%v": %v`, key, string(b))
-	}
-
-	return (str + "}"), nil
+func (j JSON) Bytes() []byte {
+	return []byte(j.String())
 }
 
 type RunResult struct {
