@@ -2,9 +2,12 @@ package services_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -44,13 +47,19 @@ func TestNotificationListenerAddJob(t *testing.T) {
 		name       string
 		initType   string
 		logAddress common.Address
-		data       string
-		want       int
+		wantCount  int
+		wantJSON   models.JSON
+		data       hexutil.Bytes
 	}{
-		{"basic eth log", "ethlog", initrAddress, "", 1},
-		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), "", 0},
-		{"basic cllog", "chainlinklog", initrAddress, "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003c7b2275726c223a2268747470733a2f2f657468657270726963652e636f6d2f617069222c2270617468223a5b22726563656e74222c22757364225d7d00000000", 1},
-		{"cllog non-matching", "chainlinklog", cltest.NewEthAddress(), "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003c7b2275726c223a2268747470733a2f2f657468657270726963652e636f6d2f617069222c2270617468223a5b22726563656e74222c22757364225d7d00000000", 0},
+		{"basic eth log", "ethlog", initrAddress, 1,
+			cltest.JSONFromString(`{"address":"` + strings.ToLower(initrAddress.String()) + `","blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000","blockNumber":"0x0","data":"0x","logIndex":"0x0","topics":null,"transactionHash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionIndex":"0x0"}`),
+			hexutil.Bytes{}},
+		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0, models.JSON{}, hexutil.Bytes{}},
+		{"basic cllog", "chainlinklog", initrAddress, 1,
+			cltest.JSONFromString(`{"value":"100"}`),
+			cltest.StringToRunLogPayload(`{"value":"100"}`)},
+		{"cllog non-matching", "chainlinklog", cltest.NewEthAddress(), 0, models.JSON{},
+			cltest.StringToRunLogPayload(`{"value":"100"}`)},
 	}
 
 	for _, test := range tests {
@@ -74,10 +83,24 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			logChan <- cltest.NewEthNotification(strpkg.EventLog{
 				Address: test.logAddress,
-				Data:    cltest.StringToBytes(test.data),
+				Data:    test.data,
 			})
 
-			cltest.WaitForJobRuns(j, store, test.want)
+			fmt.Println("@@@@@", string(test.data))
+			if test.wantCount == 0 {
+				Consistently(func() []models.JobRun {
+					jrs, _ := store.JobRunsFor(j)
+					return jrs
+				}).Should(HaveLen(test.wantCount))
+			} else {
+				var jrs []models.JobRun
+				Eventually(func() []models.JobRun {
+					jrs, _ = store.JobRunsFor(j)
+					return jrs
+				}).Should(HaveLen(test.wantCount))
+				jr := jrs[0]
+				assert.Equal(t, test.wantJSON, jr.TaskRuns[0].Task.Params)
+			}
 
 			assert.True(t, eth.AllCalled())
 		})
