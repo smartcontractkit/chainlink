@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -86,7 +85,6 @@ func TestNotificationListenerAddJob(t *testing.T) {
 				Data:    test.data,
 			})
 
-			fmt.Println("@@@@@", string(test.data))
 			if test.wantCount == 0 {
 				Consistently(func() []models.JobRun {
 					jrs, _ := store.JobRunsFor(j)

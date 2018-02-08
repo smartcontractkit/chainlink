@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
@@ -405,6 +407,10 @@ func StringToRunLogPayload(str string) hexutil.Bytes {
 	if length%32 != 0 {
 		endPad = strings.Repeat("00", (32 - (length % 32)))
 	}
-	fmt.Println("data:", data)
 	return StringToBytes(prefix + lenHex[2:] + data[2:] + endPad)
+}
+
+func DecodeEthereumTx(hex string) (types.Transaction, error) {
+	var ethTx types.Transaction
+	return ethTx, rlp.DecodeBytes(StringToBytes(hex), &ethTx)
 }
