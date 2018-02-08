@@ -105,9 +105,7 @@ func convertEventLogToOutput(el store.EventLog) (models.JSON, error) {
 
 func parseEventLogJSON(el store.EventLog) (models.JSON, error) {
 	var out models.JSON
-	fmt.Println("hex", el.Data.String())
 	hex := []byte(string([]byte(el.Data)[64:]))
-	fmt.Println("!!!!!", string(hex))
 	return out, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &out)
 }
 

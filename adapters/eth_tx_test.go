@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -19,22 +20,30 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
+	address := cltest.NewEthAddress()
+	fHash := models.HexToFunctionID("b3f98adc")
+
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	hash := cltest.NewTxHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
-	ethMock.Register("eth_sendRawTransaction", hash)
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			rlp := data[0].([]interface{})[0].(string)
+			tx, err := cltest.DecodeEthereumTx(rlp)
+			assert.Nil(t, err)
+			assert.Equal(t, address.String(), tx.To().String())
+			assert.Equal(t, fHash.WithoutPrefix(), hex.EncodeToString(tx.Data()))
+			return nil
+		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: confirmed}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
-	adapter := adapters.EthTx{
-		Address:    cltest.NewEthAddress(),
-		FunctionID: models.HexToFunctionID("b3f98adc"),
-	}
+	adapter := adapters.EthTx{Address: address, FunctionID: fHash}
 	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)
 
