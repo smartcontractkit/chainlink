@@ -69,5 +69,6 @@ func (app *ChainlinkApplication) AddJob(job *models.Job) error {
 	}
 
 	app.Scheduler.AddJob(job)
+	app.NotificationListener.AddJob(job)
 	return nil
 }

@@ -3,7 +3,9 @@ package services_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -37,27 +39,49 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
-	nl := services.NotificationListener{Store: store}
-	defer nl.Stop()
-	nl.Start()
+	initrAddress := cltest.NewEthAddress()
 
-	j := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, store.SaveJob(j))
-	logChan := make(chan strpkg.EthNotification, 1)
-	initr := j.Initiators[0]
-	eth.RegisterSubscription("logs", logChan)
+	tests := []struct {
+		name       string
+		initType   string
+		logAddress common.Address
+		want       int
+	}{
+		{"basic eth log", "ethlog", initrAddress, 1},
+		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0},
+	}
 
-	nl.AddJob(j)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			nl := services.NotificationListener{Store: store}
+			defer nl.Stop()
+			nl.Start()
 
-	logChan <- cltest.NewEthNotification(strpkg.EventLog{Address: initr.Address})
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+			eth := cltest.MockEthOnStore(store)
+			logChan := make(chan strpkg.EthNotification, 1)
+			eth.RegisterSubscription("logs", logChan)
 
-	assert.True(t, eth.AllCalled())
+			j := cltest.NewJob()
+			j.Initiators = []models.Initiator{{
+				Type:    test.initType,
+				Address: initrAddress,
+			}}
+			assert.Nil(t, store.SaveJob(j))
+
+			nl.AddJob(j)
+
+			logChan <- cltest.NewEthNotification(strpkg.EventLog{
+				Address: test.logAddress,
+			})
+			<-time.After(100 * time.Millisecond)
+
+			jrs, err := store.JobRunsFor(j)
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, len(jrs))
+
+			assert.True(t, eth.AllCalled())
+		})
+	}
 }
 
 func outputFromFixture(path string) models.JSON {
