@@ -120,7 +120,11 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+
 	eth := app.MockEthClient()
+	logs := make(chan store.EthNotification, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/eth_log_job.json")
 	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -129,10 +133,6 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
-
-	logs := make(chan store.EthNotification, 1)
-	eth.RegisterSubscription("logs", logs)
-	app.Start()
 
 	var en store.EthNotification
 	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
@@ -151,7 +151,11 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+
 	eth := app.MockEthClient()
+	logs := make(chan store.EthNotification, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
 
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
@@ -167,10 +171,6 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorChainlinkLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
-
-	logs := make(chan store.EthNotification, 1)
-	eth.RegisterSubscription("logs", logs)
-	app.Start()
 
 	var en store.EthNotification
 	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
@@ -255,12 +255,7 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 		Reply(200).
 		JSON(eaResponse)
 
-	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
-		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
-	)
-	assert.Equal(t, 200, resp.StatusCode)
+	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)

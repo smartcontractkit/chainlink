@@ -1,0 +1,7 @@
+{
+  "initiators": [{
+    "type": "chainlinkLog",
+    "address": "0x3ccad4715152693fe3bc4460591e3d3fbd071b42"
+  }],
+  "tasks": [ {"type": "randomNumber"} ]
+}
