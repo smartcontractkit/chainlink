@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -146,4 +147,23 @@ func GetStringKeys(v map[string]interface{}) []string {
 
 func NewBytes32ID() string {
 	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+}
+
+func HexToBytes(strs ...string) ([]byte, error) {
+	return hex.DecodeString(removeHexPrefix(ConcatHex(strs...)))
+}
+
+func ConcatHex(strs ...string) string {
+	hex := "0x"
+	for _, str := range strs {
+		hex = hex + removeHexPrefix(str)
+	}
+	return hex
+}
+
+func removeHexPrefix(str string) string {
+	if len(str) > 1 && str[0:2] == "0x" {
+		return str[2:]
+	}
+	return str
 }

@@ -22,6 +22,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 
 	address := cltest.NewEthAddress()
 	fHash := models.HexToFunctionID("b3f98adc")
+	dataPrefix := cltest.StringToBytes("0x45746736453745")
+	inputValue := "0x9786856756"
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
@@ -35,7 +37,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 			tx, err := cltest.DecodeEthereumTx(rlp)
 			assert.Nil(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
-			assert.Equal(t, fHash.WithoutPrefix(), hex.EncodeToString(tx.Data()))
+			wantData := utils.ConcatHex(fHash.String(), dataPrefix.String(), inputValue)
+			assert.Equal(t, wantData[2:], hex.EncodeToString(tx.Data()))
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
@@ -43,8 +46,12 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
-	adapter := adapters.EthTx{Address: address, FunctionID: fHash}
-	input := models.RunResultWithValue("")
+	adapter := adapters.EthTx{
+		Address:    address,
+		DataPrefix: dataPrefix,
+		FunctionID: fHash,
+	}
+	input := models.RunResultWithValue(inputValue)
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
