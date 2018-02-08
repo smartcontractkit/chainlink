@@ -65,6 +65,8 @@ func (j *Job) NewRun() *JobRun {
 	}
 }
 
+// InitiatorsFor returns an array of Initiators for the given list of
+// Initiator types.
 func (j *Job) InitiatorsFor(types ...string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
@@ -104,11 +106,16 @@ func (j *Job) Started(t time.Time) bool {
 }
 
 const (
+	// InitiatorChainlinkLog for tasks in a job to watch an address.
 	InitiatorChainlinkLog = "chainlinklog"
-	InitiatorCron         = "cron"
-	InitiatorEthLog       = "ethlog"
-	InitiatorRunAt        = "runat"
-	InitiatorWeb          = "web"
+	// InitiatorCron for tasks in a job to be ran on a schedule.
+	InitiatorCron = "cron"
+	// InitiatorEthLog for tasks in a job to use the Ethereum blockchain.
+	InitiatorEthLog = "ethlog"
+	// InitiatorRunAt for tasks in a job to be ran once.
+	InitiatorRunAt = "runat"
+	// InitiatorWeb for tasks in a job making a web request.
+	InitiatorWeb = "web"
 )
 
 var initiatorWhitelist = map[string]bool{

@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-// TX contains fields necessary for an Ethereum transaction with
+// Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
 	ID       uint64 `storm:"id,increment,index"`
