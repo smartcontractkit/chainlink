@@ -23,13 +23,3 @@ func TestGethGetTransactionReceipt(t *testing.T) {
 	assert.Equal(t, hash, receipt.Hash)
 	assert.Equal(t, uint64(11), receipt.BlockNumber)
 }
-
-//func TestEventLogUnmarshalJSONError(t *testing.T) {
-//notification := cltest.LoadJSON("../internal/fixtures/eth/subscription_new_heads.json")
-
-//en := store.EthNotification{}
-//assert.Nil(t, json.Unmarshal(notification, &en))
-
-//_, err := en.UnmarshalLog()
-//assert.NotNil(t, err)
-//}

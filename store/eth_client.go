@@ -92,38 +92,3 @@ func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 func (txr *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(txr.Hash)
 }
-
-// why this over geth types.Log?
-//type EventLog struct {
-//Address     common.Address  `json:"address"`
-//BlockHash   common.Hash     `json:"blockHash"`
-//BlockNumber hexutil.Uint64  `json:"blockNumber"`
-//Data        hexutil.Bytes   `json:"data"`
-//LogIndex    hexutil.Uint64  `json:"logIndex"`
-//Topics      []hexutil.Bytes `json:"topics"`
-//TxHash      common.Hash     `json:"transactionHash"`
-//TxIndex     hexutil.Uint64  `json:"transactionIndex"`
-//}
-
-//type EthNotification struct {
-//Params json.RawMessage `json:"params"`
-//}
-
-//func (en EthNotification) UnmarshalLog() (EventLog, error) {
-//var el EventLog
-//var rval map[string]json.RawMessage
-
-//if err := json.Unmarshal(en.Params, &rval); err != nil {
-//return el, err
-//}
-
-//if err := json.Unmarshal(rval["result"], &el); err != nil {
-//return el, err
-//}
-
-//if el.Address == utils.ZeroAddress {
-//return el, errors.New("Cannot unmarshal a log with a zero address")
-//}
-
-//return el, nil
-//}
