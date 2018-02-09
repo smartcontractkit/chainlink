@@ -1,7 +1,6 @@
 package adapters_test
 
 import (
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -37,8 +36,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 			tx, err := cltest.DecodeEthereumTx(rlp)
 			assert.Nil(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
-			wantData := utils.ConcatHex(fHash.String(), dataPrefix.String(), inputValue)
-			assert.Equal(t, wantData[2:], hex.EncodeToString(tx.Data()))
+			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)
+			assert.Equal(t, wantData, utils.BytesToHex(tx.Data()))
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))

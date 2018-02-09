@@ -150,10 +150,10 @@ func NewBytes32ID() string {
 }
 
 func HexToBytes(strs ...string) ([]byte, error) {
-	return hex.DecodeString(removeHexPrefix(ConcatHex(strs...)))
+	return hex.DecodeString(removeHexPrefix(HexConcat(strs...)))
 }
 
-func ConcatHex(strs ...string) string {
+func HexConcat(strs ...string) string {
 	hex := "0x"
 	for _, str := range strs {
 		hex = hex + removeHexPrefix(str)
@@ -171,6 +171,14 @@ func removeHexPrefix(str string) string {
 func addHexPrefix(str string) string {
 	if len(str) > 1 && str[0:2] != "0x" {
 		return "0x" + str
+	}
+	return str
+}
+
+func BytesToHex(bytes ...[]byte) string {
+	str := "0x"
+	for _, b := range bytes {
+		str = str + hex.EncodeToString(b)
 	}
 	return str
 }
