@@ -414,3 +414,19 @@ func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	var ethTx types.Transaction
 	return ethTx, rlp.DecodeBytes(StringToBytes(hex), &ethTx)
 }
+
+func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) {
+	if want == 0 {
+		Consistently(func() []models.JobRun {
+			jrs, err := store.JobRunsFor(j)
+			assert.Nil(t, err)
+			return jrs
+		}).Should(HaveLen(want))
+	} else {
+		Eventually(func() []models.JobRun {
+			jrs, err := store.JobRunsFor(j)
+			assert.Nil(t, err)
+			return jrs
+		}).Should(HaveLen(want))
+	}
+}
