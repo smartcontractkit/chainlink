@@ -19,7 +19,7 @@ type Config struct {
 	RootDir             string   `env:"ROOT" envDefault:"~/.chainlink"`
 	BasicAuthUsername   string   `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword   string   `env:"PASSWORD" envDefault:"twochains"`
-	EthereumURL         string   `env:"ETH_URL" envDefault:"http://localhost:8545"`
+	EthereumURL         string   `env:"ETH_URL" envDefault:"ws://localhost:8545"`
 	ChainID             uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
 	PollingSchedule     string   `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
 	ClientNodeURL       string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:8080"`
