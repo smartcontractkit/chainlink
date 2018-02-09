@@ -158,9 +158,10 @@ func JSONFromFixture(path string) models.JSON {
 	return JSONFromString(string(LoadJSON(path)))
 }
 
-func JSONFromString(body string) models.JSON {
+func JSONFromString(body string, args ...interface{}) models.JSON {
 	var j models.JSON
-	if err := json.Unmarshal([]byte(body), &j); err != nil {
+	str := fmt.Sprintf(body, args...)
+	if err := json.Unmarshal([]byte(str), &j); err != nil {
 		panic(err)
 	}
 	return j
