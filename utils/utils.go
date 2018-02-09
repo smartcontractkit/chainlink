@@ -182,3 +182,12 @@ func BytesToHex(bytes ...[]byte) string {
 	}
 	return str
 }
+
+func DecodeEthereumTx(hex string) (types.Transaction, error) {
+	var tx types.Transaction
+	b, err := StringToBytes(hex)
+	if err != nil {
+		return tx, err
+	}
+	return tx, rlp.DecodeBytes(b, &tx)
+}
