@@ -50,27 +50,6 @@ func TestTaskRunsToRun(t *testing.T) {
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
-func TestOutputUnmarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		json        string
-		wantErrored bool
-	}{
-		{"basic", `{"number": 100, "string": "100", "bool": true}`, false},
-		{"invalid JSON", `{`, true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var j models.JSON
-			err := json.Unmarshal([]byte(test.json), &j)
-			assert.Equal(t, test.wantErrored, (err != nil))
-		})
-	}
-}
-
 func TestRunResultValue(t *testing.T) {
 	t.Parallel()
 
@@ -98,41 +77,6 @@ func TestRunResultValue(t *testing.T) {
 			val, err := rr.Value()
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, (err != nil))
-		})
-	}
-}
-
-func TestOutputMerge(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		input       string
-		want        string
-		wantErrored bool
-	}{
-		{"new field", `{"extra":"fields"}`,
-			`{"value":"OLD","other":1,"extra":"fields"}`, false},
-		{"overwritting fields", `{"value":["new","new"],"extra":2}`,
-			`{"value":["new","new"],"other":1,"extra":2}`, false},
-		{"nested JSON", `{"extra":{"fields": ["more", 1]}}`,
-			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`, false},
-		{"empty JSON", `{}`,
-			`{"value":"OLD","other":1}`, false},
-		{"null values", `{"value":null}`,
-			`{"value":null,"other":1}`, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			orig := `{"value":"OLD","other":1}`
-			o1 := cltest.JSONFromString(orig)
-			o2 := cltest.JSONFromString(test.input)
-
-			merged, err := o1.Merge(o2)
-			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, merged.String())
-			assert.JSONEq(t, orig, o1.String())
 		})
 	}
 }
@@ -167,6 +111,88 @@ func TestTaskRunMerge(t *testing.T) {
 			assert.Equal(t, test.wantErrored, (err != nil))
 			assert.JSONEq(t, test.want, merged.Task.Params.String())
 			assert.JSONEq(t, orig, tr.Task.Params.String())
+		})
+	}
+}
+
+func TestJSONMerge(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		want        string
+		wantErrored bool
+	}{
+		{"new field", `{"extra":"fields"}`,
+			`{"value":"OLD","other":1,"extra":"fields"}`, false},
+		{"overwritting fields", `{"value":["new","new"],"extra":2}`,
+			`{"value":["new","new"],"other":1,"extra":2}`, false},
+		{"nested JSON", `{"extra":{"fields": ["more", 1]}}`,
+			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`, false},
+		{"empty JSON", `{}`,
+			`{"value":"OLD","other":1}`, false},
+		{"null values", `{"value":null}`,
+			`{"value":null,"other":1}`, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			orig := `{"value":"OLD","other":1}`
+			j1 := cltest.JSONFromString(orig)
+			j2 := cltest.JSONFromString(test.input)
+
+			merged, err := j1.Merge(j2)
+			assert.Equal(t, test.wantErrored, (err != nil))
+			assert.JSONEq(t, test.want, merged.String())
+			assert.JSONEq(t, orig, j1.String())
+		})
+	}
+}
+
+func TestJSONUnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		json        string
+		wantErrored bool
+	}{
+		{"basic", `{"number": 100, "string": "100", "bool": true}`, false},
+		{"invalid JSON", `{`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var j models.JSON
+			err := json.Unmarshal([]byte(test.json), &j)
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
+}
+
+func TestJSONAdd(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		key     string
+		value   interface{}
+		errored bool
+		want    string
+	}{
+		{"adding string", "b", "2", false, `{"a":"1","b":"2"}`},
+		{"adding int", "b", 2, false, `{"a":"1","b":2}`},
+		{"overriding", "a", "2", false, `{"a":"2"}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			json := cltest.JSONFromString(`{"a":"1"}`)
+
+			json, err := json.Add(test.key, test.value)
+			assert.Equal(t, test.errored, (err != nil))
+			assert.Equal(t, test.want, json.String())
 		})
 	}
 }

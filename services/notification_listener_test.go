@@ -3,9 +3,9 @@ package services_test
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -35,24 +35,28 @@ func TestNotificationListenerStart(t *testing.T) {
 
 func TestNotificationListenerAddJob(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
-
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+
 	initrAddress := cltest.NewEthAddress()
 
 	tests := []struct {
 		name       string
 		initType   string
 		logAddress common.Address
-		want       int
+		wantCount  int
+		data       hexutil.Bytes
 	}{
-		{"basic eth log", "ethlog", initrAddress, 1},
-		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0},
+		{"basic eth log", "ethlog", initrAddress, 1, hexutil.Bytes{}},
+		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
+		{"basic cllog", "chainlinklog", initrAddress, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
+		{"cllog non-matching", "chainlinklog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			RegisterTestingT(t)
+
 			nl := services.NotificationListener{Store: store}
 			defer nl.Stop()
 			nl.Start()
@@ -72,12 +76,11 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			logChan <- cltest.NewEthNotification(strpkg.EventLog{
 				Address: test.logAddress,
+				Data:    test.data,
+				Topics:  []hexutil.Bytes{cltest.StringToBytes("00"), cltest.StringToBytes("01"), cltest.StringToBytes("22")},
 			})
-			<-time.After(100 * time.Millisecond)
 
-			jrs, err := store.JobRunsFor(j)
-			assert.Nil(t, err)
-			assert.Equal(t, test.want, len(jrs))
+			cltest.WaitForRuns(t, j, store, test.wantCount)
 
 			assert.True(t, eth.AllCalled())
 		})
@@ -98,7 +101,7 @@ func TestStoreFormatLogOutput(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON
-	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"]}`
+	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionId":"76005c26"}`
 	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
 
 	hwEvent := cltest.EventLogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
