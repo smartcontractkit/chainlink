@@ -70,14 +70,6 @@ func StringToHash(str string) (common.Hash, error) {
 	return common.BytesToHash(b), nil
 }
 
-func StringToAddress(str string) (common.Address, error) {
-	b, err := hexutil.Decode(str)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return common.BytesToAddress(b), nil
-}
-
 func StringToBytes(str string) (hexutil.Bytes, error) {
 	var b hexutil.Bytes
 	err := b.UnmarshalText([]byte(addHexPrefix(str)))
