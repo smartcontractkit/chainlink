@@ -62,14 +62,6 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 	return common.ToHex(rlp.Bytes()), nil
 }
 
-func StringToHash(str string) (common.Hash, error) {
-	b, err := hexutil.Decode(str)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return common.BytesToHash(b), nil
-}
-
 func StringToBytes(str string) (hexutil.Bytes, error) {
 	var b hexutil.Bytes
 	err := b.UnmarshalText([]byte(addHexPrefix(str)))
