@@ -7,9 +7,16 @@ import (
 
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+)
+
+const (
+	EventTopicSignature = iota
+	EventTopicNonce
+	EventTopicJobID
 )
 
 // NotificationListener contains fields for the pointer of the store and
@@ -104,16 +111,17 @@ func convertEventLogToOutput(el store.EventLog) (models.JSON, error) {
 }
 
 func parseEventLogJSON(el store.EventLog) (models.JSON, error) {
-	var js models.JSON
-	hex := []byte(string([]byte(el.Data)[64:]))
-	json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
-
-	js, err := js.Add("address", el.Address.String())
+	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", el.Topics[1].String())
+	js, err = js.Add("address", el.Address.String())
+	if err != nil {
+		return js, err
+	}
+
+	js, err = js.Add("dataPrefix", el.Topics[EventTopicNonce].String())
 	if err != nil {
 		return js, err
 	}
@@ -132,4 +140,12 @@ func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) 
 		logger.Errorw(msg, "address", address.String())
 	}
 	return initrs
+}
+
+func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
+	varLocationSize := 32
+	varLengthSize := 32
+	var js models.JSON
+	hex := []byte(string([]byte(data)[varLocationSize+varLengthSize:]))
+	return js, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
 }
