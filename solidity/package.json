@@ -10,6 +10,7 @@
     "solidity-stringutils": "https://github.com/Arachnid/solidity-stringutils",
     "truffle": "^4.0.4",
     "web3": "^1.0.0-beta.29",
+    "wscat": "^2.1.1",
     "zeppelin-solidity": "https://github.com/OpenZeppelin/zeppelin-solidity"
   }
 }
