@@ -92,3 +92,7 @@
 [[constraint]]
   name = "github.com/tidwall/gjson"
   version = "1.0.6"
+
+[[constraint]]
+  name = "go.uber.org/multierr"
+  version = "1.1.0"
