@@ -51,10 +51,19 @@ func (eth *EthClient) BlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-func (eth *EthClient) Subscribe(channel chan EthNotification, address string) error {
+func (eth *EthClient) Subscribe(channel chan EthNotification, address common.Address) error {
 	ctx := context.Background()
-	_, err := eth.EthSubscribe(ctx, channel, "logs", address)
+	_, err := eth.EthSubscribe(ctx, channel, "logs", toFilterArg(address))
 	return err
+}
+
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15762f3a48a00da02fe58063cb6ce8dc2d08821f15/interfaces.go#L132
+func toFilterArg(address common.Address) interface{} {
+	arg := map[string]interface{}{
+		"address": address.String(),
+	}
+	return arg
 }
 
 type TxReceipt struct {

@@ -56,8 +56,8 @@ func (nl *NotificationListener) Stop() error {
 // and watches the Ethereum blockchain for the addresses in the job.
 func (nl *NotificationListener) AddJob(job *models.Job) error {
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorChainlinkLog) {
-		address := initr.Address.String()
-		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", address))
+		address := initr.Address
+		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", address.String()))
 		if err := nl.Store.TxManager.Subscribe(nl.logs, address); err != nil {
 			return err
 		}
