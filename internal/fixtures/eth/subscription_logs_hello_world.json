@@ -3,7 +3,7 @@
   "method": "eth_subscription",
   "params": {
     "subscription": "0x4a8a4c0517381924f9838102c5a4dcb7",
-    "result": {
+    "result": [{
       "address": "0x3ccad4715152693fe3bc4460591e3d3fbd071b42",
       "blockHash": "0xde3fb1df888c6c7f77f3a8e9c2582f87e7ad5277d98bd06cfd17cd2d7ea49f42",
       "blockNumber": "0x5",
@@ -16,6 +16,6 @@
       ],
       "transactionHash": "0xe05b171038320aca6634ce50de669bd0baa337130269c3ce3594ce4d45fc342a",
       "transactionIndex": "0x0"
-    }
+    }]
   }
 }

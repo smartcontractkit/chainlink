@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -115,8 +116,8 @@ func (mock *EthMock) EthSubscribe(
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
-			mockChan := sub.channel.(chan store.EthNotification)
-			logChan := channel.(chan store.EthNotification)
+			mockChan := sub.channel.(chan []ethtypes.Log)
+			logChan := channel.(chan<- []ethtypes.Log)
 			go func() {
 				for e := range mockChan {
 					logChan <- e

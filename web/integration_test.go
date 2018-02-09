@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -122,7 +123,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.EthNotification, 1)
+	logs := make(chan []types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
@@ -134,10 +135,10 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	var en store.EthNotification
+	var en types.Log
 	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	assert.Nil(t, json.Unmarshal(logFixture, &en))
-	logs <- en
+	logs <- []types.Log{en}
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
@@ -153,7 +154,7 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.EthNotification, 1)
+	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
@@ -172,7 +173,7 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 	assert.Equal(t, models.InitiatorChainlinkLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	var en store.EthNotification
+	var en types.Log
 	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	assert.Nil(t, json.Unmarshal(logFixture, &en))
 	logs <- en

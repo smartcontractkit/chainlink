@@ -185,7 +185,7 @@ func BytesToHex(bytes ...[]byte) string {
 
 func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	var tx types.Transaction
-	b, err := StringToBytes(hex)
+	b, err := hexutil.Decode(hex)
 	if err != nil {
 		return tx, err
 	}
