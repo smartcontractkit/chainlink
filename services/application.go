@@ -4,6 +4,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"go.uber.org/multierr"
 )
 
 // Application implements the common functions used in the core node.
@@ -40,8 +41,7 @@ func NewApplication(config store.Config) Application {
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	app.NotificationListener.Start()
-	return app.Scheduler.Start()
+	return multierr.Combine(app.NotificationListener.Start(), app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing

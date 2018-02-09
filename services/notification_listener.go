@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -36,10 +37,11 @@ func (nl *NotificationListener) Start() error {
 
 	nl.logs = make(chan store.EthNotification)
 	go nl.listenToLogs()
+	err = nil
 	for _, j := range jobs {
-		nl.AddJob(&j)
+		err = multierr.Append(err, nl.AddJob(&j))
 	}
-	return nil
+	return err
 }
 
 // Stop gracefully closes its access to the store's EthNotifications.
@@ -55,6 +57,7 @@ func (nl *NotificationListener) Stop() error {
 func (nl *NotificationListener) AddJob(job *models.Job) error {
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorChainlinkLog) {
 		address := initr.Address.String()
+		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", address))
 		if err := nl.Store.TxManager.Subscribe(nl.logs, address); err != nil {
 			return err
 		}
@@ -71,9 +74,11 @@ func (nl *NotificationListener) listenToLogs() {
 		}
 
 		for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
+			msg := fmt.Sprintf("Received log from %v", el.Address.String())
+			logger.Debugw(msg, "log", el)
 			job, err := nl.Store.FindJob(initr.JobID)
 			if err != nil {
-				msg := fmt.Sprintf("Initiating job from log: %v", err)
+				msg := fmt.Sprintf("Error initiating job from log: %v", err)
 				logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
 				continue
 			}
