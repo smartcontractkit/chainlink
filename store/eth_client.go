@@ -85,9 +85,7 @@ func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	txr.BlockNumber = block
-	if txr.Hash, err = utils.StringToHash(rcpt.Hash); err != nil {
-		return err
-	}
+	txr.Hash = common.HexToHash(rcpt.Hash)
 	return nil
 }
 

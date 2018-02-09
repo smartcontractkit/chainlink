@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -363,14 +362,6 @@ func WaitForJobRunToComplete(
 		return jr.Status
 	}).Should(Equal(models.StatusCompleted))
 	return jr
-}
-
-func StringToHash(str string) common.Hash {
-	h, err := utils.StringToHash(str)
-	if err != nil {
-		panic(err)
-	}
-	return h
 }
 
 func StringToBytes(str string) hexutil.Bytes {

@@ -82,7 +82,7 @@ func TestNotificationListenerAddJob(t *testing.T) {
 			logChan <- []types.Log{{
 				Address: test.logAddress,
 				Data:    test.data,
-				Topics:  []common.Hash{cltest.StringToHash("0x00"), cltest.StringToHash("0x01"), cltest.StringToHash("0x22")},
+				Topics:  []common.Hash{common.HexToHash("0x00"), common.HexToHash("0x01"), common.HexToHash("0x22")},
 			}}
 			<-time.After(100 * time.Millisecond)
 

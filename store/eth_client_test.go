@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +17,7 @@ func TestGethGetTransactionReceipt(t *testing.T) {
 
 	ec := store.TxManager.EthClient
 
-	hash, _ := utils.StringToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
+	hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
 	receipt, err := ec.GetTxReceipt(hash)
 	assert.Nil(t, err)
 	assert.Equal(t, hash, receipt.Hash)
