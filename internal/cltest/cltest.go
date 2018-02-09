@@ -64,6 +64,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
+			LogLevel:            store.LogLevel{zapcore.DebugLevel},
 			RootDir:             rootdir,
 			BasicAuthUsername:   Username,
 			BasicAuthPassword:   Password,
