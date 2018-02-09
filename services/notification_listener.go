@@ -104,9 +104,21 @@ func convertEventLogToOutput(el store.EventLog) (models.JSON, error) {
 }
 
 func parseEventLogJSON(el store.EventLog) (models.JSON, error) {
-	var out models.JSON
+	var js models.JSON
 	hex := []byte(string([]byte(el.Data)[64:]))
-	return out, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &out)
+	json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
+
+	js, err := js.Add("address", el.Address.String())
+	if err != nil {
+		return js, err
+	}
+
+	js, err = js.Add("dataPrefix", el.Topics[1].String())
+	if err != nil {
+		return js, err
+	}
+
+	return js.Add("functionId", "76005c26")
 }
 
 func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {

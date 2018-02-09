@@ -80,7 +80,7 @@ func StringToAddress(str string) (common.Address, error) {
 
 func StringToBytes(str string) (hexutil.Bytes, error) {
 	var b hexutil.Bytes
-	err := b.UnmarshalText([]byte(str))
+	err := b.UnmarshalText([]byte(addHexPrefix(str)))
 	return b, err
 }
 
@@ -164,6 +164,13 @@ func ConcatHex(strs ...string) string {
 func removeHexPrefix(str string) string {
 	if len(str) > 1 && str[0:2] == "0x" {
 		return str[2:]
+	}
+	return str
+}
+
+func addHexPrefix(str string) string {
+	if len(str) > 1 && str[0:2] != "0x" {
+		return "0x" + str
 	}
 	return str
 }
