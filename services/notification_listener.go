@@ -26,9 +26,11 @@ const (
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
 type NotificationListener struct {
-	Store        *store.Store
-	logs         chan []types.Log
-	subscription *rpc.ClientSubscription
+	Store            *store.Store
+	subscriptions    []*rpc.ClientSubscription
+	logNotifications chan []types.Log
+	errors           chan error
+	mutex            sync.Mutex
 }
 
 // Start obtains the jobs from the store and begins execution
@@ -39,19 +41,24 @@ func (nl *NotificationListener) Start() error {
 		return err
 	}
 
-	nl.logs = make(chan []types.Log)
-	go nl.listenToLogs()
-	err = nil
+	nl.errors = make(chan error)
+	nl.logNotifications = make(chan []types.Log)
+	var merr error
 	for _, j := range jobs {
-		err = multierr.Append(err, nl.AddJob(&j))
+		merr = multierr.Append(merr, nl.AddJob(&j))
 	}
+
+	go nl.listenToSubscriptionErrors()
+	go nl.listenToLogs()
 	return err
 }
 
 // Stop gracefully closes its access to the store's EthNotifications.
 func (nl *NotificationListener) Stop() error {
-	if nl.logs != nil {
-		close(nl.logs)
+	if nl.logNotifications != nil {
+		nl.unsubscribe()
+		close(nl.errors)
+		close(nl.logNotifications)
 	}
 	return nil
 }
@@ -65,65 +72,92 @@ func (nl *NotificationListener) AddJob(job *models.Job) error {
 		addresses = append(addresses, initr.Address)
 	}
 
-	sub, err := nl.Store.TxManager.Subscribe(nl.logs, addresses)
-	if err != nil {
-		return err
+	if len(addresses) == 0 {
+		return nil
 	}
-	nl.subscription = sub
+
+	sub, err := nl.Store.TxManager.Subscribe(nl.logNotifications, addresses)
+	if err == nil {
+		nl.addSubscription(sub)
+	}
+	return err
+}
+
+func (nl *NotificationListener) addSubscription(sub *rpc.ClientSubscription) {
+	nl.mutex.Lock()
+	defer nl.mutex.Unlock()
+	nl.subscriptions = append(nl.subscriptions, sub)
 	go func() {
-		select {
-		case err := <-nl.subscription.Err():
-			logger.Panic(err)
-		}
+		nl.errors <- (<-sub.Err())
 	}()
-	return nil
+}
+
+func (nl *NotificationListener) unsubscribe() {
+	nl.mutex.Lock()
+	defer nl.mutex.Unlock()
+	for _, sub := range nl.subscriptions {
+		if sub.Err() != nil {
+			sub.Unsubscribe()
+		}
+	}
+}
+
+func (nl *NotificationListener) listenToSubscriptionErrors() {
+	for err := range nl.errors {
+		logger.Errorw("Error in log subscription", "err", err)
+	}
 }
 
 func (nl *NotificationListener) listenToLogs() {
-	for {
-		select {
-		case l := <-nl.logs:
-			fmt.Println("***", l)
-			el := l[0]
-			msg := fmt.Sprintf("Received log from %v", el.Address.String())
-			logger.Debugw(msg, "log", el)
-			for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
-				job, err := nl.Store.FindJob(initr.JobID)
-				if err != nil {
-					msg := fmt.Sprintf("Error initiating job from log: %v", err)
-					logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
-					continue
-				}
-
-				input, err := FormatLogOutput(initr, el)
-				if err != nil {
-					logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
-					continue
-				}
-
-				fmt.Println("**** blow up on begin run?", input)
-				BeginRun(job, nl.Store, input)
+	for logs := range nl.logNotifications {
+		for _, el := range logs {
+			if err := nl.receiveLog(el); err != nil {
+				logger.Errorw(err.Error())
 			}
-			//case err := <-nl.subscription.Err():
-			//logger.Panic(err)
 		}
 	}
+}
+
+func (nl *NotificationListener) receiveLog(el types.Log) error {
+	var merr error
+	msg := fmt.Sprintf("Received log from %v", el.Address.String())
+	logger.Debugw(msg, "log", el)
+	for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
+		job, err := nl.Store.FindJob(initr.JobID)
+		if err != nil {
+			msg := fmt.Sprintf("Error initiating job from log: %v", err)
+			logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
+			merr = multierr.Append(merr, err)
+			continue
+		}
+
+		input, err := FormatLogOutput(initr, el)
+		if err != nil {
+			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
+			merr = multierr.Append(merr, err)
+			continue
+		}
+
+		_, err = BeginRun(job, nl.Store, input)
+		merr = multierr.Append(merr, err)
+	}
+	return merr
 }
 
 // FormatLogOutput uses the Initiator to decide how to format the EventLog
 // as an Output object.
 func FormatLogOutput(initr models.Initiator, el types.Log) (models.JSON, error) {
 	if initr.Type == models.InitiatorEthLog {
-		return convertEventLogToOutput(el)
+		return ethLogOutput(el)
 	} else if initr.Type == models.InitiatorChainlinkLog {
-		out, err := parseEventLogJSON(el)
+		out, err := chainlinkLogOutput(el)
 		return out, err
 	}
 	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
 }
 
-// make our own types.Log
-func convertEventLogToOutput(el types.Log) (models.JSON, error) {
+// make our own types.Log for better serialization
+func ethLogOutput(el types.Log) (models.JSON, error) {
 	var out models.JSON
 	b, err := json.Marshal(el)
 	if err != nil {
@@ -135,7 +169,7 @@ func convertEventLogToOutput(el types.Log) (models.JSON, error) {
 		return out, err
 	}
 
-	delete(middle, "removed")
+	delete(middle, "removed") // some rando attribute from geth
 	b, err = json.Marshal(middle)
 	if err != nil {
 		return out, err
@@ -143,7 +177,7 @@ func convertEventLogToOutput(el types.Log) (models.JSON, error) {
 	return out, json.Unmarshal(b, &out)
 }
 
-func parseEventLogJSON(el types.Log) (models.JSON, error) {
+func chainlinkLogOutput(el types.Log) (models.JSON, error) {
 	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
 		return js, err
@@ -181,24 +215,4 @@ func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 	var js models.JSON
 	hex := []byte(string([]byte(data)[varLocationSize+varLengthSize:]))
 	return js, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
-}
-
-// https://medium.com/justforfunc/two-ways-of-merging-n-channels-in-go-43c0b57cd1de
-func merge(cs ...<-chan error) <-chan error {
-	out := make(chan error)
-	var wg sync.WaitGroup
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go func(c <-chan error) {
-			for v := range c {
-				out <- v
-			}
-			wg.Done()
-		}(c)
-	}
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
 }

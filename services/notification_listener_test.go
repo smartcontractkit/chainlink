@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,7 +31,8 @@ func TestNotificationListenerStart(t *testing.T) {
 	eth.RegisterSubscription("logs", make(chan []types.Log))
 	eth.RegisterSubscription("logs", make(chan []types.Log))
 
-	nl.Start()
+	err := nl.Start()
+	assert.Nil(t, err)
 
 	assert.True(t, eth.AllCalled())
 }
@@ -61,7 +63,8 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			nl := services.NotificationListener{Store: store}
 			defer nl.Stop()
-			nl.Start()
+			err := nl.Start()
+			assert.Nil(t, err)
 
 			eth := cltest.MockEthOnStore(store)
 			logChan := make(chan []types.Log, 1)
@@ -126,7 +129,7 @@ func TestStoreFormatLogOutput(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			output, err := services.FormatLogOutput(test.initr, test.el)
-			assert.JSONEq(t, test.wantOutput.String(), output.String())
+			assert.JSONEq(t, strings.ToLower(test.wantOutput.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
