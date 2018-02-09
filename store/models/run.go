@@ -164,6 +164,20 @@ func (j JSON) Bytes() []byte {
 	return []byte(j.String())
 }
 
+// Add returns a new instance of JSON with the new value added.
+func (j JSON) Add(key string, val interface{}) (JSON, error) {
+	var j2 JSON
+	b, err := json.Marshal(val)
+	if err != nil {
+		return j2, err
+	}
+	str := fmt.Sprintf(`{"%v":%v}`, key, string(b))
+	if err = json.Unmarshal([]byte(str), &j2); err != nil {
+		return j2, err
+	}
+	return j.Merge(j2)
+}
+
 // RunResult keeps track of the outcome of a TaskRun. It stores
 // the Output and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
