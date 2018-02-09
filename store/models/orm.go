@@ -13,10 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+// ORM contains the database object used by Chainlink.
 type ORM struct {
 	*storm.DB
 }
 
+// NewORM initializes a new database file at the configured path.
 func NewORM(dir string) *ORM {
 	path := path.Join(dir, "db.bolt")
 	orm := &ORM{initializeDatabase(path)}
@@ -33,6 +35,7 @@ func initializeDatabase(path string) *storm.DB {
 	return db
 }
 
+// Where fetches multiple objects with "Find" in Storm.
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
 	err := orm.Find(field, value, instance)
 	if err == storm.ErrNotFound {
@@ -42,22 +45,26 @@ func (orm *ORM) Where(field string, value interface{}, instance interface{}) err
 	return err
 }
 
+// FindJob uses the .One method in Storm to return a single job.
 func (orm *ORM) FindJob(id string) (*Job, error) {
 	job := &Job{}
 	err := orm.One("ID", id, job)
 	return job, err
 }
 
+// InitBucket initializes buckets and indexes before saving an object.
 func (orm *ORM) InitBucket(model interface{}) error {
 	return orm.Init(model)
 }
 
+// Jobs fetches all jobs.
 func (orm *ORM) Jobs() ([]Job, error) {
 	var jobs []Job
 	err := orm.All(&jobs)
 	return jobs, err
 }
 
+// JobRunsFor fetches all JobRuns with a given JobID.
 func (orm *ORM) JobRunsFor(job *Job) ([]JobRun, error) {
 	runs := []JobRun{}
 	err := orm.Where("JobID", job.ID, &runs)
@@ -70,6 +77,7 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
+// SaveJob saves a job to the database.
 func (orm *ORM) SaveJob(job *Job) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
@@ -90,12 +98,14 @@ func (orm *ORM) SaveJob(job *Job) error {
 	return tx.Commit()
 }
 
+// PendingJobRuns returns the JobRuns which have a status of "pending".
 func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
 	runs := []JobRun{}
 	err := orm.Where("Status", StatusPending, &runs)
 	return runs, err
 }
 
+// CreateTx saves the properties of an Ethereum transaction to the database.
 func (orm *ORM) CreateTx(
 	from common.Address,
 	nonce uint64,
@@ -115,6 +125,8 @@ func (orm *ORM) CreateTx(
 	return &tx, orm.Save(&tx)
 }
 
+// ConfirmTx updates the database for the given transaction to
+// show that the transaction has been confirmed on the blockchain.
 func (orm *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
 	dbtx, err := orm.Begin(true)
 	if err != nil {
@@ -133,6 +145,8 @@ func (orm *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
 	return dbtx.Commit()
 }
 
+// AttemptsFor returns the Transaction Attempts (TxAttempt) for a
+// given Transaction ID (TxID).
 func (orm *ORM) AttemptsFor(id uint64) ([]TxAttempt, error) {
 	attempts := []TxAttempt{}
 	if err := orm.Where("TxID", id, &attempts); err != nil {
@@ -141,6 +155,8 @@ func (orm *ORM) AttemptsFor(id uint64) ([]TxAttempt, error) {
 	return attempts, nil
 }
 
+// AddAttempt creates a new transaction attempt and stores it
+// in the database.
 func (orm *ORM) AddAttempt(
 	tx *Tx,
 	etx *types.Transaction,
@@ -175,6 +191,7 @@ func (orm *ORM) AddAttempt(
 	return attempt, dbtx.Commit()
 }
 
+// BridgeTypeFor returns the BridgeType for a given name.
 func (orm *ORM) BridgeTypeFor(name string) (*BridgeType, error) {
 	tt := &BridgeType{}
 	err := orm.One("Name", strings.ToLower(name), tt)
