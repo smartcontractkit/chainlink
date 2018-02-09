@@ -96,6 +96,14 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 			models.InitiatorEthLog,
 			i.Address,
 		})
+	case models.InitiatorChainlinkLog:
+		return json.Marshal(&struct {
+			Type    string         `json:"type"`
+			Address common.Address `json:"address"`
+		}{
+			models.InitiatorChainlinkLog,
+			i.Address,
+		})
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type %v", i.Type)
 	}
