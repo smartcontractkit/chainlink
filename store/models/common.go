@@ -69,6 +69,8 @@ func (t *Time) HumanString() string {
 }
 
 // Cron holds the string that will represent the spec of the cron-job.
+// It uses 6 fields to represent the seconds (1), minutes (2), hours (3),
+// day of the month (4), month (5), and day of the week (6).
 type Cron string
 
 // UnmarshalJSON parses the raw spec stored in JSON-encoded

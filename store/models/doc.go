@@ -1,4 +1,4 @@
-// Package models contains the key job components used by the
+// Package models contain the key job components used by the
 // Chainlink application.
 //
 // Common
@@ -15,9 +15,12 @@
 // Job
 //
 // A Job is the largest unit of work that a Chainlink node can take
-// on. It will have Initiators, which is how the node knows what kind
-// of work to perform, and Tasks, which are the specific instructions.
-// The BridgeType is also located here, and is used for external adapters.
+// on. It will have Initiators, which is how a JobRun is started from
+// the job definition, and Tasks, which are the specific instructions
+// for what work needs to be performed.
+// The BridgeType is also located here, and is used to define the location
+// (URL) of external adapters.
+//
 //
 // ORM
 //
@@ -27,8 +30,11 @@
 //
 // Run
 //
-// A Run is the node's attempt at completing work. This comprises of
-// JobRuns and TaskRuns. The JobRun keeps track of the entire job,
-// and will only produce a result when all underlying Tasks are finished.
-// The TaskRun keeps track of the status of an individual Task.
+// A Run is the actual invocation of work being done on the Job and Task.
+// This comprises of JobRuns and TaskRuns. A JobRun is like a workflow where
+// the steps are the TaskRuns.
+//
+// i.e. We have a Scheduler Initiator that creates a JobRun every monday
+// based on a JobDefinition. And in turn, those JobRuns have TaskRuns based
+// on the JobDefinition's TaskDefinitions.
 package models

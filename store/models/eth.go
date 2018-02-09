@@ -49,7 +49,8 @@ type TxAttempt struct {
 	SentAt    uint64
 }
 
-// FunctionID is the data to be included in the transaction.
+// FunctionID is the first four bytes of the call data for a
+// function call and specifies the function to be called.
 type FunctionID [FunctionIDLength]byte
 
 // FunctionIDLength should always be a length of 4 as a byte.

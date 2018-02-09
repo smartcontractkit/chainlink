@@ -16,7 +16,7 @@ const (
 	// StatusInProgress is used for when a run is actively being executed.
 	StatusInProgress = "in progress"
 	// StatusPending is used for when a run is waiting on the completion
-	// of another task.
+	// of another event.
 	StatusPending = "pending"
 	// StatusErrored is used for when a run has errored and will not complete.
 	StatusErrored = "errored"
@@ -24,10 +24,9 @@ const (
 	StatusCompleted = "completed"
 )
 
-// Job is the complete specification for all the work to be carried out
-// by the node for a given contract. It contains the Initiators, Tasks
-// (which are the individual steps to be carried out), StartAt, EndAt,
-// and CreatedAt fields.
+// Job is the definition for all the work to be carried out by the node
+// for a given contract. It contains the Initiators, Tasks (which are the
+// individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type Job struct {
 	ID         string      `json:"id" storm:"id,index,unique"`
 	Initiators []Initiator `json:"initiators"`
@@ -106,7 +105,8 @@ func (j *Job) Started(t time.Time) bool {
 }
 
 const (
-	// InitiatorChainlinkLog for tasks in a job to watch an address.
+	// InitiatorChainlinkLog for tasks in a job to watch an ethereum address
+	// and expect a JSON payload from a log event.
 	InitiatorChainlinkLog = "chainlinklog"
 	// InitiatorCron for tasks in a job to be ran on a schedule.
 	InitiatorCron = "cron"
@@ -126,8 +126,8 @@ var initiatorWhitelist = map[string]bool{
 	InitiatorWeb:          true,
 }
 
-// Initiator categorizes tasks so that they may be performed
-// based on their type and according to their own schedule.
+// Initiator could be though of as a trigger, define how a Job can be
+// started, or rather, how a JobRun can be created from a Job.
 // Initiators will have their own unique ID, but will be assocated
 // to a parent JobID.
 type Initiator struct {
