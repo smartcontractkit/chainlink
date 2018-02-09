@@ -3,15 +3,17 @@ package services_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
-	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 )
 
 func TestNotificationListenerStart(t *testing.T) {
@@ -25,8 +27,8 @@ func TestNotificationListenerStart(t *testing.T) {
 
 	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
 	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
-	eth.RegisterSubscription("logs", make(chan strpkg.EthNotification))
-	eth.RegisterSubscription("logs", make(chan strpkg.EthNotification))
+	eth.RegisterSubscription("logs", make(chan []types.Log))
+	eth.RegisterSubscription("logs", make(chan []types.Log))
 
 	nl.Start()
 
@@ -62,7 +64,7 @@ func TestNotificationListenerAddJob(t *testing.T) {
 			nl.Start()
 
 			eth := cltest.MockEthOnStore(store)
-			logChan := make(chan strpkg.EthNotification, 1)
+			logChan := make(chan []types.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			j := cltest.NewJob()
@@ -74,11 +76,12 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			nl.AddJob(j)
 
-			logChan <- cltest.NewEthNotification(strpkg.EventLog{
+			logChan <- []types.Log{{
 				Address: test.logAddress,
 				Data:    test.data,
-				Topics:  []hexutil.Bytes{cltest.StringToBytes("00"), cltest.StringToBytes("01"), cltest.StringToBytes("22")},
-			})
+				Topics:  []common.Hash{cltest.StringToHash("0x00"), cltest.StringToHash("0x01"), cltest.StringToHash("0x22")},
+			}}
+			<-time.After(100 * time.Millisecond)
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
@@ -88,8 +91,7 @@ func TestNotificationListenerAddJob(t *testing.T) {
 }
 
 func outputFromFixture(path string) models.JSON {
-	fix := cltest.JSONFromFixture(path)
-	res := fix.Get("params.result")
+	res := gjson.Get(string(cltest.LoadJSON(path)), "params.result.0")
 	var out models.JSON
 	if err := json.Unmarshal([]byte(res.String()), &out); err != nil {
 		panic(err)
@@ -104,20 +106,20 @@ func TestStoreFormatLogOutput(t *testing.T) {
 	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionId":"76005c26"}`
 	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
 
-	hwEvent := cltest.EventLogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	exampleEvent := cltest.EventLogFromFixture("../internal/fixtures/eth/subscription_logs.json")
+	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          strpkg.EventLog
+		el          types.Log
 		initr       models.Initiator
 		wantErrored bool
 		wantOutput  models.JSON
 	}{
-		{"example ethLog", exampleEvent, models.Initiator{Type: "ethlog"}, false,
+		{"example ethLog", exampleLog, models.Initiator{Type: "ethlog"}, false,
 			outputFromFixture("../internal/fixtures/eth/subscription_logs.json")},
-		{"hello world ethLog", hwEvent, models.Initiator{Type: "ethlog"}, false,
+		{"hello world ethLog", hwLog, models.Initiator{Type: "ethlog"}, false,
 			outputFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
-		{"hello world chainlinkLog", hwEvent, models.Initiator{Type: "chainlinklog"}, false,
+		{"hello world chainlinkLog", hwLog, models.Initiator{Type: "chainlinklog"}, false,
 			clData},
 	}
 

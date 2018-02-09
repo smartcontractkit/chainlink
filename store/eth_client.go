@@ -3,12 +3,11 @@ package store
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -51,17 +50,18 @@ func (eth *EthClient) BlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-func (eth *EthClient) Subscribe(channel chan EthNotification, address common.Address) error {
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
+func (eth *EthClient) Subscribe(channel chan<- []types.Log, addresses []common.Address) (*rpc.ClientSubscription, error) {
 	ctx := context.Background()
-	_, err := eth.EthSubscribe(ctx, channel, "logs", toFilterArg(address))
-	return err
+	sub, err := eth.EthSubscribe(ctx, channel, "logs", toFilterArg(addresses))
+	return sub, err
 }
 
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15762f3a48a00da02fe58063cb6ce8dc2d08821f15/interfaces.go#L132
-func toFilterArg(address common.Address) interface{} {
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/interfaces.go#L132
+func toFilterArg(addresses []common.Address) interface{} {
 	arg := map[string]interface{}{
-		"address": address.String(),
+		"address": addresses,
 	}
 	return arg
 }
@@ -95,36 +95,37 @@ func (txr *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(txr.Hash)
 }
 
-type EventLog struct {
-	Address     common.Address  `json:"address"`
-	BlockHash   common.Hash     `json:"blockHash"`
-	BlockNumber hexutil.Uint64  `json:"blockNumber"`
-	Data        hexutil.Bytes   `json:"data"`
-	LogIndex    hexutil.Uint64  `json:"logIndex"`
-	Topics      []hexutil.Bytes `json:"topics"`
-	TxHash      common.Hash     `json:"transactionHash"`
-	TxIndex     hexutil.Uint64  `json:"transactionIndex"`
-}
+// why this over geth types.Log?
+//type EventLog struct {
+//Address     common.Address  `json:"address"`
+//BlockHash   common.Hash     `json:"blockHash"`
+//BlockNumber hexutil.Uint64  `json:"blockNumber"`
+//Data        hexutil.Bytes   `json:"data"`
+//LogIndex    hexutil.Uint64  `json:"logIndex"`
+//Topics      []hexutil.Bytes `json:"topics"`
+//TxHash      common.Hash     `json:"transactionHash"`
+//TxIndex     hexutil.Uint64  `json:"transactionIndex"`
+//}
 
-type EthNotification struct {
-	Params json.RawMessage `json:"params"`
-}
+//type EthNotification struct {
+//Params json.RawMessage `json:"params"`
+//}
 
-func (en EthNotification) UnmarshalLog() (EventLog, error) {
-	var el EventLog
-	var rval map[string]json.RawMessage
+//func (en EthNotification) UnmarshalLog() (EventLog, error) {
+//var el EventLog
+//var rval map[string]json.RawMessage
 
-	if err := json.Unmarshal(en.Params, &rval); err != nil {
-		return el, err
-	}
+//if err := json.Unmarshal(en.Params, &rval); err != nil {
+//return el, err
+//}
 
-	if err := json.Unmarshal(rval["result"], &el); err != nil {
-		return el, err
-	}
+//if err := json.Unmarshal(rval["result"], &el); err != nil {
+//return el, err
+//}
 
-	if el.Address == utils.ZeroAddress {
-		return el, errors.New("Cannot unmarshal a log with a zero address")
-	}
+//if el.Address == utils.ZeroAddress {
+//return el, errors.New("Cannot unmarshal a log with a zero address")
+//}
 
-	return el, nil
-}
+//return el, nil
+//}
