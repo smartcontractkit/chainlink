@@ -33,7 +33,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
-			tx, err := cltest.DecodeEthereumTx(rlp)
+			tx, err := utils.DecodeEthereumTx(rlp)
 			assert.Nil(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
 			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)

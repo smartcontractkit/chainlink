@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
@@ -373,26 +371,6 @@ func StringToBytes(str string) hexutil.Bytes {
 	return b
 }
 
-func WaitForJobRuns(j *models.Job, store *store.Store, want int) {
-	if want == 0 {
-		Consistently(func() []models.JobRun {
-			jrs, err := store.JobRunsFor(j)
-			if err != nil {
-				panic(err)
-			}
-			return jrs
-		}).Should(HaveLen(want))
-		return
-	}
-	Eventually(func() []models.JobRun {
-		jrs, err := store.JobRunsFor(j)
-		if err != nil {
-			panic(err)
-		}
-		return jrs
-	}).Should(HaveLen(want))
-}
-
 func StringToRunLogPayload(str string) hexutil.Bytes {
 	length := len([]byte(str))
 	lenHex := hexutil.EncodeUint64(uint64(length))
@@ -408,11 +386,6 @@ func StringToRunLogPayload(str string) hexutil.Bytes {
 		endPad = strings.Repeat("00", (32 - (length % 32)))
 	}
 	return StringToBytes(prefix + lenHex[2:] + data[2:] + endPad)
-}
-
-func DecodeEthereumTx(hex string) (types.Transaction, error) {
-	var ethTx types.Transaction
-	return ethTx, rlp.DecodeBytes(StringToBytes(hex), &ethTx)
 }
 
 func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) {
