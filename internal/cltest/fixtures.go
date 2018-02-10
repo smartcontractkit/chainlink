@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -130,23 +132,10 @@ func NullTime(val interface{}) null.Time {
 	}
 }
 
-func NewEthNotification(el store.EventLog) store.EthNotification {
-	b, err := json.Marshal(el)
-	if err != nil {
-		panic(err)
-	}
-	params := json.RawMessage(fmt.Sprintf(`{"result":%v}`, string(b)))
-	return store.EthNotification{Params: params}
-}
-
-func EventLogFromFixture(path string) store.EventLog {
-	var en store.EthNotification
-	err := json.Unmarshal([]byte(LoadJSON(path)), &en)
-	if err != nil {
-		panic(err)
-	}
-
-	el, err := en.UnmarshalLog()
+func LogFromFixture(path string) ethtypes.Log {
+	value := gjson.Get(string(LoadJSON(path)), "params.result.0")
+	var el ethtypes.Log
+	err := json.Unmarshal([]byte(value.String()), &el)
 	if err != nil {
 		panic(err)
 	}
