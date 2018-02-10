@@ -62,12 +62,6 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 	return common.ToHex(rlp.Bytes()), nil
 }
 
-func StringToBytes(str string) (hexutil.Bytes, error) {
-	var b hexutil.Bytes
-	err := b.UnmarshalText([]byte(addHexPrefix(str)))
-	return b, err
-}
-
 func TimeParse(s string) time.Time {
 	t, err := dateparse.ParseAny(s)
 	if err != nil {
