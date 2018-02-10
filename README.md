@@ -86,6 +86,7 @@ $ go get -u github.com/direnv/direnv
 
 Environment variables that can be set in .envrc, along with default values that get used if no corresponding enviornment variable is found:
 
+    LOG_LEVEL                Default: info
     ROOT                     Default: ~/.chainlink
     USERNAME                 Default: chainlink
     PASSWORD                 Default: twochains
@@ -106,4 +107,20 @@ Before proceeding, make sure you have installed [yarn](https://yarnpkg.com/lang/
 $ cd solidity
 $ yarn install
 $ truffle test
+```
+
+### Adding External Adapters
+
+Post to `/v2/jobs`:
+
+```shell
+curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:8080/v2/jobs
+```
+
+`"name"` should be unique to the local node, and `"url"` should be the URL of your external adapter, whether local or on a separate machine.
+
+Output should return a unique id:
+
+```shell
+{"id":"65c60bd0267941369e2e92e73c5319d6"}
 ```
