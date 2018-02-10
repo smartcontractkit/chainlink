@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -21,7 +22,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 
 	address := cltest.NewEthAddress()
 	fHash := models.HexToFunctionID("b3f98adc")
-	dataPrefix := cltest.StringToBytes("0x45746736453745")
+	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
 	inputValue := "0x9786856756"
 
 	ethMock := app.MockEthClient()

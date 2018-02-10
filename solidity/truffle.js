@@ -1,4 +1,12 @@
+global.h = require('./helpers');
+
 module.exports = {
-  // See <http://truffleframework.com/docs/advanced/configuration>
-  // to customize your Truffle configuration!
+  networks: {
+    devnet: {
+      host: "127.0.0.1",
+      port: 7434,
+      network_id: "*",
+      gas: 4700000
+    }
+  }
 };

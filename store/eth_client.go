@@ -3,12 +3,11 @@ package store
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -58,11 +57,21 @@ func (eth *EthClient) BlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-// Subscribe registers a subscription for the
-func (eth *EthClient) Subscribe(channel chan EthNotification, address string) error {
+// Subscribe registers a subscription for the given address.
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
+func (eth *EthClient) Subscribe(channel chan<- []types.Log, addresses []common.Address) (*rpc.ClientSubscription, error) {
 	ctx := context.Background()
-	_, err := eth.EthSubscribe(ctx, channel, "logs", address)
-	return err
+	sub, err := eth.EthSubscribe(ctx, channel, "logs", toFilterArg(addresses))
+	return sub, err
+}
+
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/interfaces.go#L132
+func toFilterArg(addresses []common.Address) interface{} {
+	arg := map[string]interface{}{
+		"address": addresses,
+	}
+	return arg
 }
 
 // TxReceipt holds the block number and the transaction hash of a signed
@@ -88,9 +97,7 @@ func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	txr.BlockNumber = block
-	if txr.Hash, err = utils.StringToHash(rcpt.Hash); err != nil {
-		return err
-	}
+	txr.Hash = common.HexToHash(rcpt.Hash)
 	return nil
 }
 
@@ -98,6 +105,7 @@ func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 func (txr *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(txr.Hash)
 }
+<<<<<<< HEAD
 
 // EventLog holds the fields to be used for logging transactions.
 type EventLog struct {
@@ -136,3 +144,5 @@ func (en EthNotification) UnmarshalLog() (EventLog, error) {
 
 	return el, nil
 }
+=======
+>>>>>>> adca13889a1cda19447cce8e2c1d16c9a93ffe71

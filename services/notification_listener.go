@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -22,8 +26,11 @@ const (
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
 type NotificationListener struct {
-	Store *store.Store
-	logs  chan store.EthNotification
+	Store            *store.Store
+	subscriptions    []*rpc.ClientSubscription
+	logNotifications chan []types.Log
+	errors           chan error
+	mutex            sync.Mutex
 }
 
 // Start obtains the jobs from the store and begins execution
@@ -34,18 +41,24 @@ func (nl *NotificationListener) Start() error {
 		return err
 	}
 
-	nl.logs = make(chan store.EthNotification)
-	go nl.listenToLogs()
+	nl.errors = make(chan error)
+	nl.logNotifications = make(chan []types.Log)
+	var merr error
 	for _, j := range jobs {
-		nl.AddJob(&j)
+		merr = multierr.Append(merr, nl.AddJob(&j))
 	}
-	return nil
+
+	go nl.listenToSubscriptionErrors()
+	go nl.listenToLogs()
+	return err
 }
 
 // Stop gracefully closes its access to the store's EthNotifications.
 func (nl *NotificationListener) Stop() error {
-	if nl.logs != nil {
-		close(nl.logs)
+	if nl.logNotifications != nil {
+		nl.unsubscribe()
+		close(nl.errors)
+		close(nl.logNotifications)
 	}
 	return nil
 }
@@ -53,64 +66,118 @@ func (nl *NotificationListener) Stop() error {
 // AddJob looks for "chainlinklog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
 func (nl *NotificationListener) AddJob(job *models.Job) error {
+	var addresses []common.Address
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorChainlinkLog) {
-		address := initr.Address.String()
-		if err := nl.Store.TxManager.Subscribe(nl.logs, address); err != nil {
-			return err
+		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", initr.Address.String()))
+		addresses = append(addresses, initr.Address)
+	}
+
+	if len(addresses) == 0 {
+		return nil
+	}
+
+	sub, err := nl.Store.TxManager.Subscribe(nl.logNotifications, addresses)
+	if err == nil {
+		nl.addSubscription(sub)
+	}
+	return err
+}
+
+func (nl *NotificationListener) addSubscription(sub *rpc.ClientSubscription) {
+	nl.mutex.Lock()
+	defer nl.mutex.Unlock()
+	nl.subscriptions = append(nl.subscriptions, sub)
+	go func() {
+		nl.errors <- (<-sub.Err())
+	}()
+}
+
+func (nl *NotificationListener) unsubscribe() {
+	nl.mutex.Lock()
+	defer nl.mutex.Unlock()
+	for _, sub := range nl.subscriptions {
+		if sub.Err() != nil {
+			sub.Unsubscribe()
 		}
 	}
-	return nil
+}
+
+func (nl *NotificationListener) listenToSubscriptionErrors() {
+	for err := range nl.errors {
+		logger.Errorw("Error in log subscription", "err", err)
+	}
 }
 
 func (nl *NotificationListener) listenToLogs() {
-	for l := range nl.logs {
-		el, err := l.UnmarshalLog()
+	for logs := range nl.logNotifications {
+		for _, el := range logs {
+			if err := nl.receiveLog(el); err != nil {
+				logger.Errorw(err.Error())
+			}
+		}
+	}
+}
+
+func (nl *NotificationListener) receiveLog(el types.Log) error {
+	var merr error
+	msg := fmt.Sprintf("Received log from %v", el.Address.String())
+	logger.Debugw(msg, "log", el)
+	for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
+		job, err := nl.Store.FindJob(initr.JobID)
 		if err != nil {
-			logger.Errorw("Unable to unmarshal log", "log", l)
+			msg := fmt.Sprintf("Error initiating job from log: %v", err)
+			logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
+			merr = multierr.Append(merr, err)
 			continue
 		}
 
-		for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
-			job, err := nl.Store.FindJob(initr.JobID)
-			if err != nil {
-				msg := fmt.Sprintf("Initiating job from log: %v", err)
-				logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
-				continue
-			}
-
-			input, err := FormatLogOutput(initr, el)
-			if err != nil {
-				logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
-				continue
-			}
-
-			BeginRun(job, nl.Store, input)
+		input, err := FormatLogOutput(initr, el)
+		if err != nil {
+			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
+			merr = multierr.Append(merr, err)
+			continue
 		}
+
+		_, err = BeginRun(job, nl.Store, input)
+		merr = multierr.Append(merr, err)
 	}
+	return merr
 }
 
 // FormatLogOutput uses the Initiator to decide how to format the EventLog
 // as an Output object.
-func FormatLogOutput(initr models.Initiator, el store.EventLog) (models.JSON, error) {
+func FormatLogOutput(initr models.Initiator, el types.Log) (models.JSON, error) {
 	if initr.Type == models.InitiatorEthLog {
-		return convertEventLogToOutput(el)
+		return ethLogOutput(el)
 	} else if initr.Type == models.InitiatorChainlinkLog {
-		out, err := parseEventLogJSON(el)
+		out, err := chainlinkLogOutput(el)
 		return out, err
 	}
 	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
 }
 
-func convertEventLogToOutput(el store.EventLog) (models.JSON, error) {
+// make our own types.Log for better serialization
+func ethLogOutput(el types.Log) (models.JSON, error) {
 	var out models.JSON
 	b, err := json.Marshal(el)
+	if err != nil {
+		return out, err
+	}
+	var middle map[string]interface{}
+	err = json.Unmarshal(b, &middle)
+	if err != nil {
+		return out, err
+	}
+
+	delete(middle, "removed") // some rando attribute from geth
+	b, err = json.Marshal(middle)
 	if err != nil {
 		return out, err
 	}
 	return out, json.Unmarshal(b, &out)
 }
 
-func parseEventLogJSON(el store.EventLog) (models.JSON, error) {
+func chainlinkLogOutput(el types.Log) (models.JSON, error) {
 	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
 		return js, err

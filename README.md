@@ -1,4 +1,4 @@
-# Chainlink Go Implementation
+# Chainlink [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink)
 
 ## Developer Setup
 
