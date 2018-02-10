@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -17,7 +18,7 @@ type MI = models.Initiator
 func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 	t.Parallel()
 
-	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	now := time.Now()
 
 	tests := []struct {

@@ -63,6 +63,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
+			LogLevel:            store.LogLevel{zapcore.DebugLevel},
 			RootDir:             rootdir,
 			BasicAuthUsername:   Username,
 			BasicAuthPassword:   Password,
@@ -363,14 +364,6 @@ func WaitForJobRunToComplete(
 	return jr
 }
 
-func StringToBytes(str string) hexutil.Bytes {
-	b, err := utils.StringToBytes(str)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
 func StringToRunLogPayload(str string) hexutil.Bytes {
 	length := len([]byte(str))
 	lenHex := hexutil.EncodeUint64(uint64(length))
@@ -385,7 +378,7 @@ func StringToRunLogPayload(str string) hexutil.Bytes {
 	if length%32 != 0 {
 		endPad = strings.Repeat("00", (32 - (length % 32)))
 	}
-	return StringToBytes(prefix + lenHex[2:] + data[2:] + endPad)
+	return hexutil.MustDecode(prefix + lenHex[2:] + data[2:] + endPad)
 }
 
 func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) {

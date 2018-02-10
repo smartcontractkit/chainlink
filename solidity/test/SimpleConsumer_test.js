@@ -3,8 +3,8 @@
 require('./support/helpers.js')
 
 contract('SimpleConsumer', () => {
-  let Oracle = artifacts.require("./contracts/Oracle.sol");
-  let Consumer = artifacts.require("./test/contracts/SimpleConsumer.sol");
+  let Oracle = artifacts.require("Oracle.sol");
+  let Consumer = artifacts.require("examples/SimpleConsumer.sol");
   let oc, cc;
 
   beforeEach(async () => {

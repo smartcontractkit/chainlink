@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -83,8 +83,8 @@ func TestCreatingTx(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	from, _ := utils.StringToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-	to, _ := utils.StringToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
 	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
 	nonce := uint64(1232421)
 	gasLimit := big.NewInt(50000)

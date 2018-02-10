@@ -62,28 +62,6 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 	return common.ToHex(rlp.Bytes()), nil
 }
 
-func StringToHash(str string) (common.Hash, error) {
-	b, err := hexutil.Decode(str)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return common.BytesToHash(b), nil
-}
-
-func StringToAddress(str string) (common.Address, error) {
-	b, err := hexutil.Decode(str)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return common.BytesToAddress(b), nil
-}
-
-func StringToBytes(str string) (hexutil.Bytes, error) {
-	var b hexutil.Bytes
-	err := b.UnmarshalText([]byte(addHexPrefix(str)))
-	return b, err
-}
-
 func TimeParse(s string) time.Time {
 	t, err := dateparse.ParseAny(s)
 	if err != nil {
@@ -185,7 +163,7 @@ func BytesToHex(bytes ...[]byte) string {
 
 func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	var tx types.Transaction
-	b, err := StringToBytes(hex)
+	b, err := hexutil.Decode(hex)
 	if err != nil {
 		return tx, err
 	}
