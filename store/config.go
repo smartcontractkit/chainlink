@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Config holds parameters used by the application which can be overridden
+// by setting environment variables.
 type Config struct {
 	LogLevel            LogLevel `env:"LOG_LEVEL" envDefault:"info"`
 	RootDir             string   `env:"ROOT" envDefault:"~/.chainlink"`
@@ -29,6 +31,8 @@ type Config struct {
 	EthGasPriceDefault  big.Int  `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
 }
 
+// NewConfig returns the config with the environment variables set to their
+// respective fields, or defaults if not present.
 func NewConfig() Config {
 	config := Config{}
 	if err := parseEnv(&config); err != nil {
@@ -45,6 +49,7 @@ func NewConfig() Config {
 	return config
 }
 
+// KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
 	return path.Join(c.RootDir, "keys")
 }
@@ -70,10 +75,12 @@ func levelParser(str string) (interface{}, error) {
 	return lvl, err
 }
 
+// LogLevel determines the verbosity of the events to be logged.
 type LogLevel struct {
 	zapcore.Level
 }
 
+// ForGin keeps Gin's mode at the appropriate level with the LogLevel.
 func (ll LogLevel) ForGin() string {
 	switch {
 	case ll.Level < zapcore.InfoLevel:
