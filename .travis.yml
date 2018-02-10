@@ -1,0 +1,23 @@
+sudo: false
+
+matrix:
+  include:
+    - language: go
+      go: 1.9
+
+      env:
+        - DEP_VERSION="0.4.1"
+
+      before_install:
+        - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
+        - chmod +x $GOPATH/bin/dep
+
+      install:
+        - dep ensure
+
+    - language: node_js
+      cache: yarn
+      node_js: 8.4
+      before_install: cd solidity
+      install: npm install -g yarn && yarn
+      script: truffle test
