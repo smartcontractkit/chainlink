@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// Store is the persistence layer for the application. It contains fields
+// Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
 	*models.ORM
