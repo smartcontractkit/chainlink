@@ -19,23 +19,38 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
+	address := cltest.NewEthAddress()
+	fHash := models.HexToFunctionID("b3f98adc")
+	dataPrefix := cltest.StringToBytes("0x45746736453745")
+	inputValue := "0x9786856756"
+
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	hash := cltest.NewTxHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
-	ethMock.Register("eth_sendRawTransaction", hash)
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			rlp := data[0].([]interface{})[0].(string)
+			tx, err := utils.DecodeEthereumTx(rlp)
+			assert.Nil(t, err)
+			assert.Equal(t, address.String(), tx.To().String())
+			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)
+			assert.Equal(t, wantData, utils.BytesToHex(tx.Data()))
+			return nil
+		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: confirmed}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
-		Address:    cltest.NewEthAddress(),
-		FunctionID: models.HexToFunctionID("b3f98adc"),
+		Address:    address,
+		DataPrefix: dataPrefix,
+		FunctionID: fHash,
 	}
-	input := models.RunResultWithValue("")
+	input := models.RunResultWithValue(inputValue)
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())

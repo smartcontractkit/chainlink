@@ -42,12 +42,20 @@ type MockResponse struct {
 	response   interface{}
 	errMsg     string
 	hasError   bool
+	callback   func(interface{}, ...interface{}) error
 }
 
-func (mock *EthMock) Register(method string, response interface{}) {
+func (mock *EthMock) Register(
+	method string,
+	response interface{},
+	callback ...func(interface{}, ...interface{}) error,
+) {
 	res := MockResponse{
 		methodName: method,
 		response:   response,
+	}
+	if len(callback) > 0 {
+		res.callback = callback[0]
 	}
 	mock.Responses = append(mock.Responses, res)
 }
@@ -74,6 +82,11 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 			} else {
 				ref := reflect.ValueOf(result)
 				reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
+				if resp.callback != nil {
+					if err := resp.callback(result, args); err != nil {
+						return fmt.Errorf("ethMock Error:", err)
+					}
+				}
 				return nil
 			}
 		}
