@@ -109,7 +109,7 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 	return rval, nil
 }
 
-// JSON - GJSON supports the json types string, number, bool, and null.
+// JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
