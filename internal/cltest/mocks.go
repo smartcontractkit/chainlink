@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -126,7 +127,7 @@ func (mock *EthMock) EthSubscribe(
 			return &rpc.ClientSubscription{}, nil
 		}
 	}
-	return &rpc.ClientSubscription{}, nil
+	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
 }
 
 func (ta *TestApplication) InstantClock() InstantClock {
