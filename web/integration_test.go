@@ -2,11 +2,12 @@ package web_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -58,8 +59,7 @@ func TestCreateJobIntegration(t *testing.T) {
 		JSON(tickerResponse)
 
 	eth.Register("eth_getTransactionCount", `0x0100`)
-	hash, err := utils.StringToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
-	assert.Nil(t, err)
+	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
@@ -122,22 +122,20 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.EthNotification, 1)
+	logs := make(chan []types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/eth_log_job.json")
-	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	var en store.EthNotification
-	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	assert.Nil(t, json.Unmarshal(logFixture, &en))
-	logs <- en
+	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	logs <- []types.Log{en}
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {
@@ -153,7 +151,7 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.EthNotification, 1)
+	logs := make(chan []types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
@@ -165,17 +163,15 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 		JSON(`{}`)
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/chainlink_log_job.json")
-	address, _ := utils.StringToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorChainlinkLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	var en store.EthNotification
-	logFixture := cltest.LoadJSON("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	assert.Nil(t, json.Unmarshal(logFixture, &en))
-	logs <- en
+	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	logs <- []types.Log{en}
 
 	jobRuns := []models.JobRun{}
 	Eventually(func() []models.JobRun {

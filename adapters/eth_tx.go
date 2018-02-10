@@ -57,7 +57,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return models.RunResultWithError(err)
 	}
 
-	hash, err := utils.StringToHash(val)
+	hash := common.HexToHash(val)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
