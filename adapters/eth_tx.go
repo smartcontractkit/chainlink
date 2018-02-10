@@ -1,9 +1,8 @@
 package adapters
 
 import (
-	"encoding/hex"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -14,6 +13,7 @@ import (
 type EthTx struct {
 	Address    common.Address    `json:"address"`
 	FunctionID models.FunctionID `json:"functionId"`
+	DataPrefix hexutil.Bytes     `json:"dataPrefix"`
 }
 
 // Perform creates the run result for the transaction if the existing run result
@@ -37,7 +37,7 @@ func createTxRunResult(
 		return models.RunResultWithError(err)
 	}
 
-	data, err := hex.DecodeString(e.FunctionID.WithoutPrefix() + val)
+	data, err := utils.HexToBytes(e.FunctionID.String(), e.DataPrefix.String(), val)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}

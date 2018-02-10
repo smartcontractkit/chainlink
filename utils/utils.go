@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -79,7 +80,7 @@ func StringToAddress(str string) (common.Address, error) {
 
 func StringToBytes(str string) (hexutil.Bytes, error) {
 	var b hexutil.Bytes
-	err := b.UnmarshalText([]byte(str))
+	err := b.UnmarshalText([]byte(addHexPrefix(str)))
 	return b, err
 }
 
@@ -146,4 +147,47 @@ func GetStringKeys(v map[string]interface{}) []string {
 
 func NewBytes32ID() string {
 	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+}
+
+func HexToBytes(strs ...string) ([]byte, error) {
+	return hex.DecodeString(removeHexPrefix(HexConcat(strs...)))
+}
+
+func HexConcat(strs ...string) string {
+	hex := "0x"
+	for _, str := range strs {
+		hex = hex + removeHexPrefix(str)
+	}
+	return hex
+}
+
+func removeHexPrefix(str string) string {
+	if len(str) > 1 && str[0:2] == "0x" {
+		return str[2:]
+	}
+	return str
+}
+
+func addHexPrefix(str string) string {
+	if len(str) > 1 && str[0:2] != "0x" {
+		return "0x" + str
+	}
+	return str
+}
+
+func BytesToHex(bytes ...[]byte) string {
+	str := "0x"
+	for _, b := range bytes {
+		str = str + hex.EncodeToString(b)
+	}
+	return str
+}
+
+func DecodeEthereumTx(hex string) (types.Transaction, error) {
+	var tx types.Transaction
+	b, err := StringToBytes(hex)
+	if err != nil {
+		return tx, err
+	}
+	return tx, rlp.DecodeBytes(b, &tx)
 }
