@@ -13,6 +13,8 @@ import (
 
 var defaultGasLimit = big.NewInt(500000)
 
+// TxManager contains fields for the Ethereum client, the KeyStore,
+// the local Config for the application, and the database.
 type TxManager struct {
 	*EthClient
 	KeyStore *KeyStore
@@ -20,6 +22,7 @@ type TxManager struct {
 	ORM      *models.ORM
 }
 
+// CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	account := txm.KeyStore.GetAccount()
 	nonce, err := txm.GetNonce(account)
@@ -51,6 +54,8 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 	return tx, nil
 }
 
+// EnsureTxConfirmed returns true if the given transaction hash has been
+// confirmed on the blockchain.
 func (txm *TxManager) EnsureTxConfirmed(hash common.Hash) (bool, error) {
 	blkNum, err := txm.BlockNumber()
 	if err != nil {
