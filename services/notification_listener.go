@@ -163,17 +163,6 @@ func ethLogJSON(el types.Log) (models.JSON, error) {
 	if err != nil {
 		return out, err
 	}
-	var middle map[string]interface{}
-	err = json.Unmarshal(b, &middle)
-	if err != nil {
-		return out, err
-	}
-
-	delete(middle, "removed") // some rando attribute from geth
-	b, err = json.Marshal(middle)
-	if err != nil {
-		return out, err
-	}
 	return out, json.Unmarshal(b, &out)
 }
 
