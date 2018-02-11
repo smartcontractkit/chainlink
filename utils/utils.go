@@ -9,14 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -31,27 +28,6 @@ const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
 
-// SenderFromTxHex returns the sender's address from a given transaction.
-func SenderFromTxHex(value string, chainID uint64) (common.Address, error) {
-	tx, err := DecodeTxFromHex(value, chainID)
-	if err != nil {
-		return common.Address{}, err
-	}
-	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
-	return types.Sender(signer, &tx)
-}
-
-// DecodeTxFromHex returns an Ethereum transaction type from the given
-// transaction Transaction ID.
-func DecodeTxFromHex(value string, chainID uint64) (types.Transaction, error) {
-	buffer := bytes.NewBuffer(common.FromHex(value))
-	rlpStream := rlp.NewStream(buffer, 0)
-	tx := types.Transaction{}
-	err := tx.DecodeRLP(rlpStream)
-	return tx, err
-}
-
-// HexToUint64 converts the given hex string to uint64.
 func HexToUint64(hex string) (uint64, error) {
 	if strings.ToLower(hex[0:2]) == "0x" {
 		hex = hex[2:]
@@ -74,16 +50,6 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 	return common.ToHex(rlp.Bytes()), nil
 }
 
-// TimeParse returns the given string as a Time type.
-func TimeParse(s string) time.Time {
-	t, err := dateparse.ParseAny(s)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return t
-}
-
-// ISO8601UTC returns time formatted as "2018-02-11T14:16:47Z"
 func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
@@ -182,24 +148,6 @@ func removeHexPrefix(str string) string {
 	return str
 }
 
-func addHexPrefix(str string) string {
-	if len(str) > 1 && str[0:2] != "0x" {
-		return "0x" + str
-	}
-	return str
-}
-
-// BytesToHex converts and returns the given bytes to its hex
-// value as a string.
-func BytesToHex(bytes ...[]byte) string {
-	str := "0x"
-	for _, b := range bytes {
-		str = str + hex.EncodeToString(b)
-	}
-	return str
-}
-
-// DecodeEthereumTx parses RLP-encoded data into an Ethereum transaction.
 func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	var tx types.Transaction
 	b, err := hexutil.Decode(hex)
