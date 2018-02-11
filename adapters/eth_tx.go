@@ -8,11 +8,11 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// EthTx holds the Address to send the result to and the FunctionID
+// EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
 	Address    common.Address    `json:"address"`
-	FunctionID models.FunctionID `json:"functionId"`
+	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix hexutil.Bytes     `json:"dataPrefix"`
 }
 
@@ -37,7 +37,7 @@ func createTxRunResult(
 		return models.RunResultWithError(err)
 	}
 
-	data, err := utils.HexToBytes(e.FunctionID.String(), e.DataPrefix.String(), val)
+	data, err := utils.HexToBytes(e.FunctionSelector.String(), e.DataPrefix.String(), val)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}

@@ -21,7 +21,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	config := store.Config
 
 	address := cltest.NewEthAddress()
-	fHash := models.HexToFunctionID("b3f98adc")
+	fHash := models.HexToFunctionSelector("b3f98adc")
 	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
 	inputValue := "0x9786856756"
 
@@ -49,7 +49,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	adapter := adapters.EthTx{
 		Address:    address,
 		DataPrefix: dataPrefix,
-		FunctionID: fHash,
+		FunctionSelector: fHash,
 	}
 	input := models.RunResultWithValue(inputValue)
 	output := adapter.Perform(input, store)
@@ -185,7 +185,7 @@ func TestEthTxAdapterWithError(t *testing.T) {
 
 	adapter := adapters.EthTx{
 		Address:    cltest.NewEthAddress(),
-		FunctionID: models.HexToFunctionID("0xb3f98adc"),
+		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
 	input := models.RunResultWithValue("")
 	output := adapter.Perform(input, store)

@@ -144,7 +144,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
+func TestCreateJobWithRunLogIntegration(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -167,7 +167,7 @@ func TestCreateJobWithChainlinkLogIntegration(t *testing.T) {
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
-	assert.Equal(t, models.InitiatorChainlinkLog, initr.Type)
+	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
 	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")

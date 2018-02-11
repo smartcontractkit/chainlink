@@ -4,7 +4,7 @@ import "../../contracts/Chainlinked.sol";
 import "../../contracts/Oracle.sol";
 
 contract DynamicConsumer is Chainlinked {
-  uint256 private nonce;
+  uint256 private requestId;
   bytes32 public currentPrice;
 
   function DynamicConsumer(address _oracle) public {
@@ -18,19 +18,19 @@ contract DynamicConsumer is Chainlinked {
     path[0] = "recent";
     path[1] = _currency;
     run.add("path", path);
-    nonce = chainlinkRequest(run);
+    requestId = chainlinkRequest(run);
   }
 
-  function fulfill(uint256 _nonce, bytes32 _data)
+  function fulfill(uint256 _requestId, bytes32 _data)
     public
     onlyOracle
-    checkNonce(_nonce)
+    checkRequestId(_requestId)
   {
     currentPrice = _data;
   }
 
-  modifier checkNonce(uint256 _nonce) {
-    require(nonce == _nonce);
+  modifier checkRequestId(uint256 _requestId) {
+    require(requestId == _requestId);
     _;
   }
 
