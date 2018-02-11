@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -121,13 +120,9 @@ type RunResult struct {
 // RunResultWithValue returns a new RunResult with the given string
 // value as a JSON object.
 func RunResultWithValue(val string) RunResult {
-	b, err := json.Marshal(map[string]string{"value": val})
+	output := JSON{}
+	output, err := output.Add("value", val)
 	if err != nil {
-		return RunResultWithError(err)
-	}
-
-	var output JSON
-	if err = json.Unmarshal(b, &output); err != nil {
 		return RunResultWithError(err)
 	}
 
