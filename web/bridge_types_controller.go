@@ -6,10 +6,12 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// BridgeTypesController manages BridgeType requests in the node.
 type BridgeTypesController struct {
 	App *services.ChainlinkApplication
 }
 
+// Create adds the BridgeType to the given context.
 func (btc *BridgeTypesController) Create(c *gin.Context) {
 	bt := &models.BridgeType{}
 
