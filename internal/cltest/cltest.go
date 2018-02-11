@@ -396,3 +396,11 @@ func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) {
 		}).Should(HaveLen(want))
 	}
 }
+
+func MustParseWebURL(str string) models.WebURL {
+	u, err := url.Parse(str)
+	if err != nil {
+		panic(err.Error())
+	}
+	return models.WebURL{u}
+}

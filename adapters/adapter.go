@@ -21,6 +21,9 @@ func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	case "httpget":
 		ac = &HttpGet{}
 		err = unmarshalParams(task.Params, ac)
+	case "httppost":
+		ac = &HttpPost{}
+		err = unmarshalParams(task.Params, ac)
 	case "jsonparse":
 		ac = &JsonParse{}
 		err = unmarshalParams(task.Params, ac)
