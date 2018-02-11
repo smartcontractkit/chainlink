@@ -106,7 +106,7 @@ func TestStoreFormatLogJSON(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON
-	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionId":"76005c26"}`
+	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"76005c26"}`
 	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
 
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")

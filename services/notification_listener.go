@@ -193,7 +193,7 @@ func runLogJSON(el types.Log) (models.JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionId", "76005c26")
+	return js.Add("functionSelector", "76005c26")
 }
 
 func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {

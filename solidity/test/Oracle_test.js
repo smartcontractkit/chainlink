@@ -74,7 +74,7 @@ contract('Oracle', () => {
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
-      let fHash = functionID("setValue(uint256,bytes32)");
+      let fHash = functionSelector("setValue(uint256,bytes32)");
       let req = await oc.requestData(jobId, mock.address, fHash, "");
       nonce = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
