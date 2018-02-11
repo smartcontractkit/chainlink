@@ -49,35 +49,35 @@ type TxAttempt struct {
 	SentAt    uint64
 }
 
-// FunctionID is the first four bytes of the call data for a
+// FunctionSelector is the first four bytes of the call data for a
 // function call and specifies the function to be called.
-type FunctionID [FunctionIDLength]byte
+type FunctionSelector [FunctionSelectorLength]byte
 
-// FunctionIDLength should always be a length of 4 as a byte.
-const FunctionIDLength = 4
+// FunctionSelectorLength should always be a length of 4 as a byte.
+const FunctionSelectorLength = 4
 
-// BytesToFunctionID converts the given bytes to a FunctionID.
-func BytesToFunctionID(b []byte) FunctionID {
-	var f FunctionID
+// BytesToFunctionSelector converts the given bytes to a FunctionSelector.
+func BytesToFunctionSelector(b []byte) FunctionSelector {
+	var f FunctionSelector
 	f.SetBytes(b)
 	return f
 }
 
-// HexToFunctionID converts the given string to a FunctionID.
-func HexToFunctionID(s string) FunctionID { return BytesToFunctionID(common.FromHex(s)) }
+// HexToFunctionSelector converts the given string to a FunctionSelector.
+func HexToFunctionSelector(s string) FunctionSelector { return BytesToFunctionSelector(common.FromHex(s)) }
 
-// String returns the FunctionID as a string type.
-func (f FunctionID) String() string { return hexutil.Encode(f[:]) }
+// String returns the FunctionSelector as a string type.
+func (f FunctionSelector) String() string { return hexutil.Encode(f[:]) }
 
-// WithoutPrefix returns the FunctionID as a string without the '0x' prefix.
-func (f FunctionID) WithoutPrefix() string { return f.String()[2:] }
+// WithoutPrefix returns the FunctionSelector as a string without the '0x' prefix.
+func (f FunctionSelector) WithoutPrefix() string { return f.String()[2:] }
 
-// SetBytes sets the FunctionID to that of the given bytes (will trim).
-func (f *FunctionID) SetBytes(b []byte) { copy(f[:], b[:FunctionIDLength]) }
+// SetBytes sets the FunctionSelector to that of the given bytes (will trim).
+func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLength]) }
 
-// UnmarshalJSON parses the raw FunctionID and sets the FunctionID
+// UnmarshalJSON parses the raw FunctionSelector and sets the FunctionSelector
 // type to the given input.
-func (f *FunctionID) UnmarshalJSON(input []byte) error {
+func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 	var s string
 	err := json.Unmarshal(input, &s)
 	if err != nil {
@@ -85,7 +85,7 @@ func (f *FunctionID) UnmarshalJSON(input []byte) error {
 	}
 
 	bytes := common.FromHex(s)
-	if len(bytes) != FunctionIDLength {
+	if len(bytes) != FunctionSelectorLength {
 		return errors.New("Function ID must be 4 bytes in length")
 	}
 

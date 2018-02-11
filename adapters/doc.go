@@ -18,11 +18,11 @@
 //
 // EthTx
 //
-// The EthTx adapter will write the data to the given address and functionID.
+// The EthTx adapter will write the data to the given address and functionSelector.
 //   {
 //     "type": "EthTx",
 //     "address": "0x0000000000000000000000000000000000000000",
-//     "functionId": "0xffffffff"
+//     "functionSelector": "0xffffffff"
 //   }
 //
 package adapters

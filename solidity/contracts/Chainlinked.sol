@@ -17,12 +17,13 @@ contract Chainlinked {
     Chainlink.Run memory run;
     run.jobId = _jobId;
     run.receiver = _cbReceiver;
-    run.functionHash = bytes4(keccak256(_cbSignature));
+    run.functionSelector = bytes4(keccak256(_cbSignature));
     return run;
   }
 
   function chainlinkRequest(Chainlink.Run _run) internal returns(uint256) {
-    return oracle.requestData(_run.jobId, _run.receiver, _run.functionHash, _run.close());
+    return oracle.requestData(
+      _run.jobId, _run.receiver, _run.functionSelector, _run.close());
   }
 
   modifier onlyOracle() {

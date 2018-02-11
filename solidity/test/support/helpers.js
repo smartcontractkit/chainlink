@@ -196,7 +196,7 @@ moment = require('moment');
     }
   };
 
-  functionID = function functionID(signature) {
+  functionSelector = function functionSelector(signature) {
     return "0x" + web3.sha3(signature).slice(2).slice(0, 8);
   };
 

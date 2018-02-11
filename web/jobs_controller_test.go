@@ -54,7 +54,7 @@ func TestCreateJobs(t *testing.T) {
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
 	signTx := adapter4.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
-	assert.Equal(t, "0x609ff1bd", signTx.FunctionID.String())
+	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -81,7 +81,7 @@ func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
 	signTx := adapter4.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
-	assert.Equal(t, "0x609ff1bd", signTx.FunctionID.String())
+	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
 	assert.Equal(t, models.InitiatorRunAt, j.Initiators[1].Type)
