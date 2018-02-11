@@ -47,8 +47,8 @@ contract('Oracle', () => {
 
   describe("#requestData", () => {
     it("returns the id", async () => {
-      let nonce = await oc.requestData.call(jobId, to, fHash, "");
-      assert.equal(1, nonce);
+      let requestId = await oc.requestData.call(jobId, to, fHash, "");
+      assert.equal(1, requestId);
     });
 
     it("logs an event", async () => {
@@ -59,30 +59,30 @@ contract('Oracle', () => {
       assert.equal(jobId, web3.toUtf8(log.topics[2]));
     });
 
-    it("increments the nonce", async () => {
+    it("increments the request ID", async () => {
       let tx1 = await oc.requestData(jobId, to, fHash, "");
-      let nonce1 = web3.toDecimal(tx1.receipt.logs[0].topics[1]);
+      let requestId1 = web3.toDecimal(tx1.receipt.logs[0].topics[1]);
       let tx2 = await oc.requestData(jobId, to, fHash, "");
-      let nonce2 = web3.toDecimal(tx2.receipt.logs[0].topics[1]);
+      let requestId2 = web3.toDecimal(tx2.receipt.logs[0].topics[1]);
 
-      assert.notEqual(nonce1, nonce2);
+      assert.notEqual(requestId1, requestId2);
     });
   });
 
   describe("#fulfillData", () => {
-    let mock, nonce;
+    let mock, requestId;
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fHash = functionSelector("setValue(uint256,bytes32)");
       let req = await oc.requestData(jobId, mock.address, fHash, "");
-      nonce = web3.toDecimal(req.receipt.logs[0].topics[1]);
+      requestId = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
 
     context("when the called by a non-owner", () => {
       it("raises an error", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData(nonce, "Hello World!", {from: stranger});
+          await oc.fulfillData(requestId, "Hello World!", {from: stranger});
         });
       });
     });
@@ -90,24 +90,24 @@ contract('Oracle', () => {
     context("when called by an owner", () => {
       it("raises an error if the request ID does not exist", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData(nonce + 1, "Hello World!", {from: oracleNode});
+          await oc.fulfillData(requestId + 1, "Hello World!", {from: oracleNode});
         });
       });
 
       it("sets the value on the requested contract", async () => {
-        await oc.fulfillData(nonce, "Hello World!", {from: oracleNode});
+        await oc.fulfillData(requestId, "Hello World!", {from: oracleNode});
 
-        let currentNonce = await mock.nonce.call();
-        assert.equal(nonce, web3.toDecimal(currentNonce));
+        let currentRequestId = await mock.requestId.call();
+        assert.equal(requestId, web3.toDecimal(currentRequestId));
 
         let currentValue = await mock.value.call();
         assert.equal("Hello World!", web3.toUtf8(currentValue));
       });
 
       it("does not allow a request to be fulfilled twice", async () => {
-        await oc.fulfillData(nonce, "First message!", {from: oracleNode});
+        await oc.fulfillData(requestId, "First message!", {from: oracleNode});
         await assertActionThrows(async () => {
-          await oc.fulfillData(nonce, "Second message!!", {from: oracleNode});
+          await oc.fulfillData(requestId, "Second message!!", {from: oracleNode});
         });
       });
     });
