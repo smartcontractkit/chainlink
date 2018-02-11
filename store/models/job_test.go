@@ -102,7 +102,7 @@ func TestInitiatorUnmarshallingValidation(t *testing.T) {
 		name  string
 		valid bool
 	}{
-		{models.InitiatorChainlinkLog, true},
+		{models.InitiatorRunLog, true},
 		{models.InitiatorCron, true},
 		{models.InitiatorEthLog, true},
 		{models.InitiatorRunAt, true},

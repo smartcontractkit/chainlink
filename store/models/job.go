@@ -105,9 +105,9 @@ func (j *Job) Started(t time.Time) bool {
 }
 
 const (
-	// InitiatorChainlinkLog for tasks in a job to watch an ethereum address
+	// InitiatorRunLog for tasks in a job to watch an ethereum address
 	// and expect a JSON payload from a log event.
-	InitiatorChainlinkLog = "chainlinklog"
+	InitiatorRunLog = "runlog"
 	// InitiatorCron for tasks in a job to be ran on a schedule.
 	InitiatorCron = "cron"
 	// InitiatorEthLog for tasks in a job to use the Ethereum blockchain.
@@ -119,7 +119,7 @@ const (
 )
 
 var initiatorWhitelist = map[string]bool{
-	InitiatorChainlinkLog: true,
+	InitiatorRunLog: true,
 	InitiatorCron:         true,
 	InitiatorEthLog:       true,
 	InitiatorRunAt:        true,
