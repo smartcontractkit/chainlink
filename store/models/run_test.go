@@ -50,6 +50,42 @@ func TestTaskRunsToRun(t *testing.T) {
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
+func TestTaskRunMergeTaskParams(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		want        string
+		wantErrored bool
+	}{
+		{"replace field", `{"url":"https://NEW.example.com/api"}`,
+			`{"url":"https://NEW.example.com/api"}`, false},
+		{"add field", `{"extra":1}`,
+			`{"url":"https://OLD.example.com/api","extra":1}`, false},
+		{"replace and add field", `{"url":"https://NEW.example.com/api","extra":1}`,
+			`{"url":"https://NEW.example.com/api","extra":1}`, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			orig := `{"url":"https://OLD.example.com/api"}`
+			tr := models.TaskRun{
+				Task: models.Task{
+					Params: models.JSON{gjson.Parse(orig)},
+					Type:   "httpget",
+				},
+			}
+			input := cltest.JSONFromString(test.input)
+
+			merged, err := tr.MergeTaskParams(input)
+			assert.Equal(t, test.wantErrored, (err != nil))
+			assert.JSONEq(t, test.want, merged.Task.Params.String())
+			assert.JSONEq(t, orig, tr.Task.Params.String())
+		})
+	}
+}
+
 func TestRunResultValue(t *testing.T) {
 	t.Parallel()
 
@@ -81,7 +117,7 @@ func TestRunResultValue(t *testing.T) {
 	}
 }
 
-func TestTaskRunMerge(t *testing.T) {
+func TestRunResultMergeOutput(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -90,27 +126,26 @@ func TestTaskRunMerge(t *testing.T) {
 		want        string
 		wantErrored bool
 	}{
-		{"replace field", `{"url":"https://NEW.example.com/api"}`,
-			`{"url":"https://NEW.example.com/api"}`, false},
-		{"replace and add field", `{"url":"https://NEW.example.com/api","extra":1}`,
-			`{"url":"https://NEW.example.com/api","extra":1}`, false},
+		{"replace field", `{"value":"new hotness"}`,
+			`{"value":"new hotness"}`, false},
+		{"add field", `{"extra":1}`,
+			`{"value":"old and busted","extra":1}`, false},
+		{"replace and add field", `{"value":"new hotness","extra":1}`,
+			`{"value":"new hotness","extra":1}`, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			orig := `{"url":"https://OLD.example.com/api"}`
-			tr := models.TaskRun{
-				Task: models.Task{
-					Params: models.JSON{gjson.Parse(orig)},
-					Type:   "httpget",
-				},
+			orig := `{"value":"old and busted"}`
+			rr := models.RunResult{
+				Output: models.JSON{gjson.Parse(orig)},
 			}
 			input := cltest.JSONFromString(test.input)
 
-			merged, err := tr.MergeTaskParams(input)
+			merged, err := rr.MergeOutput(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, merged.Task.Params.String())
-			assert.JSONEq(t, orig, tr.Task.Params.String())
+			assert.JSONEq(t, test.want, merged.Output.String())
+			assert.JSONEq(t, orig, rr.Output.String())
 		})
 	}
 }
