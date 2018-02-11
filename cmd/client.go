@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Client is the shell for the node. It has fields for the Renderer,
+// Config, AppFactory (the services application), Authenticator, and Runner.
 type Client struct {
 	Renderer
 	Config     store.Config
@@ -25,6 +27,7 @@ type Client struct {
 	Runner     Runner
 }
 
+// RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if c.Bool("debug") {
 		cli.Config.LogLevel = store.LogLevel{zapcore.DebugLevel}
@@ -39,6 +42,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
+// ShowJob returns the status of the given JobID to the console.
 func (cli *Client) ShowJob(c *clipkg.Context) error {
 	cfg := cli.Config
 	if !c.Args().Present() {
@@ -57,6 +61,7 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 	return cli.deserializeResponse(resp, &job)
 }
 
+// GetJobs returns all jobs to the console.
 func (cli *Client) GetJobs(c *clipkg.Context) error {
 	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
@@ -94,22 +99,29 @@ func (cli *Client) errorOut(err error) error {
 	return nil
 }
 
+// AppFactory implements the NewApplication method.
 type AppFactory interface {
 	NewApplication(store.Config) services.Application
 }
 
+// ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
+// NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(config store.Config) services.Application {
 	return services.NewApplication(config)
 }
 
+// Runner implements the Run method.
 type Runner interface {
 	Run(services.Application) error
 }
 
+// NodeRunner is used to run the node application.
 type NodeRunner struct{}
 
+// Run sets the log level based on config and starts the web router to listen
+// for input and return data.
 func (n NodeRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
 	return web.Router(app.(*services.ChainlinkApplication)).Run()

@@ -11,10 +11,14 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// Authenticator implements the Authenticate method for the store and
+// a password string.
 type Authenticator interface {
 	Authenticate(*store.Store, string)
 }
 
+// TerminalAuthenticator contains fields for prompting the user and an
+// exit code.
 type TerminalAuthenticator struct {
 	Prompter Prompter
 	Exiter   func(int)
@@ -85,12 +89,17 @@ func (auth TerminalAuthenticator) createAccount(store *store.Store) {
 	}
 }
 
+// Prompter implements the Prompt function to be used to display at
+// the console.
 type Prompter interface {
 	Prompt(string) string
 }
 
+// PasswordPrompter is used to display and read input from the user.
 type PasswordPrompter struct{}
 
+// Prompt displays the prompt for the user to enter the password and
+// reads their input.
 func (pp PasswordPrompter) Prompt(prompt string) string {
 	var rval string
 	withTerminalResetter(func() {
