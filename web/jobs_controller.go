@@ -9,10 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
+// JobsController manages Job requests in the node.
 type JobsController struct {
 	App *services.ChainlinkApplication
 }
 
+// Index adds the root of the Jobs to the given context.
+// Example:
+//  "<application>/jobs"
 func (jrc *JobsController) Index(c *gin.Context) {
 	var jobs []models.Job
 	if err := jrc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
@@ -28,6 +32,7 @@ func (jrc *JobsController) Index(c *gin.Context) {
 	}
 }
 
+// Create adds the Jobs to the given context.
 func (jc *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
@@ -48,6 +53,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 }
 
+// Show returns the details of a job if it exists.
 func (jc *JobsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 	if j, err := jc.App.Store.FindJob(id); err == storm.ErrNotFound {
