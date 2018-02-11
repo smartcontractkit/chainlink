@@ -24,7 +24,7 @@ type Config struct {
 	EthereumURL         string   `env:"ETH_URL" envDefault:"ws://localhost:8545"`
 	ChainID             uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
 	PollingSchedule     string   `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
-	ClientNodeURL       string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:8080"`
+	ClientNodeURL       string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
 	EthMinConfirmations uint64   `env:"ETH_MIN_CONFIRMATIONS" envDefault:"12"`
 	EthGasBumpThreshold uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
 	EthGasBumpWei       big.Int  `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
