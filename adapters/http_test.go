@@ -3,7 +3,6 @@ package adapters_test
 import (
 	"testing"
 
-	gock "github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -30,20 +29,43 @@ func TestHttpNotAUrlError(t *testing.T) {
 	}
 }
 
-func TestHttpGetResponseError(t *testing.T) {
-	defer gock.Off()
-	url := cltest.MustParseWebURL(`https://example.com/api`)
+func TestHttpGetAdapterPerform(t *testing.T) {
+	t.Parallel()
 
-	gock.New(url.String()).
-		Get("").
-		Reply(400).
-		JSON(`Invalid request`)
+	cases := []struct {
+		name        string
+		status      int
+		want        string
+		wantExists  bool
+		wantErrored bool
+		response    string
+	}{
+		{"success", 200, "so meta", true, false, `so meta`},
+		{"success but error in body", 200, `{"error": "so meta"}`, true, false, `{"error": "so meta"}`},
+		{"success with HTML", 200, `<html>so meta</html>`, true, false, `<html>so meta</html>`},
+		{"server error", 400, "", false, true, `Invalid request`},
+	}
 
-	httpGet := adapters.HttpGet{URL: url}
-	input := models.RunResult{}
-	result := httpGet.Perform(input, nil)
-	assert.Equal(t, models.JSON{}, result.Output)
-	assert.NotNil(t, result.Error())
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			input := models.RunResultWithValue("unused")
+			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, ``, "GET", test.response)
+			defer cleanup()
+
+			hga := adapters.HttpGet{URL: cltest.MustParseWebURL(mock.URL)}
+			result := hga.Perform(input, store)
+
+			val, err := result.Get("value")
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, val.String())
+			assert.Equal(t, test.wantExists, val.Exists())
+			assert.Equal(t, test.wantErrored, result.HasError())
+			assert.Equal(t, false, result.Pending)
+		})
+	}
 }
 
 func TestHttpPostAdapterPerform(t *testing.T) {
