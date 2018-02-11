@@ -33,7 +33,8 @@ func TestBridgeAdapterPerform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, wantedBody, test.response)
+			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
+				func(body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()
 
 			bt := cltest.NewBridgeType("auctionBidding", mock.URL)

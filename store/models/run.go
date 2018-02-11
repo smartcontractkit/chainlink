@@ -100,12 +100,11 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 	merged, err := tr.Task.Params.Merge(j)
 	if err != nil {
-		return TaskRun{}, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+		return tr, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
 	}
 
-	rval := tr
-	rval.Task.Params = merged
-	return rval, nil
+	tr.Task.Params = merged
+	return tr, nil
 }
 
 // RunResult keeps track of the outcome of a TaskRun. It stores
@@ -191,4 +190,15 @@ func (rr RunResult) GetError() error {
 	} else {
 		return nil
 	}
+}
+
+// MergeOutput merges the existing Output on a RunResult with the given JSON.
+func (rr RunResult) MergeOutput(j JSON) (RunResult, error) {
+	merged, err := rr.Output.Merge(j)
+	if err != nil {
+		return rr, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+	}
+
+	rr.Output = merged
+	return rr, nil
 }
