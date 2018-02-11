@@ -63,11 +63,11 @@ func (nl *NotificationListener) Stop() error {
 	return nil
 }
 
-// AddJob looks for "chainlinklog" and "ethlog" Initiators for a given job
+// AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
 func (nl *NotificationListener) AddJob(job *models.Job) error {
 	var addresses []common.Address
-	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorChainlinkLog) {
+	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
 		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", initr.Address.String()))
 		addresses = append(addresses, initr.Address)
 	}
@@ -131,7 +131,7 @@ func (nl *NotificationListener) receiveLog(el types.Log) error {
 			continue
 		}
 
-		input, err := FormatLogOutput(initr, el)
+		input, err := FormatLogJSON(initr, el)
 		if err != nil {
 			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
 			merr = multierr.Append(merr, err)
@@ -144,20 +144,20 @@ func (nl *NotificationListener) receiveLog(el types.Log) error {
 	return merr
 }
 
-// FormatLogOutput uses the Initiator to decide how to format the EventLog
-// as an Output object.
-func FormatLogOutput(initr models.Initiator, el types.Log) (models.JSON, error) {
+// FormatLogJSON uses the Initiator to decide how to format the EventLog
+// as a JSON object.
+func FormatLogJSON(initr models.Initiator, el types.Log) (models.JSON, error) {
 	if initr.Type == models.InitiatorEthLog {
-		return ethLogOutput(el)
-	} else if initr.Type == models.InitiatorChainlinkLog {
-		out, err := chainlinkLogOutput(el)
+		return ethLogJSON(el)
+	} else if initr.Type == models.InitiatorRunLog {
+		out, err := runLogJSON(el)
 		return out, err
 	}
 	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
 }
 
 // make our own types.Log for better serialization
-func ethLogOutput(el types.Log) (models.JSON, error) {
+func ethLogJSON(el types.Log) (models.JSON, error) {
 	var out models.JSON
 	b, err := json.Marshal(el)
 	if err != nil {
@@ -177,7 +177,7 @@ func ethLogOutput(el types.Log) (models.JSON, error) {
 	return out, json.Unmarshal(b, &out)
 }
 
-func chainlinkLogOutput(el types.Log) (models.JSON, error) {
+func runLogJSON(el types.Log) (models.JSON, error) {
 	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
 		return js, err
@@ -199,7 +199,7 @@ func chainlinkLogOutput(el types.Log) (models.JSON, error) {
 func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {
 	initrs := []models.Initiator{}
 	query := nl.Store.Select(q.Or(
-		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorChainlinkLog)),
+		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorRunLog)),
 		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorEthLog)),
 	))
 	if err := query.Find(&initrs); err != nil {

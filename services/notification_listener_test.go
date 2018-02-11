@@ -53,8 +53,8 @@ func TestNotificationListenerAddJob(t *testing.T) {
 	}{
 		{"basic eth log", "ethlog", initrAddress, 1, hexutil.Bytes{}},
 		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
-		{"basic cllog", "chainlinklog", initrAddress, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
-		{"cllog non-matching", "chainlinklog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
+		{"basic cllog", "runlog", initrAddress, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
+		{"cllog non-matching", "runlog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
 	}
 
 	for _, test := range tests {
@@ -102,7 +102,7 @@ func outputFromFixture(path string) models.JSON {
 	return out
 }
 
-func TestStoreFormatLogOutput(t *testing.T) {
+func TestStoreFormatLogJSON(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON
@@ -122,13 +122,13 @@ func TestStoreFormatLogOutput(t *testing.T) {
 			outputFromFixture("../internal/fixtures/eth/subscription_logs.json")},
 		{"hello world ethLog", hwLog, models.Initiator{Type: "ethlog"}, false,
 			outputFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
-		{"hello world chainlinkLog", hwLog, models.Initiator{Type: "chainlinklog"}, false,
+		{"hello world runLog", hwLog, models.Initiator{Type: "runlog"}, false,
 			clData},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			output, err := services.FormatLogOutput(test.initr, test.el)
+			output, err := services.FormatLogJSON(test.initr, test.el)
 			assert.JSONEq(t, strings.ToLower(test.wantOutput.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
