@@ -9,11 +9,11 @@ contract Oracle is Ownable {
     bytes4 fid;
   }
 
-  uint256 private nonce;
+  uint256 private requestId;
   mapping(uint256 => Callback) private callbacks;
 
   event Request(
-    uint256 indexed nonce,
+    uint256 indexed id,
     bytes32 indexed jobId,
     string data
   );
@@ -27,25 +27,25 @@ contract Oracle is Ownable {
     public
     returns (uint256)
   {
-    nonce += 1;
+    requestId += 1;
     Callback memory cb = Callback(_callbackAddress, _callbackFID);
-    callbacks[nonce] = cb;
-    Request(nonce, _jobId, _data);
-    return nonce;
+    callbacks[requestId] = cb;
+    Request(requestId, _jobId, _data);
+    return requestId;
   }
 
-  function fulfillData(uint256 _nonce, bytes32 _data)
+  function fulfillData(uint256 _requestId, bytes32 _data)
     public
     onlyOwner
-    hasNonce(_nonce)
+    hasRequestId(_requestId)
   {
-    Callback memory cb = callbacks[_nonce];
-    require(cb.addr.call(cb.fid, _nonce, _data));
-    delete callbacks[_nonce];
+    Callback memory cb = callbacks[_requestId];
+    require(cb.addr.call(cb.fid, _requestId, _data));
+    delete callbacks[_requestId];
   }
 
-  modifier hasNonce(uint256 _nonce) {
-    require(callbacks[_nonce].addr != address(0));
+  modifier hasRequestId(uint256 _requestId) {
+    require(callbacks[_requestId].addr != address(0));
     _;
   }
 }

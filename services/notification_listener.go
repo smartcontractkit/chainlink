@@ -19,7 +19,7 @@ import (
 
 const (
 	EventTopicSignature = iota
-	EventTopicNonce
+	EventTopicRequestID
 	EventTopicJobID
 )
 
@@ -188,7 +188,7 @@ func runLogJSON(el types.Log) (models.JSON, error) {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", el.Topics[EventTopicNonce].String())
+	js, err = js.Add("dataPrefix", el.Topics[EventTopicRequestID].String())
 	if err != nil {
 		return js, err
 	}
