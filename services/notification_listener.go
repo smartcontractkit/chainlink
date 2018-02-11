@@ -169,7 +169,6 @@ func ethLogJSON(el types.Log) (models.JSON, error) {
 		return out, err
 	}
 
-	delete(middle, "removed") // some rando attribute from geth
 	b, err = json.Marshal(middle)
 	if err != nil {
 		return out, err
