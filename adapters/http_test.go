@@ -52,7 +52,8 @@ func TestHttpGetAdapterPerform(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			input := models.RunResultWithValue("unused")
-			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, ``, "GET", test.response)
+			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
+				func(body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
 
 			hga := adapters.HttpGet{URL: cltest.MustParseWebURL(mock.URL)}
@@ -92,7 +93,8 @@ func TestHttpPostAdapterPerform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := models.RunResultWithValue("modern")
 			wantedBody := `{"value":"modern"}`
-			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, wantedBody, "POST", test.response)
+			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
+				func(body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()
 
 			hpa := adapters.HttpPost{URL: cltest.MustParseWebURL(mock.URL)}

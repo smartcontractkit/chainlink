@@ -242,16 +242,16 @@ func (p *MockCountingPrompt) Prompt(string) string {
 func NewHTTPMockServer(
 	t *testing.T,
 	status int,
-	want string,
 	wantMethod string,
 	response string,
+	callback func(string),
 ) (*httptest.Server, func()) {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
 		assert.Nil(t, err)
 		assert.Equal(t, wantMethod, r.Method)
-		assert.Equal(t, want, string(b))
+		callback(string(b))
 		called = true
 
 		w.WriteHeader(status)
