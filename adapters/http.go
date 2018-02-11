@@ -9,14 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// HttpGet holds the endpoint for the actual URL of the service or
-// external adapter which will return the JSON object
+// HttpGet requires a URL which is used for a GET request when the adapter is called.
 type HttpGet struct {
 	URL models.WebURL `json:"url"`
 }
 
 // Perform ensures that the http URL responded without errors
-// and returns the JSON result if successful
+// and returns the response body as the "value" field of the result.
 func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	response, err := http.Get(hga.URL.String())
 	if err != nil {
