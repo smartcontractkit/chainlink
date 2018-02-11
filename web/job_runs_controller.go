@@ -11,10 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// JobRunsController manages JobRun requests in the node.
 type JobRunsController struct {
 	App *services.ChainlinkApplication
 }
 
+// Index adds the root of the JobRuns to the given context.
+// Example:
+//  "<application>/jobs/:ID/runs"
 func (jrc *JobRunsController) Index(c *gin.Context) {
 	id := c.Param("ID")
 	jobRuns := []models.JobRun{}
@@ -28,6 +32,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	}
 }
 
+// Create adds the JobRuns to the given context.
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {

@@ -11,14 +11,17 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+// Renderer implements the Render method.
 type Renderer interface {
 	Render(interface{}) error
 }
 
+// RendererJSON is used to render JSON data.
 type RendererJSON struct {
 	io.Writer
 }
 
+// Render writes the given input as a JSON string.
 func (rj RendererJSON) Render(v interface{}) error {
 	b, err := utils.FormatJSON(v)
 	if err != nil {
@@ -30,14 +33,19 @@ func (rj RendererJSON) Render(v interface{}) error {
 	return nil
 }
 
+// RendererNoOp is used to render nil.
 type RendererNoOp struct{}
 
+// Render only returns nil.
 func (rj RendererNoOp) Render(v interface{}) error { return nil }
 
+// RendererTable is used for data to be rendered as a table.
 type RendererTable struct {
 	io.Writer
 }
 
+// Render returns a formatted table of text for a given Job or Presenter
+// and relevant information.
 func (rt RendererTable) Render(v interface{}) error {
 	switch typed := v.(type) {
 	case *[]models.Job:
