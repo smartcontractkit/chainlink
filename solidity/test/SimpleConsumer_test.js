@@ -35,16 +35,16 @@ contract('SimpleConsumer', () => {
 
   describe("#fulfillData", () => {
     let response = "1,000,000.00";
-    let nonce;
+    let requestId;
 
     beforeEach(async () => {
       await cc.requestEthereumPrice();
       let event = await getLatestEvent(oc);
-      nonce = event.args.nonce
+      requestId = event.args.id;
     });
 
     it("records the data given to it by the oracle", async () => {
-      await oc.fulfillData(nonce, response, {from: oracleNode})
+      await oc.fulfillData(requestId, response, {from: oracleNode})
 
       let received = await cc.currentPrice.call();
       assert.equal(web3.toUtf8(received), response);

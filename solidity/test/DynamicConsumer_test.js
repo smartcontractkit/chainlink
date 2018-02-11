@@ -37,33 +37,33 @@ contract('DynamicConsumer', () => {
 
   describe("#fulfillData", () => {
     let response = "1,000,000.00";
-    let nonce;
+    let requestId;
 
     beforeEach(async () => {
       await cc.requestEthereumPrice("usd");
       let event = await getLatestEvent(oc);
-      nonce = event.args.nonce
+      requestId = event.args.id
     });
 
     it("records the data given to it by the oracle", async () => {
-      await oc.fulfillData(nonce, response, {from: oracleNode})
+      await oc.fulfillData(requestId, response, {from: oracleNode})
 
       let received = await cc.currentPrice.call();
       assert.equal(web3.toUtf8(received), response);
     });
 
-    context("when the consumer does not recognize the nonce", () => {
+    context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
-        await oc.requestData(jobId, cc.address, functionID("fulfill(uint256,bytes32)"), "");
+        await oc.requestData(jobId, cc.address, functionSelector("fulfill(uint256,bytes32)"), "");
         let event = await getLatestEvent(oc);
-        nonce = event.args.nonce
+        requestId = event.args.id;
       });
 
       it("does not accept the data provided", async () => {
         let tx = await cc.requestEthereumPrice("usd");
 
         await assertActionThrows(async () => {
-          await oc.fulfillData(nonce, response, {from: oracleNode})
+          await oc.fulfillData(requestId, response, {from: oracleNode})
         });
 
         let received = await cc.currentPrice.call();
@@ -74,7 +74,7 @@ contract('DynamicConsumer', () => {
     context("when called by anyone other than the oracle contract", () => {
       it("does not accept the data provided", async () => {
         await assertActionThrows(async () => {
-          await cc.fulfill(nonce, response, {from: oracleNode})
+          await cc.fulfill(requestId, response, {from: oracleNode})
         });
 
         let received = await cc.currentPrice.call();

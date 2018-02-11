@@ -93,7 +93,7 @@ Environment variables that can be set in .envrc, along with default values that 
     ETH_URL                  Default: http://localhost:8545
     ETH_CHAIN_ID             Default: 0
     POLLING_SCHEDULE         Default: */15 * * * * *
-    CLIENT_NODE_URL          Default: http://localhost:8080
+    CLIENT_NODE_URL          Default: http://localhost:6688
     ETH_MIN_CONFIRMATIONS    Default: 12
     ETH_GAS_BUMP_THRESHOLD   Default: 12
     ETH_GAS_BUMP_WEI         Default: 5,000,000,000
@@ -114,7 +114,7 @@ $ truffle test
 Post to `/v2/jobs`:
 
 ```shell
-curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:8080/v2/jobs
+curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:6688/v2/jobs
 ```
 
 `"name"` should be unique to the local node, and `"url"` should be the URL of your external adapter, whether local or on a separate machine.

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -109,75 +108,6 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 	return rval, nil
 }
 
-// JSON stores the json types string, number, bool, and null.
-// Arrays and Objects are returned as their raw json types.
-type JSON struct {
-	gjson.Result
-}
-
-// UnmarshalJSON parses the JSON bytes and stores in the *JSON pointer.
-func (j *JSON) UnmarshalJSON(b []byte) error {
-	if !gjson.Valid(string(b)) {
-		return fmt.Errorf("invalid JSON: %v", string(b))
-	}
-	*j = JSON{gjson.ParseBytes(b)}
-	return nil
-}
-
-// MarshalJSON returns the JSON data if it already exists, returns
-// an empty JSON object as bytes if not.
-func (j JSON) MarshalJSON() ([]byte, error) {
-	if j.Exists() {
-		return j.Bytes(), nil
-	}
-	return []byte("{}"), nil
-}
-
-// Merge combines the given JSON with the existing JSON.
-func (j JSON) Merge(j2 JSON) (JSON, error) {
-	body := j.Map()
-	for key, value := range j2.Map() {
-		body[key] = value
-	}
-
-	cleaned := map[string]interface{}{}
-	for k, v := range body {
-		cleaned[k] = v.Value()
-	}
-
-	b, err := json.Marshal(cleaned)
-	if err != nil {
-		return JSON{}, err
-	}
-
-	var rval JSON
-	return rval, gjson.Unmarshal(b, &rval)
-}
-
-// Empty returns true if the JSON does not exist.
-func (j JSON) Empty() bool {
-	return !j.Exists()
-}
-
-// Bytes returns the raw JSON.
-func (j JSON) Bytes() []byte {
-	return []byte(j.String())
-}
-
-// Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(key string, val interface{}) (JSON, error) {
-	var j2 JSON
-	b, err := json.Marshal(val)
-	if err != nil {
-		return j2, err
-	}
-	str := fmt.Sprintf(`{"%v":%v}`, key, string(b))
-	if err = json.Unmarshal([]byte(str), &j2); err != nil {
-		return j2, err
-	}
-	return j.Merge(j2)
-}
-
 // RunResult keeps track of the outcome of a TaskRun. It stores
 // the Output and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
@@ -190,13 +120,9 @@ type RunResult struct {
 // RunResultWithValue returns a new RunResult with the given string
 // value as a JSON object.
 func RunResultWithValue(val string) RunResult {
-	b, err := json.Marshal(map[string]string{"value": val})
+	output := JSON{}
+	output, err := output.Add("value", val)
 	if err != nil {
-		return RunResultWithError(err)
-	}
-
-	var output JSON
-	if err = json.Unmarshal(b, &output); err != nil {
 		return RunResultWithError(err)
 	}
 

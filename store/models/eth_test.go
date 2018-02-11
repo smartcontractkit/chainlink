@@ -8,27 +8,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHexToFunctionID(t *testing.T) {
-	fid := models.HexToFunctionID("0xb3f98adc")
+func TestHexToFunctionSelector(t *testing.T) {
+	fid := models.HexToFunctionSelector("0xb3f98adc")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
-func TestHexToFunctionIDOverflow(t *testing.T) {
-	fid := models.HexToFunctionID("0xb3f98adc123456")
+func TestHexToFunctionSelectorOverflow(t *testing.T) {
+	fid := models.HexToFunctionSelector("0xb3f98adc123456")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
-func TestFunctionIDUnmarshalJSON(t *testing.T) {
+func TestFunctionSelectorUnmarshalJSON(t *testing.T) {
 	bytes := []byte(`"0xb3f98adc"`)
-	var fid models.FunctionID
+	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.Nil(t, err)
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
-func TestFunctionIDUnmarshalJSONError(t *testing.T) {
+func TestFunctionSelectorUnmarshalJSONError(t *testing.T) {
 	bytes := []byte(`"0xb3f98adc123456"`)
-	var fid models.FunctionID
+	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.NotNil(t, err)
 }

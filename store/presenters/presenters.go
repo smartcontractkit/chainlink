@@ -112,12 +112,12 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 			models.InitiatorEthLog,
 			i.Address,
 		})
-	case models.InitiatorChainlinkLog:
+	case models.InitiatorRunLog:
 		return json.Marshal(&struct {
 			Type    string         `json:"type"`
 			Address common.Address `json:"address"`
 		}{
-			models.InitiatorChainlinkLog,
+			models.InitiatorRunLog,
 			i.Address,
 		})
 	default:

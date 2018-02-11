@@ -9,7 +9,7 @@ library Chainlink {
     string payload;
     bytes32 jobId;
     address receiver;
-    bytes4 functionHash;
+    bytes4 functionSelector;
   }
 
   function add(Run self, string _key, string _value) internal {

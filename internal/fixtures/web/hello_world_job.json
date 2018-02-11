@@ -7,7 +7,7 @@
     {
       "type": "EthTx",
       "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
-      "functionId": "0x609ff1bd"
+      "functionSelector": "0x609ff1bd"
     }
   ]
 }
