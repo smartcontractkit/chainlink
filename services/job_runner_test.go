@@ -18,15 +18,19 @@ func TestRunningJob(t *testing.T) {
 	defer cleanup()
 
 	tests := []struct {
-		name         string
-		input        string
-		runResult    string
-		wantedStatus string
+		name       string
+		input      string
+		runResult  string
+		wantStatus string
+		wantOutput string
 	}{
-		{"success", `{}`, `{"output":{"value":"100"}}`, models.StatusCompleted},
-		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored},
-		{"errored with a value", `{}`, `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored},
-		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"output":{"value":"100"}}`, models.StatusCompleted},
+		{"success", `{}`, `{"output":{"value":"100"}}`, models.StatusCompleted,
+			`{"value":"100"}`},
+		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, ``},
+		{"errored with a value", `{}`, `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored,
+			`{"value":"99"}`},
+		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"output":{"value":"100"}}`, models.StatusCompleted,
+			`{"value":"100"}`},
 	}
 
 	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
@@ -34,10 +38,14 @@ func TestRunningJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gock.New("https://dbay.eth").Post("/api").Reply(200).JSON(test.runResult)
+			gock.New("https://dbay.eth").
+				Post("/api").
+				JSON(test.input).
+				Reply(200).
+				JSON(test.runResult)
 
 			job := models.NewJob()
-			job.Tasks = []models.Task{{Type: bt.Name}}
+			job.Tasks = []models.Task{{Type: bt.Name}, {Type: "noop"}}
 			assert.Nil(t, store.Save(job))
 
 			run := job.NewRun()
@@ -45,8 +53,17 @@ func TestRunningJob(t *testing.T) {
 			assert.Nil(t, services.ExecuteRun(run, store, input))
 
 			store.One("ID", run.ID, &run)
-			assert.Equal(t, test.wantedStatus, run.TaskRuns[0].Status)
-			assert.Equal(t, test.wantedStatus, run.Status)
+			assert.Equal(t, test.wantStatus, run.Status)
+			assert.Equal(t, test.wantOutput, run.Result.Output.String())
+
+			tr1 := run.TaskRuns[0]
+			assert.Equal(t, test.wantStatus, tr1.Status)
+			assert.Equal(t, test.wantOutput, tr1.Result.Output.String())
+
+			if test.wantStatus == models.StatusCompleted {
+				tr2 := run.TaskRuns[1]
+				assert.Equal(t, test.wantOutput, tr2.Result.Output.String())
+			}
 		})
 	}
 }

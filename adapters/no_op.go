@@ -10,7 +10,7 @@ type NoOp struct{}
 
 // Perform returns the empty RunResult
 func (noa *NoOp) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	return models.RunResult{}
+	return input
 }
 
 // NoOpPend adapter type holds no fields
