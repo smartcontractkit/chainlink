@@ -38,7 +38,7 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run *models.JobRun, store *store.Store, taskOverrides models.JSON) error {
+func ExecuteRun(run *models.JobRun, store *store.Store, input models.JSON) error {
 	run.Status = models.StatusInProgress
 	if err := store.Save(run); err != nil {
 		return wrapError(run, err)
@@ -49,8 +49,14 @@ func ExecuteRun(run *models.JobRun, store *store.Store, taskOverrides models.JSO
 	offset := len(run.TaskRuns) - len(unfinished)
 	prevRun := unfinished[0]
 
+	merged, err := prevRun.Result.MergeOutput(input)
+	if err != nil {
+		return wrapError(run, err)
+	}
+	prevRun.Result = merged
+
 	for i, taskRunTemplate := range unfinished {
-		taskRun, err := taskRunTemplate.MergeTaskParams(taskOverrides)
+		taskRun, err := taskRunTemplate.MergeTaskParams(input)
 		if err != nil {
 			return wrapError(run, err)
 		}
@@ -64,11 +70,10 @@ func ExecuteRun(run *models.JobRun, store *store.Store, taskOverrides models.JSO
 		if prevRun.Result.Pending {
 			logger.Infow(fmt.Sprintf("Task %v pending", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			break
-		} else {
-			logger.Infow(fmt.Sprintf("Task %v finished", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
-			if prevRun.Result.HasError() {
-				break
-			}
+		}
+		logger.Infow(fmt.Sprintf("Task %v finished", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
+		if prevRun.Result.HasError() {
+			break
 		}
 	}
 
