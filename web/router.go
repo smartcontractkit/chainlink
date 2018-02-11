@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 )
 
+// Router listens and responds to requests to the node for valid paths.
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
