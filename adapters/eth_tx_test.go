@@ -38,7 +38,7 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
 			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)
-			assert.Equal(t, wantData, utils.BytesToHex(tx.Data()))
+			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
@@ -47,8 +47,8 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
-		Address:    address,
-		DataPrefix: dataPrefix,
+		Address:          address,
+		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
 	input := models.RunResultWithValue(inputValue)
@@ -184,7 +184,7 @@ func TestEthTxAdapterWithError(t *testing.T) {
 	eth.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
 
 	adapter := adapters.EthTx{
-		Address:    cltest.NewEthAddress(),
+		Address:          cltest.NewEthAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
 	input := models.RunResultWithValue("")

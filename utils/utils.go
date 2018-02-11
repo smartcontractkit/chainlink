@@ -6,14 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -25,23 +22,6 @@ import (
 const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
 
 var ZeroAddress = common.Address{}
-
-func SenderFromTxHex(value string, chainID uint64) (common.Address, error) {
-	tx, err := DecodeTxFromHex(value, chainID)
-	if err != nil {
-		return common.Address{}, err
-	}
-	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
-	return types.Sender(signer, &tx)
-}
-
-func DecodeTxFromHex(value string, chainID uint64) (types.Transaction, error) {
-	buffer := bytes.NewBuffer(common.FromHex(value))
-	rlpStream := rlp.NewStream(buffer, 0)
-	tx := types.Transaction{}
-	err := tx.DecodeRLP(rlpStream)
-	return tx, err
-}
 
 func HexToUint64(hex string) (uint64, error) {
 	if strings.ToLower(hex[0:2]) == "0x" {
@@ -60,14 +40,6 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 		return "", err
 	}
 	return common.ToHex(rlp.Bytes()), nil
-}
-
-func TimeParse(s string) time.Time {
-	t, err := dateparse.ParseAny(s)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return t
 }
 
 func ISO8601UTC(t time.Time) string {
@@ -142,21 +114,6 @@ func HexConcat(strs ...string) string {
 func removeHexPrefix(str string) string {
 	if len(str) > 1 && str[0:2] == "0x" {
 		return str[2:]
-	}
-	return str
-}
-
-func addHexPrefix(str string) string {
-	if len(str) > 1 && str[0:2] != "0x" {
-		return "0x" + str
-	}
-	return str
-}
-
-func BytesToHex(bytes ...[]byte) string {
-	str := "0x"
-	for _, b := range bytes {
-		str = str + hex.EncodeToString(b)
 	}
 	return str
 }
