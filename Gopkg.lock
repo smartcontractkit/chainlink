@@ -118,7 +118,7 @@
   branch = "master"
   name = "github.com/olekukonko/tablewriter"
   packages = ["."]
-  revision = "96aac992fc8b1a4c83841a6c3e7178d20d989625"
+  revision = "b8a9be070da40449e501c3c4730a889e42d87a9e"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -278,6 +278,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "60e864b0fbdabdfe33d081c1efb55f2e3c0c68dce56cd029afd6a24cd501cead"
+  inputs-digest = "d001668aef46345baeab106de0cc19cf33ed21a5cc449c052abe00b588edc990"
   solver-name = "gps-cdcl"
   solver-version = 1
