@@ -124,7 +124,7 @@ func NullString(val interface{}) null.String {
 func NullTime(val interface{}) null.Time {
 	switch val.(type) {
 	case string:
-		return utils.ParseNullableTime(val.(string))
+		return cltest.ParseNullableTime(val.(string))
 	case nil:
 		return null.NewTime(time.Unix(0, 0), false)
 	default:

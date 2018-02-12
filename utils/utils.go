@@ -80,28 +80,6 @@ func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
-// ParseISO8601 parses the given string as RFC3339Nanoand returns an
-// instance of Time.
-func ParseISO8601(s string) time.Time {
-	t, err := time.Parse(time.RFC3339Nano, s)
-	if err != nil {
-		panic(err)
-	}
-	return t
-}
-
-// NullableTime allows for the given time to be null. Marshals
-// to null for JSON serialization if null.
-func NullableTime(t time.Time) null.Time {
-	return null.Time{Time: t, Valid: true}
-}
-
-// ParseNullableTime parses the given string and will allow
-// for time to be null.
-func ParseNullableTime(s string) null.Time {
-	return NullableTime(ParseISO8601(s))
-}
-
 // GetStringKeys returns an array of strings from the keys of
 // Unmarshalled JSON given as input.
 // For example, if `j` were our JSON:
