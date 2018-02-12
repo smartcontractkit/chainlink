@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -118,7 +117,7 @@ func NewApplication() (*TestApplication, func()) {
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
 	server := newServer(app)
-	tc.Config.Port = mustParseURLPort(server.URL)
+	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
 	ta := &TestApplication{
 		ChainlinkApplication: app,
@@ -128,18 +127,6 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	return ta, func() {
 		ta.Stop()
 	}
-}
-
-func mustParseURLPort(str string) string {
-	u, err := url.Parse(str)
-	if err != nil {
-		panic(err.Error())
-	}
-	_, port, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		panic(err.Error())
-	}
-	return port
 }
 
 func NewApplicationWithKeyStore() (*TestApplication, func()) {
