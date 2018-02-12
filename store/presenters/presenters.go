@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tidwall/gjson"
 )
 
 // Job holds the Job definition and each run associated with that Job.
@@ -158,12 +159,16 @@ type Task struct {
 	models.Task
 }
 
-// FriendlyParams returns a string of the parameters specified
-// for the Task.
-func (t Task) FriendlyParams() (string, error) {
-	j, err := json.Marshal(&t.Params)
-	if err != nil {
-		return "", err
-	}
-	return string(j), nil
+// FriendlyParams returns a map of the Task's parameters.
+func (t Task) FriendlyParams() (string, string) {
+	keys := []string{}
+	values := []string{}
+	t.Params.ForEach(func(key, value gjson.Result) bool {
+		if key.String() != "type" {
+			keys = append(keys, key.String())
+			values = append(values, value.String())
+		}
+		return true
+	})
+	return strings.Join(keys, "\n"), strings.Join(values, "\n")
 }
