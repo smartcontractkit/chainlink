@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/tidwall/gjson"
@@ -61,9 +60,7 @@ func CreateTxAndAttempt(
 	sentAt uint64,
 ) *models.Tx {
 	tx := NewTx(from, sentAt)
-	if err := store.Save(tx); err != nil {
-		logger.Error(err)
-	}
+	mustNotErr(store.Save(tx))
 	_, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	mustNotErr(err)
 	return tx

@@ -394,6 +394,6 @@ func ParseNullableTime(s string) null.Time {
 
 func mustNotErr(err error) {
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 }
