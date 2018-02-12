@@ -5,10 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGethGetTransactionReceipt(t *testing.T) {
+func TestEthClient_GetTxReceipt(t *testing.T) {
 	response := cltest.LoadJSON("../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
 	config := cltest.NewConfigWithWSServer(mockServer)
@@ -22,4 +23,39 @@ func TestGethGetTransactionReceipt(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, hash, receipt.Hash)
 	assert.Equal(t, uint64(11), receipt.BlockNumber)
+}
+
+func TestEthClient_GetNonce(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	ethMock := app.MockEthClient()
+	ethClientObject := app.Store.TxManager.EthClient
+	ethMock.Register("eth_getTransactionCount", "0x0100")
+	result, err := ethClientObject.GetNonce(utils.ZeroAddress)
+	assert.Nil(t, err)
+	var expected uint64 = 256
+	assert.Equal(t, result, expected)
+}
+
+func TestEthClient_GetBlockNumber(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	ethMock := app.MockEthClient()
+	ethClientObject := app.Store.TxManager.EthClient
+	ethMock.Register("eth_blockNumber", "0x0100")
+	result, err := ethClientObject.GetBlockNumber()
+	assert.Nil(t, err)
+	var expected uint64 = 256
+	assert.Equal(t, result, expected)
+}
+
+func TestEthClient_SendRawTx(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	ethMock := app.MockEthClient()
+	ethClientObject := app.Store.TxManager.EthClient
+	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
+	result, err := ethClientObject.SendRawTx("test")
+	assert.Nil(t, err)
+	assert.Equal(t, result, common.Hash{1})
 }
