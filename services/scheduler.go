@@ -122,7 +122,7 @@ func (r *Recurring) AddJob(job *models.Job) {
 			r.Cron.AddFunc(cronStr, func() {
 				_, err := BeginRun(job, r.store, models.JSON{})
 				if err != nil && !expectedRecurringError(err) {
-					logger.Panic(err.Error())
+					logger.Error(err.Error())
 				}
 			})
 		}
@@ -133,11 +133,11 @@ func (r *Recurring) addResumer() {
 	r.Cron.AddFunc(r.store.Config.PollingSchedule, func() {
 		pendingRuns, err := r.store.PendingJobRuns()
 		if err != nil {
-			logger.Panic(err.Error())
+			logger.Error(err.Error())
 		}
 		for _, jr := range pendingRuns {
 			if err := ExecuteRun(&jr, r.store, models.JSON{}); err != nil {
-				logger.Panic(err.Error())
+				logger.Error(err.Error())
 			}
 		}
 	})
