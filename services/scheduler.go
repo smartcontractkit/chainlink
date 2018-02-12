@@ -176,7 +176,7 @@ func (ot *OneTime) RunJobAt(t models.Time, job *models.Job) {
 	case <-ot.Clock.After(t.DurationFromNow()):
 		_, err := BeginRun(job, ot.Store, models.JSON{})
 		if err != nil {
-			logger.Panic(err.Error())
+			logger.Error(err.Error())
 		}
 	}
 }

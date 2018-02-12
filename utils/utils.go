@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	uuid "github.com/satori/go.uuid"
-	null "gopkg.in/guregu/null.v3"
 )
 
 const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
