@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -142,15 +141,11 @@ func (rt RendererTable) renderJobInitiators(j presenters.Job) error {
 
 func (rt RendererTable) renderJobTasks(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Order", "Type", "Params"})
-	for o, t := range j.Tasks {
+	table.SetHeader([]string{"Type", "Config", "Value"})
+	for _, t := range j.Tasks {
 		p := presenters.Task{t}
-		params, err := p.FriendlyParams()
-		if err != nil {
-			return err
-		}
-
-		table.Append([]string{strconv.Itoa(o), p.Type, params})
+		keys, values := p.FriendlyParams()
+		table.Append([]string{p.Type, keys, values})
 	}
 
 	render("Tasks", table)
