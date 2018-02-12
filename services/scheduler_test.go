@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v3"
@@ -148,9 +147,9 @@ func TestSchedulerAddingUnstartedJob(t *testing.T) {
 	store, cleanupStore := cltest.NewStore()
 	clock := cltest.UseSettableClock(store)
 
-	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	j := cltest.NewJobWithSchedule("* * * * *")
-	j.StartAt = utils.NullableTime(startAt)
+	j.StartAt = cltest.NullableTime(startAt)
 	assert.Nil(t, store.Save(j))
 
 	sched := services.NewScheduler(store)

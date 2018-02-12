@@ -35,6 +35,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const RootDir = "/tmp/chainlink_test"
@@ -403,4 +404,20 @@ func MustParseWebURL(str string) models.WebURL {
 		panic(err.Error())
 	}
 	return models.WebURL{u}
+}
+
+func ParseISO8601(s string) time.Time {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
+func NullableTime(t time.Time) null.Time {
+	return null.Time{Time: t, Valid: true}
+}
+
+func ParseNullableTime(s string) null.Time {
+	return NullableTime(ParseISO8601(s))
 }
