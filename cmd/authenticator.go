@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -75,7 +76,9 @@ func (auth TerminalAuthenticator) promptAndCheckPassword(store *store.Store) {
 func (auth TerminalAuthenticator) createAccount(store *store.Store) {
 	for {
 		phrase := auth.Prompter.Prompt("New Password: ")
+		clearLine()
 		phraseConfirmation := auth.Prompter.Prompt("Confirm Password: ")
+		clearLine()
 		if phrase == phraseConfirmation {
 			_, err := store.KeyStore.NewAccount(phrase)
 			if err != nil {
@@ -84,7 +87,7 @@ func (auth TerminalAuthenticator) createAccount(store *store.Store) {
 			printGreeting()
 			break
 		} else {
-			fmt.Println("Passwords don't match. Please try again.")
+			fmt.Printf("Passwords don't match. Please try again... ")
 		}
 	}
 }
@@ -108,7 +111,7 @@ func (pp PasswordPrompter) Prompt(prompt string) string {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		fmt.Println()
+		clearLine()
 		rval = string(bytePwd)
 	})
 	return rval
@@ -143,4 +146,8 @@ func printGreeting() {
 _/        _/    _/  _/    _/  _/  _/    _/  _/        _/  _/    _/  _/  _/
  _/_/_/  _/    _/    _/_/_/  _/  _/    _/  _/_/_/_/  _/  _/    _/  _/    _/
 `)
+}
+
+func clearLine() {
+	fmt.Printf("\r" + strings.Repeat(" ", 60) + "\r")
 }
