@@ -60,7 +60,7 @@ func (rt RendererTable) Render(v interface{}) error {
 
 func (rt RendererTable) renderJobs(jobs []models.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created", "Initiators", "Tasks"})
+	table.SetHeader([]string{"ID", "Created At", "Initiators", "Tasks"})
 	for _, v := range jobs {
 		table.Append(jobRowToStrings(v))
 	}
