@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -124,7 +123,7 @@ func NullString(val interface{}) null.String {
 func NullTime(val interface{}) null.Time {
 	switch val.(type) {
 	case string:
-		return cltest.ParseNullableTime(val.(string))
+		return ParseNullableTime(val.(string))
 	case nil:
 		return null.NewTime(time.Unix(0, 0), false)
 	default:
