@@ -19,12 +19,12 @@ import (
 type Config struct {
 	LogLevel            LogLevel `env:"LOG_LEVEL" envDefault:"info"`
 	RootDir             string   `env:"ROOT" envDefault:"~/.chainlink"`
+	Port                string   `env:"PORT" envDefault:"6688"`
 	BasicAuthUsername   string   `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword   string   `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL         string   `env:"ETH_URL" envDefault:"ws://localhost:8545"`
 	ChainID             uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
 	PollingSchedule     string   `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
-	ClientNodeURL       string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
 	EthMinConfirmations uint64   `env:"ETH_MIN_CONFIRMATIONS" envDefault:"12"`
 	EthGasBumpThreshold uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
 	EthGasBumpWei       big.Int  `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
@@ -52,6 +52,11 @@ func NewConfig() Config {
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
 	return path.Join(c.RootDir, "keys")
+}
+
+// ClientNodeURL returns the full URL for communicating with the node on.
+func (c Config) ClientNodeURL() string {
+	return "http://localhost:" + string(c.Port)
 }
 
 func parseEnv(cfg interface{}) error {
