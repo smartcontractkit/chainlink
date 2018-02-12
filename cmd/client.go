@@ -51,7 +51,7 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/jobs/"+c.Args().First(),
+		cfg.ClientNodeURL()+"/v2/jobs/"+c.Args().First(),
 	)
 	if err != nil {
 		return cli.errorOut(err)
@@ -67,7 +67,7 @@ func (cli *Client) GetJobs(c *clipkg.Context) error {
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/jobs",
+		cfg.ClientNodeURL()+"/v2/jobs",
 	)
 	if err != nil {
 		return cli.errorOut(err)
@@ -124,5 +124,6 @@ type NodeRunner struct{}
 // for input and return data.
 func (n NodeRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
-	return web.Router(app.(*services.ChainlinkApplication)).Run()
+	port := app.GetStore().Config.Port
+	return web.Router(app.(*services.ChainlinkApplication)).Run(":" + port)
 }
