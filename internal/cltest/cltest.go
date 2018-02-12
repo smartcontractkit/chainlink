@@ -132,12 +132,9 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 
 func NewApplicationWithKeyStore() (*TestApplication, func()) {
 	app, cleanup := NewApplication()
-	if _, err := app.Store.KeyStore.NewAccount(Password); err != nil {
-		logger.Fatal(err)
-	}
-	if err := app.Store.KeyStore.Unlock(Password); err != nil {
-		logger.Fatal(err)
-	}
+	_, err := app.Store.KeyStore.NewAccount(Password)
+	mustNotErr(err)
+	mustNotErr(app.Store.KeyStore.Unlock(Password))
 	return app, cleanup
 }
 
@@ -194,9 +191,7 @@ type CommonJSON struct {
 
 func ParseCommonJSON(body io.Reader) CommonJSON {
 	b, err := ioutil.ReadAll(body)
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 	var respJSON CommonJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
@@ -204,39 +199,26 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 
 func LoadJSON(file string) []byte {
 	content, err := ioutil.ReadFile(file)
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 	return content
 }
 
 func copyFile(src, dst string) {
 	from, err := os.Open(src)
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 	defer from.Close()
 
 	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 
 	_, err = io.Copy(to, from)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err = to.Close(); err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
+	mustNotErr(to.Close())
 }
 
 func AddPrivateKey(config *TestConfig, src string) {
 	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 
 	dst := config.KeysDir() + "/testwallet.json"
 	copyFile(src, dst)
@@ -249,28 +231,20 @@ func BasicAuthPost(url string, contentType string, body io.Reader) *http.Respons
 		url,
 		contentType,
 		body)
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 	return resp
 }
 
 func BasicAuthGet(url string) *http.Response {
 	resp, err := utils.BasicAuthGet(Username, Password, url)
-	if err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
 	return resp
 }
 
 func ParseResponseBody(resp *http.Response) []byte {
 	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = resp.Body.Close(); err != nil {
-		log.Fatal(err)
-	}
+	mustNotErr(err)
+	mustNotErr(resp.Body.Close())
 	return b
 }
 
@@ -400,17 +374,13 @@ func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) {
 
 func MustParseWebURL(str string) models.WebURL {
 	u, err := url.Parse(str)
-	if err != nil {
-		panic(err.Error())
-	}
+	mustNotErr(err)
 	return models.WebURL{u}
 }
 
 func ParseISO8601(s string) time.Time {
 	t, err := time.Parse(time.RFC3339Nano, s)
-	if err != nil {
-		panic(err)
-	}
+	mustNotErr(err)
 	return t
 }
 
@@ -420,4 +390,10 @@ func NullableTime(t time.Time) null.Time {
 
 func ParseNullableTime(s string) null.Time {
 	return NullableTime(ParseISO8601(s))
+}
+
+func mustNotErr(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
