@@ -41,6 +41,15 @@ func (job Job) FriendlyCreatedAt() string {
 	return job.CreatedAt.HumanString()
 }
 
+// FriendlyStartAt returns a human-readable string of the Job's
+// StartAt field.
+func (job Job) FriendlyStartAt() string {
+	if job.StartAt.Valid {
+		return utils.ISO8601UTC(job.StartAt.Time)
+	}
+	return ""
+}
+
 // FriendlyEndAt returns a human-readable string of the Job's
 // EndAt field.
 func (job Job) FriendlyEndAt() string {
@@ -127,7 +136,7 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 
 // FriendlyRunAt returns a human-readable string for Cron Initiator types.
 func (i Initiator) FriendlyRunAt() string {
-	if i.Type == models.InitiatorCron {
+	if i.Type == models.InitiatorRunAt {
 		return i.Time.HumanString()
 	}
 	return ""
