@@ -57,7 +57,7 @@ func (job Job) FriendlyInitiators() string {
 	for _, i := range job.Initiators {
 		initrs = append(initrs, i.Type)
 	}
-	return strings.Join(initrs, ",")
+	return strings.Join(initrs, "\n")
 }
 
 // FriendlyTasks returns the list of Task types as a comma
@@ -68,7 +68,7 @@ func (job Job) FriendlyTasks() string {
 		tasks = append(tasks, t.Type)
 	}
 
-	return strings.Join(tasks, ",")
+	return strings.Join(tasks, "\n")
 }
 
 // Initiator holds the Job definition's Initiator.

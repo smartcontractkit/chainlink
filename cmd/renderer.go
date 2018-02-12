@@ -61,13 +61,21 @@ func (rt RendererTable) Render(v interface{}) error {
 
 func (rt RendererTable) renderJobs(jobs []models.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created", "Initiators", "Tasks", "End"})
+	table.SetHeader([]string{"Job ID", "Created", "Initiators", "Tasks"})
 	for _, v := range jobs {
 		table.Append(jobRowToStrings(v))
 	}
 
-	table.Render()
+	render(table)
 	return nil
+}
+
+func render(table *tablewriter.Table) {
+	table.SetRowLine(true)
+	table.SetColumnSeparator("║")
+	table.SetRowSeparator("═")
+	table.SetCenterSeparator("╬")
+	table.Render()
 }
 
 func jobRowToStrings(job models.Job) []string {
@@ -77,7 +85,6 @@ func jobRowToStrings(job models.Job) []string {
 		p.FriendlyCreatedAt(),
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
-		p.FriendlyEndAt(),
 	}
 }
 
@@ -105,7 +112,7 @@ func (rt RendererTable) renderJobSingles(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"ID", "Created", "End"})
 	table.Append([]string{j.ID, j.FriendlyCreatedAt(), j.FriendlyEndAt()})
-	table.Render()
+	render(table)
 	return nil
 }
 
@@ -122,7 +129,7 @@ func (rt RendererTable) renderJobInitiators(j presenters.Job) error {
 		})
 	}
 
-	table.Render()
+	render(table)
 	return nil
 }
 
@@ -139,7 +146,7 @@ func (rt RendererTable) renderJobTasks(j presenters.Job) error {
 		table.Append([]string{strconv.Itoa(o), p.Type, params})
 	}
 
-	table.Render()
+	render(table)
 	return nil
 }
 
@@ -156,6 +163,6 @@ func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 		})
 	}
 
-	table.Render()
+	render(table)
 	return nil
 }
