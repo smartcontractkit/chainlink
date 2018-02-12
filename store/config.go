@@ -22,7 +22,7 @@ type Config struct {
 	Port                string   `env:"PORT" envDefault:"6688"`
 	BasicAuthUsername   string   `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword   string   `env:"PASSWORD" envDefault:"twochains"`
-	EthereumURL         string   `env:"ETH_URL" envDefault:"ws://localhost:8545"`
+	EthereumURL         string   `env:"ETH_URL" envDefault:"ws://localhost:8546"`
 	ChainID             uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
 	PollingSchedule     string   `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
 	EthMinConfirmations uint64   `env:"ETH_MIN_CONFIRMATIONS" envDefault:"12"`
