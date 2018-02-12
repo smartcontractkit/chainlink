@@ -124,5 +124,6 @@ type NodeRunner struct{}
 // for input and return data.
 func (n NodeRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
-	return web.Router(app.(*services.ChainlinkApplication)).Run()
+	port := app.GetStore().Config.Port
+	return web.Router(app.(*services.ChainlinkApplication)).Run(":" + port)
 }

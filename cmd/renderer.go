@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -61,13 +60,23 @@ func (rt RendererTable) Render(v interface{}) error {
 
 func (rt RendererTable) renderJobs(jobs []models.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created", "Initiators", "Tasks", "End"})
+	table.SetHeader([]string{"ID", "Created At", "Initiators", "Tasks"})
 	for _, v := range jobs {
 		table.Append(jobRowToStrings(v))
 	}
 
-	table.Render()
+	render("Jobs", table)
 	return nil
+}
+
+func render(name string, table *tablewriter.Table) {
+	table.SetRowLine(true)
+	table.SetColumnSeparator("║")
+	table.SetRowSeparator("═")
+	table.SetCenterSeparator("╬")
+
+	fmt.Println("╔ " + name)
+	table.Render()
 }
 
 func jobRowToStrings(job models.Job) []string {
@@ -77,7 +86,6 @@ func jobRowToStrings(job models.Job) []string {
 		p.FriendlyCreatedAt(),
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
-		p.FriendlyEndAt(),
 	}
 }
 
@@ -103,15 +111,20 @@ func (rt RendererTable) renderJob(job presenters.Job) error {
 
 func (rt RendererTable) renderJobSingles(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created", "End"})
-	table.Append([]string{j.ID, j.FriendlyCreatedAt(), j.FriendlyEndAt()})
-	table.Render()
+	table.SetHeader([]string{"ID", "Created At", "Start At", "End At"})
+	table.Append([]string{
+		j.ID,
+		j.FriendlyCreatedAt(),
+		j.FriendlyStartAt(),
+		j.FriendlyEndAt(),
+	})
+	render("Job", table)
 	return nil
 }
 
 func (rt RendererTable) renderJobInitiators(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Initiator", "Schedule", "Run At", "Address"})
+	table.SetHeader([]string{"Type", "Schedule", "Run At", "Address"})
 	for _, i := range j.Initiators {
 		p := presenters.Initiator{i}
 		table.Append([]string{
@@ -122,30 +135,26 @@ func (rt RendererTable) renderJobInitiators(j presenters.Job) error {
 		})
 	}
 
-	table.Render()
+	render("Initiators", table)
 	return nil
 }
 
 func (rt RendererTable) renderJobTasks(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Order", "Task", "Params"})
-	for o, t := range j.Tasks {
+	table.SetHeader([]string{"Type", "Config", "Value"})
+	for _, t := range j.Tasks {
 		p := presenters.Task{t}
-		params, err := p.FriendlyParams()
-		if err != nil {
-			return err
-		}
-
-		table.Append([]string{strconv.Itoa(o), p.Type, params})
+		keys, values := p.FriendlyParams()
+		table.Append([]string{p.Type, keys, values})
 	}
 
-	table.Render()
+	render("Tasks", table)
 	return nil
 }
 
 func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Job Run", "Status", "Created", "Result", "Error"})
+	table.SetHeader([]string{"ID", "Status", "Created At", "Result", "Error"})
 	for _, jr := range j.Runs {
 		table.Append([]string{
 			jr.ID,
@@ -156,6 +165,6 @@ func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 		})
 	}
 
-	table.Render()
+	render("Runs", table)
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tidwall/gjson"
 )
 
 // Job holds the Job definition and each run associated with that Job.
@@ -41,6 +42,15 @@ func (job Job) FriendlyCreatedAt() string {
 	return job.CreatedAt.HumanString()
 }
 
+// FriendlyStartAt returns a human-readable string of the Job's
+// StartAt field.
+func (job Job) FriendlyStartAt() string {
+	if job.StartAt.Valid {
+		return utils.ISO8601UTC(job.StartAt.Time)
+	}
+	return ""
+}
+
 // FriendlyEndAt returns a human-readable string of the Job's
 // EndAt field.
 func (job Job) FriendlyEndAt() string {
@@ -57,7 +67,7 @@ func (job Job) FriendlyInitiators() string {
 	for _, i := range job.Initiators {
 		initrs = append(initrs, i.Type)
 	}
-	return strings.Join(initrs, ",")
+	return strings.Join(initrs, "\n")
 }
 
 // FriendlyTasks returns the list of Task types as a comma
@@ -68,7 +78,7 @@ func (job Job) FriendlyTasks() string {
 		tasks = append(tasks, t.Type)
 	}
 
-	return strings.Join(tasks, ",")
+	return strings.Join(tasks, "\n")
 }
 
 // Initiator holds the Job definition's Initiator.
@@ -127,7 +137,7 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 
 // FriendlyRunAt returns a human-readable string for Cron Initiator types.
 func (i Initiator) FriendlyRunAt() string {
-	if i.Type == models.InitiatorCron {
+	if i.Type == models.InitiatorRunAt {
 		return i.Time.HumanString()
 	}
 	return ""
@@ -149,12 +159,16 @@ type Task struct {
 	models.Task
 }
 
-// FriendlyParams returns a string of the parameters specified
-// for the Task.
-func (t Task) FriendlyParams() (string, error) {
-	j, err := json.Marshal(&t.Params)
-	if err != nil {
-		return "", err
-	}
-	return string(j), nil
+// FriendlyParams returns a map of the Task's parameters.
+func (t Task) FriendlyParams() (string, string) {
+	keys := []string{}
+	values := []string{}
+	t.Params.ForEach(func(key, value gjson.Result) bool {
+		if key.String() != "type" {
+			keys = append(keys, key.String())
+			values = append(values, value.String())
+		}
+		return true
+	})
+	return strings.Join(keys, "\n"), strings.Join(values, "\n")
 }
