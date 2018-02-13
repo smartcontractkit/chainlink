@@ -1,4 +1,0 @@
-#!/bin/bash
-
-docker pull smartcontract/devnet:latest
-docker run -p 18546:8546 smartcontract/devnet:latest
