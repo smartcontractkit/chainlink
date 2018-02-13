@@ -112,16 +112,22 @@ $ truffle test
 
 ### Adding External Adapters
 
-Post to `/v2/jobs`:
+POST to `/v2/bridge_types`:
 
 ```shell
-curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:6688/v2/jobs
+curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:8080/v2/bridge_types
 ```
 
 `"name"` should be unique to the local node, and `"url"` should be the URL of your external adapter, whether local or on a separate machine.
 
-Output should return a unique id:
+Output should return the JSON given:
 
 ```shell
-{"id":"65c60bd0267941369e2e92e73c5319d6"}
+{"name":"randomnumber","url":"https://example.com/randomNumber"}
+```
+
+And the node will log the following:
+
+```shell
+{"level":"info","ts":1518531822.179224,"caller":"web/router.go:50","msg":"Web request","method":"POST","status":200,"path":"/v2/bridge_types","query":"","body":"{\"name\":\"randomNumber\",\"url\":\"https://example.com/randomNumber\"}","clientIP":"127.0.0.1","comment":"","servedAt":"2018/02/13 - 14:23:42","latency":"1.623398ms"}
 ```
