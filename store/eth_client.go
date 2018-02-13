@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -25,9 +24,9 @@ type CallerSubscriber interface {
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
-func (eth *EthClient) GetNonce(account accounts.Account) (uint64, error) {
+func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
 	var result string
-	err := eth.Call(&result, "eth_getTransactionCount", account.Address.Hex())
+	err := eth.Call(&result, "eth_getTransactionCount", address.Hex())
 	if err != nil {
 		return 0, err
 	}
@@ -48,8 +47,8 @@ func (eth *EthClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
 	return &receipt, err
 }
 
-// BlockNumber returns the block number of the chain head.
-func (eth *EthClient) BlockNumber() (uint64, error) {
+// GetBlockNumber returns the block number of the chain head.
+func (eth *EthClient) GetBlockNumber() (uint64, error) {
 	result := ""
 	if err := eth.Call(&result, "eth_blockNumber"); err != nil {
 		return 0, err
