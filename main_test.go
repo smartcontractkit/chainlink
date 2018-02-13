@@ -1,10 +1,9 @@
-package main_test
+package main
 
 import (
 	"io/ioutil"
 	"os"
 
-	"github.com/smartcontractkit/chainlink"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 )
@@ -20,7 +19,7 @@ func ExampleRun_Help() {
 		cmd.ChainlinkRunner{},
 	}
 
-	main.Run(testClient, "chainlink.test --help")
+	Run(testClient, "chainlink.test --help")
 	// Output:
 	// NAME:
 	//    chainlink.test - CLI for Chainlink
