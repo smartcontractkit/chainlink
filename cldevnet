@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export LOG_LEVEL=debug
+export ROOT=./devnet
+export ETH_URL=ws://localhost:18546
+export ETH_CHAIN_ID=17
+
+go run main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
