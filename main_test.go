@@ -17,7 +17,7 @@ func ExampleMain_Help() {
 		tc.Config,
 		cmd.ChainlinkAppFactory{},
 		cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, os.Exit},
-		cmd.NodeRunner{},
+		cmd.ChainlinkRunner{},
 	}
 
 	main.Run(testClient, "chainlink.test --help")
