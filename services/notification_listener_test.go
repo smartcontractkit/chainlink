@@ -93,12 +93,9 @@ func TestNotificationListenerAddJob(t *testing.T) {
 	}
 }
 
-func outputFromFixture(path string) models.JSON {
+func jsonFromFixture(path string) models.JSON {
 	res := gjson.Get(string(cltest.LoadJSON(path)), "params.result.0")
-	var out models.JSON
-	if err := json.Unmarshal([]byte(res.String()), &out); err != nil {
-		panic(err)
-	}
+	out := cltest.JSONFromString(res.String())
 	return out
 }
 
@@ -119,9 +116,9 @@ func TestStoreFormatLogJSON(t *testing.T) {
 		wantOutput  models.JSON
 	}{
 		{"example ethLog", exampleLog, models.Initiator{Type: "ethlog"}, false,
-			outputFromFixture("../internal/fixtures/eth/subscription_logs.json")},
+			jsonFromFixture("../internal/fixtures/eth/subscription_logs.json")},
 		{"hello world ethLog", hwLog, models.Initiator{Type: "ethlog"}, false,
-			outputFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
+			jsonFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
 		{"hello world runLog", hwLog, models.Initiator{Type: "runlog"}, false,
 			clData},
 	}

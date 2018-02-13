@@ -11,10 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -62,13 +60,9 @@ func CreateTxAndAttempt(
 	sentAt uint64,
 ) *models.Tx {
 	tx := NewTx(from, sentAt)
-	if err := store.Save(tx); err != nil {
-		logger.Fatal(err)
-	}
+	mustNotErr(store.Save(tx))
 	_, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	if err != nil {
-		logger.Fatal(err)
-	}
+	mustNotErr(err)
 	return tx
 }
 
@@ -104,9 +98,7 @@ func NewBridgeType(info ...string) *models.BridgeType {
 
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
-	if err != nil {
-		panic(err)
-	}
+	mustNotErr(err)
 	return models.WebURL{parsed}
 }
 
@@ -124,7 +116,7 @@ func NullString(val interface{}) null.String {
 func NullTime(val interface{}) null.Time {
 	switch val.(type) {
 	case string:
-		return utils.ParseNullableTime(val.(string))
+		return ParseNullableTime(val.(string))
 	case nil:
 		return null.NewTime(time.Unix(0, 0), false)
 	default:
@@ -135,10 +127,7 @@ func NullTime(val interface{}) null.Time {
 func LogFromFixture(path string) ethtypes.Log {
 	value := gjson.Get(string(LoadJSON(path)), "params.result.0")
 	var el ethtypes.Log
-	err := json.Unmarshal([]byte(value.String()), &el)
-	if err != nil {
-		panic(err)
-	}
+	mustNotErr(json.Unmarshal([]byte(value.String()), &el))
 
 	return el
 }
@@ -150,8 +139,6 @@ func JSONFromFixture(path string) models.JSON {
 func JSONFromString(body string, args ...interface{}) models.JSON {
 	var j models.JSON
 	str := fmt.Sprintf(body, args...)
-	if err := json.Unmarshal([]byte(str), &j); err != nil {
-		panic(err)
-	}
+	mustNotErr(json.Unmarshal([]byte(str), &j))
 	return j
 }
