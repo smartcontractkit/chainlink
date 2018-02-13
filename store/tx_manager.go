@@ -25,7 +25,7 @@ type TxManager struct {
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	account := txm.KeyStore.GetAccount()
-	nonce, err := txm.GetNonce(account)
+	nonce, err := txm.GetNonce(account.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 	if err != nil {
 		return nil, err
 	}
-	blkNum, err := txm.BlockNumber()
+	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 // EnsureTxConfirmed returns true if the given transaction hash has been
 // confirmed on the blockchain.
 func (txm *TxManager) EnsureTxConfirmed(hash common.Hash) (bool, error) {
-	blkNum, err := txm.BlockNumber()
+	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return false, err
 	}
