@@ -91,7 +91,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
 
-	assert.True(t, eth.AllCalled())
+	Eventually(eth.AllCalled).Should(BeTrue())
 }
 
 func TestCreateJobWithRunAtIntegration(t *testing.T) {

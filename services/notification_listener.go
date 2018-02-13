@@ -26,11 +26,12 @@ const (
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
 type NotificationListener struct {
-	Store            *store.Store
-	subscriptions    []*rpc.ClientSubscription
-	logNotifications chan []types.Log
-	errors           chan error
-	mutex            sync.Mutex
+	Store             *store.Store
+	subscriptions     []*rpc.ClientSubscription
+	logNotifications  chan []types.Log
+	headNotifications chan types.Header
+	errors            chan error
+	mutex             sync.Mutex
 }
 
 // Start obtains the jobs from the store and begins execution
@@ -43,14 +44,19 @@ func (nl *NotificationListener) Start() error {
 
 	nl.errors = make(chan error)
 	nl.logNotifications = make(chan []types.Log)
+	nl.headNotifications = make(chan types.Header)
 	var merr error
 	for _, j := range jobs {
 		merr = multierr.Append(merr, nl.AddJob(&j))
 	}
+	if merr != nil {
+		return merr
+	}
 
 	go nl.listenToSubscriptionErrors()
 	go nl.listenToLogs()
-	return err
+	go nl.listenToNewHeads()
+	return nil
 }
 
 // Stop gracefully closes its access to the store's EthNotifications.
@@ -76,11 +82,21 @@ func (nl *NotificationListener) AddJob(job *models.Job) error {
 		return nil
 	}
 
-	sub, err := nl.Store.TxManager.Subscribe(nl.logNotifications, addresses)
-	if err == nil {
-		nl.addSubscription(sub)
+	sub, err := nl.Store.TxManager.SubscribeToLogs(nl.logNotifications, addresses)
+	if err != nil {
+		return err
 	}
-	return err
+	nl.addSubscription(sub)
+	return nil
+}
+
+func (nl *NotificationListener) listenToNewHeads() error {
+	sub, err := nl.Store.TxManager.SubscribeToNewHeads(nl.headNotifications)
+	if err != nil {
+		return err
+	}
+	nl.addSubscription(sub)
+	return nil
 }
 
 func (nl *NotificationListener) addSubscription(sub *rpc.ClientSubscription) {
