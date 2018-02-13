@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Runs a Chainlink node preconfigured to communicate with smartcontract/devnet(parity).
+# Steps:
+# 0. Have docker installed and configured
+# 1. ./devnet/devnet
+# 2. cd solidity && truffle migrate --network devnet
+# 3. ./cldevnet
+
 export LOG_LEVEL=debug
 export ROOT=./devnet
 export ETH_URL=ws://localhost:18546
