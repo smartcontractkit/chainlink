@@ -11,9 +11,16 @@ matrix:
       before_install:
         - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
         - chmod +x $GOPATH/bin/dep
+        - go get -u github.com/haya14busa/goverage
 
       install:
         - dep ensure
+
+      script:
+        - goverage -v -coverprofile=coverage.out ./...
+
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)
 
     - language: node_js
       cache: yarn
