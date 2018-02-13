@@ -89,9 +89,10 @@ Environment variables that can be set in .envrc, along with default values that 
 
     LOG_LEVEL                Default: info
     ROOT                     Default: ~/.chainlink
+    PORT                     Default: 6688
     USERNAME                 Default: chainlink
     PASSWORD                 Default: twochains
-    ETH_URL                  Default: http://localhost:8545
+    ETH_URL                  Default: ws://localhost:8546
     ETH_CHAIN_ID             Default: 0
     POLLING_SCHEDULE         Default: */15 * * * * *
     CLIENT_NODE_URL          Default: http://localhost:6688
@@ -115,7 +116,7 @@ $ truffle test
 POST to `/v2/bridge_types`:
 
 ```shell
-curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:8080/v2/bridge_types
+curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"https://example.com/randomNumber"}' http://localhost:6688/v2/bridge_types
 ```
 
 `"name"` should be unique to the local node, and `"url"` should be the URL of your external adapter, whether local or on a separate machine.
