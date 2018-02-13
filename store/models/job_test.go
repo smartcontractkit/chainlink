@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -44,7 +43,7 @@ func TestJobNewRun(t *testing.T) {
 func TestJobEnded(t *testing.T) {
 	t.Parallel()
 
-	endAt := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	endAt := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 
 	tests := []struct {
 		name    string
@@ -71,7 +70,7 @@ func TestJobEnded(t *testing.T) {
 func TestJobStarted(t *testing.T) {
 	t.Parallel()
 
-	startAt := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 
 	tests := []struct {
 		name    string

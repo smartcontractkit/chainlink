@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	uuid "github.com/satori/go.uuid"
-	null "gopkg.in/guregu/null.v3"
 )
 
 const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
@@ -78,28 +77,6 @@ func BasicAuthGet(username, password, url string) (*http.Response, error) {
 // FormatJSON applies indent to format a JSON response.
 func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
-}
-
-// ParseISO8601 parses the given string as RFC3339Nanoand returns an
-// instance of Time.
-func ParseISO8601(s string) time.Time {
-	t, err := time.Parse(time.RFC3339Nano, s)
-	if err != nil {
-		panic(err)
-	}
-	return t
-}
-
-// NullableTime allows for the given time to be null. Marshals
-// to null for JSON serialization if null.
-func NullableTime(t time.Time) null.Time {
-	return null.Time{Time: t, Valid: true}
-}
-
-// ParseNullableTime parses the given string and will allow
-// for time to be null.
-func ParseNullableTime(s string) null.Time {
-	return NullableTime(ParseISO8601(s))
 }
 
 // GetStringKeys returns an array of strings from the keys of

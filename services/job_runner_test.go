@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -86,8 +85,8 @@ func TestJobTransitionToPending(t *testing.T) {
 func TestJobRunnerBeginRun(t *testing.T) {
 	t.Parallel()
 
-	pastTime := utils.ParseNullableTime("2000-01-01T00:00:00.000Z")
-	futureTime := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
+	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
 
 	tests := []struct {
@@ -132,8 +131,8 @@ func TestJobRunnerBeginRun(t *testing.T) {
 func TestJobRunnerBuildRun(t *testing.T) {
 	t.Parallel()
 
-	pastTime := utils.ParseNullableTime("2000-01-01T00:00:00.000Z")
-	futureTime := utils.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
+	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
 
 	tests := []struct {

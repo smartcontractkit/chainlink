@@ -191,7 +191,7 @@ func TestCreateJobWithEndAtIntegration(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/end_at_job.json")
-	endAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
+	endAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	assert.Equal(t, endAt, j.EndAt.Time)
 
 	cltest.CreateJobRunViaWeb(t, app, j)
@@ -218,7 +218,7 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/start_at_job.json")
-	startAt := utils.ParseISO8601("3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
