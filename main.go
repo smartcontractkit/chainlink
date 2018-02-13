@@ -67,6 +67,6 @@ func NewProductionClient() *cmd.Client {
 		store.NewConfig(),
 		cmd.ChainlinkAppFactory{},
 		cmd.TerminalAuthenticator{cmd.PasswordPrompter{}, os.Exit},
-		cmd.NodeRunner{},
+		cmd.ChainlinkRunner{},
 	}
 }
