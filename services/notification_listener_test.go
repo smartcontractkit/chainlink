@@ -17,8 +17,26 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestNotificationListenerStart(t *testing.T) {
+func TestNotificationListener_Start_NewHeads(t *testing.T) {
 	t.Parallel()
+	RegisterTestingT(t)
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	eth.ClearSubscriptionExpectations()
+	nl := services.NotificationListener{Store: store}
+	defer nl.Stop()
+
+	eth.RegisterSubscription("newHeads", make(chan types.Header))
+
+	assert.Nil(t, nl.Start())
+	Eventually(eth.AllCalled).Should(BeTrue())
+}
+
+func TestNotificationListener_Start_WithJobs(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -34,13 +52,11 @@ func TestNotificationListenerStart(t *testing.T) {
 	err := nl.Start()
 	assert.Nil(t, err)
 
-	assert.True(t, eth.AllCalled())
+	Eventually(eth.AllCalled).Should(BeTrue())
 }
 
-func TestNotificationListenerAddJob(t *testing.T) {
+func TestNotificationListener_AddJob(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
 
 	initrAddress := cltest.NewEthAddress()
 
@@ -60,11 +76,13 @@ func TestNotificationListenerAddJob(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			RegisterTestingT(t)
+			store, cleanup := cltest.NewStore()
+			defer cleanup()
+			cltest.MockEthOnStore(store)
 
 			nl := services.NotificationListener{Store: store}
 			defer nl.Stop()
-			err := nl.Start()
-			assert.Nil(t, err)
+			assert.Nil(t, nl.Start())
 
 			eth := cltest.MockEthOnStore(store)
 			logChan := make(chan []types.Log, 1)
@@ -88,7 +106,7 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
-			assert.True(t, eth.AllCalled())
+			Eventually(eth.AllCalled).Should(BeTrue())
 		})
 	}
 }
@@ -99,7 +117,7 @@ func jsonFromFixture(path string) models.JSON {
 	return out
 }
 
-func TestStoreFormatLogJSON(t *testing.T) {
+func TestStore_FormatLogJSON(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON

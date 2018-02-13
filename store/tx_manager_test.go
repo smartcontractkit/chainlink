@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTxManagerCreateTx(t *testing.T) {
+func TestTxManager_CreateTx(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -24,7 +25,7 @@ func TestTxManagerCreateTx(t *testing.T) {
 	hash := cltest.NewTxHash()
 	sentAt := uint64(23456)
 	nonce := uint64(256)
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 	ethMock.Register("eth_sendRawTransaction", hash)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
@@ -44,11 +45,13 @@ func TestTxManagerCreateTx(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	Eventually(ethMock.AllCalled).Should(BeTrue())
 }
 
-func TestTxManagerEnsureTxConfirmedBeforeThreshold(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	t.Parallel()
+	RegisterTestingT(t)
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -58,7 +61,7 @@ func TestTxManagerEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold-1))
 
@@ -75,10 +78,10 @@ func TestTxManagerEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	Eventually(ethMock.AllCalled).Should(BeTrue())
 }
 
-func TestTxManagerEnsureTxConfirmedAtThreshold(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -89,7 +92,7 @@ func TestTxManagerEnsureTxConfirmedAtThreshold(t *testing.T) {
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewTxHash())
@@ -107,11 +110,13 @@ func TestTxManagerEnsureTxConfirmedAtThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	Eventually(ethMock.AllCalled).Should(BeTrue())
 }
 
-func TestTxManagerEnsureTxConfirmedWhenSafe(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 	t.Parallel()
+	RegisterTestingT(t)
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -121,7 +126,7 @@ func TestTxManagerEnsureTxConfirmedWhenSafe(t *testing.T) {
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
 		Hash:        cltest.NewTxHash(),
 		BlockNumber: sentAt,
@@ -139,11 +144,13 @@ func TestTxManagerEnsureTxConfirmedWhenSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	Eventually(ethMock.AllCalled).Should(BeTrue())
 }
 
-func TestTxManagerEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 	t.Parallel()
+	RegisterTestingT(t)
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -153,7 +160,7 @@ func TestTxManagerEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
 		Hash:        cltest.NewTxHash(),
 		BlockNumber: sentAt,
@@ -171,5 +178,5 @@ func TestTxManagerEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	Eventually(ethMock.AllCalled).Should(BeTrue())
 }
