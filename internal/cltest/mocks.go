@@ -14,6 +14,7 @@ import (
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
@@ -69,6 +70,12 @@ func (mock *EthMock) RegisterError(method, errMsg string) {
 
 func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
+}
+
+func (mock *EthMock) EnsureAllCalled(t *testing.T) {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
 }
 
 func (mock *EthMock) Call(result interface{}, method string, args ...interface{}) error {

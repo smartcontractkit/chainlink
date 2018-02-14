@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -21,7 +20,6 @@ import (
 
 func TestNotificationListener_Start_NewHeads(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -32,12 +30,11 @@ func TestNotificationListener_Start_NewHeads(t *testing.T) {
 	eth.RegisterSubscription("newHeads", make(chan types.Header))
 
 	assert.Nil(t, nl.Start())
-	Eventually(eth.AllCalled).Should(BeTrue())
+	eth.EnsureAllCalled(t)
 }
 
 func TestNotificationListener_Start_WithJobs(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -53,7 +50,7 @@ func TestNotificationListener_Start_WithJobs(t *testing.T) {
 	err := nl.Start()
 	assert.Nil(t, err)
 
-	Eventually(eth.AllCalled).Should(BeTrue())
+	eth.EnsureAllCalled(t)
 }
 
 func TestNotificationListener_AddJob(t *testing.T) {
@@ -76,7 +73,6 @@ func TestNotificationListener_AddJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			RegisterTestingT(t)
 			store, cleanup := cltest.NewStore()
 			defer cleanup()
 			cltest.MockEthOnStore(store)
@@ -107,7 +103,7 @@ func TestNotificationListener_AddJob(t *testing.T) {
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
-			Eventually(eth.AllCalled).Should(BeTrue())
+			eth.EnsureAllCalled(t)
 		})
 	}
 }
@@ -153,7 +149,6 @@ func TestStore_FormatLogJSON(t *testing.T) {
 
 func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -167,7 +162,6 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+1))
 
 	app.Start()
-	//defer app.Stop()
 
 	j := models.NewJob()
 	j.Tasks = []models.Task{cltest.NewTask("ethtx", "{}")}
@@ -189,5 +183,5 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 
 	nhChan <- types.Header{}
 
-	Eventually(ethMock.AllCalled).Should(BeTrue())
+	ethMock.EnsureAllCalled(t)
 }

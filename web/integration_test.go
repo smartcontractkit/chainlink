@@ -42,7 +42,6 @@ func TestIntegration_Scheduler(t *testing.T) {
 }
 
 func TestIntegration_EthPubSub(t *testing.T) {
-	RegisterTestingT(t)
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
 
@@ -78,7 +77,6 @@ func TestIntegration_EthPubSub(t *testing.T) {
 		"../internal/fixtures/web/hello_world_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	cltest.WaitForJobRunToPend(t, app, jr)
-	Eventually(eth.AllCalled).Should(BeTrue())
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -100,7 +98,6 @@ func TestIntegration_EthPubSub(t *testing.T) {
 	})
 	newHeads <- types.Header{Number: big.NewInt(int64(safe))}
 
-	Eventually(eth.AllCalled).Should(BeTrue())
 	cltest.WaitForJobRunToComplete(t, app, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()
@@ -116,7 +113,7 @@ func TestIntegration_EthPubSub(t *testing.T) {
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
 
-	Eventually(eth.AllCalled).Should(BeTrue())
+	eth.EnsureAllCalled(t)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
