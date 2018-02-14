@@ -40,11 +40,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	defer app.Stop()
-	logEthBalance(store)
+	runNodeGreeting(store)
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
-func logEthBalance(store *store.Store) {
+func runNodeGreeting(store *store.Store) {
+	logger.Infow("Starting Chainlink Node")
 	balance, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
 	logger.Infow(balance)

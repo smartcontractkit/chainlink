@@ -28,7 +28,7 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	}
 	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
 	if balance == 0 {
-		return result, errors.New("Zero Balance. Chainlink node not fully functional, please deposit ether into the address: " + address.Hex())
+		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit eth into your address: " + address.Hex())
 	}
 	return result, nil
 }

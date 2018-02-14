@@ -58,10 +58,8 @@ func checkPassword(store *store.Store, phrase string) error {
 	if err := store.KeyStore.Unlock(phrase); err != nil {
 		fmt.Println(err.Error())
 		return err
-	} else {
-		printGreeting()
-		return nil
 	}
+	return nil
 }
 
 func (auth TerminalAuthenticator) promptAndCheckPassword(store *store.Store) {
@@ -84,7 +82,6 @@ func (auth TerminalAuthenticator) createAccount(store *store.Store) {
 			if err != nil {
 				logger.Fatal(err)
 			}
-			printGreeting()
 			break
 		} else {
 			fmt.Printf("Passwords don't match. Please try again... ")
@@ -136,16 +133,6 @@ func withTerminalResetter(f func()) {
 
 	f()
 	signal.Stop(c)
-}
-
-func printGreeting() {
-	fmt.Println(`
-     _/_/_/  _/                  _/            _/        _/            _/
-  _/        _/_/_/      _/_/_/      _/_/_/    _/            _/_/_/    _/  _/
- _/        _/    _/  _/    _/  _/  _/    _/  _/        _/  _/    _/  _/_/
-_/        _/    _/  _/    _/  _/  _/    _/  _/        _/  _/    _/  _/  _/
- _/_/_/  _/    _/    _/_/_/  _/  _/    _/  _/_/_/_/  _/  _/    _/  _/    _/
-`)
 }
 
 func clearLine() {
