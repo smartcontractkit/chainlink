@@ -25,7 +25,6 @@ func (ta *TestApplication) MockEthClient() *EthMock {
 
 func MockEthOnStore(s *store.Store) *EthMock {
 	mock := NewMockGethRpc()
-	mock.RegisterSubscription("newHeads", mock.NewHeadsChannel)
 	eth := &store.EthClient{mock}
 	s.TxManager.EthClient = eth
 	return mock
@@ -41,11 +40,7 @@ type EthMock struct {
 	Responses       []MockResponse
 	Subscriptions   []MockSubscription
 	NewHeadsChannel chan ethtypes.Header
-}
-
-func (mock *EthMock) ClearSubscriptionExpectations() *EthMock {
-	mock.Subscriptions = []MockSubscription{}
-	return mock
+	newHeadsCalled  bool
 }
 
 func (mock *EthMock) Register(
@@ -123,6 +118,12 @@ func (mock *EthMock) EthSubscribe(
 			}
 			return &rpc.ClientSubscription{}, nil
 		}
+	}
+	if args[0] == "newHeads" && !mock.newHeadsCalled {
+		mock.newHeadsCalled = true
+		return &rpc.ClientSubscription{}, nil
+	} else if args[0] == "newHeads" {
+		return nil, errors.New("newHeads only expected once, please register a mock subscription if needed more")
 	}
 	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
 }

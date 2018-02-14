@@ -24,7 +24,6 @@ func TestNotificationListener_Start_NewHeads(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	eth.ClearSubscriptionExpectations()
 	nl := services.NotificationListener{Store: store}
 	defer nl.Stop()
 
