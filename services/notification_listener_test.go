@@ -12,7 +12,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 )
@@ -147,4 +149,45 @@ func TestStore_FormatLogJSON(t *testing.T) {
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
+}
+
+func TestNotificationListener_newHeadsNotification(t *testing.T) {
+	t.Parallel()
+	RegisterTestingT(t)
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+
+	ethMock := app.MockEthClient()
+	nhChan := make(chan types.Header)
+	ethMock.RegisterSubscription("newHeads", nhChan)
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+	sentAt := uint64(23456)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+1))
+
+	app.Start()
+	//defer app.Stop()
+
+	j := models.NewJob()
+	j.Tasks = []models.Task{cltest.NewTask("ethtx", "{}")}
+	assert.Nil(t, store.SaveJob(j))
+
+	tx := cltest.CreateTxAndAttempt(store, cltest.NewEthAddress(), sentAt)
+	txas, err := store.AttemptsFor(tx.ID)
+	assert.Nil(t, err)
+	txa := txas[0]
+
+	jr := j.NewRun()
+	tr := jr.TaskRuns[0]
+	result := models.RunResultWithValue(txa.Hash.String())
+	tr.Result = models.RunResultPending(result)
+	tr.Status = models.StatusPending
+	jr.TaskRuns[0] = tr
+	jr.Status = models.StatusPending
+	assert.Nil(t, store.Save(jr))
+
+	nhChan <- types.Header{}
+
+	Eventually(ethMock.AllCalled).Should(BeTrue())
 }
