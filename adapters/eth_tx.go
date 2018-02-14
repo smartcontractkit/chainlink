@@ -11,9 +11,9 @@ import (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	Address    common.Address    `json:"address"`
+	Address          common.Address          `json:"address"`
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
-	DataPrefix hexutil.Bytes     `json:"dataPrefix"`
+	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
 }
 
 // Perform creates the run result for the transaction if the existing run result

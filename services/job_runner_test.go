@@ -12,7 +12,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestRunningJob(t *testing.T) {
+func TestJobRunner_ExecuteRun(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
@@ -67,7 +67,7 @@ func TestRunningJob(t *testing.T) {
 	}
 }
 
-func TestJobTransitionToPending(t *testing.T) {
+func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -82,7 +82,7 @@ func TestJobTransitionToPending(t *testing.T) {
 	assert.Equal(t, models.StatusPending, run.Status)
 }
 
-func TestJobRunnerBeginRun(t *testing.T) {
+func TestJobRunner_BeginRun(t *testing.T) {
 	t.Parallel()
 
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
@@ -128,7 +128,7 @@ func TestJobRunnerBeginRun(t *testing.T) {
 	}
 }
 
-func TestJobRunnerBuildRun(t *testing.T) {
+func TestJobRunner_BuildRun(t *testing.T) {
 	t.Parallel()
 
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")

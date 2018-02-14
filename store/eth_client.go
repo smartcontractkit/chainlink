@@ -56,11 +56,24 @@ func (eth *EthClient) GetBlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-// Subscribe registers a subscription for the given address.
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
-func (eth *EthClient) Subscribe(channel chan<- []types.Log, addresses []common.Address) (*rpc.ClientSubscription, error) {
+// SubscribeToLogs registers a subscription for push notifications of logs
+// from a given address.
+func (eth *EthClient) SubscribeToLogs(
+	channel chan<- []types.Log,
+	addresses []common.Address,
+) (*rpc.ClientSubscription, error) {
+	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	ctx := context.Background()
 	sub, err := eth.EthSubscribe(ctx, channel, "logs", toFilterArg(addresses))
+	return sub, err
+}
+
+// SubscribeToNewHeads registers a subscription for push notifications of new blocks.
+func (eth *EthClient) SubscribeToNewHeads(
+	channel chan<- types.Header,
+) (*rpc.ClientSubscription, error) {
+	ctx := context.Background()
+	sub, err := eth.EthSubscribe(ctx, channel, "newHeads")
 	return sub, err
 }
 

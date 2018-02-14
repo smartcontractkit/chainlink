@@ -9,15 +9,31 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 )
 
-func TestNotificationListenerStart(t *testing.T) {
+func TestNotificationListener_Start_NewHeads(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	nl := services.NotificationListener{Store: store}
+	defer nl.Stop()
+
+	eth.RegisterSubscription("newHeads", make(chan types.Header))
+
+	assert.Nil(t, nl.Start())
+	eth.EnsureAllCalled(t)
+}
+
+func TestNotificationListener_Start_WithJobs(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -34,13 +50,11 @@ func TestNotificationListenerStart(t *testing.T) {
 	err := nl.Start()
 	assert.Nil(t, err)
 
-	assert.True(t, eth.AllCalled())
+	eth.EnsureAllCalled(t)
 }
 
-func TestNotificationListenerAddJob(t *testing.T) {
+func TestNotificationListener_AddJob(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
 
 	initrAddress := cltest.NewEthAddress()
 
@@ -59,12 +73,13 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			RegisterTestingT(t)
+			store, cleanup := cltest.NewStore()
+			defer cleanup()
+			cltest.MockEthOnStore(store)
 
 			nl := services.NotificationListener{Store: store}
 			defer nl.Stop()
-			err := nl.Start()
-			assert.Nil(t, err)
+			assert.Nil(t, nl.Start())
 
 			eth := cltest.MockEthOnStore(store)
 			logChan := make(chan []types.Log, 1)
@@ -88,7 +103,7 @@ func TestNotificationListenerAddJob(t *testing.T) {
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
-			assert.True(t, eth.AllCalled())
+			eth.EnsureAllCalled(t)
 		})
 	}
 }
@@ -99,7 +114,7 @@ func jsonFromFixture(path string) models.JSON {
 	return out
 }
 
-func TestStoreFormatLogJSON(t *testing.T) {
+func TestStore_FormatLogJSON(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON
@@ -130,4 +145,43 @@ func TestStoreFormatLogJSON(t *testing.T) {
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
+}
+
+func TestNotificationListener_newHeadsNotification(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+
+	ethMock := app.MockEthClient()
+	nhChan := make(chan types.Header)
+	ethMock.RegisterSubscription("newHeads", nhChan)
+	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+	sentAt := uint64(23456)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+1))
+
+	app.Start()
+
+	j := models.NewJob()
+	j.Tasks = []models.Task{cltest.NewTask("ethtx", "{}")}
+	assert.Nil(t, store.SaveJob(j))
+
+	tx := cltest.CreateTxAndAttempt(store, cltest.NewEthAddress(), sentAt)
+	txas, err := store.AttemptsFor(tx.ID)
+	assert.Nil(t, err)
+	txa := txas[0]
+
+	jr := j.NewRun()
+	tr := jr.TaskRuns[0]
+	result := models.RunResultWithValue(txa.Hash.String())
+	tr.Result = models.RunResultPending(result)
+	tr.Status = models.StatusPending
+	jr.TaskRuns[0] = tr
+	jr.Status = models.StatusPending
+	assert.Nil(t, store.Save(jr))
+
+	nhChan <- types.Header{}
+
+	ethMock.EnsureAllCalled(t)
 }
