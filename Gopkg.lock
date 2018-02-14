@@ -15,7 +15,14 @@
 
 [[projects]]
   name = "github.com/asdine/storm"
-  packages = [".","codec","codec/json","index","internal","q"]
+  packages = [
+    ".",
+    "codec",
+    "codec/json",
+    "index",
+    "internal",
+    "q"
+  ]
   revision = "dbb6ebff0bde8144b877711894533e16d3b7feda"
   version = "v2.0.0-rc.1"
 
@@ -44,7 +51,26 @@
 
 [[projects]]
   name = "github.com/ethereum/go-ethereum"
-  packages = [".","accounts","accounts/keystore","common","common/hexutil","common/math","common/mclock","core/types","crypto","crypto/randentropy","crypto/secp256k1","crypto/sha3","event","log","params","rlp","rpc","trie"]
+  packages = [
+    ".",
+    "accounts",
+    "accounts/keystore",
+    "common",
+    "common/hexutil",
+    "common/math",
+    "common/mclock",
+    "core/types",
+    "crypto",
+    "crypto/randentropy",
+    "crypto/secp256k1",
+    "crypto/sha3",
+    "event",
+    "log",
+    "params",
+    "rlp",
+    "rpc",
+    "trie"
+  ]
   revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
   version = "v1.7.3"
 
@@ -57,7 +83,12 @@
 [[projects]]
   branch = "master"
   name = "github.com/gin-gonic/gin"
-  packages = [".","binding","json","render"]
+  packages = [
+    ".",
+    "binding",
+    "json",
+    "render"
+  ]
   revision = "eeb57848cac06c360a3c262837394051018b8f66"
 
 [[projects]]
@@ -122,9 +153,22 @@
 
 [[projects]]
   name = "github.com/onsi/gomega"
-  packages = [".","format","internal/assertion","internal/asyncassertion","internal/oraclematcher","internal/testingtsupport","matchers","matchers/support/goraph/bipartitegraph","matchers/support/goraph/edge","matchers/support/goraph/node","matchers/support/goraph/util","types"]
-  revision = "c893efa28eb45626cdaa76c9f653b62488858837"
-  version = "v1.2.0"
+  packages = [
+    ".",
+    "format",
+    "internal/assertion",
+    "internal/asyncassertion",
+    "internal/oraclematcher",
+    "internal/testingtsupport",
+    "matchers",
+    "matchers/support/goraph/bipartitegraph",
+    "matchers/support/goraph/edge",
+    "matchers/support/goraph/node",
+    "matchers/support/goraph/util",
+    "types"
+  ]
+  revision = "003f63b7f4cff3fc95357005358af2de0f5fe152"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/pborman/uuid"
@@ -211,32 +255,70 @@
 
 [[projects]]
   name = "go.uber.org/zap"
-  packages = [".","buffer","internal/bufferpool","internal/color","internal/exit","zapcore","zaptest/observer"]
+  packages = [
+    ".",
+    "buffer",
+    "internal/bufferpool",
+    "internal/color",
+    "internal/exit",
+    "zapcore",
+    "zaptest/observer"
+  ]
   revision = "35aad584952c3e7020db7b839f6b102de6271f89"
   version = "v1.7.1"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["pbkdf2","scrypt","ssh/terminal"]
+  packages = [
+    "pbkdf2",
+    "scrypt",
+    "ssh/terminal"
+  ]
   revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["html","html/atom","html/charset","websocket"]
+  packages = [
+    "html",
+    "html/atom",
+    "html/charset",
+    "websocket"
+  ]
   revision = "a8b9294777976932365dabb6640cf1468d95c70f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "a13efeb2fd213cf4be7227992aa54519af3b2ac0"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["encoding","encoding/charmap","encoding/htmlindex","encoding/internal","encoding/internal/identifier","encoding/japanese","encoding/korean","encoding/simplifiedchinese","encoding/traditionalchinese","encoding/unicode","internal/gen","internal/tag","internal/utf8internal","language","runes","transform","unicode/cldr"]
+  packages = [
+    "encoding",
+    "encoding/charmap",
+    "encoding/htmlindex",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "encoding/korean",
+    "encoding/simplifiedchinese",
+    "encoding/traditionalchinese",
+    "encoding/unicode",
+    "internal/gen",
+    "internal/tag",
+    "internal/utf8internal",
+    "language",
+    "runes",
+    "transform",
+    "unicode/cldr"
+  ]
   revision = "572a2b141f625f4360cf42a41a43622067e0510b"
 
 [[projects]]
