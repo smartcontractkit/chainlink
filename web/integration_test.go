@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateJobSchedulerIntegration(t *testing.T) {
+func TestIntegration_Scheduler(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 
@@ -40,8 +41,7 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
-func TestCreateJobIntegration(t *testing.T) {
-	RegisterTestingT(t)
+func TestIntegration_EthPubSub(t *testing.T) {
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
 
@@ -50,8 +50,6 @@ func TestCreateJobIntegration(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
-	app.Start()
-	defer cleanup()
 
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	gock.New("https://www.bitstamp.net").
@@ -59,23 +57,47 @@ func TestCreateJobIntegration(t *testing.T) {
 		Reply(200).
 		JSON(tickerResponse)
 
+	newHeads := make(chan types.Header, 10)
+	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
-	confirmed := sentAt + 1
+	confirmed := sentAt + 10
 	safe := confirmed + config.EthMinConfirmations
+
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", hash)
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+
+	app.Start()
+	defer cleanup()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app,
+		"../internal/fixtures/web/hello_world_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	cltest.WaitForJobRunToPend(t, app, jr)
+
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	newHeads <- types.Header{Number: big.NewInt(int64(confirmed - 1))}
+
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 		Hash:        hash,
 		BlockNumber: confirmed,
 	})
+	newHeads <- types.Header{Number: big.NewInt(int64(confirmed))}
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+		Hash:        hash,
+		BlockNumber: confirmed,
+	})
+	newHeads <- types.Header{Number: big.NewInt(int64(safe))}
+
 	cltest.WaitForJobRunToComplete(t, app, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()
@@ -91,10 +113,10 @@ func TestCreateJobIntegration(t *testing.T) {
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
 
-	assert.True(t, eth.AllCalled())
+	eth.EnsureAllCalled(t)
 }
 
-func TestCreateJobWithRunAtIntegration(t *testing.T) {
+func TestIntegration_RunAt(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -116,7 +138,7 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithEthLogIntegration(t *testing.T) {
+func TestIntegration_EthLog(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -145,7 +167,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithRunLogIntegration(t *testing.T) {
+func TestIntegration_RunLog(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -181,7 +203,7 @@ func TestCreateJobWithRunLogIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithEndAtIntegration(t *testing.T) {
+func TestIntegration_EndAt(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
@@ -208,7 +230,7 @@ func TestCreateJobWithEndAtIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithStartAtIntegration(t *testing.T) {
+func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
@@ -235,7 +257,7 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 	cltest.CreateJobRunViaWeb(t, app, j)
 }
 
-func TestCreateJobExternalAdapterIntegration(t *testing.T) {
+func TestIntegration_ExternalAdapter(t *testing.T) {
 	RegisterTestingT(t)
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
@@ -268,7 +290,7 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
-func TestWeiWatchersJobIntegration(t *testing.T) {
+func TestIntegration_WeiWatchers(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()

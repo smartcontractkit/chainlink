@@ -26,31 +26,37 @@ const (
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
 type NotificationListener struct {
-	Store            *store.Store
-	subscriptions    []*rpc.ClientSubscription
-	logNotifications chan []types.Log
-	errors           chan error
-	mutex            sync.Mutex
+	Store             *store.Store
+	subscriptions     []*rpc.ClientSubscription
+	logNotifications  chan []types.Log
+	headNotifications chan types.Header
+	errors            chan error
+	mutex             sync.Mutex
 }
 
 // Start obtains the jobs from the store and begins execution
 // of the jobs' given runs.
 func (nl *NotificationListener) Start() error {
+	nl.errors = make(chan error)
+	nl.logNotifications = make(chan []types.Log)
+	nl.headNotifications = make(chan types.Header)
+
+	if err := nl.subscribeToNewHeads(); err != nil {
+		return err
+	}
+
 	jobs, err := nl.Store.Jobs()
 	if err != nil {
 		return err
 	}
-
-	nl.errors = make(chan error)
-	nl.logNotifications = make(chan []types.Log)
-	var merr error
-	for _, j := range jobs {
-		merr = multierr.Append(merr, nl.AddJob(&j))
+	if err := nl.subscribeToInitiators(jobs); err != nil {
+		return err
 	}
 
 	go nl.listenToSubscriptionErrors()
+	go nl.listenToNewHeads()
 	go nl.listenToLogs()
-	return err
+	return nil
 }
 
 // Stop gracefully closes its access to the store's EthNotifications.
@@ -76,11 +82,43 @@ func (nl *NotificationListener) AddJob(job *models.Job) error {
 		return nil
 	}
 
-	sub, err := nl.Store.TxManager.Subscribe(nl.logNotifications, addresses)
-	if err == nil {
-		nl.addSubscription(sub)
+	sub, err := nl.Store.TxManager.SubscribeToLogs(nl.logNotifications, addresses)
+	if err != nil {
+		return err
+	}
+	nl.addSubscription(sub)
+	return nil
+}
+
+func (nl *NotificationListener) subscribeToNewHeads() error {
+	sub, err := nl.Store.TxManager.SubscribeToNewHeads(nl.headNotifications)
+	if err != nil {
+		return err
+	}
+	nl.addSubscription(sub)
+	return nil
+}
+
+func (nl *NotificationListener) subscribeToInitiators(jobs []models.Job) error {
+	var err error
+	for _, j := range jobs {
+		err = multierr.Append(err, nl.AddJob(&j))
 	}
 	return err
+}
+
+func (nl *NotificationListener) listenToNewHeads() {
+	for range nl.headNotifications {
+		pendingRuns, err := nl.Store.PendingJobRuns()
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		for _, jr := range pendingRuns {
+			if err := ExecuteRun(&jr, nl.Store, models.JSON{}); err != nil {
+				logger.Error(err.Error())
+			}
+		}
+	}
 }
 
 func (nl *NotificationListener) addSubscription(sub *rpc.ClientSubscription) {

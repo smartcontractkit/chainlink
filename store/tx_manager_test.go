@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTxManagerCreateTx(t *testing.T) {
+func TestTxManager_CreateTx(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -44,11 +44,12 @@ func TestTxManagerCreateTx(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestTxManagerEnsureTxConfirmedBeforeThreshold(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -75,10 +76,10 @@ func TestTxManagerEnsureTxConfirmedBeforeThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestTxManagerEnsureTxConfirmedAtThreshold(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -107,11 +108,12 @@ func TestTxManagerEnsureTxConfirmedAtThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestTxManagerEnsureTxConfirmedWhenSafe(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -139,11 +141,12 @@ func TestTxManagerEnsureTxConfirmedWhenSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestTxManagerEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
+func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -171,5 +174,5 @@ func TestTxManagerEnsureTxConfirmedWhenWithConfsButNotSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }

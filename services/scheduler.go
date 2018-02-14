@@ -103,7 +103,6 @@ func NewRecurring(store *store.Store) *Recurring {
 // based on the configured schedule for the run.
 func (r *Recurring) Start() error {
 	r.Cron = newChainlinkCron()
-	r.addResumer()
 	r.Cron.Start()
 	return nil
 }
@@ -127,20 +126,6 @@ func (r *Recurring) AddJob(job *models.Job) {
 			})
 		}
 	}
-}
-
-func (r *Recurring) addResumer() {
-	r.Cron.AddFunc(r.store.Config.PollingSchedule, func() {
-		pendingRuns, err := r.store.PendingJobRuns()
-		if err != nil {
-			logger.Error(err.Error())
-		}
-		for _, jr := range pendingRuns {
-			if err := ExecuteRun(&jr, r.store, models.JSON{}); err != nil {
-				logger.Error(err.Error())
-			}
-		}
-	})
 }
 
 // OneTime represents runs that are to be executed only once.

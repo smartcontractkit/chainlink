@@ -14,6 +14,7 @@ import (
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
@@ -31,20 +32,16 @@ func MockEthOnStore(s *store.Store) *EthMock {
 }
 
 func NewMockGethRpc() *EthMock {
-	return &EthMock{}
+	return &EthMock{
+		NewHeadsChannel: make(chan ethtypes.Header),
+	}
 }
 
 type EthMock struct {
-	Responses     []MockResponse
-	Subscriptions []MockSubscription
-}
-
-type MockResponse struct {
-	methodName string
-	response   interface{}
-	errMsg     string
-	hasError   bool
-	callback   func(interface{}, ...interface{}) error
+	Responses       []MockResponse
+	Subscriptions   []MockSubscription
+	NewHeadsChannel chan ethtypes.Header
+	newHeadsCalled  bool
 }
 
 func (mock *EthMock) Register(
@@ -75,6 +72,12 @@ func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
+func (mock *EthMock) EnsureAllCalled(t *testing.T) {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
+}
+
 func (mock *EthMock) Call(result interface{}, method string, args ...interface{}) error {
 	for i, resp := range mock.Responses {
 		if resp.methodName == method {
@@ -96,11 +99,6 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 	return fmt.Errorf("EthMock: Method %v not registered", method)
 }
 
-type MockSubscription struct {
-	name    string
-	channel interface{}
-}
-
 func (mock *EthMock) RegisterSubscription(name string, channel interface{}) {
 	res := MockSubscription{
 		name:    name,
@@ -117,17 +115,57 @@ func (mock *EthMock) EthSubscribe(
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
-			mockChan := sub.channel.(chan []ethtypes.Log)
-			logChan := channel.(chan<- []ethtypes.Log)
-			go func() {
-				for e := range mockChan {
-					logChan <- e
-				}
-			}()
+			switch channel.(type) {
+			case chan<- []ethtypes.Log:
+				fwdLogs(channel, sub.channel)
+			case chan<- ethtypes.Header:
+				fwdHeaders(channel, sub.channel)
+			default:
+				return nil, errors.New("Channel type not supported by ethMock")
+			}
 			return &rpc.ClientSubscription{}, nil
 		}
 	}
+	if args[0] == "newHeads" && !mock.newHeadsCalled {
+		mock.newHeadsCalled = true
+		return &rpc.ClientSubscription{}, nil
+	} else if args[0] == "newHeads" {
+		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed.")
+	}
 	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
+}
+
+func fwdLogs(actual, mock interface{}) {
+	logChan := actual.(chan<- []ethtypes.Log)
+	mockChan := mock.(chan []ethtypes.Log)
+	go func() {
+		for e := range mockChan {
+			logChan <- e
+		}
+	}()
+}
+
+func fwdHeaders(actual, mock interface{}) {
+	logChan := actual.(chan<- ethtypes.Header)
+	mockChan := mock.(chan ethtypes.Header)
+	go func() {
+		for e := range mockChan {
+			logChan <- e
+		}
+	}()
+}
+
+type MockSubscription struct {
+	name    string
+	channel interface{}
+}
+
+type MockResponse struct {
+	methodName string
+	response   interface{}
+	errMsg     string
+	hasError   bool
+	callback   func(interface{}, ...interface{}) error
 }
 
 func (ta *TestApplication) InstantClock() InstantClock {

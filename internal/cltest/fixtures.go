@@ -23,6 +23,17 @@ func NewJob() *models.Job {
 	return j
 }
 
+func NewTask(taskType, json string) models.Task {
+	params := JSONFromString(json)
+	params, err := params.Add("type", taskType)
+	mustNotErr(err)
+
+	return models.Task{
+		Type:   taskType,
+		Params: params,
+	}
+}
+
 func NewJobWithSchedule(sched string) *models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}

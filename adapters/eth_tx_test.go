@@ -13,8 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEthTxAdapterConfirmed(t *testing.T) {
+func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -63,11 +64,12 @@ func TestEthTxAdapterConfirmed(t *testing.T) {
 	attempts, _ := store.AttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestEthTxAdapterFromPending(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -95,11 +97,12 @@ func TestEthTxAdapterFromPending(t *testing.T) {
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 1, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -128,11 +131,12 @@ func TestEthTxAdapterFromPendingBumpGas(t *testing.T) {
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 2, len(attempts))
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	store := app.Store
@@ -171,17 +175,18 @@ func TestEthTxAdapterFromPendingConfirm(t *testing.T) {
 	assert.True(t, attempts[1].Confirmed)
 	assert.False(t, attempts[2].Confirmed)
 
-	assert.True(t, ethMock.AllCalled())
+	ethMock.EnsureAllCalled(t)
 }
 
-func TestEthTxAdapterWithError(t *testing.T) {
+func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 
 	store := app.Store
-	eth := app.MockEthClient()
-	eth.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
+	ethMock := app.MockEthClient()
+	ethMock.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewEthAddress(),
