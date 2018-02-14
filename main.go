@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	client := newProductionClient()
+	Run(NewProductionClient(), os.Args...)
+}
+
+func Run(client *cmd.Client, args ...string) {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = "0.2.0"
@@ -55,15 +58,15 @@ func main() {
 			Action:  client.ShowJob,
 		},
 	}
-	app.Run(os.Args)
+	app.Run(args)
 }
 
-func newProductionClient() *cmd.Client {
+func NewProductionClient() *cmd.Client {
 	return &cmd.Client{
 		cmd.RendererTable{os.Stdout},
 		store.NewConfig(),
 		cmd.ChainlinkAppFactory{},
 		cmd.TerminalAuthenticator{cmd.PasswordPrompter{}, os.Exit},
-		cmd.NodeRunner{},
+		cmd.ChainlinkRunner{},
 	}
 }

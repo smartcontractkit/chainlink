@@ -117,12 +117,12 @@ type Runner interface {
 	Run(services.Application) error
 }
 
-// NodeRunner is used to run the node application.
-type NodeRunner struct{}
+// ChainlinkRunner is used to run the node application.
+type ChainlinkRunner struct{}
 
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
-func (n NodeRunner) Run(app services.Application) error {
+func (n ChainlinkRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
 	port := app.GetStore().Config.Port
 	return web.Router(app.(*services.ChainlinkApplication)).Run(":" + port)
