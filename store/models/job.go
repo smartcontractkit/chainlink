@@ -120,10 +120,10 @@ const (
 
 var initiatorWhitelist = map[string]bool{
 	InitiatorRunLog: true,
-	InitiatorCron:         true,
-	InitiatorEthLog:       true,
-	InitiatorRunAt:        true,
-	InitiatorWeb:          true,
+	InitiatorCron:   true,
+	InitiatorEthLog: true,
+	InitiatorRunAt:  true,
+	InitiatorWeb:    true,
 }
 
 // Initiator could be though of as a trigger, define how a Job can be
