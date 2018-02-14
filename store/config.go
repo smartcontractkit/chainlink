@@ -24,7 +24,6 @@ type Config struct {
 	BasicAuthPassword   string   `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL         string   `env:"ETH_URL" envDefault:"ws://localhost:8546"`
 	ChainID             uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
-	PollingSchedule     string   `env:"POLLING_SCHEDULE" envDefault:"*/15 * * * * *"`
 	ClientNodeURL       string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
 	EthMinConfirmations uint64   `env:"ETH_MIN_CONFIRMATIONS" envDefault:"12"`
 	EthGasBumpThreshold uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
