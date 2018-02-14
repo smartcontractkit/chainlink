@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -46,4 +47,24 @@ func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 			assert.Equal(t, test.keys, keys)
 		})
 	}
+}
+
+func TestPresenterShowEthBalance_NoAccount(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code should have panicked")
+		}
+	}()
+	defer cleanup()
+	presenters.ShowEthBalance(store)
+}
+
+func TestPresenterShowEthBalance_WithEmptyAccount(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	_, err := presenters.ShowEthBalance(app.Store)
+	assert.NotNil(t, err)
 }

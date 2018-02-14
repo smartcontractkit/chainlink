@@ -145,7 +145,7 @@ func newServer(app *services.ChainlinkApplication) *httptest.Server {
 	return httptest.NewServer(web.Router(app))
 }
 
-func (ta *TestApplication) Stop() {
+func (ta *TestApplication) Stop() error {
 	ta.ChainlinkApplication.Stop()
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
@@ -154,6 +154,7 @@ func (ta *TestApplication) Stop() {
 	if ta.wsServer != nil {
 		ta.wsServer.Close()
 	}
+	return nil
 }
 
 func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
