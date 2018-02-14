@@ -73,7 +73,6 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			EthGasBumpWei:       *big.NewInt(5000000000),
 			EthGasBumpThreshold: 3,
 			EthGasPriceDefault:  *big.NewInt(20000000000),
-			PollingSchedule:     "* * * * * *",
 		},
 	}
 	config.SetEthereumServer(wsserver)
