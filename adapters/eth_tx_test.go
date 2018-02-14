@@ -28,7 +28,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
 	inputValue := "0x9786856756"
 
-	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
+	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	hash := cltest.NewTxHash()
 	sentAt := uint64(23456)
@@ -78,7 +78,7 @@ func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
-	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
+	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold-1))
@@ -112,7 +112,7 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
-	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
+	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
@@ -149,7 +149,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 
 	sentAt := uint64(23456)
 
-	ethMock := app.MockEthClient().ClearSubscriptionExpectations()
+	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
 		Hash:        cltest.NewTxHash(),
