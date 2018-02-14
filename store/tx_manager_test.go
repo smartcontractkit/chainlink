@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"testing"
 
-	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -45,12 +44,11 @@ func TestTxManager_CreateTx(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	Eventually(ethMock.AllCalled).Should(BeTrue())
+	ethMock.EnsureAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -78,7 +76,7 @@ func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	Eventually(ethMock.AllCalled).Should(BeTrue())
+	ethMock.EnsureAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
@@ -110,12 +108,11 @@ func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(attempts))
 
-	Eventually(ethMock.AllCalled).Should(BeTrue())
+	ethMock.EnsureAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -144,12 +141,11 @@ func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	Eventually(ethMock.AllCalled).Should(BeTrue())
+	ethMock.EnsureAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -178,5 +174,5 @@ func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	Eventually(ethMock.AllCalled).Should(BeTrue())
+	ethMock.EnsureAllCalled(t)
 }
