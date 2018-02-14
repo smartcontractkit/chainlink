@@ -3,9 +3,10 @@ package utils_test
 import (
 	"testing"
 
+	"math/big"
+
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
-	"math/big"
 )
 
 func TestNewBytes32ID(t *testing.T) {
