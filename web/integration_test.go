@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -50,8 +51,6 @@ func TestCreateJobIntegration(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
-	app.Start()
-	defer cleanup()
 
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	gock.New("https://www.bitstamp.net").
@@ -59,23 +58,49 @@ func TestCreateJobIntegration(t *testing.T) {
 		Reply(200).
 		JSON(tickerResponse)
 
+	newHeads := make(chan types.Header, 10)
+	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
-	confirmed := sentAt + 1
+	confirmed := sentAt + 10
 	safe := confirmed + config.EthMinConfirmations
+
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", hash)
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+
+	app.Start()
+	defer cleanup()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app,
+		"../internal/fixtures/web/hello_world_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	cltest.WaitForJobRunToPend(t, app, jr)
+	Eventually(eth.AllCalled).Should(BeTrue())
+
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	newHeads <- types.Header{Number: big.NewInt(int64(confirmed - 1))}
+
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 		Hash:        hash,
 		BlockNumber: confirmed,
 	})
+	newHeads <- types.Header{Number: big.NewInt(int64(confirmed))}
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+		Hash:        hash,
+		BlockNumber: confirmed,
+	})
+	newHeads <- types.Header{Number: big.NewInt(int64(safe))}
+
+	Eventually(eth.AllCalled).Should(BeTrue())
 	cltest.WaitForJobRunToComplete(t, app, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()

@@ -120,12 +120,16 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	server := newServer(app)
 	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
+	ethMock := MockEthOnStore(app.Store)
 	ta := &TestApplication{
 		ChainlinkApplication: app,
 		Server:               server,
 		wsServer:             tc.wsServer,
 	}
 	return ta, func() {
+		if !ethMock.AllCalled() {
+			panic("mock expectations set and not used on default TestApplication ethMock!!!")
+		}
 		ta.Stop()
 	}
 }
@@ -332,10 +336,27 @@ func WaitForJobRunToComplete(
 	app *TestApplication,
 	jr *models.JobRun,
 ) *models.JobRun {
+	return waitForJobRunInStatus(t, app, jr, models.StatusCompleted)
+}
+
+func WaitForJobRunToPend(
+	t *testing.T,
+	app *TestApplication,
+	jr *models.JobRun,
+) *models.JobRun {
+	return waitForJobRunInStatus(t, app, jr, models.StatusPending)
+}
+
+func waitForJobRunInStatus(
+	t *testing.T,
+	app *TestApplication,
+	jr *models.JobRun,
+	status string,
+) *models.JobRun {
 	Eventually(func() string {
 		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
 		return jr.Status
-	}).Should(Equal(models.StatusCompleted))
+	}).Should(Equal(status))
 	return jr
 }
 
