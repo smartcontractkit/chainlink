@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateJobSchedulerIntegration(t *testing.T) {
+func TestIntegration_Scheduler(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 
@@ -41,7 +41,7 @@ func TestCreateJobSchedulerIntegration(t *testing.T) {
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
-func TestCreateJobIntegration(t *testing.T) {
+func TestIntegration_EthPubSub(t *testing.T) {
 	RegisterTestingT(t)
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
@@ -119,7 +119,7 @@ func TestCreateJobIntegration(t *testing.T) {
 	Eventually(eth.AllCalled).Should(BeTrue())
 }
 
-func TestCreateJobWithRunAtIntegration(t *testing.T) {
+func TestIntegration_RunAt(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -141,7 +141,7 @@ func TestCreateJobWithRunAtIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithEthLogIntegration(t *testing.T) {
+func TestIntegration_EthLog(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -170,7 +170,7 @@ func TestCreateJobWithEthLogIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithRunLogIntegration(t *testing.T) {
+func TestIntegration_RunLog(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
@@ -206,7 +206,7 @@ func TestCreateJobWithRunLogIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithEndAtIntegration(t *testing.T) {
+func TestIntegration_EndAt(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
@@ -233,7 +233,7 @@ func TestCreateJobWithEndAtIntegration(t *testing.T) {
 	}).Should(HaveLen(1))
 }
 
-func TestCreateJobWithStartAtIntegration(t *testing.T) {
+func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 	RegisterTestingT(t)
 
@@ -260,7 +260,7 @@ func TestCreateJobWithStartAtIntegration(t *testing.T) {
 	cltest.CreateJobRunViaWeb(t, app, j)
 }
 
-func TestCreateJobExternalAdapterIntegration(t *testing.T) {
+func TestIntegration_ExternalAdapter(t *testing.T) {
 	RegisterTestingT(t)
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
@@ -293,7 +293,7 @@ func TestCreateJobExternalAdapterIntegration(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
-func TestWeiWatchersJobIntegration(t *testing.T) {
+func TestIntegration_WeiWatchers(t *testing.T) {
 	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
