@@ -59,3 +59,24 @@ func TestEthClient_SendRawTx(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, result, common.Hash{1})
 }
+
+func TestEthGetBalance(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethClientObject := app.Store.TxManager.EthClient
+
+	ethMock.Register("eth_getBalance", "0x0100") // 256
+	result, err := ethClientObject.GetEthBalance(utils.ZeroAddress)
+	assert.Nil(t, err)
+	expected := 256e-18
+	assert.Nil(t, err)
+	assert.Equal(t, expected, result)
+
+	ethMock.Register("eth_getBalance", "0x4b3b4ca85a86c4000000000000000000") // 1e38
+	result, err = ethClientObject.GetEthBalance(utils.ZeroAddress)
+	expected = 1e20
+	assert.Nil(t, err)
+	assert.Equal(t, expected, result)
+}

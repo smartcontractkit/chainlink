@@ -51,7 +51,8 @@ func (ks *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transa
 	)
 }
 
-// GetAccount returns the unlocked account in the KeyStore object.
+// GetAccount returns the unlocked account in the KeyStore object. The client
+// ensures that an account exists during authentication.
 func (ks *KeyStore) GetAccount() accounts.Account {
 	return ks.Accounts()[0]
 }

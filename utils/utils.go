@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -21,7 +23,10 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-const HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
+const (
+	HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
+	weiPerEth         = 1e18
+)
 
 // ZeroAddress is an empty address, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
@@ -132,4 +137,22 @@ func DecodeEthereumTx(hex string) (types.Transaction, error) {
 		return tx, err
 	}
 	return tx, rlp.DecodeBytes(b, &tx)
+}
+
+func WeiToEth(numWei *big.Int) float64 {
+	numWeiBigFloat := new(big.Float).SetInt(numWei)
+	weiPerEthBigFloat := new(big.Float).SetFloat64(weiPerEth)
+	numEthBigFloat := new(big.Float)
+	numEthBigFloat.Quo(numWeiBigFloat, weiPerEthBigFloat)
+	numEthFloat64, _ := numEthBigFloat.Float64()
+	return numEthFloat64
+}
+
+func EthToWei(numEth float64) *big.Int {
+	numEthBigFloat := new(big.Float).SetFloat64(numEth)
+	weiPerEthBigFloat := new(big.Float).SetFloat64(weiPerEth)
+	numWeiBigFloat := new(big.Float)
+	numWeiBigFloat.Mul(weiPerEthBigFloat, numEthBigFloat)
+	numWeiBigInt, _ := numWeiBigFloat.Int(nil)
+	return numWeiBigInt
 }
