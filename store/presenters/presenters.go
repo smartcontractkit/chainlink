@@ -1,18 +1,37 @@
 // Package presenters allow for the specification and result
 // of a Job, its associated Tasks, and every JobRun and TaskRun
-// to be returned in a consistent manner, typically as a string.
+// to be returned in a user friendly human readable format.
 package presenters
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 )
+
+func ShowEthBalance(store *store.Store) (string, error) {
+	if !store.KeyStore.HasAccounts() {
+		logger.Panic("KeyStore must have an account in order to show balance")
+	}
+	address := store.KeyStore.GetAccount().Address
+	balance, err := store.TxManager.GetEthBalance(address)
+	if err != nil {
+		return "", err
+	}
+	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
+	if balance == 0 {
+		return result, errors.New("Zero Balance. Chainlink node not fully functional, please deposit ether into the address: " + address.Hex())
+	}
+	return result, nil
+}
 
 // Job holds the Job definition and each run associated with that Job.
 type Job struct {

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,12 +31,4 @@ func TestUnlockKey(t *testing.T) {
 
 	assert.NotNil(t, store.KeyStore.Unlock("wrong phrase"))
 	assert.Nil(t, store.KeyStore.Unlock(passphrase))
-}
-
-func TestShowEthBalance(t *testing.T) {
-	t.Parallel()
-	cl_store, cleanup := cltest.NewStore()
-	defer cleanup()
-	ans := cl_store.KeyStore.ShowEthBalance(cl_store.TxManager)
-	assert.Equal(t, ans, store.MissingWalletString)
 }

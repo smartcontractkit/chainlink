@@ -40,11 +40,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	defer app.Stop()
-	if c.Bool("debug") {
-		displayString := store.KeyStore.ShowEthBalance(store.TxManager)
-		logger.Infow(displayString)
-	}
+	logEthBalance(store)
 	return cli.errorOut(cli.Runner.Run(app))
+}
+
+func logEthBalance(store *store.Store) {
+	balance, err := presenters.ShowEthBalance(store)
+	logger.WarnIf(err)
+	logger.Infow(balance)
 }
 
 // ShowJob returns the status of the given JobID to the console.

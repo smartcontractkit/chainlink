@@ -90,6 +90,13 @@ func Error(args ...interface{}) {
 	logger.Error(args)
 }
 
+//WarnIf logs the error if present.
+func WarnIf(err error) {
+	if err != nil {
+		logger.Warn(err)
+	}
+}
+
 // Fatal logs a fatal message then exits the application.
 func Fatal(args ...interface{}) {
 	logger.Fatal(args)

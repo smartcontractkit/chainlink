@@ -194,6 +194,14 @@ func (rm *RendererMock) Render(v interface{}) error {
 	return nil
 }
 
+type InstanceAppFactory struct {
+	App services.Application
+}
+
+func (f InstanceAppFactory) NewApplication(config store.Config) services.Application {
+	return f.App
+}
+
 type EmptyAppFactory struct{}
 
 func (f EmptyAppFactory) NewApplication(config store.Config) services.Application {
