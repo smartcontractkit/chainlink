@@ -168,7 +168,7 @@ func TestIntegration_RunLog(t *testing.T) {
 		Reply(200).
 		JSON(`{}`)
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/chainlink_log_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_random_number_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 
 	var initr models.Initiator
