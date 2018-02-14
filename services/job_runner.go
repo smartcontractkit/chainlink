@@ -86,7 +86,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store, input models.JSON) error
 		run.Status = models.StatusCompleted
 	}
 
-	logger.Infow("Finished job", run.ForLogger()...)
+	logger.Infow("Finished current job run execution", run.ForLogger()...)
 	return wrapError(run, store.Save(run))
 }
 
