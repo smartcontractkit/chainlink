@@ -11,6 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestRendererJSONRenderJobs(t *testing.T) {
+	r := cmd.RendererJSON{ioutil.Discard}
+	job := cltest.NewJob()
+	jobs := []models.Job{*job}
+	assert.Nil(t, r.Render(&jobs))
+}
+
 func TestRendererTableRenderJobs(t *testing.T) {
 	r := cmd.RendererTable{ioutil.Discard}
 	job := cltest.NewJob()
@@ -20,8 +27,14 @@ func TestRendererTableRenderJobs(t *testing.T) {
 
 func TestRendererTableRenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{ioutil.Discard}
-	job := cltest.NewJob()
+	job := cltest.NewJobWithWebInitiator()
 	run := job.NewRun()
 	p := presenters.Job{*job, []models.JobRun{*run}}
 	assert.Nil(t, r.Render(&p))
+}
+
+func TestRendererTableRenderUnknown(t *testing.T) {
+	r := cmd.RendererTable{ioutil.Discard}
+	anon := struct{ Name string }{"Romeo"}
+	assert.NotNil(t, r.Render(&anon))
 }
