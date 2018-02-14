@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateBridgeType(t *testing.T) {
+func TestBridgeTypesController_Create(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -27,4 +27,32 @@ func TestCreateBridgeType(t *testing.T) {
 	assert.Nil(t, app.Store.One("Name", btName, bt))
 	assert.Equal(t, "randomnumber", bt.Name)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
+}
+
+func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/bridge_types",
+		"application/json",
+		bytes.NewBufferString("}"),
+	)
+	cltest.CheckStatusCode(t, resp, 500)
+}
+
+func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/bridge_types",
+		"application/json",
+		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
+	)
+	cltest.CheckStatusCode(t, resp, 500)
 }
