@@ -32,12 +32,6 @@ func (rj RendererJSON) Render(v interface{}) error {
 	return nil
 }
 
-// RendererNoOp is used to render nil.
-type RendererNoOp struct{}
-
-// Render only returns nil.
-func (rj RendererNoOp) Render(v interface{}) error { return nil }
-
 // RendererTable is used for data to be rendered as a table.
 type RendererTable struct {
 	io.Writer
