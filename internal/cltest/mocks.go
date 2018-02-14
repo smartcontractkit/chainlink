@@ -130,7 +130,7 @@ func (mock *EthMock) EthSubscribe(
 		mock.newHeadsCalled = true
 		return &rpc.ClientSubscription{}, nil
 	} else if args[0] == "newHeads" {
-		return nil, errors.New("newHeads only expected once, please register a mock subscription if needed more")
+		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed.")
 	}
 	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
 }
