@@ -14,12 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	uuid "github.com/satori/go.uuid"
-	"math/big"
 )
 
 const (

@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
-	"math/big"
 )
 
 // EthClient holds the CallerSubscriber interface for the Ethereum blockchain.
