@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/h2non/gock"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -20,7 +20,6 @@ import (
 )
 
 func TestIntegration_Scheduler(t *testing.T) {
-	RegisterTestingT(t)
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -29,11 +28,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/scheduler_job.json")
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(cltest.HaveLenAtLeast(1))
+	cltest.WaitForRuns(t, j, app.Store, 1)
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -117,7 +112,6 @@ func TestIntegration_EthPubSub(t *testing.T) {
 }
 
 func TestIntegration_RunAt(t *testing.T) {
-	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -131,15 +125,11 @@ func TestIntegration_RunAt(t *testing.T) {
 	assert.Equal(t, "2018-01-08T18:12:01Z", initr.Time.ISO8601())
 
 	app.Start()
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+
+	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
 func TestIntegration_EthLog(t *testing.T) {
-	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -160,15 +150,10 @@ func TestIntegration_EthLog(t *testing.T) {
 	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	logs <- []types.Log{en}
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -196,16 +181,11 @@ func TestIntegration_RunLog(t *testing.T) {
 	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	logs <- []types.Log{en}
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
 func TestIntegration_EndAt(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -223,16 +203,15 @@ func TestIntegration_EndAt(t *testing.T) {
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
-	jobRuns := []models.JobRun{}
-	Consistently(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
+	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
+		jobRuns, err := app.Store.JobRunsFor(j)
+		assert.Nil(t, err)
 		return jobRuns
-	}).Should(HaveLen(1))
+	}).Should(gomega.HaveLen(1))
 }
 
 func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -246,11 +225,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
-	jobRuns := []models.JobRun{}
-	Consistently(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(0))
+	cltest.WaitForRuns(t, j, app.Store, 0)
 
 	clock.SetTime(startAt)
 
@@ -258,7 +233,6 @@ func TestIntegration_StartAt(t *testing.T) {
 }
 
 func TestIntegration_ExternalAdapter(t *testing.T) {
-	RegisterTestingT(t)
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
 
@@ -291,7 +265,6 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 }
 
 func TestIntegration_WeiWatchers(t *testing.T) {
-	RegisterTestingT(t)
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -321,10 +294,6 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	logs <- []types.Log{en}
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		app.Store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(1))
+	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
 	cltest.WaitForJobRunToComplete(t, app, &jobRuns[0])
 }
