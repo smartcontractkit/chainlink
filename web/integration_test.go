@@ -36,7 +36,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
-func TestIntegration_EthPubSub(t *testing.T) {
+func TestIntegration_HelloWorld(t *testing.T) {
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
 
@@ -168,15 +168,14 @@ func TestIntegration_RunLog(t *testing.T) {
 		Reply(200).
 		JSON(`{}`)
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/chainlink_log_job.json")
-	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_random_number_job.json")
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
-	assert.Equal(t, address, initr.Address)
 
-	logs <- cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), `{"url":"https://etherprice.com/api"}`)
+
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
