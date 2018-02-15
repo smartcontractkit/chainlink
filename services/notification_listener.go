@@ -152,42 +152,38 @@ func (nl *NotificationListener) listenToSubscriptionErrors() {
 
 func (nl *NotificationListener) listenToLogs() {
 	for el := range nl.logNotifications {
-		if err := nl.receiveLog(el); err != nil {
-			logger.Errorw(err.Error())
-		}
+		nl.receiveLog(el)
 	}
 }
 
-func (nl *NotificationListener) receiveLog(el types.Log) error {
-	var merr error
+func (nl *NotificationListener) receiveLog(el types.Log) {
 	msg := fmt.Sprintf("Received log from %v", el.Address.String())
 	logger.Debugw(msg, "log", el)
 
 	initrs, err := InitiatorsForLog(nl.Store, el)
 	if err != nil {
-		return err
+		logger.Errorw(err.Error())
+		return
 	}
 
 	for _, initr := range initrs {
 		job, err := nl.Store.FindJob(initr.JobID)
 		if err != nil {
-			msg := fmt.Sprintf("Error initiating job from log: %v", err)
-			logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
-			merr = multierr.Append(merr, err)
+			logger.Errorw(fmt.Sprintf("Error initiating job from log: %v", err),
+				"job", initr.JobID, "initiator", initr.ID)
 			continue
 		}
 
 		input, err := FormatLogJSON(initr, el)
 		if err != nil {
 			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
-			merr = multierr.Append(merr, err)
 			continue
 		}
 
-		_, err = BeginRun(job, nl.Store, input)
-		merr = multierr.Append(merr, err)
+		if _, err = BeginRun(job, nl.Store, input); err != nil {
+			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
+		}
 	}
-	return merr
 }
 
 // FormatLogJSON uses the Initiator to decide how to format the EventLog
