@@ -116,7 +116,7 @@ func (mock *EthMock) EthSubscribe(
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
-			case chan<- []ethtypes.Log:
+			case chan<- ethtypes.Log:
 				fwdLogs(channel, sub.channel)
 			case chan<- ethtypes.Header:
 				fwdHeaders(channel, sub.channel)
@@ -136,8 +136,8 @@ func (mock *EthMock) EthSubscribe(
 }
 
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- []ethtypes.Log)
-	mockChan := mock.(chan []ethtypes.Log)
+	logChan := actual.(chan<- ethtypes.Log)
+	mockChan := mock.(chan ethtypes.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e

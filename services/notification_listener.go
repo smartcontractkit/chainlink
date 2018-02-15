@@ -28,7 +28,7 @@ const (
 type NotificationListener struct {
 	Store             *store.Store
 	subscriptions     []*rpc.ClientSubscription
-	logNotifications  chan []types.Log
+	logNotifications  chan types.Log
 	headNotifications chan types.Header
 	errors            chan error
 	mutex             sync.Mutex
@@ -38,7 +38,7 @@ type NotificationListener struct {
 // of the jobs' given runs.
 func (nl *NotificationListener) Start() error {
 	nl.errors = make(chan error)
-	nl.logNotifications = make(chan []types.Log)
+	nl.logNotifications = make(chan types.Log)
 	nl.headNotifications = make(chan types.Header)
 
 	if err := nl.subscribeToNewHeads(); err != nil {
@@ -147,11 +147,9 @@ func (nl *NotificationListener) listenToSubscriptionErrors() {
 }
 
 func (nl *NotificationListener) listenToLogs() {
-	for logs := range nl.logNotifications {
-		for _, el := range logs {
-			if err := nl.receiveLog(el); err != nil {
-				logger.Errorw(err.Error())
-			}
+	for el := range nl.logNotifications {
+		if err := nl.receiveLog(el); err != nil {
+			logger.Errorw(err.Error())
 		}
 	}
 }

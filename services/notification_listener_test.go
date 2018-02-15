@@ -44,8 +44,8 @@ func TestNotificationListener_Start_WithJobs(t *testing.T) {
 
 	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
 	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
-	eth.RegisterSubscription("logs", make(chan []types.Log))
-	eth.RegisterSubscription("logs", make(chan []types.Log))
+	eth.RegisterSubscription("logs", make(chan types.Log))
+	eth.RegisterSubscription("logs", make(chan types.Log))
 
 	err := nl.Start()
 	assert.Nil(t, err)
@@ -82,7 +82,7 @@ func TestNotificationListener_AddJob(t *testing.T) {
 			assert.Nil(t, nl.Start())
 
 			eth := cltest.MockEthOnStore(store)
-			logChan := make(chan []types.Log, 1)
+			logChan := make(chan types.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			j := cltest.NewJob()
@@ -94,11 +94,11 @@ func TestNotificationListener_AddJob(t *testing.T) {
 
 			nl.AddJob(*j)
 
-			logChan <- []types.Log{{
+			logChan <- types.Log{
 				Address: test.logAddress,
 				Data:    test.data,
 				Topics:  []common.Hash{common.HexToHash("0x00"), common.HexToHash("0x01"), common.HexToHash("0x22")},
-			}}
+			}
 			<-time.After(100 * time.Millisecond)
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
@@ -109,7 +109,7 @@ func TestNotificationListener_AddJob(t *testing.T) {
 }
 
 func jsonFromFixture(path string) models.JSON {
-	res := gjson.Get(string(cltest.LoadJSON(path)), "params.result.0")
+	res := gjson.Get(string(cltest.LoadJSON(path)), "params.result")
 	out := cltest.JSONFromString(res.String())
 	return out
 }

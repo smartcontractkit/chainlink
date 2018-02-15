@@ -136,7 +136,7 @@ func NullTime(val interface{}) null.Time {
 }
 
 func LogFromFixture(path string) ethtypes.Log {
-	value := gjson.Get(string(LoadJSON(path)), "params.result.0")
+	value := gjson.Get(string(LoadJSON(path)), "params.result")
 	var el ethtypes.Log
 	mustNotErr(json.Unmarshal([]byte(value.String()), &el))
 

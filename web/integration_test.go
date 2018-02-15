@@ -135,7 +135,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan []types.Log, 1)
+	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
@@ -147,9 +147,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	logs <- []types.Log{en}
-
+	logs <- cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
@@ -159,7 +157,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan []types.Log, 1)
+	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
@@ -178,9 +176,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	logs <- []types.Log{en}
-
+	logs <- cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
@@ -277,7 +273,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan []types.Log, 1)
+	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
@@ -292,7 +288,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), initr.Address)
 
-	logs <- []types.Log{en}
+	logs <- en
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
 	cltest.WaitForJobRunToComplete(t, app, &jobRuns[0])
