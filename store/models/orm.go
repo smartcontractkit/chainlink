@@ -192,8 +192,8 @@ func (orm *ORM) AddAttempt(
 }
 
 // BridgeTypeFor returns the BridgeType for a given name.
-func (orm *ORM) BridgeTypeFor(name string) (*BridgeType, error) {
-	tt := &BridgeType{}
-	err := orm.One("Name", strings.ToLower(name), tt)
+func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
+	tt := BridgeType{}
+	err := orm.One("Name", strings.ToLower(name), &tt)
 	return tt, err
 }

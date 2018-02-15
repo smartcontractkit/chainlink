@@ -33,7 +33,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 
 	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
-	assert.Nil(t, store.Save(bt))
+	assert.Nil(t, store.Save(&bt))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
