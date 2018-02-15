@@ -62,8 +62,8 @@ func (app *ChainlinkApplication) GetStore() *store.Store {
 // AddJob adds a job to the store and the scheduler. If there was
 // an error from adding the job to the store, the job will not be
 // added to the scheduler.
-func (app *ChainlinkApplication) AddJob(job *models.Job) error {
-	err := app.Store.SaveJob(job)
+func (app *ChainlinkApplication) AddJob(job models.Job) error {
+	err := app.Store.SaveJob(&job)
 	if err != nil {
 		return err
 	}

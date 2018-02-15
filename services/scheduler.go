@@ -55,8 +55,8 @@ func (s *Scheduler) Start() error {
 		return fmt.Errorf("Scheduler: %v", err)
 	}
 
-	for _, j := range jobs {
-		s.AddJob(&j)
+	for _, job := range jobs {
+		s.AddJob(job)
 	}
 
 	return nil
@@ -74,7 +74,7 @@ func (s *Scheduler) Stop() {
 
 // AddJob is the governing function for Recurring and OneTime,
 // and will only execute if the Scheduler has not already started.
-func (s *Scheduler) AddJob(job *models.Job) {
+func (s *Scheduler) AddJob(job models.Job) {
 	if !s.started {
 		return
 	}
@@ -114,12 +114,12 @@ func (r *Recurring) Stop() {
 
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
-func (r *Recurring) AddJob(job *models.Job) {
+func (r *Recurring) AddJob(job models.Job) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		cronStr := string(initr.Schedule)
 		if !job.Ended(r.Clock.Now()) {
 			r.Cron.AddFunc(cronStr, func() {
-				_, err := BeginRun(job, r.store, models.JSON{})
+				_, err := BeginRun(&job, r.store, models.JSON{})
 				if err != nil && !expectedRecurringError(err) {
 					logger.Error(err.Error())
 				}
@@ -142,9 +142,9 @@ func (ot *OneTime) Start() error {
 }
 
 // AddJob runs the job at the time specified for the "runat" initiator.
-func (ot *OneTime) AddJob(job *models.Job) {
+func (ot *OneTime) AddJob(job models.Job) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
-		go ot.RunJobAt(initr.Time, job)
+		go ot.RunJobAt(initr.Time, &job)
 	}
 }
 
