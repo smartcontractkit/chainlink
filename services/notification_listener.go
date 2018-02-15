@@ -280,10 +280,7 @@ func allowNotFoundError(err error) error {
 }
 
 func isRunLog(log types.Log) bool {
-	if len(log.Topics) == 3 && log.Topics[0] == RunLogTopic {
-		return true
-	}
-	return false
+	return len(log.Topics) == 3 && log.Topics[0] == RunLogTopic
 }
 
 func jobIDFromLog(log types.Log) (string, error) {
