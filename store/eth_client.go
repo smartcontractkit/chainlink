@@ -92,7 +92,7 @@ func (eth *EthClient) SubscribeToLogs(
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (eth *EthClient) SubscribeToNewHeads(
-	channel chan<- types.Header,
+	channel chan<- BlockHeader,
 ) (*rpc.ClientSubscription, error) {
 	ctx := context.Background()
 	sub, err := eth.EthSubscribe(ctx, channel, "newHeads")
