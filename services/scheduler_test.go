@@ -68,7 +68,7 @@ func TestRecurring_AddJob(t *testing.T) {
 			j.StartAt = test.startAt
 			j.EndAt = test.endAt
 
-			r.AddJob(j)
+			r.AddJob(*j)
 
 			assert.Equal(t, test.wantEntries, len(cron.Entries))
 
@@ -90,7 +90,7 @@ func TestScheduler_AddJob_WhenStopped(t *testing.T) {
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, store.SaveJob(j))
-	sched.AddJob(j)
+	sched.AddJob(*j)
 
 	cltest.WaitForRuns(t, j, store, 0)
 }

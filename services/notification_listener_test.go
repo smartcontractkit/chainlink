@@ -92,7 +92,7 @@ func TestNotificationListener_AddJob(t *testing.T) {
 			}}
 			assert.Nil(t, store.SaveJob(j))
 
-			nl.AddJob(j)
+			nl.AddJob(*j)
 
 			logChan <- []types.Log{{
 				Address: test.logAddress,
