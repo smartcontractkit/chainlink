@@ -21,7 +21,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
-	address := cltest.NewEthAddress()
+	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
 	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
 	inputValue := "0x9786856756"
@@ -152,7 +152,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
 
-	tx := cltest.NewTx(cltest.NewEthAddress(), sentAt)
+	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.Save(tx))
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
@@ -189,7 +189,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	ethMock.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
 
 	adapter := adapters.EthTx{
-		Address:          cltest.NewEthAddress(),
+		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
 	input := models.RunResultWithValue("")
