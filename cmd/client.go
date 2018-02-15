@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
-	"github.com/smartcontractkit/chainlink/store"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -22,7 +22,7 @@ import (
 // Config, AppFactory (the services application), Authenticator, and Runner.
 type Client struct {
 	Renderer
-	Config     store.Config
+	Config     strpkg.Config
 	AppFactory AppFactory
 	Auth       Authenticator
 	Runner     Runner
@@ -31,8 +31,9 @@ type Client struct {
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if c.Bool("debug") {
-		cli.Config.LogLevel = store.LogLevel{zapcore.DebugLevel}
+		cli.Config.LogLevel = strpkg.LogLevel{zapcore.DebugLevel}
 	}
+	logger.Infow("Starting Chainlink Node " + strpkg.Version)
 	app := cli.AppFactory.NewApplication(cli.Config)
 	store := app.GetStore()
 	cli.Auth.Authenticate(store, c.String("password"))
@@ -40,12 +41,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	defer app.Stop()
-	runNodeGreeting(store)
+	logNodeBalance(store)
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
-func runNodeGreeting(store *store.Store) {
-	logger.Infow("Starting Chainlink Node")
+func logNodeBalance(store *strpkg.Store) {
 	balance, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
 	logger.Infow(balance)
@@ -110,14 +110,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(store.Config) services.Application
+	NewApplication(strpkg.Config) services.Application
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config store.Config) services.Application {
+func (n ChainlinkAppFactory) NewApplication(config strpkg.Config) services.Application {
 	return services.NewApplication(config)
 }
 
