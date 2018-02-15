@@ -18,7 +18,7 @@ func TestJobSave(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
-	assert.Nil(t, store.SaveJob(j1))
+	assert.Nil(t, store.SaveJob(&j1))
 
 	store.Save(j1)
 	j2, err := store.FindJob(j1.ID)

@@ -28,7 +28,7 @@ func TestAdapterFor(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType("rideShare", "https://dUber.eth")
-	assert.Nil(t, store.Save(bt))
+	assert.Nil(t, store.Save(&bt))
 
 	cases := []struct {
 		bridgeName string

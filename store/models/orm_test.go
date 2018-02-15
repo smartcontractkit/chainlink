@@ -18,7 +18,7 @@ func TestWhereNotFound(t *testing.T) {
 	defer cleanup()
 
 	j1 := models.NewJob()
-	jobs := []models.Job{*j1}
+	jobs := []models.Job{j1}
 
 	err := store.Where("ID", "bogus", &jobs)
 	assert.Nil(t, err)
@@ -42,7 +42,7 @@ func TestORMSaveJob(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * *")
-	store.SaveJob(j1)
+	store.SaveJob(&j1)
 
 	j2, _ := store.FindJob(j1.ID)
 	assert.Equal(t, j1.ID, j2.ID)
@@ -60,13 +60,13 @@ func TestPendingJobRuns(t *testing.T) {
 	defer cleanup()
 
 	j := models.NewJob()
-	assert.Nil(t, store.SaveJob(j))
+	assert.Nil(t, store.SaveJob(&j))
 	npr := j.NewRun()
-	assert.Nil(t, store.Save(npr))
+	assert.Nil(t, store.Save(&npr))
 
 	pr := j.NewRun()
 	pr.Status = models.StatusPending
-	assert.Nil(t, store.Save(pr))
+	assert.Nil(t, store.Save(&pr))
 
 	pending, err := store.PendingJobRuns()
 	assert.Nil(t, err)
@@ -114,22 +114,22 @@ func TestBridgeTypeFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := &models.BridgeType{}
+	tt := models.BridgeType{}
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)
 	tt.URL = models.WebURL{u}
-	assert.Nil(t, store.Save(tt))
+	assert.Nil(t, store.Save(&tt))
 
 	cases := []struct {
 		description string
 		name        string
-		want        *models.BridgeType
+		want        models.BridgeType
 		errored     bool
 	}{
 		{"actual external adapter", tt.Name, tt, false},
-		{"core adapter", "ethtx", &models.BridgeType{}, true},
-		{"non-existent adapter", "nonExistent", &models.BridgeType{}, true},
+		{"core adapter", "ethtx", models.BridgeType{}, true},
+		{"non-existent adapter", "nonExistent", models.BridgeType{}, true},
 	}
 
 	for _, test := range cases {

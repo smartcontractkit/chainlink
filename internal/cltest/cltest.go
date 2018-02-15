@@ -257,7 +257,7 @@ func ObserveLogs() *observer.ObservedLogs {
 	return observed
 }
 
-func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *models.Job {
+func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.Job {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
@@ -271,7 +271,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *mo
 	return j
 }
 
-func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *models.JobRun {
+func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job) models.JobRun {
 	t.Helper()
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
@@ -287,7 +287,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *mode
 	jr := jrs[0]
 	assert.Equal(t, j.ID, jr.JobID)
 
-	return &jr
+	return jr
 }
 
 func FixtureCreateBridgeTypeViaWeb(
@@ -334,28 +334,28 @@ func CheckStatusCode(t *testing.T, resp *http.Response, expected int) {
 func WaitForJobRunToComplete(
 	t *testing.T,
 	app *TestApplication,
-	jr *models.JobRun,
-) *models.JobRun {
+	jr models.JobRun,
+) models.JobRun {
 	return waitForJobRunInStatus(t, app, jr, models.StatusCompleted)
 }
 
 func WaitForJobRunToPend(
 	t *testing.T,
 	app *TestApplication,
-	jr *models.JobRun,
-) *models.JobRun {
+	jr models.JobRun,
+) models.JobRun {
 	return waitForJobRunInStatus(t, app, jr, models.StatusPending)
 }
 
 func waitForJobRunInStatus(
 	t *testing.T,
 	app *TestApplication,
-	jr *models.JobRun,
+	jr models.JobRun,
 	status string,
-) *models.JobRun {
+) models.JobRun {
 	t.Helper()
 	gomega.NewGomegaWithT(t).Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
+		assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
 		return jr.Status
 	}).Should(gomega.Equal(status))
 	return jr
@@ -378,7 +378,7 @@ func StringToRunLogPayload(str string) hexutil.Bytes {
 	return hexutil.MustDecode(prefix + lenHex[2:] + data[2:] + endPad)
 }
 
-func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) []models.JobRun {
+func WaitForRuns(t *testing.T, j models.Job, store *store.Store, want int) []models.JobRun {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
