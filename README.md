@@ -1,5 +1,9 @@
 # Chainlink [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink) [![CodeCov](https://codecov.io/gh/smartcontractkit/chainlink/branch/master/graph/badge.svg?token=1LacYNWKro)](https://codecov.io/gh/smartcontractkit/chainlink)
 
+## Ethereum Node Requirements
+
+- Parity 1.9+ due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).
+- Geth 1.7+
 
 ## Developer Setup
 

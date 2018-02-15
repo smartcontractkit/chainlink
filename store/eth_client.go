@@ -80,7 +80,7 @@ func (eth *EthClient) GetBlockNumber() (uint64, error) {
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
 func (eth *EthClient) SubscribeToLogs(
-	channel chan<- []types.Log,
+	channel chan<- types.Log,
 	addresses []common.Address,
 ) (*rpc.ClientSubscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
