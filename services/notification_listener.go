@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -22,6 +24,11 @@ const (
 	EventTopicRequestID
 	EventTopicJobID
 )
+
+// RunLogTopic is the signature for the Request(uint256,bytes32,string) event
+// which Chainlink RunLog initiators watch for.
+// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
+var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2")
 
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
@@ -148,36 +155,38 @@ func (nl *NotificationListener) listenToSubscriptionErrors() {
 
 func (nl *NotificationListener) listenToLogs() {
 	for el := range nl.logNotifications {
-		if err := nl.receiveLog(el); err != nil {
-			logger.Errorw(err.Error())
-		}
+		nl.receiveLog(el)
 	}
 }
 
-func (nl *NotificationListener) receiveLog(el types.Log) error {
-	var merr error
+func (nl *NotificationListener) receiveLog(el types.Log) {
 	msg := fmt.Sprintf("Received log from %v", el.Address.String())
 	logger.Debugw(msg, "log", el)
-	for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
+
+	initrs, err := InitiatorsForLog(nl.Store, el)
+	if err != nil {
+		logger.Errorw(err.Error())
+		return
+	}
+
+	for _, initr := range initrs {
 		job, err := nl.Store.FindJob(initr.JobID)
 		if err != nil {
-			msg := fmt.Sprintf("Error initiating job from log: %v", err)
-			logger.Errorw(msg, "job", initr.JobID, "initiator", initr.ID)
-			merr = multierr.Append(merr, err)
+			logger.Errorw(fmt.Sprintf("Error initiating job from log: %v", err),
+				"job", initr.JobID, "initiator", initr.ID)
 			continue
 		}
 
 		input, err := FormatLogJSON(initr, el)
 		if err != nil {
 			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
-			merr = multierr.Append(merr, err)
 			continue
 		}
 
-		_, err = BeginRun(job, nl.Store, input)
-		merr = multierr.Append(merr, err)
+		if _, err = BeginRun(job, nl.Store, input); err != nil {
+			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
+		}
 	}
-	return merr
 }
 
 // FormatLogJSON uses the Initiator to decide how to format the EventLog
@@ -192,7 +201,6 @@ func FormatLogJSON(initr models.Initiator, el types.Log) (models.JSON, error) {
 	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
 }
 
-// make our own types.Log for better serialization
 func ethLogJSON(el types.Log) (models.JSON, error) {
 	var out models.JSON
 	b, err := json.Marshal(el)
@@ -221,23 +229,70 @@ func runLogJSON(el types.Log) (models.JSON, error) {
 	return js.Add("functionSelector", "76005c26")
 }
 
-func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {
-	initrs := []models.Initiator{}
-	query := nl.Store.Select(q.Or(
-		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorRunLog)),
-		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorEthLog)),
-	))
-	if err := query.Find(&initrs); err != nil {
-		msg := fmt.Sprintf("Initiating job from log: %v", err)
-		logger.Errorw(msg, "address", address.String())
-	}
-	return initrs
-}
-
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 	varLocationSize := 32
 	varLengthSize := 32
 	var js models.JSON
 	hex := []byte(string([]byte(data)[varLocationSize+varLengthSize:]))
 	return js, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
+}
+
+// InitiatorsForLog returns all of the Initiators relevant to a log.
+func InitiatorsForLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
+	initrs, merr := ethLogInitrsForAddress(store, log.Address)
+	if isRunLog(log) {
+		rlInitrs, err := runLogInitrsForLog(store, log)
+		initrs = append(initrs, rlInitrs...)
+		merr = multierr.Append(merr, err)
+	}
+
+	return initrs, merr
+}
+
+func ethLogInitrsForAddress(store *store.Store, address common.Address) ([]models.Initiator, error) {
+	query := store.Select(q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorEthLog)))
+	initrs := []models.Initiator{}
+	return initrs, allowNotFoundError(query.Find(&initrs))
+}
+
+func runLogInitrsForLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
+	initrs := []models.Initiator{}
+	if !isRunLog(log) {
+		return initrs, nil
+	}
+	jobID, err := jobIDFromLog(log)
+	if err != nil {
+		return initrs, err
+	}
+
+	query := store.Select(q.And(q.Eq("JobID", jobID), q.Re("Type", models.InitiatorRunLog)))
+	if err = query.Find(&initrs); allowNotFoundError(err) != nil {
+		return initrs, err
+	}
+	return initrsForAddress(initrs, log.Address), nil
+}
+
+func allowNotFoundError(err error) error {
+	if err == storm.ErrNotFound {
+		return nil
+	}
+	return err
+}
+
+func isRunLog(log types.Log) bool {
+	return len(log.Topics) == 3 && log.Topics[0] == RunLogTopic
+}
+
+func jobIDFromLog(log types.Log) (string, error) {
+	return utils.HexToString(log.Topics[EventTopicJobID].Hex())
+}
+
+func initrsForAddress(initrs []models.Initiator, addr common.Address) []models.Initiator {
+	good := []models.Initiator{}
+	for _, initr := range initrs {
+		if utils.IsEmptyAddress(initr.Address) || initr.Address == addr {
+			good = append(good, initr)
+		}
+	}
+	return good
 }

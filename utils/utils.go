@@ -130,6 +130,8 @@ func removeHexPrefix(str string) string {
 	return str
 }
 
+// DecodeEthereumTx takes an RLP hex encoded Ethereum transaction and
+// returns a Transaction struct with all the fields accessible.
 func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	var tx types.Transaction
 	b, err := hexutil.Decode(hex)
@@ -139,6 +141,7 @@ func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	return tx, rlp.DecodeBytes(b, &tx)
 }
 
+// WeiToEth converts wei amounts to ether.
 func WeiToEth(numWei *big.Int) float64 {
 	numWeiBigFloat := new(big.Float).SetInt(numWei)
 	weiPerEthBigFloat := new(big.Float).SetFloat64(weiPerEth)
@@ -148,6 +151,7 @@ func WeiToEth(numWei *big.Int) float64 {
 	return numEthFloat64
 }
 
+// EthToWei converts ether amounts to wei.
 func EthToWei(numEth float64) *big.Int {
 	numEthBigFloat := new(big.Float).SetFloat64(numEth)
 	weiPerEthBigFloat := new(big.Float).SetFloat64(weiPerEth)
@@ -155,4 +159,32 @@ func EthToWei(numEth float64) *big.Int {
 	numWeiBigFloat.Mul(weiPerEthBigFloat, numEthBigFloat)
 	numWeiBigInt, _ := numWeiBigFloat.Int(nil)
 	return numWeiBigInt
+}
+
+// IsEmptyAddress checks that the address is empty, synonymous with the zero
+// account/address. No logs can come from this address, as there is no contract
+// present there.
+//
+// See https://stackoverflow.com/questions/48219716/what-is-address0-in-solidity
+// for the more info on the zero address.
+func IsEmptyAddress(addr common.Address) bool {
+	return addr == ZeroAddress
+}
+
+// StringToHex converts a standard string to a hex encoded string.
+func StringToHex(in string) string {
+	return prependHexPrefix(hex.EncodeToString([]byte(in)))
+}
+
+func prependHexPrefix(str string) string {
+	if len(str) < 2 || len(str) > 1 && str[0:2] != "0x" {
+		str = "0x" + str
+	}
+	return str
+}
+
+// HexToString decodes a hex encoded string.
+func HexToString(hex string) (string, error) {
+	b, err := HexToBytes(hex)
+	return string(b), err
 }

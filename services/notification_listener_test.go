@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -53,22 +52,29 @@ func TestNotificationListener_Start_WithJobs(t *testing.T) {
 	eth.EnsureAllCalled(t)
 }
 
-func TestNotificationListener_AddJob(t *testing.T) {
+func newAddr() common.Address {
+	return cltest.NewAddress()
+}
+
+func TestNotificationListener_AddJob_Listening(t *testing.T) {
 	t.Parallel()
 
-	initrAddress := cltest.NewAddress()
+	sharedAddr := newAddr()
+	noAddr := common.Address{}
 
 	tests := []struct {
-		name       string
-		initType   string
-		logAddress common.Address
-		wantCount  int
-		data       hexutil.Bytes
+		name      string
+		initType  string
+		initrAddr common.Address
+		logAddr   common.Address
+		wantCount int
+		data      hexutil.Bytes
 	}{
-		{"basic eth log", "ethlog", initrAddress, 1, hexutil.Bytes{}},
-		{"non-matching eth log", "ethlog", cltest.NewAddress(), 0, hexutil.Bytes{}},
-		{"basic cllog", "runlog", initrAddress, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
-		{"cllog non-matching", "runlog", cltest.NewAddress(), 0, hexutil.Bytes{}},
+		{"ethlog matching address", "ethlog", sharedAddr, sharedAddr, 1, hexutil.Bytes{}},
+		{"ethlog non-matching address", "ethlog", newAddr(), newAddr(), 0, hexutil.Bytes{}},
+		{"runlog w/o address", "runlog", noAddr, newAddr(), 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
+		{"runlog matching address", "runlog", sharedAddr, sharedAddr, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
+		{"runlog non-matching", "runlog", newAddr(), newAddr(), 0, hexutil.Bytes{}},
 	}
 
 	for _, test := range tests {
@@ -86,20 +92,24 @@ func TestNotificationListener_AddJob(t *testing.T) {
 			eth.RegisterSubscription("logs", logChan)
 
 			j := cltest.NewJob()
-			j.Initiators = []models.Initiator{{
-				Type:    test.initType,
-				Address: initrAddress,
-			}}
+			initr := models.Initiator{Type: test.initType}
+			if !utils.IsEmptyAddress(test.initrAddr) {
+				initr.Address = test.initrAddr
+			}
+			j.Initiators = []models.Initiator{initr}
 			assert.Nil(t, store.SaveJob(j))
 
 			nl.AddJob(*j)
 
 			logChan <- types.Log{
-				Address: test.logAddress,
+				Address: test.logAddr,
 				Data:    test.data,
-				Topics:  []common.Hash{common.HexToHash("0x00"), common.HexToHash("0x01"), common.HexToHash("0x22")},
+				Topics: []common.Hash{
+					services.RunLogTopic,
+					common.StringToHash("requestID"),
+					common.StringToHash(j.ID),
+				},
 			}
-			<-time.After(100 * time.Millisecond)
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
@@ -184,4 +194,83 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	nhChan <- types.Header{}
 
 	ethMock.EnsureAllCalled(t)
+}
+
+func TestServices_InitiatorsForLog(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	runLogSig := services.RunLogTopic
+	requestID := common.StringToHash("42")
+
+	elj := cltest.NewJob()
+	el := models.Initiator{Type: "ethlog", Address: cltest.NewAddress()}
+	elj.Initiators = []models.Initiator{el}
+	assert.Nil(t, store.SaveJob(elj))
+	assert.Nil(t, store.One("JobID", elj.ID, &el))
+
+	rlj := cltest.NewJob()
+	rl := models.Initiator{Type: "runlog"}
+	rlj.Initiators = []models.Initiator{rl}
+	assert.Nil(t, store.SaveJob(rlj))
+	assert.Nil(t, store.One("JobID", rlj.ID, &rl))
+	rljIDHash := common.StringToHash(rlj.ID)
+
+	rlaj := cltest.NewJob()
+	rla := models.Initiator{Type: "runlog", Address: cltest.NewAddress()}
+	rlaj.Initiators = []models.Initiator{rla}
+	assert.Nil(t, store.SaveJob(rlaj))
+	assert.Nil(t, store.One("JobID", rlaj.ID, &rla))
+	rlajIDHash := common.StringToHash(rlaj.ID)
+
+	tests := []struct {
+		name string
+		log  types.Log
+		want []models.Initiator
+	}{
+		{"ethlog matching address", types.Log{Address: el.Address},
+			[]models.Initiator{el}},
+		{"ethlog non-matching address", types.Log{Address: cltest.NewAddress()},
+			[]models.Initiator{}},
+		{"runlog w/ required topic", types.Log{
+			Topics: []common.Hash{runLogSig, requestID, rljIDHash},
+		}, []models.Initiator{rl}},
+		{"runlog w/o required topic", types.Log{
+			Topics: []common.Hash{runLogSig, requestID, cltest.NewHash()},
+		}, []models.Initiator{}},
+		{"runlog w/ matching address", types.Log{
+			Address: rla.Address,
+			Topics:  []common.Hash{runLogSig, requestID, rlajIDHash},
+		}, []models.Initiator{rla}},
+		{"runlog w/o matching address", types.Log{
+			Address: cltest.NewAddress(),
+			Topics:  []common.Hash{runLogSig, requestID, rlajIDHash},
+		}, []models.Initiator{}},
+		{"runlog w/ matching address but not job ID", types.Log{
+			Address: cltest.NewAddress(),
+			Topics:  []common.Hash{runLogSig, requestID, cltest.NewHash()},
+		}, []models.Initiator{}},
+		{"runlog matching ethlog address", types.Log{
+			Address: el.Address,
+			Topics:  []common.Hash{runLogSig, requestID, rljIDHash},
+		}, []models.Initiator{el, rl}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := services.InitiatorsForLog(store, test.log)
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, actual)
+		})
+	}
+}
+
+// If updating this test, be sure to update the truffle suite's "expected event signature" test.
+func TestServices_RunLogTopic_ExpectedEventSignature(t *testing.T) {
+	t.Parallel()
+
+	expected := "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2"
+	assert.Equal(t, expected, services.RunLogTopic.Hex())
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/tidwall/gjson"
@@ -152,4 +153,16 @@ func JSONFromString(body string, args ...interface{}) models.JSON {
 	str := fmt.Sprintf(body, args...)
 	mustNotErr(json.Unmarshal([]byte(str), &j))
 	return j
+}
+
+func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
+	return ethtypes.Log{
+		Address: addr,
+		Data:    StringToRunLogPayload(json),
+		Topics: []common.Hash{
+			services.RunLogTopic,
+			common.StringToHash("requestID"),
+			common.StringToHash(jobID),
+		},
+	}
 }
