@@ -185,3 +185,74 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 
 	ethMock.EnsureAllCalled(t)
 }
+
+func TestServices_InitiatorsForLog(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	runLogSig := common.StringToHash(services.RunLogTopic)
+	requestID := common.StringToHash("42")
+
+	elj := cltest.NewJob()
+	el := models.Initiator{Type: "ethlog", Address: cltest.NewEthAddress()}
+	elj.Initiators = []models.Initiator{el}
+	assert.Nil(t, store.SaveJob(elj))
+	assert.Nil(t, store.One("JobID", elj.ID, &el))
+
+	rlj := cltest.NewJob()
+	rl := models.Initiator{Type: "runlog"}
+	rlj.Initiators = []models.Initiator{rl}
+	assert.Nil(t, store.SaveJob(rlj))
+	assert.Nil(t, store.One("JobID", rlj.ID, &rl))
+	rljIDHash := common.StringToHash(rlj.ID)
+
+	rlaj := cltest.NewJob()
+	rla := models.Initiator{Type: "runlog", Address: cltest.NewEthAddress()}
+	rlaj.Initiators = []models.Initiator{rla}
+	assert.Nil(t, store.SaveJob(rlaj))
+	assert.Nil(t, store.One("JobID", rlaj.ID, &rla))
+	rlajIDHash := common.StringToHash(rlaj.ID)
+
+	tests := []struct {
+		name string
+		log  types.Log
+		want []models.Initiator
+	}{
+		{"ethlog matching address", types.Log{Address: el.Address},
+			[]models.Initiator{el}},
+		{"ethlog non-matching address", types.Log{Address: cltest.NewEthAddress()},
+			[]models.Initiator{}},
+		{"runlog w/ required topic", types.Log{
+			Topics: []common.Hash{runLogSig, requestID, rljIDHash},
+		}, []models.Initiator{rl}},
+		{"runlog w/o required topic", types.Log{
+			Topics: []common.Hash{runLogSig, requestID, cltest.NewTxHash()},
+		}, []models.Initiator{}},
+		{"runlog w/ matching address", types.Log{
+			Address: rla.Address,
+			Topics:  []common.Hash{runLogSig, requestID, rlajIDHash},
+		}, []models.Initiator{rla}},
+		{"runlog w/o matching address", types.Log{
+			Address: cltest.NewEthAddress(),
+			Topics:  []common.Hash{runLogSig, requestID, rlajIDHash},
+		}, []models.Initiator{}},
+		{"runlog w/ matching address but not job ID", types.Log{
+			Address: cltest.NewEthAddress(),
+			Topics:  []common.Hash{runLogSig, requestID, cltest.NewTxHash()},
+		}, []models.Initiator{}},
+		{"runlog matching ethlog address", types.Log{
+			Address: el.Address,
+			Topics:  []common.Hash{runLogSig, requestID, rljIDHash},
+		}, []models.Initiator{el, rl}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := services.InitiatorsForLog(store, test.log)
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, actual)
+		})
+	}
+}
