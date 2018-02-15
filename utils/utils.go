@@ -156,3 +156,23 @@ func EthToWei(numEth float64) *big.Int {
 	numWeiBigInt, _ := numWeiBigFloat.Int(nil)
 	return numWeiBigInt
 }
+
+func EmptyAddress(addr common.Address) bool {
+	return addr == ZeroAddress
+}
+
+func StringToHex(in string) string {
+	return prependHexPrefix(hex.EncodeToString([]byte(in)))
+}
+
+func prependHexPrefix(str string) string {
+	if len(str) < 2 || len(str) > 1 && str[0:2] != "0x" {
+		str = "0x" + str
+	}
+	return str
+}
+
+func HexToString(in string) (string, error) {
+	b, err := HexToBytes(in)
+	return string(b), err
+}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,7 +30,7 @@ func TestEthClient_GetNonce(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.EthClient
 	ethMock.Register("eth_getTransactionCount", "0x0100")
-	result, err := ethClientObject.GetNonce(utils.ZeroAddress)
+	result, err := ethClientObject.GetNonce(cltest.NewAddress())
 	assert.Nil(t, err)
 	var expected uint64 = 256
 	assert.Equal(t, result, expected)
@@ -68,14 +67,14 @@ func TestEthGetBalance(t *testing.T) {
 	ethClientObject := app.Store.TxManager.EthClient
 
 	ethMock.Register("eth_getBalance", "0x0100") // 256
-	result, err := ethClientObject.GetEthBalance(utils.ZeroAddress)
+	result, err := ethClientObject.GetEthBalance(cltest.NewAddress())
 	assert.Nil(t, err)
 	expected := 256e-18
 	assert.Nil(t, err)
 	assert.Equal(t, expected, result)
 
 	ethMock.Register("eth_getBalance", "0x4b3b4ca85a86c4000000000000000000") // 1e38
-	result, err = ethClientObject.GetEthBalance(utils.ZeroAddress)
+	result, err = ethClientObject.GetEthBalance(cltest.NewAddress())
 	expected = 1e20
 	assert.Nil(t, err)
 	assert.Equal(t, expected, result)
