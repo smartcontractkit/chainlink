@@ -90,7 +90,7 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(b)
 }
 
-func NewBridgeType(info ...string) *models.BridgeType {
+func NewBridgeType(info ...string) models.BridgeType {
 	bt := models.BridgeType{}
 
 	if len(info) > 0 {
@@ -105,7 +105,7 @@ func NewBridgeType(info ...string) *models.BridgeType {
 		bt.URL = WebURL("https://bridge.example.com/api")
 	}
 
-	return &bt
+	return bt
 }
 
 func WebURL(unparsed string) models.WebURL {
