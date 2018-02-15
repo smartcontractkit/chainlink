@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -13,37 +13,28 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestLoadingSavedSchedules(t *testing.T) {
+func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j := cltest.NewJob()
-	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: "* * * * *"}}
-	jobWoCron := models.NewJob()
-	assert.Nil(t, store.SaveJob(j))
+	jobWCron := cltest.NewJob()
+	jobWCron.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: "* * * * * *"}}
+	assert.Nil(t, store.SaveJob(jobWCron))
+	jobWoCron := cltest.NewJob()
 	assert.Nil(t, store.SaveJob(jobWoCron))
 
 	sched := services.NewScheduler(store)
-	err := sched.Start()
-	assert.Nil(t, err)
+	assert.Nil(t, sched.Start())
+	defer sched.Stop()
 
-	jobRuns := []models.JobRun{}
-	Eventually(func() []models.JobRun {
-		store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(cltest.HaveLenAtLeast(1))
-
-	sched.Stop()
-	err = store.Where("JobID", jobWoCron.ID, &jobRuns)
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(jobRuns), "No jobs should be created without the scheduler")
+	cltest.WaitForRuns(t, jobWCron, store, 1)
+	cltest.WaitForRuns(t, jobWoCron, store, 0)
 }
 
-func TestRecurringAddJob(t *testing.T) {
+func TestRecurring_AddJob(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -77,7 +68,7 @@ func TestRecurringAddJob(t *testing.T) {
 			j.StartAt = test.startAt
 			j.EndAt = test.endAt
 
-			r.AddJob(j)
+			r.AddJob(*j)
 
 			assert.Equal(t, test.wantEntries, len(cron.Entries))
 
@@ -89,9 +80,9 @@ func TestRecurringAddJob(t *testing.T) {
 	}
 }
 
-func TestAddScheduledJobWhenStopped(t *testing.T) {
+func TestScheduler_AddJob_WhenStopped(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	sched := services.NewScheduler(store)
@@ -99,18 +90,12 @@ func TestAddScheduledJobWhenStopped(t *testing.T) {
 
 	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, store.SaveJob(j))
-	sched.AddJob(j)
+	sched.AddJob(*j)
 
-	jobRuns := []models.JobRun{}
-	Consistently(func() []models.JobRun {
-		store.Where("JobID", j.ID, &jobRuns)
-		return jobRuns
-	}).Should(HaveLen(0))
-
+	cltest.WaitForRuns(t, j, store, 0)
 }
 
-func TestOneTimeRunJobAt(t *testing.T) {
-	RegisterTestingT(t)
+func TestOneTime_RunJobAt(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -132,16 +117,15 @@ func TestOneTimeRunJobAt(t *testing.T) {
 
 	ot.Stop()
 
-	Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return finished
-	}).Should(Equal(true))
+	}).Should(gomega.Equal(true))
 	jobRuns := []models.JobRun{}
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
 	assert.Equal(t, 0, len(jobRuns))
 }
 
-func TestSchedulerAddingUnstartedJob(t *testing.T) {
-	RegisterTestingT(t)
+func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	logs := cltest.ObserveLogs()
 
 	store, cleanupStore := cltest.NewStore()
@@ -157,19 +141,15 @@ func TestSchedulerAddingUnstartedJob(t *testing.T) {
 	defer sched.Stop()
 	defer cleanupStore()
 
-	Consistently(func() int {
+	gomega.NewGomegaWithT(t).Consistently(func() int {
 		runs, err := store.JobRunsFor(j)
 		assert.Nil(t, err)
 		return len(runs)
-	}, (2 * time.Second)).Should(Equal(0))
+	}, (2 * time.Second)).Should(gomega.Equal(0))
 
 	clock.SetTime(startAt)
 
-	Eventually(func() int {
-		runs, err := store.JobRunsFor(j)
-		assert.Nil(t, err)
-		return len(runs)
-	}).Should(Equal(2))
+	cltest.WaitForRuns(t, j, store, 2)
 
 	for _, log := range logs.All() {
 		assert.True(t, log.Level <= zapcore.WarnLevel)

@@ -23,7 +23,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
-	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
@@ -273,21 +272,22 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) *mo
 }
 
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j *models.Job) *models.JobRun {
+	t.Helper()
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
 
-	jrs := []*models.JobRun{}
-	Eventually(func() []*models.JobRun {
+	jrs := []models.JobRun{}
+	gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
 		assert.Nil(t, app.Store.Where("ID", jrID, &jrs))
 		return jrs
-	}).Should(HaveLen(1))
+	}).Should(gomega.HaveLen(1))
 	jr := jrs[0]
 	assert.Equal(t, j.ID, jr.JobID)
 
-	return jr
+	return &jr
 }
 
 func FixtureCreateBridgeTypeViaWeb(
@@ -353,10 +353,11 @@ func waitForJobRunInStatus(
 	jr *models.JobRun,
 	status string,
 ) *models.JobRun {
-	Eventually(func() string {
+	t.Helper()
+	gomega.NewGomegaWithT(t).Eventually(func() string {
 		assert.Nil(t, app.Store.One("ID", jr.ID, jr))
 		return jr.Status
-	}).Should(Equal(status))
+	}).Should(gomega.Equal(status))
 	return jr
 }
 
@@ -377,20 +378,26 @@ func StringToRunLogPayload(str string) hexutil.Bytes {
 	return hexutil.MustDecode(prefix + lenHex[2:] + data[2:] + endPad)
 }
 
-func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) {
+func WaitForRuns(t *testing.T, j *models.Job, store *store.Store, want int) []models.JobRun {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var jrs []models.JobRun
+	var err error
 	if want == 0 {
-		Consistently(func() []models.JobRun {
-			jrs, err := store.JobRunsFor(j)
+		g.Consistently(func() []models.JobRun {
+			jrs, err = store.JobRunsFor(j)
 			assert.Nil(t, err)
 			return jrs
-		}).Should(HaveLen(want))
+		}).Should(gomega.HaveLen(want))
 	} else {
-		Eventually(func() []models.JobRun {
-			jrs, err := store.JobRunsFor(j)
+		g.Eventually(func() []models.JobRun {
+			jrs, err = store.JobRunsFor(j)
 			assert.Nil(t, err)
 			return jrs
-		}).Should(HaveLen(want))
+		}).Should(gomega.HaveLen(want))
 	}
+	return jrs
 }
 
 func MustParseWebURL(str string) models.WebURL {
