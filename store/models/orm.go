@@ -46,9 +46,9 @@ func (orm *ORM) Where(field string, value interface{}, instance interface{}) err
 }
 
 // FindJob uses the .One method in Storm to return a single job.
-func (orm *ORM) FindJob(id string) (*Job, error) {
-	job := &Job{}
-	err := orm.One("ID", id, job)
+func (orm *ORM) FindJob(id string) (Job, error) {
+	job := Job{}
+	err := orm.One("ID", id, &job)
 	return job, err
 }
 
@@ -65,7 +65,7 @@ func (orm *ORM) Jobs() ([]Job, error) {
 }
 
 // JobRunsFor fetches all JobRuns with a given JobID.
-func (orm *ORM) JobRunsFor(job *Job) ([]JobRun, error) {
+func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
 	runs := []JobRun{}
 	err := orm.Where("JobID", job.ID, &runs)
 	return runs, err

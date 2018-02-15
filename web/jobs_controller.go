@@ -44,7 +44,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = jc.App.AddJob(*j); err != nil {
+	} else if err = jc.App.AddJob(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -69,6 +69,6 @@ func (jc *JobsController) Show(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, presenters.Job{*j, runs})
+		c.JSON(200, presenters.Job{j, runs})
 	}
 }

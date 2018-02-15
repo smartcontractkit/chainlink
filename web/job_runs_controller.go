@@ -56,14 +56,14 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	}
 }
 
-func startJob(j *models.Job, s *store.Store) (*models.JobRun, error) {
+func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
 	jr, err := services.BuildRun(j, s)
 	if err != nil {
 		return jr, err
 	}
 
 	go func() {
-		if err = services.ExecuteRun(jr, s, models.JSON{}); err != nil {
+		if _, err = services.ExecuteRun(jr, s, models.JSON{}); err != nil {
 			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
 		}
 	}()

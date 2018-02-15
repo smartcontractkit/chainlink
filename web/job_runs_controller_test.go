@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,9 +23,9 @@ func TestJobRunsIndex(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	assert.Nil(t, app.Store.SaveJob(j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := j.NewRun()
-	assert.Nil(t, app.Store.Save(jr))
+	assert.Nil(t, app.Store.Save(&jr))
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -39,13 +38,12 @@ func TestJobRunsIndex(t *testing.T) {
 
 func TestJobRunsCreateSuccessfully(t *testing.T) {
 	t.Parallel()
-	RegisterTestingT(t)
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, app.Store.SaveJob(j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	cltest.WaitForJobRunToComplete(t, app, jr)
@@ -58,7 +56,7 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJob()
-	assert.Nil(t, app.Store.SaveJob(j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
