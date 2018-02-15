@@ -56,7 +56,7 @@ func TestNotificationListener_Start_WithJobs(t *testing.T) {
 func TestNotificationListener_AddJob(t *testing.T) {
 	t.Parallel()
 
-	initrAddress := cltest.NewEthAddress()
+	initrAddress := cltest.NewAddress()
 
 	tests := []struct {
 		name       string
@@ -66,9 +66,9 @@ func TestNotificationListener_AddJob(t *testing.T) {
 		data       hexutil.Bytes
 	}{
 		{"basic eth log", "ethlog", initrAddress, 1, hexutil.Bytes{}},
-		{"non-matching eth log", "ethlog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
+		{"non-matching eth log", "ethlog", cltest.NewAddress(), 0, hexutil.Bytes{}},
 		{"basic cllog", "runlog", initrAddress, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
-		{"cllog non-matching", "runlog", cltest.NewEthAddress(), 0, hexutil.Bytes{}},
+		{"cllog non-matching", "runlog", cltest.NewAddress(), 0, hexutil.Bytes{}},
 	}
 
 	for _, test := range tests {
@@ -167,7 +167,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	j.Tasks = []models.Task{cltest.NewTask("ethtx", "{}")}
 	assert.Nil(t, store.SaveJob(j))
 
-	tx := cltest.CreateTxAndAttempt(store, cltest.NewEthAddress(), sentAt)
+	tx := cltest.CreateTxAndAttempt(store, cltest.NewAddress(), sentAt)
 	txas, err := store.AttemptsFor(tx.ID)
 	assert.Nil(t, err)
 	txa := txas[0]

@@ -18,7 +18,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 	store := app.Store
 	manager := store.TxManager
 
-	to := cltest.NewEthAddress()
+	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.Nil(t, err)
 	hash := cltest.NewTxHash()

@@ -50,7 +50,7 @@ func NewJobWithLogInitiator() *models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type:    models.InitiatorEthLog,
-		Address: NewEthAddress(),
+		Address: NewAddress(),
 	}}
 	return j
 }
@@ -83,7 +83,7 @@ func NewTxHash() common.Hash {
 	return common.BytesToHash(b)
 }
 
-func NewEthAddress() common.Address {
+func NewAddress() common.Address {
 	b := make([]byte, 20)
 	rand.Read(b)
 	return common.BytesToAddress(b)
