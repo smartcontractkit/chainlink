@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -137,4 +138,9 @@ func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 // Unconfirmed returns true if the transaction is not confirmed.
 func (txr *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(txr.Hash)
+}
+
+// BlockHeader is the parameters passed in notifications for new blocks.
+type BlockHeader struct {
+	Number hexutil.Uint64 `json:"number"`
 }
