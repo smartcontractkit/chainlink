@@ -21,7 +21,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.Nil(t, err)
-	hash := cltest.NewTxHash()
+	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
@@ -93,7 +93,7 @@ func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
-	ethMock.Register("eth_sendRawTransaction", cltest.NewTxHash())
+	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	attempts, err := store.AttemptsFor(tx.ID)
@@ -125,7 +125,7 @@ func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewTxHash(),
+		Hash:        cltest.NewHash(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
@@ -158,7 +158,7 @@ func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewTxHash(),
+		Hash:        cltest.NewHash(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations-1))
