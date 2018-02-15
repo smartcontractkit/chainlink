@@ -162,7 +162,13 @@ func (nl *NotificationListener) receiveLog(el types.Log) error {
 	var merr error
 	msg := fmt.Sprintf("Received log from %v", el.Address.String())
 	logger.Debugw(msg, "log", el)
-	for _, initr := range nl.initrsWithLogAndAddress(el.Address) {
+
+	initrs, err := InitiatorsForLog(nl.Store, el)
+	if err != nil {
+		return err
+	}
+
+	for _, initr := range initrs {
 		job, err := nl.Store.FindJob(initr.JobID)
 		if err != nil {
 			msg := fmt.Sprintf("Error initiating job from log: %v", err)
@@ -196,7 +202,6 @@ func FormatLogJSON(initr models.Initiator, el types.Log) (models.JSON, error) {
 	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
 }
 
-// make our own types.Log for better serialization
 func ethLogJSON(el types.Log) (models.JSON, error) {
 	var out models.JSON
 	b, err := json.Marshal(el)
@@ -223,19 +228,6 @@ func runLogJSON(el types.Log) (models.JSON, error) {
 	}
 
 	return js.Add("functionSelector", "76005c26")
-}
-
-func (nl *NotificationListener) initrsWithLogAndAddress(address common.Address) []models.Initiator {
-	initrs := []models.Initiator{}
-	query := nl.Store.Select(q.Or(
-		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorRunLog)),
-		q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorEthLog)),
-	))
-	if err := query.Find(&initrs); err != nil {
-		msg := fmt.Sprintf("Initiating job from log: %v", err)
-		logger.Errorw(msg, "address", address.String())
-	}
-	return initrs
 }
 
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {

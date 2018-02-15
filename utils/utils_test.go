@@ -39,7 +39,7 @@ func TestUtils_EmptyAddress(t *testing.T) {
 		want bool
 	}{
 		{"zero address", common.Address{}, true},
-		{"non-zero address", cltest.NewEthAddress(), false},
+		{"non-zero address", cltest.NewAddress(), false},
 	}
 
 	for _, test := range tests {
