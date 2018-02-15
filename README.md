@@ -146,11 +146,11 @@ curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"na
 Output should return the JSON given:
 
 ```shell
-{"name":"randomnumber","url":"https://example.com/randomNumber"}
+{"name":"randomnumber","url":"http://localhost:3000/randomNumber"}
 ```
 
 And the node will log the following:
 
 ```shell
-{"level":"info","ts":1518531822.179224,"caller":"web/router.go:50","msg":"Web request","method":"POST","status":200,"path":"/v2/bridge_types","query":"","body":"{\"name\":\"randomNumber\",\"url\":\"https://example.com/randomNumber\"}","clientIP":"127.0.0.1","comment":"","servedAt":"2018/02/13 - 14:23:42","latency":"1.623398ms"}
+{"level":"info","ts":1518531822.179224,"caller":"web/router.go:50","msg":"Web request","method":"POST","status":200,"path":"/v2/bridge_types","query":"","body":"{\"name\":\"randomNumber\",\"url\":\"http://localhost:3000/randomNumber\"}","clientIP":"127.0.0.1","comment":"","servedAt":"2018/02/13 - 14:23:42","latency":"1.623398ms"}
 ```
