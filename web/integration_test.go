@@ -36,7 +36,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
-func TestIntegration_EthPubSub(t *testing.T) {
+func TestIntegration_HelloWorld(t *testing.T) {
 	gock.EnableNetworking()
 	defer cltest.CloseGock(t)
 

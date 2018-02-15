@@ -93,7 +93,7 @@ func TestNotificationListener_AddJob_Listening(t *testing.T) {
 
 			j := cltest.NewJob()
 			initr := models.Initiator{Type: test.initType}
-			if !utils.EmptyAddress(test.initrAddr) {
+			if !utils.IsEmptyAddress(test.initrAddr) {
 				initr.Address = test.initrAddr
 			}
 			j.Initiators = []models.Initiator{initr}
