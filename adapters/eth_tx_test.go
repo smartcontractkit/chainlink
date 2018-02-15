@@ -28,7 +28,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	hash := cltest.NewTxHash()
+	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
@@ -112,7 +112,7 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
-	ethMock.Register("eth_sendRawTransaction", cltest.NewTxHash())
+	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	from := store.KeyStore.GetAccount().Address
 	tx := cltest.NewTx(from, sentAt)
@@ -147,7 +147,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewTxHash(),
+		Hash:        cltest.NewHash(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
