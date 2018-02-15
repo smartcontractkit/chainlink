@@ -56,9 +56,17 @@ contract('Oracle', () => {
       assert.equal(1, tx.receipt.logs.length)
 
       let log = tx.receipt.logs[0];
+      assert.equal(jobId, web3.toUtf8(log.topics[2]));
+    });
+
+    it("uses the expected event signature", async () => {
+      // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
+      let tx = await oc.requestData(jobId, to, fHash, "");
+      assert.equal(1, tx.receipt.logs.length)
+
+      let log = tx.receipt.logs[0];
       let eventSignature = "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2";
       assert.equal(eventSignature, log.topics[0]);
-      assert.equal(jobId, web3.toUtf8(log.topics[2]));
     });
 
     it("increments the request ID", async () => {

@@ -25,7 +25,10 @@ const (
 	EventTopicJobID
 )
 
-const RunLogTopic = "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2"
+// RunLogTopic is the signature for the Request(uint256,bytes32,string) event
+// which Chainlink RunLog initiators watch for.
+// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
+var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2")
 
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
@@ -277,7 +280,7 @@ func allowNotFoundError(err error) error {
 }
 
 func isRunLog(log types.Log) bool {
-	if len(log.Topics) == 3 && log.Topics[0] == common.StringToHash(RunLogTopic) {
+	if len(log.Topics) == 3 && log.Topics[0] == RunLogTopic {
 		return true
 	}
 	return false
