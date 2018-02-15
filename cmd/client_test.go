@@ -38,9 +38,9 @@ func TestClientGetJobs(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJob()
-	app.Store.SaveJob(j1)
+	app.Store.SaveJob(&j1)
 	j2 := cltest.NewJob()
-	app.Store.SaveJob(j2)
+	app.Store.SaveJob(&j2)
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
@@ -54,7 +54,7 @@ func TestClientShowJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	job := cltest.NewJob()
-	app.Store.SaveJob(job)
+	app.Store.SaveJob(&job)
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 

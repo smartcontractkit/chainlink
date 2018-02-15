@@ -18,7 +18,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func NewJob() *models.Job {
+func NewJob() models.Job {
 	j := models.NewJob()
 	j.Tasks = []models.Task{{Type: "NoOp"}}
 	return j
@@ -35,19 +35,19 @@ func NewTask(taskType, json string) models.Task {
 	}
 }
 
-func NewJobWithSchedule(sched string) *models.Job {
+func NewJobWithSchedule(sched string) models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}
 	return j
 }
 
-func NewJobWithWebInitiator() *models.Job {
+func NewJobWithWebInitiator() models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
 	return j
 }
 
-func NewJobWithLogInitiator() *models.Job {
+func NewJobWithLogInitiator() models.Job {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type:    models.InitiatorEthLog,
@@ -90,7 +90,7 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(b)
 }
 
-func NewBridgeType(info ...string) *models.BridgeType {
+func NewBridgeType(info ...string) models.BridgeType {
 	bt := models.BridgeType{}
 
 	if len(info) > 0 {
@@ -105,7 +105,7 @@ func NewBridgeType(info ...string) *models.BridgeType {
 		bt.URL = WebURL("https://bridge.example.com/api")
 	}
 
-	return &bt
+	return bt
 }
 
 func WebURL(unparsed string) models.WebURL {

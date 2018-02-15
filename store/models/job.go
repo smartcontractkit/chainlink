@@ -38,8 +38,8 @@ type Job struct {
 
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
-func NewJob() *Job {
-	return &Job{
+func NewJob() Job {
+	return Job{
 		ID:        utils.NewBytes32ID(),
 		CreatedAt: Time{Time: time.Now()},
 	}
@@ -47,7 +47,7 @@ func NewJob() *Job {
 
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
-func (j *Job) NewRun() *JobRun {
+func (j Job) NewRun() JobRun {
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
@@ -56,7 +56,7 @@ func (j *Job) NewRun() *JobRun {
 		}
 	}
 
-	return &JobRun{
+	return JobRun{
 		ID:        utils.NewBytes32ID(),
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
@@ -66,7 +66,7 @@ func (j *Job) NewRun() *JobRun {
 
 // InitiatorsFor returns an array of Initiators for the given list of
 // Initiator types.
-func (j *Job) InitiatorsFor(types ...string) []Initiator {
+func (j Job) InitiatorsFor(types ...string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
 		for _, t := range types {
@@ -79,7 +79,7 @@ func (j *Job) InitiatorsFor(types ...string) []Initiator {
 }
 
 // WebAuthorized returns true if the "web" initiator is present.
-func (j *Job) WebAuthorized() bool {
+func (j Job) WebAuthorized() bool {
 	for _, initr := range j.Initiators {
 		if initr.Type == InitiatorWeb {
 			return true
@@ -89,7 +89,7 @@ func (j *Job) WebAuthorized() bool {
 }
 
 // Ended returns true if the job has ended.
-func (j *Job) Ended(t time.Time) bool {
+func (j Job) Ended(t time.Time) bool {
 	if !j.EndAt.Valid {
 		return false
 	}
@@ -97,7 +97,7 @@ func (j *Job) Ended(t time.Time) bool {
 }
 
 // Started returns true if the job has started.
-func (j *Job) Started(t time.Time) bool {
+func (j Job) Started(t time.Time) bool {
 	if !j.StartAt.Valid {
 		return true
 	}

@@ -25,7 +25,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}{
 		{"success", `{}`, `{"output":{"value":"100"}}`, models.StatusCompleted,
 			`{"value":"100"}`},
-		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, ``},
+		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, `{}`},
 		{"errored with a value", `{}`, `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored,
 			`{"value":"99"}`},
 		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"output":{"value":"100"}}`, models.StatusCompleted,
@@ -33,7 +33,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 
 	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
-	assert.Nil(t, store.Save(bt))
+	assert.Nil(t, store.Save(&bt))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -45,11 +45,12 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 			job := models.NewJob()
 			job.Tasks = []models.Task{{Type: bt.Name}, {Type: "noop"}}
-			assert.Nil(t, store.Save(job))
+			assert.Nil(t, store.Save(&job))
 
 			run := job.NewRun()
 			input := cltest.JSONFromString(test.input)
-			assert.Nil(t, services.ExecuteRun(run, store, input))
+			run, err := services.ExecuteRun(run, store, input)
+			assert.Nil(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
@@ -75,8 +76,8 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	job := models.NewJob()
 	job.Tasks = []models.Task{models.Task{Type: "NoOpPend"}}
 
-	run := job.NewRun()
-	services.ExecuteRun(run, store, models.JSON{})
+	run, err := services.ExecuteRun(job.NewRun(), store, models.JSON{})
+	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, models.StatusPending, run.Status)
@@ -110,15 +111,13 @@ func TestJobRunner_BeginRun(t *testing.T) {
 			job := cltest.NewJob()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
-			assert.Nil(t, store.SaveJob(job))
+			assert.Nil(t, store.SaveJob(&job))
 
-			run, err := services.BeginRun(job, store, models.JSON{})
+			_, err := services.BeginRun(job, store, models.JSON{})
 
 			if test.errored {
-				assert.Nil(t, run)
 				assert.NotNil(t, err)
 			} else {
-				assert.NotNil(t, run)
 				assert.Nil(t, err)
 			}
 			jrs, err := store.JobRunsFor(job)
@@ -157,15 +156,13 @@ func TestJobRunner_BuildRun(t *testing.T) {
 			job := cltest.NewJob()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
-			assert.Nil(t, store.SaveJob(job))
+			assert.Nil(t, store.SaveJob(&job))
 
-			run, err := services.BuildRun(job, store)
+			_, err := services.BuildRun(job, store)
 
 			if test.errored {
-				assert.Nil(t, run)
 				assert.NotNil(t, err)
 			} else {
-				assert.NotNil(t, run)
 				assert.Nil(t, err)
 			}
 		})

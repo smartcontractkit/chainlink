@@ -10,25 +10,25 @@ import (
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(job *models.Job, store *store.Store, input models.JSON) (*models.JobRun, error) {
+func BeginRun(job models.Job, store *store.Store, input models.JSON) (models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
-		return nil, err
+		return models.JobRun{}, err
 	}
-	return run, ExecuteRun(run, store, input)
+	return ExecuteRun(run, store, input)
 }
 
 // BuildRun checks to ensure the given job has not started or ended before
 // creating a new run for the job.
-func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
+func BuildRun(job models.Job, store *store.Store) (models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
-		return nil, JobRunnerError{
+		return models.JobRun{}, JobRunnerError{
 			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
 		}
 	}
 	if job.Ended(now) {
-		return nil, JobRunnerError{
+		return models.JobRun{}, JobRunnerError{
 			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
 		}
 	}
@@ -38,10 +38,10 @@ func BuildRun(job *models.Job, store *store.Store) (*models.JobRun, error) {
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run *models.JobRun, store *store.Store, input models.JSON) error {
+func ExecuteRun(run models.JobRun, store *store.Store, input models.JSON) (models.JobRun, error) {
 	run.Status = models.StatusInProgress
-	if err := store.Save(run); err != nil {
-		return wrapError(run, err)
+	if err := store.Save(&run); err != nil {
+		return run, wrapError(run, err)
 	}
 
 	logger.Infow("Starting job", run.ForLogger()...)
@@ -51,20 +51,20 @@ func ExecuteRun(run *models.JobRun, store *store.Store, input models.JSON) error
 
 	merged, err := prevRun.Result.MergeOutput(input)
 	if err != nil {
-		return wrapError(run, err)
+		return run, wrapError(run, err)
 	}
 	prevRun.Result = merged
 
 	for i, taskRunTemplate := range unfinished {
 		taskRun, err := taskRunTemplate.MergeTaskParams(input)
 		if err != nil {
-			return wrapError(run, err)
+			return run, wrapError(run, err)
 		}
 		prevRun = startTask(taskRun, prevRun.Result, store)
 		logger.Debugw("Produced task run", "tr", prevRun)
 		run.TaskRuns[i+offset] = prevRun
-		if err := store.Save(run); err != nil {
-			return wrapError(run, err)
+		if err := store.Save(&run); err != nil {
+			return run, wrapError(run, err)
 		}
 
 		if prevRun.Result.Pending {
@@ -87,7 +87,7 @@ func ExecuteRun(run *models.JobRun, store *store.Store, input models.JSON) error
 	}
 
 	logger.Infow("Finished current job run execution", run.ForLogger()...)
-	return wrapError(run, store.Save(run))
+	return run, wrapError(run, store.Save(&run))
 }
 
 func startTask(
@@ -116,7 +116,7 @@ func startTask(
 	return run
 }
 
-func wrapError(run *models.JobRun, err error) error {
+func wrapError(run models.JobRun, err error) error {
 	if err != nil {
 		return fmt.Errorf("ExecuteRun: Job#%v: %v", run.JobID, err)
 	}
