@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -22,6 +24,8 @@ const (
 	EventTopicRequestID
 	EventTopicJobID
 )
+
+const RunLogTopic = "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2"
 
 // NotificationListener contains fields for the pointer of the store and
 // a channel to the EthNotification (as the field 'logs').
@@ -240,4 +244,67 @@ func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 	var js models.JSON
 	hex := []byte(string([]byte(data)[varLocationSize+varLengthSize:]))
 	return js, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
+}
+
+// InitiatorsForLog returns all of the Initiators relevant to a log.
+func InitiatorsForLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
+	initrs, merr := ethLogInitrsForAddress(store, log.Address)
+	if isRunLog(log) {
+		rlInitrs, err := ethLogInitrsForRunLog(store, log)
+		initrs = append(initrs, rlInitrs...)
+		merr = multierr.Append(merr, err)
+	}
+
+	return initrs, merr
+}
+
+func ethLogInitrsForAddress(store *store.Store, address common.Address) ([]models.Initiator, error) {
+	query := store.Select(q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorEthLog)))
+	initrs := []models.Initiator{}
+	return initrs, allowNotFoundError(query.Find(&initrs))
+}
+
+func ethLogInitrsForRunLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
+	initrs := []models.Initiator{}
+	if !isRunLog(log) {
+		return initrs, nil
+	}
+	jobID, err := jobIDFromLog(log)
+	if err != nil {
+		return initrs, err
+	}
+
+	query := store.Select(q.And(q.Eq("JobID", jobID), q.Re("Type", models.InitiatorRunLog)))
+	if err = query.Find(&initrs); allowNotFoundError(err) != nil {
+		return initrs, err
+	}
+	return initrsForAddress(initrs, log.Address), nil
+}
+
+func allowNotFoundError(err error) error {
+	if err == storm.ErrNotFound {
+		return nil
+	}
+	return err
+}
+
+func isRunLog(log types.Log) bool {
+	if len(log.Topics) == 3 && log.Topics[0] == common.StringToHash(RunLogTopic) {
+		return true
+	}
+	return false
+}
+
+func jobIDFromLog(log types.Log) (string, error) {
+	return utils.HexToString(log.Topics[EventTopicJobID].Hex())
+}
+
+func initrsForAddress(initrs []models.Initiator, addr common.Address) []models.Initiator {
+	good := []models.Initiator{}
+	for _, initr := range initrs {
+		if utils.EmptyAddress(initr.Address) || initr.Address == addr {
+			good = append(good, initr)
+		}
+	}
+	return good
 }
