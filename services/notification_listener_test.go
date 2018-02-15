@@ -105,7 +105,7 @@ func TestNotificationListener_AddJob_Listening(t *testing.T) {
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
-					common.StringToHash(services.RunLogTopic),
+					services.RunLogTopic,
 					common.StringToHash("requestID"),
 					common.StringToHash(j.ID),
 				},
@@ -202,7 +202,7 @@ func TestServices_InitiatorsForLog(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	runLogSig := common.StringToHash(services.RunLogTopic)
+	runLogSig := services.RunLogTopic
 	requestID := common.StringToHash("42")
 
 	elj := cltest.NewJob()
@@ -265,4 +265,12 @@ func TestServices_InitiatorsForLog(t *testing.T) {
 			assert.Equal(t, test.want, actual)
 		})
 	}
+}
+
+// If updating this test, be sure to update the truffle suite's "expected event signature" test.
+func TestServices_RunLogTopic_ExpectedEventSignature(t *testing.T) {
+	t.Parallel()
+
+	expected := "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2"
+	assert.Equal(t, expected, services.RunLogTopic.Hex())
 }

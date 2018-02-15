@@ -368,7 +368,7 @@ func StringToRunLogPayload(str string) hexutil.Bytes {
 		lenHex = "0x" + strings.Repeat("0", 64-len(lenHex[2:])) + lenHex[2:]
 	}
 
-	data := hexutil.Encode([]byte(str))
+	data := utils.StringToHex(str)
 	prefix := "0x0000000000000000000000000000000000000000000000000000000000000020"
 
 	var endPad string
