@@ -238,7 +238,7 @@ func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 func InitiatorsForLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
 	initrs, merr := ethLogInitrsForAddress(store, log.Address)
 	if isRunLog(log) {
-		rlInitrs, err := ethLogInitrsForRunLog(store, log)
+		rlInitrs, err := runLogInitrsForLog(store, log)
 		initrs = append(initrs, rlInitrs...)
 		merr = multierr.Append(merr, err)
 	}
@@ -252,7 +252,7 @@ func ethLogInitrsForAddress(store *store.Store, address common.Address) ([]model
 	return initrs, allowNotFoundError(query.Find(&initrs))
 }
 
-func ethLogInitrsForRunLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
+func runLogInitrsForLog(store *store.Store, log types.Log) ([]models.Initiator, error) {
 	initrs := []models.Initiator{}
 	if !isRunLog(log) {
 		return initrs, nil
@@ -290,7 +290,7 @@ func jobIDFromLog(log types.Log) (string, error) {
 func initrsForAddress(initrs []models.Initiator, addr common.Address) []models.Initiator {
 	good := []models.Initiator{}
 	for _, initr := range initrs {
-		if utils.EmptyAddress(initr.Address) || initr.Address == addr {
+		if utils.IsEmptyAddress(initr.Address) || initr.Address == addr {
 			good = append(good, initr)
 		}
 	}

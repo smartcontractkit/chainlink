@@ -32,7 +32,7 @@ func TestEthToWei(t *testing.T) {
 	assert.Equal(t, actualNumWei, expectedNumWei)
 }
 
-func TestUtils_EmptyAddress(t *testing.T) {
+func TestUtils_IsEmptyAddress(t *testing.T) {
 	tests := []struct {
 		name string
 		addr common.Address
@@ -44,7 +44,7 @@ func TestUtils_EmptyAddress(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := utils.EmptyAddress(test.addr)
+			actual := utils.IsEmptyAddress(test.addr)
 			assert.Equal(t, test.want, actual)
 		})
 	}
