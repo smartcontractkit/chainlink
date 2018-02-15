@@ -20,7 +20,7 @@ func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
 	job := models.NewJob()
 	jr := job.NewRun()
 	jr.Result = models.RunResultWithError(fmt.Errorf("bad idea"))
-	err := store.Save(jr)
+	err := store.Save(&jr)
 	assert.Nil(t, err)
 
 	run := &models.JobRun{}
@@ -41,11 +41,11 @@ func TestTaskRunsToRun(t *testing.T) {
 		{Type: "NoOpPend"},
 		{Type: "NoOp"},
 	}
-	assert.Nil(t, store.SaveJob(j))
+	assert.Nil(t, store.SaveJob(&j))
 	jr := j.NewRun()
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
-	err := services.ExecuteRun(jr, store, models.JSON{})
+	jr, err := services.ExecuteRun(jr, store, models.JSON{})
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }

@@ -121,7 +121,7 @@ func (nl *NotificationListener) listenToNewHeads() {
 			logger.Error(err.Error())
 		}
 		for _, jr := range pendingRuns {
-			if err := ExecuteRun(&jr, nl.Store, models.JSON{}); err != nil {
+			if _, err := ExecuteRun(jr, nl.Store, models.JSON{}); err != nil {
 				logger.Error(err.Error())
 			}
 		}

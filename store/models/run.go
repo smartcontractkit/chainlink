@@ -20,7 +20,7 @@ type JobRun struct {
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.
-func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
+func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", jr.JobID,
 		"run", jr.ID,
@@ -36,7 +36,7 @@ func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
 
 // UnfinishedTaskRuns returns a list of TaskRuns for a JobRun
 // which are not Completed or Errored.
-func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
+func (jr JobRun) UnfinishedTaskRuns() []TaskRun {
 	unfinished := jr.TaskRuns
 	for _, tr := range jr.TaskRuns {
 		if tr.Completed() {
@@ -52,7 +52,7 @@ func (jr *JobRun) UnfinishedTaskRuns() []TaskRun {
 
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
-func (jr *JobRun) NextTaskRun() TaskRun {
+func (jr JobRun) NextTaskRun() TaskRun {
 	return jr.UnfinishedTaskRuns()[0]
 }
 

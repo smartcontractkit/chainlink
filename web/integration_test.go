@@ -68,10 +68,8 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	app.Start()
 	defer cleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app,
-		"../internal/fixtures/web/hello_world_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	cltest.WaitForJobRunToPend(t, app, jr)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
+	jr := cltest.WaitForJobRunToPend(t, app, cltest.CreateJobRunViaWeb(t, app, j))
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -93,7 +91,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	})
 	newHeads <- types.Header{Number: big.NewInt(int64(safe))}
 
-	cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()
 	assert.Nil(t, err)
@@ -246,8 +244,7 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr := cltest.WaitForJobRunToComplete(t, app, cltest.CreateJobRunViaWeb(t, app, j))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
@@ -280,7 +277,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	newParams, err := j.Tasks[0].Params.Add("url", mockServer.URL)
 	assert.Nil(t, err)
 	j.Tasks[0].Params = newParams
-	assert.Nil(t, app.Store.Save(j))
+	assert.Nil(t, app.Store.Save(&j))
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -290,5 +287,5 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	logs <- en
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
-	cltest.WaitForJobRunToComplete(t, app, &jobRuns[0])
+	cltest.WaitForJobRunToComplete(t, app, jobRuns[0])
 }

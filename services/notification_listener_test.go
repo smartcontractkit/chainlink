@@ -41,8 +41,10 @@ func TestNotificationListener_Start_WithJobs(t *testing.T) {
 	nl := services.NotificationListener{Store: store}
 	defer nl.Stop()
 
-	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
-	assert.Nil(t, store.SaveJob(cltest.NewJobWithLogInitiator()))
+	j1 := cltest.NewJobWithLogInitiator()
+	j2 := cltest.NewJobWithLogInitiator()
+	assert.Nil(t, store.SaveJob(&j1))
+	assert.Nil(t, store.SaveJob(&j2))
 	eth.RegisterSubscription("logs", make(chan types.Log))
 	eth.RegisterSubscription("logs", make(chan types.Log))
 
@@ -97,9 +99,9 @@ func TestNotificationListener_AddJob_Listening(t *testing.T) {
 				initr.Address = test.initrAddr
 			}
 			j.Initiators = []models.Initiator{initr}
-			assert.Nil(t, store.SaveJob(j))
+			assert.Nil(t, store.SaveJob(&j))
 
-			nl.AddJob(*j)
+			nl.AddJob(j)
 
 			logChan <- types.Log{
 				Address: test.logAddr,
@@ -175,7 +177,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 
 	j := models.NewJob()
 	j.Tasks = []models.Task{cltest.NewTask("ethtx", "{}")}
-	assert.Nil(t, store.SaveJob(j))
+	assert.Nil(t, store.SaveJob(&j))
 
 	tx := cltest.CreateTxAndAttempt(store, cltest.NewAddress(), sentAt)
 	txas, err := store.AttemptsFor(tx.ID)
@@ -189,7 +191,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	tr.Status = models.StatusPending
 	jr.TaskRuns[0] = tr
 	jr.Status = models.StatusPending
-	assert.Nil(t, store.Save(jr))
+	assert.Nil(t, store.Save(&jr))
 
 	nhChan <- types.Header{}
 
@@ -208,20 +210,20 @@ func TestServices_InitiatorsForLog(t *testing.T) {
 	elj := cltest.NewJob()
 	el := models.Initiator{Type: "ethlog", Address: cltest.NewAddress()}
 	elj.Initiators = []models.Initiator{el}
-	assert.Nil(t, store.SaveJob(elj))
+	assert.Nil(t, store.SaveJob(&elj))
 	assert.Nil(t, store.One("JobID", elj.ID, &el))
 
 	rlj := cltest.NewJob()
 	rl := models.Initiator{Type: "runlog"}
 	rlj.Initiators = []models.Initiator{rl}
-	assert.Nil(t, store.SaveJob(rlj))
+	assert.Nil(t, store.SaveJob(&rlj))
 	assert.Nil(t, store.One("JobID", rlj.ID, &rl))
 	rljIDHash := common.StringToHash(rlj.ID)
 
 	rlaj := cltest.NewJob()
 	rla := models.Initiator{Type: "runlog", Address: cltest.NewAddress()}
 	rlaj.Initiators = []models.Initiator{rla}
-	assert.Nil(t, store.SaveJob(rlaj))
+	assert.Nil(t, store.SaveJob(&rlaj))
 	assert.Nil(t, store.One("JobID", rlaj.ID, &rla))
 	rlajIDHash := common.StringToHash(rlaj.ID)
 
