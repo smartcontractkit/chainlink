@@ -71,7 +71,7 @@ func (nl *NotificationListener) Stop() error {
 
 // AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
-func (nl *NotificationListener) AddJob(job *models.Job) error {
+func (nl *NotificationListener) AddJob(job models.Job) error {
 	var addresses []common.Address
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
 		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", initr.Address.String()))
@@ -102,7 +102,7 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 func (nl *NotificationListener) subscribeToInitiators(jobs []models.Job) error {
 	var err error
 	for _, j := range jobs {
-		err = multierr.Append(err, nl.AddJob(&j))
+		err = multierr.Append(err, nl.AddJob(j))
 	}
 	return err
 }

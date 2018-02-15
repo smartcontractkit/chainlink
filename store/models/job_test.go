@@ -21,7 +21,8 @@ func TestJobSave(t *testing.T) {
 	assert.Nil(t, store.SaveJob(j1))
 
 	store.Save(j1)
-	j2, _ := store.FindJob(j1.ID)
+	j2, err := store.FindJob(j1.ID)
+	assert.Nil(t, err)
 	assert.Equal(t, j1.Initiators[0].Schedule, j2.Initiators[0].Schedule)
 }
 
