@@ -21,14 +21,14 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
-	address := cltest.NewEthAddress()
+	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
 	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
 	inputValue := "0x9786856756"
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	hash := cltest.NewTxHash()
+	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
 	safe := confirmed + config.EthMinConfirmations
@@ -112,7 +112,7 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
-	ethMock.Register("eth_sendRawTransaction", cltest.NewTxHash())
+	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	from := store.KeyStore.GetAccount().Address
 	tx := cltest.NewTx(from, sentAt)
@@ -147,12 +147,12 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewTxHash(),
+		Hash:        cltest.NewHash(),
 		BlockNumber: sentAt,
 	})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
 
-	tx := cltest.NewTx(cltest.NewEthAddress(), sentAt)
+	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.Save(tx))
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
@@ -189,7 +189,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	ethMock.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
 
 	adapter := adapters.EthTx{
-		Address:          cltest.NewEthAddress(),
+		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
 	input := models.RunResultWithValue("")
