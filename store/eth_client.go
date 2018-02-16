@@ -102,6 +102,10 @@ func (eth *EthClient) SubscribeToNewHeads(
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/interfaces.go#L132
 func toFilterArg(addresses []common.Address) interface{} {
+	withoutZeros := utils.WithoutZeroAddresses(addresses)
+	if len(withoutZeros) == 0 {
+		return map[string]interface{}{}
+	}
 	arg := map[string]interface{}{
 		"address": addresses,
 	}

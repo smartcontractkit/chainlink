@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
@@ -81,7 +82,8 @@ func (nl *NotificationListener) Stop() error {
 func (nl *NotificationListener) AddJob(job models.Job) error {
 	var addresses []common.Address
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
-		logger.Debugw(fmt.Sprintf("Listening for logs from address %v", initr.Address.String()))
+		msg := fmt.Sprintf("Listening for logs from address %v", presenters.LogListeningAddress(initr.Address))
+		logger.Debugw(msg)
 		addresses = append(addresses, initr.Address)
 	}
 
@@ -250,7 +252,7 @@ func InitiatorsForLog(store *store.Store, log types.Log) ([]models.Initiator, er
 }
 
 func ethLogInitrsForAddress(store *store.Store, address common.Address) ([]models.Initiator, error) {
-	query := store.Select(q.And(q.Eq("Address", address), q.Re("Type", models.InitiatorEthLog)))
+	query := store.Select(q.And(q.Or(q.Eq("Address", address), q.Eq("Address", utils.ZeroAddress)), q.Re("Type", models.InitiatorEthLog)))
 	initrs := []models.Initiator{}
 	return initrs, allowNotFoundError(query.Find(&initrs))
 }
