@@ -12,4 +12,8 @@ export ROOT=./internal/devnet
 export ETH_URL=ws://localhost:18546
 export ETH_CHAIN_ID=17
 
-go run main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+if [ $1 == "node" ]; then
+  go run main.go $@ -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+else
+  go run main.go $@
+fi
