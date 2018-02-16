@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 
 	"math/big"
 
@@ -130,7 +129,7 @@ func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &rcpt); err != nil {
 		return err
 	}
-	block, err := strconv.ParseUint(rcpt.BlockNumber[2:], 16, 64)
+	block, err := utils.HexToUint64(rcpt.BlockNumber)
 	if err != nil {
 		return err
 	}

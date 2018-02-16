@@ -363,19 +363,19 @@ func waitForJobRunInStatus(
 
 func StringToRunLogPayload(str string) hexutil.Bytes {
 	length := len([]byte(str))
-	lenHex := hexutil.EncodeUint64(uint64(length))
-	if len(lenHex[2:]) < 64 {
-		lenHex = "0x" + strings.Repeat("0", 64-len(lenHex[2:])) + lenHex[2:]
+	lenHex := utils.RemoveHexPrefix(hexutil.EncodeUint64(uint64(length)))
+	if len(lenHex) < 64 {
+		lenHex = strings.Repeat("0", 64-len(lenHex)) + lenHex
 	}
 
-	data := utils.StringToHex(str)
+	data := utils.RemoveHexPrefix(utils.StringToHex(str))
 	prefix := "0x0000000000000000000000000000000000000000000000000000000000000020"
 
 	var endPad string
 	if length%32 != 0 {
 		endPad = strings.Repeat("00", (32 - (length % 32)))
 	}
-	return hexutil.MustDecode(prefix + lenHex[2:] + data[2:] + endPad)
+	return hexutil.MustDecode(prefix + lenHex + data + endPad)
 }
 
 func WaitForRuns(t *testing.T, j models.Job, store *store.Store, want int) []models.JobRun {
