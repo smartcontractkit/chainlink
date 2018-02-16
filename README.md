@@ -1,96 +1,43 @@
-# Chainlink [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink) [![Maintainability](https://api.codeclimate.com/v1/badges/f45294bf9c01d8055451/maintainability)](https://codeclimate.com/repos/5a864b469b27633ee4002e4b/maintainability) [![CodeCov](https://codecov.io/gh/smartcontractkit/chainlink/branch/master/graph/badge.svg?token=1LacYNWKro)](https://codecov.io/gh/smartcontractkit/chainlink) [![Join the chat at https://gitter.im/smartcontractkit-chainlink/Lobby](https://badges.gitter.im/smartcontractkit-chainlink/Lobby.svg)](https://gitter.im/smartcontractkit-chainlink/Lobby)
+# ChainLink [![Maintainability](https://api.codeclimate.com/v1/badges/f45294bf9c01d8055451/maintainability)](https://codeclimate.com/repos/5a864b469b27633ee4002e4b/maintainability) [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink) [![Join the chat at https://gitter.im/smartcontractkit-chainlink/Lobby](https://badges.gitter.im/smartcontractkit-chainlink/Lobby.svg)](https://gitter.im/smartcontractkit-chainlink/Lobby) [![GoDoc](https://godoc.org/github.com/smartcontractkit/chainlink?status.svg)](https://godoc.org/github.com/smartcontractkit/chainlink)
 
-## Ethereum Node Requirements
+ChainLink is middleware to simplify communication with blockchains. Here you'll find the ChainLink Golang node, currently in alpha. This initial implementation is intended for use and review by developers, and will go on to form the basis for ChainLink's [decentralized oracle network](https://link.smartcontract.com/whitepaper). Further development of the ChainLink Node and ChainLink Network will happen here, if you are interested in contributing please see our [contribution guidelines](https://github.com/smartcontractkit/chainlink/blob/CONTRIBUTING.md). The current node supports:
+- easy connectivity of on-chain contracts to any off-chain computation or API
+- multiple methods for scheduling of on and off chain computation
+- simple Solidity syntax for smart contracts to communicate with ChainLink
+- translating of data types into EVM consumable types and transactions
+- push notifications for Ethereum logs, parsed into easy to consume formats
+- automatic gas price bumping to prevent stuck transactions, assuring your data is delivered in a timely manner
+- easy to install node, runs natively across operating systems, blazingly fast, with a low memory footprint
 
-- Parity 1.9+ due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).
-- Geth 1.7+
 
-## Developer Setup
+## Install
 
-### Install [Go 1.9+](https://golang.org/dl/)
+1. [Install Go 1.9+](https://golang.org/doc/install#install), including adding your GOPATh's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+2. Install ChainLink: `$ go get -u github.com/smartcontractkit/chainlink`
+3. Run the node: `$ chainlink help`
 
-Create the Go workspace (`~/go` given as an example)
+## Run
 
+To start your ChainLink node, simply run:
 ```bash
-$ mkdir ~/go && cd ~/go
+$ chainlink node
+```
+By default this will start on port 6688, where it exposes a [REST API](https://github.com/smartcontractkit/chainlink/wiki/REST-API).
+
+Once your node is started, you can view your current jobs with:
+```bash
+$ chainlink jobs
+````
+View details of a specific job with:
+```bash
+$ chainlink show $JOB_ID
 ```
 
-Set environment variables
+To find out more about the ChainLink cli, you can always run `chainlink help`.
 
-```bash
-$ export GOPATH=$(pwd)
-$ export PATH=$PATH:$GOPATH/bin
-```
+## Configure
 
-### Create Project Directories
-
-```bash
-$ cd $GOPATH
-$ mkdir -p src/github.com/smartcontractkit
-$ cd src/github.com/smartcontractkit
-```
-
-### Clone the repo
-
-```bash
-$ git clone https://github.com/smartcontractkit/chainlink.git
-$ cd chainlink
-```
-
-### Get and run dep
-
-Linux
-
-```bash
-$ go get -u github.com/golang/dep/cmd/dep
-$ dep ensure
-```
-
-Mac
-
-```bash
-$ brew install dep
-$ dep ensure
-```
-
-### Build the project
-
-```bash
-$ go build -o chainlink
-```
-
-Run the binary
-
-```bash
-$ ./chainlink
-```
-
-### Testing
-
-```bash
-$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
-$ go test ./...
-```
-
-### Direnv
-
-We use [direnv](https://github.com/direnv/direnv/) to set up PATH and aliases 
-for a friendlier developer experience. Here is an example `.envrc` that we use:
-
-```bash
-$ cat .envrc
-PATH_add tmp
-PATH_add solidity/node_modules/.bin
-PATH_add internal/bin
-```
-
-Direnv can be installed by running
-
-```bash
-$ go get -u github.com/direnv/direnv
-```
-
-Environment variables that can be set in .envrc, along with default values that get used if no corresponding enviornment variable is found:
+You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding enviornment variable is found:
 
     LOG_LEVEL                Default: info
     ROOT                     Default: ~/.chainlink
@@ -99,62 +46,98 @@ Environment variables that can be set in .envrc, along with default values that 
     PASSWORD                 Default: twochains
     ETH_URL                  Default: ws://localhost:8546
     ETH_CHAIN_ID             Default: 0
-    POLLING_SCHEDULE         Default: */15 * * * * *
-    CLIENT_NODE_URL          Default: http://localhost:6688
-    ETH_MIN_CONFIRMATIONS    Default: 12
     ETH_GAS_BUMP_THRESHOLD   Default: 12
-    ETH_GAS_BUMP_WEI         Default: 5,000,000,000
-    ETH_GAS_PRICE_DEFAULT    Default: 20,000,000,000
+    ETH_MIN_CONFIRMATIONS    Default: 12
+    ETH_GAS_BUMP_WEI         Default: 5000000000  (5 gwei)
+    ETH_GAS_PRICE_DEFAULT    Default: 20000000000 (20 gwei)
+    
+When running the ChainLink cli to talk to a node on another machine:
 
-### Solidity Development setup
+    CLIENT_NODE_URL          Default: http://localhost:6688
+    USERNAME                 Default: chainlink
+    PASSWORD                 Default: twochains
 
-Before proceeding, make sure you have installed [yarn](https://yarnpkg.com/lang/en/docs/install)
+### Ethereum Node Requirements
+
+In order to run the ChainLink node you must have access to an Ethereum node with an open websocket connection. Any Ethereum based network work will once you've [configured](https://github.com/smartcontractkit/chainlink/blob/#configure) the chain ID. Ethereum node versions currently tested and supported:
+
+- Parity 1.9+ (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
+- Geth 1.7+
+
+
+## External Adapters
+
+External adapters are what make ChainLink easily extensible, providing simple integration of custom computations and specialized APIs. External adapters are services which the core of the ChainLink node communicates with via a simple API.
+
+For more information on creating and using external adapters, please see our [external adapters page](https://github.com/smartcontractkit/chainlink/wiki/External-Adapters).
+
+
+## Development Setup
+
+
+- [Install Go 1.9+](https://golang.org/doc/install#install)
+- Set up a Go workspace(`~/go` given as an example directory) and add go binaries to your path:
+```bash
+$ mkdir ~/go && cd ~/go
+$ export GOPATH=$(pwd)
+$ export PATH=$PATH:$GOPATH/bin
+```
+
+- [Install `dep`](https://github.com/golang/dep#installation):
+```bash
+go get -u github.com/golang/dep/cmd/dep
+```
+
+- Clone the repo:
+```bash
+$ go get github.com/smartcontractkit/chainlink
+$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
+```
+
+- Run:
+```bash
+$ go run main.go
+```
+
+### Build your current version
 
 ```bash
-$ cd solidity
+$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
+$ go build
+```
+
+- Run the binary:
+```bash
+$ ./chainlink
+```
+
+### Test
+
+```bash
+$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
+$ go test ./...
+```
+
+### Solidity Development
+
+1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
+2. Install the dependencies:
+```bash
+$ cd $GOPATH/src/github.com/smartcontractkit/chainlink/solidity
 $ yarn install
+```
+3. Run tests:
+```bash
 $ truffle test
 ```
+### Development Tips
 
-### External Adapters
+For more tips on how to build and test ChainLink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
 
-External adapters are added to the Chainlink node first by adding a bridge type. Bridge types define the name and URL of your external adapter. When a task type is received that is not one of the core adapters, the node will search for a bridge type with that name, creating a bridge to your external adapter.
+## Contributing
 
-bridge_type.json
+ChainLink's source code is [licensed under the MIT License](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE), and contributions are welcome.
 
-```JSON
-{ "name": "randomNumber", "url": "http://localhost:3000/randomNumber" }
-```
+Please check out our [contributing guidelines](https://github.com/smartcontractkit/chainlink/blob/documentation/overviews/CONTRIBUTING.md) for more details.
 
-job.json
-
-```JSON
-{
-  "initiators": [{
-    "type": "runLog"
-  }],
-  "tasks": [ {"type": "randomNumber"} ]
-}
-```
-
-#### Adding an External Adapter
-
-POST to `/v2/bridge_types`:
-
-```shell
-curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' -d '{"name":"randomNumber","url":"http://localhost:3000/randomNumber"}' http://localhost:6688/v2/bridge_types
-```
-
-`"name"` should be unique to the local node, and `"url"` should be the URL of your external adapter, whether local or on a separate machine.
-
-Output should return the JSON given:
-
-```shell
-{"name":"randomnumber","url":"http://localhost:3000/randomNumber"}
-```
-
-And the node will log the following:
-
-```shell
-{"level":"info","ts":1518531822.179224,"caller":"web/router.go:50","msg":"Web request","method":"POST","status":200,"path":"/v2/bridge_types","query":"","body":"{\"name\":\"randomNumber\",\"url\":\"http://localhost:3000/randomNumber\"}","clientIP":"127.0.0.1","comment":"","servedAt":"2018/02/13 - 14:23:42","latency":"1.623398ms"}
-```
+Thank you!
