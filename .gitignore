@@ -1,4 +1,4 @@
 vendor/
 tmp/
-devnet/db.bolt
-devnet/log.jsonl
+internal/devnet/db.bolt
+internal/devnet/log.jsonl
