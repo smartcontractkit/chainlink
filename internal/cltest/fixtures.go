@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -165,4 +166,8 @@ func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
 			common.StringToHash(jobID),
 		},
 	}
+}
+
+func BigHexInt(val uint64) hexutil.Big {
+	return hexutil.Big(*big.NewInt(int64(val)))
 }
