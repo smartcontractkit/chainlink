@@ -130,8 +130,7 @@ job.json
 ```JSON
 {
   "initiators": [{
-    "type": "runLog",
-    "address": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+    "type": "runLog"
   }],
   "tasks": [ {"type": "randomNumber"} ]
 }
