@@ -19,9 +19,9 @@ const evmWordHexLen = evmWordByteLen * 2
 // Perform returns the hex value of the first 32 bytes of a string
 // so that it is in the proper format to be written to the blockchain.
 //
-// For example, after converting the string "16800.00" to hex for Solidity
-// type bytes32, it would be:
-// "0x31363830302e3030000000000000000000000000000000000000000000000000"
+// For example, after converting the string "123.99" to hex for
+// the blockchain, it would be:
+// "0x000000000000000000000000000000000000000000000000000000000000007b"
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	result, err := input.Get("value")
 	if err != nil {
@@ -34,7 +34,7 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	if len(hex) > evmWordHexLen {
 		hex = hex[:evmWordHexLen]
 	}
-	return models.RunResultWithValue(hex)
+	return models.RunResultWithValue(utils.AddHexPrefix(hex))
 }
 
 // EthUint256 holds no fields.
@@ -43,9 +43,9 @@ type EthUint256 struct{}
 // Perform returns the hex value of a given string so that it
 // is in the proper format to be written to the blockchain.
 //
-// For example, after converting the string "123.99" to hex for Solidity
-// type uint256, it would be:
-// "0x000000000000000000000000000000000000000000000000000000000000007b"
+// For example, after converting the string "16800.00" to hex for
+// the blockchain, it would be:
+// "0x31363830302e3030000000000000000000000000000000000000000000000000"
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.Get("value")
 	if err != nil {
@@ -62,9 +62,8 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		return models.RunResultWithError(err)
 	}
 	padded := common.LeftPadBytes(b, evmWordByteLen)
-	hex := utils.RemoveHexPrefix(common.ToHex(padded))
 
-	return models.RunResultWithValue(hex)
+	return models.RunResultWithValue(common.ToHex(padded))
 }
 
 func bigToUintHex(f *big.Float) string {
