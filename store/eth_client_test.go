@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
@@ -93,5 +92,5 @@ func TestBlockHeader_UnmarshalJSON(t *testing.T) {
 	value := gjson.Get(string(data), "params.result")
 	assert.Nil(t, json.Unmarshal([]byte(value.String()), &bh))
 
-	assert.Equal(t, hexutil.Uint64(1263817), bh.Number)
+	assert.Equal(t, cltest.BigHexInt(uint64(1263817)), bh.Number)
 }

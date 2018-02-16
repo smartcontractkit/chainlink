@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
@@ -75,7 +74,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	newHeads <- store.BlockHeader{Number: hexutil.Uint64(confirmed - 1)}
+	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -83,7 +82,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: confirmed,
 	})
-	newHeads <- store.BlockHeader{Number: hexutil.Uint64(confirmed)}
+	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -91,7 +90,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: confirmed,
 	})
-	newHeads <- store.BlockHeader{Number: hexutil.Uint64(safe)}
+	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(safe)}
 
 	cltest.WaitForJobRunToComplete(t, app, jr)
 
