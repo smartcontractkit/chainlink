@@ -142,5 +142,5 @@ func (txr *TxReceipt) Unconfirmed() bool {
 
 // BlockHeader is the parameters passed in notifications for new blocks.
 type BlockHeader struct {
-	Number hexutil.Uint64 `json:"number"`
+	Number hexutil.Big `json:"number"`
 }
