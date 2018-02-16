@@ -81,6 +81,7 @@ for a friendlier developer experience. Here is an example `.envrc` that we use:
 $ cat .envrc
 PATH_add tmp
 PATH_add solidity/node_modules/.bin
+PATH_add internal/bin
 ```
 
 Direnv can be installed by running
