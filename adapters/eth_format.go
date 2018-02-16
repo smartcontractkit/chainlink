@@ -54,7 +54,7 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		return models.RunResultWithError(fmt.Errorf("cannot parse into big.Int: %v", val.String()))
+		return models.RunResultWithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
 	b, err := utils.HexToBytes(bigToUintHex(i))
