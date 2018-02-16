@@ -157,6 +157,10 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func (i Initiator) IsLogListener() bool {
+	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog
+}
+
 // Task is the specific unit of work to be carried out. The
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.

@@ -17,6 +17,13 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func LogListeningAddress(address common.Address) string {
+	if address == utils.ZeroAddress {
+		return "[all]"
+	}
+	return address.String()
+}
+
 func ShowEthBalance(store *store.Store) (string, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
@@ -167,10 +174,10 @@ var empty_address = common.Address{}.String()
 // FriendlyAddress returns the Ethereum address if present, and a blank
 // string if not.
 func (i Initiator) FriendlyAddress() string {
-	if empty_address == i.Address.String() {
-		return ""
+	if i.IsLogListener() {
+		return LogListeningAddress(i.Address)
 	}
-	return i.Address.String()
+	return ""
 }
 
 // Task holds a task specified in the Job definition.
