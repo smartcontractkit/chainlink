@@ -32,6 +32,16 @@ const (
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
 
+func WithoutZeroAddresses(addresses []common.Address) []common.Address {
+	var withoutZeros []common.Address
+	for _, address := range addresses {
+		if address != ZeroAddress {
+			withoutZeros = append(withoutZeros, address)
+		}
+	}
+	return withoutZeros
+}
+
 func HexToUint64(hex string) (uint64, error) {
 	if strings.ToLower(hex[0:2]) == "0x" {
 		hex = hex[2:]
