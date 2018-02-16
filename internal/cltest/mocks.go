@@ -33,14 +33,14 @@ func MockEthOnStore(s *store.Store) *EthMock {
 
 func NewMockGethRpc() *EthMock {
 	return &EthMock{
-		NewHeadsChannel: make(chan ethtypes.Header),
+		NewHeadsChannel: make(chan store.BlockHeader),
 	}
 }
 
 type EthMock struct {
 	Responses       []MockResponse
 	Subscriptions   []MockSubscription
-	NewHeadsChannel chan ethtypes.Header
+	NewHeadsChannel chan store.BlockHeader
 	newHeadsCalled  bool
 }
 
@@ -118,7 +118,7 @@ func (mock *EthMock) EthSubscribe(
 			switch channel.(type) {
 			case chan<- ethtypes.Log:
 				fwdLogs(channel, sub.channel)
-			case chan<- ethtypes.Header:
+			case chan<- store.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
@@ -146,8 +146,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- ethtypes.Header)
-	mockChan := mock.(chan ethtypes.Header)
+	logChan := actual.(chan<- store.BlockHeader)
+	mockChan := mock.(chan store.BlockHeader)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
