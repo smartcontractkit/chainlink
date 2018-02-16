@@ -1,4 +1,4 @@
-# Chainlink [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink) [![CodeCov](https://codecov.io/gh/smartcontractkit/chainlink/branch/master/graph/badge.svg?token=1LacYNWKro)](https://codecov.io/gh/smartcontractkit/chainlink)
+# Chainlink [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink) [![CodeCov](https://codecov.io/gh/smartcontractkit/chainlink/branch/master/graph/badge.svg?token=1LacYNWKro)](https://codecov.io/gh/smartcontractkit/chainlink) [![Join the chat at https://gitter.im/smartcontractkit-chainlink/Lobby](https://badges.gitter.im/smartcontractkit-chainlink/Lobby.svg)](https://gitter.im/smartcontractkit-chainlink/Lobby)
 
 ## Ethereum Node Requirements
 
