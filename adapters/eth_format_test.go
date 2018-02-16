@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEthBytes32Formatting(t *testing.T) {
+func TestEthBytes32_Perform(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
@@ -40,6 +40,46 @@ func TestEthBytes32Formatting(t *testing.T) {
 			assert.Equal(t, test.expected, val)
 			assert.Nil(t, err)
 			assert.Nil(t, result.GetError())
+		})
+	}
+}
+
+func TestEthUint256_Perform(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		want    string
+		errored bool
+	}{
+		{"string", `{"value":"123"}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"integer", `{"value":123}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"integer", `{"value":"18446744073709551615"}`, "000000000000000000000000000000000000000000000000ffffffffffffffff", false},
+		{"integer", `{"value":"170141183460469231731687303715884105728"}`, "0000000000000000000000000000000080000000000000000000000000000000", false},
+		{"float", `{"value":123.0}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"rounded float", `{"value":123.99}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"negative integer", `{"value":-123}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"negative string", `{"value":"-123"}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"negative float", `{"value":-123.99}`, "000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"object", `{"value":{"a": "b"}}`, "", true},
+		{"odd length result", `{"value":"1234"}`, "00000000000000000000000000000000000000000000000000000000000004d2", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := models.RunResult{
+				Output: cltest.JSONFromString(test.json),
+			}
+			adapter := adapters.EthUint256{}
+			result := adapter.Perform(input, nil)
+
+			if test.errored {
+				assert.NotNil(t, result.GetError())
+			} else {
+				val, err := result.Value()
+				assert.Nil(t, err)
+				assert.Equal(t, test.want, val)
+				assert.Nil(t, result.GetError())
+			}
 		})
 	}
 }
