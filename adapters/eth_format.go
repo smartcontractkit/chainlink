@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // EthBytes32 holds no fields
@@ -24,17 +25,10 @@ func (eba *EthBytes32) Perform(input models.RunResult, _ *store.Store) models.Ru
 	}
 
 	value := common.RightPadBytes([]byte(result.String()), 32)
-	hex := removeHexPrefix(common.ToHex(value))
+	hex := utils.RemoveHexPrefix(common.ToHex(value))
 
 	if len(hex) > maxBytes32HexLength {
 		hex = hex[0:maxBytes32HexLength]
 	}
 	return models.RunResultWithValue(hex)
-}
-
-func removeHexPrefix(hex string) string {
-	if hex[0:2] == "0x" {
-		return hex[2:len(hex)]
-	}
-	return hex
 }

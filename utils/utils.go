@@ -43,10 +43,7 @@ func WithoutZeroAddresses(addresses []common.Address) []common.Address {
 }
 
 func HexToUint64(hex string) (uint64, error) {
-	if strings.ToLower(hex[0:2]) == "0x" {
-		hex = hex[2:]
-	}
-	return strconv.ParseUint(hex, 16, 64)
+	return strconv.ParseUint(RemoveHexPrefix(hex), 16, 64)
 }
 
 // Uint64ToHex converts the given uint64 value to a hex-value string.
@@ -120,7 +117,7 @@ func NewBytes32ID() string {
 
 // HexToBytes converts the given array of strings and returns bytes.
 func HexToBytes(strs ...string) ([]byte, error) {
-	return hex.DecodeString(removeHexPrefix(HexConcat(strs...)))
+	return hex.DecodeString(RemoveHexPrefix(HexConcat(strs...)))
 }
 
 // HexConcat concatenates a given array of strings to return a single
@@ -128,13 +125,13 @@ func HexToBytes(strs ...string) ([]byte, error) {
 func HexConcat(strs ...string) string {
 	hex := "0x"
 	for _, str := range strs {
-		hex = hex + removeHexPrefix(str)
+		hex = hex + RemoveHexPrefix(str)
 	}
 	return hex
 }
 
-func removeHexPrefix(str string) string {
-	if len(str) > 1 && str[0:2] == "0x" {
+func RemoveHexPrefix(str string) string {
+	if len(str) > 1 && strings.ToLower(str[0:2]) == "0x" {
 		return str[2:]
 	}
 	return str
@@ -183,11 +180,11 @@ func IsEmptyAddress(addr common.Address) bool {
 
 // StringToHex converts a standard string to a hex encoded string.
 func StringToHex(in string) string {
-	return prependHexPrefix(hex.EncodeToString([]byte(in)))
+	return AddHexPrefix(hex.EncodeToString([]byte(in)))
 }
 
-func prependHexPrefix(str string) string {
-	if len(str) < 2 || len(str) > 1 && str[0:2] != "0x" {
+func AddHexPrefix(str string) string {
+	if len(str) < 2 || len(str) > 1 && strings.ToLower(str[0:2]) != "0x" {
 		str = "0x" + str
 	}
 	return str
