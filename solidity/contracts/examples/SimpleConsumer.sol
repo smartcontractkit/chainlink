@@ -1,14 +1,13 @@
 pragma solidity ^0.4.18;
 
 import "../../contracts/Chainlinked.sol";
-import "../../contracts/Oracle.sol";
 
 contract SimpleConsumer is Chainlinked {
   uint256 private requestId;
   bytes32 public currentPrice;
 
   function SimpleConsumer(address _oracle) public {
-    oracle = Oracle(_oracle);
+    setOracle(_oracle);
   }
 
   function requestEthereumPrice() public {
