@@ -36,6 +36,9 @@ func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	case "ethtx":
 		ac = &EthTx{}
 		err = unmarshalParams(task.Params, ac)
+	case "multiply":
+		ac = &Multiply{}
+		err = unmarshalParams(task.Params, ac)
 	case "noop":
 		ac = &NoOp{}
 		err = unmarshalParams(task.Params, ac)
