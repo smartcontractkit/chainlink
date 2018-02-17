@@ -22,6 +22,7 @@ func TestBridgeAdapterPerform(t *testing.T) {
 	}{
 		{"success", 200, "purchased", true, false, `{"output":{"value": "purchased"}}`},
 		{"run error", 200, "", false, true, `{"error": "overload", "output": {}}`},
+		{"server error", 400, "", false, true, `bad request`},
 		{"server error", 500, "", false, true, `big error`},
 		{"JSON parse error", 200, "", false, true, `}`},
 		{"pending response", 200, "", false, false, `{"pending":true}`},
