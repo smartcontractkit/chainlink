@@ -2,12 +2,12 @@
 
 ChainLink is middleware to simplify communication with blockchains. Here you'll find the ChainLink Golang node, currently in alpha. This initial implementation is intended for use and review by developers, and will go on to form the basis for ChainLink's [decentralized oracle network](https://link.smartcontract.com/whitepaper). Further development of the ChainLink Node and ChainLink Network will happen here, if you are interested in contributing please see our [contribution guidelines](https://github.com/smartcontractkit/chainlink/blob/CONTRIBUTING.md). The current node supports:
 - easy connectivity of on-chain contracts to any off-chain computation or API
-- multiple methods for scheduling of on and off chain computation
-- simple Solidity syntax for smart contracts to communicate with ChainLink
-- translating of data types into EVM consumable types and transactions
-- push notifications for Ethereum logs, parsed into easy to consume formats
+- multiple methods for scheduling both on-chain and off-chain computation for a user's smart contract
 - automatic gas price bumping to prevent stuck transactions, assuring your data is delivered in a timely manner
-- easy to install node, runs natively across operating systems, blazingly fast, with a low memory footprint
+- push notification of smart contract state changes to off-chain systems, by tracking Ethereum logs
+- translation of various off-chain data types into EVM consumable types and transactions
+- easy to implement smart contract libraries for connecting smart contracts directly to their preferred oracles
+- easy to install node, which runs natively across operating systems, blazingly fast, and with a low memory footprint
 
 
 ## Install
