@@ -40,9 +40,10 @@ func TestHttpGetAdapterPerform(t *testing.T) {
 		wantErrored bool
 		response    string
 	}{
-		{"success", 200, "so meta", true, false, `so meta`},
-		{"success but error in body", 200, `{"error": "so meta"}`, true, false, `{"error": "so meta"}`},
-		{"success with HTML", 200, `<html>so meta</html>`, true, false, `<html>so meta</html>`},
+		{"success", 200, "so good", true, false, `so good`},
+		{"success but error in body", 200, `{"error": "so good"}`, true, false, `{"error": "so good"}`},
+		{"success with HTML", 200, `<html>so good</html>`, true, false, `<html>so good</html>`},
+		{"not found", 400, "", false, true, `<html>so bad</html>`},
 		{"server error", 400, "", false, true, `Invalid request`},
 	}
 
@@ -83,6 +84,7 @@ func TestHttpPostAdapterPerform(t *testing.T) {
 		{"success", 200, "so meta", true, false, `so meta`},
 		{"success but error in body", 200, `{"error": "so meta"}`, true, false, `{"error": "so meta"}`},
 		{"success with HTML", 200, `<html>so meta</html>`, true, false, `<html>so meta</html>`},
+		{"not found", 400, "", false, true, `<html>so bad</html>`},
 		{"server error", 500, "", false, true, `big error`},
 	}
 

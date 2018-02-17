@@ -31,14 +31,14 @@ func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return models.RunResultWithError(err)
 	}
 
-	if response.StatusCode >= 300 {
+	if response.StatusCode >= 400 {
 		return models.RunResultWithError(fmt.Errorf(body))
 	}
 
 	return models.RunResultWithValue(body)
 }
 
-// HttpPost requires a URL which is used for a GET request when the adapter is called.
+// HttpPost requires a URL which is used for a POST request when the adapter is called.
 type HttpPost struct {
 	URL models.WebURL `json:"url"`
 }
@@ -60,7 +60,7 @@ func (hga *HttpPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 		return models.RunResultWithError(err)
 	}
 
-	if response.StatusCode >= 300 {
+	if response.StatusCode >= 400 {
 		return models.RunResultWithError(fmt.Errorf(body))
 	}
 
