@@ -78,7 +78,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 		Hash:        hash,
-		BlockNumber: confirmed,
+		BlockNumber: cltest.BigHexInt(confirmed),
 	})
 	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed)}
 
@@ -86,7 +86,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 		Hash:        hash,
-		BlockNumber: confirmed,
+		BlockNumber: cltest.BigHexInt(confirmed),
 	})
 	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(safe)}
 
@@ -287,4 +287,26 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
 	cltest.WaitForJobRunToComplete(t, app, jobRuns[0])
+}
+
+func TestIntegration_MultiplierUint256(t *testing.T) {
+	gock.EnableNetworking()
+	defer cltest.CloseGock(t)
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	gock.New("https://bitstamp.net").
+		Get("/api/ticker").
+		Reply(200).
+		JSON(`{"last": "10221.30"}`)
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/uint256_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+
+	val, err := jr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
 }
