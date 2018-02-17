@@ -14,11 +14,6 @@ export ETH_CHAIN_ID=17
 
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
   go run main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
-elif [ "$1" == "console" ]; then
-  cd solidity &&
-    truffle migrate --network devnet &&
-    truffle console --network devnet &&
-    cd ..
 elif [ "$1" == "clean" ]; then
   rm $ROOT/db.bolt
   rm $ROOT/log.jsonl
