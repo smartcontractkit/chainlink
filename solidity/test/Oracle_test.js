@@ -84,7 +84,7 @@ contract('Oracle', () => {
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
-      let fHash = functionSelector("setValue(uint256,bytes32)");
+      let fHash = functionSelector("requestedBytes32(uint256,bytes32)");
       let req = await oc.requestData(jobId, mock.address, fHash, "");
       requestId = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
@@ -110,7 +110,7 @@ contract('Oracle', () => {
         let currentRequestId = await mock.requestId.call();
         assert.equal(requestId, web3.toDecimal(currentRequestId));
 
-        let currentValue = await mock.value.call();
+        let currentValue = await mock.getBytes32.call();
         assert.equal("Hello World!", web3.toUtf8(currentValue));
       });
 
