@@ -5,6 +5,11 @@
 // The HttpGet adapter is used to grab the JSON data from the given URL.
 //  { "type": "HttpGet", "url": "https://some-api-example.net/api" }
 //
+// HttpPost
+//
+// Sends a POST request to the specified URL and will return the response.
+//  { "type": "HttpPost", "url": "https://weiwatchers.com/api" }
+//
 // JsonParse
 //
 // The JsonParse adapter will obtain the value(s) for the given field(s).
