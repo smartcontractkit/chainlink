@@ -78,7 +78,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 		Hash:        hash,
-		BlockNumber: confirmed,
+		BlockNumber: cltest.BigHexInt(confirmed),
 	})
 	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed)}
 
@@ -86,7 +86,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 		Hash:        hash,
-		BlockNumber: confirmed,
+		BlockNumber: cltest.BigHexInt(confirmed),
 	})
 	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(safe)}
 
