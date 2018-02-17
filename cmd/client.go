@@ -88,7 +88,7 @@ func (cli *Client) GetJobs(c *clipkg.Context) error {
 }
 
 func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
-	if resp.StatusCode >= 300 {
+	if resp.StatusCode >= 400 {
 		return cli.errorOut(errors.New(resp.Status))
 	}
 	b, err := ioutil.ReadAll(resp.Body)

@@ -31,7 +31,7 @@ func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResu
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300 {
+	if resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(resp.Body)
 		err = fmt.Errorf("%v %v", resp.StatusCode, string(b))
 		return baRunResultError("POST reponse", err)
