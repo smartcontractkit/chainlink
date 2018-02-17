@@ -12,9 +12,18 @@ ChainLink is middleware to simplify communication with blockchains. Here you'll 
 
 ## Install
 
-1. [Install Go 1.9+](https://golang.org/doc/install#install), including adding your GOPATh's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.9+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install ChainLink: `$ go get -u github.com/smartcontractkit/chainlink`
 3. Run the node: `$ chainlink help`
+
+### Ethereum Node Requirements
+
+In order to run the ChainLink node you must have access to a running Ethereum node with an open websocket connection.
+Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink/blob/#configure) the chain ID.
+Ethereum node versions currently tested and supported:
+
+- Parity 1.9+ (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
+- Geth 1.7+
 
 ## Run
 
@@ -24,7 +33,7 @@ $ chainlink node
 ```
 By default this will start on port 6688, where it exposes a [REST API](https://github.com/smartcontractkit/chainlink/wiki/REST-API).
 
-Once your node is started, you can view your current jobs with:
+Once your node has started, you can view your current jobs with:
 ```bash
 $ chainlink jobs
 ````
@@ -33,7 +42,7 @@ View details of a specific job with:
 $ chainlink show $JOB_ID
 ```
 
-To find out more about the ChainLink cli, you can always run `chainlink help`.
+To find out more about the ChainLink CLI, you can always run `chainlink help`.
 
 Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages on [Adapters](https://github.com/smartcontractkit/chainlink/wiki/Adapters) and [Initiators](https://github.com/smartcontractkit/chainlink/wiki/Initiators) to learn more about how to create Jobs and Runs.
 
@@ -52,24 +61,17 @@ You can configure your node's behavior by setting environment variables which ca
     ETH_MIN_CONFIRMATIONS    Default: 12
     ETH_GAS_BUMP_WEI         Default: 5000000000  (5 gwei)
     ETH_GAS_PRICE_DEFAULT    Default: 20000000000 (20 gwei)
-    
-When running the ChainLink cli to talk to a node on another machine:
+
+When running the CLI to talk to a ChainLink node on another machine, you can change the following environment variables:
 
     CLIENT_NODE_URL          Default: http://localhost:6688
     USERNAME                 Default: chainlink
     PASSWORD                 Default: twochains
 
-### Ethereum Node Requirements
-
-In order to run the ChainLink node you must have access to an Ethereum node with an open websocket connection. Any Ethereum based network work will once you've [configured](https://github.com/smartcontractkit/chainlink/blob/#configure) the chain ID. Ethereum node versions currently tested and supported:
-
-- Parity 1.9+ (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
-- Geth 1.7+
-
-
 ## External Adapters
 
-External adapters are what make ChainLink easily extensible, providing simple integration of custom computations and specialized APIs. External adapters are services which the core of the ChainLink node communicates with via a simple API.
+External adapters are what make ChainLink easily extensible, providing simple integration of custom computations and specialized APIs.
+A ChainLink node communicates with external adapters via a simple REST API.
 
 For more information on creating and using external adapters, please see our [external adapters page](https://github.com/smartcontractkit/chainlink/wiki/External-Adapters).
 
