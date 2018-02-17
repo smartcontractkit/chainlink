@@ -35,6 +35,8 @@ $ chainlink show $JOB_ID
 
 To find out more about the ChainLink cli, you can always run `chainlink help`.
 
+Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages on [Adapters](https://github.com/smartcontractkit/chainlink/wiki/Adapters) and [Initiators](https://github.com/smartcontractkit/chainlink/wiki/Initiators) to learn more about how to create Jobs and Runs.
+
 ## Configure
 
 You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding enviornment variable is found:
@@ -85,7 +87,7 @@ $ export PATH=$PATH:$GOPATH/bin
 
 - [Install `dep`](https://github.com/golang/dep#installation):
 ```bash
-go get -u github.com/golang/dep/cmd/dep
+$ go get -u github.com/golang/dep/cmd/dep
 ```
 
 - Clone the repo:
