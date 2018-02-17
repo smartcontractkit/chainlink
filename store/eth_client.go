@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 
 	"math/big"
 
@@ -114,28 +113,8 @@ func toFilterArg(addresses []common.Address) interface{} {
 // TxReceipt holds the block number and the transaction hash of a signed
 // transaction that has been written to the blockchain.
 type TxReceipt struct {
-	BlockNumber uint64      `json:"blockNumber"`
+	BlockNumber hexutil.Big `json:"blockNumber"`
 	Hash        common.Hash `json:"transactionHash"`
-}
-
-// UnmarshalJSON parses the given JSON-encoded data and updates the TxReceipt
-// with the values.
-func (txr *TxReceipt) UnmarshalJSON(b []byte) error {
-	type Rcpt struct {
-		BlockNumber string `json:"blockNumber"`
-		Hash        string `json:"transactionHash"`
-	}
-	var rcpt Rcpt
-	if err := json.Unmarshal(b, &rcpt); err != nil {
-		return err
-	}
-	block, err := utils.HexToUint64(rcpt.BlockNumber)
-	if err != nil {
-		return err
-	}
-	txr.BlockNumber = block
-	txr.Hash = common.HexToHash(rcpt.Hash)
-	return nil
 }
 
 // Unconfirmed returns true if the transaction is not confirmed.
