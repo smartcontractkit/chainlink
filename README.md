@@ -1,6 +1,6 @@
 # ChainLink [![Maintainability](https://api.codeclimate.com/v1/badges/f45294bf9c01d8055451/maintainability)](https://codeclimate.com/repos/5a864b469b27633ee4002e4b/maintainability) [![Travis-CI](https://travis-ci.com/smartcontractkit/chainlink.svg?token=55tBxbZKUxXXNcTx1P6u&branch=master)](https://travis-ci.com/smartcontractkit/chainlink) [![Join the chat at https://gitter.im/smartcontractkit-chainlink/Lobby](https://badges.gitter.im/smartcontractkit-chainlink/Lobby.svg)](https://gitter.im/smartcontractkit-chainlink/Lobby) [![GoDoc](https://godoc.org/github.com/smartcontractkit/chainlink?status.svg)](https://godoc.org/github.com/smartcontractkit/chainlink)
 
-ChainLink is middleware to simplify communication with blockchains. Here you'll find the ChainLink Golang node, currently in alpha. This initial implementation is intended for use and review by developers, and will go on to form the basis for ChainLink's [decentralized oracle network](https://link.smartcontract.com/whitepaper). Further development of the ChainLink Node and ChainLink Network will happen here, if you are interested in contributing please see our [contribution guidelines](https://github.com/smartcontractkit/chainlink/blob/CONTRIBUTING.md). The current node supports:
+ChainLink is middleware to simplify communication with blockchains. Here you'll find the ChainLink Golang node, currently in alpha. This initial implementation is intended for use and review by developers, and will go on to form the basis for ChainLink's [decentralized oracle network](https://link.smartcontract.com/whitepaper). Further development of the ChainLink Node and ChainLink Network will happen here, if you are interested in contributing please see our [contribution guidelines](https://github.com/smartcontractkit/chainlink/blob/master/CONTRIBUTING.md). The current node supports:
 - easy connectivity of on-chain contracts to any off-chain computation or API
 - multiple methods for scheduling both on-chain and off-chain computation for a user's smart contract
 - automatic gas price bumping to prevent stuck transactions, assuring your data is delivered in a timely manner
@@ -19,7 +19,7 @@ ChainLink is middleware to simplify communication with blockchains. Here you'll 
 ### Ethereum Node Requirements
 
 In order to run the ChainLink node you must have access to a running Ethereum node with an open websocket connection.
-Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink/blob/#configure) the chain ID.
+Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
 Ethereum node versions currently tested and supported:
 
 - Parity 1.9+ (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
@@ -142,6 +142,6 @@ For more tips on how to build and test ChainLink, see our [development tips page
 
 ChainLink's source code is [licensed under the MIT License](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE), and contributions are welcome.
 
-Please check out our [contributing guidelines](https://github.com/smartcontractkit/chainlink/blob/documentation/overviews/CONTRIBUTING.md) for more details.
+Please check out our [contributing guidelines](https://github.com/smartcontractkit/chainlink/blob/master/CONTRIBUTING.md) for more details.
 
 Thank you!
