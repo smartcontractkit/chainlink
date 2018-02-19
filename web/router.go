@@ -40,7 +40,12 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 // Inspired by https://github.com/gin-gonic/gin/issues/961
 func loggerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		buf, _ := ioutil.ReadAll(c.Request.Body)
+		buf, err := ioutil.ReadAll(c.Request.Body)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Web request log error: %v", err.Error()))
+			c.Next()
+			return
+		}
 		rdr := bytes.NewBuffer(buf)
 		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 

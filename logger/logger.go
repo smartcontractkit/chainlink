@@ -65,11 +65,6 @@ func generateConfig(dir string) zap.Config {
 	return config
 }
 
-// Errorw logs an error message and any additional given information.
-func Errorw(msg string, keysAndValues ...interface{}) {
-	logger.Errorw(msg, keysAndValues...)
-}
-
 // Infow logs an info message and any additional given information.
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
@@ -80,9 +75,25 @@ func Debugw(msg string, keysAndValues ...interface{}) {
 	logger.Debugw(msg, keysAndValues...)
 }
 
+// Warnw logs a debug message and any additional given information.
+func Warnw(msg string, keysAndValues ...interface{}) {
+	logger.Warnw(msg, keysAndValues...)
+}
+
+// Errorw logs an error message, any additional given information, and includes
+// stack trace.
+func Errorw(msg string, keysAndValues ...interface{}) {
+	logger.Errorw(msg, keysAndValues...)
+}
+
 // Info logs an info message.
 func Info(args ...interface{}) {
 	logger.Info(args)
+}
+
+// Warn logs a message at the warn level.
+func Warn(args ...interface{}) {
+	logger.Warn(args)
 }
 
 // Error logs an error message.
