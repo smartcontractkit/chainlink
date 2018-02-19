@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/smartcontractkit/go.uuid"
 )
 
 const (
@@ -112,7 +112,7 @@ func GetStringKeys(v map[string]interface{}) []string {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	return strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
 }
 
 // HexToBytes converts the given array of strings and returns bytes.
