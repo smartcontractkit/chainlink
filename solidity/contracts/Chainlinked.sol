@@ -26,6 +26,10 @@ contract Chainlinked {
       _run.jobId, _run.receiver, _run.functionSelector, _run.close());
   }
 
+  function setOracle(address _oracle) internal {
+    oracle = Oracle(_oracle);
+  }
+
   modifier onlyOracle() {
     require(msg.sender == address(oracle));
     _;
