@@ -24,7 +24,7 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 	receipt, err := ec.GetTxReceipt(hash)
 	assert.Nil(t, err)
 	assert.Equal(t, hash, receipt.Hash)
-	assert.Equal(t, uint64(11), receipt.BlockNumber)
+	assert.Equal(t, cltest.BigHexInt(uint64(11)), receipt.BlockNumber)
 }
 
 func TestEthClient_GetNonce(t *testing.T) {

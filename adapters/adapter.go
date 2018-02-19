@@ -30,8 +30,14 @@ func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	case "ethbytes32":
 		ac = &EthBytes32{}
 		err = unmarshalParams(task.Params, ac)
+	case "ethuint256":
+		ac = &EthUint256{}
+		err = unmarshalParams(task.Params, ac)
 	case "ethtx":
 		ac = &EthTx{}
+		err = unmarshalParams(task.Params, ac)
+	case "multiply":
+		ac = &Multiply{}
 		err = unmarshalParams(task.Params, ac)
 	case "noop":
 		ac = &NoOp{}
