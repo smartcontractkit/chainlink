@@ -9,6 +9,7 @@ ChainLink is middleware to simplify communication with blockchains. Here you'll 
 - easy to implement smart contract libraries for connecting smart contracts directly to their preferred oracles
 - easy to install node, which runs natively across operating systems, blazingly fast, and with a low memory footprint
 
+Examples of how to utilize and integrate Chainlinks can be found in our [Hello Chainlink](https://github.com/smartcontractkit/hello_chainlink) repository. 
 
 ## Install
 
