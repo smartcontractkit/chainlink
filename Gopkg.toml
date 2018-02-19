@@ -34,8 +34,8 @@
   branch = "master"
 
 [[constraint]]
-  name = "github.com/satori/go.uuid"
-  version = "1.1.0"
+  name = "github.com/smartcontractkit/go.uuid"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/stretchr/testify"
@@ -86,8 +86,8 @@
   name = "github.com/olekukonko/tablewriter"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/smartcontractkit/env"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/tidwall/gjson"
