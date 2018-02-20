@@ -291,14 +291,16 @@ func NewHTTPMockServer(
 	status int,
 	wantMethod string,
 	response string,
-	callback func(string),
+	callback ...func(string),
 ) (*httptest.Server, func()) {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
 		assert.Nil(t, err)
 		assert.Equal(t, wantMethod, r.Method)
-		callback(string(b))
+		if len(callback) > 0 {
+			callback[0](string(b))
+		}
 		called = true
 
 		w.WriteHeader(status)
