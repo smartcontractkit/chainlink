@@ -130,8 +130,14 @@ func TestJobsController_Show(t *testing.T) {
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
-	jr := j.NewRun()
-	app.Store.Save(&jr)
+
+	jr1 := j.NewRun()
+	jr1.ID = "2"
+	assert.Nil(t, app.Store.Save(&jr1))
+	jr2 := j.NewRun()
+	jr2.ID = "1"
+	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
+	assert.Nil(t, app.Store.Save(&jr2))
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -139,7 +145,8 @@ func TestJobsController_Show(t *testing.T) {
 	var respJob presenters.Job
 	json.Unmarshal(cltest.ParseResponseBody(resp), &respJob)
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
-	assert.Equal(t, respJob.Runs[0].ID, jr.ID, "should have the job runs")
+	assert.Equal(t, respJob.Runs[0].ID, jr2.ID, "should have job runs ordered by created at(descending)")
+	assert.Equal(t, respJob.Runs[1].ID, jr1.ID, "should have job runs ordered by created at(descending)")
 }
 
 func TestJobsController_Show_NotFound(t *testing.T) {
