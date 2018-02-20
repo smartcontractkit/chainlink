@@ -290,15 +290,15 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job) models
 	return jr
 }
 
-func FixtureCreateBridgeTypeViaWeb(
+func CreateBridgeTypeViaWeb(
 	t *testing.T,
 	app *TestApplication,
-	path string,
+	payload string,
 ) models.BridgeType {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/bridge_types",
 		"application/json",
-		bytes.NewBuffer(LoadJSON(path)),
+		bytes.NewBufferString(payload),
 	)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)

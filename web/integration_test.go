@@ -225,8 +225,7 @@ func TestIntegration_StartAt(t *testing.T) {
 }
 
 func TestIntegration_ExternalAdapter(t *testing.T) {
-	gock.EnableNetworking()
-	defer cltest.CloseGock(t)
+	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -235,13 +234,11 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
 	eaResponse := fmt.Sprintf(`{"output":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
-	gock.New("https://example.com").
-		Post("/randomNumber").
-		Reply(200).
-		JSON(eaResponse)
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	defer cleanup()
 
-	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
-
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.WaitForJobRunToComplete(t, app, cltest.CreateJobRunViaWeb(t, app, j))
 
@@ -257,6 +254,7 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
