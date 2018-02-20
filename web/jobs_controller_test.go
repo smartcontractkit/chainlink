@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIndexJobs(t *testing.T) {
+func TestJobsController_Index(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -36,7 +36,7 @@ func TestIndexJobs(t *testing.T) {
 	assert.NotEqual(t, true, jobs[1].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
-func TestCreateJobs(t *testing.T) {
+func TestJobsController_Create(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -61,7 +61,7 @@ func TestCreateJobs(t *testing.T) {
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 }
 
-func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
+func TestJobsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -87,7 +87,7 @@ func TestCreateJobFromCaseInsensitiveTypes(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunAt, j.Initiators[1].Type)
 }
 
-func TestCreateInvalidJobs(t *testing.T) {
+func TestJobsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -105,7 +105,7 @@ func TestCreateInvalidJobs(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
-func TestCreateInvalidCron(t *testing.T) {
+func TestJobsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -123,7 +123,7 @@ func TestCreateInvalidCron(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
-func TestShowJobs(t *testing.T) {
+func TestJobsController_Show(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -142,7 +142,7 @@ func TestShowJobs(t *testing.T) {
 	assert.Equal(t, respJob.Runs[0].ID, jr.ID, "should have the job runs")
 }
 
-func TestShowNotFoundJobs(t *testing.T) {
+func TestJobsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -151,7 +151,7 @@ func TestShowNotFoundJobs(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 
-func TestShowJobUnauthenticated(t *testing.T) {
+func TestJobsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
