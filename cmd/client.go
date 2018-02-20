@@ -33,7 +33,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if c.Bool("debug") {
 		cli.Config.LogLevel = strpkg.LogLevel{zapcore.DebugLevel}
 	}
-	logger.Infow("Starting Chainlink Node " + strpkg.Version)
+	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 	app := cli.AppFactory.NewApplication(cli.Config)
 	store := app.GetStore()
 	cli.Auth.Authenticate(store, c.String("password"))
