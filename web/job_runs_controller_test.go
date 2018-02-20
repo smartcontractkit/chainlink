@@ -17,8 +17,9 @@ type JobRun struct {
 	ID string `json:"id"`
 }
 
-func TestJobRunsIndex(t *testing.T) {
+func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -36,7 +37,7 @@ func TestJobRunsIndex(t *testing.T) {
 	assert.Equal(t, jr.ID, respJSON.Runs[0].ID, "expected the run IDs to match")
 }
 
-func TestJobRunsCreateSuccessfully(t *testing.T) {
+func TestJobRunsController_Create(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -49,7 +50,7 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app, jr)
 }
 
-func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
+func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -63,7 +64,7 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
 
-func TestJobRunsCreateNotFound(t *testing.T) {
+func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
