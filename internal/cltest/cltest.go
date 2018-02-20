@@ -386,13 +386,13 @@ func WaitForRuns(t *testing.T, j models.Job, store *store.Store, want int) []mod
 	var err error
 	if want == 0 {
 		g.Consistently(func() []models.JobRun {
-			jrs, err = store.JobRunsFor(j)
+			jrs, err = store.JobRunsFor(j.ID)
 			assert.Nil(t, err)
 			return jrs
 		}).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
-			jrs, err = store.JobRunsFor(j)
+			jrs, err = store.JobRunsFor(j.ID)
 			assert.Nil(t, err)
 			return jrs
 		}).Should(gomega.HaveLen(want))

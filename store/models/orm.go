@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"path"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/asdine/storm"
@@ -45,6 +46,12 @@ func (orm *ORM) Where(field string, value interface{}, instance interface{}) err
 	return err
 }
 
+func emptySlice(to interface{}) {
+	ref := reflect.ValueOf(to)
+	results := reflect.MakeSlice(reflect.Indirect(ref).Type(), 0, 0)
+	reflect.Indirect(ref).Set(results)
+}
+
 // FindJob uses the .One method in Storm to return a single job.
 func (orm *ORM) FindJob(id string) (Job, error) {
 	job := Job{}
@@ -64,17 +71,19 @@ func (orm *ORM) Jobs() ([]Job, error) {
 	return jobs, err
 }
 
-// JobRunsFor fetches all JobRuns with a given JobID.
-func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
+// JobRunsFor fetches all JobRuns with a given Job ID,
+// sorted by their created at time.
+func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("JobID", job.ID, &runs)
-	return runs, err
+	err := orm.Where("JobID", jobID, &runs)
+	return sortJobRuns(runs), err
 }
 
-func emptySlice(to interface{}) {
-	ref := reflect.ValueOf(to)
-	results := reflect.MakeSlice(reflect.Indirect(ref).Type(), 0, 0)
-	reflect.Indirect(ref).Set(results)
+func sortJobRuns(jrs []JobRun) []JobRun {
+	sort.Slice(jrs, func(i, j int) bool {
+		return jrs[i].CreatedAt.Unix() > jrs[j].CreatedAt.Unix()
+	})
+	return jrs
 }
 
 // SaveJob saves a job to the database.

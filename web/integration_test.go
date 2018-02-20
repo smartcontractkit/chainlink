@@ -196,7 +196,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
-		jobRuns, err := app.Store.JobRunsFor(j)
+		jobRuns, err := app.Store.JobRunsFor(j.ID)
 		assert.Nil(t, err)
 		return jobRuns
 	}).Should(gomega.HaveLen(1))
