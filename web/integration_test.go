@@ -252,6 +252,28 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
+func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`)
+	defer cleanup()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
+	jr := cltest.WaitForJobRunToPend(t, app, cltest.CreateJobRunViaWeb(t, app, j))
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, models.StatusPending, tr.Status)
+	val, err := tr.Result.Value()
+	assert.NotNil(t, err)
+	assert.Equal(t, "", val)
+}
+
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
 
