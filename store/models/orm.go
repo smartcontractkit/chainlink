@@ -65,9 +65,9 @@ func (orm *ORM) Jobs() ([]Job, error) {
 }
 
 // JobRunsFor fetches all JobRuns with a given JobID.
-func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
+func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("JobID", job.ID, &runs)
+	err := orm.Where("JobID", jobID, &runs)
 	return runs, err
 }
 

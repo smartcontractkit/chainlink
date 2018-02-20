@@ -64,7 +64,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if runs, err := jc.App.Store.JobRunsFor(j); err != nil {
+	} else if runs, err := jc.App.Store.JobRunsFor(j.ID); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

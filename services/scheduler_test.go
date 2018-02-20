@@ -142,7 +142,7 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	defer cleanupStore()
 
 	gomega.NewGomegaWithT(t).Consistently(func() int {
-		runs, err := store.JobRunsFor(j)
+		runs, err := store.JobRunsFor(j.ID)
 		assert.Nil(t, err)
 		return len(runs)
 	}, (2 * time.Second)).Should(gomega.Equal(0))
