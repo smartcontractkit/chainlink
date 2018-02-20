@@ -21,9 +21,8 @@ type JobRunsController struct {
 //  "<application>/jobs/:ID/runs"
 func (jrc *JobRunsController) Index(c *gin.Context) {
 	id := c.Param("ID")
-	jobRuns := []models.JobRun{}
 
-	if err := jrc.App.Store.Where("JobID", id, &jobRuns); err != nil {
+	if jobRuns, err := jrc.App.Store.JobRunsFor(id); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

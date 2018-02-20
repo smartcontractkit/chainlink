@@ -120,7 +120,7 @@ func TestJobRunner_BeginRun(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 			}
-			jrs, err := store.JobRunsFor(job)
+			jrs, err := store.JobRunsFor(job.ID)
 			assert.Nil(t, err)
 			assert.Equal(t, test.runCount, len(jrs))
 		})

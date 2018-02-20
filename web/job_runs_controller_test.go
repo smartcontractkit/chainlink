@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
@@ -17,26 +18,33 @@ type JobRun struct {
 	ID string `json:"id"`
 }
 
-func TestJobRunsIndex(t *testing.T) {
+func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := j.NewRun()
-	assert.Nil(t, app.Store.Save(&jr))
+	jr1 := j.NewRun()
+	jr1.ID = "2"
+	assert.Nil(t, app.Store.Save(&jr1))
+	jr2 := j.NewRun()
+	jr2.ID = "1"
+	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
+	assert.Nil(t, app.Store.Save(&jr2))
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-
 	var respJSON JobRunsJSON
-	json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON)
-	assert.Equal(t, 1, len(respJSON.Runs), "expected no runs to be created")
-	assert.Equal(t, jr.ID, respJSON.Runs[0].ID, "expected the run IDs to match")
+	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON))
+
+	assert.Equal(t, 2, len(respJSON.Runs), "expected no runs to be created")
+	assert.Equal(t, jr2.ID, respJSON.Runs[0].ID, "expected runs ordered by created at(descending)")
+	assert.Equal(t, jr1.ID, respJSON.Runs[1].ID, "expected runs ordered by created at(descending)")
 }
 
-func TestJobRunsCreateSuccessfully(t *testing.T) {
+func TestJobRunsController_Create(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -49,7 +57,7 @@ func TestJobRunsCreateSuccessfully(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app, jr)
 }
 
-func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
+func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -63,7 +71,7 @@ func TestJobRunsCreateWithoutWebInitiator(t *testing.T) {
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
 
-func TestJobRunsCreateNotFound(t *testing.T) {
+func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
