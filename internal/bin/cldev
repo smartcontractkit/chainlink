@@ -12,11 +12,14 @@ export ROOT=./internal/devnet
 export ETH_URL=ws://localhost:18546
 export ETH_CHAIN_ID=17
 
+LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
+
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
-  go run main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+  go run -ldflags "$LDFLAGS" \
+    main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
 elif [ "$1" == "clean" ]; then
   rm $ROOT/db.bolt
   rm $ROOT/log.jsonl
 else
-  go run main.go $@
+  go run -ldflags "$LDFLAGS" main.go $@
 fi
