@@ -9,21 +9,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBridgeAdapterPerform(t *testing.T) {
+func TestBridge_Perform(t *testing.T) {
 	cases := []struct {
 		name        string
 		status      int
 		want        string
 		wantExists  bool
 		wantErrored bool
+		wantPending bool
 		response    string
 	}{
-		{"success", 200, "purchased", true, false, `{"output":{"value": "purchased"}}`},
-		{"run error", 200, "", false, true, `{"error": "overload", "output": {}}`},
-		{"server error", 400, "", false, true, `bad request`},
-		{"server error", 500, "", false, true, `big error`},
-		{"JSON parse error", 200, "", false, true, `}`},
-		{"pending response", 200, "", false, false, `{"pending":true}`},
+		{"success", 200, "purchased", true, false, false, `{"output":{"value": "purchased"}}`},
+		{"run error", 200, "", false, true, false, `{"error": "overload", "output": {}}`},
+		{"server error", 400, "", false, true, false, `bad request`},
+		{"server error", 500, "", false, true, false, `big error`},
+		{"JSON parse error", 200, "", false, true, false, `}`},
+		{"pending response", 200, "", false, false, true, `{"pending":true}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -47,7 +48,7 @@ func TestBridgeAdapterPerform(t *testing.T) {
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantExists, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Pending)
+			assert.Equal(t, test.wantPending, result.Pending)
 		})
 	}
 }
