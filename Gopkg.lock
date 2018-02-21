@@ -64,15 +64,17 @@
     "crypto/randentropy",
     "crypto/secp256k1",
     "crypto/sha3",
+    "ethdb",
     "event",
     "log",
+    "metrics",
     "params",
     "rlp",
     "rpc",
     "trie"
   ]
-  revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
-  version = "v1.7.3"
+  revision = "1e67410e88d2685bc54611a7c9f75c327b553ccc"
+  version = "v1.8.1"
 
 [[projects]]
   branch = "master"
@@ -102,6 +104,12 @@
   name = "github.com/golang/protobuf"
   packages = ["proto"]
   revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/snappy"
+  packages = ["."]
+  revision = "553a641470496b2327abcac10b36396bd98e45c9"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -184,7 +192,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/rcrowley/go-metrics"
-  packages = ["."]
+  packages = [
+    ".",
+    "exp"
+  ]
   revision = "e181e095bae94582363434144c61a9653aff6e50"
 
 [[projects]]
@@ -216,6 +227,25 @@
   packages = ["assert"]
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
   version = "v1.1.4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/syndtr/goleveldb"
+  packages = [
+    "leveldb",
+    "leveldb/cache",
+    "leveldb/comparer",
+    "leveldb/errors",
+    "leveldb/filter",
+    "leveldb/iterator",
+    "leveldb/journal",
+    "leveldb/memdb",
+    "leveldb/opt",
+    "leveldb/storage",
+    "leveldb/table",
+    "leveldb/util"
+  ]
+  revision = "211f780988068502fe874c44dae530528ebd840f"
 
 [[projects]]
   name = "github.com/tidwall/gjson"
@@ -360,6 +390,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c42065cc55ae14bc16ab809ef20f6d02633c0fec493d343cf5806b9e3b3fbce1"
+  inputs-digest = "f5e6228617988d3763ef5c1fbe8f0a1b7dbc59574756ea13617b6bef04b64144"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -87,7 +87,7 @@ func TestCreatingTx(t *testing.T) {
 	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
 	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
 	nonce := uint64(1232421)
-	gasLimit := big.NewInt(50000)
+	gasLimit := uint64(50000)
 	data, err := hex.DecodeString("0987612345abcdef")
 	assert.Nil(t, err)
 

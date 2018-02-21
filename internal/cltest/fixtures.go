@@ -63,7 +63,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		Nonce:    0,
 		Data:     []byte{},
 		Value:    big.NewInt(0),
-		GasLimit: big.NewInt(250000),
+		GasLimit: 250000,
 	}
 }
 
