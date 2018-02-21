@@ -259,13 +259,20 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`)
+	var j models.Job
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+		func(body string) {
+			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+			jr := jrs[0]
+			assert.JSONEq(t, fmt.Sprintf(`{"id":"%v","data":{}}`, jr.ID), body)
+		})
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
-	jr := cltest.WaitForJobRunToPend(t, app, cltest.CreateJobRunViaWeb(t, app, j))
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToPend(t, app, jr)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.StatusPending, tr.Status)
@@ -280,11 +287,14 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	marshaledEN, err := json.Marshal(&en)
-	assert.Nil(t, err)
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `response!`,
-		func(body string) { assert.JSONEq(t, string(marshaledEN), body) })
+	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	var j models.Job
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+		func(body string) {
+			marshaledLog, err := json.Marshal(&log)
+			assert.Nil(t, err)
+			assert.JSONEq(t, string(marshaledLog), body)
+		})
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -292,7 +302,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
 	newParams, err := j.Tasks[0].Params.Add("url", mockServer.URL)
 	assert.Nil(t, err)
 	j.Tasks[0].Params = newParams
@@ -303,7 +313,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), initr.Address)
 
-	logs <- en
+	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
 	cltest.WaitForJobRunToComplete(t, app, jobRuns[0])

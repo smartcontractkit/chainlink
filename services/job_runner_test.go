@@ -1,10 +1,10 @@
 package services_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/h2non/gock"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -13,8 +13,7 @@ import (
 )
 
 func TestJobRunner_ExecuteRun(t *testing.T) {
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
+	t.Parallel()
 
 	tests := []struct {
 		name       string
@@ -32,23 +31,28 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			`{"value":"100"}`},
 	}
 
-	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
-	assert.Nil(t, store.Save(&bt))
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			gock.New("https://dbay.eth").
-				Post("/api").
-				JSON(test.input).
-				Reply(200).
-				JSON(test.runResult)
+
+			var run models.JobRun
+			mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", test.runResult,
+				func(body string) {
+					want := fmt.Sprintf(`{"id":"%v","data":%v}`, run.ID, test.input)
+					assert.JSONEq(t, want, body)
+				})
+			defer cleanup()
+			bt := cltest.NewBridgeType("auctionBidding", mockServer.URL)
+			assert.Nil(t, store.Save(&bt))
 
 			job := models.NewJob()
 			job.Tasks = []models.Task{{Type: bt.Name}, {Type: "noop"}}
 			assert.Nil(t, store.Save(&job))
 
-			run := job.NewRun()
+			run = job.NewRun()
 			input := cltest.JSONFromString(test.input)
 			run, err := services.ExecuteRun(run, store, input)
 			assert.Nil(t, err)
@@ -145,9 +149,9 @@ func TestJobRunner_BuildRun(t *testing.T) {
 	}
 
 	store, cleanup := cltest.NewStore()
+	defer cleanup()
 	clock := cltest.UseSettableClock(store)
 	clock.SetTime(time.Now())
-	defer cleanup()
 
 	for _, tt := range tests {
 		test := tt

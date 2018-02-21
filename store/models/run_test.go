@@ -12,7 +12,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
+func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -30,7 +30,7 @@ func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
 	assert.Equal(t, "bad idea", run.Result.Error())
 }
 
-func TestTaskRunsToRun(t *testing.T) {
+func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -50,7 +50,7 @@ func TestTaskRunsToRun(t *testing.T) {
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
-func TestTaskRunMergeTaskParams(t *testing.T) {
+func TestTaskRun_MergeTaskParams(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -86,7 +86,7 @@ func TestTaskRunMergeTaskParams(t *testing.T) {
 	}
 }
 
-func TestRunResultValue(t *testing.T) {
+func TestRunResult_Value(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -117,7 +117,7 @@ func TestRunResultValue(t *testing.T) {
 	}
 }
 
-func TestRunResultMergeData(t *testing.T) {
+func TestRunResult_MergeData(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
