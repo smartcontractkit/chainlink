@@ -171,3 +171,13 @@ func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
 func BigHexInt(val uint64) hexutil.Big {
 	return hexutil.Big(*big.NewInt(int64(val)))
 }
+
+func RunResultWithValue(val string) models.RunResult {
+	data := models.JSON{}
+	data, err := data.Add("value", val)
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+
+	return models.RunResult{Data: data}
+}

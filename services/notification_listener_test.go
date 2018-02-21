@@ -187,8 +187,8 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 
 	jr := j.NewRun()
 	tr := jr.TaskRuns[0]
-	result := models.RunResultWithValue(txa.Hash.String())
-	tr.Result = models.RunResultPending(result)
+	result := cltest.RunResultWithValue(txa.Hash.String())
+	tr.Result = result.MarkPending()
 	tr.Status = models.StatusPending
 	jr.TaskRuns[0] = tr
 	jr.Status = models.StatusPending

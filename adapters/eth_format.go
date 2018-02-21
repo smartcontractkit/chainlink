@@ -34,7 +34,7 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	if len(hex) > evmWordHexLen {
 		hex = hex[:evmWordHexLen]
 	}
-	return models.RunResultWithValue(utils.AddHexPrefix(hex))
+	return input.WithValue(utils.AddHexPrefix(hex))
 }
 
 // EthUint256 holds no fields.
@@ -63,7 +63,7 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	}
 	padded := common.LeftPadBytes(b, evmWordByteLen)
 
-	return models.RunResultWithValue(common.ToHex(padded))
+	return input.WithValue(common.ToHex(padded))
 }
 
 func bigToUintHex(f *big.Float) string {

@@ -35,7 +35,7 @@ func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return models.RunResultWithError(fmt.Errorf(body))
 	}
 
-	return models.RunResultWithValue(body)
+	return input.WithValue(body)
 }
 
 // HttpPost requires a URL which is used for a POST request when the adapter is called.
@@ -64,5 +64,5 @@ func (hga *HttpPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 		return models.RunResultWithError(fmt.Errorf(body))
 	}
 
-	return models.RunResultWithValue(body)
+	return input.WithValue(body)
 }

@@ -52,7 +52,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
-	input := models.RunResultWithValue(inputValue)
+	input := cltest.RunResultWithValue(inputValue)
 	data := adapter.Perform(input, store)
 
 	assert.False(t, data.HasError())
@@ -86,8 +86,8 @@ func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := models.RunResultWithValue(a.Hash.String())
-	input := models.RunResultPending(sentResult)
+	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	input := sentResult.MarkPending()
 
 	output := adapter.Perform(input, store)
 
@@ -120,8 +120,8 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := models.RunResultWithValue(a.Hash.String())
-	input := models.RunResultPending(sentResult)
+	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	input := sentResult.MarkPending()
 
 	output := adapter.Perform(input, store)
 
@@ -158,8 +158,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	sentResult := models.RunResultWithValue(a3.Hash.String())
-	input := models.RunResultPending(sentResult)
+	sentResult := cltest.RunResultWithValue(a3.Hash.String())
+	input := sentResult.MarkPending()
 
 	assert.False(t, tx.Confirmed)
 
@@ -192,7 +192,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := models.RunResultWithValue("")
+	input := cltest.RunResultWithValue("")
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())

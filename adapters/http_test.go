@@ -49,7 +49,7 @@ func TestHttpGetAdapterPerform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := models.RunResultWithValue("unused")
+			input := cltest.RunResultWithValue("unused")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
@@ -87,7 +87,7 @@ func TestHttpPostAdapterPerform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := models.RunResultWithValue("modern")
+			input := cltest.RunResultWithValue("modern")
 			wantedBody := `{"value":"modern"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(body string) { assert.Equal(t, wantedBody, body) })

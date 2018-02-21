@@ -30,5 +30,5 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	}
 	res := i.Mul(i, big.NewFloat(float64(ma.Times)))
 
-	return models.RunResultWithValue(res.String())
+	return input.WithValue(res.String())
 }

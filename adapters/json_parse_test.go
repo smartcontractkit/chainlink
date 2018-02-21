@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
-	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +28,7 @@ func TestJsonParse_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := models.RunResultWithValue(test.value)
+			input := cltest.RunResultWithValue(test.value)
 			adapter := adapters.JsonParse{Path: test.path}
 			result := adapter.Perform(input, nil)
 			val, err := result.Get("value")
