@@ -111,6 +111,7 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 // the Data and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
 type RunResult struct {
+	JobRunID     string      `json:"runId"`
 	Data         JSON        `json:"data"`
 	ErrorMessage null.String `json:"error"`
 	Pending      bool        `json:"pending"`

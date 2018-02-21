@@ -1,11 +1,13 @@
 package adapters_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,21 +31,25 @@ func TestBridge_Perform(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	wantedBody := `{"value":"lot 49"}`
+	runID := utils.NewBytes32ID()
+	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"value":"lot 49"}}`, runID)
 
 	for _, tt := range cases {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
-				func(body string) { assert.Equal(t, wantedBody, body) })
+				func(body string) {
+					assert.JSONEq(t, wantedBody, body)
+				})
 			defer cleanup()
 
 			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 			eb := &adapters.Bridge{bt}
-			input := models.RunResultWithValue("lot 49")
+			result := models.RunResultWithValue("lot 49")
+			result.JobRunID = runID
 
-			result := eb.Perform(input, store)
+			result = eb.Perform(result, store)
 			val, _ := result.Get("value")
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantExists, val.Exists())

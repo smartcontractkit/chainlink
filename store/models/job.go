@@ -48,16 +48,18 @@ func NewJob() Job {
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
 func (j Job) NewRun() JobRun {
+	jrid := utils.NewBytes32ID()
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
-			ID:   utils.NewBytes32ID(),
-			Task: task,
+			ID:     utils.NewBytes32ID(),
+			Task:   task,
+			Result: RunResult{JobRunID: jrid},
 		}
 	}
 
 	return JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        jrid,
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
