@@ -53,9 +53,9 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		FunctionSelector: fHash,
 	}
 	input := models.RunResultWithValue(inputValue)
-	output := adapter.Perform(input, store)
+	data := adapter.Perform(input, store)
 
-	assert.False(t, output.HasError())
+	assert.False(t, data.HasError())
 
 	from := store.KeyStore.GetAccount().Address
 	txs := []models.Tx{}

@@ -49,7 +49,7 @@ func ExecuteRun(run models.JobRun, store *store.Store, input models.JSON) (model
 	offset := len(run.TaskRuns) - len(unfinished)
 	prevRun := unfinished[0]
 
-	merged, err := prevRun.Result.MergeOutput(input)
+	merged, err := prevRun.Result.MergeData(input)
 	if err != nil {
 		return run, wrapError(run, err)
 	}

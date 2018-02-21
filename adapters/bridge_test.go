@@ -19,8 +19,8 @@ func TestBridge_Perform(t *testing.T) {
 		wantPending bool
 		response    string
 	}{
-		{"success", 200, "purchased", true, false, false, `{"output":{"value": "purchased"}}`},
-		{"run error", 200, "", false, true, false, `{"error": "overload", "output": {}}`},
+		{"success", 200, "purchased", true, false, false, `{"data":{"value": "purchased"}}`},
+		{"run error", 200, "", false, true, false, `{"error": "overload", "data": {}}`},
 		{"server error", 400, "", false, true, false, `bad request`},
 		{"server error", 500, "", false, true, false, `big error`},
 		{"JSON parse error", 200, "", false, true, false, `}`},
