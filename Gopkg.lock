@@ -214,15 +214,15 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/smartcontractkit/env"
+  name = "github.com/satori/go.uuid"
   packages = ["."]
-  revision = "e3f86153e6a3c99bf6df08d097d29972295299bf"
+  revision = "36e9d2ebbde5e3f13ab2e25625fd453271d6522e"
 
 [[projects]]
   branch = "master"
-  name = "github.com/smartcontractkit/go.uuid"
+  name = "github.com/smartcontractkit/env"
   packages = ["."]
-  revision = "36e9d2ebbde5e3f13ab2e25625fd453271d6522e"
+  revision = "e3f86153e6a3c99bf6df08d097d29972295299bf"
 
 [[projects]]
   name = "github.com/stretchr/testify"
@@ -392,6 +392,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f5e6228617988d3763ef5c1fbe8f0a1b7dbc59574756ea13617b6bef04b64144"
+  inputs-digest = "bb05effb116c5b386262336c6d568cd37f8fb97660548ffa4548e246112cbc60"
   solver-name = "gps-cdcl"
   solver-version = 1

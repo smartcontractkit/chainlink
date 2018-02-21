@@ -34,7 +34,7 @@
   branch = "master"
 
 [[constraint]]
-  name = "github.com/smartcontractkit/go.uuid"
+  name = "github.com/satori/go.uuid"
   branch = "master"
 
 [[constraint]]
