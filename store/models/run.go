@@ -111,22 +111,10 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 // the Data and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
 type RunResult struct {
-	JobRunID     string      `json:"runId"`
+	JobRunID     string      `json:"jobRunId"`
 	Data         JSON        `json:"data"`
 	ErrorMessage null.String `json:"error"`
 	Pending      bool        `json:"pending"`
-}
-
-// RunResultWithValue returns a new RunResult with the given string
-// value as a JSON object.
-func RunResultWithValue(val string) RunResult {
-	data := JSON{}
-	data, err := data.Add("value", val)
-	if err != nil {
-		return RunResultWithError(err)
-	}
-
-	return RunResult{Data: data}
 }
 
 // RunResultWithError returns a new RunResult with the given
@@ -137,15 +125,30 @@ func RunResultWithError(err error) RunResult {
 	}
 }
 
-// RunResultPending returns a new RunResult keeping the same
-// Data and ErrorMessage as given but with a Pending status
-// set to true.
-func RunResultPending(input RunResult) RunResult {
-	return RunResult{
-		Data:         input.Data,
-		ErrorMessage: input.ErrorMessage,
-		Pending:      true,
+// WithValue returns a copy of the RunResult, overriding the "value" field of
+// Data and setting Pending to false.
+func (rr RunResult) WithValue(val string) RunResult {
+	data, err := rr.Data.Add("value", val)
+	if err != nil {
+		return rr.WithError(err)
 	}
+	rr.Pending = false
+	rr.Data = data
+	return rr
+}
+
+// WithValue returns a copy of the RunResult, setting the error field
+// and setting Pending to false.
+func (rr RunResult) WithError(err error) RunResult {
+	rr.ErrorMessage = null.StringFrom(err.Error())
+	rr.Pending = false
+	return rr
+}
+
+// MarkPending returns a copy of RunResult but with Pending set to true.
+func (rr RunResult) MarkPending() RunResult {
+	rr.Pending = true
+	return rr
 }
 
 // Get searches for and returns the JSON at the given path.

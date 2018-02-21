@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -46,7 +45,7 @@ func TestBridge_Perform(t *testing.T) {
 
 			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 			eb := &adapters.Bridge{bt}
-			result := models.RunResultWithValue("lot 49")
+			result := cltest.RunResultWithValue("lot 49")
 			result.JobRunID = runID
 
 			result = eb.Perform(result, store)

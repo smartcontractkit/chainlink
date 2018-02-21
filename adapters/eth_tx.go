@@ -47,7 +47,7 @@ func createTxRunResult(
 		return models.RunResultWithError(err)
 	}
 
-	sendResult := models.RunResultWithValue(attempt.Hash.String())
+	sendResult := input.WithValue(attempt.Hash.String())
 	return ensureTxRunResult(sendResult, store)
 }
 
@@ -67,7 +67,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 	if err != nil {
 		return models.RunResultWithError(err)
 	} else if !confirmed {
-		return models.RunResultPending(input)
+		return input.MarkPending()
 	}
-	return models.RunResultWithValue(hash.String())
+	return input.WithValue(hash.String())
 }

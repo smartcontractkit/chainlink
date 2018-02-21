@@ -48,9 +48,9 @@ func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.Run
 
 	result, err := getStringValue(rval)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
-	return models.RunResultWithValue(result)
+	return input.WithValue(result)
 }
 
 func getStringValue(js *simplejson.Json) (string, error) {
