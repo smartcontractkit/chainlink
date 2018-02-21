@@ -5,13 +5,13 @@
   branch = "master"
   name = "github.com/araddon/dateparse"
   packages = ["."]
-  revision = "f30ca3179c19d723d2f1f8c878fcce1089775c05"
+  revision = "ffccba6ba2a60949120f25db8949a79dd31abeb2"
 
 [[projects]]
   branch = "master"
   name = "github.com/aristanetworks/goarista"
   packages = ["monotime"]
-  revision = "8d0e8f607a4080e7df3532e645440ed0900c64a4"
+  revision = "1407612bacdb9230af4463aa6e2e226c1a102670"
 
 [[projects]]
   name = "github.com/asdine/storm"
@@ -23,8 +23,8 @@
     "internal",
     "q"
   ]
-  revision = "dbb6ebff0bde8144b877711894533e16d3b7feda"
-  version = "v2.0.0-rc.1"
+  revision = "68fc73b635f890fe7ba2f3b15ce80c85b28a744f"
+  version = "v2.0.2"
 
 [[projects]]
   name = "github.com/bitly/go-simplejson"
@@ -36,18 +36,19 @@
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
-  revision = "2e60448ffcc6bf78332d1fe590260095f554dd78"
+  revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
 
 [[projects]]
   name = "github.com/coreos/bbolt"
   packages = ["."]
-  revision = "32c383e75ce054674c53b5a07e55de85332aee14"
-  version = "v1.3.1-coreos.5"
+  revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
-  revision = "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/ethereum/go-ethereum"
@@ -91,7 +92,7 @@
     "json",
     "render"
   ]
-  revision = "eeb57848cac06c360a3c262837394051018b8f66"
+  revision = "783c7ee9c14eac0e65b501664b4f553291556b43"
 
 [[projects]]
   name = "github.com/go-stack/stack"
@@ -100,10 +101,10 @@
   version = "v1.7.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -120,20 +121,20 @@
 [[projects]]
   name = "github.com/h2non/gock"
   packages = ["."]
-  revision = "84d599244901620fb3eb96473eb9e50619f69b47"
-  version = "v1.0.6"
+  revision = "26775f23aa9da4cbd47bc2600a57ac07bbf3bd20"
+  version = "v1.0.7"
 
 [[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
-  revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
-  version = "1.0.4"
+  revision = "e7c7f3b33712573affdcc7a107218e7926b9a05b"
+  version = "1.0.6"
 
 [[projects]]
-  branch = "master"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
-  revision = "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c"
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
 
 [[projects]]
   name = "github.com/mattn/go-runewidth"
@@ -187,7 +188,8 @@
 [[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
-  revision = "d8ed2627bdf02c080bf22230dbb337003b7aba2d"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -196,13 +198,13 @@
     ".",
     "exp"
   ]
-  revision = "e181e095bae94582363434144c61a9653aff6e50"
+  revision = "8732c616f52954686704c8645fe1a9d59e9df7c1"
 
 [[projects]]
   branch = "master"
   name = "github.com/rjeczalik/notify"
   packages = ["."]
-  revision = "767eb674ef14b09119b2fff3601e64558d530c47"
+  revision = "c31e5f2cb22b3e4ef3f882f413847669bf2652b9"
 
 [[projects]]
   name = "github.com/rs/cors"
@@ -225,8 +227,8 @@
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
-  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
-  version = "v1.1.4"
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
   branch = "master"
@@ -260,10 +262,10 @@
   revision = "1731857f09b1f38450e2c12409748407822dc6be"
 
 [[projects]]
-  branch = "master"
   name = "github.com/ugorji/go"
   packages = ["codec"]
-  revision = "84cb69a8af8316eed8cf4a3c9368a56977850062"
+  revision = "9831f2c3ac1068a78f50999a30db84270f647af6"
+  version = "v1.1"
 
 [[projects]]
   name = "github.com/urfave/cli"
@@ -305,7 +307,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
+  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
 
 [[projects]]
   branch = "master"
@@ -316,7 +318,7 @@
     "html/charset",
     "websocket"
   ]
-  revision = "a8b9294777976932365dabb6640cf1468d95c70f"
+  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
 
 [[projects]]
   branch = "master"
@@ -325,10 +327,9 @@
     "unix",
     "windows"
   ]
-  revision = "a13efeb2fd213cf4be7227992aa54519af3b2ac0"
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/text"
   packages = [
     "encoding",
@@ -349,7 +350,8 @@
     "transform",
     "unicode/cldr"
   ]
-  revision = "572a2b141f625f4360cf42a41a43622067e0510b"
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
 
 [[projects]]
   name = "gopkg.in/fatih/set.v0"
@@ -366,8 +368,8 @@
 [[projects]]
   name = "gopkg.in/guregu/null.v3"
   packages = ["."]
-  revision = "5d2d1e5a9e25088fb9cc0b0f7cb566250eb42bba"
-  version = "v3.2.0"
+  revision = "e81d6d8d57747b34d7c5fe0d20ebf57692f04ea9"
+  version = "v3.3.0"
 
 [[projects]]
   branch = "v2"
@@ -385,7 +387,7 @@
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
+  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
 
 [solve-meta]
   analyzer-name = "dep"
