@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	uuid "github.com/smartcontractkit/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 const (

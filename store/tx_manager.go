@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-var defaultGasLimit = big.NewInt(500000)
+const defaultGasLimit uint64 = 500000
 
 // TxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
