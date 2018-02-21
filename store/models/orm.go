@@ -121,7 +121,7 @@ func (orm *ORM) CreateTx(
 	to common.Address,
 	data []byte,
 	value *big.Int,
-	gasLimit *big.Int,
+	gasLimit uint64,
 ) (*Tx, error) {
 	tx := Tx{
 		From:     from,
