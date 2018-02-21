@@ -46,7 +46,7 @@ type HttpPost struct {
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HttpPost) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	reqBody := bytes.NewBufferString(input.Output.String())
+	reqBody := bytes.NewBufferString(input.Data.String())
 	response, err := http.Post(hga.URL.String(), "application/json", reqBody)
 	if err != nil {
 		return models.RunResultWithError(err)

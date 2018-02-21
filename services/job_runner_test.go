@@ -21,14 +21,14 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		input      string
 		runResult  string
 		wantStatus string
-		wantOutput string
+		wantData   string
 	}{
-		{"success", `{}`, `{"output":{"value":"100"}}`, models.StatusCompleted,
+		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
 			`{"value":"100"}`},
 		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, `{}`},
-		{"errored with a value", `{}`, `{"error":"too much", "output":{"value":"99"}}`, models.StatusErrored,
+		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.StatusErrored,
 			`{"value":"99"}`},
-		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"output":{"value":"100"}}`, models.StatusCompleted,
+		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
 			`{"value":"100"}`},
 	}
 
@@ -55,15 +55,15 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
-			assert.Equal(t, test.wantOutput, run.Result.Output.String())
+			assert.Equal(t, test.wantData, run.Result.Data.String())
 
 			tr1 := run.TaskRuns[0]
 			assert.Equal(t, test.wantStatus, tr1.Status)
-			assert.Equal(t, test.wantOutput, tr1.Result.Output.String())
+			assert.Equal(t, test.wantData, tr1.Result.Data.String())
 
 			if test.wantStatus == models.StatusCompleted {
 				tr2 := run.TaskRuns[1]
-				assert.Equal(t, test.wantOutput, tr2.Result.Output.String())
+				assert.Equal(t, test.wantData, tr2.Result.Data.String())
 			}
 		})
 	}

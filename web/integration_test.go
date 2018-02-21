@@ -233,7 +233,7 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
-	eaResponse := fmt.Sprintf(`{"output":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
 	defer cleanup()
 

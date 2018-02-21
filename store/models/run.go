@@ -100,7 +100,7 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 	merged, err := tr.Task.Params.Merge(j)
 	if err != nil {
-		return tr, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+		return tr, fmt.Errorf("TaskRun#Merge merging params: %v", err.Error())
 	}
 
 	tr.Task.Params = merged
@@ -108,10 +108,10 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 }
 
 // RunResult keeps track of the outcome of a TaskRun. It stores
-// the Output and ErrorMessage, if any of either, and contains
+// the Data and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
 type RunResult struct {
-	Output       JSON        `json:"output"`
+	Data         JSON        `json:"data"`
 	ErrorMessage null.String `json:"error"`
 	Pending      bool        `json:"pending"`
 }
@@ -119,13 +119,13 @@ type RunResult struct {
 // RunResultWithValue returns a new RunResult with the given string
 // value as a JSON object.
 func RunResultWithValue(val string) RunResult {
-	output := JSON{}
-	output, err := output.Add("value", val)
+	data := JSON{}
+	data, err := data.Add("value", val)
 	if err != nil {
 		return RunResultWithError(err)
 	}
 
-	return RunResult{Output: output}
+	return RunResult{Data: data}
 }
 
 // RunResultWithError returns a new RunResult with the given
@@ -137,11 +137,11 @@ func RunResultWithError(err error) RunResult {
 }
 
 // RunResultPending returns a new RunResult keeping the same
-// Output and ErrorMessage as given but with a Pending status
+// Data and ErrorMessage as given but with a Pending status
 // set to true.
 func RunResultPending(input RunResult) RunResult {
 	return RunResult{
-		Output:       input.Output,
+		Data:         input.Data,
 		ErrorMessage: input.ErrorMessage,
 		Pending:      true,
 	}
@@ -149,14 +149,14 @@ func RunResultPending(input RunResult) RunResult {
 
 // Get searches for and returns the JSON at the given path.
 func (rr RunResult) Get(path string) (gjson.Result, error) {
-	return rr.Output.Get(path), nil
+	return rr.Data.Get(path), nil
 }
 
 func (rr RunResult) value() (gjson.Result, error) {
 	return rr.Get("value")
 }
 
-// Value returns the string value of the Output JSON field.
+// Value returns the string value of the Data JSON field.
 func (rr RunResult) Value() (string, error) {
 	val, err := rr.value()
 	if err != nil {
@@ -192,13 +192,13 @@ func (rr RunResult) GetError() error {
 	}
 }
 
-// MergeOutput merges the existing Output on a RunResult with the given JSON.
-func (rr RunResult) MergeOutput(j JSON) (RunResult, error) {
-	merged, err := rr.Output.Merge(j)
+// MergeData merges the existing Data on a RunResult with the given JSON.
+func (rr RunResult) MergeData(j JSON) (RunResult, error) {
+	merged, err := rr.Data.Merge(j)
 	if err != nil {
-		return rr, fmt.Errorf("TaskRun#Merge merging outputs: %v", err.Error())
+		return rr, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
 	}
 
-	rr.Output = merged
+	rr.Data = merged
 	return rr, nil
 }
