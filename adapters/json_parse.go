@@ -1,7 +1,9 @@
 package adapters
 
 import (
+	"encoding/json"
 	"errors"
+	"strconv"
 
 	simplejson "github.com/bitly/go-simplejson"
 	"github.com/smartcontractkit/chainlink/store"
@@ -34,7 +36,7 @@ func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return models.RunResultWithError(err)
 	}
 
-	js, err = checkEarlyPath(js, jpa.Path)
+	js, err = getEarlyPath(js, jpa.Path)
 	if err != nil {
 		return models.RunResultWithError(err)
 	}
@@ -44,16 +46,55 @@ func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return models.RunResult{}
 	}
 
-	return models.RunResultWithValue(rval.MustString())
+	result, err := getStringValue(rval)
+	if err != nil {
+		return models.RunResultWithError(err)
+	}
+	return models.RunResultWithValue(result)
 }
 
-func checkEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {
+func getStringValue(js *simplejson.Json) (string, error) {
+	str, err := js.String()
+	if err != nil {
+		b, err := json.Marshal(js)
+		if err != nil {
+			return str, err
+		}
+		str = string(b)
+	}
+	return str, nil
+}
+
+func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 	var ok bool
 	for _, k := range path[:len(path)-1] {
-		js, ok = js.CheckGet(k)
+		if isArray(js, k) {
+			js, ok = arrayGet(js, k)
+		} else {
+			js, ok = js.CheckGet(k)
+		}
 		if !ok {
 			return js, errors.New("No value could be found for the key '" + k + "'")
 		}
 	}
 	return js, nil
+}
+
+func arrayGet(js *simplejson.Json, key string) (*simplejson.Json, bool) {
+	i, err := strconv.ParseUint(key, 10, 64)
+	if err != nil {
+		return js, false
+	}
+	a, err := js.Array()
+	if err != nil || len(a) < int(i-1) {
+		return js, false
+	}
+	return js.GetIndex(int(i)), true
+}
+
+func isArray(js *simplejson.Json, key string) bool {
+	if _, err := js.Array(); err != nil {
+		return false
+	}
+	return true
 }
