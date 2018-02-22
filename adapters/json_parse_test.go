@@ -8,31 +8,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseExistingPath(t *testing.T) {
+func TestJsonParse_Perform(t *testing.T) {
 	t.Parallel()
-	input := models.RunResultWithValue(`{"high": "11850.00", "last": "11779.99", "timestamp": "1512487535", "bid": "11779.89", "vwap": "11525.17", "volume": "12916.67066094", "low": "11100.00", "ask": "11779.99", "open": 11613.07}`)
+	tests := []struct {
+		name            string
+		value           string
+		path            []string
+		want            string
+		wantError       bool
+		wantResultError bool
+	}{
+		{"existing path", `{"high": "11850.00", "last": "11779.99"}`, []string{"last"}, "11779.99", false, false},
+		{"nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"doesnotexist"}, "", true, false},
+		{"double nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"no", "really"}, "", true, true},
+	}
 
-	adapter := adapters.JsonParse{Path: []string{"last"}}
-	result := adapter.Perform(input, nil)
-	val, err := result.Value()
-	assert.Equal(t, "11779.99", val)
-	assert.Nil(t, err)
-	assert.Nil(t, result.GetError())
-}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := models.RunResultWithValue(test.value)
+			adapter := adapters.JsonParse{Path: test.path}
+			result := adapter.Perform(input, nil)
+			val, err := result.Value()
+			assert.Equal(t, test.want, val)
+			if test.wantError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
 
-func TestParseNonExistingPath(t *testing.T) {
-	t.Parallel()
-	input := models.RunResultWithValue(`{"high": "11850.00", "last": "11779.99", "timestamp": "1512487535", "bid": "11779.89", "vwap": "11525.17", "volume": "12916.67066094", "low": "11100.00", "ask": "11779.99", "open": 11613.07}`)
-
-	adapter := adapters.JsonParse{Path: []string{"doesnotexist"}}
-	result := adapter.Perform(input, nil)
-	_, err := result.Value()
-	assert.NotNil(t, err)
-	assert.Nil(t, result.GetError())
-
-	adapter = adapters.JsonParse{Path: []string{"doesnotexist", "noreally"}}
-	result = adapter.Perform(input, nil)
-	_, err = result.Value()
-	assert.NotNil(t, err)
-	assert.NotNil(t, result.GetError())
+			if test.wantResultError {
+				assert.NotNil(t, result.GetError())
+			} else {
+				assert.Nil(t, result.GetError())
+			}
+		})
+	}
 }
