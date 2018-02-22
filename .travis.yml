@@ -5,6 +5,10 @@ matrix:
     - language: go
       go: 1.9
 
+      cache:
+        directories:
+          - $GOPATH/src/github.com/smartcontractkit/chainlink/vendor
+
       env:
         - DEP_VERSION="0.4.1"
 
