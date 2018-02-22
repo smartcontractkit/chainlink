@@ -21,6 +21,8 @@ func TestJsonParse_Perform(t *testing.T) {
 		{"existing path", `{"high": "11850.00", "last": "11779.99"}`, []string{"last"}, "11779.99", false, false},
 		{"nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"doesnotexist"}, "", true, false},
 		{"double nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"no", "really"}, "", true, true},
+		{"array index path", `{"data": [{"availability": "0.99991"}]}`, []string{"data", "0", "availability"}, "0.99991", false, false},
+		{"float value", `{"availability": 0.99991}`, []string{"availability"}, "0.99991", false, false},
 	}
 
 	for _, test := range tests {
@@ -28,13 +30,9 @@ func TestJsonParse_Perform(t *testing.T) {
 			input := models.RunResultWithValue(test.value)
 			adapter := adapters.JsonParse{Path: test.path}
 			result := adapter.Perform(input, nil)
-			val, err := result.Value()
-			assert.Equal(t, test.want, val)
-			if test.wantError {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-			}
+			val, err := result.Get("value")
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, val.String())
 
 			if test.wantResultError {
 				assert.NotNil(t, result.GetError())
