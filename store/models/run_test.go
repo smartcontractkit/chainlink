@@ -19,7 +19,7 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 
 	job := models.NewJob()
 	jr := job.NewRun()
-	jr.Result = models.RunResultWithError(fmt.Errorf("bad idea"))
+	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
 	err := store.Save(&jr)
 	assert.Nil(t, err)
 

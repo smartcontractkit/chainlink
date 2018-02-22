@@ -25,7 +25,7 @@ const evmWordHexLen = evmWordByteLen * 2
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	result, err := input.Get("value")
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	value := common.RightPadBytes([]byte(result.String()), evmWordByteLen)
@@ -49,17 +49,17 @@ type EthUint256 struct{}
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.Get("value")
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		return models.RunResultWithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
 	b, err := utils.HexToBytes(bigToUintHex(i))
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 	padded := common.LeftPadBytes(b, evmWordByteLen)
 

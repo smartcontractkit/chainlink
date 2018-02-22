@@ -22,9 +22,9 @@ func TestBridge_Perform(t *testing.T) {
 	}{
 		{"success", 200, "purchased", true, false, false, `{"data":{"value": "purchased"}}`},
 		{"run error", 200, "", false, true, false, `{"error": "overload", "data": {}}`},
-		{"server error", 400, "", false, true, false, `bad request`},
-		{"server error", 500, "", false, true, false, `big error`},
-		{"JSON parse error", 200, "", false, true, false, `}`},
+		{"server error", 400, "lot 49", true, true, false, `bad request`},
+		{"server error", 500, "lot 49", true, true, false, `big error`},
+		{"JSON parse error", 200, "lot 49", true, true, false, `}`},
 		{"pending response", 200, "", false, false, true, `{"pending":true}`},
 	}
 

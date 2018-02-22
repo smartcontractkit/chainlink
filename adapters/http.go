@@ -20,7 +20,7 @@ type HttpGet struct {
 func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	response, err := http.Get(hga.URL.String())
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	defer response.Body.Close()
@@ -28,11 +28,11 @@ func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	bytes, err := ioutil.ReadAll(response.Body)
 	body := string(bytes)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	if response.StatusCode >= 400 {
-		return models.RunResultWithError(fmt.Errorf(body))
+		return input.WithError(fmt.Errorf(body))
 	}
 
 	return input.WithValue(body)
@@ -49,7 +49,7 @@ func (hga *HttpPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 	reqBody := bytes.NewBufferString(input.Data.String())
 	response, err := http.Post(hga.URL.String(), "application/json", reqBody)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	defer response.Body.Close()
@@ -57,11 +57,11 @@ func (hga *HttpPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 	bytes, err := ioutil.ReadAll(response.Body)
 	body := string(bytes)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	if response.StatusCode >= 400 {
-		return models.RunResultWithError(fmt.Errorf(body))
+		return input.WithError(fmt.Errorf(body))
 	}
 
 	return input.WithValue(body)

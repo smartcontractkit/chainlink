@@ -176,8 +176,14 @@ func RunResultWithValue(val string) models.RunResult {
 	data := models.JSON{}
 	data, err := data.Add("value", val)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return RunResultWithError(err)
 	}
 
 	return models.RunResult{Data: data}
+}
+
+func RunResultWithError(err error) models.RunResult {
+	return models.RunResult{
+		ErrorMessage: null.StringFrom(err.Error()),
+	}
 }
