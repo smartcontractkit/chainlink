@@ -117,14 +117,6 @@ type RunResult struct {
 	Pending      bool        `json:"pending"`
 }
 
-// RunResultWithError returns a new RunResult with the given
-// error message.
-func RunResultWithError(err error) RunResult {
-	return RunResult{
-		ErrorMessage: null.StringFrom(err.Error()),
-	}
-}
-
 // WithValue returns a copy of the RunResult, overriding the "value" field of
 // Data and setting Pending to false.
 func (rr RunResult) WithValue(val string) RunResult {

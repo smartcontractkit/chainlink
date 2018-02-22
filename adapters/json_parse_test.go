@@ -19,7 +19,7 @@ func TestJsonParse_Perform(t *testing.T) {
 	}{
 		{"existing path", `{"high": "11850.00", "last": "11779.99"}`, []string{"last"}, "11779.99", false, false},
 		{"nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"doesnotexist"}, "", true, false},
-		{"double nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"no", "really"}, "", true, true},
+		{"double nonexistent path", `{"high": "11850.00", "last": "11779.99"}`, []string{"no", "really"}, `{"high": "11850.00", "last": "11779.99"}`, true, true},
 		{"array index path", `{"data": [{"availability": "0.99991"}]}`, []string{"data", "0", "availability"}, "0.99991", false, false},
 		{"float value", `{"availability": 0.99991}`, []string{"availability"}, "0.99991", false, false},
 	}

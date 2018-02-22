@@ -22,36 +22,36 @@ type Bridge struct {
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	in, err := json.Marshal(&bridgePayload{input})
 	if err != nil {
-		return baRunResultError("marshaling request body", err)
+		return baRunResultError(input, "marshaling request body", err)
 	}
 
 	resp, err := http.Post(ba.URL.String(), "application/json", bytes.NewBuffer(in))
 	if err != nil {
-		return baRunResultError("POST request", err)
+		return baRunResultError(input, "POST request", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(resp.Body)
 		err = fmt.Errorf("%v %v", resp.StatusCode, string(b))
-		return baRunResultError("POST reponse", err)
+		return baRunResultError(input, "POST reponse", err)
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return baRunResultError("reading response body", err)
+		return baRunResultError(input, "reading response body", err)
 	}
 
 	rr := models.RunResult{}
 	err = json.Unmarshal(b, &rr)
 	if err != nil {
-		return baRunResultError("unmarshaling JSON", err)
+		return baRunResultError(input, "unmarshaling JSON", err)
 	}
 	return rr
 }
 
-func baRunResultError(str string, err error) models.RunResult {
-	return models.RunResultWithError(fmt.Errorf("ExternalBridge %v: %v", str, err))
+func baRunResultError(in models.RunResult, str string, err error) models.RunResult {
+	return in.WithError(fmt.Errorf("ExternalBridge %v: %v", str, err))
 }
 
 type bridgePayload struct {

@@ -21,24 +21,27 @@ type JsonParse struct {
 //
 // For example, if the JSON data looks like this:
 //   {
-//     "last": "1400"
+//     "data": [
+//       {"last": "1111"},
+//       {"last": "2222"}
+//     ]
 //   }
 //
-// Then ["last"] would be the path, and "1400" would be the returned value
+// Then ["0","last"] would be the path, and "111" would be the returned value
 func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.Value()
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	js, err := simplejson.NewJson([]byte(val))
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	js, err = getEarlyPath(js, jpa.Path)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	rval, ok := js.CheckGet(jpa.Path[len(jpa.Path)-1])
