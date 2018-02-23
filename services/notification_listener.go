@@ -147,7 +147,7 @@ func (nl *NotificationListener) listenToNewHeads() {
 			logger.Error(err.Error())
 		}
 		for _, jr := range pendingRuns {
-			if _, err := ExecuteRun(jr, nl.Store, models.JSON{}); err != nil {
+			if _, err := ExecuteRun(jr, nl.Store, models.RunResult{}); err != nil {
 				logger.Error(err.Error())
 			}
 		}
@@ -203,12 +203,13 @@ func (nl *NotificationListener) receiveLog(el types.Log) {
 			continue
 		}
 
-		input, err := FormatLogJSON(initr, el)
+		data, err := FormatLogJSON(initr, el)
 		if err != nil {
 			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
 			continue
 		}
 
+		input := models.RunResult{Data: data}
 		if _, err = BeginRun(job, nl.Store, input); err != nil {
 			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
 		}

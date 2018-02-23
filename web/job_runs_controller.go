@@ -31,7 +31,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	}
 }
 
-// Create adds the JobRuns to the given context.
+// Create starts a new JobRun for the Job specified.
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
@@ -62,7 +62,7 @@ func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
 	}
 
 	go func() {
-		if _, err = services.ExecuteRun(jr, s, models.JSON{}); err != nil {
+		if _, err = services.ExecuteRun(jr, s, models.RunResult{}); err != nil {
 			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
 		}
 	}()

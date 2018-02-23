@@ -53,7 +53,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			assert.Nil(t, store.Save(&job))
 
 			run = job.NewRun()
-			input := cltest.JSONFromString(test.input)
+			input := models.RunResult{Data: cltest.JSONFromString(test.input)}
 			run, err := services.ExecuteRun(run, store, input)
 			assert.Nil(t, err)
 
@@ -81,7 +81,7 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	job := models.NewJob()
 	job.Tasks = []models.Task{models.Task{Type: "NoOpPend"}}
 
-	run, err := services.ExecuteRun(job.NewRun(), store, models.JSON{})
+	run, err := services.ExecuteRun(job.NewRun(), store, models.RunResult{})
 	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
@@ -117,7 +117,7 @@ func TestJobRunner_BeginRun(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(&job))
 
-			_, err := services.BeginRun(job, store, models.JSON{})
+			_, err := services.BeginRun(job, store, models.RunResult{})
 
 			if test.errored {
 				assert.NotNil(t, err)

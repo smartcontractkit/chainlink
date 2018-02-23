@@ -119,7 +119,7 @@ func (r *Recurring) AddJob(job models.Job) {
 		cronStr := string(initr.Schedule)
 		if !job.Ended(r.Clock.Now()) {
 			r.Cron.AddFunc(cronStr, func() {
-				_, err := BeginRun(job, r.store, models.JSON{})
+				_, err := BeginRun(job, r.store, models.RunResult{})
 				if err != nil && !expectedRecurringError(err) {
 					logger.Error(err.Error())
 				}
@@ -159,7 +159,7 @@ func (ot *OneTime) RunJobAt(t models.Time, job models.Job) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(t.DurationFromNow()):
-		_, err := BeginRun(job, ot.Store, models.JSON{})
+		_, err := BeginRun(job, ot.Store, models.RunResult{})
 		if err != nil {
 			logger.Error(err.Error())
 		}
