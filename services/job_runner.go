@@ -96,15 +96,15 @@ func startTask(
 	store *store.Store,
 ) models.TaskRun {
 	run.Status = models.StatusInProgress
-	adapter, err := adapters.For(run.Task, store)
 
+	adapter, err := adapters.For(run.Task, store)
 	if err != nil {
 		run.Status = models.StatusErrored
 		run.Result.SetError(err)
 		return run
 	}
-	run.Result = adapter.Perform(input, store)
 
+	run.Result = adapter.Perform(input, store)
 	if run.Result.HasError() {
 		run.Status = models.StatusErrored
 	} else if run.Result.Pending {

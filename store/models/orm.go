@@ -52,11 +52,18 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
-// FindJob uses the .One method in Storm to return a single job.
+// FindJob looks up a Job by its ID.
 func (orm *ORM) FindJob(id string) (Job, error) {
-	job := Job{}
+	var job Job
 	err := orm.One("ID", id, &job)
 	return job, err
+}
+
+// FindJobRun looks up a JobRun by its ID.
+func (orm *ORM) FindJobRun(id string) (JobRun, error) {
+	var jr JobRun
+	err := orm.One("ID", id, &jr)
+	return jr, err
 }
 
 // InitBucket initializes buckets and indexes before saving an object.

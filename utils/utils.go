@@ -66,8 +66,8 @@ func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-// BasicAuthPost posts to the HTTP client with the given username and password
-// to authenticate at the url with contentType and returns a response.
+// BasicAuthPost sends a POST request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("POST", url, body)
@@ -82,6 +82,17 @@ func BasicAuthPost(username, password, url string, contentType string, body io.R
 func BasicAuthGet(username, password, url string) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("GET", url, nil)
+	request.SetBasicAuth(username, password)
+	resp, err := client.Do(request)
+	return resp, err
+}
+
+// BasicAuthPatch sends a PATCH request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
+func BasicAuthPatch(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("PATCH", url, body)
+	request.Header.Set("Content-Type", contentType)
 	request.SetBasicAuth(username, password)
 	resp, err := client.Do(request)
 	return resp, err

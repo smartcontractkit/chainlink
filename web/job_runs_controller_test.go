@@ -3,10 +3,12 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +22,6 @@ type JobRun struct {
 
 func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
-
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -46,7 +47,6 @@ func TestJobRunsController_Index(t *testing.T) {
 
 func TestJobRunsController_Create(t *testing.T) {
 	t.Parallel()
-
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -59,7 +59,6 @@ func TestJobRunsController_Create(t *testing.T) {
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
-
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -73,11 +72,45 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 
 func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
-
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
 	url := app.Server.URL + "/v2/jobs/garbageID/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+}
+
+func TestJobRunsController_Update(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	bt := models.BridgeType{
+		Name: "slowcomputation",
+		URL:  cltest.WebURL("http://localhost:12345"),
+	}
+	assert.Nil(t, app.Store.Save(&bt))
+	j := cltest.NewJob()
+	j.Tasks = []models.Task{{
+		Type:   bt.Name,
+		Params: cltest.JSONFromString(`{"type":"%v"}`, bt.Name),
+	}}
+	assert.Nil(t, app.Store.Save(&j))
+	jr := j.NewRun()
+	jr.Status = models.StatusPending
+	jr.TaskRuns[0].Status = models.StatusPending
+	jr.TaskRuns[0].Result.Pending = true
+	assert.Nil(t, app.Store.Save(&jr))
+
+	url := app.Server.URL + "/v2/runs/" + jr.ID
+	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	jrID := cltest.ParseCommonJSON(resp.Body).ID
+	assert.Equal(t, jr.ID, jrID)
+
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	val, err := jr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, "100", val)
 }
