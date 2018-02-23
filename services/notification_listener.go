@@ -351,6 +351,8 @@ func (ht *HeadTracker) Get() *models.BlockHeader {
 	return ht.blockHeader
 }
 
+// Instantiates a new HeadTracker using the store to persist
+// new BlockHeaders
 func NewHeadTracker(store *store.Store) (*HeadTracker, error) {
 	ht := &HeadTracker{store: store}
 	blockHeaders := []models.BlockHeader{}
