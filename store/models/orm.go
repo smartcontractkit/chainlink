@@ -5,10 +5,10 @@ import (
 	"math/big"
 	"path"
 	"reflect"
-	"sort"
 	"strings"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -75,15 +75,11 @@ func (orm *ORM) Jobs() ([]Job, error) {
 // sorted by their created at time.
 func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("JobID", jobID, &runs)
-	return sortJobRuns(runs), err
-}
-
-func sortJobRuns(jrs []JobRun) []JobRun {
-	sort.Slice(jrs, func(i, j int) bool {
-		return jrs[i].CreatedAt.Unix() > jrs[j].CreatedAt.Unix()
-	})
-	return jrs
+	err := orm.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Reverse().Find(&runs)
+	if err == storm.ErrNotFound {
+		return []JobRun{}, nil
+	}
+	return runs, err
 }
 
 // SaveJob saves a job to the database.
