@@ -10,7 +10,7 @@ import (
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(job models.Job, store *store.Store, input models.JSON) (models.JobRun, error) {
+func BeginRun(job models.Job, store *store.Store, input models.RunResult) (models.JobRun, error) {
 	run, err := BuildRun(job, store)
 	if err != nil {
 		return models.JobRun{}, err
@@ -38,7 +38,7 @@ func BuildRun(job models.Job, store *store.Store) (models.JobRun, error) {
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run models.JobRun, store *store.Store, input models.JSON) (models.JobRun, error) {
+func ExecuteRun(run models.JobRun, store *store.Store, input models.RunResult) (models.JobRun, error) {
 	run.Status = models.StatusInProgress
 	if err := store.Save(&run); err != nil {
 		return run, wrapError(run, err)
@@ -49,14 +49,14 @@ func ExecuteRun(run models.JobRun, store *store.Store, input models.JSON) (model
 	offset := len(run.TaskRuns) - len(unfinished)
 	prevRun := unfinished[0]
 
-	merged, err := prevRun.Result.MergeData(input)
+	merged, err := prevRun.Result.MergeData(input.Data)
 	if err != nil {
 		return run, wrapError(run, err)
 	}
 	prevRun.Result = merged
 
 	for i, taskRunTemplate := range unfinished {
-		taskRun, err := taskRunTemplate.MergeTaskParams(input)
+		taskRun, err := taskRunTemplate.MergeTaskParams(input.Data)
 		if err != nil {
 			return run, wrapError(run, err)
 		}
