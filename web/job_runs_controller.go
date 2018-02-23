@@ -18,9 +18,9 @@ type JobRunsController struct {
 
 // Index adds the root of the JobRuns to the given context.
 // Example:
-//  "<application>/jobs/:ID/runs"
+//  "<application>/jobs/:JobID/runs"
 func (jrc *JobRunsController) Index(c *gin.Context) {
-	id := c.Param("ID")
+	id := c.Param("JobID")
 
 	if jobRuns, err := jrc.App.Store.JobRunsFor(id); err != nil {
 		c.JSON(500, gin.H{
@@ -32,6 +32,8 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 }
 
 // Create starts a new JobRun for the Job specified.
+// Example:
+//  "<application>/jobs/:JobID/runs"
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
@@ -56,6 +58,8 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 }
 
 // Update marks the JobRun no longer pending, and resumes the Job's pipeline.
+// Example:
+//  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
 	var rr models.RunResult
@@ -72,11 +76,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		go func() {
-			if _, err = services.ExecuteRun(jr, jrc.App.Store, rr); err != nil {
-				logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
-			}
-		}()
+		executeRun(jr, jrc.App.Store, rr)
 		c.JSON(200, gin.H{"id": jr.ID})
 	}
 }
@@ -86,12 +86,14 @@ func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
 	if err != nil {
 		return jr, err
 	}
+	executeRun(jr, s, models.RunResult{})
+	return jr, nil
+}
 
+func executeRun(jr models.JobRun, s *store.Store, rr models.RunResult) {
 	go func() {
-		if _, err = services.ExecuteRun(jr, s, models.RunResult{}); err != nil {
+		if _, err := services.ExecuteRun(jr, s, rr); err != nil {
 			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
 		}
 	}()
-
-	return jr, nil
 }

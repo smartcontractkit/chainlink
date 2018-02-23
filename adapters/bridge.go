@@ -19,7 +19,7 @@ type Bridge struct {
 
 // Perform sends a POST request containing the JSON of the input RunResult to
 // the external adapter specified in the BridgeType.
-// It records the RunResult reutrned to it, and optionally marks the RunResult pending.
+// It records the RunResult returned to it, and optionally marks the RunResult pending.
 //
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.

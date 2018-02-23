@@ -24,10 +24,10 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		j := JobsController{app}
 		v2.GET("/jobs", j.Index)
 		v2.POST("/jobs", j.Create)
-		v2.GET("/jobs/:ID", j.Show)
+		v2.GET("/jobs/:JobID", j.Show)
 
 		jr := JobRunsController{app}
-		v2.GET("/jobs/:ID/runs", jr.Index)
+		v2.GET("/jobs/:JobID/runs", jr.Index)
 		v2.POST("/jobs/:JobID/runs", jr.Create)
 		v2.PATCH("/runs/:RunID", jr.Update)
 
