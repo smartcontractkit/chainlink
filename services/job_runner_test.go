@@ -35,7 +35,8 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	bt := cltest.NewBridgeType("auctionBidding", "https://dbay.eth/api")
 	assert.Nil(t, store.Save(&bt))
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			gock.New("https://dbay.eth").
 				Post("/api").
@@ -84,8 +85,6 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 }
 
 func TestJobRunner_BeginRun(t *testing.T) {
-	t.Parallel()
-
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
 	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
@@ -103,11 +102,12 @@ func TestJobRunner_BeginRun(t *testing.T) {
 		{"job ended", nullTime, pastTime, true, 0},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
-			defer cleanup()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
 			job := cltest.NewJob()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
@@ -128,8 +128,6 @@ func TestJobRunner_BeginRun(t *testing.T) {
 }
 
 func TestJobRunner_BuildRun(t *testing.T) {
-	t.Parallel()
-
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
 	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
@@ -146,13 +144,14 @@ func TestJobRunner_BuildRun(t *testing.T) {
 		{"job ended", nullTime, pastTime, true},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
-			clock := cltest.UseSettableClock(store)
-			clock.SetTime(time.Now())
-			defer cleanup()
+	store, cleanup := cltest.NewStore()
+	clock := cltest.UseSettableClock(store)
+	clock.SetTime(time.Now())
+	defer cleanup()
 
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
 			job := cltest.NewJob()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
