@@ -46,7 +46,11 @@ func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.Run
 
 	rval, ok := js.CheckGet(jpa.Path[len(jpa.Path)-1])
 	if !ok {
-		return models.RunResult{}
+		input.Data, err = input.Data.Add("value", nil)
+		if err != nil {
+			return input.WithError(err)
+		}
+		return input
 	}
 
 	result, err := getStringValue(rval)
