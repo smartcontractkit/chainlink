@@ -6,11 +6,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	null "gopkg.in/guregu/null.v3"
 )
 
-func TestBridge_Perform(t *testing.T) {
+func TestBridge_Perform_FromUnstarted(t *testing.T) {
 	cases := []struct {
 		name        string
 		status      int
@@ -54,6 +56,41 @@ func TestBridge_Perform(t *testing.T) {
 			assert.Equal(t, test.wantExists, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, test.wantPending, result.Pending)
+		})
+	}
+}
+
+func TestBridge_Perform_FromPending(t *testing.T) {
+	cases := []struct {
+		name         string
+		input        string
+		errorMessage null.String
+		want         string
+	}{
+		{"basic", `{"value":"100","old":"remains"}`, cltest.NullString(nil), `{"value":"100","old":"remains"}`},
+		{"with error", `{"value":"100","old":"remains"}`, cltest.NullString("Big error!"), `{"value":"100","old":"remains"}`},
+	}
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	bt := cltest.NewBridgeType("auctionBidding", "https://notused.example.com")
+	assert.Nil(t, store.Save(&bt))
+	ba := &adapters.Bridge{bt}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := models.RunResult{
+				Data:         cltest.JSONFromString(test.input),
+				ErrorMessage: test.errorMessage,
+				Pending:      true,
+			}
+
+			result := ba.Perform(input, store)
+
+			assert.Equal(t, test.want, result.Data.String())
+			assert.Equal(t, test.errorMessage, result.ErrorMessage)
+			assert.Equal(t, false, result.Pending)
 		})
 	}
 }

@@ -19,7 +19,23 @@ type Bridge struct {
 
 // Perform sends a POST request containing the JSON of the input RunResult to
 // the external adapter specified in the BridgeType.
+// It records the RunResult reutrned to it, and optionally marks the RunResult pending.
+//
+// If the Perform is resumed with a pending RunResult, the RunResult is marked
+// not pending and the RunResult is returned.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+	if input.Pending {
+		return markNotPending(input)
+	}
+	return ba.handleNewRun(input)
+}
+
+func markNotPending(input models.RunResult) models.RunResult {
+	input.Pending = false
+	return input
+}
+
+func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 	in, err := json.Marshal(&bridgePayload{input})
 	if err != nil {
 		return baRunResultError(input, "marshaling request body", err)
