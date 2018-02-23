@@ -171,7 +171,8 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	ethMock.RegisterSubscription("newHeads", nhChan)
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+1))
+	confirmationAt := sentAt + 1
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmationAt))
 
 	app.Start()
 
@@ -193,9 +194,11 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	jr.Status = models.StatusPending
 	assert.Nil(t, store.Save(&jr))
 
-	nhChan <- models.BlockHeader{}
+	blockNumber := cltest.BigHexInt(1)
+	nhChan <- models.BlockHeader{blockNumber}
 
 	ethMock.EnsureAllCalled(t)
+	assert.Equal(t, blockNumber, app.NotificationListener.HeadTracker.Get().Number)
 }
 
 func TestServices_InitiatorsForLog(t *testing.T) {
@@ -275,4 +278,56 @@ func TestServices_RunLogTopic_ExpectedEventSignature(t *testing.T) {
 
 	expected := "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2"
 	assert.Equal(t, expected, services.RunLogTopic.Hex())
+}
+
+func TestHeadTracker_New(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	assert.Nil(t, store.Save(&models.BlockHeader{cltest.BigHexInt(1)}))
+	last := models.BlockHeader{cltest.BigHexInt(10)}
+	assert.Nil(t, store.Save(&last))
+	assert.Nil(t, store.Save(&models.BlockHeader{cltest.BigHexInt(2)}))
+
+	ht, err := services.NewHeadTracker(store)
+	assert.Nil(t, err)
+	assert.Equal(t, last.Number, ht.Get().Number)
+}
+
+func TestHeadTracker_Get(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	initial := models.BlockHeader{cltest.BigHexInt(1)}
+	assert.Nil(t, store.Save(&initial))
+
+	tests := []struct {
+		name      string
+		toSave    *models.BlockHeader
+		want      hexutil.Big
+		wantError bool
+	}{
+		// order matters
+		{"greater", &models.BlockHeader{cltest.BigHexInt(2)}, cltest.BigHexInt(2), false},
+		{"less than", &models.BlockHeader{cltest.BigHexInt(1)}, cltest.BigHexInt(2), false},
+		{"zero", &models.BlockHeader{cltest.BigHexInt(0)}, cltest.BigHexInt(2), true},
+		{"nil", nil, cltest.BigHexInt(2), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ht, err := services.NewHeadTracker(store)
+			assert.Nil(t, err)
+			err = ht.Save(test.toSave)
+			if test.wantError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+
+			assert.Equal(t, test.want, ht.Get().Number)
+		})
+	}
 }
