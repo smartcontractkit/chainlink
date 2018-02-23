@@ -10,8 +10,6 @@ import (
 )
 
 func TestBridgeAdapterPerform(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name        string
 		status      int
@@ -32,8 +30,10 @@ func TestBridgeAdapterPerform(t *testing.T) {
 	defer cleanup()
 	wantedBody := `{"value":"lot 49"}`
 
-	for _, test := range cases {
+	for _, tt := range cases {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()

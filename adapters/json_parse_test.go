@@ -9,7 +9,6 @@ import (
 )
 
 func TestJsonParse_Perform(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name            string
 		value           string
@@ -25,8 +24,10 @@ func TestJsonParse_Perform(t *testing.T) {
 		{"float value", `{"availability": 0.99991}`, []string{"availability"}, "0.99991", false, false},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			input := models.RunResultWithValue(test.value)
 			adapter := adapters.JsonParse{Path: test.path}
 			result := adapter.Perform(input, nil)
