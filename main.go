@@ -36,6 +36,7 @@ func Run(client *cmd.Client, args ...string) {
 				cli.StringFlag{
 					Name:  "password, p",
 					Usage: "password for the node's account",
+					EnvVar: "PASSWORD",
 				},
 				cli.BoolFlag{
 					Name:  "debug, d",
