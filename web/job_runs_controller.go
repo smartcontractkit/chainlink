@@ -55,6 +55,32 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	}
 }
 
+// Update marks the JobRun no longer pending, and resumes the Job's pipeline.
+func (jrc *JobRunsController) Update(c *gin.Context) {
+	id := c.Param("RunID")
+	var rr models.RunResult
+	if jr, err := jrc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
+		c.JSON(404, gin.H{
+			"errors": []string{"Job not found"},
+		})
+	} else if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else if err := c.ShouldBindJSON(&rr); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else {
+		go func() {
+			if _, err = services.ExecuteRun(jr, jrc.App.Store, rr); err != nil {
+				logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
+			}
+		}()
+		c.JSON(200, gin.H{"id": jr.ID})
+	}
+}
+
 func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
 	jr, err := services.BuildRun(j, s)
 	if err != nil {
