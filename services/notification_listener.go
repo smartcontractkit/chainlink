@@ -3,11 +3,14 @@ package services
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,6 +43,7 @@ type NotificationListener struct {
 	headNotifications chan models.BlockHeader
 	errors            chan error
 	mutex             sync.Mutex
+	HeadTracker       *HeadTracker
 }
 
 // Start obtains the jobs from the store and begins execution
@@ -49,7 +53,12 @@ func (nl *NotificationListener) Start() error {
 	nl.logNotifications = make(chan types.Log)
 	nl.headNotifications = make(chan models.BlockHeader)
 
-	if err := nl.subscribeToNewHeads(); err != nil {
+	ht, err := NewHeadTracker(nl.Store)
+	if err != nil {
+		return err
+	}
+	nl.HeadTracker = ht
+	if err = nl.subscribeToNewHeads(); err != nil {
 		return err
 	}
 
@@ -91,12 +100,24 @@ func (nl *NotificationListener) AddJob(job models.Job) error {
 		return nil
 	}
 
-	sub, err := nl.Store.TxManager.SubscribeToLogs(nl.logNotifications, addresses)
+	sub, err := nl.Store.TxManager.SubscribeToLogs(nl.logNotifications, nl.filterQueryFor(addresses))
 	if err != nil {
 		return err
 	}
 	nl.addSubscription(sub)
 	return nil
+}
+
+func (nl *NotificationListener) filterQueryFor(addresses []common.Address) ethereum.FilterQuery {
+	blockHeader := nl.HeadTracker.Get()
+	var fromBlock *big.Int
+	if blockHeader != nil {
+		fromBlock = blockHeader.Number.ToInt()
+	}
+	return ethereum.FilterQuery{
+		FromBlock: fromBlock,
+		Addresses: utils.WithoutZeroAddresses(addresses),
+	}
 }
 
 func (nl *NotificationListener) subscribeToNewHeads() error {
@@ -117,7 +138,10 @@ func (nl *NotificationListener) subscribeToInitiators(jobs []models.Job) error {
 }
 
 func (nl *NotificationListener) listenToNewHeads() {
-	for range nl.headNotifications {
+	for head := range nl.headNotifications {
+		if err := nl.HeadTracker.Save(&head); err != nil {
+			logger.Error(err.Error())
+		}
 		pendingRuns, err := nl.Store.PendingJobRuns()
 		if err != nil {
 			logger.Error(err.Error())
@@ -297,4 +321,45 @@ func initrsForAddress(initrs []models.Initiator, addr common.Address) []models.I
 		}
 	}
 	return good
+}
+
+// Holds and stores the latest block header experienced by this particular node
+// in a thread safe manner. Reconstitutes the last block header from the data
+// store on reboot.
+type HeadTracker struct {
+	store       *store.Store
+	blockHeader *models.BlockHeader
+	mutex       sync.Mutex
+}
+
+func (ht *HeadTracker) Save(bh *models.BlockHeader) error {
+	if bh == nil {
+		return errors.New("Cannot save a nil block header")
+	}
+
+	ht.mutex.Lock()
+	if ht.blockHeader == nil || ht.blockHeader.Number.ToInt().Cmp(bh.Number.ToInt()) < 0 {
+		ht.blockHeader = bh
+	}
+	ht.mutex.Unlock()
+	return ht.store.Save(bh)
+}
+
+func (ht *HeadTracker) Get() *models.BlockHeader {
+	ht.mutex.Lock()
+	defer ht.mutex.Unlock()
+	return ht.blockHeader
+}
+
+func NewHeadTracker(store *store.Store) (*HeadTracker, error) {
+	ht := &HeadTracker{store: store}
+	blockHeaders := []models.BlockHeader{}
+	err := store.AllByIndex("Number", &blockHeaders, storm.Limit(1), storm.Reverse())
+	if err != nil {
+		return nil, err
+	}
+	if len(blockHeaders) > 0 {
+		ht.blockHeader = &blockHeaders[0]
+	}
+	return ht, nil
 }
