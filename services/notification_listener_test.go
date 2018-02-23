@@ -26,7 +26,7 @@ func TestNotificationListener_Start_NewHeads(t *testing.T) {
 	nl := services.NotificationListener{Store: store}
 	defer nl.Stop()
 
-	eth.RegisterSubscription("newHeads", make(chan strpkg.BlockHeader))
+	eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
 
 	assert.Nil(t, nl.Start())
 	eth.EnsureAllCalled(t)
@@ -167,7 +167,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	store := app.Store
 
 	ethMock := app.MockEthClient()
-	nhChan := make(chan strpkg.BlockHeader)
+	nhChan := make(chan models.BlockHeader)
 	ethMock.RegisterSubscription("newHeads", nhChan)
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
@@ -193,7 +193,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	jr.Status = models.StatusPending
 	assert.Nil(t, store.Save(&jr))
 
-	nhChan <- strpkg.BlockHeader{}
+	nhChan <- models.BlockHeader{}
 
 	ethMock.EnsureAllCalled(t)
 }

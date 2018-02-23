@@ -37,7 +37,7 @@ type NotificationListener struct {
 	Store             *store.Store
 	subscriptions     []*rpc.ClientSubscription
 	logNotifications  chan types.Log
-	headNotifications chan store.BlockHeader
+	headNotifications chan models.BlockHeader
 	errors            chan error
 	mutex             sync.Mutex
 }
@@ -47,7 +47,7 @@ type NotificationListener struct {
 func (nl *NotificationListener) Start() error {
 	nl.errors = make(chan error)
 	nl.logNotifications = make(chan types.Log)
-	nl.headNotifications = make(chan store.BlockHeader)
+	nl.headNotifications = make(chan models.BlockHeader)
 
 	if err := nl.subscribeToNewHeads(); err != nil {
 		return err

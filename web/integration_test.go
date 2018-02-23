@@ -51,7 +51,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Reply(200).
 		JSON(tickerResponse)
 
-	newHeads := make(chan store.BlockHeader, 10)
+	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
@@ -72,7 +72,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -80,7 +80,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -88,7 +88,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(safe)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)}
 
 	jr = cltest.WaitForJobRunToComplete(t, app, jr)
 
