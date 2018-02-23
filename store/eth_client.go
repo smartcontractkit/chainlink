@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
@@ -90,7 +91,7 @@ func (eth *EthClient) SubscribeToLogs(
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (eth *EthClient) SubscribeToNewHeads(
-	channel chan<- BlockHeader,
+	channel chan<- models.BlockHeader,
 ) (*rpc.ClientSubscription, error) {
 	ctx := context.Background()
 	sub, err := eth.EthSubscribe(ctx, channel, "newHeads")
@@ -120,9 +121,4 @@ type TxReceipt struct {
 // Unconfirmed returns true if the transaction is not confirmed.
 func (txr *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(txr.Hash)
-}
-
-// BlockHeader is the parameters passed in notifications for new blocks.
-type BlockHeader struct {
-	Number hexutil.Big `json:"number"`
 }
