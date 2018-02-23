@@ -34,11 +34,6 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 }
 
 func TestRecurring_AddJob(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
 	nullTime := cltest.NullTime(nil)
 	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
 	futureTime := cltest.NullTime("3000-01-01T00:00:00.000Z")
@@ -57,7 +52,10 @@ func TestRecurring_AddJob(t *testing.T) {
 		{"start at after end at", futureTime, pastTime, 0, 0},
 	}
 
-	for _, test := range tests {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			r := services.NewRecurring(store)
 			cron := cltest.NewMockCron()
@@ -74,7 +72,7 @@ func TestRecurring_AddJob(t *testing.T) {
 
 			cron.RunEntries()
 			jobRuns := []models.JobRun{}
-			store.Where("JobID", j.ID, &jobRuns)
+			assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
 			assert.Equal(t, test.wantRuns, len(jobRuns))
 		})
 	}
