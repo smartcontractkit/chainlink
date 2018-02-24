@@ -74,8 +74,8 @@ func TestNotificationListener_AddJob_Listening(t *testing.T) {
 	}{
 		{"ethlog matching address", "ethlog", sharedAddr, sharedAddr, 1, hexutil.Bytes{}},
 		{"ethlog non-matching address", "ethlog", newAddr(), newAddr(), 0, hexutil.Bytes{}},
-		{"runlog w/o address", "runlog", noAddr, newAddr(), 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
-		{"runlog matching address", "runlog", sharedAddr, sharedAddr, 1, cltest.StringToRunLogPayload(`{"value":"100"}`)},
+		{"runlog w/o address", "runlog", noAddr, newAddr(), 1, cltest.StringToRunLogData(`{"value":"100"}`)},
+		{"runlog matching address", "runlog", sharedAddr, sharedAddr, 1, cltest.StringToRunLogData(`{"value":"100"}`)},
 		{"runlog non-matching", "runlog", newAddr(), newAddr(), 0, hexutil.Bytes{}},
 	}
 

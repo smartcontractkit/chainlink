@@ -389,7 +389,7 @@ func waitForJobRunInStatus(
 	return jr
 }
 
-func StringToRunLogPayload(str string) hexutil.Bytes {
+func StringToRunLogData(str string) hexutil.Bytes {
 	length := len([]byte(str))
 	lenHex := utils.RemoveHexPrefix(hexutil.EncodeUint64(uint64(length)))
 	if len(lenHex) < 64 {

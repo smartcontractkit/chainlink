@@ -159,7 +159,7 @@ func JSONFromString(body string, args ...interface{}) models.JSON {
 func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
 	return ethtypes.Log{
 		Address: addr,
-		Data:    StringToRunLogPayload(json),
+		Data:    StringToRunLogData(json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
 			common.StringToHash("requestID"),
