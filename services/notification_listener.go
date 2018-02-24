@@ -340,7 +340,8 @@ func (ht *HeadTracker) Save(bh *models.BlockHeader) error {
 
 	ht.mutex.Lock()
 	if ht.blockHeader == nil || ht.blockHeader.Number.ToInt().Cmp(bh.Number.ToInt()) < 0 {
-		ht.blockHeader = bh
+		copy := *bh
+		ht.blockHeader = &copy
 	}
 	ht.mutex.Unlock()
 	return ht.store.Save(bh)
