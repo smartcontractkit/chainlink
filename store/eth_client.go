@@ -5,10 +5,12 @@ import (
 
 	"math/big"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
@@ -80,34 +82,21 @@ func (eth *EthClient) GetBlockNumber() (uint64, error) {
 // from a given address.
 func (eth *EthClient) SubscribeToLogs(
 	channel chan<- types.Log,
-	addresses []common.Address,
+	q ethereum.FilterQuery,
 ) (*rpc.ClientSubscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	ctx := context.Background()
-	sub, err := eth.EthSubscribe(ctx, channel, "logs", toFilterArg(addresses))
+	sub, err := eth.EthSubscribe(ctx, channel, "logs", utils.ToFilterArg(q))
 	return sub, err
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (eth *EthClient) SubscribeToNewHeads(
-	channel chan<- BlockHeader,
+	channel chan<- models.BlockHeader,
 ) (*rpc.ClientSubscription, error) {
 	ctx := context.Background()
 	sub, err := eth.EthSubscribe(ctx, channel, "newHeads")
 	return sub, err
-}
-
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/interfaces.go#L132
-func toFilterArg(addresses []common.Address) interface{} {
-	withoutZeros := utils.WithoutZeroAddresses(addresses)
-	if len(withoutZeros) == 0 {
-		return map[string]interface{}{}
-	}
-	arg := map[string]interface{}{
-		"address": addresses,
-	}
-	return arg
 }
 
 // TxReceipt holds the block number and the transaction hash of a signed
@@ -120,9 +109,4 @@ type TxReceipt struct {
 // Unconfirmed returns true if the transaction is not confirmed.
 func (txr *TxReceipt) Unconfirmed() bool {
 	return common.EmptyHash(txr.Hash)
-}
-
-// BlockHeader is the parameters passed in notifications for new blocks.
-type BlockHeader struct {
-	Number hexutil.Big `json:"number"`
 }
