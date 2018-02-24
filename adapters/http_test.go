@@ -10,8 +10,6 @@ import (
 )
 
 func TestHttpNotAUrlError(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name    string
 		adapter adapters.Adapter
@@ -20,8 +18,10 @@ func TestHttpNotAUrlError(t *testing.T) {
 		{"HttpPost", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			result := test.adapter.Perform(models.RunResult{}, nil)
 			assert.Equal(t, models.JSON{}, result.Output)
 			assert.NotNil(t, result.Error)
@@ -30,8 +30,6 @@ func TestHttpNotAUrlError(t *testing.T) {
 }
 
 func TestHttpGetAdapterPerform(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name        string
 		status      int
@@ -47,18 +45,17 @@ func TestHttpGetAdapterPerform(t *testing.T) {
 		{"server error", 400, "", false, true, `Invalid request`},
 	}
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	for _, test := range cases {
+	for _, tt := range cases {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			input := models.RunResultWithValue("unused")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
 
 			hga := adapters.HttpGet{URL: cltest.MustParseWebURL(mock.URL)}
-			result := hga.Perform(input, store)
+			result := hga.Perform(input, nil)
 
 			val, err := result.Get("value")
 			assert.Nil(t, err)
@@ -71,8 +68,6 @@ func TestHttpGetAdapterPerform(t *testing.T) {
 }
 
 func TestHttpPostAdapterPerform(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name        string
 		status      int
@@ -88,11 +83,10 @@ func TestHttpPostAdapterPerform(t *testing.T) {
 		{"server error", 500, "", false, true, `big error`},
 	}
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	for _, test := range cases {
+	for _, tt := range cases {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			input := models.RunResultWithValue("modern")
 			wantedBody := `{"value":"modern"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
@@ -100,7 +94,7 @@ func TestHttpPostAdapterPerform(t *testing.T) {
 			defer cleanup()
 
 			hpa := adapters.HttpPost{URL: cltest.MustParseWebURL(mock.URL)}
-			result := hpa.Perform(input, store)
+			result := hpa.Perform(input, nil)
 
 			val, err := result.Get("value")
 			assert.Nil(t, err)

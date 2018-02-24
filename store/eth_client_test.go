@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 )
@@ -86,7 +86,7 @@ func TestEthGetBalance(t *testing.T) {
 func TestBlockHeader_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
-	var bh store.BlockHeader
+	var bh models.BlockHeader
 
 	data := cltest.LoadJSON("../internal/fixtures/eth/subscription_new_heads.json")
 	value := gjson.Get(string(data), "params.result")

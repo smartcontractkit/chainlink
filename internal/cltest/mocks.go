@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,14 +34,14 @@ func MockEthOnStore(s *store.Store) *EthMock {
 
 func NewMockGethRpc() *EthMock {
 	return &EthMock{
-		NewHeadsChannel: make(chan store.BlockHeader),
+		NewHeadsChannel: make(chan models.BlockHeader),
 	}
 }
 
 type EthMock struct {
 	Responses       []MockResponse
 	Subscriptions   []MockSubscription
-	NewHeadsChannel chan store.BlockHeader
+	NewHeadsChannel chan models.BlockHeader
 	newHeadsCalled  bool
 }
 
@@ -118,7 +119,7 @@ func (mock *EthMock) EthSubscribe(
 			switch channel.(type) {
 			case chan<- ethtypes.Log:
 				fwdLogs(channel, sub.channel)
-			case chan<- store.BlockHeader:
+			case chan<- models.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
@@ -146,8 +147,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- store.BlockHeader)
-	mockChan := mock.(chan store.BlockHeader)
+	logChan := actual.(chan<- models.BlockHeader)
+	mockChan := mock.(chan models.BlockHeader)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
