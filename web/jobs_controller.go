@@ -33,6 +33,8 @@ func (jrc *JobsController) Index(c *gin.Context) {
 }
 
 // Create adds the Jobs to the given context.
+// Example:
+//  "<application>/jobs"
 func (jc *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
@@ -54,8 +56,10 @@ func (jc *JobsController) Create(c *gin.Context) {
 }
 
 // Show returns the details of a job if it exists.
+// Example:
+//  "<application>/jobs/:JobID"
 func (jc *JobsController) Show(c *gin.Context) {
-	id := c.Param("ID")
+	id := c.Param("JobID")
 	if j, err := jc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found."},

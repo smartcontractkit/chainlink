@@ -140,7 +140,7 @@ func TestStore_FormatLogJSON(t *testing.T) {
 		el          types.Log
 		initr       models.Initiator
 		wantErrored bool
-		wantOutput  models.JSON
+		wantData    models.JSON
 	}{
 		{"example ethLog", exampleLog, models.Initiator{Type: "ethlog"}, false,
 			jsonFromFixture("../internal/fixtures/eth/subscription_logs.json")},
@@ -153,7 +153,7 @@ func TestStore_FormatLogJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			output, err := services.FormatLogJSON(test.initr, test.el)
-			assert.JSONEq(t, strings.ToLower(test.wantOutput.String()), strings.ToLower(output.String()))
+			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
@@ -187,8 +187,8 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 
 	jr := j.NewRun()
 	tr := jr.TaskRuns[0]
-	result := models.RunResultWithValue(txa.Hash.String())
-	tr.Result = models.RunResultPending(result)
+	result := cltest.RunResultWithValue(txa.Hash.String())
+	tr.Result = result.MarkPending()
 	tr.Status = models.StatusPending
 	jr.TaskRuns[0] = tr
 	jr.Status = models.StatusPending

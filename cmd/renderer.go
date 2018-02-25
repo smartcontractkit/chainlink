@@ -154,7 +154,7 @@ func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 			jr.ID,
 			jr.Status,
 			utils.ISO8601UTC(jr.CreatedAt),
-			jr.Result.Output.String(),
+			jr.Result.Data.String(),
 			jr.Result.ErrorMessage.String,
 		})
 	}
