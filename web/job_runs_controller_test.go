@@ -98,6 +98,7 @@ func TestJobRunsController_Update(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
 	jr.Status = models.StatusPending
+	jr.Result.Pending = true
 	jr.TaskRuns[0].Status = models.StatusPending
 	jr.TaskRuns[0].Result.Pending = true
 	assert.Nil(t, app.Store.Save(&jr))
@@ -113,4 +114,29 @@ func TestJobRunsController_Update(t *testing.T) {
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)
+}
+
+func TestJobRunsController_UpdateNotPending(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	bt := models.BridgeType{
+		Name: "slowcomputation",
+		URL:  cltest.WebURL("http://localhost:12345"),
+	}
+	assert.Nil(t, app.Store.Save(&bt))
+	j := cltest.NewJob()
+	j.Tasks = []models.Task{{
+		Type:   bt.Name,
+		Params: cltest.JSONFromString(`{"type":"%v"}`, bt.Name),
+	}}
+	assert.Nil(t, app.Store.Save(&j))
+	jr := j.NewRun()
+	assert.Nil(t, app.Store.Save(&jr))
+
+	url := app.Server.URL + "/v2/runs/" + jr.ID
+	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
 }

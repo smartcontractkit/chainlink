@@ -65,11 +65,15 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	var rr models.RunResult
 	if jr, err := jrc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
-			"errors": []string{"Job not found"},
+			"errors": []string{"Job Run not found"},
 		})
 	} else if err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
+		})
+	} else if !jr.Result.Pending {
+		c.JSON(405, gin.H{
+			"errors": []string{"Cannot resume a job run that isn't pending"},
 		})
 	} else if err := c.ShouldBindJSON(&rr); err != nil {
 		c.JSON(500, gin.H{
