@@ -21,14 +21,14 @@ type Multiply struct {
 func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.Get("value")
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		return models.RunResultWithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 	res := i.Mul(i, big.NewFloat(float64(ma.Times)))
 
-	return models.RunResultWithValue(res.String())
+	return input.WithValue(res.String())
 }
