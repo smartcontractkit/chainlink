@@ -94,3 +94,8 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 	f.SetBytes(bytes)
 	return nil
 }
+
+// BlockHeader is the parameters passed in notifications for new blocks.
+type BlockHeader struct {
+	Number hexutil.Big `json:"number" storm:"id,index,unique"`
+}

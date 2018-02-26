@@ -25,7 +25,7 @@ const evmWordHexLen = evmWordByteLen * 2
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	result, err := input.Get("value")
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	value := common.RightPadBytes([]byte(result.String()), evmWordByteLen)
@@ -34,7 +34,7 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	if len(hex) > evmWordHexLen {
 		hex = hex[:evmWordHexLen]
 	}
-	return models.RunResultWithValue(utils.AddHexPrefix(hex))
+	return input.WithValue(utils.AddHexPrefix(hex))
 }
 
 // EthUint256 holds no fields.
@@ -49,21 +49,21 @@ type EthUint256 struct{}
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.Get("value")
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		return models.RunResultWithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
 	b, err := utils.HexToBytes(bigToUintHex(i))
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 	padded := common.LeftPadBytes(b, evmWordByteLen)
 
-	return models.RunResultWithValue(common.ToHex(padded))
+	return input.WithValue(common.ToHex(padded))
 }
 
 func bigToUintHex(f *big.Float) string {

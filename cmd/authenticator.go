@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -122,7 +121,9 @@ func (pp PasswordPrompter) Prompt(prompt string) string {
 // to ensure typed characters are echoed in terminal:
 // https://groups.google.com/forum/#!topic/Golang-nuts/kTVAbtee9UA
 func withTerminalResetter(f func()) {
-	initialTermState, err := terminal.GetState(syscall.Stdin)
+	osSafeStdin := int(os.Stdin.Fd())
+
+	initialTermState, err := terminal.GetState(osSafeStdin)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -131,7 +132,7 @@ func withTerminalResetter(f func()) {
 	signal.Notify(c, os.Interrupt, os.Kill)
 	go func() {
 		<-c
-		terminal.Restore(syscall.Stdin, initialTermState)
+		terminal.Restore(osSafeStdin, initialTermState)
 		os.Exit(1)
 	}()
 

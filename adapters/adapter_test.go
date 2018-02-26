@@ -12,18 +12,15 @@ import (
 )
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
+	t.Parallel()
 	task := models.Task{Type: "NoOp"}
-	adapter, err := adapters.For(task, store)
-	adapter.Perform(models.RunResult{}, store)
+	adapter, err := adapters.For(task, nil)
+	adapter.Perform(models.RunResult{}, nil)
 	assert.Nil(t, err)
 }
 
 func TestAdapterFor(t *testing.T) {
 	t.Parallel()
-
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 

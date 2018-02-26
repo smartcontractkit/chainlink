@@ -28,10 +28,12 @@ func TestEthBytes32_Perform(t *testing.T) {
 		{"null", `{"value":null}`, "0x0000000000000000000000000000000000000000000000000000000000000000"},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			past := models.RunResult{
-				Output: cltest.JSONFromString(test.json),
+				Data: cltest.JSONFromString(test.json),
 			}
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)
@@ -64,10 +66,12 @@ func TestEthUint256_Perform(t *testing.T) {
 		{"odd length result", `{"value":"1234"}`, "0x00000000000000000000000000000000000000000000000000000000000004d2", false},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			input := models.RunResult{
-				Output: cltest.JSONFromString(test.json),
+				Data: cltest.JSONFromString(test.json),
 			}
 			adapter := adapters.EthUint256{}
 			result := adapter.Perform(input, nil)

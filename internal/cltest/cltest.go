@@ -244,6 +244,17 @@ func BasicAuthGet(url string) *http.Response {
 	return resp
 }
 
+func BasicAuthPatch(url string, contentType string, body io.Reader) *http.Response {
+	resp, err := utils.BasicAuthPatch(
+		Username,
+		Password,
+		url,
+		contentType,
+		body)
+	mustNotErr(err)
+	return resp
+}
+
 func ParseResponseBody(resp *http.Response) []byte {
 	b, err := ioutil.ReadAll(resp.Body)
 	mustNotErr(err)
@@ -290,15 +301,32 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job) models
 	return jr
 }
 
-func FixtureCreateBridgeTypeViaWeb(
+func UpdateJobRunViaWeb(
 	t *testing.T,
 	app *TestApplication,
-	path string,
+	jr models.JobRun,
+	body string,
+) models.JobRun {
+	t.Helper()
+	url := app.Server.URL + "/v2/runs/" + jr.ID
+	resp := BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer resp.Body.Close()
+
+	CheckStatusCode(t, resp, 200)
+	jrID := ParseCommonJSON(resp.Body).ID
+	assert.Nil(t, app.Store.One("ID", jrID, &jr))
+	return jr
+}
+
+func CreateBridgeTypeViaWeb(
+	t *testing.T,
+	app *TestApplication,
+	payload string,
 ) models.BridgeType {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/bridge_types",
 		"application/json",
-		bytes.NewBuffer(LoadJSON(path)),
+		bytes.NewBufferString(payload),
 	)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)

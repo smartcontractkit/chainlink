@@ -34,40 +34,40 @@ func createTxRunResult(
 ) models.RunResult {
 	val, err := input.Value()
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	data, err := utils.HexToBytes(e.FunctionSelector.String(), e.DataPrefix.String(), val)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	attempt, err := store.TxManager.CreateTx(e.Address, data)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
-	sendResult := models.RunResultWithValue(attempt.Hash.String())
+	sendResult := input.WithValue(attempt.Hash.String())
 	return ensureTxRunResult(sendResult, store)
 }
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
 	val, err := input.Value()
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	hash := common.HexToHash(val)
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	}
 
 	confirmed, err := store.TxManager.EnsureTxConfirmed(hash)
 
 	if err != nil {
-		return models.RunResultWithError(err)
+		return input.WithError(err)
 	} else if !confirmed {
-		return models.RunResultPending(input)
+		return input.MarkPending()
 	}
-	return models.RunResultWithValue(hash.String())
+	return input.WithValue(hash.String())
 }

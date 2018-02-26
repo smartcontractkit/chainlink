@@ -51,7 +51,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Reply(200).
 		JSON(tickerResponse)
 
-	newHeads := make(chan store.BlockHeader, 10)
+	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
@@ -72,7 +72,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -80,7 +80,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -88,7 +88,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(safe)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)}
 
 	jr = cltest.WaitForJobRunToComplete(t, app, jr)
 
@@ -104,6 +104,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	val, err = jr.Result.Value()
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
+	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 
 	eth.EnsureAllCalled(t)
 }
@@ -225,8 +226,7 @@ func TestIntegration_StartAt(t *testing.T) {
 }
 
 func TestIntegration_ExternalAdapter(t *testing.T) {
-	gock.EnableNetworking()
-	defer cltest.CloseGock(t)
+	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -234,14 +234,12 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
-	eaResponse := fmt.Sprintf(`{"output":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
-	gock.New("https://example.com").
-		Post("/randomNumber").
-		Reply(200).
-		JSON(eaResponse)
+	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	defer cleanup()
 
-	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
-
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.WaitForJobRunToComplete(t, app, cltest.CreateJobRunViaWeb(t, app, j))
 
@@ -255,16 +253,57 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
+func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	var j models.Job
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+		func(body string) {
+			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+			jr := jrs[0]
+			assert.JSONEq(t, fmt.Sprintf(`{"id":"%v","data":{}}`, jr.ID), body)
+		})
+	defer cleanup()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToPend(t, app, jr)
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, models.StatusPending, tr.Status)
+	val, err := tr.Result.Value()
+	assert.NotNil(t, err)
+	assert.Equal(t, "", val)
+
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	tr = jr.TaskRuns[0]
+	assert.Equal(t, models.StatusCompleted, tr.Status)
+	val, err = tr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, "100", val)
+}
+
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	marshaledEN, err := json.Marshal(&en)
-	assert.Nil(t, err)
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `response!`,
-		func(body string) { assert.JSONEq(t, string(marshaledEN), body) })
+	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	var j models.Job
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+		func(body string) {
+			marshaledLog, err := json.Marshal(&log)
+			assert.Nil(t, err)
+			assert.JSONEq(t, string(marshaledLog), body)
+		})
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -272,7 +311,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
 	newParams, err := j.Tasks[0].Params.Add("url", mockServer.URL)
 	assert.Nil(t, err)
 	j.Tasks[0].Params = newParams
@@ -283,10 +322,11 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), initr.Address)
 
-	logs <- en
+	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
-	cltest.WaitForJobRunToComplete(t, app, jobRuns[0])
+	jr := cltest.WaitForJobRunToComplete(t, app, jobRuns[0])
+	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 }
 
 func TestIntegration_MultiplierUint256(t *testing.T) {

@@ -18,9 +18,9 @@ type JobRunsController struct {
 
 // Index adds the root of the JobRuns to the given context.
 // Example:
-//  "<application>/jobs/:ID/runs"
+//  "<application>/jobs/:JobID/runs"
 func (jrc *JobRunsController) Index(c *gin.Context) {
-	id := c.Param("ID")
+	id := c.Param("JobID")
 
 	if jobRuns, err := jrc.App.Store.JobRunsFor(id); err != nil {
 		c.JSON(500, gin.H{
@@ -31,7 +31,9 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	}
 }
 
-// Create adds the JobRuns to the given context.
+// Create starts a new JobRun for the Job specified.
+// Example:
+//  "<application>/jobs/:JobID/runs"
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
@@ -55,17 +57,47 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	}
 }
 
+// Update marks the JobRun no longer pending, and resumes the Job's pipeline.
+// Example:
+//  "<application>/runs/:RunID"
+func (jrc *JobRunsController) Update(c *gin.Context) {
+	id := c.Param("RunID")
+	var rr models.RunResult
+	if jr, err := jrc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
+		c.JSON(404, gin.H{
+			"errors": []string{"Job Run not found"},
+		})
+	} else if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else if !jr.Result.Pending {
+		c.JSON(405, gin.H{
+			"errors": []string{"Cannot resume a job run that isn't pending"},
+		})
+	} else if err := c.ShouldBindJSON(&rr); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else {
+		executeRun(jr, jrc.App.Store, rr)
+		c.JSON(200, gin.H{"id": jr.ID})
+	}
+}
+
 func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
 	jr, err := services.BuildRun(j, s)
 	if err != nil {
 		return jr, err
 	}
+	executeRun(jr, s, models.RunResult{})
+	return jr, nil
+}
 
+func executeRun(jr models.JobRun, s *store.Store, rr models.RunResult) {
 	go func() {
-		if _, err = services.ExecuteRun(jr, s, models.JSON{}); err != nil {
+		if _, err := services.ExecuteRun(jr, s, rr); err != nil {
 			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
 		}
 	}()
-
-	return jr, nil
 }
