@@ -99,3 +99,10 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 type BlockHeader struct {
 	Number hexutil.Big `json:"number" storm:"id,index,unique"`
 }
+
+func (bh *BlockHeader) ToInt() *big.Int {
+	if bh == nil {
+		return nil
+	}
+	return bh.Number.ToInt()
+}
