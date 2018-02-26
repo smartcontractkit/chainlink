@@ -103,7 +103,7 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 type HeadTracker struct {
 	orm         *models.ORM
 	blockHeader *models.BlockHeader
-	mutex       sync.Mutex
+	mutex       sync.RWMutex
 }
 
 // Updates the latest block header, if indeed the latest, and persists
@@ -124,8 +124,8 @@ func (ht *HeadTracker) Save(bh *models.BlockHeader) error {
 
 // Returns the latest block header being tracked, or nil.
 func (ht *HeadTracker) Get() *models.BlockHeader {
-	ht.mutex.Lock()
-	defer ht.mutex.Unlock()
+	ht.mutex.RLock()
+	defer ht.mutex.RUnlock()
 	return ht.blockHeader
 }
 
