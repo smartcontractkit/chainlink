@@ -169,6 +169,7 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+// Returns true if triggered by event logs.
 func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog
 }
