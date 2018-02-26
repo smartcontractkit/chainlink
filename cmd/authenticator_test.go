@@ -37,15 +37,14 @@ func TestTerminalAuthenticatorWithNoAcctWithInitialPwd(t *testing.T) {
 	defer cleanup()
 
 	var exited bool
-	var rval int
 	auth := cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, func(i int) {
 		exited = true
-		rval = i
 	}}
 
 	auth.Authenticate(app.Store, "somepassword")
-	assert.Equal(t, true, exited)
-	assert.Equal(t, 1, rval)
+	assert.True(t, app.Store.KeyStore.HasAccounts())
+	assert.False(t, exited)
+	assert.Equal(t, 1, len(app.Store.KeyStore.Accounts()))
 }
 
 func TestTerminalAuthenticatorWithAcctNoInitialPwd(t *testing.T) {
