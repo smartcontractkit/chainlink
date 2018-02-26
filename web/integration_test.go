@@ -296,8 +296,12 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
+	eth := app.MockEthClient()
+	eth.RegisterNewHead(1)
+	logs := make(chan types.Log, 1)
+	eth.RegisterSubscription("logs", logs)
+
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	var j models.Job
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(body string) {
 			marshaledLog, err := json.Marshal(&log)
@@ -306,22 +310,13 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		})
 	defer cleanup()
 
-	eth := app.MockEthClient()
-	logs := make(chan types.Log, 1)
-	eth.RegisterSubscription("logs", logs)
-	app.Start()
-
-	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
 	newParams, err := j.Tasks[0].Params.Add("url", mockServer.URL)
 	assert.Nil(t, err)
 	j.Tasks[0].Params = newParams
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
-	assert.Equal(t, models.InitiatorEthLog, initr.Type)
-	assert.Equal(t, common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), initr.Address)
-
+	app.Start()
 	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)

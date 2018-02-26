@@ -40,6 +40,7 @@ import (
 const RootDir = "/tmp/chainlink_test"
 const Username = "testusername"
 const Password = "password"
+const SolidityJobID = "someJobId"
 
 var storeCounter uint64 = 0
 
