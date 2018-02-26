@@ -90,6 +90,16 @@ func (j Job) WebAuthorized() bool {
 	return false
 }
 
+// Returns true if any of the job's initiators are triggered by event logs.
+func (j Job) IsLogInitiated() bool {
+	for _, initr := range j.Initiators {
+		if initr.IsLogInitiated() {
+			return true
+		}
+	}
+	return false
+}
+
 // Ended returns true if the job has ended.
 func (j Job) Ended(t time.Time) bool {
 	if !j.EndAt.Valid {
@@ -159,7 +169,7 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (i Initiator) IsLogListener() bool {
+func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog
 }
 

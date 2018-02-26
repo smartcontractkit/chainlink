@@ -174,7 +174,7 @@ var empty_address = common.Address{}.String()
 // FriendlyAddress returns the Ethereum address if present, and a blank
 // string if not.
 func (i Initiator) FriendlyAddress() string {
-	if i.IsLogListener() {
+	if i.IsLogInitiated() {
 		return LogListeningAddress(i.Address)
 	}
 	return ""
