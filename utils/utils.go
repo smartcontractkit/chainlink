@@ -16,6 +16,7 @@ import (
 
 	"math/big"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -65,8 +66,8 @@ func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-// BasicAuthPost posts to the HTTP client with the given username and password
-// to authenticate at the url with contentType and returns a response.
+// BasicAuthPost sends a POST request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("POST", url, body)
@@ -81,6 +82,17 @@ func BasicAuthPost(username, password, url string, contentType string, body io.R
 func BasicAuthGet(username, password, url string) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("GET", url, nil)
+	request.SetBasicAuth(username, password)
+	resp, err := client.Do(request)
+	return resp, err
+}
+
+// BasicAuthPatch sends a PATCH request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
+func BasicAuthPatch(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("PATCH", url, body)
+	request.Header.Set("Content-Type", contentType)
 	request.SetBasicAuth(username, password)
 	resp, err := client.Do(request)
 	return resp, err
@@ -194,4 +206,25 @@ func AddHexPrefix(str string) string {
 func HexToString(hex string) (string, error) {
 	b, err := HexToBytes(hex)
 	return string(b), err
+}
+
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
+func ToFilterArg(q ethereum.FilterQuery) interface{} {
+	arg := map[string]interface{}{
+		"fromBlock": toBlockNumArg(q.FromBlock),
+		"toBlock":   toBlockNumArg(q.ToBlock),
+		"address":   q.Addresses,
+		"topics":    q.Topics,
+	}
+	if q.FromBlock == nil {
+		arg["fromBlock"] = "0x0"
+	}
+	return arg
+}
+
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	return hexutil.EncodeBig(number)
 }

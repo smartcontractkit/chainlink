@@ -15,8 +15,8 @@ Examples of how to utilize and integrate Chainlinks can be found in our [Hello C
 
 1. [Install Go 1.9+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install [dep](https://github.com/golang/dep#installation): `$ brew install dep` <br> or `$ go get -u github.com/golang/dep/cmd/dep`
-3. Clone ChainLink: `$ git clone https://github.com/smartcontractkit/chainlink.git`
-4. Install the project: `$ make install`
+3. Download ChainLink: `$ go get -d github.com/smartcontractkit/chainlink && cd $GOPATH/src/github.com/smartcontractkit/chainlink`
+4. Install: `$ make install`
 5. Run the node: `$ chainlink help`
 
 ### Ethereum Node Requirements

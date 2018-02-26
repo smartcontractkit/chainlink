@@ -12,14 +12,14 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
+func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
 	job := models.NewJob()
 	jr := job.NewRun()
-	jr.Result = models.RunResultWithError(fmt.Errorf("bad idea"))
+	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
 	err := store.Save(&jr)
 	assert.Nil(t, err)
 
@@ -30,7 +30,7 @@ func TestRetrievingJobRunsWithErrorsFromDB(t *testing.T) {
 	assert.Equal(t, "bad idea", run.Result.Error())
 }
 
-func TestTaskRunsToRun(t *testing.T) {
+func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -45,12 +45,12 @@ func TestTaskRunsToRun(t *testing.T) {
 	jr := j.NewRun()
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
-	jr, err := services.ExecuteRun(jr, store, models.JSON{})
+	jr, err := services.ExecuteRun(jr, store, models.RunResult{})
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
-func TestTaskRunMergeTaskParams(t *testing.T) {
+func TestTaskRun_MergeTaskParams(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -86,7 +86,7 @@ func TestTaskRunMergeTaskParams(t *testing.T) {
 	}
 }
 
-func TestRunResultValue(t *testing.T) {
+func TestRunResult_Value(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -106,9 +106,9 @@ func TestRunResultValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var output models.JSON
-			json.Unmarshal([]byte(test.json), &output)
-			rr := models.RunResult{Output: output}
+			var data models.JSON
+			json.Unmarshal([]byte(test.json), &data)
+			rr := models.RunResult{Data: data}
 
 			val, err := rr.Value()
 			assert.Equal(t, test.want, val)
@@ -117,7 +117,7 @@ func TestRunResultValue(t *testing.T) {
 	}
 }
 
-func TestRunResultMergeOutput(t *testing.T) {
+func TestRunResult_MergeData(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -138,14 +138,14 @@ func TestRunResultMergeOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			orig := `{"value":"old and busted"}`
 			rr := models.RunResult{
-				Output: models.JSON{gjson.Parse(orig)},
+				Data: models.JSON{gjson.Parse(orig)},
 			}
 			input := cltest.JSONFromString(test.input)
 
-			merged, err := rr.MergeOutput(input)
+			merged, err := rr.MergeData(input)
 			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, merged.Output.String())
-			assert.JSONEq(t, orig, rr.Output.String())
+			assert.JSONEq(t, test.want, merged.Data.String())
+			assert.JSONEq(t, orig, rr.Data.String())
 		})
 	}
 }

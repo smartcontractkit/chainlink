@@ -5,10 +5,10 @@ import (
 	"math/big"
 	"path"
 	"reflect"
-	"sort"
 	"strings"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -52,11 +52,18 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
-// FindJob uses the .One method in Storm to return a single job.
+// FindJob looks up a Job by its ID.
 func (orm *ORM) FindJob(id string) (Job, error) {
-	job := Job{}
+	var job Job
 	err := orm.One("ID", id, &job)
 	return job, err
+}
+
+// FindJobRun looks up a JobRun by its ID.
+func (orm *ORM) FindJobRun(id string) (JobRun, error) {
+	var jr JobRun
+	err := orm.One("ID", id, &jr)
+	return jr, err
 }
 
 // InitBucket initializes buckets and indexes before saving an object.
@@ -75,15 +82,11 @@ func (orm *ORM) Jobs() ([]Job, error) {
 // sorted by their created at time.
 func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("JobID", jobID, &runs)
-	return sortJobRuns(runs), err
-}
-
-func sortJobRuns(jrs []JobRun) []JobRun {
-	sort.Slice(jrs, func(i, j int) bool {
-		return jrs[i].CreatedAt.Unix() > jrs[j].CreatedAt.Unix()
-	})
-	return jrs
+	err := orm.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Reverse().Find(&runs)
+	if err == storm.ErrNotFound {
+		return []JobRun{}, nil
+	}
+	return runs, err
 }
 
 // SaveJob saves a job to the database.
