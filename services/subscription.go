@@ -28,6 +28,7 @@ const (
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2")
 
+// Listens to event logs being pushed from the Ethereum Node specific to this job.
 type Subscription struct {
 	Job              models.Job
 	store            *store.Store
@@ -36,6 +37,8 @@ type Subscription struct {
 	rpcSubscription  *rpc.ClientSubscription
 }
 
+// Constructor of Subscription that to starts listening to and keeps track of
+// event logs corresponding to a job.
 func StartSubscription(job models.Job, store *store.Store) (Subscription, error) {
 	var addresses []common.Address
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
@@ -63,6 +66,7 @@ func StartSubscription(job models.Job, store *store.Store) (Subscription, error)
 	return sub, nil
 }
 
+// Close channels and clean up resources.
 func (sub Subscription) Unsubscribe() {
 	if sub.rpcSubscription != nil && sub.rpcSubscription.Err() != nil {
 		sub.rpcSubscription.Unsubscribe()

@@ -208,6 +208,8 @@ func HexToString(hex string) (string, error) {
 	return string(b), err
 }
 
+// Returns a struct that encapsulates desired arguments used to filter
+// event logs.
 func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.FilterQuery {
 	return ethereum.FilterQuery{
 		FromBlock: fromBlock,

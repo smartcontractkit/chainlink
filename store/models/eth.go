@@ -100,6 +100,8 @@ type BlockHeader struct {
 	Number hexutil.Big `json:"number" storm:"id,index,unique"`
 }
 
+// Coerces the value into *big.Int. Also handles nil *BlockHeader values to
+// nil *big.Int.
 func (bh *BlockHeader) ToInt() *big.Int {
 	if bh == nil {
 		return nil

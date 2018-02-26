@@ -106,6 +106,8 @@ type HeadTracker struct {
 	mutex       sync.Mutex
 }
 
+// Updates the latest block header, if indeed the latest, and persists
+// this block header in case of reboot. Thread safe.
 func (ht *HeadTracker) Save(bh *models.BlockHeader) error {
 	if bh == nil {
 		return errors.New("Cannot save a nil block header")
@@ -120,6 +122,7 @@ func (ht *HeadTracker) Save(bh *models.BlockHeader) error {
 	return ht.orm.Save(bh)
 }
 
+// Returns the latest block header being tracked, or nil.
 func (ht *HeadTracker) Get() *models.BlockHeader {
 	ht.mutex.Lock()
 	defer ht.mutex.Unlock()
