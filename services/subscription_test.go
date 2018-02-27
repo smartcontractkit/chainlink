@@ -10,10 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/tidwall/gjson"
 )
 
-func TestStore_FormatLogJSON(t *testing.T) {
+func TestServices_InitiatorLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON
@@ -21,35 +20,47 @@ func TestStore_FormatLogJSON(t *testing.T) {
 	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
 
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
 		el          types.Log
-		initr       models.Initiator
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{"example ethLog", exampleLog, models.Initiator{Type: "ethlog"}, false,
-			jsonFromFixture("../internal/fixtures/eth/subscription_logs.json")},
-		{"hello world ethLog", hwLog, models.Initiator{Type: "ethlog"}, false,
-			jsonFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
-		{"hello world runLog", hwLog, models.Initiator{Type: "runlog"}, false,
-			clData},
+		{"hello world", hwLog, false, clData},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			output, err := services.FormatLogJSON(test.initr, test.el)
+			le := services.InitiatorLogEvent{Log: test.el}
+			output, err := le.RunLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
 }
 
-func jsonFromFixture(path string) models.JSON {
-	res := gjson.Get(string(cltest.LoadJSON(path)), "params.result")
-	out := cltest.JSONFromString(res.String())
-	return out
+func TestServices_InitiatorLogEvent_EthLogJSON(t *testing.T) {
+	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
+	tests := []struct {
+		name        string
+		el          types.Log
+		wantErrored bool
+		wantData    models.JSON
+	}{
+		{"example", exampleLog, false, cltest.JSONResultFromFixture("../internal/fixtures/eth/subscription_logs.json")},
+		{"hello world", hwLog, false, cltest.JSONResultFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			le := services.InitiatorLogEvent{Log: test.el}
+			output, err := le.EthLogJSON()
+			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
 }
 
 // If updating this test, be sure to update the truffle suite's "expected event signature" test.
