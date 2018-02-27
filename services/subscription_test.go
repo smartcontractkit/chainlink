@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestServices_InitiatorLogEvent_RunLogJSON(t *testing.T) {
+func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
 	var clData models.JSON
@@ -31,7 +31,7 @@ func TestServices_InitiatorLogEvent_RunLogJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			le := services.InitiatorLogEvent{Log: test.el}
+			le := services.RpcLogEvent{Log: test.el}
 			output, err := le.RunLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -39,7 +39,7 @@ func TestServices_InitiatorLogEvent_RunLogJSON(t *testing.T) {
 	}
 }
 
-func TestServices_InitiatorLogEvent_EthLogJSON(t *testing.T) {
+func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
@@ -55,7 +55,7 @@ func TestServices_InitiatorLogEvent_EthLogJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			le := services.InitiatorLogEvent{Log: test.el}
+			le := services.RpcLogEvent{Log: test.el}
 			output, err := le.EthLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
