@@ -15,7 +15,7 @@ import (
 // websocket to listen for new heads and log events.
 type NotificationListener struct {
 	Store             *store.Store
-	subscriptions     []Subscription
+	jobSubscriptions  []JobSubscription
 	headNotifications chan models.BlockHeader
 	headSubscription  *rpc.ClientSubscription
 	subMutx           sync.Mutex
@@ -71,7 +71,7 @@ func (nl *NotificationListener) AddJob(job models.Job) error {
 		return nil
 	}
 
-	sub, err := StartSubscription(job, nl.Store)
+	sub, err := StartJobSubscription(job, nl.Store)
 	if err != nil {
 		return err
 	}
@@ -110,16 +110,16 @@ func (nl *NotificationListener) listenToNewHeads() {
 	}
 }
 
-func (nl *NotificationListener) addSubscription(sub Subscription) {
+func (nl *NotificationListener) addSubscription(sub JobSubscription) {
 	nl.subMutx.Lock()
 	defer nl.subMutx.Unlock()
-	nl.subscriptions = append(nl.subscriptions, sub)
+	nl.jobSubscriptions = append(nl.jobSubscriptions, sub)
 }
 
 func (nl *NotificationListener) unsubscribeJobs() {
 	nl.subMutx.Lock()
 	defer nl.subMutx.Unlock()
-	for _, sub := range nl.subscriptions {
+	for _, sub := range nl.jobSubscriptions {
 		sub.Unsubscribe()
 	}
 }

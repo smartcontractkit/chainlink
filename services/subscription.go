@@ -15,8 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
+	"go.uber.org/multierr"
 )
 
+// Descriptive indices of a RunLog's Topic array
 const (
 	EventTopicSignature = iota
 	EventTopicRequestID
@@ -28,34 +30,73 @@ const (
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2")
 
-// Listens to event logs being pushed from the Ethereum Node specific to this job.
-type Subscription struct {
+// Listens to event logs being pushed from the Ethereum Node specific to a job.
+type JobSubscription struct {
+	Job                    models.Job
+	InitiatorSubscriptions []InitiatorSubscription
+}
+
+// Constructor of JobSubscription that to starts listening to and keeps track of
+// event logs corresponding to a job.
+func StartJobSubscription(job models.Job, store *store.Store) (JobSubscription, error) {
+	var merr error
+	var initSubs []InitiatorSubscription
+	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
+		sub, err := StartEthLogSubscription(initr, job, store)
+		merr = multierr.Append(merr, err)
+		if err == nil {
+			initSubs = append(initSubs, sub)
+		}
+	}
+
+	for _, initr := range job.InitiatorsFor(models.InitiatorRunLog) {
+		sub, err := StartRunLogSubscription(initr, job, store)
+		merr = multierr.Append(merr, err)
+		if err == nil {
+			initSubs = append(initSubs, sub)
+		}
+	}
+
+	if len(initSubs) == 0 {
+		return JobSubscription{}, multierr.Append(merr, errors.New("Job must have a valid log initiator"))
+	}
+
+	js := JobSubscription{Job: job, InitiatorSubscriptions: initSubs}
+	return js, merr
+}
+
+// Stops the subscription and cleans up associated resources.
+func (js JobSubscription) Unsubscribe() {
+	for _, sub := range js.InitiatorSubscriptions {
+		sub.Unsubscribe()
+	}
+}
+
+// Interface for all subscriptions made specific to a subscription.
+type InitiatorSubscription interface {
+	Unsubscribe()
+}
+
+// Encapsulates all functionality needed to wrap an ethereum rpc.ClientSubscription
+// for use with a Chainlink Initiator. Initiator specific functionality is delegated
+// to the ReceiveLog callback using a strategy pattern.
+type RpcSubscription struct {
 	Job              models.Job
+	Initiator        models.Initiator
+	ReceiveLog       func(InitiatorLogEvent)
 	store            *store.Store
 	logNotifications chan types.Log
 	errors           chan error
 	rpcSubscription  *rpc.ClientSubscription
 }
 
-// Constructor of Subscription that to starts listening to and keeps track of
-// event logs corresponding to a job.
-func StartSubscription(job models.Job, store *store.Store) (Subscription, error) {
-	var addresses []common.Address
-	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
-		msg := fmt.Sprintf("Listening for logs from address %v", presenters.LogListeningAddress(initr.Address))
-		logger.Debugw(msg)
-		addresses = append(addresses, initr.Address)
-	}
-
-	if len(addresses) == 0 {
-		return Subscription{}, errors.New("Job must have a log initiator")
-	}
-
-	sub := Subscription{Job: job, store: store}
+// Create a new RpcSubscription that feeds received logs to the callback func parameter.
+func NewRpcSubscription(initr models.Initiator, job models.Job, store *store.Store, callback func(InitiatorLogEvent)) (RpcSubscription, error) {
+	sub := RpcSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
 	sub.logNotifications = make(chan types.Log)
 
-	fq := utils.ToFilterQueryFor(store.HeadTracker.Get().ToInt(), addresses)
+	fq := utils.ToFilterQueryFor(store.HeadTracker.Get().ToInt(), []common.Address{initr.Address})
 	rpc, err := store.TxManager.SubscribeToLogs(sub.logNotifications, fq)
 	if err != nil {
 		return sub, err
@@ -67,7 +108,7 @@ func StartSubscription(job models.Job, store *store.Store) (Subscription, error)
 }
 
 // Close channels and clean up resources.
-func (sub Subscription) Unsubscribe() {
+func (sub RpcSubscription) Unsubscribe() {
 	if sub.rpcSubscription != nil && sub.rpcSubscription.Err() != nil {
 		sub.rpcSubscription.Unsubscribe()
 	}
@@ -75,82 +116,129 @@ func (sub Subscription) Unsubscribe() {
 	close(sub.errors)
 }
 
-func (sub Subscription) listenToSubscriptionErrors() {
+func (sub RpcSubscription) listenToSubscriptionErrors() {
 	for err := range sub.errors {
-		logger.Errorw("Error in log subscription", "err", err)
+		logger.Errorw(fmt.Sprintf("Error in log subscription for job %v", sub.Job.ID), "err", err, "initr", sub.Initiator)
 	}
 }
 
-func (sub Subscription) listenToLogs() {
+func (sub RpcSubscription) listenToLogs() {
 	for el := range sub.logNotifications {
-		sub.receiveLog(el)
+		sub.ReceiveLog(InitiatorLogEvent{
+			Job:       sub.Job,
+			Initiator: sub.Initiator,
+			Log:       el,
+			store:     sub.store,
+		})
 	}
 }
 
-func (sub Subscription) receiveLog(el types.Log) {
-	for _, initr := range sub.Job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
-		if !sub.validateLog(initr.Type, el) {
-			continue
-		}
+// Starts an InitiatorSubscription tailored for use with RunLogs.
+func StartRunLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (InitiatorSubscription, error) {
+	logListening(initr)
+	return NewRpcSubscription(initr, job, store, ReceiveRunLog)
+}
 
-		msg := fmt.Sprintf("Received log for address %v for job %v", presenters.LogListeningAddress(el.Address), sub.Job.ID)
-		logger.Infow(msg, "log", el, "job", sub.Job)
+// Starts an InitiatorSubscription tailored for use with EthLogs.
+func StartEthLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (InitiatorSubscription, error) {
+	logListening(initr)
+	return NewRpcSubscription(initr, job, store, ReceiveEthLog)
+}
 
-		data, err := FormatLogJSON(initr, el)
-		if err != nil {
-			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
-			continue
-		}
+func logListening(initr models.Initiator) {
+	msg := fmt.Sprintf(
+		"Listening for %v from address %v for job %v",
+		initr.Type,
+		presenters.LogListeningAddress(initr.Address),
+		initr.JobID)
+	logger.Infow(msg)
+}
 
-		input := models.RunResult{Data: data}
-		if _, err = BeginRun(sub.Job, sub.store, input); err != nil {
-			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
-		}
+// Parse the log and run the job specific to this initiator log event.
+func ReceiveRunLog(le InitiatorLogEvent) {
+	if !le.ValidateRunLog() {
+		return
+	}
+
+	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
+	msg := fmt.Sprintf("Received log for address %v for job %v", friendlyAddress, le.Job.ID)
+	logger.Infow(msg, le.ForLogger()...)
+
+	data, err := le.RunLogJSON()
+	if err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
+	}
+
+	runJob(le, data)
+}
+
+// Parse the log and run the job specific to this initiator log event.
+func ReceiveEthLog(le InitiatorLogEvent) {
+	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
+	msg := fmt.Sprintf("Received log for address %v for job %v", friendlyAddress, le.Job.ID)
+	logger.Infow(msg, le.ForLogger()...)
+
+	data, err := le.EthLogJSON()
+	if err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
+	}
+
+	runJob(le, data)
+}
+
+func runJob(le InitiatorLogEvent, data models.JSON) {
+	input := models.RunResult{Data: data}
+	if _, err := BeginRun(le.Job, le.store, input); err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 }
 
-func (sub Subscription) validateLog(logType string, el types.Log) bool {
-	switch logType {
-	case models.InitiatorRunLog:
-		return isRunLog(el) && sub.validateRunLog(el)
-	}
-	return true
+// Encapsulates all information as a result of a received log from an
+// InitiatorSubscription.
+type InitiatorLogEvent struct {
+	Log       types.Log
+	Job       models.Job
+	Initiator models.Initiator
+	store     *store.Store
 }
 
-func (sub Subscription) validateRunLog(el types.Log) bool {
+// ForLogger formats the InitiatorLogEvent for easy common formatting in logs (trace statements, not ethereum events).
+func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
+	output := []interface{}{
+		"job", le.Job,
+		"log", le.Log,
+		"initiator", le.Initiator,
+	}
+
+	return append(kvs, output...)
+}
+
+// Return whether or not the contained log is a RunLog, a specific Chainlink event trigger
+// from smart contracts.
+func (le InitiatorLogEvent) ValidateRunLog() bool {
+	el := le.Log
+	if !isRunLog(el) {
+		logger.Debugw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
+		return false
+	}
+
 	jid, err := jobIDFromLog(el)
 	if err != nil {
-		logger.Warnw("Failed to retrieve Job ID from log", "err", err.Error(), "jobID", sub.Job.ID)
+		logger.Warnw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
-	} else if jid != sub.Job.ID {
-		logger.Warnw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, sub.Job.ID))
+	} else if jid != le.Job.ID {
+		logger.Warnw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
 	return true
 }
 
-// FormatLogJSON uses the Initiator to decide how to format the EventLog
-// as a JSON object.
-func FormatLogJSON(initr models.Initiator, el types.Log) (models.JSON, error) {
-	if initr.Type == models.InitiatorEthLog {
-		return ethLogJSON(el)
-	} else if initr.Type == models.InitiatorRunLog {
-		out, err := runLogJSON(el)
-		return out, err
-	}
-	return models.JSON{}, fmt.Errorf("no supported initiator type was found")
-}
-
-func ethLogJSON(el types.Log) (models.JSON, error) {
-	var out models.JSON
-	b, err := json.Marshal(el)
-	if err != nil {
-		return out, err
-	}
-	return out, json.Unmarshal(b, &out)
-}
-
-func runLogJSON(el types.Log) (models.JSON, error) {
+// Extract data from the log's topics and data specific to the format defined
+// by RunLogs.
+func (le InitiatorLogEvent) RunLogJSON() (models.JSON, error) {
+	el := le.Log
 	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
 		return js, err
@@ -167,6 +255,17 @@ func runLogJSON(el types.Log) (models.JSON, error) {
 	}
 
 	return js.Add("functionSelector", "76005c26")
+}
+
+// Reformat the log as JSON.
+func (le InitiatorLogEvent) EthLogJSON() (models.JSON, error) {
+	el := le.Log
+	var out models.JSON
+	b, err := json.Marshal(el)
+	if err != nil {
+		return out, err
+	}
+	return out, json.Unmarshal(b, &out)
 }
 
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
