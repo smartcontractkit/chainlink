@@ -33,7 +33,7 @@ var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013
 // Listens to event logs being pushed from the Ethereum Node specific to a job.
 type JobSubscription struct {
 	Job           models.Job
-	Unsubscribers []Unsubscriber
+	unsubscribers []Unsubscriber
 }
 
 // Constructor of JobSubscription that to starts listening to and keeps track of
@@ -61,13 +61,13 @@ func StartJobSubscription(job models.Job, store *store.Store) (JobSubscription, 
 		return JobSubscription{}, multierr.Append(merr, errors.New("Job must have a valid log initiator"))
 	}
 
-	js := JobSubscription{Job: job, Unsubscribers: initSubs}
+	js := JobSubscription{Job: job, unsubscribers: initSubs}
 	return js, merr
 }
 
 // Stops the subscription and cleans up associated resources.
 func (js JobSubscription) Unsubscribe() {
-	for _, sub := range js.Unsubscribers {
+	for _, sub := range js.unsubscribers {
 		sub.Unsubscribe()
 	}
 }
