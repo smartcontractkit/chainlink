@@ -182,7 +182,7 @@ func (rr RunResult) SetError(err error) {
 // GetError returns the error of a RunResult if it is present.
 func (rr RunResult) GetError() error {
 	if rr.HasError() {
-		return fmt.Errorf("Run Result: ", rr.Error())
+		return fmt.Errorf("Run Result: %v", rr.Error())
 	} else {
 		return nil
 	}
