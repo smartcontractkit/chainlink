@@ -149,6 +149,11 @@ func JSONFromFixture(path string) models.JSON {
 	return JSONFromString(string(LoadJSON(path)))
 }
 
+func JSONResultFromFixture(path string) models.JSON {
+	res := gjson.Get(string(LoadJSON(path)), "params.result")
+	return JSONFromString(res.String())
+}
+
 func JSONFromString(body string, args ...interface{}) models.JSON {
 	var j models.JSON
 	str := fmt.Sprintf(body, args...)
@@ -159,7 +164,7 @@ func JSONFromString(body string, args ...interface{}) models.JSON {
 func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
 	return ethtypes.Log{
 		Address: addr,
-		Data:    StringToRunLogPayload(json),
+		Data:    StringToRunLogData(json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
 			common.StringToHash("requestID"),
