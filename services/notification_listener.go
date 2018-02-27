@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -93,6 +94,7 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 
 func (nl *NotificationListener) listenToNewHeads() {
 	for head := range nl.headNotifications {
+		logger.Debugw(fmt.Sprintf("Received new blockchain head %v", head.Number.String()), "newHead", head.Number)
 		if err := nl.Store.HeadTracker.Save(&head); err != nil {
 			logger.Error(err.Error())
 		}
