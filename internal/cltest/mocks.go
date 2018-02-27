@@ -90,7 +90,7 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 				reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
 				if resp.callback != nil {
 					if err := resp.callback(result, args); err != nil {
-						return fmt.Errorf("ethMock Error:", err)
+						return fmt.Errorf("ethMock Error: %v", err)
 					}
 				}
 				return nil
