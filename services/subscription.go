@@ -88,13 +88,14 @@ func (sub Subscription) listenToLogs() {
 }
 
 func (sub Subscription) receiveLog(el types.Log) {
-	msg := fmt.Sprintf("Received log from %v for job %v", el.Address.String(), sub.Job.ID)
-	logger.Debugw(msg, "log", el, "job", sub.Job)
-
-	for _, initr := range sub.Job.Initiators {
+	for _, initr := range sub.Job.InitiatorsFor(models.InitiatorEthLog, models.InitiatorRunLog) {
 		if !sub.validateLog(initr.Type, el) {
 			continue
 		}
+
+		msg := fmt.Sprintf("Received log for address %v for job %v", presenters.LogListeningAddress(el.Address), sub.Job.ID)
+		logger.Infow(msg, "log", el, "job", sub.Job)
+
 		data, err := FormatLogJSON(initr, el)
 		if err != nil {
 			logger.Errorw(err.Error(), "job", initr.JobID, "initiator", initr.ID)
