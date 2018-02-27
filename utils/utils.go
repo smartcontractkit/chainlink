@@ -208,6 +208,15 @@ func HexToString(hex string) (string, error) {
 	return string(b), err
 }
 
+// Returns a struct that encapsulates desired arguments used to filter
+// event logs.
+func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.FilterQuery {
+	return ethereum.FilterQuery{
+		FromBlock: fromBlock,
+		Addresses: WithoutZeroAddresses(addresses),
+	}
+}
+
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
 func ToFilterArg(q ethereum.FilterQuery) interface{} {
 	arg := map[string]interface{}{

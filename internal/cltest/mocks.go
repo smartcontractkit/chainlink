@@ -136,6 +136,18 @@ func (mock *EthMock) EthSubscribe(
 	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
 }
 
+func (mock *EthMock) RegisterNewHeads() chan models.BlockHeader {
+	newHeads := make(chan models.BlockHeader, 10)
+	mock.RegisterSubscription("newHeads", newHeads)
+	return newHeads
+}
+
+func (mock *EthMock) RegisterNewHead(blockNumber uint64) chan models.BlockHeader {
+	newHeads := mock.RegisterNewHeads()
+	newHeads <- models.BlockHeader{Number: BigHexInt(blockNumber)}
+	return newHeads
+}
+
 func fwdLogs(actual, mock interface{}) {
 	logChan := actual.(chan<- ethtypes.Log)
 	mockChan := mock.(chan ethtypes.Log)
