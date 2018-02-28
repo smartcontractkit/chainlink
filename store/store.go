@@ -2,7 +2,6 @@ package store
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -146,7 +145,7 @@ func NewHeadTracker(orm *models.ORM) (*HeadTracker, error) {
 	}
 	if len(numbers) > 0 {
 		ht.number = &numbers[0]
-		logger.Infow(fmt.Sprintf("Tracking logs from the last received block header %v", ht.number.String()))
+		logger.Info("Tracking logs from the last received block header ", ht.number.String())
 	}
 	return ht, nil
 }

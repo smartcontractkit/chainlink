@@ -183,7 +183,7 @@ func BigHexInt(val interface{}) hexutil.Big {
 	case int64:
 		return hexutil.Big(*big.NewInt(val.(int64)))
 	default:
-		logger.Panic(fmt.Sprintf("Could not convert %v of type %T to hexutil.Big", val, val))
+		logger.Panicf("Could not convert %v of type %T to hexutil.Big", val, val)
 		return hexutil.Big{}
 	}
 }

@@ -3,6 +3,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"path"
 
@@ -86,19 +87,24 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
 }
 
-// Info logs an info message.
+// Panicf formats and then logs the message before panicking.
+func Panicf(format string, values ...interface{}) {
+	logger.Panic(fmt.Sprintf(format, values...))
+}
+
+// Info logs an info message using Sprint.
 func Info(args ...interface{}) {
-	logger.Info(args)
+	logger.Info(args...)
 }
 
-// Warn logs a message at the warn level.
+// Warn logs a message at the warn level using Sprint.
 func Warn(args ...interface{}) {
-	logger.Warn(args)
+	logger.Warn(args...)
 }
 
-// Error logs an error message.
+// Error logs an error message using Sprint.
 func Error(args ...interface{}) {
-	logger.Error(args)
+	logger.Error(args...)
 }
 
 //WarnIf logs the error if present.
@@ -108,14 +114,14 @@ func WarnIf(err error) {
 	}
 }
 
-// Fatal logs a fatal message then exits the application.
+// Fatal logs a fatal message then exits the application using Sprint.
 func Fatal(args ...interface{}) {
-	logger.Fatal(args)
+	logger.Fatal(args...)
 }
 
-// Panic logs a panic message then panics.
+// Panic logs a panic message then panics using Sprint.
 func Panic(args ...interface{}) {
-	logger.Panic(args)
+	logger.Panic(args...)
 }
 
 // Sync flushes any buffered log entries.
