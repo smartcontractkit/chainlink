@@ -41,7 +41,7 @@ func (tx *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
-	Hash      common.Hash `storm:"id,index,unique"`
+	Hash      common.Hash `storm:"id,unique"`
 	TxID      uint64      `storm:"index"`
 	GasPrice  *big.Int
 	Confirmed bool
@@ -97,7 +97,7 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 
 // BlockHeader is the parameters passed in notifications for new blocks.
 type BlockHeader struct {
-	Number hexutil.Big `json:"number" storm:"id,index,unique"`
+	Number hexutil.Big `json:"number" storm:"id,unique"`
 }
 
 // Coerces the value into *big.Int. Also handles nil *BlockHeader values to

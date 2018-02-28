@@ -11,7 +11,7 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID        string    `json:"id" storm:"id,index,unique"`
+	ID        string    `json:"id" storm:"id,unique"`
 	JobID     string    `json:"jobId" storm:"index"`
 	Status    string    `json:"status" storm:"index"`
 	CreatedAt time.Time `json:"createdAt" storm:"index"`
@@ -60,7 +60,7 @@ func (jr JobRun) NextTaskRun() TaskRun {
 // Task to be ran.
 type TaskRun struct {
 	Task   Task      `json:"task"`
-	ID     string    `json:"id" storm:"id,index,unique"`
+	ID     string    `json:"id" storm:"id,unique"`
 	Status string    `json:"status"`
 	Result RunResult `json:"result"`
 }
