@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -173,8 +174,18 @@ func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
 	}
 }
 
-func BigHexInt(val uint64) hexutil.Big {
-	return hexutil.Big(*big.NewInt(int64(val)))
+func BigHexInt(val interface{}) hexutil.Big {
+	switch val.(type) {
+	case int:
+		return hexutil.Big(*big.NewInt(int64(val.(int))))
+	case uint64:
+		return hexutil.Big(*big.NewInt(int64(val.(uint64))))
+	case int64:
+		return hexutil.Big(*big.NewInt(val.(int64)))
+	default:
+		logger.Panicf("Could not convert %v of type %T to hexutil.Big", val, val)
+		return hexutil.Big{}
+	}
 }
 
 func RunResultWithValue(val string) models.RunResult {

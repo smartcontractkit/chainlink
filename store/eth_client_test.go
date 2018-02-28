@@ -1,14 +1,11 @@
 package store_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/tidwall/gjson"
 )
 
 func TestEthClient_GetTxReceipt(t *testing.T) {
@@ -81,16 +78,4 @@ func TestEthGetBalance(t *testing.T) {
 	expected = 1e20
 	assert.Nil(t, err)
 	assert.Equal(t, expected, result)
-}
-
-func TestBlockHeader_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	var bh models.BlockHeader
-
-	data := cltest.LoadJSON("../internal/fixtures/eth/subscription_new_heads.json")
-	value := gjson.Get(string(data), "params.result")
-	assert.Nil(t, json.Unmarshal([]byte(value.String()), &bh))
-
-	assert.Equal(t, cltest.BigHexInt(uint64(1263817)), bh.Number)
 }

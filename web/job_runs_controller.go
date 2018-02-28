@@ -1,8 +1,6 @@
 package web
 
 import (
-	"fmt"
-
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -97,7 +95,7 @@ func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
 func executeRun(jr models.JobRun, s *store.Store, rr models.RunResult) {
 	go func() {
 		if _, err := services.ExecuteRun(jr, s, rr); err != nil {
-			logger.Errorw(fmt.Sprintf("Web initiator: %v", err.Error()))
+			logger.Error("Web initiator: ", err.Error())
 		}
 	}()
 }

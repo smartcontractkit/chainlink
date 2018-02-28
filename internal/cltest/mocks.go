@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/services"
@@ -117,7 +117,7 @@ func (mock *EthMock) EthSubscribe(
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
-			case chan<- ethtypes.Log:
+			case chan<- types.Log:
 				fwdLogs(channel, sub.channel)
 			case chan<- models.BlockHeader:
 				fwdHeaders(channel, sub.channel)
@@ -142,15 +142,15 @@ func (mock *EthMock) RegisterNewHeads() chan models.BlockHeader {
 	return newHeads
 }
 
-func (mock *EthMock) RegisterNewHead(blockNumber uint64) chan models.BlockHeader {
+func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader {
 	newHeads := mock.RegisterNewHeads()
 	newHeads <- models.BlockHeader{Number: BigHexInt(blockNumber)}
 	return newHeads
 }
 
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- ethtypes.Log)
-	mockChan := mock.(chan ethtypes.Log)
+	logChan := actual.(chan<- types.Log)
+	mockChan := mock.(chan types.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e

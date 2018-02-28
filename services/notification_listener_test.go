@@ -150,7 +150,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	assert.Nil(t, store.Save(&jr))
 
 	blockNumber := cltest.BigHexInt(1)
-	nhChan <- models.BlockHeader{blockNumber}
+	nhChan <- models.BlockHeader{Number: blockNumber}
 
 	ethMock.EnsureAllCalled(t)
 	assert.Equal(t, blockNumber, app.Store.HeadTracker.Get().Number)

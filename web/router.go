@@ -43,7 +43,7 @@ func loggerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("Web request log error: %v", err.Error()))
+			logger.Warn("Web request log error: ", err.Error())
 			c.Next()
 			return
 		}
