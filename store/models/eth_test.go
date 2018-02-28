@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 )
 
 func TestHexToFunctionSelector(t *testing.T) {
@@ -31,4 +33,16 @@ func TestFunctionSelectorUnmarshalJSONError(t *testing.T) {
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.NotNil(t, err)
+}
+
+func TestHeader_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	var header models.BlockHeader
+
+	data := cltest.LoadJSON("../../internal/fixtures/eth/subscription_new_heads.json")
+	value := gjson.Get(string(data), "params.result")
+	assert.Nil(t, json.Unmarshal([]byte(value.String()), &header))
+
+	assert.Equal(t, cltest.BigHexInt(1263817), header.Number)
 }

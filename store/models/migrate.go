@@ -11,7 +11,7 @@ func (orm ORM) migrate() {
 	orm.initializeModel(&Tx{})
 	orm.initializeModel(&TxAttempt{})
 	orm.initializeModel(&BridgeType{})
-	orm.initializeModel(&BlockHeader{})
+	orm.initializeModel(&IndexableBlockNumber{})
 }
 
 func (orm ORM) initializeModel(klass interface{}) {

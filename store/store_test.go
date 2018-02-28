@@ -42,10 +42,10 @@ func TestHeadTracker_New(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	assert.Nil(t, store.Save(&models.BlockHeader{cltest.BigHexInt(1)}))
-	last := models.BlockHeader{cltest.BigHexInt(10)}
-	assert.Nil(t, store.Save(&last))
-	assert.Nil(t, store.Save(&models.BlockHeader{cltest.BigHexInt(2)}))
+	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(1))))
+	last := models.NewIndexableBlockNumber(big.NewInt(0x10))
+	assert.Nil(t, store.Save(last))
+	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(0xf))))
 
 	ht, err := strpkg.NewHeadTracker(store.ORM)
 	assert.Nil(t, err)
@@ -57,19 +57,19 @@ func TestHeadTracker_Get(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	initial := models.BlockHeader{cltest.BigHexInt(1)}
-	assert.Nil(t, store.Save(&initial))
+	initial := models.NewIndexableBlockNumber(big.NewInt(1))
+	assert.Nil(t, store.Save(initial))
 
 	tests := []struct {
 		name      string
-		toSave    *models.BlockHeader
+		toSave    *models.IndexableBlockNumber
 		want      hexutil.Big
 		wantError bool
 	}{
 		// order matters
-		{"greater", &models.BlockHeader{cltest.BigHexInt(2)}, cltest.BigHexInt(2), false},
-		{"less than", &models.BlockHeader{cltest.BigHexInt(1)}, cltest.BigHexInt(2), false},
-		{"zero", &models.BlockHeader{cltest.BigHexInt(0)}, cltest.BigHexInt(2), true},
+		{"greater", cltest.IndexableBlockNumber(2), cltest.BigHexInt(2), false},
+		{"less than", cltest.IndexableBlockNumber(1), cltest.BigHexInt(2), false},
+		{"zero", cltest.IndexableBlockNumber(0), cltest.BigHexInt(2), true},
 		{"nil", nil, cltest.BigHexInt(2), true},
 	}
 
