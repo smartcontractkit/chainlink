@@ -147,8 +147,9 @@ func NewIndexableBlockNumber(bigint *big.Int) *IndexableBlockNumber {
 	if bigint == nil {
 		return nil
 	}
+	number := hexutil.Big(*bigint)
 	return &IndexableBlockNumber{
-		Number: hexutil.Big(*bigint),
-		Digits: bigint.BitLen(),
+		Number: number,
+		Digits: len(number.String()) - 2,
 	}
 }
