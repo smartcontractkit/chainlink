@@ -95,16 +95,60 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-// BlockHeader is the parameters passed in notifications for new blocks.
+// Represents a block header in the Ethereum blockchain.
+// Deliberately does not have required fields because some fields aren't
+// present depending on the Ethereum node.
+// i.e. Parity does not always send mixHash
 type BlockHeader struct {
-	Number hexutil.Big `json:"number" storm:"id,unique"`
+	ParentHash  common.Hash      `json:"parentHash"`
+	UncleHash   common.Hash      `json:"sha3Uncles"`
+	Coinbase    common.Address   `json:"miner"`
+	Root        common.Hash      `json:"stateRoot"`
+	TxHash      common.Hash      `json:"transactionsRoot"`
+	ReceiptHash common.Hash      `json:"receiptsRoot"`
+	Bloom       types.Bloom      `json:"logsBloom"`
+	Difficulty  hexutil.Big      `json:"difficulty"`
+	Number      hexutil.Big      `json:"number"`
+	GasLimit    hexutil.Uint64   `json:"gasLimit"`
+	GasUsed     hexutil.Uint64   `json:"gasUsed"`
+	Time        hexutil.Big      `json:"timestamp"`
+	Extra       hexutil.Bytes    `json:"extraData"`
+	MixDigest   common.Hash      `json:"mixHash"`
+	Nonce       types.BlockNonce `json:"nonce"`
 }
 
-// Coerces the value into *big.Int. Also handles nil *BlockHeader values to
+func (h BlockHeader) IndexableBlockNumber() *IndexableBlockNumber {
+	return NewIndexableBlockNumber(h.Number.ToInt())
+}
+
+type IndexableBlockNumber struct {
+	Number hexutil.Big `json:"number" storm:"id,unique"`
+	Digits int         `json:"digits" storm:"index"`
+}
+
+// Coerces the value into *big.Int. Also handles nil *IndexableBlockNumber values to
 // nil *big.Int.
-func (bh *BlockHeader) ToInt() *big.Int {
-	if bh == nil {
+func (n *IndexableBlockNumber) ToInt() *big.Int {
+	if n == nil {
 		return nil
 	}
-	return bh.Number.ToInt()
+	return n.Number.ToInt()
+}
+
+// Return a hex string representation of the block number, or empty string if nil.
+func (n *IndexableBlockNumber) String() string {
+	if n == nil {
+		return ""
+	}
+	return n.Number.String()
+}
+
+func NewIndexableBlockNumber(bigint *big.Int) *IndexableBlockNumber {
+	if bigint == nil {
+		return nil
+	}
+	return &IndexableBlockNumber{
+		Number: hexutil.Big(*bigint),
+		Digits: bigint.BitLen(),
+	}
 }

@@ -448,6 +448,10 @@ func ParseNullableTime(s string) null.Time {
 	return NullableTime(ParseISO8601(s))
 }
 
+func IndexableBlockNumber(n int64) *models.IndexableBlockNumber {
+	return models.NewIndexableBlockNumber(big.NewInt(n))
+}
+
 func mustNotErr(err error) {
 	if err != nil {
 		logger.Panic(err)

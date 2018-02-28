@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -97,49 +98,55 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-// Holds and stores the latest block header experienced by this particular node
-// in a thread safe manner. Reconstitutes the last block header from the data
+// Holds and stores the latest block number experienced by this particular node
+// in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	orm         *models.ORM
-	blockHeader *models.BlockHeader
-	mutex       sync.RWMutex
+	orm    *models.ORM
+	number *models.IndexableBlockNumber
+	mutex  sync.RWMutex
 }
 
-// Updates the latest block header, if indeed the latest, and persists
-// this block header in case of reboot. Thread safe.
-func (ht *HeadTracker) Save(bh *models.BlockHeader) error {
-	if bh == nil {
+// Updates the latest block number from the header#Number.
+func (ht *HeadTracker) SaveFromHeader(header models.BlockHeader) error {
+	return ht.Save(header.IndexableBlockNumber())
+}
+
+// Updates the latest block number, if indeed the latest, and persists
+// this number in case of reboot. Thread safe.
+func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
+	if n == nil {
 		return errors.New("Cannot save a nil block header")
 	}
 
 	ht.mutex.Lock()
-	if ht.blockHeader == nil || ht.blockHeader.Number.ToInt().Cmp(bh.Number.ToInt()) < 0 {
-		copy := *bh
-		ht.blockHeader = &copy
+	if ht.number == nil || ht.number.ToInt().Cmp(n.ToInt()) < 0 {
+		copy := *n
+		ht.number = &copy
 	}
 	ht.mutex.Unlock()
-	return ht.orm.Save(bh)
+	return ht.orm.Save(n)
 }
 
 // Returns the latest block header being tracked, or nil.
-func (ht *HeadTracker) Get() *models.BlockHeader {
+func (ht *HeadTracker) Get() *models.IndexableBlockNumber {
 	ht.mutex.RLock()
 	defer ht.mutex.RUnlock()
-	return ht.blockHeader
+	return ht.number
 }
 
 // Instantiates a new HeadTracker using the orm to persist
-// new BlockHeaders
+// new block numbers
 func NewHeadTracker(orm *models.ORM) (*HeadTracker, error) {
 	ht := &HeadTracker{orm: orm}
-	blockHeaders := []models.BlockHeader{}
-	err := orm.AllByIndex("Number", &blockHeaders, storm.Limit(1), storm.Reverse())
-	if err != nil {
+	numbers := []models.IndexableBlockNumber{}
+	err := orm.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
+	if err != nil && err != storm.ErrNotFound {
 		return nil, err
 	}
-	if len(blockHeaders) > 0 {
-		ht.blockHeader = &blockHeaders[0]
+	if len(numbers) > 0 {
+		ht.number = &numbers[0]
+		logger.Infow(fmt.Sprintf("Tracking logs from the last received block header %v", ht.number.String()))
 	}
 	return ht, nil
 }
