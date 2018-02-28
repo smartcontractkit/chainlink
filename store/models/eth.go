@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -149,6 +150,10 @@ func (n *IndexableBlockNumber) String() string {
 		return ""
 	}
 	return n.Number.String()
+}
+
+func (n *IndexableBlockNumber) FriendlyString() string {
+	return fmt.Sprintf("#%v (%v)", n.ToInt(), n.String())
 }
 
 func NewIndexableBlockNumber(bigint *big.Int) *IndexableBlockNumber {
