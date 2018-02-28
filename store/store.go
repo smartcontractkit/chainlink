@@ -140,7 +140,7 @@ func NewHeadTracker(orm *models.ORM) (*HeadTracker, error) {
 	}
 	if len(numbers) > 0 {
 		ht.number = &numbers[0]
-		logger.Info("Tracking logs from the last received block header ", ht.number.FriendlyString())
+		logger.Info("Tracking logs from block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
 	}
 	return ht, nil
 }
