@@ -94,8 +94,9 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 
 func (nl *NotificationListener) listenToNewHeads() {
 	for header := range nl.headNotifications {
-		logger.Debugw(fmt.Sprintf("Received new header %v", header.Number.String()), "mixHash", header.Hash())
-		if err := nl.Store.HeadTracker.SaveFromHeader(header); err != nil {
+		number := header.IndexableBlockNumber()
+		logger.Debugw(fmt.Sprintf("Received new header %v", number.FriendlyString()), "hash", header.Hash())
+		if err := nl.Store.HeadTracker.Save(number); err != nil {
 			logger.Error(err.Error())
 		}
 		pendingRuns, err := nl.Store.PendingJobRuns()
