@@ -28,7 +28,7 @@ const (
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type Job struct {
-	ID         string      `json:"id" storm:"id,index,unique"`
+	ID         string      `json:"id" storm:"id,unique"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []Task      `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
@@ -208,7 +208,7 @@ func (t Task) MarshalJSON() ([]byte, error) {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name string `json:"name" storm:"id,index,unique"`
+	Name string `json:"name" storm:"id,unique"`
 	URL  WebURL `json:"url"`
 }
 
