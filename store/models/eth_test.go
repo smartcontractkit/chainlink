@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -10,17 +11,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestHexToFunctionSelector(t *testing.T) {
+func TestModels_HexToFunctionSelector(t *testing.T) {
 	fid := models.HexToFunctionSelector("0xb3f98adc")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
-func TestHexToFunctionSelectorOverflow(t *testing.T) {
+func TestModels_HexToFunctionSelectorOverflow(t *testing.T) {
 	fid := models.HexToFunctionSelector("0xb3f98adc123456")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
-func TestFunctionSelectorUnmarshalJSON(t *testing.T) {
+func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 	bytes := []byte(`"0xb3f98adc"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
@@ -28,14 +29,14 @@ func TestFunctionSelectorUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
-func TestFunctionSelectorUnmarshalJSONError(t *testing.T) {
+func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 	bytes := []byte(`"0xb3f98adc123456"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.NotNil(t, err)
 }
 
-func TestHeader_UnmarshalJSON(t *testing.T) {
+func TestModels_Header_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	var header models.BlockHeader
@@ -45,4 +46,24 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 	assert.Nil(t, json.Unmarshal([]byte(value.String()), &header))
 
 	assert.Equal(t, cltest.BigHexInt(1263817), header.Number)
+}
+
+func TestModels_IndexableBlockNumber(t *testing.T) {
+	tests := []struct {
+		input      *big.Int
+		want       string
+		wantDigits int
+	}{
+		{big.NewInt(0), "0x0", 1},
+		{big.NewInt(0xf), "0xf", 1},
+		{big.NewInt(0x10), "0x10", 2},
+	}
+	for _, test := range tests {
+		t.Run(test.want, func(t *testing.T) {
+			t.Parallel()
+			num := models.NewIndexableBlockNumber(test.input)
+			assert.Equal(t, test.want, num.String())
+			assert.Equal(t, test.wantDigits, num.Digits)
+		})
+	}
 }
