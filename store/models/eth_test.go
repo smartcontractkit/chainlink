@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
@@ -37,15 +38,40 @@ func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 }
 
 func TestModels_Header_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
+	tests := []struct {
+		name       string
+		path       string
+		wantNumber hexutil.Big
+		wantHash   string
+	}{
+		{
+			"parity",
+			"../../internal/fixtures/eth/subscription_new_heads_parity.json",
+			cltest.BigHexInt(1263817),
+			"0xf8e4691ceab8052d1cb478c6c5e0d9b122e747ad838023633f63bd5e81ec5114",
+		},
+		{
+			"geth",
+			"../../internal/fixtures/eth/subscription_new_heads_geth.json",
+			cltest.BigHexInt(1263817),
+			"0xf8e4691ceab8052d1cb478c6c5e0d9b122e747ad838023633f63bd5e81ec5fff",
+		},
+	}
 
-	var header models.BlockHeader
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	data := cltest.LoadJSON("../../internal/fixtures/eth/subscription_new_heads.json")
-	value := gjson.Get(string(data), "params.result")
-	assert.Nil(t, json.Unmarshal([]byte(value.String()), &header))
+			var header models.BlockHeader
 
-	assert.Equal(t, cltest.BigHexInt(1263817), header.Number)
+			data := cltest.LoadJSON(test.path)
+			value := gjson.Get(string(data), "params.result")
+			assert.Nil(t, json.Unmarshal([]byte(value.String()), &header))
+
+			assert.Equal(t, test.wantNumber, header.Number)
+			assert.Equal(t, test.wantHash, header.Hash().String())
+		})
+	}
 }
 
 func TestModels_IndexableBlockNumber(t *testing.T) {

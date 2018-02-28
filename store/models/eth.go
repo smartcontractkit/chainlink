@@ -113,8 +113,16 @@ type BlockHeader struct {
 	GasUsed     hexutil.Uint64   `json:"gasUsed"`
 	Time        hexutil.Big      `json:"timestamp"`
 	Extra       hexutil.Bytes    `json:"extraData"`
-	MixDigest   common.Hash      `json:"mixHash"`
 	Nonce       types.BlockNonce `json:"nonce"`
+	GethHash    common.Hash      `json:"mixHash"`
+	ParityHash  common.Hash      `json:"hash"`
+}
+
+func (h BlockHeader) Hash() common.Hash {
+	if !common.EmptyHash(h.GethHash) {
+		return h.GethHash
+	}
+	return h.ParityHash
 }
 
 func (h BlockHeader) IndexableBlockNumber() *IndexableBlockNumber {
