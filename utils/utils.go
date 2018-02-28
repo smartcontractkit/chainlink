@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	uuid "github.com/satori/go.uuid"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const (
@@ -64,6 +65,13 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 
 func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func NullISO8601UTC(t null.Time) string {
+	if t.Valid {
+		return ISO8601UTC(t.Time)
+	}
+	return ""
 }
 
 // BasicAuthPost sends a POST request to the HTTP client with the given username

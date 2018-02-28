@@ -148,12 +148,13 @@ func (rt RendererTable) renderJobTasks(j presenters.Job) error {
 
 func (rt RendererTable) renderJobRuns(j presenters.Job) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Status", "Created At", "Result", "Error"})
+	table.SetHeader([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
 	for _, jr := range j.Runs {
 		table.Append([]string{
 			jr.ID,
 			jr.Status,
 			utils.ISO8601UTC(jr.CreatedAt),
+			utils.NullISO8601UTC(jr.CompletedAt),
 			jr.Result.Data.String(),
 			jr.Result.ErrorMessage.String,
 		})
