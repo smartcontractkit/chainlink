@@ -22,8 +22,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		wantStatus string
 		wantData   string
 	}{
-		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
-			`{"value":"100"}`},
+		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100"}`},
 		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, `{}`},
 		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.StatusErrored,
 			`{"value":"99"}`},
@@ -68,6 +67,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			if test.wantStatus == models.StatusCompleted {
 				tr2 := run.TaskRuns[1]
 				assert.Equal(t, test.wantData, tr2.Result.Data.String())
+				assert.True(t, run.CompletedAt.Valid)
 			}
 		})
 	}
