@@ -106,11 +106,6 @@ type HeadTracker struct {
 	mutex  sync.RWMutex
 }
 
-// Updates the latest block number from the header#Number.
-func (ht *HeadTracker) SaveFromHeader(header models.BlockHeader) error {
-	return ht.Save(header.IndexableBlockNumber())
-}
-
 // Updates the latest block number, if indeed the latest, and persists
 // this number in case of reboot. Thread safe.
 func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
@@ -145,7 +140,7 @@ func NewHeadTracker(orm *models.ORM) (*HeadTracker, error) {
 	}
 	if len(numbers) > 0 {
 		ht.number = &numbers[0]
-		logger.Info("Tracking logs from the last received block header ", ht.number.String())
+		logger.Info("Tracking logs from the last received block header ", ht.number.FriendlyString())
 	}
 	return ht, nil
 }
