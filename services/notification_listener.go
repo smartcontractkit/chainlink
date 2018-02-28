@@ -93,9 +93,9 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 }
 
 func (nl *NotificationListener) listenToNewHeads() {
-	for head := range nl.headNotifications {
-		logger.Debugw(fmt.Sprintf("Received new blockchain head %v", head.Number.String()), "newHead", head.Number)
-		if err := nl.Store.HeadTracker.SaveFromHeader(head); err != nil {
+	for header := range nl.headNotifications {
+		logger.Debugw(fmt.Sprintf("Received new header %v", header.Number.String()), "mixHash", header.Hash())
+		if err := nl.Store.HeadTracker.SaveFromHeader(header); err != nil {
 			logger.Error(err.Error())
 		}
 		pendingRuns, err := nl.Store.PendingJobRuns()
