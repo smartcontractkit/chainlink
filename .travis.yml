@@ -3,7 +3,7 @@ sudo: false
 matrix:
   include:
     - language: go
-      go: 1.9
+      go: "1.10"
 
       env:
         - DEP_VERSION="0.4.1"
