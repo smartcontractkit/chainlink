@@ -125,48 +125,49 @@ func TestRunResult_Merge(t *testing.T) {
 	nullString := cltest.NullString(nil)
 	jrID := utils.NewBytes32ID()
 	tests := []struct {
-		name            string
-		originalData    string
-		originalError   null.String
-		originalPending bool
-		originalJRID    string
-		inData          string
-		inError         null.String
-		inPending       bool
-		inJRID          string
-		wantData        string
-		wantError       null.String
-		wantPending     bool
-		wantJRID        string
+		name             string
+		originalData     string
+		originalError    null.String
+		originalPending  bool
+		originalJRID     string
+		inData           string
+		inError          null.String
+		inPending        bool
+		inJRID           string
+		wantData         string
+		wantErrorMessage null.String
+		wantPending      bool
+		wantJRID         string
+		wantErrored      bool
 	}{
 		{"merging data",
 			`{"value":"old&busted","unique":"1"}`, nullString, false, jrID,
 			`{"value":"newHotness","and":"!"}`, nullString, false, jrID,
-			`{"value":"newHotness","unique":"1","and":"!"}`, nullString, false, jrID},
-		{"original error",
-			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID,
+			`{"value":"newHotness","unique":"1","and":"!"}`, nullString, false, jrID, false},
+		{"original error throws",
+			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID,
 			`{}`, nullString, false, jrID,
-			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID},
+			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID, true},
 		{"error override",
-			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID,
+			`{"value":"old"}`, nullString, false, jrID,
 			`{}`, cltest.NullString("new problem"), false, jrID,
-			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID},
+			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID, false},
 		{"original job run ID",
-			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID,
-			`{}`, cltest.NullString("new problem"), false, "",
-			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID},
+			`{"value":"old"}`, nullString, false, jrID,
+			`{}`, nullString, false, "",
+			`{"value":"old"}`, nullString, false, jrID, false},
 		{"job run ID override",
-			`{"value":"old"}`, cltest.NullString("old problem"), false, utils.NewBytes32ID(),
-			`{}`, cltest.NullString("new problem"), false, jrID,
-			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID},
+			`{"value":"old"}`, nullString, false, utils.NewBytes32ID(),
+			`{}`, nullString, false, jrID,
+			`{"value":"old"}`, nullString, false, jrID, false},
 		{"original pending",
 			`{"value":"old"}`, nullString, true, jrID,
 			`{}`, nullString, false, jrID,
-			`{"value":"old"}`, nullString, true, jrID},
+			`{"value":"old"}`, nullString, true, jrID, false},
 		{"pending override",
 			`{"value":"old"}`, nullString, false, jrID,
 			`{}`, nullString, true, jrID,
-			`{"value":"old"}`, nullString, true, jrID},
+			`{"value":"old"}`, nullString, true, jrID, false},
 	}
 
 	for _, test := range tests {
@@ -184,7 +185,7 @@ func TestRunResult_Merge(t *testing.T) {
 				Pending:      test.inPending,
 			}
 			merged, err := original.Merge(in)
-			assert.Nil(t, err)
+			assert.Equal(t, test.wantErrored, err != nil)
 
 			assert.JSONEq(t, test.originalData, original.Data.String())
 			assert.Equal(t, test.originalError, original.ErrorMessage)
@@ -197,7 +198,7 @@ func TestRunResult_Merge(t *testing.T) {
 			assert.Equal(t, test.inPending, in.Pending)
 
 			assert.JSONEq(t, test.wantData, merged.Data.String())
-			assert.Equal(t, test.wantError, merged.ErrorMessage)
+			assert.Equal(t, test.wantErrorMessage, merged.ErrorMessage)
 			assert.Equal(t, test.wantJRID, merged.JobRunID)
 			assert.Equal(t, test.wantPending, merged.Pending)
 		})
