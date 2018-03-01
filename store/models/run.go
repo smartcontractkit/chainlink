@@ -11,12 +11,13 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID        string    `json:"id" storm:"id,unique"`
-	JobID     string    `json:"jobId" storm:"index"`
-	Status    string    `json:"status" storm:"index"`
-	CreatedAt time.Time `json:"createdAt" storm:"index"`
-	Result    RunResult `json:"result" storm:"inline"`
-	TaskRuns  []TaskRun `json:"taskRuns" storm:"inline"`
+	ID          string    `json:"id" storm:"id,unique"`
+	JobID       string    `json:"jobId" storm:"index"`
+	Status      string    `json:"status" storm:"index"`
+	Result      RunResult `json:"result" storm:"inline"`
+	TaskRuns    []TaskRun `json:"taskRuns" storm:"inline"`
+	CreatedAt   time.Time `json:"createdAt" storm:"index"`
+	CompletedAt null.Time `json:"completedAt"`
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.

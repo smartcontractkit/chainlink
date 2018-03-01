@@ -95,7 +95,7 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 func (nl *NotificationListener) listenToNewHeads() {
 	for header := range nl.headNotifications {
 		number := header.IndexableBlockNumber()
-		logger.Debugw(fmt.Sprintf("Received new header %v", number.FriendlyString()), "hash", header.Hash())
+		logger.Debugw(fmt.Sprintf("Received header %v", number.FriendlyString()), "hash", header.Hash())
 		if err := nl.Store.HeadTracker.Save(number); err != nil {
 			logger.Error(err.Error())
 		}
