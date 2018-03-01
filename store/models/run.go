@@ -189,17 +189,6 @@ func (rr RunResult) GetError() error {
 	}
 }
 
-// MergeData merges the existing Data on a RunResult with the given JSON.
-func (rr RunResult) MergeData(j JSON) (RunResult, error) {
-	merged, err := rr.Data.Merge(j)
-	if err != nil {
-		return rr, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
-	}
-
-	rr.Data = merged
-	return rr, nil
-}
-
 // Merge merges the input RunResult with the instance it is called on,
 // preferring the RunResult values passed in, but using the existing values
 // if the input RunResult values are of their respective zero value.
