@@ -189,13 +189,28 @@ func (rr RunResult) GetError() error {
 	}
 }
 
-// MergeData merges the existing Data on a RunResult with the given JSON.
-func (rr RunResult) MergeData(j JSON) (RunResult, error) {
-	merged, err := rr.Data.Merge(j)
-	if err != nil {
-		return rr, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
+// Merge returns a copy which is the result of joining the input RunResult
+// with the instance it is called on, preferring the RunResult values passed in,
+// but using the existing values if the input RunResult values are of their
+// respective zero value.
+//
+// Returns an error if called on a RunResult that already has an error.
+func (rr RunResult) Merge(in RunResult) (RunResult, error) {
+	if rr.HasError() {
+		err := fmt.Errorf("Cannot merge onto a RunResult with error: %v", rr.Error())
+		return rr, err
 	}
 
-	rr.Data = merged
-	return rr, nil
+	merged, err := rr.Data.Merge(in.Data)
+	if err != nil {
+		return in, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
+	}
+	in.Data = merged
+	if len(in.JobRunID) == 0 {
+		in.JobRunID = rr.JobRunID
+	}
+	if in.Pending || rr.Pending {
+		in.Pending = true
+	}
+	return in, nil
 }

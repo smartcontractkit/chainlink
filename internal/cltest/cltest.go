@@ -364,7 +364,7 @@ func WaitForJobRunToComplete(
 	app *TestApplication,
 	jr models.JobRun,
 ) models.JobRun {
-	return waitForJobRunInStatus(t, app, jr, models.StatusCompleted)
+	return WaitForJobRunStatus(t, app, jr, models.StatusCompleted)
 }
 
 func WaitForJobRunToPend(
@@ -372,10 +372,10 @@ func WaitForJobRunToPend(
 	app *TestApplication,
 	jr models.JobRun,
 ) models.JobRun {
-	return waitForJobRunInStatus(t, app, jr, models.StatusPending)
+	return WaitForJobRunStatus(t, app, jr, models.StatusPending)
 }
 
-func waitForJobRunInStatus(
+func WaitForJobRunStatus(
 	t *testing.T,
 	app *TestApplication,
 	jr models.JobRun,

@@ -8,8 +8,10 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
@@ -50,7 +52,7 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
-func TestTaskRun_MergeTaskParams(t *testing.T) {
+func TestTaskRun_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -117,35 +119,88 @@ func TestRunResult_Value(t *testing.T) {
 	}
 }
 
-func TestRunResult_MergeData(t *testing.T) {
+func TestRunResult_Merge(t *testing.T) {
 	t.Parallel()
 
+	nullString := cltest.NullString(nil)
+	jrID := utils.NewBytes32ID()
 	tests := []struct {
-		name        string
-		input       string
-		want        string
-		wantErrored bool
+		name             string
+		originalData     string
+		originalError    null.String
+		originalPending  bool
+		originalJRID     string
+		inData           string
+		inError          null.String
+		inPending        bool
+		inJRID           string
+		wantData         string
+		wantErrorMessage null.String
+		wantPending      bool
+		wantJRID         string
+		wantErrored      bool
 	}{
-		{"replace field", `{"value":"new hotness"}`,
-			`{"value":"new hotness"}`, false},
-		{"add field", `{"extra":1}`,
-			`{"value":"old and busted","extra":1}`, false},
-		{"replace and add field", `{"value":"new hotness","extra":1}`,
-			`{"value":"new hotness","extra":1}`, false},
+		{"merging data",
+			`{"value":"old&busted","unique":"1"}`, nullString, false, jrID,
+			`{"value":"newHotness","and":"!"}`, nullString, false, jrID,
+			`{"value":"newHotness","unique":"1","and":"!"}`, nullString, false, jrID, false},
+		{"original error throws",
+			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID,
+			`{}`, nullString, false, jrID,
+			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID, true},
+		{"error override",
+			`{"value":"old"}`, nullString, false, jrID,
+			`{}`, cltest.NullString("new problem"), false, jrID,
+			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID, false},
+		{"original job run ID",
+			`{"value":"old"}`, nullString, false, jrID,
+			`{}`, nullString, false, "",
+			`{"value":"old"}`, nullString, false, jrID, false},
+		{"job run ID override",
+			`{"value":"old"}`, nullString, false, utils.NewBytes32ID(),
+			`{}`, nullString, false, jrID,
+			`{"value":"old"}`, nullString, false, jrID, false},
+		{"original pending",
+			`{"value":"old"}`, nullString, true, jrID,
+			`{}`, nullString, false, jrID,
+			`{"value":"old"}`, nullString, true, jrID, false},
+		{"pending override",
+			`{"value":"old"}`, nullString, false, jrID,
+			`{}`, nullString, true, jrID,
+			`{"value":"old"}`, nullString, true, jrID, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			orig := `{"value":"old and busted"}`
-			rr := models.RunResult{
-				Data: models.JSON{gjson.Parse(orig)},
+			original := models.RunResult{
+				Data:         models.JSON{gjson.Parse(test.originalData)},
+				ErrorMessage: test.originalError,
+				JobRunID:     test.originalJRID,
+				Pending:      test.originalPending,
 			}
-			input := cltest.JSONFromString(test.input)
+			in := models.RunResult{
+				Data:         cltest.JSONFromString(test.inData),
+				ErrorMessage: test.inError,
+				JobRunID:     test.inJRID,
+				Pending:      test.inPending,
+			}
+			merged, err := original.Merge(in)
+			assert.Equal(t, test.wantErrored, err != nil)
 
-			merged, err := rr.MergeData(input)
-			assert.Equal(t, test.wantErrored, (err != nil))
-			assert.JSONEq(t, test.want, merged.Data.String())
-			assert.JSONEq(t, orig, rr.Data.String())
+			assert.JSONEq(t, test.originalData, original.Data.String())
+			assert.Equal(t, test.originalError, original.ErrorMessage)
+			assert.Equal(t, test.originalJRID, original.JobRunID)
+			assert.Equal(t, test.originalPending, original.Pending)
+
+			assert.JSONEq(t, test.inData, in.Data.String())
+			assert.Equal(t, test.inError, in.ErrorMessage)
+			assert.Equal(t, test.inJRID, in.JobRunID)
+			assert.Equal(t, test.inPending, in.Pending)
+
+			assert.JSONEq(t, test.wantData, merged.Data.String())
+			assert.Equal(t, test.wantErrorMessage, merged.ErrorMessage)
+			assert.Equal(t, test.wantJRID, merged.JobRunID)
+			assert.Equal(t, test.wantPending, merged.Pending)
 		})
 	}
 }
