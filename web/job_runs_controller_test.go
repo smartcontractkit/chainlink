@@ -80,27 +80,17 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 
-func TestJobRunsController_Update(t *testing.T) {
+func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	bt := models.BridgeType{
-		Name: "slowcomputation",
-		URL:  cltest.WebURL("http://localhost:12345"),
-	}
+	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{{
-		Type:   bt.Name,
-		Params: cltest.JSONFromString(`{"type":"%v"}`, bt.Name),
-	}}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
 	assert.Nil(t, app.Store.Save(&j))
-	jr := j.NewRun()
-	jr.Status = models.StatusPending
-	jr.Result.Pending = true
-	jr.TaskRuns[0].Status = models.StatusPending
-	jr.TaskRuns[0].Result.Pending = true
+	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
@@ -121,16 +111,10 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	bt := models.BridgeType{
-		Name: "slowcomputation",
-		URL:  cltest.WebURL("http://localhost:12345"),
-	}
+	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{{
-		Type:   bt.Name,
-		Params: cltest.JSONFromString(`{"type":"%v"}`, bt.Name),
-	}}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(&jr))
@@ -146,23 +130,12 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	bt := models.BridgeType{
-		Name: "slowcomputation",
-		URL:  cltest.WebURL("http://localhost:12345"),
-	}
+	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{{
-		Type:   bt.Name,
-		Params: cltest.JSONFromString(`{"type":"%v"}`, bt.Name),
-	}}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
 	assert.Nil(t, app.Store.Save(&j))
-	jr := j.NewRun()
-
-	jr.Status = models.StatusPending
-	jr.Result.Pending = true
-	jr.TaskRuns[0].Status = models.StatusPending
-	jr.TaskRuns[0].Result.Pending = true
+	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
@@ -176,4 +149,46 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "0", val)
+}
+
+func TestJobRunsController_Update_BadInput(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.Save(&bt))
+	j := cltest.NewJob()
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	assert.Nil(t, app.Store.Save(&j))
+	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
+	assert.Nil(t, app.Store.Save(&jr))
+
+	url := app.Server.URL + "/v2/runs/" + jr.ID
+	body := fmt.Sprintf(`{`, jr.ID)
+	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
+	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+	assert.Equal(t, models.StatusPending, jr.Status)
+}
+
+func TestJobRunsController_Update_NotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.Save(&bt))
+	j := cltest.NewJob()
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	assert.Nil(t, app.Store.Save(&j))
+	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
+	assert.Nil(t, app.Store.Save(&jr))
+
+	url := app.Server.URL + "/v2/runs/" + jr.ID + "1"
+	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
+	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+	assert.Equal(t, models.StatusPending, jr.Status)
 }

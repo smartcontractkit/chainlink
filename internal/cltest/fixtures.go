@@ -203,3 +203,11 @@ func RunResultWithError(err error) models.RunResult {
 		ErrorMessage: null.StringFrom(err.Error()),
 	}
 }
+
+func MarkJobRunPending(jr models.JobRun, i int) models.JobRun {
+	jr.Status = models.StatusPending
+	jr.Result.Pending = true
+	jr.TaskRuns[i].Status = models.StatusPending
+	jr.TaskRuns[i].Result.Pending = true
+	return jr
+}
