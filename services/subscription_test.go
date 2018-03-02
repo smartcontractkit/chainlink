@@ -31,7 +31,7 @@ func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			le := services.RpcLogEvent{Log: test.el}
+			le := services.RPCLogEvent{Log: test.el}
 			output, err := le.RunLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -55,7 +55,7 @@ func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			le := services.RpcLogEvent{Log: test.el}
+			le := services.RPCLogEvent{Log: test.el}
 			output, err := le.EthLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))

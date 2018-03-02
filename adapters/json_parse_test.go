@@ -34,7 +34,7 @@ func TestJsonParse_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			input := cltest.RunResultWithValue(test.value)
-			adapter := adapters.JsonParse{Path: test.path}
+			adapter := adapters.JSONParse{Path: test.path}
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.want, result.Data.String())
 

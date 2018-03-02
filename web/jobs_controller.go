@@ -17,9 +17,9 @@ type JobsController struct {
 // Index adds the root of the Jobs to the given context.
 // Example:
 //  "<application>/jobs"
-func (jrc *JobsController) Index(c *gin.Context) {
+func (jc *JobsController) Index(c *gin.Context) {
 	var jobs []models.Job
-	if err := jrc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
+	if err := jc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})

@@ -10,14 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// HttpGet requires a URL which is used for a GET request when the adapter is called.
-type HttpGet struct {
+// HTTPGet requires a URL which is used for a GET request when the adapter is called.
+type HTTPGet struct {
 	URL models.WebURL `json:"url"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
-func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	response, err := http.Get(hga.URL.String())
 	if err != nil {
 		return input.WithError(err)
@@ -38,16 +38,16 @@ func (hga *HttpGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	return input.WithValue(body)
 }
 
-// HttpPost requires a URL which is used for a POST request when the adapter is called.
-type HttpPost struct {
+// HTTPPost requires a URL which is used for a POST request when the adapter is called.
+type HTTPPost struct {
 	URL models.WebURL `json:"url"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
-func (hga *HttpPost) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	reqBody := bytes.NewBufferString(input.Data.String())
-	response, err := http.Post(hga.URL.String(), "application/json", reqBody)
+	response, err := http.Post(hpa.URL.String(), "application/json", reqBody)
 	if err != nil {
 		return input.WithError(err)
 	}
