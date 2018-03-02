@@ -66,7 +66,7 @@ func NewProductionClient() *cmd.Client {
 		cmd.RendererTable{os.Stdout},
 		store.NewConfig(),
 		cmd.ChainlinkAppFactory{},
-		cmd.TerminalAuthenticator{cmd.PasswordPrompter{}, os.Exit},
+		cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
 		cmd.ChainlinkRunner{},
 	}
 }

@@ -21,7 +21,7 @@ func TestRunNode(t *testing.T) {
 	client := cmd.Client{
 		r,
 		app.Store.Config,
-		cltest.InstanceAppFactory{app},
+		cltest.InstanceAppFactory{App: app},
 		auth,
 		cltest.EmptyRunner{}}
 
