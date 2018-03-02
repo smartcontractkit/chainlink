@@ -10,9 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// JsonParse holds a path to the desired field in a JSON object,
+// JSONParse holds a path to the desired field in a JSON object,
 // made up of an array of strings.
-type JsonParse struct {
+type JSONParse struct {
 	Path []string `json:"path"`
 }
 
@@ -28,7 +28,7 @@ type JsonParse struct {
 //   }
 //
 // Then ["0","last"] would be the path, and "111" would be the returned value
-func (jpa *JsonParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.Value()
 	if err != nil {
 		return input.WithError(err)
