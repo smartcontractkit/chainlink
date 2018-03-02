@@ -282,10 +282,14 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	return j
 }
 
-func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job) models.JobRun {
+func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job, body ...string) models.JobRun {
 	t.Helper()
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	resp := BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	bodyBuffer := bytes.NewBufferString(`{}`)
+	if len(body) > 0 {
+		bodyBuffer = bytes.NewBufferString(body[0])
+	}
+	resp := BasicAuthPost(url, "application/json", bodyBuffer)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
