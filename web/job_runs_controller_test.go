@@ -72,6 +72,20 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	jr = cltest.WaitForJobRunToComplete(t, app, jr)
 }
 
+func TestJobRunsController_Create_InvalidBody(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(&j))
+
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
+	defer resp.Body.Close()
+	cltest.CheckStatusCode(t, resp, 500)
+}
+
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
