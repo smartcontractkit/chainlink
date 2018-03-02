@@ -1,36 +1,31 @@
 sudo: false
 
-gotest: &gotest
-  env:
-    - DEP_VERSION="0.4.1"
-
-  before_install:
-    - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
-    - chmod +x $GOPATH/bin/dep
-    - go get -u github.com/haya14busa/goverage
-
-  install:
-    - dep ensure
-
-  script:
-    - goverage -v -coverprofile=coverage.out ./...
-
-  after_success:
-    - bash <(curl -s https://codecov.io/bash)
-
 matrix:
   include:
     - language: go
       go: "1.9"
-      <<: *gotest
-
     - language: go
       go: "1.10"
-      <<: *gotest
 
-    - language: node_js
-      cache: yarn
-      node_js: 8.4
-      before_install: cd solidity
-      install: npm install -g yarn && yarn
-      script: truffle test
+node_js: 8.4
+cache: yarn
+env:
+  - DEP_VERSION="0.4.1"
+
+before_install:
+  - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
+  - chmod +x $GOPATH/bin/dep
+  - go get -u github.com/haya14busa/goverage
+
+install:
+  - dep ensure
+  - cd solidity && npm install -g yarn && yarn
+  - cd ..
+
+script:
+  - goverage -v -coverprofile=coverage.out ./...
+  - cd solidity && ./node_modules/.bin/truffle test
+  - cd ..
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
