@@ -35,18 +35,18 @@ func (jrc *JobsController) Index(c *gin.Context) {
 // Create adds the Jobs to the given context.
 // Example:
 //  "<application>/jobs"
-func (jc *JobsController) Create(c *gin.Context) {
+func (jrc *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = adapters.Validate(j, jc.App.Store); err != nil {
+	} else if err = adapters.Validate(j, jrc.App.Store); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = jc.App.AddJob(j); err != nil {
+	} else if err = jrc.App.AddJob(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -58,9 +58,9 @@ func (jc *JobsController) Create(c *gin.Context) {
 // Show returns the details of a job if it exists.
 // Example:
 //  "<application>/jobs/:JobID"
-func (jc *JobsController) Show(c *gin.Context) {
+func (jrc *JobsController) Show(c *gin.Context) {
 	id := c.Param("JobID")
-	if j, err := jc.App.Store.FindJob(id); err == storm.ErrNotFound {
+	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found."},
 		})
@@ -68,7 +68,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if runs, err := jc.App.Store.JobRunsFor(j.ID); err != nil {
+	} else if runs, err := jrc.App.Store.JobRunsFor(j.ID); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
