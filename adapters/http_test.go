@@ -15,7 +15,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 		adapter adapters.Adapter
 	}{
 		{"HTTPGet", &adapters.HTTPGet{URL: cltest.MustParseWebURL("NotAURL")}},
-		{"HTTPPost", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
+		{"HTTPPost", &adapters.HTTPPost{URL: cltest.MustParseWebURL("NotAURL")}},
 	}
 
 	for _, tt := range tests {
