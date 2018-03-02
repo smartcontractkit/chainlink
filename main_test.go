@@ -15,7 +15,7 @@ func ExampleRun_Help() {
 		cmd.RendererTable{ioutil.Discard},
 		tc.Config,
 		cmd.ChainlinkAppFactory{},
-		cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, os.Exit},
+		cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: os.Exit},
 		cmd.ChainlinkRunner{},
 	}
 
