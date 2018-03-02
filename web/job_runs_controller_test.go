@@ -165,7 +165,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
-	body := fmt.Sprintf(`{`, jr.ID)
+	body := fmt.Sprint(`{`, jr.ID)
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
