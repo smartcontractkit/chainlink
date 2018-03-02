@@ -23,7 +23,7 @@ install:
   - cd ..
 
 script:
-  - goverage -v -coverprofile=coverage.out ./...
+  - GODEBUG=gocacheverify=1 goverage -v -coverprofile=coverage.out ./...
   - cd solidity && ./node_modules/.bin/truffle test
   - cd ..
 
