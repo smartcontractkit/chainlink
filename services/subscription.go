@@ -80,19 +80,19 @@ type Unsubscriber interface {
 // Encapsulates all functionality needed to wrap an ethereum rpc.ClientSubscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the ReceiveLog callback using a strategy pattern.
-type RpcLogSubscription struct {
+type RPCLogSubscription struct {
 	Job              models.Job
 	Initiator        models.Initiator
-	ReceiveLog       func(RpcLogEvent)
+	ReceiveLog       func(RPCLogEvent)
 	store            *store.Store
 	logNotifications chan types.Log
 	errors           chan error
 	rpcSubscription  *rpc.ClientSubscription
 }
 
-// Create a new RpcLogSubscription that feeds received logs to the callback func parameter.
-func NewRpcLogSubscription(initr models.Initiator, job models.Job, store *store.Store, callback func(RpcLogEvent)) (RpcLogSubscription, error) {
-	sub := RpcLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
+// Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
+func NewRPCLogSubscription(initr models.Initiator, job models.Job, store *store.Store, callback func(RPCLogEvent)) (RPCLogSubscription, error) {
+	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
 	sub.logNotifications = make(chan types.Log)
 
@@ -108,7 +108,7 @@ func NewRpcLogSubscription(initr models.Initiator, job models.Job, store *store.
 }
 
 // Close channels and clean up resources.
-func (sub RpcLogSubscription) Unsubscribe() {
+func (sub RPCLogSubscription) Unsubscribe() {
 	if sub.rpcSubscription != nil && sub.rpcSubscription.Err() != nil {
 		sub.rpcSubscription.Unsubscribe()
 	}
@@ -116,15 +116,15 @@ func (sub RpcLogSubscription) Unsubscribe() {
 	close(sub.errors)
 }
 
-func (sub RpcLogSubscription) listenToSubscriptionErrors() {
+func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 	for err := range sub.errors {
 		logger.Errorw(fmt.Sprintf("Error in log subscription for job %v", sub.Job.ID), "err", err, "initr", sub.Initiator)
 	}
 }
 
-func (sub RpcLogSubscription) listenToLogs() {
+func (sub RPCLogSubscription) listenToLogs() {
 	for el := range sub.logNotifications {
-		sub.ReceiveLog(RpcLogEvent{
+		sub.ReceiveLog(RPCLogEvent{
 			Job:       sub.Job,
 			Initiator: sub.Initiator,
 			Log:       el,
@@ -133,16 +133,16 @@ func (sub RpcLogSubscription) listenToLogs() {
 	}
 }
 
-// Starts an RpcLogSubscription tailored for use with RunLogs.
+// Starts an RPCLogSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
 	logListening(initr)
-	return NewRpcLogSubscription(initr, job, store, ReceiveRunLog)
+	return NewRPCLogSubscription(initr, job, store, ReceiveRunLog)
 }
 
-// Starts an RpcLogSubscription tailored for use with EthLogs.
+// Starts an RPCLogSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
 	logListening(initr)
-	return NewRpcLogSubscription(initr, job, store, ReceiveEthLog)
+	return NewRPCLogSubscription(initr, job, store, ReceiveEthLog)
 }
 
 func logListening(initr models.Initiator) {
@@ -155,7 +155,7 @@ func logListening(initr models.Initiator) {
 }
 
 // Parse the log and run the job specific to this initiator log event.
-func ReceiveRunLog(le RpcLogEvent) {
+func ReceiveRunLog(le RPCLogEvent) {
 	if !le.ValidateRunLog() {
 		return
 	}
@@ -174,7 +174,7 @@ func ReceiveRunLog(le RpcLogEvent) {
 }
 
 // Parse the log and run the job specific to this initiator log event.
-func ReceiveEthLog(le RpcLogEvent) {
+func ReceiveEthLog(le RPCLogEvent) {
 	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
 	msg := fmt.Sprintf("Received log for address %v for job %v", friendlyAddress, le.Job.ID)
 	logger.Infow(msg, le.ForLogger()...)
@@ -188,7 +188,7 @@ func ReceiveEthLog(le RpcLogEvent) {
 	runJob(le, data)
 }
 
-func runJob(le RpcLogEvent, data models.JSON) {
+func runJob(le RPCLogEvent, data models.JSON) {
 	input := models.RunResult{Data: data}
 	if _, err := BeginRun(le.Job, le.store, input); err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
@@ -196,16 +196,16 @@ func runJob(le RpcLogEvent, data models.JSON) {
 }
 
 // Encapsulates all information as a result of a received log from an
-// RpcLogSubscription.
-type RpcLogEvent struct {
+// RPCLogSubscription.
+type RPCLogEvent struct {
 	Log       types.Log
 	Job       models.Job
 	Initiator models.Initiator
 	store     *store.Store
 }
 
-// ForLogger formats the RpcLogEvent for easy common formatting in logs (trace statements, not ethereum events).
-func (le RpcLogEvent) ForLogger(kvs ...interface{}) []interface{} {
+// ForLogger formats the RPCLogEvent for easy common formatting in logs (trace statements, not ethereum events).
+func (le RPCLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Job,
 		"log", le.Log,
@@ -217,7 +217,7 @@ func (le RpcLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 
 // Return whether or not the contained log is a RunLog, a specific Chainlink event trigger
 // from smart contracts.
-func (le RpcLogEvent) ValidateRunLog() bool {
+func (le RPCLogEvent) ValidateRunLog() bool {
 	el := le.Log
 	if !isRunLog(el) {
 		logger.Debugw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
@@ -237,7 +237,7 @@ func (le RpcLogEvent) ValidateRunLog() bool {
 
 // Extract data from the log's topics and data specific to the format defined
 // by RunLogs.
-func (le RpcLogEvent) RunLogJSON() (models.JSON, error) {
+func (le RPCLogEvent) RunLogJSON() (models.JSON, error) {
 	el := le.Log
 	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
@@ -258,7 +258,7 @@ func (le RpcLogEvent) RunLogJSON() (models.JSON, error) {
 }
 
 // Reformat the log as JSON.
-func (le RpcLogEvent) EthLogJSON() (models.JSON, error) {
+func (le RPCLogEvent) EthLogJSON() (models.JSON, error) {
 	el := le.Log
 	var out models.JSON
 	b, err := json.Marshal(el)

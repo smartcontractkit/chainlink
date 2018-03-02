@@ -14,8 +14,8 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 		name    string
 		adapter adapters.Adapter
 	}{
-		{"HttpGet", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
-		{"HttpPost", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
+		{"HTTPGet", &adapters.HTTPGet{URL: cltest.MustParseWebURL("NotAURL")}},
+		{"HTTPPost", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
 	}
 
 	for _, tt := range tests {
@@ -53,7 +53,7 @@ func TestHttpGet_Perform(t *testing.T) {
 				func(body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
 
-			hga := adapters.HttpGet{URL: cltest.MustParseWebURL(mock.URL)}
+			hga := adapters.HTTPGet{URL: cltest.MustParseWebURL(mock.URL)}
 			result := hga.Perform(input, nil)
 
 			val, err := result.Value()
@@ -90,7 +90,7 @@ func TestHttpPost_Perform(t *testing.T) {
 				func(body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()
 
-			hpa := adapters.HttpPost{URL: cltest.MustParseWebURL(mock.URL)}
+			hpa := adapters.HTTPPost{URL: cltest.MustParseWebURL(mock.URL)}
 			result := hpa.Perform(input, nil)
 
 			val, err := result.Get("value")

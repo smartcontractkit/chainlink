@@ -19,13 +19,13 @@ type Adapter interface {
 func For(task models.Task, store *store.Store) (ac Adapter, err error) {
 	switch strings.ToLower(task.Type) {
 	case "httpget":
-		ac = &HttpGet{}
+		ac = &HTTPGet{}
 		err = unmarshalParams(task.Params, ac)
 	case "httppost":
-		ac = &HttpPost{}
+		ac = &HTTPPost{}
 		err = unmarshalParams(task.Params, ac)
 	case "jsonparse":
-		ac = &JsonParse{}
+		ac = &JSONParse{}
 		err = unmarshalParams(task.Params, ac)
 	case "ethbytes32":
 		ac = &EthBytes32{}

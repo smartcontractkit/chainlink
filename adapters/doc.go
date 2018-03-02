@@ -1,19 +1,19 @@
 // Package adapters contain the core adapters used by the Chainlink node.
 //
-// HttpGet
+// HTTPGet
 //
-// The HttpGet adapter is used to grab the JSON data from the given URL.
-//  { "type": "HttpGet", "url": "https://some-api-example.net/api" }
+// The HTTPGet adapter is used to grab the JSON data from the given URL.
+//  { "type": "HTTPGet", "url": "https://some-api-example.net/api" }
 //
-// HttpPost
+// HTTPPost
 //
 // Sends a POST request to the specified URL and will return the response.
-//  { "type": "HttpPost", "url": "https://weiwatchers.com/api" }
+//  { "type": "HTTPPost", "url": "https://weiwatchers.com/api" }
 //
-// JsonParse
+// JSONParse
 //
-// The JsonParse adapter will obtain the value(s) for the given field(s).
-//  { "type": "JsonParse", "path": ["someField"] }
+// The JSONParse adapter will obtain the value(s) for the given field(s).
+//  { "type": "JSONParse", "path": ["someField"] }
 //
 // EthBytes32
 //
