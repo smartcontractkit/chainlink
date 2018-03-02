@@ -1,6 +1,9 @@
 package web
 
 import (
+	"bytes"
+	"io/ioutil"
+
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -35,7 +38,6 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
 
-	var body models.JSON
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found"},
@@ -48,17 +50,31 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		c.JSON(403, gin.H{
 			"errors": []string{"Job not available on web API. Recreate with web initiator."},
 		})
-	} else if err := c.ShouldBindJSON(&body); err != nil {
+	} else if data, err := getRunData(c); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if jr, err := startJob(j, jrc.App.Store, body); err != nil {
+	} else if jr, err := startJob(j, jrc.App.Store, data); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
 	} else {
 		c.JSON(200, gin.H{"id": jr.ID})
 	}
+}
+
+func getRunData(c *gin.Context) (models.JSON, error) {
+	data := models.JSON{}
+	b, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		return data, err
+	}
+	if len(b) == 0 {
+		c.Request.Body = ioutil.NopCloser(bytes.NewBufferString(`{}`))
+	} else {
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(b))
+	}
+	return data, c.ShouldBindJSON(&data)
 }
 
 // Update marks the JobRun no longer pending, and resumes the Job's pipeline.
