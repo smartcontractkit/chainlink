@@ -82,7 +82,7 @@ For more information on creating and using external adapters, please see our [ex
 ## Development Setup
 
 
-- [Install Go 1.9+](https://golang.org/doc/install#install)
+- [Install Go 1.10+](https://golang.org/doc/install#install)
 - Set up a Go workspace(`~/go` given as an example directory) and add go binaries to your path:
 ```bash
 $ mkdir ~/go && cd ~/go
