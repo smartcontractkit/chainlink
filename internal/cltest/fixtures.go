@@ -22,7 +22,7 @@ import (
 
 func NewJob() models.Job {
 	j := models.NewJob()
-	j.Tasks = []models.Task{{Type: "NoOp"}}
+	j.Tasks = []models.Task{NewTask("NoOp", `{}`)}
 	return j
 }
 

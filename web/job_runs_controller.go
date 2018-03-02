@@ -34,6 +34,8 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 //  "<application>/jobs/:JobID/runs"
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("JobID")
+
+	var body models.JSON
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job not found"},
@@ -46,7 +48,11 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		c.JSON(403, gin.H{
 			"errors": []string{"Job not available on web API. Recreate with web initiator."},
 		})
-	} else if jr, err := startJob(j, jrc.App.Store); err != nil {
+	} else if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else if jr, err := startJob(j, jrc.App.Store, body); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -83,12 +89,12 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	}
 }
 
-func startJob(j models.Job, s *store.Store) (models.JobRun, error) {
+func startJob(j models.Job, s *store.Store, body models.JSON) (models.JobRun, error) {
 	jr, err := services.BuildRun(j, s)
 	if err != nil {
 		return jr, err
 	}
-	executeRun(jr, s, models.RunResult{})
+	executeRun(jr, s, models.RunResult{Data: body})
 	return jr, nil
 }
 

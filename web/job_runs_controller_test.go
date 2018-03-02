@@ -45,7 +45,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.Equal(t, jr1.ID, respJSON.Runs[1].ID, "expected runs ordered by created at(descending)")
 }
 
-func TestJobRunsController_Create(t *testing.T) {
+func TestJobRunsController_Create_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -53,8 +53,11 @@ func TestJobRunsController_Create(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
-	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	cltest.WaitForJobRunToComplete(t, app, jr)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	val, err := jr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, "100", val)
 }
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
