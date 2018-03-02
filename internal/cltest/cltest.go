@@ -285,7 +285,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job, body ...string) models.JobRun {
 	t.Helper()
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
-	bodyBuffer := bytes.NewBufferString(`{}`)
+	bodyBuffer := &bytes.Buffer{}
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}

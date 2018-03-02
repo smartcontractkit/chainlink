@@ -60,6 +60,18 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	assert.Equal(t, "100", val)
 }
 
+func TestJobRunsController_Create_EmptyBody(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(&j))
+
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+}
+
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
