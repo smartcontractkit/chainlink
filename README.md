@@ -51,7 +51,7 @@ Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages
 
 ## Configure
 
-You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding enviornment variable is found:
+You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found:
 
     LOG_LEVEL                Default: info
     ROOT                     Default: ~/.chainlink
