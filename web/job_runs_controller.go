@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"io/ioutil"
 
 	"github.com/asdine/storm"
@@ -64,17 +63,11 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 }
 
 func getRunData(c *gin.Context) (models.JSON, error) {
-	data := models.JSON{}
 	b, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
-		return data, err
+		return models.JSON{}, err
 	}
-	if len(b) == 0 {
-		c.Request.Body = ioutil.NopCloser(bytes.NewBufferString(`{}`))
-	} else {
-		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(b))
-	}
-	return data, c.ShouldBindJSON(&data)
+	return models.ParseJSON(b)
 }
 
 // Update marks the JobRun no longer pending, and resumes the Job's pipeline.
