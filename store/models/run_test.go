@@ -103,13 +103,12 @@ func TestRunResult_Value(t *testing.T) {
 		{"boolean", `{"value": true}`, "", true},
 		{"null", `{"value": null}`, "", true},
 		{"no key", `{"other": 100}`, "", true},
-		{"no JSON", ``, "", true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var data models.JSON
-			json.Unmarshal([]byte(test.json), &data)
+			assert.Nil(t, json.Unmarshal([]byte(test.json), &data))
 			rr := models.RunResult{Data: data}
 
 			val, err := rr.Value()

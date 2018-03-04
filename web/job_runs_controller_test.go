@@ -45,7 +45,22 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.Equal(t, jr1.ID, respJSON.Runs[1].ID, "expected runs ordered by created at(descending)")
 }
 
-func TestJobRunsController_Create(t *testing.T) {
+func TestJobRunsController_Create_Success(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(&j))
+
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	val, err := jr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, "100", val)
+}
+
+func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -54,7 +69,21 @@ func TestJobRunsController_Create(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+}
+
+func TestJobRunsController_Create_InvalidBody(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(&j))
+
+	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
+	defer resp.Body.Close()
+	cltest.CheckStatusCode(t, resp, 500)
 }
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
@@ -88,7 +117,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -114,7 +143,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(&jr))
@@ -133,7 +162,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -159,7 +188,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -180,7 +209,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
