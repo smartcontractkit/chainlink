@@ -132,7 +132,7 @@ func TestNotificationListener_newHeadsNotification(t *testing.T) {
 	app.Start()
 
 	j := models.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask("ethtx", "{}")}
+	j.Tasks = []models.Task{cltest.NewTask("ethtx")}
 	assert.Nil(t, store.SaveJob(&j))
 
 	tx := cltest.CreateTxAndAttempt(store, cltest.NewAddress(), sentAt)
