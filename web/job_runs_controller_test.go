@@ -117,7 +117,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -143,7 +143,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun()
 	assert.Nil(t, app.Store.Save(&jr))
@@ -162,7 +162,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -188,7 +188,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -209,7 +209,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j := cltest.NewJob()
-	j.Tasks = []models.Task{cltest.NewTask(bt.Name, "{}")}
+	j.Tasks = []models.Task{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(), 0)
 	assert.Nil(t, app.Store.Save(&jr))
