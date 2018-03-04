@@ -18,12 +18,24 @@ type JSON struct {
 	gjson.Result
 }
 
+// ParseJSON attempts to coerce the input byte array into valid JSON
+// and parse it into a JSON object.
+func ParseJSON(b []byte) (JSON, error) {
+	var j JSON
+	str := string(b)
+	if len(str) == 0 {
+		str = `{}`
+	}
+	return j, json.Unmarshal([]byte(str), &j)
+}
+
 // UnmarshalJSON parses the JSON bytes and stores in the *JSON pointer.
 func (j *JSON) UnmarshalJSON(b []byte) error {
-	if !gjson.Valid(string(b)) {
-		return fmt.Errorf("invalid JSON: %v", string(b))
+	str := string(b)
+	if !gjson.Valid(str) {
+		return fmt.Errorf("invalid JSON: %v", str)
 	}
-	*j = JSON{gjson.ParseBytes(b)}
+	*j = JSON{gjson.Parse(str)}
 	return nil
 }
 
