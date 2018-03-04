@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestJSONMerge(t *testing.T) {
+func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -46,7 +46,7 @@ func TestJSONMerge(t *testing.T) {
 	}
 }
 
-func TestJSONUnmarshalJSON(t *testing.T) {
+func TestJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -67,7 +67,7 @@ func TestJSONUnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestJSONAdd(t *testing.T) {
+func TestJSON_Add(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -93,7 +93,7 @@ func TestJSONAdd(t *testing.T) {
 	}
 }
 
-func TestWebURLUnmarshalJSONError(t *testing.T) {
+func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"NotAUrl"`)
 	wurl := &models.WebURL{}
@@ -101,7 +101,7 @@ func TestWebURLUnmarshalJSONError(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestWebURLUnmarshalJSON(t *testing.T) {
+func TestWebURL_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"http://www.duckduckgo.com"`)
 	wurl := &models.WebURL{}
@@ -109,7 +109,7 @@ func TestWebURLUnmarshalJSON(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestWebURLMarshalJSON(t *testing.T) {
+func TestWebURL_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	str := "http://www.duckduckgo.com"
