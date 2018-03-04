@@ -22,12 +22,15 @@ import (
 
 func NewJob() models.Job {
 	j := models.NewJob()
-	j.Tasks = []models.Task{NewTask("NoOp", `{}`)}
+	j.Tasks = []models.Task{NewTask("NoOp")}
 	return j
 }
 
-func NewTask(taskType, json string) models.Task {
-	params := JSONFromString(json)
+func NewTask(taskType string, json ...string) models.Task {
+	if len(json) == 0 {
+		json = append(json, ``)
+	}
+	params := JSONFromString(json[0])
 	params, err := params.Add("type", taskType)
 	mustNotErr(err)
 
@@ -156,9 +159,8 @@ func JSONResultFromFixture(path string) models.JSON {
 }
 
 func JSONFromString(body string, args ...interface{}) models.JSON {
-	var j models.JSON
-	str := fmt.Sprintf(body, args...)
-	mustNotErr(json.Unmarshal([]byte(str), &j))
+	j, err := models.ParseJSON([]byte(fmt.Sprintf(body, args...)))
+	mustNotErr(err)
 	return j
 }
 
