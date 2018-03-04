@@ -271,9 +271,8 @@ func (le RPCLogEvent) EthLogJSON() (models.JSON, error) {
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 	varLocationSize := 32
 	varLengthSize := 32
-	var js models.JSON
 	hex := []byte(string([]byte(data)[varLocationSize+varLengthSize:]))
-	return js, json.Unmarshal(bytes.TrimRight(hex, "\x00"), &js)
+	return models.ParseJSON(bytes.TrimRight(hex, "\x00"))
 }
 
 func isRunLog(log types.Log) bool {
