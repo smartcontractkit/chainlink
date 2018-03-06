@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -80,14 +81,30 @@ func (nl *NotificationListener) AddJob(job models.Job) error {
 }
 
 func (nl *NotificationListener) subscribeToNewHeads() error {
-	sub, err := nl.Store.TxManager.SubscribeToNewHeads(nl.headNotifications)
+	channel := make(chan models.BlockHeader)
+	sub, err := nl.Store.TxManager.SubscribeToNewHeads(channel)
 	if err != nil {
 		return err
 	}
 	nl.headSubscription = sub
+	go func() { nl.headNotifications <- (<-channel) }()
 	go func() {
 		err := <-sub.Err()
 		logger.Warnw("Error in new head subscription, disconnected", "err", err)
+		sub.Unsubscribe()
+		nl.headSubscription = nil
+		close(channel)
+
+		for {
+			time.Sleep(5 * time.Second)
+			logger.Info("Reconnecting to new heads")
+			err = nl.subscribeToNewHeads()
+			if err != nil {
+				logger.Warnw("Error in new head subscription, disconnected", "err", err)
+			} else {
+				break
+			}
+		}
 	}()
 	return nil
 }
