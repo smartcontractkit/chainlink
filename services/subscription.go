@@ -96,7 +96,9 @@ func NewRPCLogSubscription(initr models.Initiator, job models.Job, store *store.
 	sub.errors = make(chan error)
 	sub.logNotifications = make(chan types.Log)
 
-	fq := utils.ToFilterQueryFor(store.HeadTracker.Get().ToInt(), []common.Address{initr.Address})
+	headNumber := store.HeadTracker.Get()
+	logListening(initr, headNumber)
+	fq := utils.ToFilterQueryFor(headNumber.ToInt(), []common.Address{initr.Address})
 	rpc, err := store.TxManager.SubscribeToLogs(sub.logNotifications, fq)
 	if err != nil {
 		return sub, err
@@ -135,21 +137,20 @@ func (sub RPCLogSubscription) listenToLogs() {
 
 // Starts an RPCLogSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
-	logListening(initr)
 	return NewRPCLogSubscription(initr, job, store, ReceiveRunLog)
 }
 
 // Starts an RPCLogSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
-	logListening(initr)
 	return NewRPCLogSubscription(initr, job, store, ReceiveEthLog)
 }
 
-func logListening(initr models.Initiator) {
+func logListening(initr models.Initiator, number *models.IndexableBlockNumber) {
 	msg := fmt.Sprintf(
-		"Listening for %v from address %v for job %v",
+		"Listening for %v from address %v from %v for job %v",
 		initr.Type,
 		presenters.LogListeningAddress(initr.Address),
+		number.FriendlyString(),
 		initr.JobID)
 	logger.Infow(msg)
 }
