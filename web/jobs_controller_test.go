@@ -101,7 +101,7 @@ func TestJobsController_Create_NonExistentTaskJob(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["job validation: adapter validation: idonotexist is not a supported adapter type"]}`
+	expected := `{"errors":["job validation: task validation: idonotexist is not a supported adapter type"]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
