@@ -14,7 +14,7 @@ import (
 func ValidateJob(j models.Job, store *store.Store) error {
 	var merr error
 	for _, i := range j.Initiators {
-		if err := validateInitiator(i); err != nil {
+		if err := ValidateInitiator(i); err != nil {
 			merr = multierr.Append(merr, fmt.Errorf("job validation: %v", err))
 		}
 	}
@@ -26,16 +26,27 @@ func ValidateJob(j models.Job, store *store.Store) error {
 	return merr
 }
 
-func validateInitiator(i models.Initiator) error {
-	if strings.ToLower(i.Type) == models.InitiatorRunAt {
+func ValidateInitiator(i models.Initiator) error {
+	switch strings.ToLower(i.Type) {
+	case models.InitiatorRunAt:
 		return validateRunAtInitiator(i)
+	case models.InitiatorCron:
+		return validateCronInitiator(i)
+	default:
+		return nil
 	}
-	return nil
 }
 
 func validateRunAtInitiator(i models.Initiator) error {
 	if i.Time.Unix() <= 0 {
 		return errors.New(`initiator validation: runat must have time`)
+	}
+	return nil
+}
+
+func validateCronInitiator(i models.Initiator) error {
+	if i.Schedule == "" {
+		return errors.New(`initiator validation: cron must have schedule`)
 	}
 	return nil
 }

@@ -3,7 +3,6 @@ package services_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -20,9 +19,9 @@ func TestValidateJob(t *testing.T) {
 		want  error
 	}{
 		{"base case", cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json"), nil},
-		{"with error in initiator", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
+		{"error in runat initr", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
 			errors.New(`job validation: initiator validation: runat must have time`)},
-		{"with error in adapter", cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
+		{"error in task", cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
 			errors.New(`job validation: task validation: idonotexist is not a supported adapter type`)},
 	}
 
@@ -33,9 +32,30 @@ func TestValidateJob(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var j models.Job
 			assert.Nil(t, json.Unmarshal(test.input, &j))
-			fmt.Println(j)
 			result := services.ValidateJob(j, store)
 			assert.Equal(t, test.want, result)
+		})
+	}
+}
+
+func TestValidateInitiator(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"web", `{"type":"web"}`, false},
+		{"runat", `{"type":"runat"}`, true},
+		{"cron", `{"type":"cron"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var initr models.Initiator
+			assert.Nil(t, json.Unmarshal([]byte(test.input), &initr))
+			result := services.ValidateInitiator(initr)
+			assert.Equal(t, test.wantError, result != nil)
 		})
 	}
 }
