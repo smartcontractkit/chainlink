@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/jpillora/backoff"
 	uuid "github.com/satori/go.uuid"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -244,4 +245,11 @@ func toBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func NewBackoff() *backoff.Backoff {
+	return &backoff.Backoff{
+		Min: 1 * time.Second,
+		Max: 10 * time.Second,
+	}
 }

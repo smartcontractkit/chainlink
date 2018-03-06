@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -100,8 +101,9 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 }
 
 func (nl *NotificationListener) reconnectLoop() {
+	b := utils.NewBackoff()
 	for {
-		t := 5 * time.Second
+		t := b.Duration()
 		logger.Info("Reconnecting to new heads in ", t)
 		time.Sleep(t)
 		err := nl.subscribeToNewHeads()
