@@ -81,20 +81,15 @@ func (nl *NotificationListener) AddJob(job models.Job) error {
 }
 
 func (nl *NotificationListener) subscribeToNewHeads() error {
-	channel := make(chan models.BlockHeader)
-	sub, err := nl.Store.TxManager.SubscribeToNewHeads(channel)
+	sub, err := nl.Store.TxManager.SubscribeToNewHeads(nl.headNotifications)
 	if err != nil {
 		return err
 	}
 	nl.headSubscription = sub
-	go func() { nl.headNotifications <- (<-channel) }()
 	go func() {
 		err := <-sub.Err()
 		logger.Warnw("Error in new head subscription, disconnected", "err", err)
-		close(channel)
-		nl.headSubscription = nil
-		sub.Unsubscribe()
-		nl.unsubscribeJobs()
+		nl.Stop()
 		nl.reconnectLoop()
 	}()
 	return nil
@@ -104,16 +99,13 @@ func (nl *NotificationListener) reconnectLoop() {
 	b := utils.NewBackoff()
 	for {
 		t := b.Duration()
-		logger.Info("Reconnecting to new heads in ", t)
+		logger.Info("Reconnecting to node in ", t)
 		time.Sleep(t)
-		err := nl.subscribeToNewHeads()
+		err := nl.Start()
 		if err != nil {
-			logger.Warnw("Error in new head subscription, disconnected", "err", err)
+			logger.Warnw("Error reconnecting", "err", err)
 		} else {
-			logger.Info("Reconnected to new heads")
-			if err = nl.subscribeJobs(); err != nil {
-				logger.Warnw("Error resubscribing to jobs", "err", err)
-			}
+			logger.Info("Reconnected to node")
 			break
 		}
 	}
