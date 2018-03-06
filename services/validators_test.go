@@ -23,7 +23,7 @@ func TestValidateJob(t *testing.T) {
 		{"with error in initiator", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
 			errors.New(`job validation: initiator validation: runat must have time`)},
 		{"with error in adapter", cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
-			errors.New(`job validation: adapter validation: idonotexist is not a supported adapter type`)},
+			errors.New(`job validation: task validation: idonotexist is not a supported adapter type`)},
 	}
 
 	store, cleanup := cltest.NewStore()

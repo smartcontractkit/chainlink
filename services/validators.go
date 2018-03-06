@@ -8,18 +8,22 @@ import (
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"go.uber.org/multierr"
 )
 
 func ValidateJob(j models.Job, store *store.Store) error {
+	var merr error
 	for _, i := range j.Initiators {
 		if err := validateInitiator(i); err != nil {
-			return fmt.Errorf("job validation: %v", err)
+			merr = multierr.Append(merr, fmt.Errorf("job validation: %v", err))
 		}
 	}
-	if err := adapters.Validate(j, store); err != nil {
-		return fmt.Errorf("job validation: adapter validation: %v", err)
+	for _, task := range j.Tasks {
+		if err := validateTask(task, store); err != nil {
+			merr = multierr.Append(merr, fmt.Errorf("job validation: %v", err))
+		}
 	}
-	return nil
+	return merr
 }
 
 func validateInitiator(i models.Initiator) error {
@@ -32,6 +36,13 @@ func validateInitiator(i models.Initiator) error {
 func validateRunAtInitiator(i models.Initiator) error {
 	if i.Time.Unix() <= 0 {
 		return errors.New(`initiator validation: runat must have time`)
+	}
+	return nil
+}
+
+func validateTask(task models.Task, store *store.Store) error {
+	if _, err := adapters.For(task, store); err != nil {
+		return fmt.Errorf("task validation: %v", err)
 	}
 	return nil
 }
