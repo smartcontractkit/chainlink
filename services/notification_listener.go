@@ -19,7 +19,7 @@ type NotificationListener struct {
 	jobSubscriptions  []JobSubscription
 	headNotifications chan models.BlockHeader
 	headSubscription  *rpc.ClientSubscription
-	subMutx           sync.Mutex
+	jobsMutex         sync.Mutex
 	started           bool
 }
 
@@ -32,11 +32,7 @@ func (nl *NotificationListener) Start() error {
 		return err
 	}
 
-	jobs, err := nl.Store.Jobs()
-	if err != nil {
-		return err
-	}
-	if err := nl.subscribeJobs(jobs); err != nil {
+	if err := nl.subscribeJobs(); err != nil {
 		return err
 	}
 
@@ -57,8 +53,11 @@ func (nl *NotificationListener) Stop() error {
 	return nil
 }
 
-func (nl *NotificationListener) subscribeJobs(jobs []models.Job) error {
-	var err error
+func (nl *NotificationListener) subscribeJobs() error {
+	jobs, err := nl.Store.Jobs()
+	if err != nil {
+		return err
+	}
 	for _, j := range jobs {
 		err = multierr.Append(err, nl.AddJob(j))
 	}
@@ -91,22 +90,31 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 	go func() {
 		err := <-sub.Err()
 		logger.Warnw("Error in new head subscription, disconnected", "err", err)
-		sub.Unsubscribe()
-		nl.headSubscription = nil
 		close(channel)
-
-		for {
-			time.Sleep(5 * time.Second)
-			logger.Info("Reconnecting to new heads")
-			err = nl.subscribeToNewHeads()
-			if err != nil {
-				logger.Warnw("Error in new head subscription, disconnected", "err", err)
-			} else {
-				break
-			}
-		}
+		nl.headSubscription = nil
+		sub.Unsubscribe()
+		nl.unsubscribeJobs()
+		nl.reconnectLoop()
 	}()
 	return nil
+}
+
+func (nl *NotificationListener) reconnectLoop() {
+	for {
+		t := 5 * time.Second
+		logger.Info("Reconnecting to new heads in ", t)
+		time.Sleep(t)
+		err := nl.subscribeToNewHeads()
+		if err != nil {
+			logger.Warnw("Error in new head subscription, disconnected", "err", err)
+		} else {
+			logger.Info("Reconnected to new heads")
+			if err = nl.subscribeJobs(); err != nil {
+				logger.Warnw("Error resubscribing to jobs", "err", err)
+			}
+			break
+		}
+	}
 }
 
 func (nl *NotificationListener) listenToNewHeads() {
@@ -129,14 +137,14 @@ func (nl *NotificationListener) listenToNewHeads() {
 }
 
 func (nl *NotificationListener) addSubscription(sub JobSubscription) {
-	nl.subMutx.Lock()
-	defer nl.subMutx.Unlock()
+	nl.jobsMutex.Lock()
+	defer nl.jobsMutex.Unlock()
 	nl.jobSubscriptions = append(nl.jobSubscriptions, sub)
 }
 
 func (nl *NotificationListener) unsubscribeJobs() {
-	nl.subMutx.Lock()
-	defer nl.subMutx.Unlock()
+	nl.jobsMutex.Lock()
+	defer nl.jobsMutex.Unlock()
 	for _, sub := range nl.jobSubscriptions {
 		sub.Unsubscribe()
 	}
