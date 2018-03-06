@@ -41,14 +41,17 @@ func (nl *NodeListener) Start() error {
 	return nil
 }
 
-// Stop gracefully closes its access to the store's EthNotifications.
+// Stop gracefully closes its access to the store's EthNotifications and resets
+// resources.
 func (nl *NodeListener) Stop() error {
 	nl.started = false
 	if nl.headSubscription != nil && nl.headSubscription.Err() != nil {
 		nl.headSubscription.Unsubscribe()
+		nl.headSubscription = nil
 	}
 	if nl.headers != nil {
 		close(nl.headers)
+		nl.headers = nil
 	}
 	nl.unsubscribeJobs()
 	return nil
@@ -142,4 +145,5 @@ func (nl *NodeListener) unsubscribeJobs() {
 	for _, sub := range nl.jobSubscriptions {
 		sub.Unsubscribe()
 	}
+	nl.jobSubscriptions = []JobSubscription{}
 }
