@@ -14,13 +14,13 @@ type Application interface {
 	GetStore() *store.Store
 }
 
-// ChainlinkApplication contains fields for the NotificationListener, Scheduler,
-// and Store. The NotificationListener and Scheduler are also available
+// ChainlinkApplication contains fields for the NodeListener, Scheduler,
+// and Store. The NodeListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	NotificationListener *NotificationListener
-	Scheduler            *Scheduler
-	Store                *store.Store
+	NodeListener *NodeListener
+	Scheduler    *Scheduler
+	Store        *store.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -31,17 +31,17 @@ func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
 	return &ChainlinkApplication{
-		NotificationListener: &NotificationListener{Store: store},
-		Scheduler:            NewScheduler(store),
-		Store:                store,
+		NodeListener: &NodeListener{Store: store},
+		Scheduler:    NewScheduler(store),
+		Store:        store,
 	}
 }
 
-// Start runs the Store, NotificationListener, and Scheduler. If successful,
+// Start runs the Store, NodeListener, and Scheduler. If successful,
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	return multierr.Combine(app.NotificationListener.Start(), app.Scheduler.Start())
+	return multierr.Combine(app.NodeListener.Start(), app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -50,7 +50,7 @@ func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
-	app.NotificationListener.Stop()
+	app.NodeListener.Stop()
 	return app.Store.Close()
 }
 
@@ -69,5 +69,5 @@ func (app *ChainlinkApplication) AddJob(job models.Job) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.NotificationListener.AddJob(job)
+	return app.NodeListener.AddJob(job)
 }
