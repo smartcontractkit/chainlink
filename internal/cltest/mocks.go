@@ -26,23 +26,16 @@ func (ta *TestApplication) MockEthClient() *EthMock {
 }
 
 func MockEthOnStore(s *store.Store) *EthMock {
-	mock := NewMockGethRpc()
+	mock := &EthMock{}
 	eth := &store.EthClient{mock}
 	s.TxManager.EthClient = eth
 	return mock
 }
 
-func NewMockGethRpc() *EthMock {
-	return &EthMock{
-		NewHeadsChannel: make(chan models.BlockHeader),
-	}
-}
-
 type EthMock struct {
-	Responses       []MockResponse
-	Subscriptions   []MockSubscription
-	NewHeadsChannel chan models.BlockHeader
-	newHeadsCalled  bool
+	Responses      []MockResponse
+	Subscriptions  []MockSubscription
+	newHeadsCalled bool
 }
 
 func (mock *EthMock) Register(
