@@ -87,7 +87,7 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 	nl.headSubscription = sub
 	go func() {
 		err := <-sub.Err()
-		logger.Errorw("Error in new head subscription", "err", err)
+		logger.Warnw("Error in new head subscription, disconnected", "err", err)
 	}()
 	return nil
 }
