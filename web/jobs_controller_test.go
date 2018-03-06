@@ -87,21 +87,39 @@ func TestJobsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunAt, j.Initiators[1].Type)
 }
 
-func TestJobsController_Create_InvalidJob(t *testing.T) {
+func TestJobsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_job.json")
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json")
 	resp := cltest.BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
 
-	assert.Equal(t, 500, resp.StatusCode, "Response should be internal error")
+	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["idonotexist is not a supported adapter type"]}`
+	expected := `{"errors":["job validation: adapter validation: idonotexist is not a supported adapter type"]}`
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+}
+
+func TestJobsController_Create_InvalidJob(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/jobs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+
+	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+
+	expected := `{"errors":["job validation: initiator validation: runat must have time"]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
@@ -117,7 +135,7 @@ func TestJobsController_Create_InvalidCron(t *testing.T) {
 		bytes.NewBuffer(jsonStr),
 	)
 
-	assert.Equal(t, 500, resp.StatusCode, "Response should be internal error")
+	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":["Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
