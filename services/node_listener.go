@@ -21,12 +21,16 @@ type NodeListener struct {
 	headers          chan models.BlockHeader
 	headSubscription *rpc.ClientSubscription
 	jobsMutex        sync.Mutex
+	bootMutex        sync.Mutex
 	started          bool
 }
 
 // Start obtains the jobs from the store and subscribes to logs and newHeads
 // in order to start and resume jobs waiting on events or confirmations.
 func (nl *NodeListener) Start() error {
+	nl.bootMutex.Lock()
+	defer nl.bootMutex.Unlock()
+
 	nl.started = true
 	nl.headers = make(chan models.BlockHeader)
 	if err := nl.subscribeToNewHeads(); err != nil {
@@ -44,6 +48,9 @@ func (nl *NodeListener) Start() error {
 // Stop gracefully closes its access to the store's EthNotifications and resets
 // resources.
 func (nl *NodeListener) Stop() error {
+	nl.bootMutex.Lock()
+	defer nl.bootMutex.Unlock()
+
 	nl.started = false
 	if nl.headSubscription != nil && nl.headSubscription.Err() != nil {
 		nl.headSubscription.Unsubscribe()
