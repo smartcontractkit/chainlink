@@ -55,6 +55,34 @@ func newAddr() common.Address {
 	return cltest.NewAddress()
 }
 
+func TestNodeListener_Restart(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	j1 := cltest.NewJobWithLogInitiator()
+	j2 := cltest.NewJobWithLogInitiator()
+	assert.Nil(t, store.SaveJob(&j1))
+	assert.Nil(t, store.SaveJob(&j2))
+
+	logs := make(chan types.Log)
+	defer close(logs)
+	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs", logs)
+
+	nl := services.NodeListener{Store: store}
+	assert.Nil(t, nl.Start())
+	assert.Nil(t, nl.Stop())
+
+	eth.RegisterNewHeads()
+	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs", logs)
+	assert.Nil(t, nl.Start())
+	assert.Nil(t, nl.Stop())
+	eth.EnsureAllCalled(t)
+}
+
 func TestNodeListener_AddJob_Listening(t *testing.T) {
 	t.Parallel()
 	sharedAddr := newAddr()
