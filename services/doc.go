@@ -13,9 +13,9 @@
 // that they're executed in order. Within each Run, the tasks
 // are also executed from the JobRunner.
 //
-// NotificationListener
+// NodeListener
 //
-// The NotificationListener coordinates running job events with
+// The NodeListener coordinates running job events with
 // the EventLog in the Store, and also subscribes to the given
 // address on the Ethereum blockchain.
 //

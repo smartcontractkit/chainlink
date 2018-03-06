@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNotificationListener_Start_NewHeads(t *testing.T) {
+func TestNodeListener_Start_NewHeads(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	nl := services.NotificationListener{Store: store}
+	nl := services.NodeListener{Store: store}
 	defer nl.Stop()
 
 	eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
@@ -29,13 +29,13 @@ func TestNotificationListener_Start_NewHeads(t *testing.T) {
 	eth.EnsureAllCalled(t)
 }
 
-func TestNotificationListener_Start_WithJobs(t *testing.T) {
+func TestNodeListener_Start_WithJobs(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	nl := services.NotificationListener{Store: store}
+	nl := services.NodeListener{Store: store}
 	defer nl.Stop()
 
 	j1 := cltest.NewJobWithLogInitiator()
@@ -55,7 +55,7 @@ func newAddr() common.Address {
 	return cltest.NewAddress()
 }
 
-func TestNotificationListener_AddJob_Listening(t *testing.T) {
+func TestNodeListener_AddJob_Listening(t *testing.T) {
 	t.Parallel()
 	sharedAddr := newAddr()
 	noAddr := common.Address{}
@@ -80,7 +80,7 @@ func TestNotificationListener_AddJob_Listening(t *testing.T) {
 			defer cleanup()
 			cltest.MockEthOnStore(store)
 
-			nl := services.NotificationListener{Store: store}
+			nl := services.NodeListener{Store: store}
 			defer nl.Stop()
 			assert.Nil(t, nl.Start())
 
@@ -115,7 +115,7 @@ func TestNotificationListener_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestNotificationListener_newHeadsNotification(t *testing.T) {
+func TestNodeListener_newHeadsNotification(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()

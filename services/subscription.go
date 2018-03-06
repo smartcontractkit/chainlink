@@ -81,25 +81,25 @@ type Unsubscriber interface {
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the ReceiveLog callback using a strategy pattern.
 type RPCLogSubscription struct {
-	Job              models.Job
-	Initiator        models.Initiator
-	ReceiveLog       func(RPCLogEvent)
-	store            *store.Store
-	logNotifications chan types.Log
-	errors           chan error
-	rpcSubscription  *rpc.ClientSubscription
+	Job             models.Job
+	Initiator       models.Initiator
+	ReceiveLog      func(RPCLogEvent)
+	store           *store.Store
+	logs            chan types.Log
+	errors          chan error
+	rpcSubscription *rpc.ClientSubscription
 }
 
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
 func NewRPCLogSubscription(initr models.Initiator, job models.Job, store *store.Store, callback func(RPCLogEvent)) (RPCLogSubscription, error) {
 	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
-	sub.logNotifications = make(chan types.Log)
+	sub.logs = make(chan types.Log)
 
 	headNumber := store.HeadTracker.Get()
 	logListening(initr, headNumber)
 	fq := utils.ToFilterQueryFor(headNumber.ToInt(), []common.Address{initr.Address})
-	rpc, err := store.TxManager.SubscribeToLogs(sub.logNotifications, fq)
+	rpc, err := store.TxManager.SubscribeToLogs(sub.logs, fq)
 	if err != nil {
 		return sub, err
 	}
@@ -114,7 +114,7 @@ func (sub RPCLogSubscription) Unsubscribe() {
 	if sub.rpcSubscription != nil && sub.rpcSubscription.Err() != nil {
 		sub.rpcSubscription.Unsubscribe()
 	}
-	close(sub.logNotifications)
+	close(sub.logs)
 	close(sub.errors)
 }
 
@@ -125,7 +125,7 @@ func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 }
 
 func (sub RPCLogSubscription) listenToLogs() {
-	for el := range sub.logNotifications {
+	for el := range sub.logs {
 		sub.ReceiveLog(RPCLogEvent{
 			Job:       sub.Job,
 			Initiator: sub.Initiator,

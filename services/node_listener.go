@@ -13,22 +13,22 @@ import (
 	"go.uber.org/multierr"
 )
 
-// NotificationListener manages push notifications from the ethereum node's
+// NodeListener manages push notifications from the ethereum node's
 // websocket to listen for new heads and log events.
-type NotificationListener struct {
-	Store             *store.Store
-	jobSubscriptions  []JobSubscription
-	headNotifications chan models.BlockHeader
-	headSubscription  *rpc.ClientSubscription
-	jobsMutex         sync.Mutex
-	started           bool
+type NodeListener struct {
+	Store            *store.Store
+	jobSubscriptions []JobSubscription
+	headers          chan models.BlockHeader
+	headSubscription *rpc.ClientSubscription
+	jobsMutex        sync.Mutex
+	started          bool
 }
 
 // Start obtains the jobs from the store and subscribes to logs and newHeads
 // in order to start and resume jobs waiting on events or confirmations.
-func (nl *NotificationListener) Start() error {
+func (nl *NodeListener) Start() error {
 	nl.started = true
-	nl.headNotifications = make(chan models.BlockHeader)
+	nl.headers = make(chan models.BlockHeader)
 	if err := nl.subscribeToNewHeads(); err != nil {
 		return err
 	}
@@ -42,19 +42,19 @@ func (nl *NotificationListener) Start() error {
 }
 
 // Stop gracefully closes its access to the store's EthNotifications.
-func (nl *NotificationListener) Stop() error {
+func (nl *NodeListener) Stop() error {
 	nl.started = false
 	if nl.headSubscription != nil && nl.headSubscription.Err() != nil {
 		nl.headSubscription.Unsubscribe()
 	}
-	if nl.headNotifications != nil {
-		close(nl.headNotifications)
+	if nl.headers != nil {
+		close(nl.headers)
 	}
 	nl.unsubscribeJobs()
 	return nil
 }
 
-func (nl *NotificationListener) subscribeJobs() error {
+func (nl *NodeListener) subscribeJobs() error {
 	jobs, err := nl.Store.Jobs()
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (nl *NotificationListener) subscribeJobs() error {
 
 // AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
-func (nl *NotificationListener) AddJob(job models.Job) error {
+func (nl *NodeListener) AddJob(job models.Job) error {
 	if !nl.started || !job.IsLogInitiated() {
 		return nil
 	}
@@ -80,8 +80,8 @@ func (nl *NotificationListener) AddJob(job models.Job) error {
 	return nil
 }
 
-func (nl *NotificationListener) subscribeToNewHeads() error {
-	sub, err := nl.Store.TxManager.SubscribeToNewHeads(nl.headNotifications)
+func (nl *NodeListener) subscribeToNewHeads() error {
+	sub, err := nl.Store.TxManager.SubscribeToNewHeads(nl.headers)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (nl *NotificationListener) subscribeToNewHeads() error {
 	return nil
 }
 
-func (nl *NotificationListener) reconnectLoop() {
+func (nl *NodeListener) reconnectLoop() {
 	b := utils.NewBackoff()
 	for {
 		t := b.Duration()
@@ -111,8 +111,8 @@ func (nl *NotificationListener) reconnectLoop() {
 	}
 }
 
-func (nl *NotificationListener) listenToNewHeads() {
-	for header := range nl.headNotifications {
+func (nl *NodeListener) listenToNewHeads() {
+	for header := range nl.headers {
 		number := header.IndexableBlockNumber()
 		logger.Debugw(fmt.Sprintf("Received header %v", number.FriendlyString()), "hash", header.Hash())
 		if err := nl.Store.HeadTracker.Save(number); err != nil {
@@ -130,13 +130,13 @@ func (nl *NotificationListener) listenToNewHeads() {
 	}
 }
 
-func (nl *NotificationListener) addSubscription(sub JobSubscription) {
+func (nl *NodeListener) addSubscription(sub JobSubscription) {
 	nl.jobsMutex.Lock()
 	defer nl.jobsMutex.Unlock()
 	nl.jobSubscriptions = append(nl.jobSubscriptions, sub)
 }
 
-func (nl *NotificationListener) unsubscribeJobs() {
+func (nl *NodeListener) unsubscribeJobs() {
 	nl.jobsMutex.Lock()
 	defer nl.jobsMutex.Unlock()
 	for _, sub := range nl.jobSubscriptions {
