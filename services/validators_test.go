@@ -22,7 +22,7 @@ func TestValidateJob(t *testing.T) {
 		want  error
 	}{
 		{"base case", cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json"), nil},
-		{"error in job", cltest.LoadJSON("../internal/fixtures/web/invalid_job.json"),
+		{"error in job", cltest.LoadJSON("../internal/fixtures/web/invalid_endat_job.json"),
 			errors.New(`job validation: startat cannot be before endat`)},
 		{"error in runat initr", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
 			errors.New(`job validation: initiator validation: runat must have a time`)},
