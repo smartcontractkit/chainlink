@@ -3,7 +3,9 @@ package services_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -42,6 +44,11 @@ func TestValidateJob(t *testing.T) {
 
 func TestValidateInitiator(t *testing.T) {
 	t.Parallel()
+	startAt := time.Now()
+	endAt := startAt.Add(time.Second)
+	job := cltest.NewJob()
+	job.StartAt = cltest.NullableTime(startAt)
+	job.EndAt = cltest.NullableTime(endAt)
 	tests := []struct {
 		name      string
 		input     string
@@ -52,6 +59,8 @@ func TestValidateInitiator(t *testing.T) {
 		{"runlog", `{"type":"runlog"}`, false},
 		{"runat", `{"type":"runlog","time":"2018-03-07T00:35:08"}`, false},
 		{"runat w/o time", `{"type":"runat"}`, true},
+		{"runat w time before start at", fmt.Sprintf(`{"type":"runat","time":"%v"}`, startAt.Add(-1*time.Second).Unix()), true},
+		{"runat w time after end at", fmt.Sprintf(`{"type":"runat","time":"%v"}`, endAt.Add(time.Second).Unix()), true},
 		{"cron", `{"type":"cron","schedule":"* * * * * *"}`, false},
 		{"cron w/o schedule", `{"type":"cron"}`, true},
 		{"non-existent initiator", `{"type":"doesntExist"}`, true},
@@ -61,7 +70,7 @@ func TestValidateInitiator(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var initr models.Initiator
 			assert.Nil(t, json.Unmarshal([]byte(test.input), &initr))
-			result := services.ValidateInitiator(initr)
+			result := services.ValidateInitiator(initr, job)
 			assert.Equal(t, test.wantError, result != nil)
 		})
 	}
