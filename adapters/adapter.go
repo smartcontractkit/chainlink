@@ -62,21 +62,3 @@ func unmarshalParams(params models.JSON, dst interface{}) error {
 	}
 	return json.Unmarshal(bytes, dst)
 }
-
-// Validate that there were no errors in any of the tasks of a job
-func Validate(job models.Job, store *store.Store) error {
-	var err error
-	for _, task := range job.Tasks {
-		err = validateTask(task, store)
-		if err != nil {
-			break
-		}
-	}
-
-	return err
-}
-
-func validateTask(task models.Task, store *store.Store) error {
-	_, err := For(task, store)
-	return err
-}

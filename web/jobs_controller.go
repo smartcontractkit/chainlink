@@ -3,7 +3,6 @@ package web
 import (
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -39,11 +38,11 @@ func (jc *JobsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
-		c.JSON(500, gin.H{
+		c.JSON(400, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = adapters.Validate(j, jc.App.Store); err != nil {
-		c.JSON(500, gin.H{
+	} else if err = services.ValidateJob(j, jc.App.Store); err != nil {
+		c.JSON(400, gin.H{
 			"errors": []string{err.Error()},
 		})
 	} else if err = jc.App.AddJob(j); err != nil {
