@@ -11,6 +11,8 @@ import (
 	"go.uber.org/multierr"
 )
 
+// ValidateJob checks the job and its associated Initiators and Tasks for any
+// application logic errors.
 func ValidateJob(j models.Job, store *store.Store) error {
 	var merr error
 	if j.StartAt.Valid && j.EndAt.Valid && j.StartAt.Time.After(j.EndAt.Time) {
@@ -33,6 +35,7 @@ func fmtJobError(err error) error {
 	return fmt.Errorf("job validation: %v", err)
 }
 
+// ValidateInitiator checks the Initiator for any application logic errors.
 func ValidateInitiator(i models.Initiator, j models.Job) error {
 	switch strings.ToLower(i.Type) {
 	case models.InitiatorRunAt:
@@ -52,7 +55,7 @@ func ValidateInitiator(i models.Initiator, j models.Job) error {
 
 func validateRunAtInitiator(i models.Initiator, j models.Job) error {
 	if i.Time.Unix() <= 0 {
-		return fmtInitiatorError(errors.New(`runat must have time`))
+		return fmtInitiatorError(errors.New(`runat must have a time`))
 	} else if j.StartAt.Valid && i.Time.Unix() < j.StartAt.Time.Unix() {
 		return fmtInitiatorError(errors.New(`runat time must be after job's startat`))
 	} else if j.EndAt.Valid && i.Time.Unix() > j.EndAt.Time.Unix() {

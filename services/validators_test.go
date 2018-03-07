@@ -24,7 +24,7 @@ func TestValidateJob(t *testing.T) {
 		{"error in job", cltest.LoadJSON("../internal/fixtures/web/invalid_job.json"),
 			errors.New(`job validation: startat cannot be before endat`)},
 		{"error in runat initr", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
-			errors.New(`job validation: initiator validation: runat must have time`)},
+			errors.New(`job validation: initiator validation: runat must have a time`)},
 		{"error in task", cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
 			errors.New(`job validation: task validation: idonotexist is not a supported adapter type`)},
 	}
