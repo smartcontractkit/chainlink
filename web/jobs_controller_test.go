@@ -119,7 +119,7 @@ func TestJobsController_Create_InvalidJob(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["job validation: initiator validation: runat must have time"]}`
+	expected := `{"errors":["job validation: initiator validation: runat must have a time"]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
