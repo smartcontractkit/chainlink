@@ -46,8 +46,11 @@ func TestValidateInitiator(t *testing.T) {
 		wantError bool
 	}{
 		{"web", `{"type":"web"}`, false},
-		{"runat", `{"type":"runat"}`, true},
-		{"cron", `{"type":"cron"}`, true},
+		{"ethlog", `{"type":"ethlog"}`, false},
+		{"runlog", `{"type":"runlog"}`, false},
+		{"runat w/o time", `{"type":"runat"}`, true},
+		{"cron w/o schedule", `{"type":"cron"}`, true},
+		{"non-existent initiator", `{"type":"doesntExist"}`, true},
 	}
 
 	for _, test := range tests {

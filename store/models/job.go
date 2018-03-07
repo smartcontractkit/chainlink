@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -130,14 +129,6 @@ const (
 	InitiatorWeb = "web"
 )
 
-var initiatorWhitelist = map[string]bool{
-	InitiatorRunLog: true,
-	InitiatorCron:   true,
-	InitiatorEthLog: true,
-	InitiatorRunAt:  true,
-	InitiatorWeb:    true,
-}
-
 // Initiator could be though of as a trigger, define how a Job can be
 // started, or rather, how a JobRun can be created from a Job.
 // Initiators will have their own unique ID, but will be assocated
@@ -163,9 +154,6 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 
 	*i = Initiator(aux)
 	i.Type = strings.ToLower(aux.Type)
-	if _, valid := initiatorWhitelist[i.Type]; !valid {
-		return fmt.Errorf("Initiator %v does not exist", aux.Type)
-	}
 	return nil
 }
 
