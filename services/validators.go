@@ -33,6 +33,12 @@ func ValidateInitiator(i models.Initiator) error {
 	case models.InitiatorCron:
 		return validateCronInitiator(i)
 	default:
+		return fmt.Errorf("Initiator %v does not exist", i.Type)
+	case models.InitiatorWeb:
+		fallthrough
+	case models.InitiatorRunLog:
+		fallthrough
+	case models.InitiatorEthLog:
 		return nil
 	}
 }

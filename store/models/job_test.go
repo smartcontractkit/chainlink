@@ -95,36 +95,6 @@ func TestJobStarted(t *testing.T) {
 	}
 }
 
-func TestInitiatorUnmarshallingValidation(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		valid bool
-	}{
-		{models.InitiatorRunLog, true},
-		{models.InitiatorCron, true},
-		{models.InitiatorEthLog, true},
-		{models.InitiatorRunAt, true},
-		{models.InitiatorWeb, true},
-		{"smokesignals", false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			job := cltest.NewJob()
-			job.Initiators = []models.Initiator{{Type: test.name}}
-			s, err := json.Marshal(job)
-			assert.Nil(t, err)
-
-			var unmarshalled models.Job
-			err = json.Unmarshal(s, &unmarshalled)
-			assert.Equal(t, test.name, unmarshalled.Initiators[0].Type)
-			assert.Equal(t, test.valid, err == nil)
-		})
-	}
-}
-
 func TestTaskUnmarshalling(t *testing.T) {
 	t.Parallel()
 
