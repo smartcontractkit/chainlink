@@ -19,6 +19,8 @@ func TestValidateJob(t *testing.T) {
 		want  error
 	}{
 		{"base case", cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json"), nil},
+		{"error in job", cltest.LoadJSON("../internal/fixtures/web/invalid_job.json"),
+			errors.New(`job validation: startat cannot be before endat`)},
 		{"error in runat initr", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
 			errors.New(`job validation: initiator validation: runat must have time`)},
 		{"error in task", cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
@@ -48,7 +50,9 @@ func TestValidateInitiator(t *testing.T) {
 		{"web", `{"type":"web"}`, false},
 		{"ethlog", `{"type":"ethlog"}`, false},
 		{"runlog", `{"type":"runlog"}`, false},
+		{"runat", `{"type":"runlog","time":"2018-03-07T00:35:08"}`, false},
 		{"runat w/o time", `{"type":"runat"}`, true},
+		{"cron", `{"type":"cron","schedule":"* * * * * *"}`, false},
 		{"cron w/o schedule", `{"type":"cron"}`, true},
 		{"non-existent initiator", `{"type":"doesntExist"}`, true},
 	}

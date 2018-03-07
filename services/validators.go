@@ -13,17 +13,24 @@ import (
 
 func ValidateJob(j models.Job, store *store.Store) error {
 	var merr error
+	if j.StartAt.Valid && j.EndAt.Valid && j.StartAt.Time.After(j.EndAt.Time) {
+		merr = multierr.Append(merr, formatJobError(errors.New("startat cannot be before endat")))
+	}
 	for _, i := range j.Initiators {
 		if err := ValidateInitiator(i); err != nil {
-			merr = multierr.Append(merr, fmt.Errorf("job validation: %v", err))
+			merr = multierr.Append(merr, formatJobError(err))
 		}
 	}
 	for _, task := range j.Tasks {
 		if err := validateTask(task, store); err != nil {
-			merr = multierr.Append(merr, fmt.Errorf("job validation: %v", err))
+			merr = multierr.Append(merr, formatJobError(err))
 		}
 	}
 	return merr
+}
+
+func formatJobError(err error) error {
+	return fmt.Errorf("job validation: %v", err)
 }
 
 func ValidateInitiator(i models.Initiator) error {
