@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,7 +58,7 @@ func TestValidateInitiator(t *testing.T) {
 		{"web", `{"type":"web"}`, false},
 		{"ethlog", `{"type":"ethlog"}`, false},
 		{"runlog", `{"type":"runlog"}`, false},
-		{"runat", `{"type":"runlog","time":"2018-03-07T00:35:08"}`, false},
+		{"runat", fmt.Sprintf(`{"type":"runat","time":"%v"}`, utils.ISO8601UTC(startAt)), false},
 		{"runat w/o time", `{"type":"runat"}`, true},
 		{"runat w time before start at", fmt.Sprintf(`{"type":"runat","time":"%v"}`, startAt.Add(-1*time.Second).Unix()), true},
 		{"runat w time after end at", fmt.Sprintf(`{"type":"runat","time":"%v"}`, endAt.Add(time.Second).Unix()), true},
@@ -71,7 +72,11 @@ func TestValidateInitiator(t *testing.T) {
 			var initr models.Initiator
 			assert.Nil(t, json.Unmarshal([]byte(test.input), &initr))
 			result := services.ValidateInitiator(initr, job)
-			assert.Equal(t, test.wantError, result != nil)
+			if test.wantError {
+				assert.NotNil(t, result)
+			} else {
+				assert.Nil(t, result)
+			}
 		})
 	}
 }
