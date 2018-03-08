@@ -15,27 +15,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNodeListener_Start_NewHeads(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
-	nl := services.NodeListener{Store: store}
-	defer nl.Stop()
-
-	eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
-
-	assert.Nil(t, nl.Start())
-	eth.EnsureAllCalled(t)
-}
-
 func TestNodeListener_Start_WithJobs(t *testing.T) {
 	t.Parallel()
 
 	nl, cleanup := cltest.NewNodeListener()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(nl.Store)
+	assert.Nil(t, nl.HeadTracker.Start())
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
@@ -68,18 +54,54 @@ func TestNodeListener_Restart(t *testing.T) {
 	eth.RegisterSubscription("logs", logs)
 	eth.RegisterSubscription("logs", logs)
 
-	nl := services.NodeListener{Store: store}
+	ht := services.NewHeadTracker(store)
+	ht.Start()
+
+	nl := services.NodeListener{Store: store, HeadTracker: ht}
 	assert.Nil(t, nl.Start())
 	assert.Equal(t, 2, len(nl.Jobs()))
 	assert.Nil(t, nl.Stop())
 	assert.Equal(t, 0, len(nl.Jobs()))
 
-	eth.RegisterNewHeads()
 	eth.RegisterSubscription("logs", logs)
 	eth.RegisterSubscription("logs", logs)
 	assert.Nil(t, nl.Start())
 	assert.Equal(t, 2, len(nl.Jobs()))
 	assert.Nil(t, nl.Stop())
+	assert.Equal(t, 0, len(nl.Jobs()))
+	eth.EnsureAllCalled(t)
+}
+
+func TestNodeListener_Reconnected(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	j1 := cltest.NewJobWithLogInitiator()
+	j2 := cltest.NewJobWithLogInitiator()
+	assert.Nil(t, store.SaveJob(&j1))
+	assert.Nil(t, store.SaveJob(&j2))
+
+	logs := make(chan types.Log)
+	defer close(logs)
+	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs", logs)
+
+	ht := services.NewHeadTracker(store)
+	nl := services.NodeListener{Store: store, HeadTracker: ht}
+	nl.Start()
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, 2, len(nl.Jobs()))
+	assert.Nil(t, ht.Stop())
+	assert.Equal(t, 0, len(nl.Jobs()))
+
+	eth.RegisterNewHeads()
+	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs", logs)
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, 2, len(nl.Jobs()))
+	assert.Nil(t, ht.Stop())
 	assert.Equal(t, 0, len(nl.Jobs()))
 	eth.EnsureAllCalled(t)
 }
@@ -105,12 +127,10 @@ func TestNodeListener_AddJob_Listening(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
+			nl, cleanup := cltest.NewNodeListener()
 			defer cleanup()
+			store := nl.Store
 			cltest.MockEthOnStore(store)
-
-			nl := services.NodeListener{Store: store}
-			defer nl.Stop()
 			assert.Nil(t, nl.Start())
 
 			eth := cltest.MockEthOnStore(store)
@@ -190,49 +210,72 @@ func TestHeadTracker_New(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	cltest.MockEthOnStore(store)
 	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(1))))
 	last := models.NewIndexableBlockNumber(big.NewInt(0x10))
 	assert.Nil(t, store.Save(last))
 	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(0xf))))
 
-	ht, err := services.NewHeadTracker(store)
-	assert.Nil(t, err)
+	ht := services.NewHeadTracker(store)
+	assert.Nil(t, ht.Start())
 	assert.Equal(t, last.Number, ht.Get().Number)
 }
 
 func TestHeadTracker_Get(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	initial := models.NewIndexableBlockNumber(big.NewInt(1))
-	assert.Nil(t, store.Save(initial))
+	start := models.NewIndexableBlockNumber(big.NewInt(5))
 
 	tests := []struct {
 		name      string
+		initial   *models.IndexableBlockNumber
 		toSave    *models.IndexableBlockNumber
-		want      hexutil.Big
+		want      *big.Int
 		wantError bool
 	}{
-		// order matters
-		{"greater", cltest.IndexableBlockNumber(2), cltest.BigHexInt(2), false},
-		{"less than", cltest.IndexableBlockNumber(1), cltest.BigHexInt(2), false},
-		{"zero", cltest.IndexableBlockNumber(0), cltest.BigHexInt(2), true},
-		{"nil", nil, cltest.BigHexInt(2), true},
+		{"greater", start, cltest.IndexableBlockNumber(6), big.NewInt(6), false},
+		{"less than", start, cltest.IndexableBlockNumber(1), big.NewInt(5), false},
+		{"zero", start, cltest.IndexableBlockNumber(0), big.NewInt(5), true},
+		{"nil", start, nil, big.NewInt(5), true},
+		{"nil no initial", nil, nil, nil, true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ht, err := services.NewHeadTracker(store)
-			assert.Nil(t, err)
-			err = ht.Save(test.toSave)
+			store, cleanup := cltest.NewStore()
+			defer cleanup()
+			cltest.MockEthOnStore(store)
+			if test.initial != nil {
+				assert.Nil(t, store.Save(test.initial))
+			}
+
+			ht := services.NewHeadTracker(store)
+			ht.Start()
+			defer ht.Stop()
+
+			err := ht.Save(test.toSave)
 			if test.wantError {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.Get().Number)
+			assert.Equal(t, test.want, ht.Get().ToInt())
 		})
 	}
+}
+
+func TestHeadTracker_Start_NewHeads(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	ht := services.NewHeadTracker(store)
+	defer ht.Stop()
+
+	eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
+
+	assert.Nil(t, ht.Start())
+	eth.EnsureAllCalled(t)
 }
