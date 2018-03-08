@@ -40,15 +40,15 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	return result, nil
 }
 
-// Job holds the Job definition and each run associated with that Job.
-type Job struct {
+// JobSpec holds the JobSpec definition and each run associated with that Job.
+type JobSpec struct {
 	models.JobSpec
 	Runs []models.JobRun `json:"runs,omitempty"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
-func (j Job) MarshalJSON() ([]byte, error) {
-	type Alias Job
+func (j JobSpec) MarshalJSON() ([]byte, error) {
+	type Alias JobSpec
 	pis := make([]Initiator, len(j.Initiators))
 	for i, modelInitr := range j.Initiators {
 		pis[i] = Initiator{modelInitr}
@@ -64,13 +64,13 @@ func (j Job) MarshalJSON() ([]byte, error) {
 
 // FriendlyCreatedAt returns a human-readable string of the Job's
 // CreatedAt field.
-func (job Job) FriendlyCreatedAt() string {
+func (job JobSpec) FriendlyCreatedAt() string {
 	return job.CreatedAt.HumanString()
 }
 
 // FriendlyStartAt returns a human-readable string of the Job's
 // StartAt field.
-func (job Job) FriendlyStartAt() string {
+func (job JobSpec) FriendlyStartAt() string {
 	if job.StartAt.Valid {
 		return utils.ISO8601UTC(job.StartAt.Time)
 	}
@@ -79,7 +79,7 @@ func (job Job) FriendlyStartAt() string {
 
 // FriendlyEndAt returns a human-readable string of the Job's
 // EndAt field.
-func (job Job) FriendlyEndAt() string {
+func (job JobSpec) FriendlyEndAt() string {
 	if job.EndAt.Valid {
 		return utils.ISO8601UTC(job.EndAt.Time)
 	}
@@ -88,7 +88,7 @@ func (job Job) FriendlyEndAt() string {
 
 // FriendlyInitiators returns the list of Initiator types as
 // a comma separated string.
-func (job Job) FriendlyInitiators() string {
+func (job JobSpec) FriendlyInitiators() string {
 	var initrs []string
 	for _, i := range job.Initiators {
 		initrs = append(initrs, i.Type)
@@ -98,7 +98,7 @@ func (job Job) FriendlyInitiators() string {
 
 // FriendlyTasks returns the list of Task types as a comma
 // separated string.
-func (job Job) FriendlyTasks() string {
+func (job JobSpec) FriendlyTasks() string {
 	var tasks []string
 	for _, t := range job.Tasks {
 		tasks = append(tasks, t.Type)

@@ -66,7 +66,7 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
-	var job presenters.Job
+	var job presenters.JobSpec
 	return cli.deserializeResponse(resp, &job)
 }
 

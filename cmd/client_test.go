@@ -63,7 +63,7 @@ func TestClientShowJob(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.ShowJob(c))
 	assert.Equal(t, 1, len(r.Renders))
-	assert.Equal(t, job.ID, r.Renders[0].(*presenters.Job).ID)
+	assert.Equal(t, job.ID, r.Renders[0].(*presenters.JobSpec).ID)
 }
 
 func TestClientShowJobNotFound(t *testing.T) {

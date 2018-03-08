@@ -160,7 +160,7 @@ func TestJobsController_Show(t *testing.T) {
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
-	var respJob presenters.Job
+	var respJob presenters.JobSpec
 	json.Unmarshal(cltest.ParseResponseBody(resp), &respJob)
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, respJob.Runs[0].ID, jr2.ID, "should have job runs ordered by created at(descending)")
