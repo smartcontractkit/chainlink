@@ -54,7 +54,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)
@@ -69,7 +69,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
 func TestJobRunsController_Create_InvalidBody(t *testing.T) {
@@ -129,7 +129,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
 
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)
@@ -174,7 +174,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
 
-	jr = cltest.WaitForJobRunStatus(t, app, jr, models.StatusErrored)
+	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.StatusErrored)
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "0", val)
