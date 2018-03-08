@@ -172,3 +172,8 @@ func NewIndexableBlockNumber(bigint *big.Int, hashes ...common.Hash) *IndexableB
 		Hash:   hash,
 	}
 }
+
+type EthSubscription interface {
+	Err() <-chan error
+	Unsubscribe()
+}

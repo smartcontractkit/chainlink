@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/asdine/storm"
-	"github.com/ethereum/go-ethereum/rpc"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -124,7 +123,7 @@ func (NoOpHeadTrackable) OnNewHead(*models.BlockHeader) {}
 type HeadTracker struct {
 	trackers         map[string]HeadTrackable
 	headers          chan models.BlockHeader
-	headSubscription *rpc.ClientSubscription
+	headSubscription models.EthSubscription
 	store            *store.Store
 	number           *models.IndexableBlockNumber
 	headMutex        sync.RWMutex
@@ -242,7 +241,7 @@ func (ht *HeadTracker) OnNewHead(head *models.BlockHeader) {
 	}
 }
 
-func (ht *HeadTracker) subscribeToNewHeads() (*rpc.ClientSubscription, error) {
+func (ht *HeadTracker) subscribeToNewHeads() (models.EthSubscription, error) {
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return nil, err
