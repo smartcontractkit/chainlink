@@ -201,8 +201,8 @@ func (ht *HeadTracker) subscribeToNewHeads() (*rpc.ClientSubscription, error) {
 		return nil, err
 	}
 	go func() {
-		err, ok := <-sub.Err()
-		if !ok {
+		err := <-sub.Err()
+		if err != nil {
 			logger.Warnw("Error in new head subscription, disconnected", "err", err)
 			ht.Stop()
 			ht.reconnectLoop()
