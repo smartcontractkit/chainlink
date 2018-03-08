@@ -38,11 +38,11 @@ type JobSubscription struct {
 
 // Constructor of JobSubscription that to starts listening to and keeps track of
 // event logs corresponding to a job.
-func StartJobSubscription(job models.Job, store *store.Store) (JobSubscription, error) {
+func StartJobSubscription(job models.Job, head *models.IndexableBlockNumber, store *store.Store) (JobSubscription, error) {
 	var merr error
 	var initSubs []Unsubscriber
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
-		sub, err := StartEthLogSubscription(initr, job, store)
+		sub, err := StartEthLogSubscription(initr, job, head, store)
 		merr = multierr.Append(merr, err)
 		if err == nil {
 			initSubs = append(initSubs, sub)
@@ -50,7 +50,7 @@ func StartJobSubscription(job models.Job, store *store.Store) (JobSubscription, 
 	}
 
 	for _, initr := range job.InitiatorsFor(models.InitiatorRunLog) {
-		sub, err := StartRunLogSubscription(initr, job, store)
+		sub, err := StartRunLogSubscription(initr, job, head, store)
 		merr = multierr.Append(merr, err)
 		if err == nil {
 			initSubs = append(initSubs, sub)
@@ -91,14 +91,19 @@ type RPCLogSubscription struct {
 }
 
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
-func NewRPCLogSubscription(initr models.Initiator, job models.Job, store *store.Store, callback func(RPCLogEvent)) (RPCLogSubscription, error) {
+func NewRPCLogSubscription(
+	initr models.Initiator,
+	job models.Job,
+	head *models.IndexableBlockNumber,
+	store *store.Store,
+	callback func(RPCLogEvent),
+) (RPCLogSubscription, error) {
 	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
 
-	headNumber := store.HeadTracker.Get()
-	logListening(initr, headNumber)
-	fq := utils.ToFilterQueryFor(headNumber.ToInt(), []common.Address{initr.Address})
+	logListening(initr, head)
+	fq := utils.ToFilterQueryFor(head.ToInt(), []common.Address{initr.Address})
 	rpc, err := store.TxManager.SubscribeToLogs(sub.logs, fq)
 	if err != nil {
 		return sub, err
@@ -136,13 +141,13 @@ func (sub RPCLogSubscription) listenToLogs() {
 }
 
 // Starts an RPCLogSubscription tailored for use with RunLogs.
-func StartRunLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
-	return NewRPCLogSubscription(initr, job, store, ReceiveRunLog)
+func StartRunLogSubscription(initr models.Initiator, job models.Job, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+	return NewRPCLogSubscription(initr, job, head, store, ReceiveRunLog)
 }
 
 // Starts an RPCLogSubscription tailored for use with EthLogs.
-func StartEthLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
-	return NewRPCLogSubscription(initr, job, store, ReceiveEthLog)
+func StartEthLogSubscription(initr models.Initiator, job models.Job, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+	return NewRPCLogSubscription(initr, job, head, store, ReceiveEthLog)
 }
 
 func logListening(initr models.Initiator, number *models.IndexableBlockNumber) {
