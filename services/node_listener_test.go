@@ -285,7 +285,7 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store)
+	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
 
 	checker := &cltest.MockHeadTrackable{}
 	ht.Attach(checker)
@@ -316,7 +316,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store)
+	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
 
 	firstSub := eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
 	headers := make(chan models.BlockHeader)

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/asdine/storm"
 	uuid "github.com/satori/go.uuid"
@@ -129,11 +128,18 @@ type HeadTracker struct {
 	headMutex        sync.RWMutex
 	trackersMutex    sync.RWMutex
 	connected        bool
+	sleeper          utils.Sleeper
 }
 
 // Instantiates a new HeadTracker using the orm to persist new block numbers
-func NewHeadTracker(store *store.Store) *HeadTracker {
-	return &HeadTracker{store: store, trackers: map[string]HeadTrackable{}}
+func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker {
+	var sleeper utils.Sleeper
+	if len(sleepers) > 0 {
+		sleeper = sleepers[0]
+	} else {
+		sleeper = utils.NewBackoffSleeper()
+	}
+	return &HeadTracker{store: store, trackers: map[string]HeadTrackable{}, sleeper: sleeper}
 }
 
 func (ht *HeadTracker) Start() error {
@@ -144,7 +150,6 @@ func (ht *HeadTracker) Start() error {
 	}
 	if len(numbers) > 0 {
 		ht.number = &numbers[0]
-		logger.Info("Tracking logs from block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
 	}
 
 	ht.headers = make(chan models.BlockHeader)
@@ -258,6 +263,9 @@ func (ht *HeadTracker) subscribeToNewHeads() (models.EthSubscription, error) {
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
+	if ht.number != nil {
+		logger.Info("Tracking logs from block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
+	}
 	for header := range ht.headers {
 		number := header.IndexableBlockNumber()
 		logger.Debugw(fmt.Sprintf("Received header %v", number.FriendlyString()), "hash", header.Hash())
@@ -270,11 +278,9 @@ func (ht *HeadTracker) listenToNewHeads() {
 }
 
 func (ht *HeadTracker) reconnectLoop() {
-	b := utils.NewBackoff()
 	for {
-		t := b.Duration()
-		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", t)
-		time.Sleep(t)
+		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.SleepTime())
+		ht.sleeper.Sleep()
 		err := ht.Start()
 		if err != nil {
 			logger.Warnw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)

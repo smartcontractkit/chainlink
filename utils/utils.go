@@ -247,9 +247,26 @@ func toBlockNumArg(number *big.Int) string {
 	return hexutil.EncodeBig(number)
 }
 
-func NewBackoff() *backoff.Backoff {
-	return &backoff.Backoff{
-		Min: 500 * time.Millisecond,
+type Sleeper interface {
+	Sleep()
+	SleepTime() time.Duration
+}
+
+type BackoffSleeper struct {
+	*backoff.Backoff
+}
+
+func NewBackoffSleeper() BackoffSleeper {
+	return BackoffSleeper{&backoff.Backoff{
+		Min: 1 * time.Second,
 		Max: 10 * time.Second,
-	}
+	}}
+}
+
+func (bs BackoffSleeper) Sleep() {
+	time.Sleep(bs.Duration())
+}
+
+func (bs BackoffSleeper) SleepTime() time.Duration {
+	return bs.ForAttempt(bs.Attempt())
 }
