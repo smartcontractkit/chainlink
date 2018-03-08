@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestJobsController_Index(t *testing.T) {
+func TestJobSpecsController_Index(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -26,7 +26,7 @@ func TestJobsController_Index(t *testing.T) {
 	j2.Initiators[0].Ran = true
 	app.Store.SaveJob(&j2)
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var jobs []models.JobSpec
@@ -36,7 +36,7 @@ func TestJobsController_Index(t *testing.T) {
 	assert.NotEqual(t, true, jobs[1].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
-func TestJobsController_Create(t *testing.T) {
+func TestJobSpecsController_Create(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -61,7 +61,7 @@ func TestJobsController_Create(t *testing.T) {
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 }
 
-func TestJobsController_Create_CaseInsensitiveTypes(t *testing.T) {
+func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -87,14 +87,14 @@ func TestJobsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunAt, j.Initiators[1].Type)
 }
 
-func TestJobsController_Create_NonExistentTaskJob(t *testing.T) {
+func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json")
 	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -105,14 +105,14 @@ func TestJobsController_Create_NonExistentTaskJob(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
-func TestJobsController_Create_InvalidJob(t *testing.T) {
+func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json")
 	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -123,14 +123,14 @@ func TestJobsController_Create_InvalidJob(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
-func TestJobsController_Create_InvalidCron(t *testing.T) {
+func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
 	resp := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(jsonStr),
 	)
@@ -141,7 +141,7 @@ func TestJobsController_Create_InvalidCron(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
-func TestJobsController_Show(t *testing.T) {
+func TestJobSpecsController_Show(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -157,7 +157,7 @@ func TestJobsController_Show(t *testing.T) {
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.Save(&jr2))
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respJob presenters.JobSpec
@@ -167,21 +167,21 @@ func TestJobsController_Show(t *testing.T) {
 	assert.Equal(t, respJob.Runs[1].ID, jr1.ID, "should have job runs ordered by created at(descending)")
 }
 
-func TestJobsController_Show_NotFound(t *testing.T) {
+func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + "garbage")
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + "garbage")
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 
-func TestJobsController_Show_Unauthenticated(t *testing.T) {
+func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp, err := http.Get(app.Server.URL + "/v2/jobs/" + "garbage")
+	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
 	assert.Nil(t, err)
 	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
 }

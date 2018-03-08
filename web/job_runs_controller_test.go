@@ -35,7 +35,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.Save(&jr2))
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs/" + j.ID + "/runs")
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	var respJSON JobRunsJSON
 	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON))
@@ -80,7 +80,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
 	defer resp.Body.Close()
 	cltest.CheckStatusCode(t, resp, 500)
@@ -94,7 +94,7 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	j := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
@@ -104,7 +104,7 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	url := app.Server.URL + "/v2/jobs/garbageID/runs"
+	url := app.Server.URL + "/v2/specs/garbageID/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }

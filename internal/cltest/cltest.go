@@ -281,7 +281,7 @@ func ObserveLogs() *observer.ObservedLogs {
 
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
-		app.Server.URL+"/v2/jobs",
+		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(LoadJSON(path)),
 	)
@@ -295,7 +295,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	bodyBuffer := &bytes.Buffer{}
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])

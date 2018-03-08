@@ -16,11 +16,11 @@ type JobRunsController struct {
 	App *services.ChainlinkApplication
 }
 
-// Index adds the root of the JobRuns to the given context.
+// Index lists all of the Runs of a JobSpec.
 // Example:
-//  "<application>/jobs/:JobID/runs"
+//  "<application>/specs/:SpecID/runs"
 func (jrc *JobRunsController) Index(c *gin.Context) {
-	id := c.Param("JobID")
+	id := c.Param("SpecID")
 
 	if jobRuns, err := jrc.App.Store.JobRunsFor(id); err != nil {
 		c.JSON(500, gin.H{
@@ -31,11 +31,11 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	}
 }
 
-// Create starts a new JobRun for the Job specified.
+// Create starts a new Run for the requested JobSpec.
 // Example:
-//  "<application>/jobs/:JobID/runs"
+//  "<application>/specs/:SpecID/runs"
 func (jrc *JobRunsController) Create(c *gin.Context) {
-	id := c.Param("JobID")
+	id := c.Param("SpecID")
 
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
@@ -70,7 +70,8 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 	return models.ParseJSON(b)
 }
 
-// Update marks the JobRun no longer pending, and resumes the Job's pipeline.
+// Update allows external adapters to resume a JobRun, reporting the result of
+// the task and marking it no longer pending.
 // Example:
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Update(c *gin.Context) {

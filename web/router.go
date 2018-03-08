@@ -21,14 +21,14 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 
 	v2 := engine.Group("/v2")
 	{
-		j := JobsController{app}
-		v2.GET("/jobs", j.Index)
-		v2.POST("/jobs", j.Create)
-		v2.GET("/jobs/:JobID", j.Show)
+		j := JobSpecsController{app}
+		v2.GET("/specs", j.Index)
+		v2.POST("/specs", j.Create)
+		v2.GET("/specs/:SpecID", j.Show)
 
 		jr := JobRunsController{app}
-		v2.GET("/jobs/:JobID/runs", jr.Index)
-		v2.POST("/jobs/:JobID/runs", jr.Create)
+		v2.GET("/specs/:SpecID/runs", jr.Index)
+		v2.POST("/specs/:SpecID/runs", jr.Create)
 		v2.PATCH("/runs/:RunID", jr.Update)
 
 		tt := BridgeTypesController{app}
