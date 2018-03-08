@@ -400,3 +400,8 @@ func (m *MockHeadTrackable) Connected() error {
 
 func (m *MockHeadTrackable) Disconnected()                 { m.DisconnectedCount += 1 }
 func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount += 1 }
+
+type NeverSleeper struct{}
+
+func (ns NeverSleeper) Sleep()                   {}
+func (ns NeverSleeper) SleepTime() time.Duration { return 0 * time.Microsecond }

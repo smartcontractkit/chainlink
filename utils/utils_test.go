@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"testing"
+	"time"
 
 	"math/big"
 
@@ -94,4 +95,15 @@ func TestUtils_HexToString(t *testing.T) {
 			assert.Equal(t, test.utf8, actualUtf8)
 		})
 	}
+}
+
+func TestUtils_BackoffSleeper(t *testing.T) {
+	bs := utils.NewBackoffSleeper()
+	d := 1 * time.Nanosecond
+	bs.Min = d
+	bs.Factor = 2
+	assert.Equal(t, d, bs.SleepTime())
+	bs.Sleep()
+	d2 := 2 * time.Nanosecond
+	assert.Equal(t, d2, bs.SleepTime())
 }
