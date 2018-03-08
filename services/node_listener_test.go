@@ -1,12 +1,14 @@
 package services_test
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -27,8 +29,8 @@ func TestNodeListener_Start_WithJobs(t *testing.T) {
 	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, nl.Store.SaveJob(&j1))
 	assert.Nil(t, nl.Store.SaveJob(&j2))
-	eth.RegisterSubscription("logs", make(chan types.Log))
-	eth.RegisterSubscription("logs", make(chan types.Log))
+	eth.RegisterSubscription("logs")
+	eth.RegisterSubscription("logs")
 
 	assert.Nil(t, nl.Start())
 	eth.EnsureAllCalled(t)
@@ -49,10 +51,8 @@ func TestNodeListener_Restart(t *testing.T) {
 	assert.Nil(t, store.SaveJob(&j1))
 	assert.Nil(t, store.SaveJob(&j2))
 
-	logs := make(chan types.Log)
-	defer close(logs)
-	eth.RegisterSubscription("logs", logs)
-	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs")
+	eth.RegisterSubscription("logs")
 
 	ht := services.NewHeadTracker(store)
 	ht.Start()
@@ -63,8 +63,8 @@ func TestNodeListener_Restart(t *testing.T) {
 	assert.Nil(t, nl.Stop())
 	assert.Equal(t, 0, len(nl.Jobs()))
 
-	eth.RegisterSubscription("logs", logs)
-	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs")
+	eth.RegisterSubscription("logs")
 	assert.Nil(t, nl.Start())
 	assert.Equal(t, 2, len(nl.Jobs()))
 	assert.Nil(t, nl.Stop())
@@ -83,10 +83,8 @@ func TestNodeListener_Reconnected(t *testing.T) {
 	assert.Nil(t, store.SaveJob(&j1))
 	assert.Nil(t, store.SaveJob(&j2))
 
-	logs := make(chan types.Log)
-	defer close(logs)
-	eth.RegisterSubscription("logs", logs)
-	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs")
+	eth.RegisterSubscription("logs")
 
 	ht := services.NewHeadTracker(store)
 	nl := services.NodeListener{Store: store, HeadTracker: ht}
@@ -97,8 +95,8 @@ func TestNodeListener_Reconnected(t *testing.T) {
 	assert.Equal(t, 0, len(nl.Jobs()))
 
 	eth.RegisterNewHeads()
-	eth.RegisterSubscription("logs", logs)
-	eth.RegisterSubscription("logs", logs)
+	eth.RegisterSubscription("logs")
+	eth.RegisterSubscription("logs")
 	assert.Nil(t, ht.Start())
 	assert.Equal(t, 2, len(nl.Jobs()))
 	assert.Nil(t, ht.Stop())
@@ -278,4 +276,70 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 	assert.Nil(t, ht.Start())
 	eth.EnsureAllCalled(t)
+}
+
+func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	ht := services.NewHeadTracker(store)
+
+	checker := &cltest.MockHeadTrackable{}
+	ht.Attach(checker)
+
+	headers := make(chan models.BlockHeader)
+	eth.RegisterSubscription("newHeads", headers)
+
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, 1, checker.ConnectedCount)
+	assert.Equal(t, 0, checker.DisconnectedCount)
+	assert.Equal(t, 0, checker.OnNewHeadCount)
+
+	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
+	g.Eventually(func() int { return checker.OnNewHeadCount }).Should(gomega.Equal(1))
+	assert.Equal(t, 1, checker.ConnectedCount)
+	assert.Equal(t, 0, checker.DisconnectedCount)
+
+	ht.Stop()
+	assert.Equal(t, 1, checker.DisconnectedCount)
+	assert.Equal(t, 1, checker.ConnectedCount)
+	assert.Equal(t, 1, checker.OnNewHeadCount)
+}
+
+func TestHeadTracker_ReconnectOnError(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	ht := services.NewHeadTracker(store)
+
+	firstSub := eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
+	headers := make(chan models.BlockHeader)
+	eth.RegisterSubscription("newHeads", headers)
+
+	checker := &cltest.MockHeadTrackable{}
+	ht.Attach(checker)
+
+	// connect
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, 1, checker.ConnectedCount)
+	assert.Equal(t, 0, checker.DisconnectedCount)
+	assert.Equal(t, 0, checker.OnNewHeadCount)
+
+	// disconnect
+	firstSub.Errors <- errors.New("Test error to force reconnect")
+	g.Eventually(func() int { return checker.ConnectedCount }).Should(gomega.Equal(2))
+	assert.Equal(t, 1, checker.DisconnectedCount)
+	assert.Equal(t, 0, checker.OnNewHeadCount)
+
+	// new head
+	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
+	g.Eventually(func() int { return checker.OnNewHeadCount }).Should(gomega.Equal(1))
+	assert.Equal(t, 2, checker.ConnectedCount)
+	assert.Equal(t, 1, checker.DisconnectedCount)
 }

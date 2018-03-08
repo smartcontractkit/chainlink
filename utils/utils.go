@@ -249,7 +249,7 @@ func toBlockNumArg(number *big.Int) string {
 
 func NewBackoff() *backoff.Backoff {
 	return &backoff.Backoff{
-		Min: 1 * time.Second,
+		Min: 500 * time.Millisecond,
 		Max: 10 * time.Second,
 	}
 }
