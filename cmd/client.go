@@ -51,8 +51,8 @@ func logNodeBalance(store *strpkg.Store) {
 	logger.Infow(balance)
 }
 
-// ShowJob returns the status of the given JobID to the console.
-func (cli *Client) ShowJob(c *clipkg.Context) error {
+// ShowJobSpec returns the status of the given JobID.
+func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
@@ -70,8 +70,8 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 	return cli.deserializeResponse(resp, &job)
 }
 
-// GetJobs returns all jobs to the console.
-func (cli *Client) GetJobs(c *clipkg.Context) error {
+// GetJobSpecs returns all job specs.
+func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,

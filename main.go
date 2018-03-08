@@ -46,16 +46,16 @@ func Run(client *cmd.Client, args ...string) {
 			Action: client.RunNode,
 		},
 		{
-			Name:    "jobs",
-			Aliases: []string{"j"},
+			Name:    "jobspecs",
+			Aliases: []string{"j", "specs"},
 			Usage:   "Get all jobs",
-			Action:  client.GetJobs,
+			Action:  client.GetJobSpecs,
 		},
 		{
 			Name:    "show",
 			Aliases: []string{"s"},
 			Usage:   "Show a specific job",
-			Action:  client.ShowJob,
+			Action:  client.ShowJobSpec,
 		},
 	}
 	app.Run(args)
