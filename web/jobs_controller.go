@@ -17,7 +17,7 @@ type JobsController struct {
 // Example:
 //  "<application>/jobs"
 func (jc *JobsController) Index(c *gin.Context) {
-	var jobs []models.Job
+	var jobs []models.JobSpec
 	if err := jc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
@@ -25,7 +25,7 @@ func (jc *JobsController) Index(c *gin.Context) {
 	} else {
 		pjs := make([]presenters.Job, len(jobs))
 		for i, j := range jobs {
-			pjs[i] = presenters.Job{Job: j}
+			pjs[i] = presenters.Job{JobSpec: j}
 		}
 		c.JSON(200, pjs)
 	}

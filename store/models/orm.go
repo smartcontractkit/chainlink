@@ -53,8 +53,8 @@ func emptySlice(to interface{}) {
 }
 
 // FindJob looks up a Job by its ID.
-func (orm *ORM) FindJob(id string) (Job, error) {
-	var job Job
+func (orm *ORM) FindJob(id string) (JobSpec, error) {
+	var job JobSpec
 	err := orm.One("ID", id, &job)
 	return job, err
 }
@@ -72,8 +72,8 @@ func (orm *ORM) InitBucket(model interface{}) error {
 }
 
 // Jobs fetches all jobs.
-func (orm *ORM) Jobs() ([]Job, error) {
-	var jobs []Job
+func (orm *ORM) Jobs() ([]JobSpec, error) {
+	var jobs []JobSpec
 	err := orm.All(&jobs)
 	return jobs, err
 }
@@ -90,7 +90,7 @@ func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 }
 
 // SaveJob saves a job to the database.
-func (orm *ORM) SaveJob(job *Job) error {
+func (orm *ORM) SaveJob(job *JobSpec) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
 		return err

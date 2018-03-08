@@ -42,7 +42,7 @@ func ShowEthBalance(store *store.Store) (string, error) {
 
 // Job holds the Job definition and each run associated with that Job.
 type Job struct {
-	models.Job
+	models.JobSpec
 	Runs []models.JobRun `json:"runs,omitempty"`
 }
 

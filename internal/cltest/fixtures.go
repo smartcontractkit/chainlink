@@ -20,7 +20,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func NewJob() models.Job {
+func NewJob() models.JobSpec {
 	j := models.NewJob()
 	j.Tasks = []models.Task{NewTask("NoOp")}
 	return j
@@ -40,19 +40,19 @@ func NewTask(taskType string, json ...string) models.Task {
 	}
 }
 
-func NewJobWithSchedule(sched string) models.Job {
+func NewJobWithSchedule(sched string) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}
 	return j
 }
 
-func NewJobWithWebInitiator() models.Job {
+func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
 	return j
 }
 
-func NewJobWithLogInitiator() models.Job {
+func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type:    models.InitiatorEthLog,

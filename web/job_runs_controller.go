@@ -98,7 +98,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	}
 }
 
-func startJob(j models.Job, s *store.Store, body models.JSON) (models.JobRun, error) {
+func startJob(j models.JobSpec, s *store.Store, body models.JSON) (models.JobRun, error) {
 	jr, err := services.BuildRun(j, s)
 	if err != nil {
 		return jr, err

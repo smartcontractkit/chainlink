@@ -41,7 +41,7 @@ type RendererTable struct {
 // and relevant information.
 func (rt RendererTable) Render(v interface{}) error {
 	switch typed := v.(type) {
-	case *[]models.Job:
+	case *[]models.JobSpec:
 		rt.renderJobs(*typed)
 	case *presenters.Job:
 		rt.renderJob(*typed)
@@ -52,7 +52,7 @@ func (rt RendererTable) Render(v interface{}) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobs(jobs []models.Job) error {
+func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"ID", "Created At", "Initiators", "Tasks"})
 	for _, v := range jobs {
@@ -73,7 +73,7 @@ func render(name string, table *tablewriter.Table) {
 	table.Render()
 }
 
-func jobRowToStrings(job models.Job) []string {
+func jobRowToStrings(job models.JobSpec) []string {
 	p := presenters.Job{job, nil}
 	return []string{
 		p.ID,

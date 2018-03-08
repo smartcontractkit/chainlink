@@ -83,7 +83,7 @@ func (cli *Client) GetJobs(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	var jobs []models.Job
+	var jobs []models.JobSpec
 	return cli.deserializeResponse(resp, &jobs)
 }
 

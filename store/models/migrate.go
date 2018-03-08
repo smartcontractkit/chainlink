@@ -5,7 +5,7 @@ import (
 )
 
 func (orm ORM) migrate() {
-	orm.initializeModel(&Job{})
+	orm.initializeModel(&JobSpec{})
 	orm.initializeModel(&JobRun{})
 	orm.initializeModel(&Initiator{})
 	orm.initializeModel(&Tx{})

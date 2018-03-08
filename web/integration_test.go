@@ -260,7 +260,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	var j models.Job
+	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(body string) {
 			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
