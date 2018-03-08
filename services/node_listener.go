@@ -47,17 +47,6 @@ func (nl *NodeListener) Stop() error {
 	return nil
 }
 
-func (nl *NodeListener) Connected() error {
-	jobs, err := nl.Store.Jobs()
-	if err != nil {
-		return err
-	}
-	for _, j := range jobs {
-		err = multierr.Append(err, nl.AddJob(j))
-	}
-	return err
-}
-
 // AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
 func (nl *NodeListener) AddJob(job models.Job) error {
@@ -73,10 +62,29 @@ func (nl *NodeListener) AddJob(job models.Job) error {
 	return nil
 }
 
+func (nl *NodeListener) Jobs() []models.Job {
+	var jobs []models.Job
+	for _, js := range nl.jobSubscriptions {
+		jobs = append(jobs, js.Job)
+	}
+	return jobs
+}
+
 func (nl *NodeListener) addSubscription(sub JobSubscription) {
 	nl.jobsMutex.Lock()
 	defer nl.jobsMutex.Unlock()
 	nl.jobSubscriptions = append(nl.jobSubscriptions, sub)
+}
+
+func (nl *NodeListener) Connected() error {
+	jobs, err := nl.Store.Jobs()
+	if err != nil {
+		return err
+	}
+	for _, j := range jobs {
+		err = multierr.Append(err, nl.AddJob(j))
+	}
+	return err
 }
 
 func (nl *NodeListener) Disconnected() {
@@ -167,8 +175,8 @@ func (ht *HeadTracker) Stop() error {
 	if ht.headers != nil {
 		close(ht.headers)
 		ht.headers = nil
-		ht.Tracker.Disconnected()
 	}
+	ht.Tracker.Disconnected()
 	return nil
 }
 
@@ -232,9 +240,9 @@ func (ht *HeadTracker) reconnectLoop() {
 		err := ht.Start()
 		if err != nil {
 			logger.Warnw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
+			ht.Stop()
 		} else {
 			logger.Info("Reconnected to node ", ht.store.Config.EthereumURL)
-			logger.WarnIf(ht.Tracker.Connected())
 			break
 		}
 	}
