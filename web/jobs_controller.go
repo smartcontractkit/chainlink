@@ -8,17 +8,17 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
-// JobsController manages Job requests in the node.
-type JobsController struct {
+// JobSpecsController manages JobSpec requests.
+type JobSpecsController struct {
 	App *services.ChainlinkApplication
 }
 
-// Index adds the root of the Jobs to the given context.
+// Index lists all of the existing JobSpecs.
 // Example:
-//  "<application>/jobs"
-func (jc *JobsController) Index(c *gin.Context) {
+//  "<application>/specs"
+func (jsc *JobSpecsController) Index(c *gin.Context) {
 	var jobs []models.JobSpec
-	if err := jc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
+	if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -31,21 +31,21 @@ func (jc *JobsController) Index(c *gin.Context) {
 	}
 }
 
-// Create adds the Jobs to the given context.
+// Create adds validates, saves, and starts a new JobSpec.
 // Example:
-//  "<application>/jobs"
-func (jc *JobsController) Create(c *gin.Context) {
+//  "<application>/specs"
+func (jsc *JobSpecsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
 		c.JSON(400, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = services.ValidateJob(j, jc.App.Store); err != nil {
+	} else if err = services.ValidateJob(j, jsc.App.Store); err != nil {
 		c.JSON(400, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if err = jc.App.AddJob(j); err != nil {
+	} else if err = jsc.App.AddJob(j); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
@@ -54,20 +54,20 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 }
 
-// Show returns the details of a job if it exists.
+// Show returns the details of a JobSpec.
 // Example:
-//  "<application>/jobs/:JobID"
-func (jc *JobsController) Show(c *gin.Context) {
-	id := c.Param("JobID")
-	if j, err := jc.App.Store.FindJob(id); err == storm.ErrNotFound {
+//  "<application>/specs/:SpecID"
+func (jsc *JobSpecsController) Show(c *gin.Context) {
+	id := c.Param("SpecID")
+	if j, err := jsc.App.Store.FindJob(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
-			"errors": []string{"Job not found."},
+			"errors": []string{"JobSpec not found."},
 		})
 	} else if err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if runs, err := jc.App.Store.JobRunsFor(j.ID); err != nil {
+	} else if runs, err := jsc.App.Store.JobRunsFor(j.ID); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
