@@ -45,7 +45,7 @@ func TestClientGetJobs(t *testing.T) {
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
 	assert.Nil(t, client.GetJobs(nil))
-	jobs := *r.Renders[0].(*[]models.Job)
+	jobs := *r.Renders[0].(*[]models.JobSpec)
 	assert.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
 }

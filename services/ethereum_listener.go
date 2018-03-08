@@ -40,7 +40,7 @@ func (el *EthereumListener) Stop() error {
 
 // AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
-func (el *EthereumListener) AddJob(job models.Job) error {
+func (el *EthereumListener) AddJob(job models.JobSpec) error {
 	if !job.IsLogInitiated() || !el.HeadTracker.IsConnected() {
 		return nil
 	}
@@ -53,8 +53,8 @@ func (el *EthereumListener) AddJob(job models.Job) error {
 	return nil
 }
 
-func (el *EthereumListener) Jobs() []models.Job {
-	var jobs []models.Job
+func (el *EthereumListener) Jobs() []models.JobSpec {
+	var jobs []models.JobSpec
 	for _, js := range el.jobSubscriptions {
 		jobs = append(jobs, js.Job)
 	}

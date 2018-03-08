@@ -279,7 +279,7 @@ func ObserveLogs() *observer.ObservedLogs {
 	return observed
 }
 
-func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.Job {
+func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/jobs",
 		"application/json",
@@ -293,7 +293,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	return j
 }
 
-func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.Job, body ...string) models.JobRun {
+func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
 	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
 	bodyBuffer := &bytes.Buffer{}
@@ -421,7 +421,7 @@ func StringToRunLogData(str string) hexutil.Bytes {
 	return hexutil.MustDecode(prefix + lenHex + data + endPad)
 }
 
-func WaitForRuns(t *testing.T, j models.Job, store *store.Store, want int) []models.JobRun {
+func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) []models.JobRun {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 

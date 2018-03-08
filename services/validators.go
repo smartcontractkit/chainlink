@@ -13,7 +13,7 @@ import (
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
 // application logic errors.
-func ValidateJob(j models.Job, store *store.Store) error {
+func ValidateJob(j models.JobSpec, store *store.Store) error {
 	var merr error
 	if j.StartAt.Valid && j.EndAt.Valid && j.StartAt.Time.After(j.EndAt.Time) {
 		merr = multierr.Append(merr, fmtJobError(errors.New("startat cannot be before endat")))
@@ -36,7 +36,7 @@ func fmtJobError(err error) error {
 }
 
 // ValidateInitiator checks the Initiator for any application logic errors.
-func ValidateInitiator(i models.Initiator, j models.Job) error {
+func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	switch strings.ToLower(i.Type) {
 	case models.InitiatorRunAt:
 		return validateRunAtInitiator(i, j)
@@ -53,7 +53,7 @@ func ValidateInitiator(i models.Initiator, j models.Job) error {
 	}
 }
 
-func validateRunAtInitiator(i models.Initiator, j models.Job) error {
+func validateRunAtInitiator(i models.Initiator, j models.JobSpec) error {
 	if i.Time.Unix() <= 0 {
 		return fmtInitiatorError(errors.New(`runat must have a time`))
 	} else if j.StartAt.Valid && i.Time.Unix() < j.StartAt.Time.Unix() {

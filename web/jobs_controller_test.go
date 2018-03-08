@@ -29,7 +29,7 @@ func TestJobsController_Index(t *testing.T) {
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/jobs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
-	var jobs []models.Job
+	var jobs []models.JobSpec
 	json.Unmarshal(cltest.ParseResponseBody(resp), &jobs)
 	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, models.InitiatorWeb, jobs[1].Initiators[0].Type, "should have the same type")
