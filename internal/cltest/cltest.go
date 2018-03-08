@@ -183,9 +183,11 @@ func cleanUpStore(store *store.Store) {
 
 func NewNodeListener() (*services.NodeListener, func()) {
 	store, cl := NewStore()
-	nl := &services.NodeListener{Store: store}
+	ht := services.NewHeadTracker(store)
+	nl := &services.NodeListener{Store: store, HeadTracker: ht}
 	return nl, func() {
 		nl.Stop()
+		ht.Stop()
 		cl()
 	}
 }

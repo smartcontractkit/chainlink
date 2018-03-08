@@ -18,6 +18,7 @@ type Application interface {
 // and Store. The NodeListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
+	HeadTracker  *HeadTracker
 	NodeListener *NodeListener
 	Scheduler    *Scheduler
 	Store        *store.Store
@@ -30,8 +31,10 @@ type ChainlinkApplication struct {
 func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
+	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		NodeListener: &NodeListener{Store: store},
+		HeadTracker:  ht,
+		NodeListener: &NodeListener{Store: store, HeadTracker: ht},
 		Scheduler:    NewScheduler(store),
 		Store:        store,
 	}
@@ -41,7 +44,10 @@ func NewApplication(config store.Config) Application {
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	return multierr.Combine(app.NodeListener.Start(), app.Scheduler.Start())
+	return multierr.Combine(
+		app.HeadTracker.Start(),
+		app.NodeListener.Start(),
+		app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -51,6 +57,7 @@ func (app *ChainlinkApplication) Stop() error {
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
 	app.NodeListener.Stop()
+	app.HeadTracker.Stop()
 	return app.Store.Close()
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/ethereum/go-ethereum/rpc"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -23,18 +24,15 @@ type NodeListener struct {
 	jobSubscriptions []JobSubscription
 	jobsMutex        sync.Mutex
 	started          bool
+	headTrackerId    string
 }
 
 // Start obtains the jobs from the store and subscribes to logs and newHeads
 // in order to start and resume jobs waiting on events or confirmations.
 func (nl *NodeListener) Start() error {
-	ht, err := NewHeadTracker(nl.Store, nl)
-	if err != nil {
-		return err
-	}
-	nl.HeadTracker = ht
 	nl.started = true
-	return nl.HeadTracker.Start()
+	nl.headTrackerId = nl.HeadTracker.Attach(nl)
+	return nil
 }
 
 // Stop gracefully closes its access to the store's EthNotifications and resets
@@ -42,7 +40,7 @@ func (nl *NodeListener) Start() error {
 func (nl *NodeListener) Stop() error {
 	if nl.started {
 		nl.started = false
-		nl.HeadTracker.Stop()
+		nl.HeadTracker.Detach(nl.headTrackerId)
 	}
 	return nil
 }
@@ -124,45 +122,39 @@ func (NoOpHeadTrackable) OnNewHead(*models.BlockHeader) {}
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	Tracker          HeadTrackable
+	trackers         map[string]HeadTrackable
 	headers          chan models.BlockHeader
 	headSubscription *rpc.ClientSubscription
 	store            *store.Store
 	number           *models.IndexableBlockNumber
-	mutex            sync.RWMutex
+	headMutex        sync.RWMutex
+	trackersMutex    sync.RWMutex
+	connected        bool
 }
 
 // Instantiates a new HeadTracker using the orm to persist new block numbers
-func NewHeadTracker(store *store.Store, tracker ...HeadTrackable) (*HeadTracker, error) {
-	ht := &HeadTracker{store: store}
+func NewHeadTracker(store *store.Store) *HeadTracker {
+	return &HeadTracker{store: store, trackers: map[string]HeadTrackable{}}
+}
+
+func (ht *HeadTracker) Start() error {
 	numbers := []models.IndexableBlockNumber{}
-	err := store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
+	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
 	if err != nil && err != storm.ErrNotFound {
-		return nil, err
+		return err
 	}
 	if len(numbers) > 0 {
 		ht.number = &numbers[0]
 		logger.Info("Tracking logs from block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
 	}
-	if len(tracker) > 0 {
-		ht.Tracker = tracker[0]
-	} else {
-		ht.Tracker = NoOpHeadTrackable{}
-	}
 
-	return ht, nil
-}
-
-func (ht *HeadTracker) Start() error {
 	ht.headers = make(chan models.BlockHeader)
 	sub, err := ht.subscribeToNewHeads()
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
-	if err = ht.Tracker.Connected(); err != nil {
-		return err
-	}
+	ht.Connected()
 	go ht.listenToNewHeads()
 	return nil
 }
@@ -176,7 +168,7 @@ func (ht *HeadTracker) Stop() error {
 		close(ht.headers)
 		ht.headers = nil
 	}
-	ht.Tracker.Disconnected()
+	ht.Disconnected()
 	return nil
 }
 
@@ -187,20 +179,67 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		return errors.New("Cannot save a nil block header")
 	}
 
-	ht.mutex.Lock()
+	ht.headMutex.Lock()
 	if ht.number == nil || ht.number.ToInt().Cmp(n.ToInt()) < 0 {
 		copy := *n
 		ht.number = &copy
 	}
-	ht.mutex.Unlock()
+	ht.headMutex.Unlock()
 	return ht.store.Save(n)
 }
 
 // Returns the latest block header being tracked, or nil.
 func (ht *HeadTracker) Get() *models.IndexableBlockNumber {
-	ht.mutex.RLock()
-	defer ht.mutex.RUnlock()
+	ht.headMutex.RLock()
+	defer ht.headMutex.RUnlock()
 	return ht.number
+}
+
+func (ht *HeadTracker) Attach(t HeadTrackable) string {
+	ht.trackersMutex.Lock()
+	defer ht.trackersMutex.Unlock()
+	id := uuid.Must(uuid.NewV4()).String()
+	ht.trackers[id] = t
+	if ht.connected {
+		t.Connected()
+	}
+	return id
+}
+
+func (ht *HeadTracker) Detach(id string) {
+	ht.trackersMutex.Lock()
+	defer ht.trackersMutex.Unlock()
+	t, present := ht.trackers[id]
+	if ht.connected && present {
+		t.Disconnected()
+	}
+	delete(ht.trackers, id)
+}
+
+func (ht *HeadTracker) Connected() {
+	ht.trackersMutex.RLock()
+	defer ht.trackersMutex.RUnlock()
+	ht.connected = true
+	for _, t := range ht.trackers {
+		logger.WarnIf(t.Connected())
+	}
+}
+
+func (ht *HeadTracker) Disconnected() {
+	ht.trackersMutex.RLock()
+	defer ht.trackersMutex.RUnlock()
+	ht.connected = false
+	for _, t := range ht.trackers {
+		t.Disconnected()
+	}
+}
+
+func (ht *HeadTracker) OnNewHead(head *models.BlockHeader) {
+	ht.trackersMutex.RLock()
+	defer ht.trackersMutex.RUnlock()
+	for _, t := range ht.trackers {
+		t.OnNewHead(head)
+	}
 }
 
 func (ht *HeadTracker) subscribeToNewHeads() (*rpc.ClientSubscription, error) {
@@ -226,7 +265,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 		if err := ht.Save(number); err != nil {
 			logger.Error(err.Error())
 		} else {
-			ht.Tracker.OnNewHead(&header)
+			ht.OnNewHead(&header)
 		}
 	}
 }
