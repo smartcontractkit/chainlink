@@ -70,13 +70,17 @@ func TestNodeListener_Restart(t *testing.T) {
 
 	nl := services.NodeListener{Store: store}
 	assert.Nil(t, nl.Start())
+	assert.Equal(t, 2, len(nl.Jobs()))
 	assert.Nil(t, nl.Stop())
+	assert.Equal(t, 0, len(nl.Jobs()))
 
 	eth.RegisterNewHeads()
 	eth.RegisterSubscription("logs", logs)
 	eth.RegisterSubscription("logs", logs)
 	assert.Nil(t, nl.Start())
+	assert.Equal(t, 2, len(nl.Jobs()))
 	assert.Nil(t, nl.Stop())
+	assert.Equal(t, 0, len(nl.Jobs()))
 	eth.EnsureAllCalled(t)
 }
 
