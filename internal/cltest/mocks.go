@@ -105,7 +105,7 @@ func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
-) (*rpc.ClientSubscription, error) {
+) (models.EthSubscription, error) {
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)

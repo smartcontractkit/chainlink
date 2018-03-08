@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,6 +22,14 @@ type Store struct {
 	KeyStore  *KeyStore
 	TxManager *TxManager
 	sigs      chan os.Signal
+}
+
+type rpcSubscriptionWrapper struct {
+	*rpc.Client
+}
+
+func (wrapper rpcSubscriptionWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (models.EthSubscription, error) {
+	return wrapper.Client.EthSubscribe(ctx, channel, args...)
 }
 
 // NewStore will create a new database file at the config's RootDir if
@@ -46,7 +55,7 @@ func NewStore(config Config) *Store {
 		Clock:    Clock{},
 		TxManager: &TxManager{
 			Config:    config,
-			EthClient: &EthClient{ethrpc},
+			EthClient: &EthClient{rpcSubscriptionWrapper{ethrpc}},
 			KeyStore:  keyStore,
 			ORM:       orm,
 		},

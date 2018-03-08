@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -77,7 +76,7 @@ type Unsubscriber interface {
 	Unsubscribe()
 }
 
-// Encapsulates all functionality needed to wrap an ethereum rpc.ClientSubscription
+// Encapsulates all functionality needed to wrap an ethereum subscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the ReceiveLog callback using a strategy pattern.
 type RPCLogSubscription struct {
@@ -87,7 +86,7 @@ type RPCLogSubscription struct {
 	store           *store.Store
 	logs            chan types.Log
 	errors          chan error
-	rpcSubscription *rpc.ClientSubscription
+	ethSubscription models.EthSubscription
 }
 
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
@@ -108,7 +107,7 @@ func NewRPCLogSubscription(
 	if err != nil {
 		return sub, err
 	}
-	sub.rpcSubscription = rpc
+	sub.ethSubscription = rpc
 	go sub.listenToSubscriptionErrors()
 	go sub.listenToLogs()
 	return sub, nil
@@ -116,8 +115,8 @@ func NewRPCLogSubscription(
 
 // Close channels and clean up resources.
 func (sub RPCLogSubscription) Unsubscribe() {
-	if sub.rpcSubscription != nil && sub.rpcSubscription.Err() != nil {
-		sub.rpcSubscription.Unsubscribe()
+	if sub.ethSubscription != nil && sub.ethSubscription.Err() != nil {
+		sub.ethSubscription.Unsubscribe()
 	}
 	close(sub.logs)
 	close(sub.errors)
