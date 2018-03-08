@@ -248,8 +248,9 @@ func toBlockNumArg(number *big.Int) string {
 }
 
 type Sleeper interface {
+	Reset()
 	Sleep()
-	SleepTime() time.Duration
+	Duration() time.Duration
 }
 
 type BackoffSleeper struct {
@@ -264,9 +265,9 @@ func NewBackoffSleeper() BackoffSleeper {
 }
 
 func (bs BackoffSleeper) Sleep() {
-	time.Sleep(bs.Duration())
+	time.Sleep(bs.Backoff.Duration())
 }
 
-func (bs BackoffSleeper) SleepTime() time.Duration {
+func (bs BackoffSleeper) Duration() time.Duration {
 	return bs.ForAttempt(bs.Attempt())
 }

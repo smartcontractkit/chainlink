@@ -102,8 +102,8 @@ func TestUtils_BackoffSleeper(t *testing.T) {
 	d := 1 * time.Nanosecond
 	bs.Min = d
 	bs.Factor = 2
-	assert.Equal(t, d, bs.SleepTime())
+	assert.Equal(t, d, bs.Duration())
 	bs.Sleep()
 	d2 := 2 * time.Nanosecond
-	assert.Equal(t, d2, bs.SleepTime())
+	assert.Equal(t, d2, bs.Duration())
 }

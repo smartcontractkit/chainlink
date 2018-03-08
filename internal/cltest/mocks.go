@@ -403,5 +403,6 @@ func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount +=
 
 type NeverSleeper struct{}
 
-func (ns NeverSleeper) Sleep()                   {}
-func (ns NeverSleeper) SleepTime() time.Duration { return 0 * time.Microsecond }
+func (ns NeverSleeper) Reset()                  {}
+func (ns NeverSleeper) Sleep()                  {}
+func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }

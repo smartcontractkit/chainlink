@@ -278,8 +278,9 @@ func (ht *HeadTracker) listenToNewHeads() {
 }
 
 func (ht *HeadTracker) reconnectLoop() {
+	ht.sleeper.Reset()
 	for {
-		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.SleepTime())
+		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
 		ht.sleeper.Sleep()
 		err := ht.Start()
 		if err != nil {
