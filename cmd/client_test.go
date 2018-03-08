@@ -13,7 +13,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestRunNode(t *testing.T) {
+func TestClient_RunNode(t *testing.T) {
 	app, _ := cltest.NewApplicationWithKeyStore() // cleanup invoked in client.RunNode
 	r := &cltest.RendererMock{}
 	var called bool
@@ -33,7 +33,7 @@ func TestRunNode(t *testing.T) {
 	assert.True(t, called)
 }
 
-func TestClientGetJobs(t *testing.T) {
+func TestClient_GetJobSpecs(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -44,13 +44,13 @@ func TestClientGetJobs(t *testing.T) {
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
-	assert.Nil(t, client.GetJobs(nil))
+	assert.Nil(t, client.GetJobSpecs(nil))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
 	assert.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
 }
 
-func TestClientShowJob(t *testing.T) {
+func TestClient_ShowJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	job := cltest.NewJob()
@@ -61,12 +61,12 @@ func TestClientShowJob(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
 	c := cli.NewContext(nil, set, nil)
-	assert.Nil(t, client.ShowJob(c))
+	assert.Nil(t, client.ShowJobSpec(c))
 	assert.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, job.ID, r.Renders[0].(*presenters.JobSpec).ID)
 }
 
-func TestClientShowJobNotFound(t *testing.T) {
+func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -75,6 +75,6 @@ func TestClientShowJobNotFound(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})
 	c := cli.NewContext(nil, set, nil)
-	assert.NotNil(t, client.ShowJob(c))
+	assert.NotNil(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
 }
