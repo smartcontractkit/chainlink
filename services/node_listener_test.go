@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,22 +33,18 @@ func TestNodeListener_Start_NewHeads(t *testing.T) {
 func TestNodeListener_Start_WithJobs(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	nl, cleanup := cltest.NewNodeListener()
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
-	nl := services.NodeListener{Store: store}
-	defer nl.Stop()
+	eth := cltest.MockEthOnStore(nl.Store)
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, store.SaveJob(&j1))
-	assert.Nil(t, store.SaveJob(&j2))
+	assert.Nil(t, nl.Store.SaveJob(&j1))
+	assert.Nil(t, nl.Store.SaveJob(&j2))
 	eth.RegisterSubscription("logs", make(chan types.Log))
 	eth.RegisterSubscription("logs", make(chan types.Log))
 
-	err := nl.Start()
-	assert.Nil(t, err)
-
+	assert.Nil(t, nl.Start())
 	eth.EnsureAllCalled(t)
 }
 
@@ -181,5 +178,57 @@ func TestNodeListener_newHeadsNotification(t *testing.T) {
 	nhChan <- models.BlockHeader{Number: blockNumber}
 
 	ethMock.EnsureAllCalled(t)
-	assert.Equal(t, blockNumber, app.Store.HeadTracker.Get().Number)
+	assert.Equal(t, blockNumber, app.NodeListener.HeadTracker.Get().Number)
+}
+
+func TestHeadTracker_New(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(1))))
+	last := models.NewIndexableBlockNumber(big.NewInt(0x10))
+	assert.Nil(t, store.Save(last))
+	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(0xf))))
+
+	ht, err := services.NewHeadTracker(store)
+	assert.Nil(t, err)
+	assert.Equal(t, last.Number, ht.Get().Number)
+}
+
+func TestHeadTracker_Get(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	initial := models.NewIndexableBlockNumber(big.NewInt(1))
+	assert.Nil(t, store.Save(initial))
+
+	tests := []struct {
+		name      string
+		toSave    *models.IndexableBlockNumber
+		want      hexutil.Big
+		wantError bool
+	}{
+		// order matters
+		{"greater", cltest.IndexableBlockNumber(2), cltest.BigHexInt(2), false},
+		{"less than", cltest.IndexableBlockNumber(1), cltest.BigHexInt(2), false},
+		{"zero", cltest.IndexableBlockNumber(0), cltest.BigHexInt(2), true},
+		{"nil", nil, cltest.BigHexInt(2), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ht, err := services.NewHeadTracker(store)
+			assert.Nil(t, err)
+			err = ht.Save(test.toSave)
+			if test.wantError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+
+			assert.Equal(t, test.want, ht.Get().Number)
+		})
+	}
 }

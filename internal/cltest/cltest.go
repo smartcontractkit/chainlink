@@ -181,6 +181,15 @@ func cleanUpStore(store *store.Store) {
 	}()
 }
 
+func NewNodeListener() (*services.NodeListener, func()) {
+	store, cl := NewStore()
+	nl := &services.NodeListener{Store: store}
+	return nl, func() {
+		nl.Stop()
+		cl()
+	}
+}
+
 func CloseGock(t *testing.T) {
 	assert.True(t, gock.IsDone(), "Not all gock requests were fulfilled")
 	gock.DisableNetworking()
