@@ -38,7 +38,7 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	defer cleanup()
 
 	j := models.NewJob()
-	j.Tasks = []models.Task{
+	j.Tasks = []models.TaskSpec{
 		{Type: "NoOp"},
 		{Type: "NoOpPend"},
 		{Type: "NoOp"},
@@ -73,7 +73,7 @@ func TestTaskRun_Merge(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			orig := `{"url":"https://OLD.example.com/api"}`
 			tr := models.TaskRun{
-				Task: models.Task{
+				Task: models.TaskSpec{
 					Params: models.JSON{gjson.Parse(orig)},
 					Type:   "httpget",
 				},

@@ -16,7 +16,7 @@ type Adapter interface {
 }
 
 // For determines the adapter type to use for a given task
-func For(task models.Task, store *store.Store) (ac Adapter, err error) {
+func For(task models.TaskSpec, store *store.Store) (ac Adapter, err error) {
 	switch strings.ToLower(task.Type) {
 	case "httpget":
 		ac = &HTTPGet{}

@@ -13,7 +13,7 @@ import (
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
 	t.Parallel()
-	task := models.Task{Type: "NoOp"}
+	task := models.TaskSpec{Type: "NoOp"}
 	adapter, err := adapters.For(task, nil)
 	adapter.Perform(models.RunResult{}, nil)
 	assert.Nil(t, err)
@@ -41,7 +41,7 @@ func TestAdapterFor(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.want, func(t *testing.T) {
-			task := models.Task{Type: test.bridgeName}
+			task := models.TaskSpec{Type: test.bridgeName}
 			adapter, err := adapters.For(task, store)
 			if test.errored {
 				assert.NotNil(t, err)

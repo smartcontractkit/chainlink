@@ -22,11 +22,11 @@ import (
 
 func NewJob() models.JobSpec {
 	j := models.NewJob()
-	j.Tasks = []models.Task{NewTask("NoOp")}
+	j.Tasks = []models.TaskSpec{NewTask("NoOp")}
 	return j
 }
 
-func NewTask(taskType string, json ...string) models.Task {
+func NewTask(taskType string, json ...string) models.TaskSpec {
 	if len(json) == 0 {
 		json = append(json, ``)
 	}
@@ -34,7 +34,7 @@ func NewTask(taskType string, json ...string) models.Task {
 	params, err := params.Add("type", taskType)
 	mustNotErr(err)
 
-	return models.Task{
+	return models.TaskSpec{
 		Type:   taskType,
 		Params: params,
 	}

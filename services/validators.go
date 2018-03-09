@@ -75,7 +75,7 @@ func validateCronInitiator(i models.Initiator) error {
 	return nil
 }
 
-func validateTask(task models.Task, store *store.Store) error {
+func validateTask(task models.TaskSpec, store *store.Store) error {
 	if _, err := adapters.For(task, store); err != nil {
 		return fmt.Errorf("task validation: %v", err)
 	}
