@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/jpillora/backoff"
 	uuid "github.com/satori/go.uuid"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -244,4 +245,29 @@ func toBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+type Sleeper interface {
+	Reset()
+	Sleep()
+	Duration() time.Duration
+}
+
+type BackoffSleeper struct {
+	*backoff.Backoff
+}
+
+func NewBackoffSleeper() BackoffSleeper {
+	return BackoffSleeper{&backoff.Backoff{
+		Min: 1 * time.Second,
+		Max: 10 * time.Second,
+	}}
+}
+
+func (bs BackoffSleeper) Sleep() {
+	time.Sleep(bs.Backoff.Duration())
+}
+
+func (bs BackoffSleeper) Duration() time.Duration {
+	return bs.ForAttempt(bs.Attempt())
 }

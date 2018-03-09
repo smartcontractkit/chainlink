@@ -181,6 +181,17 @@ func cleanUpStore(store *store.Store) {
 	}()
 }
 
+func NewEthereumListener() (*services.EthereumListener, func()) {
+	store, cl := NewStore()
+	ht := services.NewHeadTracker(store, NeverSleeper{})
+	nl := &services.EthereumListener{Store: store, HeadTracker: ht}
+	return nl, func() {
+		nl.Stop()
+		ht.Stop()
+		cl()
+	}
+}
+
 func CloseGock(t *testing.T) {
 	assert.True(t, gock.IsDone(), "Not all gock requests were fulfilled")
 	gock.DisableNetworking()
@@ -365,29 +376,29 @@ func CheckStatusCode(t *testing.T, resp *http.Response, expected int) {
 
 func WaitForJobRunToComplete(
 	t *testing.T,
-	app *TestApplication,
+	store *store.Store,
 	jr models.JobRun,
 ) models.JobRun {
-	return WaitForJobRunStatus(t, app, jr, models.StatusCompleted)
+	return WaitForJobRunStatus(t, store, jr, models.StatusCompleted)
 }
 
 func WaitForJobRunToPend(
 	t *testing.T,
-	app *TestApplication,
+	store *store.Store,
 	jr models.JobRun,
 ) models.JobRun {
-	return WaitForJobRunStatus(t, app, jr, models.StatusPending)
+	return WaitForJobRunStatus(t, store, jr, models.StatusPending)
 }
 
 func WaitForJobRunStatus(
 	t *testing.T,
-	app *TestApplication,
+	store *store.Store,
 	jr models.JobRun,
 	status string,
 ) models.JobRun {
 	t.Helper()
 	gomega.NewGomegaWithT(t).Eventually(func() string {
-		assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+		assert.Nil(t, store.One("ID", jr.ID, &jr))
 		return jr.Status
 	}).Should(gomega.Equal(status))
 	return jr

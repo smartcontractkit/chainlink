@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -26,23 +26,16 @@ func (ta *TestApplication) MockEthClient() *EthMock {
 }
 
 func MockEthOnStore(s *store.Store) *EthMock {
-	mock := NewMockGethRpc()
+	mock := &EthMock{}
 	eth := &store.EthClient{mock}
 	s.TxManager.EthClient = eth
 	return mock
 }
 
-func NewMockGethRpc() *EthMock {
-	return &EthMock{
-		NewHeadsChannel: make(chan models.BlockHeader),
-	}
-}
-
 type EthMock struct {
-	Responses       []MockResponse
-	Subscriptions   []MockSubscription
-	NewHeadsChannel chan models.BlockHeader
-	newHeadsCalled  bool
+	Responses      []MockResponse
+	Subscriptions  []MockSubscription
+	newHeadsCalled bool
 }
 
 func (mock *EthMock) Register(
@@ -100,19 +93,39 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 	return fmt.Errorf("EthMock: Method %v not registered", method)
 }
 
-func (mock *EthMock) RegisterSubscription(name string, channel interface{}) {
-	res := MockSubscription{
+func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) MockSubscription {
+	var channel interface{}
+	if len(channels) > 0 {
+		channel = channels[0]
+	} else {
+		channel = channelFromSubscriptionName(name)
+	}
+
+	sub := MockSubscription{
 		name:    name,
 		channel: channel,
+		Errors:  make(chan error, 1),
 	}
-	mock.Subscriptions = append(mock.Subscriptions, res)
+	mock.Subscriptions = append(mock.Subscriptions, sub)
+	return sub
+}
+
+func channelFromSubscriptionName(name string) interface{} {
+	switch name {
+	case "logs":
+		return make(chan types.Log)
+	case "newHead":
+		return make(chan models.BlockHeader)
+	default:
+		return make(chan struct{})
+	}
 }
 
 func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
-) (*rpc.ClientSubscription, error) {
+) (models.EthSubscription, error) {
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
@@ -124,12 +137,12 @@ func (mock *EthMock) EthSubscribe(
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
 			}
-			return &rpc.ClientSubscription{}, nil
+			return sub, nil
 		}
 	}
 	if args[0] == "newHeads" && !mock.newHeadsCalled {
 		mock.newHeadsCalled = true
-		return &rpc.ClientSubscription{}, nil
+		return EmptyMockSubscription(), nil
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed.")
 	}
@@ -171,6 +184,26 @@ func fwdHeaders(actual, mock interface{}) {
 type MockSubscription struct {
 	name    string
 	channel interface{}
+	Errors  chan error
+}
+
+func EmptyMockSubscription() MockSubscription {
+	return MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+}
+
+func (mes MockSubscription) Err() <-chan error { return mes.Errors }
+func (mes MockSubscription) Unsubscribe() {
+	switch mes.channel.(type) {
+	case chan struct{}:
+		close(mes.channel.(chan struct{}))
+	case chan types.Log:
+		close(mes.channel.(chan types.Log))
+	case chan models.BlockHeader:
+		close(mes.channel.(chan models.BlockHeader))
+	default:
+		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
+	}
+	close(mes.Errors)
 }
 
 type MockResponse struct {
@@ -353,3 +386,23 @@ type MockCronEntry struct {
 	Schedule string
 	Function func()
 }
+
+type MockHeadTrackable struct {
+	ConnectedCount    int
+	DisconnectedCount int
+	OnNewHeadCount    int
+}
+
+func (m *MockHeadTrackable) Connect() error {
+	m.ConnectedCount += 1
+	return nil
+}
+
+func (m *MockHeadTrackable) Disconnect()                   { m.DisconnectedCount += 1 }
+func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount += 1 }
+
+type NeverSleeper struct{}
+
+func (ns NeverSleeper) Reset()                  {}
+func (ns NeverSleeper) Sleep()                  {}
+func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }

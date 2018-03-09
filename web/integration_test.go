@@ -68,7 +68,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	jr := cltest.WaitForJobRunToPend(t, app, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPend(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -90,7 +90,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)}
 
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()
 	assert.Nil(t, err)
@@ -241,7 +241,7 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
-	jr := cltest.WaitForJobRunToComplete(t, app, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
@@ -273,7 +273,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToPend(t, app, jr)
+	jr = cltest.WaitForJobRunToPend(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.StatusPending, tr.Status)
@@ -282,7 +282,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Equal(t, "", val)
 
 	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.StatusCompleted, tr.Status)
 	val, err = tr.Result.Value()
@@ -320,7 +320,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
-	jr := cltest.WaitForJobRunToComplete(t, app, jobRuns[0])
+	jr := cltest.WaitForJobRunToComplete(t, app.Store, jobRuns[0])
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 }
 
@@ -339,7 +339,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/uint256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)

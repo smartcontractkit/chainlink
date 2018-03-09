@@ -125,6 +125,12 @@
   version = "v1.0.8"
 
 [[projects]]
+  name = "github.com/jpillora/backoff"
+  packages = ["."]
+  revision = "8eab2debe79d12b7bd3d10653910df25fa9552ba"
+  version = "1.0.0"
+
+[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "3353055b2a1a5ae1b6a8dfde887a524e7088f3a2"
@@ -404,6 +410,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b4ceac592b8765a577db746636ee5bb6c4d4257599fbda6fcf9722b3ddab9eed"
+  inputs-digest = "93f2e2bc50a4281a0dc9b51a03383887825325c04c45cf9eb833089776718c5b"
   solver-name = "gps-cdcl"
   solver-version = 1
