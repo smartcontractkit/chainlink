@@ -393,12 +393,12 @@ type MockHeadTrackable struct {
 	OnNewHeadCount    int
 }
 
-func (m *MockHeadTrackable) Connected() error {
+func (m *MockHeadTrackable) Connect() error {
 	m.ConnectedCount += 1
 	return nil
 }
 
-func (m *MockHeadTrackable) Disconnected()                 { m.DisconnectedCount += 1 }
+func (m *MockHeadTrackable) Disconnect()                   { m.DisconnectedCount += 1 }
 func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount += 1 }
 
 type NeverSleeper struct{}

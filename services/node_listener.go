@@ -67,7 +67,7 @@ func (nl *NodeListener) addSubscription(sub JobSubscription) {
 	nl.jobSubscriptions = append(nl.jobSubscriptions, sub)
 }
 
-func (nl *NodeListener) Connected() error {
+func (nl *NodeListener) Connect() error {
 	jobs, err := nl.Store.Jobs()
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (nl *NodeListener) Connected() error {
 	return err
 }
 
-func (nl *NodeListener) Disconnected() {
+func (nl *NodeListener) Disconnect() {
 	nl.jobsMutex.Lock()
 	defer nl.jobsMutex.Unlock()
 	for _, sub := range nl.jobSubscriptions {
@@ -100,15 +100,15 @@ func (nl *NodeListener) OnNewHead(_ *models.BlockHeader) {
 }
 
 type HeadTrackable interface {
-	Connected() error
-	Disconnected()
+	Connect() error
+	Disconnect()
 	OnNewHead(*models.BlockHeader)
 }
 
 type NoOpHeadTrackable struct{}
 
-func (NoOpHeadTrackable) Connected() error              { return nil }
-func (NoOpHeadTrackable) Disconnected()                 {}
+func (NoOpHeadTrackable) Connect() error                { return nil }
+func (NoOpHeadTrackable) Disconnect()                   {}
 func (NoOpHeadTrackable) OnNewHead(*models.BlockHeader) {}
 
 // Holds and stores the latest block number experienced by this particular node
@@ -153,7 +153,7 @@ func (ht *HeadTracker) Start() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.Connected()
+	ht.Connect()
 	go ht.listenToNewHeads()
 	return nil
 }
@@ -167,7 +167,7 @@ func (ht *HeadTracker) Stop() error {
 		close(ht.headers)
 		ht.headers = nil
 	}
-	ht.Disconnected()
+	ht.Disconnect()
 	return nil
 }
 
@@ -200,7 +200,7 @@ func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
 	if ht.connected {
-		t.Connected()
+		t.Connect()
 	}
 	return id
 }
@@ -210,28 +210,28 @@ func (ht *HeadTracker) Detach(id string) {
 	defer ht.trackersMutex.Unlock()
 	t, present := ht.trackers[id]
 	if ht.connected && present {
-		t.Disconnected()
+		t.Disconnect()
 	}
 	delete(ht.trackers, id)
 }
 
 func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 
-func (ht *HeadTracker) Connected() {
+func (ht *HeadTracker) Connect() {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = true
 	for _, t := range ht.trackers {
-		logger.WarnIf(t.Connected())
+		logger.WarnIf(t.Connect())
 	}
 }
 
-func (ht *HeadTracker) Disconnected() {
+func (ht *HeadTracker) Disconnect() {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = false
 	for _, t := range ht.trackers {
-		t.Disconnected()
+		t.Disconnect()
 	}
 }
 
