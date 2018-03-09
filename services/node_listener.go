@@ -21,14 +21,12 @@ type NodeListener struct {
 	HeadTracker      *HeadTracker
 	jobSubscriptions []JobSubscription
 	jobsMutex        sync.Mutex
-	started          bool
 	headTrackerId    string
 }
 
 // Start obtains the jobs from the store and subscribes to logs and newHeads
 // in order to start and resume jobs waiting on events or confirmations.
 func (nl *NodeListener) Start() error {
-	nl.started = true
 	nl.headTrackerId = nl.HeadTracker.Attach(nl)
 	return nil
 }
@@ -36,17 +34,14 @@ func (nl *NodeListener) Start() error {
 // Stop gracefully closes its access to the store's EthNotifications and resets
 // resources.
 func (nl *NodeListener) Stop() error {
-	if nl.started {
-		nl.started = false
-		nl.HeadTracker.Detach(nl.headTrackerId)
-	}
+	nl.HeadTracker.Detach(nl.headTrackerId)
 	return nil
 }
 
 // AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
 func (nl *NodeListener) AddJob(job models.Job) error {
-	if !nl.started || !job.IsLogInitiated() {
+	if !job.IsLogInitiated() || !nl.HeadTracker.IsConnected() {
 		return nil
 	}
 
@@ -219,6 +214,8 @@ func (ht *HeadTracker) Detach(id string) {
 	}
 	delete(ht.trackers, id)
 }
+
+func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 
 func (ht *HeadTracker) Connected() {
 	ht.trackersMutex.RLock()

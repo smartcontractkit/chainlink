@@ -129,6 +129,7 @@ func TestNodeListener_AddJob_Listening(t *testing.T) {
 			defer cleanup()
 			store := nl.Store
 			cltest.MockEthOnStore(store)
+			assert.Nil(t, nl.HeadTracker.Start())
 			assert.Nil(t, nl.Start())
 
 			eth := cltest.MockEthOnStore(store)
