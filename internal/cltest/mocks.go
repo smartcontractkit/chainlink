@@ -114,7 +114,7 @@ func channelFromSubscriptionName(name string) interface{} {
 	switch name {
 	case "logs":
 		return make(chan types.Log)
-	case "newHead":
+	case "newHeads":
 		return make(chan models.BlockHeader)
 	default:
 		return make(chan struct{})
