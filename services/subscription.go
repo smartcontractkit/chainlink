@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -38,11 +37,11 @@ type JobSubscription struct {
 
 // Constructor of JobSubscription that to starts listening to and keeps track of
 // event logs corresponding to a job.
-func StartJobSubscription(job models.Job, store *store.Store) (JobSubscription, error) {
+func StartJobSubscription(job models.Job, head *models.IndexableBlockNumber, store *store.Store) (JobSubscription, error) {
 	var merr error
 	var initSubs []Unsubscriber
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
-		sub, err := StartEthLogSubscription(initr, job, store)
+		sub, err := StartEthLogSubscription(initr, job, head, store)
 		merr = multierr.Append(merr, err)
 		if err == nil {
 			initSubs = append(initSubs, sub)
@@ -50,7 +49,7 @@ func StartJobSubscription(job models.Job, store *store.Store) (JobSubscription, 
 	}
 
 	for _, initr := range job.InitiatorsFor(models.InitiatorRunLog) {
-		sub, err := StartRunLogSubscription(initr, job, store)
+		sub, err := StartRunLogSubscription(initr, job, head, store)
 		merr = multierr.Append(merr, err)
 		if err == nil {
 			initSubs = append(initSubs, sub)
@@ -77,31 +76,38 @@ type Unsubscriber interface {
 	Unsubscribe()
 }
 
-// Encapsulates all functionality needed to wrap an ethereum rpc.ClientSubscription
+// Encapsulates all functionality needed to wrap an ethereum subscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the ReceiveLog callback using a strategy pattern.
 type RPCLogSubscription struct {
-	Job              models.Job
-	Initiator        models.Initiator
-	ReceiveLog       func(RPCLogEvent)
-	store            *store.Store
-	logNotifications chan types.Log
-	errors           chan error
-	rpcSubscription  *rpc.ClientSubscription
+	Job             models.Job
+	Initiator       models.Initiator
+	ReceiveLog      func(RPCLogEvent)
+	store           *store.Store
+	logs            chan types.Log
+	errors          chan error
+	ethSubscription models.EthSubscription
 }
 
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
-func NewRPCLogSubscription(initr models.Initiator, job models.Job, store *store.Store, callback func(RPCLogEvent)) (RPCLogSubscription, error) {
+func NewRPCLogSubscription(
+	initr models.Initiator,
+	job models.Job,
+	head *models.IndexableBlockNumber,
+	store *store.Store,
+	callback func(RPCLogEvent),
+) (RPCLogSubscription, error) {
 	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
-	sub.logNotifications = make(chan types.Log)
+	sub.logs = make(chan types.Log)
 
-	fq := utils.ToFilterQueryFor(store.HeadTracker.Get().ToInt(), []common.Address{initr.Address})
-	rpc, err := store.TxManager.SubscribeToLogs(sub.logNotifications, fq)
+	logListening(initr, head)
+	fq := utils.ToFilterQueryFor(head.ToInt(), []common.Address{initr.Address})
+	rpc, err := store.TxManager.SubscribeToLogs(sub.logs, fq)
 	if err != nil {
 		return sub, err
 	}
-	sub.rpcSubscription = rpc
+	sub.ethSubscription = rpc
 	go sub.listenToSubscriptionErrors()
 	go sub.listenToLogs()
 	return sub, nil
@@ -109,10 +115,10 @@ func NewRPCLogSubscription(initr models.Initiator, job models.Job, store *store.
 
 // Close channels and clean up resources.
 func (sub RPCLogSubscription) Unsubscribe() {
-	if sub.rpcSubscription != nil && sub.rpcSubscription.Err() != nil {
-		sub.rpcSubscription.Unsubscribe()
+	if sub.ethSubscription != nil && sub.ethSubscription.Err() != nil {
+		sub.ethSubscription.Unsubscribe()
 	}
-	close(sub.logNotifications)
+	close(sub.logs)
 	close(sub.errors)
 }
 
@@ -123,7 +129,7 @@ func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 }
 
 func (sub RPCLogSubscription) listenToLogs() {
-	for el := range sub.logNotifications {
+	for el := range sub.logs {
 		sub.ReceiveLog(RPCLogEvent{
 			Job:       sub.Job,
 			Initiator: sub.Initiator,
@@ -134,22 +140,21 @@ func (sub RPCLogSubscription) listenToLogs() {
 }
 
 // Starts an RPCLogSubscription tailored for use with RunLogs.
-func StartRunLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
-	logListening(initr)
-	return NewRPCLogSubscription(initr, job, store, ReceiveRunLog)
+func StartRunLogSubscription(initr models.Initiator, job models.Job, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+	return NewRPCLogSubscription(initr, job, head, store, ReceiveRunLog)
 }
 
 // Starts an RPCLogSubscription tailored for use with EthLogs.
-func StartEthLogSubscription(initr models.Initiator, job models.Job, store *store.Store) (Unsubscriber, error) {
-	logListening(initr)
-	return NewRPCLogSubscription(initr, job, store, ReceiveEthLog)
+func StartEthLogSubscription(initr models.Initiator, job models.Job, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+	return NewRPCLogSubscription(initr, job, head, store, ReceiveEthLog)
 }
 
-func logListening(initr models.Initiator) {
+func logListening(initr models.Initiator, number *models.IndexableBlockNumber) {
 	msg := fmt.Sprintf(
-		"Listening for %v from address %v for job %v",
+		"Listening for %v from address %v from %v for job %v",
 		initr.Type,
 		presenters.LogListeningAddress(initr.Address),
+		number.FriendlyString(),
 		initr.JobID)
 	logger.Infow(msg)
 }

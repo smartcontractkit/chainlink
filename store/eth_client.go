@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -23,7 +22,7 @@ type EthClient struct {
 // a JSON-RPC call with the given arguments and EthSubscribe registers a subscription.
 type CallerSubscriber interface {
 	Call(result interface{}, method string, args ...interface{}) error
-	EthSubscribe(context.Context, interface{}, ...interface{}) (*rpc.ClientSubscription, error)
+	EthSubscribe(context.Context, interface{}, ...interface{}) (models.EthSubscription, error)
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
@@ -83,7 +82,7 @@ func (eth *EthClient) GetBlockNumber() (uint64, error) {
 func (eth *EthClient) SubscribeToLogs(
 	channel chan<- types.Log,
 	q ethereum.FilterQuery,
-) (*rpc.ClientSubscription, error) {
+) (models.EthSubscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	ctx := context.Background()
 	sub, err := eth.EthSubscribe(ctx, channel, "logs", utils.ToFilterArg(q))
@@ -93,7 +92,7 @@ func (eth *EthClient) SubscribeToLogs(
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (eth *EthClient) SubscribeToNewHeads(
 	channel chan<- models.BlockHeader,
-) (*rpc.ClientSubscription, error) {
+) (models.EthSubscription, error) {
 	ctx := context.Background()
 	sub, err := eth.EthSubscribe(ctx, channel, "newHeads")
 	return sub, err
