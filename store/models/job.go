@@ -29,7 +29,7 @@ const (
 type JobSpec struct {
 	ID         string      `json:"id" storm:"id,unique"`
 	Initiators []Initiator `json:"initiators"`
-	Tasks      []Task      `json:"tasks" storm:"inline"`
+	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
 	CreatedAt  Time        `json:"createdAt" storm:"index"`
@@ -162,17 +162,17 @@ func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog
 }
 
-// Task is the specific unit of work to be carried out. The
+// TaskSpec is the definition of work to be carried out. The
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
-type Task struct {
+type TaskSpec struct {
 	Type   string `json:"type" storm:"index"`
 	Params JSON
 }
 
-// UnmarshalJSON parses the given input and updates the Task.
-func (t *Task) UnmarshalJSON(input []byte) error {
-	type Alias Task
+// UnmarshalJSON parses the given input and updates the TaskSpec.
+func (t *TaskSpec) UnmarshalJSON(input []byte) error {
+	type Alias TaskSpec
 	var aux Alias
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
@@ -188,8 +188,8 @@ func (t *Task) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON-encoded Task Params.
-func (t Task) MarshalJSON() ([]byte, error) {
+// MarshalJSON returns the JSON-encoded TaskSpec Params.
+func (t TaskSpec) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.Params)
 }
 

@@ -30,7 +30,7 @@ func TestJobNewRun(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
-	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}
+	job.Tasks = []models.TaskSpec{{Type: "NoOp"}}
 
 	newRun := job.NewRun()
 	assert.Equal(t, job.ID, newRun.JobID)
@@ -108,7 +108,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var task models.Task
+			var task models.TaskSpec
 			err := json.Unmarshal([]byte(test.json), &task)
 			assert.Nil(t, err)
 

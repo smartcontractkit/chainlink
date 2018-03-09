@@ -60,7 +60,7 @@ func (jr JobRun) NextTaskRun() TaskRun {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	Task   Task      `json:"task"`
+	Task   TaskSpec  `json:"task"`
 	ID     string    `json:"id" storm:"id,unique"`
 	Status string    `json:"status"`
 	Result RunResult `json:"result"`

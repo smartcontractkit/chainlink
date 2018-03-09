@@ -1,5 +1,5 @@
 // Package presenters allow for the specification and result
-// of a Job, its associated Tasks, and every JobRun and TaskRun
+// of a Job, its associated TaskSpecs, and every JobRun and TaskRun
 // to be returned in a user friendly human readable format.
 package presenters
 
@@ -180,13 +180,13 @@ func (i Initiator) FriendlyAddress() string {
 	return ""
 }
 
-// Task holds a task specified in the Job definition.
-type Task struct {
-	models.Task
+// TaskSpec holds a task specified in the Job definition.
+type TaskSpec struct {
+	models.TaskSpec
 }
 
-// FriendlyParams returns a map of the Task's parameters.
-func (t Task) FriendlyParams() (string, string) {
+// FriendlyParams returns a map of the TaskSpec's parameters.
+func (t TaskSpec) FriendlyParams() (string, string) {
 	keys := []string{}
 	values := []string{}
 	t.Params.ForEach(func(key, value gjson.Result) bool {

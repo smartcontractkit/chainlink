@@ -137,7 +137,7 @@ func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Type", "Config", "Value"})
 	for _, t := range j.Tasks {
-		p := presenters.Task{t}
+		p := presenters.TaskSpec{t}
 		keys, values := p.FriendlyParams()
 		table.Append([]string{p.Type, keys, values})
 	}
