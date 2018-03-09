@@ -273,7 +273,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	ht := services.NewHeadTracker(store)
 	defer ht.Stop()
 
-	eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
+	eth.RegisterSubscription("newHeads")
 
 	assert.Nil(t, ht.Start())
 	eth.EnsureAllCalled(t)
@@ -319,7 +319,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	eth := cltest.MockEthOnStore(store)
 	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
 
-	firstSub := eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
+	firstSub := eth.RegisterSubscription("newHeads")
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
 
