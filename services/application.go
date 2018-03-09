@@ -14,12 +14,12 @@ type Application interface {
 	GetStore() *store.Store
 }
 
-// ChainlinkApplication contains fields for the NodeListener, Scheduler,
-// and Store. The NodeListener and Scheduler are also available
+// ChainlinkApplication contains fields for the EthereumListener, Scheduler,
+// and Store. The EthereumListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	HeadTracker  *HeadTracker
-	NodeListener *NodeListener
+	EthereumListener *EthereumListener
 	Scheduler    *Scheduler
 	Store        *store.Store
 }
@@ -34,19 +34,19 @@ func NewApplication(config store.Config) Application {
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
 		HeadTracker:  ht,
-		NodeListener: &NodeListener{Store: store, HeadTracker: ht},
+		EthereumListener: &EthereumListener{Store: store, HeadTracker: ht},
 		Scheduler:    NewScheduler(store),
 		Store:        store,
 	}
 }
 
-// Start runs the Store, NodeListener, and Scheduler. If successful,
+// Start runs the Store, EthereumListener, and Scheduler. If successful,
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
 	return multierr.Combine(
 		app.HeadTracker.Start(),
-		app.NodeListener.Start(),
+		app.EthereumListener.Start(),
 		app.Scheduler.Start())
 }
 
@@ -56,7 +56,7 @@ func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
-	app.NodeListener.Stop()
+	app.EthereumListener.Stop()
 	app.HeadTracker.Stop()
 	return app.Store.Close()
 }
@@ -76,5 +76,5 @@ func (app *ChainlinkApplication) AddJob(job models.Job) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.NodeListener.AddJob(job)
+	return app.EthereumListener.AddJob(job)
 }

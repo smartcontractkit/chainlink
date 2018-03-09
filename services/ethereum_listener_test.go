@@ -17,22 +17,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNodeListener_Start_WithJobs(t *testing.T) {
+func TestEthereumListener_Start_WithJobs(t *testing.T) {
 	t.Parallel()
 
-	nl, cleanup := cltest.NewNodeListener()
+	el, cleanup := cltest.NewEthereumListener()
 	defer cleanup()
-	eth := cltest.MockEthOnStore(nl.Store)
-	assert.Nil(t, nl.HeadTracker.Start())
+	eth := cltest.MockEthOnStore(el.Store)
+	assert.Nil(t, el.HeadTracker.Start())
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, nl.Store.SaveJob(&j1))
-	assert.Nil(t, nl.Store.SaveJob(&j2))
+	assert.Nil(t, el.Store.SaveJob(&j1))
+	assert.Nil(t, el.Store.SaveJob(&j2))
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	assert.Nil(t, nl.Start())
+	assert.Nil(t, el.Start())
 	eth.EnsureAllCalled(t)
 }
 
@@ -40,7 +40,7 @@ func newAddr() common.Address {
 	return cltest.NewAddress()
 }
 
-func TestNodeListener_Restart(t *testing.T) {
+func TestEthereumListener_Restart(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -57,22 +57,22 @@ func TestNodeListener_Restart(t *testing.T) {
 	ht := services.NewHeadTracker(store)
 	ht.Start()
 
-	nl := services.NodeListener{Store: store, HeadTracker: ht}
-	assert.Nil(t, nl.Start())
-	assert.Equal(t, 2, len(nl.Jobs()))
-	assert.Nil(t, nl.Stop())
-	assert.Equal(t, 0, len(nl.Jobs()))
+	el := services.EthereumListener{Store: store, HeadTracker: ht}
+	assert.Nil(t, el.Start())
+	assert.Equal(t, 2, len(el.Jobs()))
+	assert.Nil(t, el.Stop())
+	assert.Equal(t, 0, len(el.Jobs()))
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
-	assert.Nil(t, nl.Start())
-	assert.Equal(t, 2, len(nl.Jobs()))
-	assert.Nil(t, nl.Stop())
-	assert.Equal(t, 0, len(nl.Jobs()))
+	assert.Nil(t, el.Start())
+	assert.Equal(t, 2, len(el.Jobs()))
+	assert.Nil(t, el.Stop())
+	assert.Equal(t, 0, len(el.Jobs()))
 	eth.EnsureAllCalled(t)
 }
 
-func TestNodeListener_Reconnected(t *testing.T) {
+func TestEthereumListener_Reconnected(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -87,24 +87,24 @@ func TestNodeListener_Reconnected(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	ht := services.NewHeadTracker(store)
-	nl := services.NodeListener{Store: store, HeadTracker: ht}
-	nl.Start()
+	el := services.EthereumListener{Store: store, HeadTracker: ht}
+	el.Start()
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, 2, len(nl.Jobs()))
+	assert.Equal(t, 2, len(el.Jobs()))
 	assert.Nil(t, ht.Stop())
-	assert.Equal(t, 0, len(nl.Jobs()))
+	assert.Equal(t, 0, len(el.Jobs()))
 
 	eth.RegisterNewHeads()
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, 2, len(nl.Jobs()))
+	assert.Equal(t, 2, len(el.Jobs()))
 	assert.Nil(t, ht.Stop())
-	assert.Equal(t, 0, len(nl.Jobs()))
+	assert.Equal(t, 0, len(el.Jobs()))
 	eth.EnsureAllCalled(t)
 }
 
-func TestNodeListener_AddJob_Listening(t *testing.T) {
+func TestEthereumListener_AddJob_Listening(t *testing.T) {
 	t.Parallel()
 	sharedAddr := newAddr()
 	noAddr := common.Address{}
@@ -125,12 +125,12 @@ func TestNodeListener_AddJob_Listening(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			nl, cleanup := cltest.NewNodeListener()
+			el, cleanup := cltest.NewEthereumListener()
 			defer cleanup()
-			store := nl.Store
+			store := el.Store
 			cltest.MockEthOnStore(store)
-			assert.Nil(t, nl.HeadTracker.Start())
-			assert.Nil(t, nl.Start())
+			assert.Nil(t, el.HeadTracker.Start())
+			assert.Nil(t, el.Start())
 
 			eth := cltest.MockEthOnStore(store)
 			logChan := make(chan types.Log, 1)
@@ -144,7 +144,7 @@ func TestNodeListener_AddJob_Listening(t *testing.T) {
 			j.Initiators = []models.Initiator{initr}
 			assert.Nil(t, store.SaveJob(&j))
 
-			nl.AddJob(j)
+			el.AddJob(j)
 
 			logChan <- types.Log{
 				Address: test.logAddr,
@@ -163,7 +163,7 @@ func TestNodeListener_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestNodeListener_newHeadsNotification(t *testing.T) {
+func TestEthereumListener_newHeadsNotification(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -201,7 +201,7 @@ func TestNodeListener_newHeadsNotification(t *testing.T) {
 	nhChan <- models.BlockHeader{Number: blockNumber}
 
 	ethMock.EnsureAllCalled(t)
-	assert.Equal(t, blockNumber, app.NodeListener.HeadTracker.Get().Number)
+	assert.Equal(t, blockNumber, app.EthereumListener.HeadTracker.Get().Number)
 }
 
 func TestHeadTracker_New(t *testing.T) {
