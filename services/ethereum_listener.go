@@ -14,9 +14,9 @@ import (
 	"go.uber.org/multierr"
 )
 
-// NodeListener manages push notifications from the ethereum node's
+// EthereumListener manages push notifications from the ethereum node's
 // websocket to listen for new heads and log events.
-type NodeListener struct {
+type EthereumListener struct {
 	Store            *store.Store
 	HeadTracker      *HeadTracker
 	jobSubscriptions []JobSubscription
@@ -26,74 +26,74 @@ type NodeListener struct {
 
 // Start obtains the jobs from the store and subscribes to logs and newHeads
 // in order to start and resume jobs waiting on events or confirmations.
-func (nl *NodeListener) Start() error {
-	nl.headTrackerId = nl.HeadTracker.Attach(nl)
+func (el *EthereumListener) Start() error {
+	el.headTrackerId = el.HeadTracker.Attach(el)
 	return nil
 }
 
 // Stop gracefully closes its access to the store's EthNotifications and resets
 // resources.
-func (nl *NodeListener) Stop() error {
-	nl.HeadTracker.Detach(nl.headTrackerId)
+func (el *EthereumListener) Stop() error {
+	el.HeadTracker.Detach(el.headTrackerId)
 	return nil
 }
 
 // AddJob looks for "runlog" and "ethlog" Initiators for a given job
 // and watches the Ethereum blockchain for the addresses in the job.
-func (nl *NodeListener) AddJob(job models.Job) error {
-	if !job.IsLogInitiated() || !nl.HeadTracker.IsConnected() {
+func (el *EthereumListener) AddJob(job models.Job) error {
+	if !job.IsLogInitiated() || !el.HeadTracker.IsConnected() {
 		return nil
 	}
 
-	sub, err := StartJobSubscription(job, nl.HeadTracker.Get(), nl.Store)
+	sub, err := StartJobSubscription(job, el.HeadTracker.Get(), el.Store)
 	if err != nil {
 		return err
 	}
-	nl.addSubscription(sub)
+	el.addSubscription(sub)
 	return nil
 }
 
-func (nl *NodeListener) Jobs() []models.Job {
+func (el *EthereumListener) Jobs() []models.Job {
 	var jobs []models.Job
-	for _, js := range nl.jobSubscriptions {
+	for _, js := range el.jobSubscriptions {
 		jobs = append(jobs, js.Job)
 	}
 	return jobs
 }
 
-func (nl *NodeListener) addSubscription(sub JobSubscription) {
-	nl.jobsMutex.Lock()
-	defer nl.jobsMutex.Unlock()
-	nl.jobSubscriptions = append(nl.jobSubscriptions, sub)
+func (el *EthereumListener) addSubscription(sub JobSubscription) {
+	el.jobsMutex.Lock()
+	defer el.jobsMutex.Unlock()
+	el.jobSubscriptions = append(el.jobSubscriptions, sub)
 }
 
-func (nl *NodeListener) Connect() error {
-	jobs, err := nl.Store.Jobs()
+func (el *EthereumListener) Connect() error {
+	jobs, err := el.Store.Jobs()
 	if err != nil {
 		return err
 	}
 	for _, j := range jobs {
-		err = multierr.Append(err, nl.AddJob(j))
+		err = multierr.Append(err, el.AddJob(j))
 	}
 	return err
 }
 
-func (nl *NodeListener) Disconnect() {
-	nl.jobsMutex.Lock()
-	defer nl.jobsMutex.Unlock()
-	for _, sub := range nl.jobSubscriptions {
+func (el *EthereumListener) Disconnect() {
+	el.jobsMutex.Lock()
+	defer el.jobsMutex.Unlock()
+	for _, sub := range el.jobSubscriptions {
 		sub.Unsubscribe()
 	}
-	nl.jobSubscriptions = []JobSubscription{}
+	el.jobSubscriptions = []JobSubscription{}
 }
 
-func (nl *NodeListener) OnNewHead(_ *models.BlockHeader) {
-	pendingRuns, err := nl.Store.PendingJobRuns()
+func (el *EthereumListener) OnNewHead(_ *models.BlockHeader) {
+	pendingRuns, err := el.Store.PendingJobRuns()
 	if err != nil {
 		logger.Error(err.Error())
 	}
 	for _, jr := range pendingRuns {
-		if _, err := ExecuteRun(jr, nl.Store, models.RunResult{}); err != nil {
+		if _, err := ExecuteRun(jr, el.Store, models.RunResult{}); err != nil {
 			logger.Error(err.Error())
 		}
 	}
