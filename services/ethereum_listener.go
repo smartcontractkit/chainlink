@@ -38,8 +38,8 @@ func (el *EthereumListener) Stop() error {
 	return nil
 }
 
-// AddJob looks for "runlog" and "ethlog" Initiators for a given job
-// and watches the Ethereum blockchain for the addresses in the job.
+// AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
+// initiator in the passed job spec.
 func (el *EthereumListener) AddJob(job models.JobSpec) error {
 	if !job.IsLogInitiated() || !el.HeadTracker.IsConnected() {
 		return nil
@@ -159,7 +159,7 @@ func (ht *HeadTracker) Start() error {
 }
 
 func (ht *HeadTracker) Stop() error {
-	if ht.headSubscription != nil && ht.headSubscription.Err() != nil {
+	if ht.headSubscription != nil {
 		ht.headSubscription.Unsubscribe()
 		ht.headSubscription = nil
 	}

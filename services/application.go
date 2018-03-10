@@ -18,10 +18,10 @@ type Application interface {
 // and Store. The EthereumListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	HeadTracker  *HeadTracker
+	HeadTracker      *HeadTracker
 	EthereumListener *EthereumListener
-	Scheduler    *Scheduler
-	Store        *store.Store
+	Scheduler        *Scheduler
+	Store            *store.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -33,10 +33,10 @@ func NewApplication(config store.Config) Application {
 	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:  ht,
+		HeadTracker:      ht,
 		EthereumListener: &EthereumListener{Store: store, HeadTracker: ht},
-		Scheduler:    NewScheduler(store),
-		Store:        store,
+		Scheduler:        NewScheduler(store),
+		Store:            store,
 	}
 }
 
