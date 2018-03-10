@@ -27,6 +27,7 @@ func TestMultiply_Perform(t *testing.T) {
 		{"string_object", "100", `{"value":{"foo":"bar"}}`, "", true},
 		{"rubbish_string", "123aaa123", `{"value":"1.23"}`, "", true},
 		{"slice_string", []int{1, 2, 3}, `{"value":"1.23"}`, "", true},
+		{"float_string", 100.0, `{"value":"1.23"}`, "123", false},
 	}
 
 	for _, tt := range tests {
