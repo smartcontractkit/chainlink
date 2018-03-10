@@ -78,3 +78,21 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	assert.NotNil(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
 }
+
+func TestClient_CreateJobSpec(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j1 := cltest.NewJob()
+	app.Store.SaveJob(&j1)
+	j2 := cltest.NewJob()
+	app.Store.SaveJob(&j2)
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	c := cli.NewContext(nil, nil, nil)
+
+	assert.Nil(t, client.CreateJobSpec(c))
+	jobs := *r.Renders[0].(*[]models.JobSpec)
+	assert.Equal(t, 2, len(jobs))
+	assert.Equal(t, j1.ID, jobs[0].ID)
+}
