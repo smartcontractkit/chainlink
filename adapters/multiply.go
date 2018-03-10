@@ -30,21 +30,31 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
+	times, err := ma.timesToFloat()
+	if err != nil {
+		return input.WithError(err)
+	}
+
+	res := i.Mul(i, big.NewFloat(times))
+	return input.WithValue(res.String())
+}
+
+// timesToFloat returns `Times` field value as float64
+func (ma *Multiply) timesToFloat() (float64, error) {
 	switch times := ma.Times.(type) {
 	case int:
-		res := i.Mul(i, big.NewFloat(float64(times)))
-		return input.WithValue(res.String())
-
+		return float64(times), nil
+	case int64:
+		return float64(times), nil
+	case float64:
+		return times, nil
 	case string:
 		timesInt, err := strconv.Atoi(times)
 		if err != nil {
-			return input.WithError(fmt.Errorf("cannot parse into int: %v", times))
+			return 0, fmt.Errorf("cannot parse into int: %v", times)
 		}
-
-		res := i.Mul(i, big.NewFloat(float64(timesInt)))
-		return input.WithValue(res.String())
-
+		return float64(timesInt), nil
 	default:
-		return input.WithError(fmt.Errorf("wrong type of the multiplier: %v", times))
+		return 0, fmt.Errorf("wrong type of the multiplier: %v", times)
 	}
 }
