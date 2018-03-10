@@ -3,6 +3,7 @@ package adapters
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -10,7 +11,7 @@ import (
 
 // Multiply holds the a number to multiply the given value by.
 type Multiply struct {
-	Times int64 `json:"times"`
+	Times interface{} `json:"times"`
 }
 
 // Perform returns the input's "value" field, multiplied times the adapter's
@@ -28,7 +29,22 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	if !ok {
 		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
-	res := i.Mul(i, big.NewFloat(float64(ma.Times)))
 
-	return input.WithValue(res.String())
+	switch times := ma.Times.(type) {
+	case int:
+		res := i.Mul(i, big.NewFloat(float64(times)))
+		return input.WithValue(res.String())
+
+	case string:
+		timesInt, err := strconv.Atoi(times)
+		if err != nil {
+			return input.WithError(fmt.Errorf("cannot parse into int: %v", times))
+		}
+
+		res := i.Mul(i, big.NewFloat(float64(timesInt)))
+		return input.WithValue(res.String())
+
+	default:
+		return input.WithError(fmt.Errorf("wrong type of the multiplier: %v", times))
+	}
 }
