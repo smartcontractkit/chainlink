@@ -66,7 +66,7 @@ func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
-func (mock *EthMock) EnsureAllCalled(t *testing.T) {
+func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
