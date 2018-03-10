@@ -34,7 +34,7 @@ func NewApplication(config store.Config) Application {
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
 		HeadTracker:      ht,
-		EthereumListener: &EthereumListener{Store: store, HeadTracker: ht},
+		EthereumListener: &EthereumListener{Store: store},
 		Scheduler:        NewScheduler(store),
 		Store:            store,
 	}
@@ -44,10 +44,8 @@ func NewApplication(config store.Config) Application {
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	return multierr.Combine(
-		app.HeadTracker.Start(),
-		app.EthereumListener.Start(),
-		app.Scheduler.Start())
+	app.HeadTracker.Attach(app.EthereumListener)
+	return multierr.Combine(app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -56,7 +54,6 @@ func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
-	app.EthereumListener.Stop()
 	app.HeadTracker.Stop()
 	return app.Store.Close()
 }
@@ -76,5 +73,5 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.EthereumListener.AddJob(job)
+	return app.EthereumListener.AddJob(job, app.HeadTracker.Get())
 }

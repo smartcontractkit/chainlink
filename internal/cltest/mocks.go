@@ -393,7 +393,7 @@ type MockHeadTrackable struct {
 	OnNewHeadCount    int
 }
 
-func (m *MockHeadTrackable) Connect() error {
+func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
 	m.ConnectedCount += 1
 	return nil
 }
