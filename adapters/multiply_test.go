@@ -12,7 +12,7 @@ import (
 func TestMultiply_Perform(t *testing.T) {
 	tests := []struct {
 		name    string
-		times   int64
+		times   interface{}
 		json    string
 		want    string
 		errored bool
@@ -21,6 +21,12 @@ func TestMultiply_Perform(t *testing.T) {
 		{"integer", 100, `{"value":123}`, "12300", false},
 		{"float", 100, `{"value":1.23}`, "123", false},
 		{"object", 100, `{"value":{"foo":"bar"}}`, "", true},
+		{"string_string", "100", `{"value":"1.23"}`, "123", false},
+		{"string_integer", "100", `{"value":123}`, "12300", false},
+		{"string_float", "100", `{"value":1.23}`, "123", false},
+		{"string_object", "100", `{"value":{"foo":"bar"}}`, "", true},
+		{"rubbish_string", "123aaa123", `{"value":"1.23"}`, "", true},
+		{"slice_string", []int{1, 2, 3}, `{"value":"1.23"}`, "", true},
 	}
 
 	for _, tt := range tests {
