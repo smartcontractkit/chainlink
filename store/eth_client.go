@@ -77,6 +77,13 @@ func (eth *EthClient) GetBlockNumber() (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
+// GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
+func (eth *EthClient) GetBlockByNumber(hex string) (models.BlockHeader, error) {
+	var header models.BlockHeader
+	err := eth.Call(&header, "eth_getBlockByNumber", hex, false)
+	return header, err
+}
+
 // GetLogs returns all logs that respect the passed filter query.
 func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]types.Log, error) {
 	var results []types.Log

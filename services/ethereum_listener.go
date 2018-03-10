@@ -18,34 +18,19 @@ import (
 // websocket to listen for new heads and log events.
 type EthereumListener struct {
 	Store            *store.Store
-	HeadTracker      *HeadTracker
 	jobSubscriptions []JobSubscription
 	jobsMutex        sync.Mutex
 	headTrackerId    string
 }
 
-// Start obtains the jobs from the store and subscribes to logs and newHeads
-// in order to start and resume jobs waiting on events or confirmations.
-func (el *EthereumListener) Start() error {
-	el.headTrackerId = el.HeadTracker.Attach(el)
-	return nil
-}
-
-// Stop gracefully closes its access to the store's EthNotifications and resets
-// resources.
-func (el *EthereumListener) Stop() error {
-	el.HeadTracker.Detach(el.headTrackerId)
-	return nil
-}
-
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
 // initiator in the passed job spec.
-func (el *EthereumListener) AddJob(job models.JobSpec) error {
-	if !job.IsLogInitiated() || !el.HeadTracker.IsConnected() {
+func (el *EthereumListener) AddJob(job models.JobSpec, bn *models.IndexableBlockNumber) error {
+	if !job.IsLogInitiated() {
 		return nil
 	}
 
-	sub, err := StartJobSubscription(job, el.HeadTracker.Get(), el.Store)
+	sub, err := StartJobSubscription(job, bn, el.Store)
 	if err != nil {
 		return err
 	}
@@ -67,13 +52,13 @@ func (el *EthereumListener) addSubscription(sub JobSubscription) {
 	el.jobSubscriptions = append(el.jobSubscriptions, sub)
 }
 
-func (el *EthereumListener) Connect() error {
+func (el *EthereumListener) Connect(bn *models.IndexableBlockNumber) error {
 	jobs, err := el.Store.Jobs()
 	if err != nil {
 		return err
 	}
 	for _, j := range jobs {
-		err = multierr.Append(err, el.AddJob(j))
+		err = multierr.Append(err, el.AddJob(j, bn))
 	}
 	return err
 }
@@ -100,16 +85,16 @@ func (el *EthereumListener) OnNewHead(_ *models.BlockHeader) {
 }
 
 type HeadTrackable interface {
-	Connect() error
+	Connect(*models.IndexableBlockNumber) error
 	Disconnect()
 	OnNewHead(*models.BlockHeader)
 }
 
 type NoOpHeadTrackable struct{}
 
-func (NoOpHeadTrackable) Connect() error                { return nil }
-func (NoOpHeadTrackable) Disconnect()                   {}
-func (NoOpHeadTrackable) OnNewHead(*models.BlockHeader) {}
+func (NoOpHeadTrackable) Connect(*models.IndexableBlockNumber) error { return nil }
+func (NoOpHeadTrackable) Disconnect()                                {}
+func (NoOpHeadTrackable) OnNewHead(*models.BlockHeader)              {}
 
 // Holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
@@ -148,12 +133,13 @@ func (ht *HeadTracker) Start() error {
 	}
 
 	ht.headers = make(chan models.BlockHeader)
-	sub, err := ht.subscribeToNewHeads()
+	sub, err := ht.subscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.Connect()
+	ht.Connect(ht.number)
+	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
 	return nil
 }
@@ -179,7 +165,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 	}
 
 	ht.headMutex.Lock()
-	if ht.number == nil || ht.number.ToInt().Cmp(n.ToInt()) < 0 {
+	if n.GreaterThan(ht.number) {
 		copy := *n
 		ht.number = &copy
 	}
@@ -200,7 +186,7 @@ func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
 	if ht.connected {
-		t.Connect()
+		t.Connect(ht.Get())
 	}
 	return id
 }
@@ -217,12 +203,12 @@ func (ht *HeadTracker) Detach(id string) {
 
 func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 
-func (ht *HeadTracker) Connect() {
+func (ht *HeadTracker) Connect(bn *models.IndexableBlockNumber) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = true
 	for _, t := range ht.trackers {
-		logger.WarnIf(t.Connect())
+		logger.WarnIf(t.Connect(bn))
 	}
 }
 
@@ -243,8 +229,8 @@ func (ht *HeadTracker) OnNewHead(head *models.BlockHeader) {
 	}
 }
 
-func (ht *HeadTracker) subscribeToNewHeads() (models.EthSubscription, error) {
-	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
+func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (models.EthSubscription, error) {
+	sub, err := ht.store.TxManager.SubscribeToNewHeads(headers)
 	if err != nil {
 		return nil, err
 	}
@@ -257,6 +243,20 @@ func (ht *HeadTracker) subscribeToNewHeads() (models.EthSubscription, error) {
 		}
 	}()
 	return sub, nil
+}
+
+func (ht *HeadTracker) updateBlockHeader() {
+	header, err := ht.store.TxManager.GetBlockByNumber("latest")
+	if err != nil {
+		logger.Warnw("Unable to update latest block header", "err", err)
+		return
+	}
+
+	bn := header.IndexableBlockNumber()
+	if bn.GreaterThan(ht.Get()) {
+		logger.Debug("Fast forwarding to block header ", bn.FriendlyString())
+		ht.Save(bn)
+	}
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
