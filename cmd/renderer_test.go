@@ -14,14 +14,14 @@ import (
 func TestRendererJSONRenderJobs(t *testing.T) {
 	r := cmd.RendererJSON{ioutil.Discard}
 	job := cltest.NewJob()
-	jobs := []models.Job{job}
+	jobs := []models.JobSpec{job}
 	assert.Nil(t, r.Render(&jobs))
 }
 
 func TestRendererTableRenderJobs(t *testing.T) {
 	r := cmd.RendererTable{ioutil.Discard}
 	job := cltest.NewJob()
-	jobs := []models.Job{job}
+	jobs := []models.JobSpec{job}
 	assert.Nil(t, r.Render(&jobs))
 }
 
@@ -29,7 +29,7 @@ func TestRendererTableRenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{ioutil.Discard}
 	job := cltest.NewJobWithWebInitiator()
 	run := job.NewRun()
-	p := presenters.Job{job, []models.JobRun{run}}
+	p := presenters.JobSpec{job, []models.JobRun{run}}
 	assert.Nil(t, r.Render(&p))
 }
 

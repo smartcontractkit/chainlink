@@ -74,7 +74,7 @@ func (s *Scheduler) Stop() {
 
 // AddJob is the governing function for Recurring and OneTime,
 // and will only execute if the Scheduler has not already started.
-func (s *Scheduler) AddJob(job models.Job) {
+func (s *Scheduler) AddJob(job models.JobSpec) {
 	if !s.started {
 		return
 	}
@@ -114,7 +114,7 @@ func (r *Recurring) Stop() {
 
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
-func (r *Recurring) AddJob(job models.Job) {
+func (r *Recurring) AddJob(job models.JobSpec) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		cronStr := string(initr.Schedule)
 		if !job.Ended(r.Clock.Now()) {
@@ -142,7 +142,7 @@ func (ot *OneTime) Start() error {
 }
 
 // AddJob runs the job at the time specified for the "runat" initiator.
-func (ot *OneTime) AddJob(job models.Job) {
+func (ot *OneTime) AddJob(job models.JobSpec) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
 		go ot.RunJobAt(initr.Time, job)
 	}
@@ -155,7 +155,7 @@ func (ot *OneTime) Stop() {
 
 // RunJobAt wait until the Stop() function has been called on the run
 // or the specified time for the run is after the present time.
-func (ot *OneTime) RunJobAt(t models.Time, job models.Job) {
+func (ot *OneTime) RunJobAt(t models.Time, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(t.DurationFromNow()):

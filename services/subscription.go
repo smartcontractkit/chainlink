@@ -31,13 +31,13 @@ var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013
 
 // Listens to event logs being pushed from the Ethereum Node specific to a job.
 type JobSubscription struct {
-	Job           models.Job
+	Job           models.JobSpec
 	unsubscribers []Unsubscriber
 }
 
 // Constructor of JobSubscription that to starts listening to and keeps track of
 // event logs corresponding to a job.
-func StartJobSubscription(job models.Job, head *models.IndexableBlockNumber, store *store.Store) (JobSubscription, error) {
+func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (JobSubscription, error) {
 	var merr error
 	var initSubs []Unsubscriber
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
@@ -80,7 +80,7 @@ type Unsubscriber interface {
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the ReceiveLog callback using a strategy pattern.
 type RPCLogSubscription struct {
-	Job             models.Job
+	Job             models.JobSpec
 	Initiator       models.Initiator
 	ReceiveLog      func(RPCLogEvent)
 	store           *store.Store
@@ -92,7 +92,7 @@ type RPCLogSubscription struct {
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
 func NewRPCLogSubscription(
 	initr models.Initiator,
-	job models.Job,
+	job models.JobSpec,
 	head *models.IndexableBlockNumber,
 	store *store.Store,
 	callback func(RPCLogEvent),
@@ -140,12 +140,12 @@ func (sub RPCLogSubscription) listenToLogs() {
 }
 
 // Starts an RPCLogSubscription tailored for use with RunLogs.
-func StartRunLogSubscription(initr models.Initiator, job models.Job, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
 	return NewRPCLogSubscription(initr, job, head, store, ReceiveRunLog)
 }
 
 // Starts an RPCLogSubscription tailored for use with EthLogs.
-func StartEthLogSubscription(initr models.Initiator, job models.Job, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
 	return NewRPCLogSubscription(initr, job, head, store, ReceiveEthLog)
 }
 
@@ -204,7 +204,7 @@ func runJob(le RPCLogEvent, data models.JSON) {
 // RPCLogSubscription.
 type RPCLogEvent struct {
 	Log       types.Log
-	Job       models.Job
+	Job       models.JobSpec
 	Initiator models.Initiator
 	store     *store.Store
 }
