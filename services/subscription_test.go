@@ -70,3 +70,26 @@ func TestServices_RunLogTopic_ExpectedEventSignature(t *testing.T) {
 	expected := "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2"
 	assert.Equal(t, expected, services.RunLogTopic.Hex())
 }
+
+func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
+	eth.Register("eth_getLogs", []types.Log{log})
+	eth.RegisterSubscription("logs")
+
+	count := 0
+	callback := func(services.RPCLogEvent) { count += 1 }
+	sub, err := services.NewRPCLogSubscription(initr, job, nil, store, callback)
+	assert.Nil(t, err)
+	defer sub.Unsubscribe()
+
+	eth.EventuallyAllCalled(t)
+	assert.Equal(t, 1, count)
+}
