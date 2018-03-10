@@ -18,7 +18,7 @@ func TestWhereNotFound(t *testing.T) {
 	defer cleanup()
 
 	j1 := models.NewJob()
-	jobs := []models.Job{j1}
+	jobs := []models.JobSpec{j1}
 
 	err := store.Where("ID", "bogus", &jobs)
 	assert.Nil(t, err)
@@ -30,7 +30,7 @@ func TestAllNotFound(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	var jobs []models.Job
+	var jobs []models.JobSpec
 	err := store.All(&jobs)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")

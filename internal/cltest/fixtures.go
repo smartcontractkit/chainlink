@@ -20,13 +20,13 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func NewJob() models.Job {
+func NewJob() models.JobSpec {
 	j := models.NewJob()
-	j.Tasks = []models.Task{NewTask("NoOp")}
+	j.Tasks = []models.TaskSpec{NewTask("NoOp")}
 	return j
 }
 
-func NewTask(taskType string, json ...string) models.Task {
+func NewTask(taskType string, json ...string) models.TaskSpec {
 	if len(json) == 0 {
 		json = append(json, ``)
 	}
@@ -34,25 +34,25 @@ func NewTask(taskType string, json ...string) models.Task {
 	params, err := params.Add("type", taskType)
 	mustNotErr(err)
 
-	return models.Task{
+	return models.TaskSpec{
 		Type:   taskType,
 		Params: params,
 	}
 }
 
-func NewJobWithSchedule(sched string) models.Job {
+func NewJobWithSchedule(sched string) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}
 	return j
 }
 
-func NewJobWithWebInitiator() models.Job {
+func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
 	return j
 }
 
-func NewJobWithLogInitiator() models.Job {
+func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type:    models.InitiatorEthLog,

@@ -48,7 +48,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			assert.Nil(t, store.Save(&bt))
 
 			job := models.NewJob()
-			job.Tasks = []models.Task{{Type: bt.Name}, {Type: "noop"}}
+			job.Tasks = []models.TaskSpec{{Type: bt.Name}, {Type: "noop"}}
 			assert.Nil(t, store.Save(&job))
 
 			run = job.NewRun()
@@ -79,7 +79,7 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	defer cleanup()
 
 	job := models.NewJob()
-	job.Tasks = []models.Task{models.Task{Type: "NoOpPend"}}
+	job.Tasks = []models.TaskSpec{{Type: "NoOpPend"}}
 
 	run, err := services.ExecuteRun(job.NewRun(), store, models.RunResult{})
 	assert.Nil(t, err)

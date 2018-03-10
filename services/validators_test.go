@@ -35,7 +35,7 @@ func TestValidateJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var j models.Job
+			var j models.JobSpec
 			assert.Nil(t, json.Unmarshal(test.input, &j))
 			result := services.ValidateJob(j, store)
 			assert.Equal(t, test.want, result)

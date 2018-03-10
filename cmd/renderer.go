@@ -37,13 +37,13 @@ type RendererTable struct {
 	io.Writer
 }
 
-// Render returns a formatted table of text for a given Job or Presenter
+// Render returns a formatted table of text for a given Job or presenter
 // and relevant information.
 func (rt RendererTable) Render(v interface{}) error {
 	switch typed := v.(type) {
-	case *[]models.Job:
+	case *[]models.JobSpec:
 		rt.renderJobs(*typed)
-	case *presenters.Job:
+	case *presenters.JobSpec:
 		rt.renderJob(*typed)
 	default:
 		return fmt.Errorf("Unable to render object: %v", typed)
@@ -52,7 +52,7 @@ func (rt RendererTable) Render(v interface{}) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobs(jobs []models.Job) error {
+func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"ID", "Created At", "Initiators", "Tasks"})
 	for _, v := range jobs {
@@ -73,8 +73,8 @@ func render(name string, table *tablewriter.Table) {
 	table.Render()
 }
 
-func jobRowToStrings(job models.Job) []string {
-	p := presenters.Job{job, nil}
+func jobRowToStrings(job models.JobSpec) []string {
+	p := presenters.JobSpec{job, nil}
 	return []string{
 		p.ID,
 		p.FriendlyCreatedAt(),
@@ -83,7 +83,7 @@ func jobRowToStrings(job models.Job) []string {
 	}
 }
 
-func (rt RendererTable) renderJob(job presenters.Job) error {
+func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 	if err := rt.renderJobSingles(job); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (rt RendererTable) renderJob(job presenters.Job) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobSingles(j presenters.Job) error {
+func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"ID", "Created At", "Start At", "End At"})
 	table.Append([]string{
@@ -116,7 +116,7 @@ func (rt RendererTable) renderJobSingles(j presenters.Job) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobInitiators(j presenters.Job) error {
+func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Type", "Schedule", "Run At", "Address"})
 	for _, i := range j.Initiators {
@@ -133,11 +133,11 @@ func (rt RendererTable) renderJobInitiators(j presenters.Job) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobTasks(j presenters.Job) error {
+func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Type", "Config", "Value"})
 	for _, t := range j.Tasks {
-		p := presenters.Task{t}
+		p := presenters.TaskSpec{t}
 		keys, values := p.FriendlyParams()
 		table.Append([]string{p.Type, keys, values})
 	}
@@ -146,7 +146,7 @@ func (rt RendererTable) renderJobTasks(j presenters.Job) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobRuns(j presenters.Job) error {
+func (rt RendererTable) renderJobRuns(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
 	for _, jr := range j.Runs {
