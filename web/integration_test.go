@@ -106,7 +106,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestIntegration_RunAt(t *testing.T) {

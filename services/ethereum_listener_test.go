@@ -33,7 +33,7 @@ func TestEthereumListener_Start_WithJobs(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	assert.Nil(t, el.Start())
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func newAddr() common.Address {
@@ -69,7 +69,7 @@ func TestEthereumListener_Restart(t *testing.T) {
 	assert.Equal(t, 2, len(el.Jobs()))
 	assert.Nil(t, el.Stop())
 	assert.Equal(t, 0, len(el.Jobs()))
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestEthereumListener_Reconnected(t *testing.T) {
@@ -101,7 +101,7 @@ func TestEthereumListener_Reconnected(t *testing.T) {
 	assert.Equal(t, 2, len(el.Jobs()))
 	assert.Nil(t, ht.Stop())
 	assert.Equal(t, 0, len(el.Jobs()))
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestEthereumListener_AddJob_Listening(t *testing.T) {
@@ -158,7 +158,7 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
-			eth.EnsureAllCalled(t)
+			eth.EventuallyAllCalled(t)
 		})
 	}
 }
@@ -200,7 +200,7 @@ func TestEthereumListener_newHeadsNotification(t *testing.T) {
 	blockNumber := cltest.BigHexInt(1)
 	nhChan <- models.BlockHeader{Number: blockNumber}
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 	assert.Equal(t, blockNumber, app.EthereumListener.HeadTracker.Get().Number)
 }
 
@@ -276,7 +276,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	eth.RegisterSubscription("newHeads")
 
 	assert.Nil(t, ht.Start())
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
