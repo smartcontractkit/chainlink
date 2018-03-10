@@ -34,6 +34,7 @@ func ExampleRun_Help() {
 	//      node, n             Run the chainlink node
 	//      jobspecs, j, specs  Get all jobs
 	//      show, s             Show a specific job
+	//      create, c						Create job spec from JSON
 	//      help, h             Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
