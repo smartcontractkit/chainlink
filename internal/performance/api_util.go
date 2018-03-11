@@ -12,16 +12,19 @@ import (
 	"net/http"
 )
 
-var (
-	schemaPrefix = "../../internal/fixtures/web/"
-	schemas      = [...]string{
-		"hello_world_job.json",
-		"uint256_job.json",
-	}
-)
+type Requirement struct {
+	requestsPerSecond int
+	averageLatencyMax, percentileMax, runDurationMax time.Duration
+}
 
 // Pre-load the schemas prior to run-time to reduce overhead
 func GetSchemas() (schemaBytes [][]byte) {
+	schemaPrefix := "../../internal/fixtures/web/"
+	schemas      := [...]string{
+		"hello_world_job.json",
+		"uint256_job.json",
+	}
+
 	for _, schema := range schemas {
 		byteArray, err := ioutil.ReadFile(schemaPrefix + schema)
 		if err != nil {
@@ -33,22 +36,22 @@ func GetSchemas() (schemaBytes [][]byte) {
 }
 
 // Get the basic auth http header
-func GetBasicAuthHeader(store *store.Store) (header *http.Header) {
-	header = &http.Header{}
+func GetBasicAuthHeader(store *store.Store) (header http.Header) {
+	header = http.Header{}
 	authString := store.Config.BasicAuthUsername + ":" + store.Config.BasicAuthPassword
 	header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authString)))
 	return
 }
 
 // Create the vegata targets based on the schemas used for creating jobs
-func GetPostJobTargets(app *cltest.TestApplication) (targets []vegeta.Target) {
+func GetCreateJobTargets(app *cltest.TestApplication) (targets []vegeta.Target) {
 	schemas := GetSchemas()
 	for _, schema := range schemas {
 		targets = append(targets, vegeta.Target{
 			Method: "POST",
 			URL:    fmt.Sprintf("%s/v2/jobs", app.Server.URL),
 			Body:   schema,
-			Header: *GetBasicAuthHeader(app.Store),
+			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
 	return targets
@@ -64,7 +67,7 @@ func GetViewJobTargets(app *cltest.TestApplication) (targets []vegeta.Target) {
 		targets = append(targets, vegeta.Target{
 			Method: "GET",
 			URL:    fmt.Sprintf("%s/v2/jobs/%s", app.Server.URL, job.ID),
-			Header: *GetBasicAuthHeader(app.Store),
+			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
 	return targets
@@ -80,7 +83,7 @@ func GetJobRunTargets(app *cltest.TestApplication) (targets []vegeta.Target) {
 		targets = append(targets, vegeta.Target{
 			Method: "POST",
 			URL:    fmt.Sprintf("%s/v2/jobs/%s/runs", app.Server.URL, job.ID),
-			Header: *GetBasicAuthHeader(app.Store),
+			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
 	return targets
@@ -96,7 +99,7 @@ func GetViewJobRunTargets(app *cltest.TestApplication) (targets []vegeta.Target)
 		targets = append(targets, vegeta.Target{
 			Method: "GET",
 			URL:    fmt.Sprintf("%s/v2/jobs/%s/runs", app.Server.URL, job.ID),
-			Header: *GetBasicAuthHeader(app.Store),
+			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
 	return targets
