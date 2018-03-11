@@ -109,8 +109,9 @@ func NewRPCLogSubscription(
 	sub.logs = make(chan types.Log)
 	sub.backfillWg = new(sync.WaitGroup)
 
-	logListening(initr, head)
-	q := utils.ToFilterQueryFor(head.ToInt(), []common.Address{initr.Address})
+	listenFrom := head.NextNumber()
+	logListening(initr, listenFrom)
+	q := utils.ToFilterQueryFor(listenFrom.ToInt(), []common.Address{initr.Address})
 	es, err := store.TxManager.SubscribeToLogs(sub.logs, q)
 	if err != nil {
 		return sub, err
@@ -182,8 +183,8 @@ func logListening(initr models.Initiator, number *models.IndexableBlockNumber) {
 	msg := fmt.Sprintf(
 		"Listening for %v from block %v for address %v for job %v",
 		initr.Type,
-		presenters.LogListeningAddress(initr.Address),
 		number.FriendlyString(),
+		presenters.LogListeningAddress(initr.Address),
 		initr.JobID)
 	logger.Infow(msg)
 }

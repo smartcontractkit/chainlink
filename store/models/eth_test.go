@@ -115,3 +115,20 @@ func TestModels_IndexableBlockNumber_GreaterThan(t *testing.T) {
 		})
 	}
 }
+
+func TestModels_IndexableBlockNumber_NextInt(t *testing.T) {
+	tests := []struct {
+		name string
+		bn   *models.IndexableBlockNumber
+		want *big.Int
+	}{
+		{"nil", nil, big.NewInt(0)},
+		{"one", cltest.IndexableBlockNumber(1), big.NewInt(2)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, test.bn.NextInt())
+		})
+	}
+}

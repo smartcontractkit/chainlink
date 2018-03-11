@@ -183,6 +183,20 @@ func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
 	return l.ToInt().Cmp(r.ToInt()) > 0
 }
 
+func (l *IndexableBlockNumber) NextInt() *big.Int {
+	if l == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).Add(l.ToInt(), big.NewInt(1))
+}
+
+func (l *IndexableBlockNumber) NextNumber() *IndexableBlockNumber {
+	if l != nil {
+		return NewIndexableBlockNumber(l.NextInt(), l.Hash)
+	}
+	return NewIndexableBlockNumber(l.NextInt())
+}
+
 type EthSubscription interface {
 	Err() <-chan error
 	Unsubscribe()
