@@ -12,17 +12,12 @@ import (
 	"net/http"
 )
 
-type Requirement struct {
-	requestsPerSecond int
-	averageLatencyMax, percentileMax, runDurationMax time.Duration
-}
-
 // Pre-load the schemas prior to run-time to reduce overhead
 func GetSchemas() (schemaBytes [][]byte) {
 	schemaPrefix := "../../internal/fixtures/web/"
 	schemas      := [...]string{
-		"hello_world_job.json",
 		"uint256_job.json",
+		"hello_world_job.json",
 	}
 
 	for _, schema := range schemas {
@@ -49,7 +44,7 @@ func GetCreateJobTargets(app *cltest.TestApplication) (targets []vegeta.Target) 
 	for _, schema := range schemas {
 		targets = append(targets, vegeta.Target{
 			Method: "POST",
-			URL:    fmt.Sprintf("%s/v2/jobs", app.Server.URL),
+			URL:    fmt.Sprintf("%s/v2/specs", app.Server.URL),
 			Body:   schema,
 			Header: GetBasicAuthHeader(app.Store),
 		})
@@ -66,7 +61,7 @@ func GetViewJobTargets(app *cltest.TestApplication) (targets []vegeta.Target) {
 	for _, job := range jobs {
 		targets = append(targets, vegeta.Target{
 			Method: "GET",
-			URL:    fmt.Sprintf("%s/v2/jobs/%s", app.Server.URL, job.ID),
+			URL:    fmt.Sprintf("%s/v2/specs/%s", app.Server.URL, job.ID),
 			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
@@ -82,7 +77,7 @@ func GetJobRunTargets(app *cltest.TestApplication) (targets []vegeta.Target) {
 	for _, job := range jobs {
 		targets = append(targets, vegeta.Target{
 			Method: "POST",
-			URL:    fmt.Sprintf("%s/v2/jobs/%s/runs", app.Server.URL, job.ID),
+			URL:    fmt.Sprintf("%s/v2/specs/%s/runs", app.Server.URL, job.ID),
 			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
@@ -98,7 +93,7 @@ func GetViewJobRunTargets(app *cltest.TestApplication) (targets []vegeta.Target)
 	for _, job := range jobs {
 		targets = append(targets, vegeta.Target{
 			Method: "GET",
-			URL:    fmt.Sprintf("%s/v2/jobs/%s/runs", app.Server.URL, job.ID),
+			URL:    fmt.Sprintf("%s/v2/specs/%s/runs", app.Server.URL, job.ID),
 			Header: GetBasicAuthHeader(app.Store),
 		})
 	}
@@ -107,7 +102,7 @@ func GetViewJobRunTargets(app *cltest.TestApplication) (targets []vegeta.Target)
 
 // Calculate the average latency to complete each job run
 func CalculateAverageJobRunLatency(app *cltest.TestApplication) time.Duration {
-	waitForJobRunsToComplete(app)
+	WaitForJobRunsToComplete(app)
 	jobs, err := app.Store.Jobs()
 	var durationSum, durationCount int64
 	if err != nil {
@@ -129,11 +124,12 @@ func CalculateAverageJobRunLatency(app *cltest.TestApplication) time.Duration {
 }
 
 // Wait for all the jobs and their tasks to complete after the job runs
-func waitForJobRunsToComplete(app *cltest.TestApplication) {
+func WaitForJobRunsToComplete(app *cltest.TestApplication) {
 	jobs, err := app.Store.Jobs()
 	if err != nil {
 		log.Fatal(err)
 	}
+	startTime := time.Now()
 	for {
 		completed := true
 		for _, job := range jobs {
@@ -146,19 +142,16 @@ func waitForJobRunsToComplete(app *cltest.TestApplication) {
 				break
 			}
 			for _, jobRun := range jobRuns {
-				for _, taskRun := range jobRun.TaskRuns {
-					if taskRun.Status != "completed" && taskRun.Status != "errored" {
-						completed = false
-						break
-					}
-				}
-				if !completed {
+				if jobRun.Status == "in progress" {
+					completed = false
 					break
 				}
 			}
 		}
 		if completed {
 			break
+		} else if time.Now().Sub(startTime) > time.Minute * 3 {
+			log.Fatal("3 minute timeout hit on waiting for job runs to complete")
 		}
 	}
 }
