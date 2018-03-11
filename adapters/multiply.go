@@ -9,9 +9,28 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+// Multiplier represents the number to multiply by in Multiply adapter.
+type Multiplier float64
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (m *Multiplier) UnmarshalJSON(input []byte) error {
+	if isString(input) {
+		input = input[1 : len(input)-1]
+	}
+
+	times, err := strconv.ParseFloat(string(input), 64)
+	if err != nil {
+		return fmt.Errorf("cannot parse into float: %s", input)
+	}
+
+	*m = Multiplier(times)
+
+	return nil
+}
+
 // Multiply holds the a number to multiply the given value by.
 type Multiply struct {
-	Times interface{} `json:"times"`
+	Times Multiplier `json:"times"`
 }
 
 // Perform returns the input's "value" field, multiplied times the adapter's
@@ -30,31 +49,10 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
-	times, err := ma.timesToFloat()
-	if err != nil {
-		return input.WithError(err)
-	}
-
-	res := i.Mul(i, big.NewFloat(times))
+	res := i.Mul(i, big.NewFloat(float64(ma.Times)))
 	return input.WithValue(res.String())
 }
 
-// timesToFloat returns `Times` field value as float64
-func (ma *Multiply) timesToFloat() (float64, error) {
-	switch times := ma.Times.(type) {
-	case int:
-		return float64(times), nil
-	case int64:
-		return float64(times), nil
-	case float64:
-		return times, nil
-	case string:
-		timesInt, err := strconv.Atoi(times)
-		if err != nil {
-			return 0, fmt.Errorf("cannot parse into int: %v", times)
-		}
-		return float64(timesInt), nil
-	default:
-		return 0, fmt.Errorf("wrong type of the multiplier: %v", times)
-	}
+func isString(input []byte) bool {
+	return len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"'
 }
