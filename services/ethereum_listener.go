@@ -261,7 +261,7 @@ func (ht *HeadTracker) updateBlockHeader() {
 
 func (ht *HeadTracker) listenToNewHeads() {
 	if ht.number != nil {
-		logger.Info("Tracking logs from block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
+		logger.Debug("Tracking logs from last block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
 	}
 	for header := range ht.headers {
 		number := header.IndexableBlockNumber()
