@@ -69,7 +69,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
 func TestJobRunsController_Create_InvalidBody(t *testing.T) {

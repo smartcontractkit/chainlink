@@ -50,7 +50,7 @@ func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 	if resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(resp.Body)
 		err = fmt.Errorf("%v %v", resp.StatusCode, string(b))
-		return baRunResultError(input, "POST reponse", err)
+		return baRunResultError(input, "POST response", err)
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
