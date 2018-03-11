@@ -83,16 +83,9 @@ func TestClient_CreateJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j1 := cltest.NewJob()
-	app.Store.SaveJob(&j1)
-	j2 := cltest.NewJob()
-	app.Store.SaveJob(&j2)
-
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
-	c := cli.NewContext(nil, nil, nil)
-
-	assert.Nil(t, client.CreateJobSpec(c))
-	jobs := *r.Renders[0].(*[]models.JobSpec)
-	assert.Equal(t, 2, len(jobs))
-	assert.Equal(t, j1.ID, jobs[0].ID)
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+	set := flag.NewFlagSet("create", 0)
+	set.Parse([]string{"badinput"})
+	c := cli.NewContext(nil, set, nil)
+	assert.NotNil(t, client.CreateJobSpec(c))
 }
