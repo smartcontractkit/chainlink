@@ -244,6 +244,7 @@ func (le RPCLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
+// Print this event via logger.Debug.
 func (le RPCLogEvent) ToDebug() {
 	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
 	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.Job.ID)
