@@ -142,7 +142,7 @@ func (ht *HeadTracker) Start() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.Connect(ht.number)
+	ht.connect(ht.number)
 	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
 	return nil
@@ -158,7 +158,7 @@ func (ht *HeadTracker) Stop() error {
 		close(ht.headers)
 		ht.headers = nil
 	}
-	ht.Disconnect()
+	ht.disconnect()
 	return nil
 }
 
@@ -212,7 +212,7 @@ func (ht *HeadTracker) Detach(id string) {
 // Returns whether or not this HeadTracker is connected.
 func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 
-func (ht *HeadTracker) Connect(bn *models.IndexableBlockNumber) {
+func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = true
@@ -221,7 +221,7 @@ func (ht *HeadTracker) Connect(bn *models.IndexableBlockNumber) {
 	}
 }
 
-func (ht *HeadTracker) Disconnect() {
+func (ht *HeadTracker) disconnect() {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = false
@@ -230,7 +230,7 @@ func (ht *HeadTracker) Disconnect() {
 	}
 }
 
-func (ht *HeadTracker) OnNewHead(head *models.BlockHeader) {
+func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	for _, t := range ht.trackers {
@@ -278,7 +278,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 		if err := ht.Save(number); err != nil {
 			logger.Error(err.Error())
 		} else {
-			ht.OnNewHead(&header)
+			ht.onNewHead(&header)
 		}
 	}
 }
