@@ -1,0 +1,9 @@
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    { "type": "HttpGet", "url": "https://bitstamp.net/api/ticker/" },
+    { "type": "JsonParse", "path": ["last"] },
+    { "type": "Multiply", "times": "100" },
+    { "type": "EthUint256" }
+  ]
+}
