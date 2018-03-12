@@ -106,7 +106,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	var jobs []models.JobSpec
+	var jobs presenters.JobSpec
 	return cli.deserializeResponse(resp, &jobs)
 }
 
