@@ -23,6 +23,8 @@ func TestMultiply_Perform(t *testing.T) {
 		{"integer", `{"times":100}`, `{"value":123}`, "12300", false, false},
 		{"float", `{"times":100}`, `{"value":1.23}`, "123", false, false},
 		{"object", `{"times":100}`, `{"value":{"foo":"bar"}}`, "", true, false},
+		{"zero_integer_string", `{"times":0}`, `{"value":"1.23"}`, "0", false, false},
+		{"negative_integer_string", `{"times":-5}`, `{"value":"1.23"}`, "-6.15", false, false},
 
 		{"string_string", `{"times":"100"}`, `{"value":"1.23"}`, "123", false, false},
 		{"string_integer", `{"times":"100"}`, `{"value":123}`, "12300", false, false},
@@ -30,6 +32,8 @@ func TestMultiply_Perform(t *testing.T) {
 		{"string_object", `{"times":"100"}`, `{"value":{"foo":"bar"}}`, "", true, false},
 		{"array_string", `{"times":[1, 2, 3]}`, `{"value":"1.23"}`, "", false, true},
 		{"rubbish_string", `{"times":"123aaa123"}`, `{"value":"1.23"}`, "", false, true},
+		{"zero_string_string", `{"times":"0"}`, `{"value":"1.23"}`, "0", false, false},
+		{"negative_string_string", `{"times":"-5"}`, `{"value":"1.23"}`, "-6.15", false, false},
 	}
 
 	for _, tt := range tests {
