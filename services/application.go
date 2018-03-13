@@ -22,7 +22,7 @@ type ChainlinkApplication struct {
 	EthereumListener *EthereumListener
 	Scheduler        *Scheduler
 	Store            *store.Store
-	attachmentId     string
+	attachmentID     string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -45,7 +45,7 @@ func NewApplication(config store.Config) Application {
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	app.attachmentId = app.HeadTracker.Attach(app.EthereumListener)
+	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
 	return multierr.Combine(app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
@@ -56,7 +56,7 @@ func (app *ChainlinkApplication) Stop() error {
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
 	app.HeadTracker.Stop()
-	app.HeadTracker.Detach(app.attachmentId)
+	app.HeadTracker.Detach(app.attachmentID)
 	return app.Store.Close()
 }
 
