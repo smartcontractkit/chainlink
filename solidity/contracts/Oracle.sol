@@ -6,7 +6,7 @@ contract Oracle is Ownable {
 
   struct Callback {
     address addr;
-    bytes4 fid;
+    bytes4 functionId;
   }
 
   uint256 private requestId;
@@ -21,15 +21,15 @@ contract Oracle is Ownable {
   function requestData(
     bytes32 _jobId,
     address _callbackAddress,
-    bytes4 _callbackFID,
+    bytes4 _callbackFunctionId,
     string _data
   )
     public
     returns (uint256)
   {
     requestId += 1;
-    Callback memory cb = Callback(_callbackAddress, _callbackFID);
-    callbacks[requestId] = cb;
+    Callback memory callback = Callback(_callbackAddress, _callbackFunctionId);
+    callbacks[requestId] = callback;
     Request(requestId, _jobId, _data);
     return requestId;
   }
@@ -39,8 +39,8 @@ contract Oracle is Ownable {
     onlyOwner
     hasRequestId(_requestId)
   {
-    Callback memory cb = callbacks[_requestId];
-    require(cb.addr.call(cb.fid, _requestId, _data));
+    Callback memory callback = callbacks[_requestId];
+    require(callback.addr.call(callback.functionId, _requestId, _data));
     delete callbacks[_requestId];
   }
 
