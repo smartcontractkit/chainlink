@@ -23,6 +23,7 @@ install:
   - cd ..
 
 script:
+  - ./internal/ci/gofmt.sh
   - goverage -v -coverprofile=coverage.out ./...
   - cd solidity && ./node_modules/.bin/truffle test
   - cd ..
