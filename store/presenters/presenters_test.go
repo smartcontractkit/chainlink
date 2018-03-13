@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -67,4 +68,55 @@ func TestPresenterShowEthBalance_WithEmptyAccount(t *testing.T) {
 	defer cleanup()
 	_, err := presenters.ShowEthBalance(app.Store)
 	assert.NotNil(t, err)
+}
+
+func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getBalance", "0x0100") // 256
+
+	assert.True(t, app.Store.KeyStore.HasAccounts())
+
+	output, err := presenters.ShowEthBalance(app.Store)
+	assert.Nil(t, err)
+	assert.Equal(t, fmt.Sprintf("ETH Balance for %v: 2.56e-16", app.Store.KeyStore.GetAccount().Address.Hex()), output)
+}
+
+func TestPresenterShowLinkBalance_NoAccount(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code should have panicked")
+		}
+	}()
+	defer cleanup()
+	presenters.ShowLinkBalance(store)
+}
+
+func TestPresenterShowLinkBalance_WithEmptyAccount(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	_, err := presenters.ShowLinkBalance(app.Store)
+	fmt.Println(err)
+	assert.NotNil(t, err)
+}
+
+func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_call", "0x0100") // 256
+
+	assert.True(t, app.Store.KeyStore.HasAccounts())
+
+	output, err := presenters.ShowLinkBalance(app.Store)
+	assert.Nil(t, err)
+	assert.Equal(t, fmt.Sprintf("Link Balance for %v: 2.56e-16", app.Store.KeyStore.GetAccount().Address.Hex()), output)
 }
