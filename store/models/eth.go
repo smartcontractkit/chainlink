@@ -136,6 +136,22 @@ type IndexableBlockNumber struct {
 	Hash   common.Hash `json:"hash"`
 }
 
+func NewIndexableBlockNumber(bigint *big.Int, hashes ...common.Hash) *IndexableBlockNumber {
+	if bigint == nil {
+		return nil
+	}
+	var hash common.Hash
+	if len(hashes) > 0 {
+		hash = hashes[0]
+	}
+	number := hexutil.Big(*bigint)
+	return &IndexableBlockNumber{
+		Number: number,
+		Digits: len(number.String()) - 2,
+		Hash:   hash,
+	}
+}
+
 // Coerces the value into *big.Int. Also handles nil *IndexableBlockNumber values to
 // nil *big.Int.
 func (n *IndexableBlockNumber) ToInt() *big.Int {
@@ -157,20 +173,28 @@ func (n *IndexableBlockNumber) FriendlyString() string {
 	return fmt.Sprintf("#%v (%v)", n.ToInt(), n.String())
 }
 
-func NewIndexableBlockNumber(bigint *big.Int, hashes ...common.Hash) *IndexableBlockNumber {
-	if bigint == nil {
-		return nil
+func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
+	if l == nil {
+		return false
 	}
-	var hash common.Hash
-	if len(hashes) > 0 {
-		hash = hashes[0]
+	if l != nil && r == nil {
+		return true
 	}
-	number := hexutil.Big(*bigint)
-	return &IndexableBlockNumber{
-		Number: number,
-		Digits: len(number.String()) - 2,
-		Hash:   hash,
+	return l.ToInt().Cmp(r.ToInt()) > 0
+}
+
+func (l *IndexableBlockNumber) NextInt() *big.Int {
+	if l == nil {
+		return big.NewInt(0)
 	}
+	return new(big.Int).Add(l.ToInt(), big.NewInt(1))
+}
+
+func (l *IndexableBlockNumber) NextNumber() *IndexableBlockNumber {
+	if l != nil {
+		return NewIndexableBlockNumber(l.NextInt(), l.Hash)
+	}
+	return NewIndexableBlockNumber(l.NextInt())
 }
 
 type EthSubscription interface {

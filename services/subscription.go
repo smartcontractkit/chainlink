@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -87,6 +89,7 @@ type RPCLogSubscription struct {
 	logs            chan types.Log
 	errors          chan error
 	ethSubscription models.EthSubscription
+	backfillWG      *sync.WaitGroup
 }
 
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
@@ -97,17 +100,26 @@ func NewRPCLogSubscription(
 	store *store.Store,
 	callback func(RPCLogEvent),
 ) (RPCLogSubscription, error) {
+	if !initr.IsLogInitiated() {
+		return RPCLogSubscription{}, errors.New("Can only create an RPC log subscription for log initiators")
+	}
+
 	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
+	sub.backfillWG = new(sync.WaitGroup)
 
-	logListening(initr, head)
-	fq := utils.ToFilterQueryFor(head.ToInt(), []common.Address{initr.Address})
-	rpc, err := store.TxManager.SubscribeToLogs(sub.logs, fq)
+	listenFrom := head.NextNumber()
+	logListening(initr, listenFrom)
+	q := utils.ToFilterQueryFor(listenFrom.ToInt(), []common.Address{initr.Address})
+	es, err := store.TxManager.SubscribeToLogs(sub.logs, q)
 	if err != nil {
 		return sub, err
 	}
-	sub.ethSubscription = rpc
+
+	sub.ethSubscription = es
+	sub.backfillWG.Add(1)
+	go sub.backfillLogs(q)
 	go sub.listenToSubscriptionErrors()
 	go sub.listenToLogs()
 	return sub, nil
@@ -115,11 +127,24 @@ func NewRPCLogSubscription(
 
 // Close channels and clean up resources.
 func (sub RPCLogSubscription) Unsubscribe() {
-	if sub.ethSubscription != nil && sub.ethSubscription.Err() != nil {
+	if sub.ethSubscription != nil {
 		sub.ethSubscription.Unsubscribe()
 	}
 	close(sub.logs)
 	close(sub.errors)
+}
+
+func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) {
+	defer sub.backfillWG.Done()
+	logs, err := sub.store.TxManager.GetLogs(q)
+	if err != nil {
+		logger.Errorw("Unable to backfill logs", "err", err)
+		return
+	}
+
+	for _, log := range logs {
+		sub.dispatchLog(log)
+	}
 }
 
 func (sub RPCLogSubscription) listenToSubscriptionErrors() {
@@ -129,14 +154,19 @@ func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 }
 
 func (sub RPCLogSubscription) listenToLogs() {
+	sub.backfillWG.Wait()
 	for el := range sub.logs {
-		sub.ReceiveLog(RPCLogEvent{
-			Job:       sub.Job,
-			Initiator: sub.Initiator,
-			Log:       el,
-			store:     sub.store,
-		})
+		sub.dispatchLog(el)
 	}
+}
+
+func (sub RPCLogSubscription) dispatchLog(log types.Log) {
+	sub.ReceiveLog(RPCLogEvent{
+		Job:       sub.Job,
+		Initiator: sub.Initiator,
+		Log:       log,
+		store:     sub.store,
+	})
 }
 
 // Starts an RPCLogSubscription tailored for use with RunLogs.
@@ -151,10 +181,10 @@ func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *m
 
 func logListening(initr models.Initiator, number *models.IndexableBlockNumber) {
 	msg := fmt.Sprintf(
-		"Listening for %v from address %v from %v for job %v",
+		"Listening for %v from block %v for address %v for job %v",
 		initr.Type,
-		presenters.LogListeningAddress(initr.Address),
 		number.FriendlyString(),
+		presenters.LogListeningAddress(initr.Address),
 		initr.JobID)
 	logger.Infow(msg)
 }
@@ -165,10 +195,7 @@ func ReceiveRunLog(le RPCLogEvent) {
 		return
 	}
 
-	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
-	msg := fmt.Sprintf("Received log for address %v for job %v", friendlyAddress, le.Job.ID)
-	logger.Infow(msg, le.ForLogger()...)
-
+	le.ToDebug()
 	data, err := le.RunLogJSON()
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
@@ -180,10 +207,7 @@ func ReceiveRunLog(le RPCLogEvent) {
 
 // Parse the log and run the job specific to this initiator log event.
 func ReceiveEthLog(le RPCLogEvent) {
-	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
-	msg := fmt.Sprintf("Received log for address %v for job %v", friendlyAddress, le.Job.ID)
-	logger.Infow(msg, le.ForLogger()...)
-
+	le.ToDebug()
 	data, err := le.EthLogJSON()
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
@@ -218,6 +242,13 @@ func (le RPCLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	return append(kvs, output...)
+}
+
+// Print this event via logger.Debug.
+func (le RPCLogEvent) ToDebug() {
+	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
+	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.Job.ID)
+	logger.Debugw(msg, le.ForLogger()...)
 }
 
 // Return whether or not the contained log is a RunLog, a specific Chainlink event trigger

@@ -117,6 +117,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 			assert.Nil(t, err)
 
 			s, err := json.Marshal(task)
+			assert.Nil(t, err)
 			assert.Equal(t, test.json, string(s))
 		})
 	}

@@ -183,11 +183,8 @@ func cleanUpStore(store *store.Store) {
 
 func NewEthereumListener() (*services.EthereumListener, func()) {
 	store, cl := NewStore()
-	ht := services.NewHeadTracker(store, NeverSleeper{})
-	nl := &services.EthereumListener{Store: store, HeadTracker: ht}
+	nl := &services.EthereumListener{Store: store}
 	return nl, func() {
-		nl.Stop()
-		ht.Stop()
 		cl()
 	}
 }
@@ -284,6 +281,22 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(LoadJSON(path)),
+	)
+	defer resp.Body.Close()
+	CheckStatusCode(t, resp, 200)
+	j, err := app.Store.FindJob(ParseCommonJSON(resp.Body).ID)
+	assert.Nil(t, err)
+
+	return j
+}
+
+func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
+	marshaled, err := json.Marshal(&job)
+	assert.Nil(t, err)
+	resp := BasicAuthPost(
+		app.Server.URL+"/v2/specs",
+		"application/json",
+		bytes.NewBuffer(marshaled),
 	)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)

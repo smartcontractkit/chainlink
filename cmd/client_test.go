@@ -90,8 +90,8 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		errored bool
 	}{
 		{"bad input", 0, true},
-		{"{\"initiators\":[{\"type\":\"web\"}], \"tasks\":[{\"type\": \"NoOp\"}]}", 1, false},
-		{"{\"initiators\":[{\"type\":\"ethLog\", \"address\": \"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42\"}],\"tasks\": [ { \"type\": \"NoOp\" } ]}", 2, false},
+		{`{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
+		{`{"initiators":[{"type":"runAt","time":"2018-01-08T18:12:01.103Z"}],"tasks":[{"type":"NoOp"}]}`, 2, false},
 	}
 
 	for _, tt := range tests {

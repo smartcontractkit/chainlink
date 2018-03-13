@@ -18,10 +18,11 @@ type Application interface {
 // and Store. The EthereumListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	HeadTracker  *HeadTracker
+	HeadTracker      *HeadTracker
 	EthereumListener *EthereumListener
-	Scheduler    *Scheduler
-	Store        *store.Store
+	Scheduler        *Scheduler
+	Store            *store.Store
+	attachmentID     string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -33,10 +34,10 @@ func NewApplication(config store.Config) Application {
 	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:  ht,
-		EthereumListener: &EthereumListener{Store: store, HeadTracker: ht},
-		Scheduler:    NewScheduler(store),
-		Store:        store,
+		HeadTracker:      ht,
+		EthereumListener: &EthereumListener{Store: store},
+		Scheduler:        NewScheduler(store),
+		Store:            store,
 	}
 }
 
@@ -44,10 +45,8 @@ func NewApplication(config store.Config) Application {
 // nil will be returned.
 func (app *ChainlinkApplication) Start() error {
 	app.Store.Start()
-	return multierr.Combine(
-		app.HeadTracker.Start(),
-		app.EthereumListener.Start(),
-		app.Scheduler.Start())
+	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
+	return multierr.Combine(app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -56,8 +55,8 @@ func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
-	app.EthereumListener.Stop()
 	app.HeadTracker.Stop()
+	app.HeadTracker.Detach(app.attachmentID)
 	return app.Store.Close()
 }
 
@@ -76,5 +75,5 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.EthereumListener.AddJob(job)
+	return app.EthereumListener.AddJob(job, app.HeadTracker.Get())
 }
