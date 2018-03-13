@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -11,16 +12,28 @@ import (
 
 func TestMultiply_Perform(t *testing.T) {
 	tests := []struct {
-		name    string
-		times   int64
-		json    string
-		want    string
-		errored bool
+		name      string
+		params    string
+		json      string
+		want      string
+		errored   bool
+		jsonError bool
 	}{
-		{"string", 100, `{"value":"1.23"}`, "123", false},
-		{"integer", 100, `{"value":123}`, "12300", false},
-		{"float", 100, `{"value":1.23}`, "123", false},
-		{"object", 100, `{"value":{"foo":"bar"}}`, "", true},
+		{"string", `{"times":100}`, `{"value":"1.23"}`, "123", false, false},
+		{"integer", `{"times":100}`, `{"value":123}`, "12300", false, false},
+		{"float", `{"times":100}`, `{"value":1.23}`, "123", false, false},
+		{"object", `{"times":100}`, `{"value":{"foo":"bar"}}`, "", true, false},
+		{"zero_integer_string", `{"times":0}`, `{"value":"1.23"}`, "0", false, false},
+		{"negative_integer_string", `{"times":-5}`, `{"value":"1.23"}`, "-6.15", false, false},
+
+		{"string_string", `{"times":"100"}`, `{"value":"1.23"}`, "123", false, false},
+		{"string_integer", `{"times":"100"}`, `{"value":123}`, "12300", false, false},
+		{"string_float", `{"times":"100"}`, `{"value":1.23}`, "123", false, false},
+		{"string_object", `{"times":"100"}`, `{"value":{"foo":"bar"}}`, "", true, false},
+		{"array_string", `{"times":[1, 2, 3]}`, `{"value":"1.23"}`, "", false, true},
+		{"rubbish_string", `{"times":"123aaa123"}`, `{"value":"1.23"}`, "", false, true},
+		{"zero_string_string", `{"times":"0"}`, `{"value":"1.23"}`, "0", false, false},
+		{"negative_string_string", `{"times":"-5"}`, `{"value":"1.23"}`, "-6.15", false, false},
 	}
 
 	for _, tt := range tests {
@@ -30,16 +43,21 @@ func TestMultiply_Perform(t *testing.T) {
 			input := models.RunResult{
 				Data: cltest.JSONFromString(test.json),
 			}
-			adapter := adapters.Multiply{Times: test.times}
+			adapter := adapters.Multiply{}
+			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
 			result := adapter.Perform(input, nil)
 
-			if test.errored {
+			if test.jsonError {
+				assert.NotNil(t, jsonErr)
+			} else if test.errored {
 				assert.NotNil(t, result.GetError())
+				assert.Nil(t, jsonErr)
 			} else {
 				val, err := result.Value()
 				assert.Nil(t, err)
 				assert.Equal(t, test.want, val)
 				assert.Nil(t, result.GetError())
+				assert.Nil(t, jsonErr)
 			}
 		})
 	}
