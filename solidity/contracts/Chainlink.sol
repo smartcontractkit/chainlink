@@ -8,8 +8,8 @@ library Chainlink {
   struct Run {
     string payload;
     bytes32 jobId;
-    address receiver;
-    bytes4 functionSelector;
+    address callbackAddress;
+    bytes4 callbackFunctionId;
   }
 
   function add(Run self, string _key, string _value) internal {
