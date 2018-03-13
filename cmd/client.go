@@ -50,6 +50,9 @@ func logNodeBalance(store *strpkg.Store) {
 	balance, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
 	logger.Infow(balance)
+	balance, err = presenters.ShowLinkBalance(store)
+	logger.WarnIf(err)
+	logger.Infow(balance)
 }
 
 // ShowJobSpec returns the status of the given JobID.

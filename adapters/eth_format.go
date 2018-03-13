@@ -13,9 +13,6 @@ import (
 // EthBytes32 holds no fields.
 type EthBytes32 struct{}
 
-const evmWordByteLen = 32
-const evmWordHexLen = evmWordByteLen * 2
-
 // Perform returns the hex value of the first 32 bytes of a string
 // so that it is in the proper format to be written to the blockchain.
 //
@@ -28,11 +25,11 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	value := common.RightPadBytes([]byte(result.String()), evmWordByteLen)
+	value := common.RightPadBytes([]byte(result.String()), utils.EVMWordByteLen)
 	hex := utils.RemoveHexPrefix(common.ToHex(value))
 
-	if len(hex) > evmWordHexLen {
-		hex = hex[:evmWordHexLen]
+	if len(hex) > utils.EVMWordHexLen {
+		hex = hex[:utils.EVMWordHexLen]
 	}
 	return input.WithValue(utils.AddHexPrefix(hex))
 }
@@ -61,7 +58,7 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	if err != nil {
 		return input.WithError(err)
 	}
-	padded := common.LeftPadBytes(b, evmWordByteLen)
+	padded := common.LeftPadBytes(b, utils.EVMWordByteLen)
 
 	return input.WithValue(common.ToHex(padded))
 }
@@ -75,8 +72,8 @@ func bigToUintHex(f *big.Float) string {
 	if len(hex)%2 != 0 {
 		hex = "0" + hex
 	}
-	if len(hex) > evmWordHexLen {
-		hex = hex[len(hex)-evmWordHexLen:]
+	if len(hex) > utils.EVMWordHexLen {
+		hex = hex[len(hex)-utils.EVMWordHexLen:]
 	}
 	return hex
 }
