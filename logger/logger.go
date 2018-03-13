@@ -97,6 +97,11 @@ func Info(args ...interface{}) {
 	logger.Info(args...)
 }
 
+// Debug logs an debug message using Sprint.
+func Debug(args ...interface{}) {
+	logger.Debug(args...)
+}
+
 // Warn logs a message at the warn level using Sprint.
 func Warn(args ...interface{}) {
 	logger.Warn(args...)

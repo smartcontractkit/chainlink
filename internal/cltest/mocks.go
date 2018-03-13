@@ -66,7 +66,7 @@ func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
-func (mock *EthMock) EnsureAllCalled(t *testing.T) {
+func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
@@ -114,7 +114,7 @@ func channelFromSubscriptionName(name string) interface{} {
 	switch name {
 	case "logs":
 		return make(chan types.Log)
-	case "newHead":
+	case "newHeads":
 		return make(chan models.BlockHeader)
 	default:
 		return make(chan struct{})
@@ -393,7 +393,7 @@ type MockHeadTrackable struct {
 	OnNewHeadCount    int
 }
 
-func (m *MockHeadTrackable) Connect() error {
+func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
 	m.ConnectedCount += 1
 	return nil
 }

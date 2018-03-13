@@ -11,19 +11,17 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
-	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEthereumListener_Start_WithJobs(t *testing.T) {
+func TestEthereumListener_Connect_WithJobs(t *testing.T) {
 	t.Parallel()
 
 	el, cleanup := cltest.NewEthereumListener()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(el.Store)
-	assert.Nil(t, el.HeadTracker.Start())
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
@@ -32,15 +30,15 @@ func TestEthereumListener_Start_WithJobs(t *testing.T) {
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	assert.Nil(t, el.Start())
-	eth.EnsureAllCalled(t)
+	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(1)))
+	eth.EventuallyAllCalled(t)
 }
 
 func newAddr() common.Address {
 	return cltest.NewAddress()
 }
 
-func TestEthereumListener_Restart(t *testing.T) {
+func TestEthereumListener_Reconnect(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -54,28 +52,26 @@ func TestEthereumListener_Restart(t *testing.T) {
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	ht := services.NewHeadTracker(store)
-	ht.Start()
-
-	el := services.EthereumListener{Store: store, HeadTracker: ht}
-	assert.Nil(t, el.Start())
+	el := services.EthereumListener{Store: store}
+	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(1)))
 	assert.Equal(t, 2, len(el.Jobs()))
-	assert.Nil(t, el.Stop())
+	el.Disconnect()
 	assert.Equal(t, 0, len(el.Jobs()))
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
-	assert.Nil(t, el.Start())
+	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(2)))
 	assert.Equal(t, 2, len(el.Jobs()))
-	assert.Nil(t, el.Stop())
+	el.Disconnect()
 	assert.Equal(t, 0, len(el.Jobs()))
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
-func TestEthereumListener_Reconnected(t *testing.T) {
+func TestEthereumListener_ReattachedToHeadTracker(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	el, cleanup := cltest.NewEthereumListener()
+	store := el.Store
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 	j1 := cltest.NewJobWithLogInitiator()
@@ -87,21 +83,12 @@ func TestEthereumListener_Reconnected(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	ht := services.NewHeadTracker(store)
-	el := services.EthereumListener{Store: store, HeadTracker: ht}
-	el.Start()
 	assert.Nil(t, ht.Start())
+	id := ht.Attach(el)
 	assert.Equal(t, 2, len(el.Jobs()))
-	assert.Nil(t, ht.Stop())
+	ht.Detach(id)
 	assert.Equal(t, 0, len(el.Jobs()))
-
-	eth.RegisterNewHeads()
-	eth.RegisterSubscription("logs")
-	eth.RegisterSubscription("logs")
-	assert.Nil(t, ht.Start())
-	assert.Equal(t, 2, len(el.Jobs()))
-	assert.Nil(t, ht.Stop())
-	assert.Equal(t, 0, len(el.Jobs()))
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestEthereumListener_AddJob_Listening(t *testing.T) {
@@ -128,9 +115,6 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 			el, cleanup := cltest.NewEthereumListener()
 			defer cleanup()
 			store := el.Store
-			cltest.MockEthOnStore(store)
-			assert.Nil(t, el.HeadTracker.Start())
-			assert.Nil(t, el.Start())
 
 			eth := cltest.MockEthOnStore(store)
 			logChan := make(chan types.Log, 1)
@@ -142,9 +126,11 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 				initr.Address = test.initrAddr
 			}
 			j.Initiators = []models.Initiator{initr}
-			assert.Nil(t, store.SaveJob(&j))
+			el.AddJob(j, cltest.IndexableBlockNumber(1))
 
-			el.AddJob(j)
+			ht := services.NewHeadTracker(store)
+			ht.Attach(el)
+			assert.Nil(t, ht.Start())
 
 			logChan <- types.Log{
 				Address: test.logAddr,
@@ -158,50 +144,9 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 
 			cltest.WaitForRuns(t, j, store, test.wantCount)
 
-			eth.EnsureAllCalled(t)
+			eth.EventuallyAllCalled(t)
 		})
 	}
-}
-
-func TestEthereumListener_newHeadsNotification(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-	store := app.Store
-
-	ethMock := app.MockEthClient()
-	nhChan := ethMock.RegisterNewHeads()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
-	sentAt := uint64(23456)
-	confirmationAt := sentAt + 1
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmationAt))
-
-	app.Start()
-
-	j := models.NewJob()
-	j.Tasks = []models.TaskSpec{cltest.NewTask("ethtx")}
-	assert.Nil(t, store.SaveJob(&j))
-
-	tx := cltest.CreateTxAndAttempt(store, cltest.NewAddress(), sentAt)
-	txas, err := store.AttemptsFor(tx.ID)
-	assert.Nil(t, err)
-	txa := txas[0]
-
-	jr := j.NewRun()
-	tr := jr.TaskRuns[0]
-	result := cltest.RunResultWithValue(txa.Hash.String())
-	tr.Result = result.MarkPending()
-	tr.Status = models.StatusPending
-	jr.TaskRuns[0] = tr
-	jr.Status = models.StatusPending
-	assert.Nil(t, store.Save(&jr))
-
-	blockNumber := cltest.BigHexInt(1)
-	nhChan <- models.BlockHeader{Number: blockNumber}
-
-	ethMock.EnsureAllCalled(t)
-	assert.Equal(t, blockNumber, app.EthereumListener.HeadTracker.Get().Number)
 }
 
 func TestHeadTracker_New(t *testing.T) {
@@ -273,10 +218,10 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	ht := services.NewHeadTracker(store)
 	defer ht.Stop()
 
-	eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
+	eth.RegisterSubscription("newHeads")
 
 	assert.Nil(t, ht.Start())
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
@@ -319,7 +264,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	eth := cltest.MockEthOnStore(store)
 	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
 
-	firstSub := eth.RegisterSubscription("newHeads", make(chan models.BlockHeader))
+	firstSub := eth.RegisterSubscription("newHeads")
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
 

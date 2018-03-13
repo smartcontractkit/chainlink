@@ -106,7 +106,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -310,11 +310,11 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		})
 	defer cleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
-	newParams, err := j.Tasks[0].Params.Add("url", mockServer.URL)
-	assert.Nil(t, err)
-	j.Tasks[0].Params = newParams
-	assert.Nil(t, app.Store.SaveJob(&j))
+	j := cltest.NewJobWithLogInitiator()
+	post := cltest.NewTask("httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
+	tasks := []models.TaskSpec{post}
+	j.Tasks = tasks
+	cltest.CreateJobSpecViaWeb(t, app, j)
 
 	app.Start()
 	logs <- log

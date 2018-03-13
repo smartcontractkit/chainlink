@@ -18,34 +18,18 @@ import (
 // websocket to listen for new heads and log events.
 type EthereumListener struct {
 	Store            *store.Store
-	HeadTracker      *HeadTracker
 	jobSubscriptions []JobSubscription
 	jobsMutex        sync.Mutex
-	headTrackerId    string
 }
 
-// Start obtains the jobs from the store and subscribes to logs and newHeads
-// in order to start and resume jobs waiting on events or confirmations.
-func (el *EthereumListener) Start() error {
-	el.headTrackerId = el.HeadTracker.Attach(el)
-	return nil
-}
-
-// Stop gracefully closes its access to the store's EthNotifications and resets
-// resources.
-func (el *EthereumListener) Stop() error {
-	el.HeadTracker.Detach(el.headTrackerId)
-	return nil
-}
-
-// AddJob looks for "runlog" and "ethlog" Initiators for a given job
-// and watches the Ethereum blockchain for the addresses in the job.
-func (el *EthereumListener) AddJob(job models.JobSpec) error {
-	if !job.IsLogInitiated() || !el.HeadTracker.IsConnected() {
+// AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
+// initiator in the passed job spec.
+func (el *EthereumListener) AddJob(job models.JobSpec, bn *models.IndexableBlockNumber) error {
+	if !job.IsLogInitiated() {
 		return nil
 	}
 
-	sub, err := StartJobSubscription(job, el.HeadTracker.Get(), el.Store)
+	sub, err := StartJobSubscription(job, bn, el.Store)
 	if err != nil {
 		return err
 	}
@@ -53,6 +37,7 @@ func (el *EthereumListener) AddJob(job models.JobSpec) error {
 	return nil
 }
 
+// Returns the jobs being listened to.
 func (el *EthereumListener) Jobs() []models.JobSpec {
 	var jobs []models.JobSpec
 	for _, js := range el.jobSubscriptions {
@@ -67,17 +52,19 @@ func (el *EthereumListener) addSubscription(sub JobSubscription) {
 	el.jobSubscriptions = append(el.jobSubscriptions, sub)
 }
 
-func (el *EthereumListener) Connect() error {
+// Connects the jobs to the ethereum node by creating corresponding subscriptions.
+func (el *EthereumListener) Connect(bn *models.IndexableBlockNumber) error {
 	jobs, err := el.Store.Jobs()
 	if err != nil {
 		return err
 	}
 	for _, j := range jobs {
-		err = multierr.Append(err, el.AddJob(j))
+		err = multierr.Append(err, el.AddJob(j, bn))
 	}
 	return err
 }
 
+// Disconnects all subscriptions associated with jobs.
 func (el *EthereumListener) Disconnect() {
 	el.jobsMutex.Lock()
 	defer el.jobsMutex.Unlock()
@@ -87,6 +74,7 @@ func (el *EthereumListener) Disconnect() {
 	el.jobSubscriptions = []JobSubscription{}
 }
 
+// Resumes all pending job runs based on the new head activity.
 func (el *EthereumListener) OnNewHead(_ *models.BlockHeader) {
 	pendingRuns, err := el.Store.PendingJobRuns()
 	if err != nil {
@@ -99,17 +87,13 @@ func (el *EthereumListener) OnNewHead(_ *models.BlockHeader) {
 	}
 }
 
+// Represents any object that wishes to respond to ethereum events,
+// after being attached to HeadTracker.
 type HeadTrackable interface {
-	Connect() error
+	Connect(*models.IndexableBlockNumber) error
 	Disconnect()
 	OnNewHead(*models.BlockHeader)
 }
-
-type NoOpHeadTrackable struct{}
-
-func (NoOpHeadTrackable) Connect() error                { return nil }
-func (NoOpHeadTrackable) Disconnect()                   {}
-func (NoOpHeadTrackable) OnNewHead(*models.BlockHeader) {}
 
 // Holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
@@ -126,7 +110,9 @@ type HeadTracker struct {
 	sleeper          utils.Sleeper
 }
 
-// Instantiates a new HeadTracker using the orm to persist new block numbers
+// Instantiates a new HeadTracker using the orm to persist new block numbers.
+// Can be passed in an optional sleeper object that will dictate how often
+// it tries to reconnect.
 func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker {
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
@@ -137,6 +123,8 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 	return &HeadTracker{store: store, trackers: map[string]HeadTrackable{}, sleeper: sleeper}
 }
 
+// Starts the HeadTracker by retrieving the last persisted block number,
+// subscribing to new heads, and firing Connect on successful connection.
 func (ht *HeadTracker) Start() error {
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
@@ -148,18 +136,20 @@ func (ht *HeadTracker) Start() error {
 	}
 
 	ht.headers = make(chan models.BlockHeader)
-	sub, err := ht.subscribeToNewHeads()
+	sub, err := ht.subscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.Connect()
+	ht.connect(ht.number)
+	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
 	return nil
 }
 
+// Unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
-	if ht.headSubscription != nil && ht.headSubscription.Err() != nil {
+	if ht.headSubscription != nil {
 		ht.headSubscription.Unsubscribe()
 		ht.headSubscription = nil
 	}
@@ -167,7 +157,7 @@ func (ht *HeadTracker) Stop() error {
 		close(ht.headers)
 		ht.headers = nil
 	}
-	ht.Disconnect()
+	ht.disconnect()
 	return nil
 }
 
@@ -179,7 +169,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 	}
 
 	ht.headMutex.Lock()
-	if ht.number == nil || ht.number.ToInt().Cmp(n.ToInt()) < 0 {
+	if n.GreaterThan(ht.number) {
 		copy := *n
 		ht.number = &copy
 	}
@@ -194,17 +184,20 @@ func (ht *HeadTracker) Get() *models.IndexableBlockNumber {
 	return ht.number
 }
 
+// Attaches an object that will have HeadTrackable events fired on occurence,
+// such as Connect.
 func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	ht.trackersMutex.Lock()
 	defer ht.trackersMutex.Unlock()
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
 	if ht.connected {
-		t.Connect()
+		t.Connect(ht.Get())
 	}
 	return id
 }
 
+// Detaches an object from having HeadTrackable events fired.
 func (ht *HeadTracker) Detach(id string) {
 	ht.trackersMutex.Lock()
 	defer ht.trackersMutex.Unlock()
@@ -215,18 +208,19 @@ func (ht *HeadTracker) Detach(id string) {
 	delete(ht.trackers, id)
 }
 
+// Returns whether or not this HeadTracker is connected.
 func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 
-func (ht *HeadTracker) Connect() {
+func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = true
 	for _, t := range ht.trackers {
-		logger.WarnIf(t.Connect())
+		logger.WarnIf(t.Connect(bn))
 	}
 }
 
-func (ht *HeadTracker) Disconnect() {
+func (ht *HeadTracker) disconnect() {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	ht.connected = false
@@ -235,7 +229,7 @@ func (ht *HeadTracker) Disconnect() {
 	}
 }
 
-func (ht *HeadTracker) OnNewHead(head *models.BlockHeader) {
+func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
 	for _, t := range ht.trackers {
@@ -243,8 +237,8 @@ func (ht *HeadTracker) OnNewHead(head *models.BlockHeader) {
 	}
 }
 
-func (ht *HeadTracker) subscribeToNewHeads() (models.EthSubscription, error) {
-	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
+func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (models.EthSubscription, error) {
+	sub, err := ht.store.TxManager.SubscribeToNewHeads(headers)
 	if err != nil {
 		return nil, err
 	}
@@ -259,9 +253,23 @@ func (ht *HeadTracker) subscribeToNewHeads() (models.EthSubscription, error) {
 	return sub, nil
 }
 
+func (ht *HeadTracker) updateBlockHeader() {
+	header, err := ht.store.TxManager.GetBlockByNumber("latest")
+	if err != nil {
+		logger.Warnw("Unable to update latest block header", "err", err)
+		return
+	}
+
+	bn := header.IndexableBlockNumber()
+	if bn.GreaterThan(ht.Get()) {
+		logger.Debug("Fast forwarding to block header ", bn.FriendlyString())
+		ht.Save(bn)
+	}
+}
+
 func (ht *HeadTracker) listenToNewHeads() {
 	if ht.number != nil {
-		logger.Info("Tracking logs from block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
+		logger.Debug("Tracking logs from last block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
 	}
 	for header := range ht.headers {
 		number := header.IndexableBlockNumber()
@@ -269,7 +277,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 		if err := ht.Save(number); err != nil {
 			logger.Error(err.Error())
 		} else {
-			ht.OnNewHead(&header)
+			ht.onNewHead(&header)
 		}
 	}
 }
