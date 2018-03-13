@@ -90,6 +90,7 @@ type RPCLogSubscription struct {
 	errors          chan error
 	ethSubscription models.EthSubscription
 	backfillWG      *sync.WaitGroup
+	backfilledSet   map[uint64]bool
 }
 
 // NewRPCLogSubscription creates a new RPCLogSubscription that feeds received
@@ -109,6 +110,7 @@ func NewRPCLogSubscription(
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
 	sub.backfillWG = new(sync.WaitGroup)
+	sub.backfilledSet = make(map[uint64]bool)
 
 	listenFrom := head.NextNumber()
 	logListening(initr, listenFrom)
@@ -145,6 +147,7 @@ func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) {
 
 	for _, log := range logs {
 		sub.dispatchLog(log)
+		sub.backfilledSet[log.BlockNumber] = true
 	}
 }
 
@@ -157,7 +160,9 @@ func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 func (sub RPCLogSubscription) listenToLogs() {
 	sub.backfillWG.Wait()
 	for el := range sub.logs {
-		sub.dispatchLog(el)
+		if _, present := sub.backfilledSet[el.BlockNumber]; !present {
+			sub.dispatchLog(el)
+		}
 	}
 }
 
