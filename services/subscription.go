@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -89,8 +88,6 @@ type RPCLogSubscription struct {
 	logs            chan types.Log
 	errors          chan error
 	ethSubscription models.EthSubscription
-	backfillWG      *sync.WaitGroup
-	backfilledSet   map[string]bool
 }
 
 // NewRPCLogSubscription creates a new RPCLogSubscription that feeds received
@@ -109,8 +106,6 @@ func NewRPCLogSubscription(
 	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
-	sub.backfillWG = new(sync.WaitGroup)
-	sub.backfilledSet = make(map[string]bool)
 
 	listenFrom := head.NextNumber()
 	logListening(initr, listenFrom)
@@ -121,10 +116,8 @@ func NewRPCLogSubscription(
 	}
 
 	sub.ethSubscription = es
-	sub.backfillWG.Add(1)
-	go sub.backfillLogs(q)
 	go sub.listenToSubscriptionErrors()
-	go sub.listenToLogs()
+	go sub.listenToLogs(q)
 	return sub, nil
 }
 
@@ -137,33 +130,34 @@ func (sub RPCLogSubscription) Unsubscribe() {
 	close(sub.errors)
 }
 
-func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) {
-	defer sub.backfillWG.Done()
-	logs, err := sub.store.TxManager.GetLogs(q)
-	if err != nil {
-		logger.Errorw("Unable to backfill logs", "err", err)
-		return
-	}
-
-	for _, log := range logs {
-		sub.dispatchLog(log)
-		sub.backfilledSet[log.BlockHash.String()] = true
-	}
-}
-
 func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 	for err := range sub.errors {
 		logger.Errorw(fmt.Sprintf("Error in log subscription for job %v", sub.Job.ID), "err", err, "initr", sub.Initiator)
 	}
 }
 
-func (sub RPCLogSubscription) listenToLogs() {
-	sub.backfillWG.Wait()
+func (sub RPCLogSubscription) listenToLogs(q ethereum.FilterQuery) {
+	backfilledSet := sub.backfillLogs(q)
 	for el := range sub.logs {
-		if _, present := sub.backfilledSet[el.BlockHash.String()]; !present {
+		if _, present := backfilledSet[el.BlockHash.String()]; !present {
 			sub.dispatchLog(el)
 		}
 	}
+}
+
+func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
+	backfilledSet := make(map[string]bool)
+	logs, err := sub.store.TxManager.GetLogs(q)
+	if err != nil {
+		logger.Errorw("Unable to backfill logs", "err", err)
+		return backfilledSet
+	}
+
+	for _, log := range logs {
+		sub.dispatchLog(log)
+		backfilledSet[log.BlockHash.String()] = true
+	}
+	return backfilledSet
 }
 
 func (sub RPCLogSubscription) dispatchLog(log types.Log) {
