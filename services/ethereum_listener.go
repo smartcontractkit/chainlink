@@ -20,7 +20,6 @@ type EthereumListener struct {
 	Store            *store.Store
 	jobSubscriptions []JobSubscription
 	jobsMutex        sync.Mutex
-	headTrackerId    string
 }
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"

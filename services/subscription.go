@@ -89,7 +89,7 @@ type RPCLogSubscription struct {
 	logs            chan types.Log
 	errors          chan error
 	ethSubscription models.EthSubscription
-	backfillWg      *sync.WaitGroup
+	backfillWG      *sync.WaitGroup
 }
 
 // Create a new RPCLogSubscription that feeds received logs to the callback func parameter.
@@ -107,7 +107,7 @@ func NewRPCLogSubscription(
 	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
-	sub.backfillWg = new(sync.WaitGroup)
+	sub.backfillWG = new(sync.WaitGroup)
 
 	listenFrom := head.NextNumber()
 	logListening(initr, listenFrom)
@@ -118,7 +118,7 @@ func NewRPCLogSubscription(
 	}
 
 	sub.ethSubscription = es
-	sub.backfillWg.Add(1)
+	sub.backfillWG.Add(1)
 	go sub.backfillLogs(q)
 	go sub.listenToSubscriptionErrors()
 	go sub.listenToLogs()
@@ -135,7 +135,7 @@ func (sub RPCLogSubscription) Unsubscribe() {
 }
 
 func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) {
-	defer sub.backfillWg.Done()
+	defer sub.backfillWG.Done()
 	logs, err := sub.store.TxManager.GetLogs(q)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err)
@@ -154,7 +154,7 @@ func (sub RPCLogSubscription) listenToSubscriptionErrors() {
 }
 
 func (sub RPCLogSubscription) listenToLogs() {
-	sub.backfillWg.Wait()
+	sub.backfillWG.Wait()
 	for el := range sub.logs {
 		sub.dispatchLog(el)
 	}
