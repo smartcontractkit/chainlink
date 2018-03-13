@@ -93,3 +93,28 @@ func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 	assert.Equal(t, 1, count)
 }
+
+func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
+	eth.Register("eth_getLogs", []types.Log{log}) // backfill
+	logsChan := make(chan types.Log, 1)
+	eth.RegisterSubscription("logs", logsChan)
+	logsChan <- log // received in real time
+
+	count := 0
+	callback := func(services.RPCLogEvent) { count += 1 }
+	sub, err := services.NewRPCLogSubscription(initr, job, nil, store, callback)
+	assert.Nil(t, err)
+	defer sub.Unsubscribe()
+
+	eth.EventuallyAllCalled(t)
+	assert.Equal(t, 1, count)
+}
