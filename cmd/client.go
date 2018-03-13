@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -84,6 +85,28 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var jobs []models.JobSpec
+	return cli.deserializeResponse(resp, &jobs)
+}
+
+// CreateJobSpec creates job spec based on JSON input
+func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in job JSON"))
+	}
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/specs",
+		"application/json",
+		bytes.NewBufferString(c.Args().First()),
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var jobs presenters.JobSpec
 	return cli.deserializeResponse(resp, &jobs)
 }
 

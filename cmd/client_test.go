@@ -78,3 +78,34 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	assert.NotNil(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
 }
+
+func TestClient_CreateJobSpec(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+
+	tests := []struct {
+		input   string
+		nJobs   int
+		errored bool
+	}{
+		{"bad input", 0, true},
+		{"{\"initiators\":[{\"type\":\"web\"}], \"tasks\":[{\"type\": \"NoOp\"}]}", 1, false},
+		{"{\"initiators\":[{\"type\":\"ethLog\", \"address\": \"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42\"}],\"tasks\": [ { \"type\": \"NoOp\" } ]}", 2, false},
+	}
+
+	for _, tt := range tests {
+		test := tt
+
+		set := flag.NewFlagSet("create", 0)
+		set.Parse([]string{test.input})
+		c := cli.NewContext(nil, set, nil)
+		if test.errored {
+			assert.NotNil(t, client.CreateJobSpec(c))
+		} else {
+			assert.Nil(t, client.CreateJobSpec(c))
+		}
+		numberOfJobs, _ := app.Store.Jobs()
+		assert.Equal(t, len(numberOfJobs), test.nJobs)
+	}
+}
