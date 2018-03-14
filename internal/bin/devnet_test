@@ -1,0 +1,51 @@
+#!/bin/bash
+
+set -e
+
+TRUFFLEBIN=./node_modules/.bin/truffle
+
+# Run devnet
+docker pull smartcontract/devnet:latest
+./internal/bin/devnet &
+DEVNETPID=$!
+
+# Bootstrap and run CL against devnet
+cd solidity
+$TRUFFLEBIN migrate --network devnet
+cd ..
+./internal/bin/cldev &
+CLDEVPID=$!
+
+sleep 5
+
+# Retrieve hello_chainlink
+mkdir tmp || true
+cd tmp
+wget -O hellocl https://github.com/smartcontractkit/hello_chainlink/archive/v0.2.0.tar.gz
+tar -xzf hellocl
+cd hello_chainlink-0.2.0
+
+# Run echo_server sample
+cd echo_server
+yarn install
+$TRUFFLEBIN migrate
+node echo.js &
+ECHOPID=$!
+
+./create_ethlog_job
+node send_ethlog_transaction.js
+
+count=`curl localhost:6690/count`
+
+if [ "$count" -ne "1" ]
+then
+  echo "Echo count is $count, not 1. Should have echoed 1 ethlog transaction."
+  exit 1
+else
+  echo "Echo count is correctly $count"
+fi
+
+# Unfortunately, does not kill off all bg processes
+kill $ECHOPID
+kill $CLDEVPID
+kill $DEVNETPID
