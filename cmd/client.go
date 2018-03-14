@@ -7,6 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/mitchellh/go-homedir"
+	"github.com/tidwall/gjson"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
@@ -95,17 +98,22 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON/filepath"))
+		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
+	arg := c.Args().First()
 	var buf *bytes.Buffer
-	if c.Args().First()[0] != '{' {
-		file, err := ioutil.ReadFile(c.Args().First())
+	if gjson.Valid(arg) {
+		buf = bytes.NewBufferString(arg)
+	} else {
+		dir, err := homedir.Expand(arg)
+		if err != nil {
+			return cli.errorOut(err)
+		}
+		file, err := ioutil.ReadFile(dir)
 		if err != nil {
 			return cli.errorOut(err)
 		}
 		buf = bytes.NewBuffer(file)
-	} else {
-		buf = bytes.NewBufferString(c.Args().First())
 	}
 	resp, err := utils.BasicAuthPost(
 		cfg.BasicAuthUsername,
