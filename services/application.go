@@ -1,6 +1,10 @@
 package services
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -22,6 +26,7 @@ type ChainlinkApplication struct {
 	EthereumListener *EthereumListener
 	Scheduler        *Scheduler
 	Store            *store.Store
+	Exiter           func(int)
 	attachmentID     string
 }
 
@@ -38,13 +43,24 @@ func NewApplication(config store.Config) Application {
 		EthereumListener: &EthereumListener{Store: store},
 		Scheduler:        NewScheduler(store),
 		Store:            store,
+		Exiter:           os.Exit,
 	}
 }
 
-// Start runs the Store, EthereumListener, and Scheduler. If successful,
+// Start runs the EthereumListener and Scheduler. If successful,
 // nil will be returned.
+// Also listens for interrupt signals from the operating system so
+// that the application can be properly closed before the application
+// exits.
 func (app *ChainlinkApplication) Start() error {
-	app.Store.Start()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		app.Stop()
+		app.Exiter(1)
+	}()
+
 	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
 	return multierr.Combine(app.HeadTracker.Start(), app.Scheduler.Start())
 }

@@ -3,8 +3,6 @@ package store
 import (
 	"context"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -18,10 +16,8 @@ type Store struct {
 	*models.ORM
 	Config    Config
 	Clock     AfterNower
-	Exiter    func(int)
 	KeyStore  *KeyStore
 	TxManager *TxManager
-	sigs      chan os.Signal
 }
 
 type rpcSubscriptionWrapper struct {
@@ -51,7 +47,6 @@ func NewStore(config Config) *Store {
 		ORM:      orm,
 		Config:   config,
 		KeyStore: keyStore,
-		Exiter:   os.Exit,
 		Clock:    Clock{},
 		TxManager: &TxManager{
 			Config:    config,
@@ -61,19 +56,6 @@ func NewStore(config Config) *Store {
 		},
 	}
 	return store
-}
-
-// Start listens for interrupt signals from the operating system so
-// that the database can be properly closed before the application
-// exits.
-func (s *Store) Start() {
-	s.sigs = make(chan os.Signal, 1)
-	signal.Notify(s.sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-s.sigs
-		s.Close()
-		s.Exiter(1)
-	}()
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`
