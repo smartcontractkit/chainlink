@@ -92,14 +92,24 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in job JSON"))
+		return cli.errorOut(errors.New("Must pass in JSON/filepath"))
+	}
+	var buf *bytes.Buffer
+	if c.Args().First()[0] != '{' {
+		file, err := ioutil.ReadFile(c.Args().First())
+		if err != nil {
+			return cli.errorOut(err)
+		}
+		buf = bytes.NewBuffer(file)
+	} else {
+		buf = bytes.NewBufferString(c.Args().First())
 	}
 	resp, err := utils.BasicAuthPost(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
 		cfg.ClientNodeURL+"/v2/specs",
 		"application/json",
-		bytes.NewBufferString(c.Args().First()),
+		buf,
 	)
 	if err != nil {
 		return cli.errorOut(err)
