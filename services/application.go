@@ -91,5 +91,5 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.EthereumListener.AddJob(job, app.HeadTracker.Get())
+	return app.EthereumListener.AddJob(job, app.HeadTracker.LastRecord())
 }
