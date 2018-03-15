@@ -86,12 +86,34 @@ func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
 
 	count := 0
 	callback := func(services.RPCLogEvent) { count += 1 }
-	sub, err := services.NewRPCLogSubscription(initr, job, nil, store, callback)
+	head := cltest.NewIndexableBlockNumber()
+	sub, err := services.NewRPCLogSubscription(initr, job, head, store, callback)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)
 	assert.Equal(t, 1, count)
+}
+
+func TestServices_NewRPCLogSubscription_BackfillLogs_WithNoHead(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+	eth.RegisterSubscription("logs")
+
+	count := 0
+	callback := func(services.RPCLogEvent) { count += 1 }
+	sub, err := services.NewRPCLogSubscription(initr, job, nil, store, callback)
+	assert.Nil(t, err)
+	defer sub.Unsubscribe()
+
+	eth.EventuallyAllCalled(t)
+	assert.Equal(t, 0, count)
 }
 
 func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
@@ -111,7 +133,8 @@ func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
 
 	count := 0
 	callback := func(services.RPCLogEvent) { count += 1 }
-	sub, err := services.NewRPCLogSubscription(initr, job, nil, store, callback)
+	head := cltest.NewIndexableBlockNumber()
+	sub, err := services.NewRPCLogSubscription(initr, job, head, store, callback)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
