@@ -28,6 +28,8 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			`{"value":"99"}`},
 		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
 			`{"value":"100"}`},
+		{"type parameter does not override", `{"type":"other"}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
+			`{"value":"100"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
