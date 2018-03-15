@@ -20,8 +20,16 @@ type JobRun struct {
 	ID string `json:"id"`
 }
 
+func BenchmarkJobRunsController_Index(b *testing.B) {
+	testJobRunsControllerIndex(b)
+}
+
 func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
+	testJobRunsControllerIndex(t)
+}
+
+func testJobRunsControllerIndex(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
