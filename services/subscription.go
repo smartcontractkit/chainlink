@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -146,7 +147,11 @@ func (sub RPCLogSubscription) listenToLogs(q ethereum.FilterQuery) {
 }
 
 func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
-	backfilledSet := make(map[string]bool)
+	backfilledSet := map[string]bool{}
+	if q.FromBlock.Cmp(big.NewInt(0)) <= 0 {
+		return backfilledSet
+	}
+
 	logs, err := sub.store.TxManager.GetLogs(q)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err)
