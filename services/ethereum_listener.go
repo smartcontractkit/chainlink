@@ -124,8 +124,9 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 	return &HeadTracker{store: store, trackers: map[string]HeadTrackable{}, sleeper: sleeper}
 }
 
-// Start starts the HeadTracker by retrieving the last persisted block number,
-// subscribing to new heads, and firing Connect on successful connection.
+// Start retrieves the last persisted block number from the HeadTracker,
+// subscribes to new heads, and if successful fires Connect on the
+// HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
@@ -185,7 +186,7 @@ func (ht *HeadTracker) LastRecord() *models.IndexableBlockNumber {
 	return ht.number
 }
 
-// Attach attaches an object that will have HeadTrackable events fired on occurence,
+// Attach registers an object that will have HeadTrackable events fired on occurence,
 // such as Connect.
 func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	ht.trackersMutex.Lock()
@@ -198,7 +199,7 @@ func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	return id
 }
 
-// Detach detaches an object from having HeadTrackable events fired.
+// Detach deregisters an object from having HeadTrackable events fired.
 func (ht *HeadTracker) Detach(id string) {
 	ht.trackersMutex.Lock()
 	defer ht.trackersMutex.Unlock()
