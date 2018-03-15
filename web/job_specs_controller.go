@@ -50,7 +50,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, gin.H{"id": j.ID})
+		c.JSON(200, presenters.JobSpec{JobSpec: j})
 	}
 }
 
