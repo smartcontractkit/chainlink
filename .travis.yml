@@ -33,7 +33,7 @@ script:
   - ./internal/ci/gofmt.sh
   - goverage -v -coverprofile=coverage.out ./...
   - cd solidity && ./node_modules/.bin/truffle test && cd ..
-  - ./internal/bin/devnet_test
+  - ./internal/ci/devnet_test
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
