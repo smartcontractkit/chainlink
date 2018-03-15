@@ -86,7 +86,7 @@ func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
 
 	count := 0
 	callback := func(services.RPCLogEvent) { count += 1 }
-	head := cltest.NewIndexableBlockNumber()
+	head := cltest.IndexableBlockNumber(0)
 	sub, err := services.NewRPCLogSubscription(initr, job, head, store, callback)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
@@ -133,7 +133,7 @@ func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
 
 	count := 0
 	callback := func(services.RPCLogEvent) { count += 1 }
-	head := cltest.NewIndexableBlockNumber()
+	head := cltest.IndexableBlockNumber(0)
 	sub, err := services.NewRPCLogSubscription(initr, job, head, store, callback)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
