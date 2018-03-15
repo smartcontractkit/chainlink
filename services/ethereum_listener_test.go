@@ -38,7 +38,7 @@ func newAddr() common.Address {
 	return cltest.NewAddress()
 }
 
-func TestEthereumListener_Reconnect(t *testing.T) {
+func TestEthereumListener_reconnectLoop_Resubscribing(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -67,7 +67,7 @@ func TestEthereumListener_Reconnect(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 }
 
-func TestEthereumListener_ReattachedToHeadTracker(t *testing.T) {
+func TestEthereumListener_AttachedToHeadTracker(t *testing.T) {
 	t.Parallel()
 
 	el, cleanup := cltest.NewEthereumListener()
@@ -86,9 +86,10 @@ func TestEthereumListener_ReattachedToHeadTracker(t *testing.T) {
 	assert.Nil(t, ht.Start())
 	id := ht.Attach(el)
 	assert.Equal(t, 2, len(el.Jobs()))
+	eth.EventuallyAllCalled(t)
+
 	ht.Detach(id)
 	assert.Equal(t, 0, len(el.Jobs()))
-	eth.EventuallyAllCalled(t)
 }
 
 func TestEthereumListener_AddJob_Listening(t *testing.T) {
