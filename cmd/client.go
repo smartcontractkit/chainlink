@@ -99,18 +99,13 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	}
 	arg := c.Args().First()
 	var buf *bytes.Buffer
+	var err error
 	if gjson.Valid(arg) {
 		buf = bytes.NewBufferString(arg)
 	} else {
-		dir, err := homedir.Expand(arg)
-		if err != nil {
+		if buf, err = fromFile(arg, cli); err != nil {
 			return cli.errorOut(err)
 		}
-		file, err := ioutil.ReadFile(dir)
-		if err != nil {
-			return cli.errorOut(err)
-		}
-		buf = bytes.NewBuffer(file)
 	}
 	resp, err := utils.BasicAuthPost(
 		cfg.BasicAuthUsername,
@@ -126,6 +121,18 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 
 	var jobs presenters.JobSpec
 	return cli.deserializeResponse(resp, &jobs)
+}
+
+func fromFile(arg string, cli *Client) (*bytes.Buffer, error) {
+	dir, err := homedir.Expand(arg)
+	if err != nil {
+		return nil, err
+	}
+	file, err := ioutil.ReadFile(dir)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewBuffer(file), nil
 }
 
 func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {

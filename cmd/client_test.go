@@ -89,13 +89,11 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		nJobs   int
 		errored bool
 	}{
-		{"{bad json}", 0, true},
+		{"{bad son}", 0, true},
 		{"bad/filepath/", 0, true},
 		{`{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
 		{`{"initiators":[{"type":"runAt","time":"2018-01-08T18:12:01.103Z"}],"tasks":[{"type":"NoOp"}]}`, 2, false},
 		{"../internal/fixtures/web/end_at_job.json", 3, false},
-		{"~/go/src/github.com/smartcontractkit/chainlink/internal/fixtures/web/hello_world_job.json", 4, false},
-		{"~/go/src/github.com/smartcontractkit/chainlink/internal/fixtures/web/invalid_cron.json", 4, true},
 	}
 
 	for _, tt := range tests {
