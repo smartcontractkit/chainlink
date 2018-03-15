@@ -14,8 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func BenchmarkJobSpecsController_Index(b *testing.B) {
+	testJobSpecsControllerIndex(b)
+}
+
 func TestJobSpecsController_Index(t *testing.T) {
 	t.Parallel()
+	testJobSpecsControllerIndex(t)
+}
+
+func testJobSpecsControllerIndex(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -36,8 +44,16 @@ func TestJobSpecsController_Index(t *testing.T) {
 	assert.NotEqual(t, true, jobs[1].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
+func BenchmarkJobSpecsController_Create(b *testing.B) {
+	testJobSpecsControllerCreate(b)
+}
+
 func TestJobSpecsController_Create(t *testing.T) {
 	t.Parallel()
+	testJobSpecsControllerCreate(t)
+}
+
+func testJobSpecsControllerCreate(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -141,8 +157,16 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
+func BenchmarkJobSpecsController_Show(b *testing.B) {
+	testJobSpecsControllerShow(b)
+}
+
 func TestJobSpecsController_Show(t *testing.T) {
 	t.Parallel()
+	testJobSpecsControllerShow(t)
+}
+
+func testJobSpecsControllerShow(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 

@@ -276,7 +276,7 @@ func ObserveLogs() *observer.ObservedLogs {
 	return observed
 }
 
-func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
+func FixtureCreateJobViaWeb(t assert.TestingT, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/specs",
 		"application/json",
@@ -377,7 +377,7 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 	return client, r
 }
 
-func CheckStatusCode(t *testing.T, resp *http.Response, expected int) {
+func CheckStatusCode(t assert.TestingT, resp *http.Response, expected int) {
 	assert.Equal(t, expected, resp.StatusCode)
 	if resp.StatusCode != expected {
 		buf, err := ioutil.ReadAll(resp.Body)
