@@ -162,7 +162,7 @@ func TestHeadTracker_New(t *testing.T) {
 
 	ht := services.NewHeadTracker(store)
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, last.Number, ht.Get().Number)
+	assert.Equal(t, last.Number, ht.LastRecord().Number)
 }
 
 func TestHeadTracker_Get(t *testing.T) {
@@ -204,7 +204,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.Nil(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.Get().ToInt())
+			assert.Equal(t, test.want, ht.LastRecord().ToInt())
 		})
 	}
 }

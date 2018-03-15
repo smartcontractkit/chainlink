@@ -178,8 +178,8 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 	return ht.store.Save(n)
 }
 
-// Get returns the latest block header being tracked, or nil.
-func (ht *HeadTracker) Get() *models.IndexableBlockNumber {
+// LastRecord returns the latest block header being tracked, or nil.
+func (ht *HeadTracker) LastRecord() *models.IndexableBlockNumber {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
 	return ht.number
@@ -193,7 +193,7 @@ func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
 	if ht.connected {
-		t.Connect(ht.Get())
+		t.Connect(ht.LastRecord())
 	}
 	return id
 }
@@ -262,7 +262,7 @@ func (ht *HeadTracker) updateBlockHeader() {
 	}
 
 	bn := header.IndexableBlockNumber()
-	if bn.GreaterThan(ht.Get()) {
+	if bn.GreaterThan(ht.LastRecord()) {
 		logger.Debug("Fast forwarding to block header ", bn.FriendlyString())
 		ht.Save(bn)
 	}
