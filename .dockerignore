@@ -1,0 +1,15 @@
+**/.git
+.git
+!.git/HEAD
+!.git/refs/heads
+**/*_test.go
+
+.git-together
+.DS_Store
+.envrc
+tmp/
+vendor/
+
+solidity/node_modules/
+solidity/build/
+solidity/.python-version
