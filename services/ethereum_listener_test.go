@@ -156,10 +156,10 @@ func TestHeadTracker_New(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	cltest.MockEthOnStore(store)
-	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(1))))
-	last := models.NewIndexableBlockNumber(big.NewInt(0x10))
+	assert.Nil(t, store.Save(cltest.IndexableBlockNumber(1)))
+	last := cltest.IndexableBlockNumber(16)
 	assert.Nil(t, store.Save(last))
-	assert.Nil(t, store.Save(models.NewIndexableBlockNumber(big.NewInt(0xf))))
+	assert.Nil(t, store.Save(cltest.IndexableBlockNumber(10)))
 
 	ht := services.NewHeadTracker(store)
 	assert.Nil(t, ht.Start())
@@ -169,7 +169,7 @@ func TestHeadTracker_New(t *testing.T) {
 func TestHeadTracker_Get(t *testing.T) {
 	t.Parallel()
 
-	start := models.NewIndexableBlockNumber(big.NewInt(5))
+	start := cltest.IndexableBlockNumber(5)
 
 	tests := []struct {
 		name      string
