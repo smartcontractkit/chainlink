@@ -113,10 +113,6 @@ func NewBridgeType(info ...string) models.BridgeType {
 	return bt
 }
 
-func NewIndexableBlockNumber() *models.IndexableBlockNumber {
-	return &models.IndexableBlockNumber{}
-}
-
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	mustNotErr(err)
