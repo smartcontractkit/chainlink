@@ -7,10 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/mitchellh/go-homedir"
-	"github.com/tidwall/gjson"
-
 	"github.com/gin-gonic/gin"
+	"github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -18,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
+	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
