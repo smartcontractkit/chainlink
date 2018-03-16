@@ -2,10 +2,10 @@ package presenters_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
