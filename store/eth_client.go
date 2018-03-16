@@ -56,8 +56,8 @@ func (eth *EthClient) GetEthBalance(address common.Address) (float64, error) {
 
 func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	type callArgs struct {
-		To common.Address `json:"to"`
-		Data hexutil.Bytes `json:"data"`
+		To   common.Address `json:"to"`
+		Data hexutil.Bytes  `json:"data"`
 	}
 	result := ""
 	numLinkBigInt := new(big.Int)
@@ -66,7 +66,7 @@ func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress co
 	if err != nil {
 		return nil, err
 	}
-	args := callArgs {
+	args := callArgs{
 		To:   contractAddress,
 		Data: data,
 	}
