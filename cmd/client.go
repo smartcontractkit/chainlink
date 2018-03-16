@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	clipkg "github.com/urfave/cli"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -94,18 +95,17 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 // CreateJobSpec creates job spec based on JSON input
 func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
+	errjs := errors.New("Must pass in JSON or filepath")
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
+		return cli.errorOut(errjs)
 	}
 	arg := c.Args().First()
 	var buf *bytes.Buffer
 	var err error
 	if gjson.Valid(arg) {
 		buf = bytes.NewBufferString(arg)
-	} else {
-		if buf, err = fromFile(arg, cli); err != nil {
-			return cli.errorOut(err)
-		}
+	} else if buf, err = fromFile(arg, cli); err != nil {
+		return cli.errorOut(multierr.Append(errjs, err))
 	}
 	resp, err := utils.BasicAuthPost(
 		cfg.BasicAuthUsername,
