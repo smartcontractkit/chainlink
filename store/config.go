@@ -8,9 +8,9 @@ import (
 	"path"
 	"reflect"
 
+	"github.com/caarlos0/env"
 	"github.com/gin-gonic/gin"
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/smartcontractkit/env"
 	"go.uber.org/zap/zapcore"
 )
 

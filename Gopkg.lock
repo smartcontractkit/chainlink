@@ -39,6 +39,12 @@
   revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/caarlos0/env"
+  packages = ["."]
+  revision = "9b2b3076ca0cbc3cf9587a990befcd1306a8ae34"
+
+[[projects]]
   name = "github.com/coreos/bbolt"
   packages = ["."]
   revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
@@ -228,12 +234,6 @@
   revision = "36e9d2ebbde5e3f13ab2e25625fd453271d6522e"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/smartcontractkit/env"
-  packages = ["."]
-  revision = "e3f86153e6a3c99bf6df08d097d29972295299bf"
-
-[[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
   revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
@@ -401,6 +401,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "93f2e2bc50a4281a0dc9b51a03383887825325c04c45cf9eb833089776718c5b"
+  inputs-digest = "b43ece1f022da72289721f53c30489afe6aa9329f426173d24ad2d834b6e85cc"
   solver-name = "gps-cdcl"
   solver-version = 1
