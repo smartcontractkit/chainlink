@@ -86,10 +86,6 @@
   name = "github.com/olekukonko/tablewriter"
 
 [[constraint]]
-  name = "github.com/smartcontractkit/env"
-  branch = "master"
-
-[[constraint]]
   name = "github.com/tidwall/gjson"
   version = "1.0.6"
 
@@ -100,3 +96,7 @@
 [[constraint]]
   name = "github.com/jpillora/backoff"
   version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/caarlos0/env"
