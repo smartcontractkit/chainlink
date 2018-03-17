@@ -9,13 +9,9 @@ docker pull smartcontract/devnet:latest
 ./internal/bin/devnet &
 DEVNETPID=$!
 
-# Bootstrap and run CL against devnet
-cd solidity
-$TRUFFLEBIN migrate --network devnet
-cd ..
+# Run CL against devnet
 ./internal/bin/cldev &
 CLDEVPID=$!
-
 sleep 5
 
 # Retrieve hello_chainlink
@@ -33,8 +29,8 @@ node echo.js &
 ECHOPID=$!
 
 ./create_ethlog_job
-node send_ethlog_transaction.js
-
+./send_ethlog_transaction.js
+sleep 3
 count=`curl localhost:6690/count`
 
 if [ "$count" -ne "1" ]
