@@ -22,14 +22,16 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		wantStatus string
 		wantData   string
 	}{
-		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100"}`},
-		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, `{}`},
-		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.StatusErrored,
-			`{"value":"99"}`},
-		{"overriding bridge type params", `{"url":"http://unsafe.com/hack"}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
-			`{"value":"100"}`},
-		{"type parameter does not override", `{"type":"other"}`, `{"data":{"value":"100"}}`, models.StatusCompleted,
-			`{"value":"100"}`},
+		{"success", `{}`, `{"data":{"value":"100"}}`,
+			models.StatusCompleted, `{"value":"100"}`},
+		{"errored", `{}`, `{"error":"too much"}`,
+			models.StatusErrored, `{}`},
+		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`,
+			models.StatusErrored, `{"value":"99"}`},
+		{"overriding bridge type params", `{"data":{"url":"hack"},"url":"hack"}`, `{"data":{"value":"100"}}`,
+			models.StatusCompleted, `{"value":"100"}`},
+		{"type parameter does not override", `{"data":{"type":"0"},"type":"0"}`, `{"data":{"value":"100"}}`,
+			models.StatusCompleted, `{"value":"100"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
