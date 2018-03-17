@@ -150,7 +150,6 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
