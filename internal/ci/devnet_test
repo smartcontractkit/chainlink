@@ -2,17 +2,18 @@
 
 set -e
 
-TRUFFLEBIN=./node_modules/.bin/truffle
+PATH=./internal/bin:./node_modules/.bin:$PATH
 
 # Run devnet
 docker pull smartcontract/devnet:latest
-./internal/bin/devnet &
+devnet &
 DEVNETPID=$!
+sleep 1
 
 # Run CL against devnet
-./internal/bin/cldev &
+cldev &
 CLDEVPID=$!
-sleep 5
+sleep 4
 
 # Retrieve hello_chainlink
 mkdir tmp || true
@@ -24,21 +25,46 @@ cd hello_chainlink-0.2.0
 # Run echo_server sample
 cd echo_server
 yarn install
-$TRUFFLEBIN migrate
+truffle migrate
 node echo.js &
 ECHOPID=$!
 
-./create_ethlog_job
+cljob=`./create_ethlog_job`
 ./send_ethlog_transaction.js
-sleep 3
-count=`curl localhost:6690/count`
+sleep 2
 
-if [ "$count" -ne "1" ]
-then
-  echo "Echo count is $count, not 1. Should have echoed 1 ethlog transaction."
+# Check echo count
+count=`curl localhost:6690/count`
+if [ "$count" -ne "1" ]; then
+  echo "Echo count is $count, not 1."
   exit 1
 else
   echo "Echo count is correctly $count"
+fi
+
+# Check CL counts
+cd ../../../
+
+## Check job counts
+jobs=`cldev -j j | jq length`
+echo Retrieved $jobs jobs
+if [ "$jobs" -ne "1" ]; then
+  echo "Jobs count is $jobs, not 1."
+  exit 1
+else
+  echo "Jobs count is correctly $jobs."
+fi
+
+## Check job runs
+jid=`echo $cljob | jq .id | tr -d '"'`
+echo Retrieved job id $jid
+runs=`cldev -j s $jid |  jq '.runs | length'`
+echo Retrieved $runs runs
+if [ "$runs" -ne "1" ]; then
+  echo "Runs count is $runs, not 1."
+  exit 1
+else
+  echo "Runs count is correctly $runs."
 fi
 
 # Unfortunately, does not kill off all bg processes
