@@ -100,7 +100,8 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 }
 
 func startJob(j models.JobSpec, s *store.Store, body models.JSON) (models.JobRun, error) {
-	jr, err := services.BuildRun(j, s)
+	i := j.InitiatorsFor(models.InitiatorWeb)[0]
+	jr, err := services.BuildRun(j, i, s)
 	if err != nil {
 		return jr, err
 	}

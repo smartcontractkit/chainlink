@@ -104,12 +104,13 @@ func TestOneTime_RunJobAt(t *testing.T) {
 		Store: store,
 	}
 	ot.Start()
-	j := cltest.NewJob()
+	j := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour))
+	initr := j.Initiators[0]
 	assert.Nil(t, store.SaveJob(&j))
 
 	var finished bool
 	go func() {
-		ot.RunJobAt(models.Time{time.Now().Add(time.Hour)}, j)
+		ot.RunJobAt(initr, j)
 		finished = true
 	}()
 

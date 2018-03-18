@@ -196,12 +196,13 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	initr := j.Initiators[0]
 	app.Store.SaveJob(&j)
 
-	jr1 := j.NewRun()
+	jr1 := j.NewRun(initr)
 	jr1.ID = "2"
 	assert.Nil(t, app.Store.Save(&jr1))
-	jr2 := j.NewRun()
+	jr2 := j.NewRun(initr)
 	jr2.ID = "1"
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.Save(&jr2))

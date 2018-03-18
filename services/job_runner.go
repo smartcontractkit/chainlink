@@ -12,8 +12,13 @@ import (
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(job models.JobSpec, store *store.Store, input models.RunResult) (models.JobRun, error) {
-	run, err := BuildRun(job, store)
+func BeginRun(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+) (models.JobRun, error) {
+	run, err := BuildRun(job, initr, store)
 	if err != nil {
 		return models.JobRun{}, err
 	}
@@ -22,7 +27,7 @@ func BeginRun(job models.JobSpec, store *store.Store, input models.RunResult) (m
 
 // BuildRun checks to ensure the given job has not started or ended before
 // creating a new run for the job.
-func BuildRun(job models.JobSpec, store *store.Store) (models.JobRun, error) {
+func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
 		return models.JobRun{}, JobRunnerError{
@@ -34,7 +39,7 @@ func BuildRun(job models.JobSpec, store *store.Store) (models.JobRun, error) {
 			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
 		}
 	}
-	return job.NewRun(), nil
+	return job.NewRun(i), nil
 }
 
 // ExecuteRun starts the job and executes task runs within that job in the

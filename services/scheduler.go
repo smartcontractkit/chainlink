@@ -115,11 +115,11 @@ func (r *Recurring) Stop() {
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
 func (r *Recurring) AddJob(job models.JobSpec) {
-	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
-		cronStr := string(initr.Schedule)
+	for _, i := range job.InitiatorsFor(models.InitiatorCron) {
+		initr := i
 		if !job.Ended(r.Clock.Now()) {
-			r.Cron.AddFunc(cronStr, func() {
-				_, err := BeginRun(job, r.store, models.RunResult{})
+			r.Cron.AddFunc(string(initr.Schedule), func() {
+				_, err := BeginRun(job, initr, models.RunResult{}, r.store)
 				if err != nil && !expectedRecurringError(err) {
 					logger.Error(err.Error())
 				}
@@ -143,8 +143,9 @@ func (ot *OneTime) Start() error {
 
 // AddJob runs the job at the time specified for the "runat" initiator.
 func (ot *OneTime) AddJob(job models.JobSpec) {
-	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
-		go ot.RunJobAt(initr.Time, job)
+	for _, i := range job.InitiatorsFor(models.InitiatorRunAt) {
+		initr := i
+		go ot.RunJobAt(initr, job)
 	}
 }
 
@@ -155,11 +156,11 @@ func (ot *OneTime) Stop() {
 
 // RunJobAt wait until the Stop() function has been called on the run
 // or the specified time for the run is after the present time.
-func (ot *OneTime) RunJobAt(t models.Time, job models.JobSpec) {
+func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
-	case <-ot.Clock.After(t.DurationFromNow()):
-		_, err := BeginRun(job, ot.Store, models.RunResult{})
+	case <-ot.Clock.After(initr.Time.DurationFromNow()):
+		_, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
 		if err != nil {
 			logger.Error(err.Error())
 		}
