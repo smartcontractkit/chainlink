@@ -32,7 +32,7 @@ func TestJobNewRun(t *testing.T) {
 	job := cltest.NewJobWithSchedule("1 * * * *")
 	job.Tasks = []models.TaskSpec{{Type: "NoOp"}}
 
-	newRun := job.NewRun()
+	newRun := job.NewRun(job.Initiators[0])
 	assert.Equal(t, job.ID, newRun.JobID)
 	assert.Equal(t, 1, len(newRun.TaskRuns))
 	assert.Equal(t, "NoOp", job.Tasks[0].Type)

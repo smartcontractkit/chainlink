@@ -46,7 +46,7 @@ func NewJob() JobSpec {
 
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
-func (j JobSpec) NewRun() JobRun {
+func (j JobSpec) NewRun(i Initiator) JobRun {
 	jrid := utils.NewBytes32ID()
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
@@ -62,6 +62,7 @@ func (j JobSpec) NewRun() JobRun {
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
+		Initiator: i,
 	}
 }
 

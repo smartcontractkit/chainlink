@@ -18,6 +18,7 @@ type JobRun struct {
 	TaskRuns    []TaskRun `json:"taskRuns" storm:"inline"`
 	CreatedAt   time.Time `json:"createdAt" storm:"index"`
 	CompletedAt null.Time `json:"completedAt"`
+	Initiator   Initiator `json:"initiator"`
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.

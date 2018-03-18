@@ -59,12 +59,12 @@ func TestPendingJobRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j := models.NewJob()
+	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, store.SaveJob(&j))
-	npr := j.NewRun()
+	npr := j.NewRun(j.Initiators[0])
 	assert.Nil(t, store.Save(&npr))
 
-	pr := j.NewRun()
+	pr := j.NewRun(j.Initiators[0])
 	pr.Status = models.StatusPending
 	assert.Nil(t, store.Save(&pr))
 

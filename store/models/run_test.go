@@ -19,8 +19,9 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job := models.NewJob()
-	jr := job.NewRun()
+	job := cltest.NewJobWithWebInitiator()
+	initr := job.Initiators[0]
+	jr := job.NewRun(initr)
 	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
 	err := store.Save(&jr)
 	assert.Nil(t, err)
@@ -37,14 +38,15 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j := models.NewJob()
+	j := cltest.NewJobWithWebInitiator()
+	initr := j.Initiators[0]
 	j.Tasks = []models.TaskSpec{
 		{Type: "NoOp"},
 		{Type: "NoOpPend"},
 		{Type: "NoOp"},
 	}
 	assert.Nil(t, store.SaveJob(&j))
-	jr := j.NewRun()
+	jr := j.NewRun(initr)
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
 	jr, err := services.ExecuteRun(jr, store, models.RunResult{})
