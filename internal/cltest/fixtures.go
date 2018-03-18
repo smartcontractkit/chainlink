@@ -61,6 +61,15 @@ func NewJobWithLogInitiator() models.JobSpec {
 	return j
 }
 
+func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		Type: models.InitiatorRunAt,
+		Time: models.Time{t},
+	}}
+	return j
+}
+
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return &models.Tx{
 		From:     from,

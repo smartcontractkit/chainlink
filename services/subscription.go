@@ -207,7 +207,7 @@ func receiveRunLog(le RPCLogEvent) {
 		return
 	}
 
-	runJob(le, data)
+	runJob(le, data, le.Initiator)
 }
 
 // Parse the log and run the job specific to this initiator log event.
@@ -219,12 +219,12 @@ func receiveEthLog(le RPCLogEvent) {
 		return
 	}
 
-	runJob(le, data)
+	runJob(le, data, le.Initiator)
 }
 
-func runJob(le RPCLogEvent, data models.JSON) {
+func runJob(le RPCLogEvent, data models.JSON, initr models.Initiator) {
 	input := models.RunResult{Data: data}
-	if _, err := BeginRun(le.Job, le.store, input); err != nil {
+	if _, err := BeginRun(le.Job, initr, input, le.store); err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 }

@@ -51,11 +51,15 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			bt := cltest.NewBridgeType("auctionBidding", mockServer.URL)
 			assert.Nil(t, store.Save(&bt))
 
-			job := models.NewJob()
-			job.Tasks = []models.TaskSpec{{Type: bt.Name}, {Type: "noop"}}
+			job := cltest.NewJobWithWebInitiator()
+			initr := job.Initiators[0]
+			job.Tasks = []models.TaskSpec{
+				cltest.NewTask(bt.Name),
+				cltest.NewTask("noop"),
+			}
 			assert.Nil(t, store.Save(&job))
 
-			run = job.NewRun()
+			run = job.NewRun(initr)
 			input := models.RunResult{Data: cltest.JSONFromString(test.input)}
 			run, err := services.ExecuteRun(run, store, input)
 			assert.Nil(t, err)
@@ -82,10 +86,12 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job := models.NewJob()
-	job.Tasks = []models.TaskSpec{{Type: "NoOpPend"}}
+	job := cltest.NewJobWithWebInitiator()
+	initr := job.Initiators[0]
+	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOpPend")}
 
-	run, err := services.ExecuteRun(job.NewRun(), store, models.RunResult{})
+	run := job.NewRun(initr)
+	run, err := services.ExecuteRun(run, store, models.RunResult{})
 	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
@@ -116,12 +122,13 @@ func TestJobRunner_BeginRun(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			job := cltest.NewJob()
+			job := cltest.NewJobWithWebInitiator()
+			initr := job.Initiators[0]
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(&job))
 
-			_, err := services.BeginRun(job, store, models.RunResult{})
+			_, err := services.BeginRun(job, initr, models.RunResult{}, store)
 
 			if test.errored {
 				assert.NotNil(t, err)
@@ -160,12 +167,13 @@ func TestJobRunner_BuildRun(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			job := cltest.NewJob()
+			job := cltest.NewJobWithWebInitiator()
+			initr := job.Initiators[0]
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(&job))
 
-			_, err := services.BuildRun(job, store)
+			_, err := services.BuildRun(job, initr, store)
 
 			if test.errored {
 				assert.NotNil(t, err)
