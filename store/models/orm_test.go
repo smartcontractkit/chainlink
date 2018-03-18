@@ -41,7 +41,7 @@ func TestORMSaveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * *")
+	j1, initr := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(&j1)
 
 	j2, _ := store.FindJob(j1.ID)
@@ -49,8 +49,7 @@ func TestORMSaveJob(t *testing.T) {
 
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
 
-	var initr models.Initiator
-	store.One("JobID", j1.ID, &initr)
+	assert.Nil(t, store.One("JobID", j1.ID, &initr))
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
 }
 
@@ -59,12 +58,12 @@ func TestPendingJobRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j := cltest.NewJobWithWebInitiator()
+	j, i := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, store.SaveJob(&j))
-	npr := j.NewRun(j.Initiators[0])
+	npr := j.NewRun(i)
 	assert.Nil(t, store.Save(&npr))
 
-	pr := j.NewRun(j.Initiators[0])
+	pr := j.NewRun(i)
 	pr.Status = models.StatusPending
 	assert.Nil(t, store.Save(&pr))
 

@@ -27,8 +27,8 @@ func TestRendererTableRenderJobs(t *testing.T) {
 
 func TestRendererTableRenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{ioutil.Discard}
-	job := cltest.NewJobWithWebInitiator()
-	run := job.NewRun(job.Initiators[0])
+	job, initr := cltest.NewJobWithWebInitiator()
+	run := job.NewRun(initr)
 	p := presenters.JobSpec{job, []models.JobRun{run}}
 	assert.Nil(t, r.Render(&p))
 }

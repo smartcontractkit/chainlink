@@ -54,8 +54,7 @@ func TestJobRunsController_Index(t *testing.T) {
 }
 
 func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
-	j := cltest.NewJobWithWebInitiator()
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 	jr1 := j.NewRun(initr)
 	jr1.ID = "2"
@@ -73,7 +72,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.NewJobWithWebInitiator()
+	j, _ := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
@@ -88,7 +87,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.NewJobWithWebInitiator()
+	j, _ := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
@@ -100,7 +99,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.NewJobWithWebInitiator()
+	j, _ := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
@@ -139,8 +138,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
-	j := cltest.NewJobWithWebInitiator()
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
@@ -166,8 +164,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
-	j := cltest.NewJobWithWebInitiator()
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun(initr)
@@ -186,8 +183,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
-	j := cltest.NewJobWithWebInitiator()
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
@@ -213,8 +209,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
-	j := cltest.NewJobWithWebInitiator()
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
@@ -235,8 +230,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
-	j := cltest.NewJobWithWebInitiator()
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)

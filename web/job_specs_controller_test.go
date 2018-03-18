@@ -45,10 +45,10 @@ func TestJobSpecsController_Index(t *testing.T) {
 }
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) *models.JobSpec {
-	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j1, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
 	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
 	app.Store.SaveJob(&j1)
-	j2 := cltest.NewJobWithWebInitiator()
+	j2, _ := cltest.NewJobWithWebInitiator()
 	j2.Initiators[0].Ran = true
 	app.Store.SaveJob(&j2)
 
@@ -195,8 +195,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	initr := j.Initiators[0]
+	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
 
 	jr1 := j.NewRun(initr)
