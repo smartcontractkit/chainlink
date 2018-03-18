@@ -44,7 +44,7 @@ By default this will start on port 6688, where it exposes a [REST API](https://g
 
 Once your node has started, you can view your current jobs with:
 ```bash
-$ chainlink jobs
+$ chainlink jobspecs
 ````
 View details of a specific job with:
 ```bash
