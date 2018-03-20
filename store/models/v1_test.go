@@ -20,10 +20,10 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 	}{
 		{"basic",
 			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]}}`,
-			`{"tasks":[{"type":"noOp","foo":"bar"}]}`},
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"noOp","foo":"bar"}]}`},
 		{"withEndAt",
 			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z"}}`,
-			`{"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -36,18 +36,24 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 
 			j1, err := a.ConvertToJobSpec()
 			assert.Nil(t, err)
-			assert.Nil(t, store.Save(&j1))
+			assert.Nil(t, store.SaveJob(&j1))
 			j2 := cltest.FindJob(store, j1.ID)
 
 			assert.NotEqual(t, "", j2.ID)
 			var want models.JobSpec
 			assert.Nil(t, json.Unmarshal([]byte(test.want), &want))
-			assert.Equal(t, len(want.Tasks), len(j2.Tasks))
 			assert.Equal(t, want.EndAt, j2.EndAt)
+
 			for i, wantTask := range want.Tasks {
 				actual := j2.Tasks[i]
 				assert.Equal(t, strings.ToLower(wantTask.Type), actual.Type)
 				assert.JSONEq(t, wantTask.Params.String(), actual.Params.String())
+			}
+
+			for i, wantInitiator := range want.Initiators {
+				actual := j2.Initiators[i]
+				wantInitiator.JobID = actual.JobID
+				assert.Equal(t, wantInitiator, actual)
 			}
 		})
 	}
