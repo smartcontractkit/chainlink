@@ -285,10 +285,26 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)
-	j, err := app.Store.FindJob(ParseCommonJSON(resp.Body).ID)
-	assert.Nil(t, err)
+
+	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
+}
+
+func FindJob(s *store.Store, id string) models.JobSpec {
+	j, err := s.FindJob(id)
+	mustNotErr(err)
 
 	return j
+}
+
+func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
+	resp := BasicAuthPost(
+		app.Server.URL+"/v1/assignments",
+		"application/json",
+		bytes.NewBuffer(LoadJSON(path)),
+	)
+	defer resp.Body.Close()
+	CheckStatusCode(t, resp, 200)
+	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
@@ -301,10 +317,7 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 	)
 	defer resp.Body.Close()
 	CheckStatusCode(t, resp, 200)
-	j, err := app.Store.FindJob(ParseCommonJSON(resp.Body).ID)
-	assert.Nil(t, err)
-
-	return j
+	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
