@@ -92,7 +92,7 @@ func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	return runs, err
 }
 
-// SaveJob saves a job to the database.
+// SaveJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) SaveJob(job *JobSpec) error {
 	tx, err := orm.Begin(true)
 	if err != nil {

@@ -24,6 +24,7 @@ type Subtask struct {
 
 type Schedule struct {
 	EndAt null.Time `json:"endAt"`
+	RunAt []Time    `json:"runAt"`
 }
 
 func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
@@ -38,6 +39,13 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		})
 	}
 	initiators := []Initiator{{Type: "web"}}
+	for _, r := range s.Schedule.RunAt {
+		initiators = append(initiators, Initiator{
+			Type: "runAt",
+			Time: r,
+		})
+	}
+
 	j := JobSpec{
 		ID:         utils.NewBytes32ID(),
 		CreatedAt:  Time{Time: time.Now()},
