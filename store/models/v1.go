@@ -5,10 +5,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
+	null "gopkg.in/guregu/null.v3"
 )
 
 type AssignmentSpec struct {
 	Assignment Assignment `json:"assignment"`
+	Schedule   Schedule   `json:"schedule"`
 }
 
 type Assignment struct {
@@ -18,6 +20,10 @@ type Assignment struct {
 type Subtask struct {
 	Type   string `json:"adapterType"`
 	Params JSON   `json:"adapterParams"`
+}
+
+type Schedule struct {
+	EndAt null.Time `json:"endAt"`
 }
 
 func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
@@ -35,6 +41,7 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		ID:        utils.NewBytes32ID(),
 		CreatedAt: Time{Time: time.Now()},
 		Tasks:     tasks,
+		EndAt:     s.Schedule.EndAt,
 	}
 
 	return j, merr

@@ -21,6 +21,9 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 		{"basic",
 			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]}}`,
 			`{"tasks":[{"type":"noOp","foo":"bar"}]}`},
+		{"withEndAt",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z"}}`,
+			`{"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -39,6 +42,8 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 			assert.NotEqual(t, "", j2.ID)
 			var want models.JobSpec
 			assert.Nil(t, json.Unmarshal([]byte(test.want), &want))
+			assert.Equal(t, len(want.Tasks), len(j2.Tasks))
+			assert.Equal(t, want.EndAt, j2.EndAt)
 			for i, wantTask := range want.Tasks {
 				actual := j2.Tasks[i]
 				assert.Equal(t, strings.ToLower(wantTask.Type), actual.Type)
