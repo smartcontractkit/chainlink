@@ -6,22 +6,23 @@ node_js: 8.4
 cache: yarn
 
 env:
-  - DEP_VERSION="0.4.1"
+  global:
+    - DEP_VERSION="0.4.1"
 
 matrix:
   include:
     - language: go
       go: "1.9"
-      script: ./internal/ci/goverage_test
+      env: COMMAND=./internal/ci/go_test
     - language: go
       go: "1.10"
-      script: ./internal/ci/goverage_test
+      env: COMMAND=./internal/ci/go_test
     - language: go
       go: "1.10"
-      script: ./internal/ci/truffle_test
+      env: COMMAND=./internal/ci/truffle_test
     - language: go
       go: "1.10"
-      script: ./internal/ci/devnet_test
+      env: COMMAND=./internal/ci/devnet_test
 
 before_install:
   # Go dependency manager dep
@@ -37,3 +38,6 @@ before_install:
 install:
   - dep ensure
   - cd solidity && yarn install && cd ..
+
+script:
+  - bash $COMMAND
