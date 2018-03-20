@@ -111,3 +111,55 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		assert.Equal(t, test.nJobs, len(numberOfJobs))
 	}
 }
+
+func TestClient_CreateJobRun(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+
+	tests := []struct {
+		json    string
+		jobType int
+		badID   bool
+		errored bool
+	}{
+		{`{"value": 100}`, 0, false, false},
+		{``, 0, false, false},
+		{`{`, 0, false, true},
+		{``, 0, true, true},
+		{``, 1, false, true},
+	}
+
+	for _, tt := range tests {
+		var jobSpec models.JobSpec
+		var args []string
+		test := tt
+		set := flag.NewFlagSet("run", 0)
+
+		switch test.jobType {
+		case 0:
+			jobSpec = cltest.NewJobWithWebInitiator()
+		case 1:
+			jobSpec = cltest.NewJobWithLogInitiator()
+		}
+		assert.Nil(t, app.Store.SaveJob(&jobSpec))
+
+		if test.badID {
+			args = append(args, "badID")
+		} else {
+			args = append(args, jobSpec.ID)
+		}
+
+		if len(test.json) > 0 {
+			args = append(args, test.json)
+		}
+
+		set.Parse(args)
+		c := cli.NewContext(nil, set, nil)
+		if test.errored {
+			assert.NotNil(t, client.CreateJobRun(c))
+		} else {
+			assert.Nil(t, client.CreateJobRun(c))
+		}
+	}
+}

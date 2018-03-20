@@ -63,6 +63,12 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:   "Create job spec from JSON",
 			Action:  client.CreateJobSpec,
 		},
+		{
+			Name:    "run",
+			Aliases: []string{"r"},
+			Usage:   "Begin job run for specid",
+			Action:  client.CreateJobRun,
+		},
 	}
 	app.Run(args)
 }

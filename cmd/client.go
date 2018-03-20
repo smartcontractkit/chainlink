@@ -97,18 +97,15 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 // CreateJobSpec creates job spec based on JSON input
 func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
-	errjs := errors.New("Must pass in JSON or filepath")
 	if !c.Args().Present() {
-		return cli.errorOut(errjs)
+		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
-	arg := c.Args().First()
-	var buf *bytes.Buffer
-	var err error
-	if gjson.Valid(arg) {
-		buf = bytes.NewBufferString(arg)
-	} else if buf, err = fromFile(arg, cli); err != nil {
-		return cli.errorOut(multierr.Append(errjs, err))
+
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
 	}
+
 	resp, err := utils.BasicAuthPost(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
@@ -125,7 +122,47 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	return cli.deserializeResponse(resp, &jobs)
 }
 
-func fromFile(arg string, cli *Client) (*bytes.Buffer, error) {
+// CreateJobRun creates job run based on SpecID and optional JSON
+func (cli *Client) CreateJobRun(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
+	}
+
+	buf := bytes.NewBufferString("")
+	if c.NArg() > 1 {
+		jbuf, err := getBufferFromJSON(c.Args().Get(1))
+		if err != nil {
+			return cli.errorOut(err)
+		}
+		buf = jbuf
+	}
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/specs/"+c.Args().First()+"/runs",
+		"application/json",
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var jobs presenters.JobSpec
+	return cli.deserializeResponse(resp, &jobs)
+}
+
+func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {
+	if gjson.Valid(s) {
+		buf, err = bytes.NewBufferString(s), nil
+	} else if buf, err = fromFile(s); err != nil {
+		buf, err = nil, multierr.Append(errors.New("Must pass in JSON or filepath"), err)
+	}
+	return
+}
+
+func fromFile(arg string) (*bytes.Buffer, error) {
 	dir, err := homedir.Expand(arg)
 	if err != nil {
 		return nil, err

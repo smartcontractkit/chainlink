@@ -35,6 +35,7 @@ func ExampleRun_Help() {
 	//      jobspecs, jobs, j, specs  Get all jobs
 	//      show, s                   Show a specific job
 	//      create, c                 Create job spec from JSON
+	//      run, r                    Begin job run for specid
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
