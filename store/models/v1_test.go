@@ -1,7 +1,7 @@
 package models_test
 
 import (
-	"reflect"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -12,31 +12,38 @@ import (
 
 func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	json := cltest.JSONFromString(`{"foo": "bar"}`)
 
-	v1 := models.AssignmentSpec{
-		Assignment: models.Assignment{
-			Subtasks: []models.Subtask{
-				models.Subtask{
-					Type:   "noOp",
-					Params: json,
-				},
-			},
-		},
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]}}`,
+			`{"tasks":[{"type":"noOp","foo":"bar"}]}`},
 	}
 
-	j, err := v1.ConvertToJobSpec()
-	assert.Nil(t, err)
-	assert.Equal(t, "models.JobSpec", reflect.TypeOf(j).String())
-	assert.Equal(t, 1, len(j.Tasks))
-	task := j.Tasks[0]
-	assert.Equal(t, "noOp", task.Type)
-	assert.JSONEq(t, `{"foo": "bar", "type": "noOp"}`, task.Params.String())
-	assert.NotEqual(t, "", j.ID)
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
-	assert.Nil(t, store.Save(&j))
-	j2 := cltest.FindJob(store, j.ID)
-	assert.Equal(t, strings.ToLower(task.Type), j2.Tasks[0].Type)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var a models.AssignmentSpec
+			assert.Nil(t, json.Unmarshal([]byte(test.input), &a))
+
+			j1, err := a.ConvertToJobSpec()
+			assert.Nil(t, err)
+			assert.Nil(t, store.Save(&j1))
+			j2 := cltest.FindJob(store, j1.ID)
+
+			assert.NotEqual(t, "", j2.ID)
+			var want models.JobSpec
+			assert.Nil(t, json.Unmarshal([]byte(test.want), &want))
+			for i, wantTask := range want.Tasks {
+				actual := j2.Tasks[i]
+				assert.Equal(t, strings.ToLower(wantTask.Type), actual.Type)
+				assert.JSONEq(t, wantTask.Params.String(), actual.Params.String())
+			}
+		})
+	}
 }
