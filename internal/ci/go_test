@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+goverage -v -coverprofile=coverage.out ./...
+bash <(curl -s https://codecov.io/bash)
