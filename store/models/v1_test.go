@@ -21,9 +21,12 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 		{"basic",
 			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]}}`,
 			`{"initiators":[{"type":"web"}],"tasks":[{"type":"noOp","foo":"bar"}]}`},
-		{"withEndAt",
+		{"with endAt",
 			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z"}}`,
 			`{"initiators":[{"type":"web"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
+		{"with runAt",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2222-01-02T15:04:05.000Z","runAt":["2016-01-02T15:04:05.000Z","2026-01-02T15:04:05.000Z"]}}`,
+			`{"initiators":[{"type":"web"},{"type":"runAt","time":"2016-01-02T15:04:05.000Z"},{"type":"runAt","time":"2026-01-02T15:04:05.000Z"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2222-01-02T15:04:05.000Z"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
