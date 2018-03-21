@@ -2,13 +2,11 @@ package services
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
@@ -84,16 +82,7 @@ func ExecuteRun(run models.JobRun, store *store.Store, input models.RunResult) (
 		}
 	}
 
-	run.Result = prevRun.Result
-	if run.Result.HasError() {
-		run.Status = models.StatusErrored
-	} else if run.Result.Pending {
-		run.Status = models.StatusPending
-	} else {
-		run.Status = models.StatusCompleted
-		run.CompletedAt = null.Time{Time: time.Now(), Valid: true}
-	}
-
+	run = run.ApplyResult(prevRun.Result)
 	logger.Infow("Finished current job run execution", run.ForLogger()...)
 	return run, wrapError(run, store.Save(&run))
 }
