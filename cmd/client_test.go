@@ -113,53 +113,51 @@ func TestClient_CreateJobSpec(t *testing.T) {
 }
 
 func TestClient_CreateJobRun(t *testing.T) {
+	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
 
 	tests := []struct {
+		name    string
 		json    string
-		jobType int
-		badID   bool
+		jobSpec models.JobSpec
 		errored bool
 	}{
-		{`{"value": 100}`, 0, false, false},
-		{``, 0, false, false},
-		{`{`, 0, false, true},
-		{``, 0, true, true},
-		{``, 1, false, true},
+		{"CreateSuccess", `{"value": 100}`, first(cltest.NewJobWithWebInitiator()), false},
+		{"EmptyBody", ``, first(cltest.NewJobWithWebInitiator()), false},
+		{"InvalidBody", `{`, first(cltest.NewJobWithWebInitiator()), true},
+		{"WithoutWebInitiator", ``, first(cltest.NewJobWithLogInitiator()), true},
+		{"NotFound", ``, first(cltest.NewJobWithWebInitiator()), true},
 	}
 
 	for _, tt := range tests {
-		var jobSpec models.JobSpec
-		var args []string
 		test := tt
-		set := flag.NewFlagSet("run", 0)
+		t.Run(test.name, func(t *testing.T) {
+			assert.Nil(t, app.Store.SaveJob(&test.jobSpec))
 
-		switch test.jobType {
-		case 0:
-			jobSpec = cltest.NewJobWithWebInitiator()
-		case 1:
-			jobSpec = cltest.NewJobWithLogInitiator()
-		}
-		assert.Nil(t, app.Store.SaveJob(&jobSpec))
+			args := make([]string, 1)
+			args[0] = test.jobSpec.ID
+			if test.name == "NotFound" {
+				args[0] = "badID"
+			}
 
-		if test.badID {
-			args = append(args, "badID")
-		} else {
-			args = append(args, jobSpec.ID)
-		}
+			if len(test.json) > 0 {
+				args = append(args, test.json)
+			}
 
-		if len(test.json) > 0 {
-			args = append(args, test.json)
-		}
-
-		set.Parse(args)
-		c := cli.NewContext(nil, set, nil)
-		if test.errored {
-			assert.NotNil(t, client.CreateJobRun(c))
-		} else {
-			assert.Nil(t, client.CreateJobRun(c))
-		}
+			set := flag.NewFlagSet("run", 0)
+			set.Parse(args)
+			c := cli.NewContext(nil, set, nil)
+			if test.errored {
+				assert.NotNil(t, client.CreateJobRun(c))
+			} else {
+				assert.Nil(t, client.CreateJobRun(c))
+			}
+		})
 	}
+}
+
+func first(a models.JobSpec, b interface{}) models.JobSpec {
+	return a
 }
