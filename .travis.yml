@@ -2,17 +2,27 @@ sudo: required
 services:
   - docker
 
+node_js: 8.4
+cache: yarn
+
+env:
+  global:
+    - DEP_VERSION="0.4.1"
+
 matrix:
   include:
     - language: go
       go: "1.9"
+      env: COMMAND=./internal/ci/go_test
     - language: go
       go: "1.10"
-
-node_js: 8.4
-cache: yarn
-env:
-  - DEP_VERSION="0.4.1"
+      env: COMMAND=./internal/ci/go_test
+    - language: go
+      go: "1.10"
+      env: COMMAND=./internal/ci/truffle_test
+    - language: go
+      go: "1.10"
+      env: COMMAND=./internal/ci/devnet_test
 
 before_install:
   # Go dependency manager dep
@@ -30,9 +40,4 @@ install:
   - cd solidity && yarn install && cd ..
 
 script:
-  - goverage -v -coverprofile=coverage.out ./...
-  - cd solidity && ./node_modules/.bin/truffle test && cd ..
-  - ./internal/ci/devnet_test
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - bash $COMMAND
