@@ -55,7 +55,7 @@ func TestBridge_Perform_FromUnstarted(t *testing.T) {
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantExists, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, test.wantPending, result.Pending)
+			assert.Equal(t, test.wantPending, result.Pending())
 		})
 	}
 }
@@ -83,14 +83,14 @@ func TestBridge_Perform_FromPending(t *testing.T) {
 			input := models.RunResult{
 				Data:         cltest.JSONFromString(test.input),
 				ErrorMessage: test.errorMessage,
-				Pending:      true,
+				Status:       models.StatusPending,
 			}
 
 			result := ba.Perform(input, store)
 
 			assert.Equal(t, test.want, result.Data.String())
 			assert.Equal(t, test.errorMessage, result.ErrorMessage)
-			assert.Equal(t, false, result.Pending)
+			assert.Equal(t, false, result.Pending())
 		})
 	}
 }

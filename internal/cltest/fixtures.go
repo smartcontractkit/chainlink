@@ -217,8 +217,8 @@ func RunResultWithError(err error) models.RunResult {
 
 func MarkJobRunPending(jr models.JobRun, i int) models.JobRun {
 	jr.Status = models.StatusPending
-	jr.Result.Pending = true
+	jr.Result.Status = models.StatusPending
 	jr.TaskRuns[i].Status = models.StatusPending
-	jr.TaskRuns[i].Result.Pending = true
+	jr.TaskRuns[i].Result.Status = models.StatusPending
 	return jr
 }

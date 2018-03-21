@@ -24,14 +24,14 @@ type Bridge struct {
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	if input.Pending {
+	if input.Pending() {
 		return markNotPending(input)
 	}
 	return ba.handleNewRun(input)
 }
 
 func markNotPending(input models.RunResult) models.RunResult {
-	input.Pending = false
+	input.Status = models.StatusInProgress
 	return input
 }
 
@@ -62,6 +62,9 @@ func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 	err = json.Unmarshal(b, &rr)
 	if err != nil {
 		return baRunResultError(input, "unmarshaling JSON", err)
+	}
+	if rr.ExternalPending {
+		return rr.MarkPending()
 	}
 	return rr
 }

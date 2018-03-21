@@ -85,7 +85,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
-	} else if !jr.Result.Pending {
+	} else if !jr.Result.Pending() {
 		c.JSON(405, gin.H{
 			"errors": []string{"Cannot resume a job run that isn't pending"},
 		})
