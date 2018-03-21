@@ -15,24 +15,24 @@ import (
 )
 
 func BenchmarkJobSpecsController_Index(b *testing.B) {
-	testJobSpecsControllerIndex(b)
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	setupJobSpecsControllerIndex(app)
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs")
+		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+	}
 }
 
 func TestJobSpecsController_Index(t *testing.T) {
 	t.Parallel()
-	testJobSpecsControllerIndex(t)
-}
 
-func testJobSpecsControllerIndex(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
-	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
-	app.Store.SaveJob(&j1)
-	j2 := cltest.NewJobWithWebInitiator()
-	j2.Initiators[0].Ran = true
-	app.Store.SaveJob(&j2)
+	j1 := setupJobSpecsControllerIndex(app)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs")
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -44,16 +44,20 @@ func testJobSpecsControllerIndex(t assert.TestingT) {
 	assert.NotEqual(t, true, jobs[1].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
-func BenchmarkJobSpecsController_Create(b *testing.B) {
-	testJobSpecsControllerCreate(b)
+func setupJobSpecsControllerIndex(app *cltest.TestApplication) *models.JobSpec {
+	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
+	app.Store.SaveJob(&j1)
+	j2 := cltest.NewJobWithWebInitiator()
+	j2.Initiators[0].Ran = true
+	app.Store.SaveJob(&j2)
+
+	return &j1
 }
 
 func TestJobSpecsController_Create(t *testing.T) {
 	t.Parallel()
-	testJobSpecsControllerCreate(t)
-}
 
-func testJobSpecsControllerCreate(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -158,18 +162,39 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 }
 
 func BenchmarkJobSpecsController_Show(b *testing.B) {
-	testJobSpecsControllerShow(b)
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	j := setupJobSpecsControllerShow(b, app)
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
+		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+	}
 }
 
 func TestJobSpecsController_Show(t *testing.T) {
 	t.Parallel()
-	testJobSpecsControllerShow(t)
-}
 
-func testJobSpecsControllerShow(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
+	j := setupJobSpecsControllerShow(t, app)
+
+	jr, err := app.Store.JobRunsFor(j.ID)
+	assert.Nil(t, err)
+
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+
+	var respJob presenters.JobSpec
+	json.Unmarshal(cltest.ParseResponseBody(resp), &respJob)
+	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, respJob.Runs[0].ID, jr[0].ID, "should have job runs ordered by created at(descending)")
+	assert.Equal(t, respJob.Runs[1].ID, jr[1].ID, "should have job runs ordered by created at(descending)")
+}
+
+func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
 
@@ -181,14 +206,7 @@ func testJobSpecsControllerShow(t assert.TestingT) {
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.Save(&jr2))
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-
-	var respJob presenters.JobSpec
-	json.Unmarshal(cltest.ParseResponseBody(resp), &respJob)
-	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
-	assert.Equal(t, respJob.Runs[0].ID, jr2.ID, "should have job runs ordered by created at(descending)")
-	assert.Equal(t, respJob.Runs[1].ID, jr1.ID, "should have job runs ordered by created at(descending)")
+	return &j
 }
 
 func TestJobSpecsController_Show_NotFound(t *testing.T) {
