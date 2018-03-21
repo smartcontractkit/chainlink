@@ -143,8 +143,7 @@ func (ot *OneTime) Start() error {
 
 // AddJob runs the job at the time specified for the "runat" initiator.
 func (ot *OneTime) AddJob(job models.JobSpec) {
-	for _, i := range job.InitiatorsFor(models.InitiatorRunAt) {
-		initr := i
+	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
 		go ot.RunJobAt(initr, job)
 	}
 }
