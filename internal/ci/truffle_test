@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+cd solidity
+./node_modules/.bin/truffle test
