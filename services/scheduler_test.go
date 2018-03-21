@@ -32,6 +32,52 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 	cltest.WaitForRuns(t, jobWoCron, store, 0)
 }
 
+func TestScheduler_AddJob_WhenStopped(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	sched := services.NewScheduler(store)
+	defer sched.Stop()
+
+	j, _ := cltest.NewJobWithSchedule("* * * * *")
+	assert.Nil(t, store.SaveJob(&j))
+	sched.AddJob(j)
+
+	cltest.WaitForRuns(t, j, store, 0)
+}
+
+func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
+	logs := cltest.ObserveLogs()
+
+	store, cleanupStore := cltest.NewStore()
+	clock := cltest.UseSettableClock(store)
+
+	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
+	j, _ := cltest.NewJobWithSchedule("* * * * *")
+	j.StartAt = cltest.NullableTime(startAt)
+	assert.Nil(t, store.Save(&j))
+
+	sched := services.NewScheduler(store)
+	assert.Nil(t, sched.Start())
+	defer sched.Stop()
+	defer cleanupStore()
+
+	gomega.NewGomegaWithT(t).Consistently(func() int {
+		runs, err := store.JobRunsFor(j.ID)
+		assert.Nil(t, err)
+		return len(runs)
+	}, (2 * time.Second)).Should(gomega.Equal(0))
+
+	clock.SetTime(startAt)
+
+	cltest.WaitForRuns(t, j, store, 2)
+
+	for _, log := range logs.All() {
+		assert.True(t, log.Level <= zapcore.WarnLevel)
+	}
+}
+
 func TestRecurring_AddJob(t *testing.T) {
 	nullTime := cltest.NullTime(nil)
 	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
@@ -77,21 +123,6 @@ func TestRecurring_AddJob(t *testing.T) {
 	}
 }
 
-func TestScheduler_AddJob_WhenStopped(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	sched := services.NewScheduler(store)
-	defer sched.Stop()
-
-	j, _ := cltest.NewJobWithSchedule("* * * * *")
-	assert.Nil(t, store.SaveJob(&j))
-	sched.AddJob(j)
-
-	cltest.WaitForRuns(t, j, store, 0)
-}
-
 func TestOneTime_RunJobAt(t *testing.T) {
 	t.Parallel()
 
@@ -120,35 +151,4 @@ func TestOneTime_RunJobAt(t *testing.T) {
 	jobRuns := []models.JobRun{}
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
 	assert.Equal(t, 0, len(jobRuns))
-}
-
-func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
-	logs := cltest.ObserveLogs()
-
-	store, cleanupStore := cltest.NewStore()
-	clock := cltest.UseSettableClock(store)
-
-	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
-	j, _ := cltest.NewJobWithSchedule("* * * * *")
-	j.StartAt = cltest.NullableTime(startAt)
-	assert.Nil(t, store.Save(&j))
-
-	sched := services.NewScheduler(store)
-	assert.Nil(t, sched.Start())
-	defer sched.Stop()
-	defer cleanupStore()
-
-	gomega.NewGomegaWithT(t).Consistently(func() int {
-		runs, err := store.JobRunsFor(j.ID)
-		assert.Nil(t, err)
-		return len(runs)
-	}, (2 * time.Second)).Should(gomega.Equal(0))
-
-	clock.SetTime(startAt)
-
-	cltest.WaitForRuns(t, j, store, 2)
-
-	for _, log := range logs.All() {
-		assert.True(t, log.Level <= zapcore.WarnLevel)
-	}
 }

@@ -12,7 +12,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestJobSave(t *testing.T) {
+func TestJobSpec_Save(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -26,19 +26,24 @@ func TestJobSave(t *testing.T) {
 	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)
 }
 
-func TestJobNewRun(t *testing.T) {
+func TestJobSpec_NewRun(t *testing.T) {
 	t.Parallel()
 
 	job, initr := cltest.NewJobWithSchedule("1 * * * *")
-	job.Tasks = []models.TaskSpec{{Type: "NoOp"}}
+	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp", `{"a":1}`)}
 
-	newRun := job.NewRun(initr)
-	assert.Equal(t, job.ID, newRun.JobID)
-	assert.Equal(t, 1, len(newRun.TaskRuns))
-	assert.Equal(t, "NoOp", job.Tasks[0].Type)
-	assert.True(t, job.Tasks[0].Params.Empty())
-	adapter, _ := adapters.For(job.Tasks[0], nil)
+	run := job.NewRun(initr)
+
+	assert.Equal(t, job.ID, run.JobID)
+	assert.Equal(t, 1, len(run.TaskRuns))
+
+	taskRun := run.TaskRuns[0]
+	assert.Equal(t, "NoOp", taskRun.Task.Type)
+	adapter, _ := adapters.For(taskRun.Task, nil)
 	assert.NotNil(t, adapter)
+	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.Task.Params.String())
+
+	assert.Equal(t, initr, run.Initiator)
 }
 
 func TestJobEnded(t *testing.T) {
@@ -68,7 +73,7 @@ func TestJobEnded(t *testing.T) {
 	}
 }
 
-func TestJobStarted(t *testing.T) {
+func TestJobSpec_Started(t *testing.T) {
 	t.Parallel()
 
 	startAt := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
