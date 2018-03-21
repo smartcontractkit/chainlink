@@ -58,6 +58,19 @@ func (jr JobRun) NextTaskRun() TaskRun {
 	return jr.UnfinishedTaskRuns()[0]
 }
 
+func (jr JobRun) ApplyResult(result RunResult) JobRun {
+	jr.Result = result
+	if jr.Result.HasError() {
+		jr.Status = StatusErrored
+	} else if jr.Result.Pending { // update to be enum and support blocking
+		jr.Status = StatusPending
+	} else {
+		jr.Status = StatusCompleted
+		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
+	}
+	return jr
+}
+
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
