@@ -14,6 +14,8 @@ import (
 const (
 	// StatusInProgress is used for when a run is actively being executed.
 	StatusInProgress = "in progress"
+	// StatusBlocked is used for when a run is awaiting for block confirmations.
+	StatusBlocked = "blocked"
 	// StatusPending is used for when a run is waiting on the completion
 	// of another event.
 	StatusPending = "pending"

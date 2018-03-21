@@ -22,16 +22,11 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		wantStatus string
 		wantData   string
 	}{
-		{"success", `{}`, `{"data":{"value":"100"}}`,
-			models.StatusCompleted, `{"value":"100"}`},
-		{"errored", `{}`, `{"error":"too much"}`,
-			models.StatusErrored, `{}`},
-		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`,
-			models.StatusErrored, `{"value":"99"}`},
-		{"overriding bridge type params", `{"data":{"url":"hack"},"url":"hack"}`, `{"data":{"value":"100"}}`,
-			models.StatusCompleted, `{"value":"100"}`},
-		{"type parameter does not override", `{"data":{"type":"0"},"type":"0"}`, `{"data":{"value":"100"}}`,
-			models.StatusCompleted, `{"value":"100"}`},
+		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100"}`},
+		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, `{}`},
+		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.StatusErrored, `{"value":"99"}`},
+		{"overriding bridge type params", `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100","url":"hack"}`},
+		{"type parameter does not override", `{"type":"0"}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100","type":"0"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -65,15 +60,15 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
-			assert.Equal(t, test.wantData, run.Result.Data.String())
+			assert.JSONEq(t, test.wantData, run.Result.Data.String())
 
 			tr1 := run.TaskRuns[0]
 			assert.Equal(t, test.wantStatus, tr1.Status)
-			assert.Equal(t, test.wantData, tr1.Result.Data.String())
+			assert.JSONEq(t, test.wantData, tr1.Result.Data.String())
 
 			if test.wantStatus == models.StatusCompleted {
 				tr2 := run.TaskRuns[1]
-				assert.Equal(t, test.wantData, tr2.Result.Data.String())
+				assert.JSONEq(t, test.wantData, tr2.Result.Data.String())
 				assert.True(t, run.CompletedAt.Valid)
 			}
 		})

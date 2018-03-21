@@ -17,17 +17,17 @@ func TestBridge_Perform_FromUnstarted(t *testing.T) {
 		name        string
 		status      int
 		want        string
-		wantExists  bool
 		wantErrored bool
 		wantPending bool
 		response    string
 	}{
-		{"success", 200, "purchased", true, false, false, `{"data":{"value": "purchased"}}`},
-		{"run error", 200, "", false, true, false, `{"error": "overload", "data": {}}`},
-		{"server error", 400, "lot 49", true, true, false, `bad request`},
-		{"server error", 500, "lot 49", true, true, false, `big error`},
-		{"JSON parse error", 200, "lot 49", true, true, false, `}`},
-		{"pending response", 200, "", false, false, true, `{"pending":true}`},
+		{"success", 200, "purchased", false, false, `{"data":{"value": "purchased"}}`},
+		{"run error", 200, "lot 49", true, false, `{"error": "overload", "data": {}}`},
+		{"server error", 400, "lot 49", true, false, `bad request`},
+		{"server error", 500, "lot 49", true, false, `big error`},
+		{"JSON parse error", 200, "lot 49", true, false, `}`},
+		{"pending response", 200, "lot 49", false, true, `{"pending":true}`},
+		{"unsetting value", 200, "", false, false, `{"data":{"value":null}}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -53,7 +53,6 @@ func TestBridge_Perform_FromUnstarted(t *testing.T) {
 			result = eb.Perform(result, store)
 			val, _ := result.Get("value")
 			assert.Equal(t, test.want, val.String())
-			assert.Equal(t, test.wantExists, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, test.wantPending, result.Pending())
 		})
