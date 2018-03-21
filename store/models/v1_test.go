@@ -27,6 +27,21 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 		{"with runAt",
 			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2222-01-02T15:04:05.000Z","runAt":["2016-01-02T15:04:05.000Z","2026-01-02T15:04:05.000Z"]}}`,
 			`{"initiators":[{"type":"web"},{"type":"runAt","time":"2016-01-02T15:04:05.000Z"},{"type":"runAt","time":"2026-01-02T15:04:05.000Z"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2222-01-02T15:04:05.000Z"}`},
+		{"with cron minute",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","minute":"1"}}`,
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 1 * * * *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
+		{"with cron hour",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","hour":"2"}}`,
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * 2 * * *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
+		{"with cron day of month",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","dayOfMonth":"3"}}`,
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * * 3 * *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
+		{"with cron month of year",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","monthOfYear":"4"}}`,
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * * * 4 *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
+		{"with cron day of week",
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","dayOfWeek":"5"}}`,
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * * * * 5"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`},
 	}
 
 	store, cleanup := cltest.NewStore()

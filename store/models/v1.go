@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/utils"
@@ -23,8 +24,46 @@ type Subtask struct {
 }
 
 type Schedule struct {
-	EndAt null.Time `json:"endAt"`
-	RunAt []Time    `json:"runAt"`
+	EndAt       null.Time   `json:"endAt"`
+	Hour        null.String `json:"hour"`
+	Minute      null.String `json:"minute"`
+	DayOfMonth  null.String `json:"dayOfMonth"`
+	MonthOfYear null.String `json:"monthOfYear"`
+	DayOfWeek   null.String `json:"dayOfWeek"`
+	RunAt       []Time      `json:"runAt"`
+}
+
+func (s Schedule) hasCron() bool {
+	return s.Minute.Valid || s.Hour.Valid || s.DayOfMonth.Valid ||
+		s.MonthOfYear.Valid || s.DayOfWeek.Valid
+}
+
+func (s Schedule) toCron() Cron {
+	return Cron(fmt.Sprintf("0 %v %v %v %v %v",
+		cronUnitOrDefault(s.Minute),
+		cronUnitOrDefault(s.Hour),
+		cronUnitOrDefault(s.DayOfMonth),
+		cronUnitOrDefault(s.MonthOfYear),
+		cronUnitOrDefault(s.DayOfWeek),
+	))
+}
+
+func cronUnitOrDefault(s null.String) string {
+	if s.Valid {
+		return s.String
+	}
+	return "*"
+}
+
+func appendCronInitiator(initiators []Initiator, s AssignmentSpec) []Initiator {
+	if s.Schedule.hasCron() {
+		initiators = append(initiators, Initiator{
+			Type:     "cron",
+			Schedule: s.Schedule.toCron(),
+		})
+	}
+
+	return initiators
 }
 
 func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
@@ -45,6 +84,7 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 			Time: r,
 		})
 	}
+	initiators = appendCronInitiator(initiators, s)
 
 	j := JobSpec{
 		ID:         utils.NewBytes32ID(),
