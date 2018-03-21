@@ -62,7 +62,7 @@ func (jr JobRun) ApplyResult(result RunResult) JobRun {
 	jr.Result = result
 	if jr.Result.HasError() {
 		jr.Status = StatusErrored
-	} else if jr.Result.Pending { // update to be enum and support blocking
+	} else if jr.Result.Pending() {
 		jr.Status = StatusPending
 	} else {
 		jr.Status = StatusCompleted
@@ -126,35 +126,36 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 // the Data and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
 type RunResult struct {
-	JobRunID     string      `json:"jobRunId"`
-	Data         JSON        `json:"data"`
-	ErrorMessage null.String `json:"error"`
-	Pending      bool        `json:"pending"`
+	JobRunID        string      `json:"jobRunId"`
+	Data            JSON        `json:"data"`
+	ErrorMessage    null.String `json:"error"`
+	Status          string      `json:"status"`
+	ExternalPending bool        `json:"pending"`
 }
 
 // WithValue returns a copy of the RunResult, overriding the "value" field of
-// Data and setting Pending to false.
+// Data and setting the status to in progress.
 func (rr RunResult) WithValue(val string) RunResult {
 	data, err := rr.Data.Add("value", val)
 	if err != nil {
 		return rr.WithError(err)
 	}
-	rr.Pending = false
+	rr.Status = StatusCompleted
 	rr.Data = data
 	return rr
 }
 
 // WithValue returns a copy of the RunResult, setting the error field
-// and setting Pending to false.
+// and setting the status to in progress.
 func (rr RunResult) WithError(err error) RunResult {
 	rr.ErrorMessage = null.StringFrom(err.Error())
-	rr.Pending = false
+	rr.Status = StatusErrored
 	return rr
 }
 
-// MarkPending returns a copy of RunResult but with Pending set to true.
+// MarkPending returns a copy of RunResult but with status set to pending.
 func (rr RunResult) MarkPending() RunResult {
-	rr.Pending = true
+	rr.Status = StatusPending
 	return rr
 }
 
@@ -182,6 +183,11 @@ func (rr RunResult) Value() (string, error) {
 // HasError returns true if the ErrorMessage is present.
 func (rr RunResult) HasError() bool {
 	return rr.ErrorMessage.Valid
+}
+
+// Pending returns true if the status is pending.
+func (rr RunResult) Pending() bool {
+	return rr.Status == StatusPending
 }
 
 // Error returns the string value of the ErrorMessage field.
@@ -223,8 +229,8 @@ func (rr RunResult) Merge(in RunResult) (RunResult, error) {
 	if len(in.JobRunID) == 0 {
 		in.JobRunID = rr.JobRunID
 	}
-	if in.Pending || rr.Pending {
-		in.Pending = true
+	if in.Pending() || rr.Pending() {
+		in = in.MarkPending()
 	}
 	return in, nil
 }
