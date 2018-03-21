@@ -126,15 +126,14 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 // the Data and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
 type RunResult struct {
-	JobRunID        string      `json:"jobRunId"`
-	Data            JSON        `json:"data"`
-	ErrorMessage    null.String `json:"error"`
-	Status          string      `json:"status"`
-	ExternalPending bool        `json:"pending"`
+	JobRunID     string      `json:"jobRunId"`
+	Data         JSON        `json:"data"`
+	ErrorMessage null.String `json:"error"`
+	Status       string      `json:"status"`
 }
 
 // WithValue returns a copy of the RunResult, overriding the "value" field of
-// Data and setting the status to in progress.
+// Data and setting the status to completed.
 func (rr RunResult) WithValue(val string) RunResult {
 	data, err := rr.Data.Add("value", val)
 	if err != nil {
@@ -188,6 +187,11 @@ func (rr RunResult) HasError() bool {
 // Pending returns true if the status is pending.
 func (rr RunResult) Pending() bool {
 	return rr.Status == StatusPending
+}
+
+// Blocked returns true if the status is pending.
+func (rr RunResult) Blocked() bool {
+	return rr.Status == StatusBlocked
 }
 
 // Error returns the string value of the ErrorMessage field.
