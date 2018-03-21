@@ -21,18 +21,39 @@ type JobRun struct {
 }
 
 func BenchmarkJobRunsController_Index(b *testing.B) {
-	testJobRunsControllerIndex(b)
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	j := setupJobRunsControllerIndex(b, app)
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
+		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+	}
 }
 
 func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
-	testJobRunsControllerIndex(t)
-}
 
-func testJobRunsControllerIndex(t assert.TestingT) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
+	j := setupJobRunsControllerIndex(t, app)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
+
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	var respJSON JobRunsJSON
+	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON))
+
+	jr, err := app.Store.JobRunsFor(j.ID)
+	assert.Nil(t, err)
+
+	assert.Equal(t, 2, len(respJSON.Runs), "expected no runs to be created")
+	assert.Equal(t, jr[0].ID, respJSON.Runs[0].ID, "expected runs ordered by created at(descending)")
+	assert.Equal(t, jr[1].ID, respJSON.Runs[1].ID, "expected runs ordered by created at(descending)")
+}
+
+func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(&j))
 	jr1 := j.NewRun()
@@ -43,14 +64,7 @@ func testJobRunsControllerIndex(t assert.TestingT) {
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.Save(&jr2))
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	var respJSON JobRunsJSON
-	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON))
-
-	assert.Equal(t, 2, len(respJSON.Runs), "expected no runs to be created")
-	assert.Equal(t, jr2.ID, respJSON.Runs[0].ID, "expected runs ordered by created at(descending)")
-	assert.Equal(t, jr1.ID, respJSON.Runs[1].ID, "expected runs ordered by created at(descending)")
+	return &j
 }
 
 func TestJobRunsController_Create_Success(t *testing.T) {
