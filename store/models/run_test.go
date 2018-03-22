@@ -121,9 +121,9 @@ func TestRunResult_Value(t *testing.T) {
 func TestRunResult_Merge(t *testing.T) {
 	t.Parallel()
 
-	inProgress := models.StatusInProgress
-	pending := models.StatusPending
-	errored := models.StatusErrored
+	inProgress := models.RunStatusInProgress
+	pending := models.RunStatusPending
+	errored := models.RunStatusErrored
 
 	nullString := cltest.NullString(nil)
 	jrID := utils.NewBytes32ID()
@@ -131,15 +131,15 @@ func TestRunResult_Merge(t *testing.T) {
 		name             string
 		originalData     string
 		originalError    null.String
-		originalStatus   models.Status
+		originalStatus   models.RunStatus
 		originalJRID     string
 		inData           string
 		inError          null.String
-		inStatus         models.Status
+		inStatus         models.RunStatus
 		inJRID           string
 		wantData         string
 		wantErrorMessage null.String
-		wantStatus       models.Status
+		wantStatus       models.RunStatus
 		wantJRID         string
 		wantErrored      bool
 	}{

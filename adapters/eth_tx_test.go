@@ -92,7 +92,7 @@ func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
-	assert.True(t, output.Pending())
+	assert.True(t, output.Status.Pending())
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 1, len(attempts))
@@ -126,7 +126,7 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
-	assert.True(t, output.Pending())
+	assert.True(t, output.Status.Pending())
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 2, len(attempts))
@@ -165,7 +165,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 
 	output := adapter.Perform(input, store)
 
-	assert.False(t, output.Pending())
+	assert.False(t, output.Status.Pending())
 	assert.False(t, output.HasError())
 
 	assert.Nil(t, store.One("ID", tx.ID, tx))

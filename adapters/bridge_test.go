@@ -53,7 +53,7 @@ func TestBridge_Perform_fromUnstarted(t *testing.T) {
 			val, _ := result.Get("value")
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, test.wantPending, result.Pending())
+			assert.Equal(t, test.wantPending, result.Status.Pending())
 		})
 	}
 }
@@ -63,12 +63,12 @@ func TestBridge_Perform_resuming(t *testing.T) {
 	cases := []struct {
 		name       string
 		input      string
-		status     models.Status
+		status     models.RunStatus
 		want       string
-		wantStatus models.Status
+		wantStatus models.RunStatus
 	}{
-		{"from pending", `{"value":"100","old":"remains"}`, models.StatusPending, `{"value":"100","old":"remains"}`, models.StatusInProgress},
-		{"from errored", `{"value":"100","old":"remains"}`, models.StatusErrored, `{"value":"100","old":"remains"}`, models.StatusErrored},
+		{"from pending", `{"value":"100","old":"remains"}`, models.RunStatusPending, `{"value":"100","old":"remains"}`, models.RunStatusInProgress},
+		{"from errored", `{"value":"100","old":"remains"}`, models.RunStatusErrored, `{"value":"100","old":"remains"}`, models.RunStatusErrored},
 	}
 
 	store, cleanup := cltest.NewStore()

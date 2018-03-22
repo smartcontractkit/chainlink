@@ -12,10 +12,10 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	Status      `json:"status" storm:"index"`
 	ID          string    `json:"id" storm:"id,unique"`
 	JobID       string    `json:"jobId" storm:"index"`
 	Result      RunResult `json:"result" storm:"inline"`
+	Status      RunStatus `json:"status" storm:"index"`
 	TaskRuns    []TaskRun `json:"taskRuns" storm:"inline"`
 	CreatedAt   time.Time `json:"createdAt" storm:"index"`
 	CompletedAt null.Time `json:"completedAt"`
@@ -42,9 +42,9 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 func (jr JobRun) UnfinishedTaskRuns() []TaskRun {
 	unfinished := jr.TaskRuns
 	for _, tr := range jr.TaskRuns {
-		if tr.Completed() {
+		if tr.Status.Completed() {
 			unfinished = unfinished[1:]
-		} else if tr.Errored() {
+		} else if tr.Status.Errored() {
 			return []TaskRun{}
 		} else {
 			return unfinished
@@ -62,7 +62,7 @@ func (jr JobRun) NextTaskRun() TaskRun {
 func (jr JobRun) ApplyResult(result RunResult) JobRun {
 	jr.Result = result
 	jr.Status = result.Status
-	if jr.Completed() {
+	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	}
 	return jr
@@ -71,7 +71,7 @@ func (jr JobRun) ApplyResult(result RunResult) JobRun {
 // MarkCompleted sets the JobRun's status to completed and records the
 // completed at time.
 func (jr JobRun) MarkCompleted() JobRun {
-	jr.Status = StatusCompleted
+	jr.Status = RunStatusCompleted
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	return jr
 }
@@ -79,10 +79,10 @@ func (jr JobRun) MarkCompleted() JobRun {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	Status `json:"status"`
-	Task   TaskSpec  `json:"task"`
 	ID     string    `json:"id" storm:"id,unique"`
 	Result RunResult `json:"result"`
+	Status RunStatus `json:"status"`
+	Task   TaskSpec  `json:"task"`
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
@@ -125,7 +125,7 @@ func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
 
 // MarkCompleted marks the task's status as completed.
 func (tr TaskRun) MarkCompleted() TaskRun {
-	tr.Status = StatusCompleted
+	tr.Status = RunStatusCompleted
 	return tr
 }
 
@@ -133,9 +133,9 @@ func (tr TaskRun) MarkCompleted() TaskRun {
 // the Data and ErrorMessage, if any of either, and contains
 // a Pending field to track the status.
 type RunResult struct {
-	Status       `json:"status"`
 	JobRunID     string      `json:"jobRunId"`
 	Data         JSON        `json:"data"`
+	Status       RunStatus   `json:"status"`
 	ErrorMessage null.String `json:"error"`
 }
 
@@ -146,7 +146,7 @@ func (rr RunResult) WithValue(val string) RunResult {
 	if err != nil {
 		return rr.WithError(err)
 	}
-	rr.Status = StatusCompleted
+	rr.Status = RunStatusCompleted
 	rr.Data = data
 	return rr
 }
@@ -155,13 +155,13 @@ func (rr RunResult) WithValue(val string) RunResult {
 // and setting the status to in progress.
 func (rr RunResult) WithError(err error) RunResult {
 	rr.ErrorMessage = null.StringFrom(err.Error())
-	rr.Status = StatusErrored
+	rr.Status = RunStatusErrored
 	return rr
 }
 
 // MarkPending returns a copy of RunResult but with status set to pending.
 func (rr RunResult) MarkPending() RunResult {
-	rr.Status = StatusPending
+	rr.Status = RunStatusPending
 	return rr
 }
 
@@ -230,9 +230,9 @@ func (rr RunResult) Merge(in RunResult) (RunResult, error) {
 	if len(in.JobRunID) == 0 {
 		in.JobRunID = rr.JobRunID
 	}
-	if in.Errored() || rr.Errored() {
-		in.Status = StatusErrored
-	} else if in.Pending() || rr.Pending() {
+	if in.Status.Errored() || rr.Status.Errored() {
+		in.Status = RunStatusErrored
+	} else if in.Status.Pending() || rr.Status.Pending() {
 		in = in.MarkPending()
 	}
 	return in, nil
@@ -252,14 +252,14 @@ func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
 	err := json.Unmarshal(input, &anon)
 	*brr = BridgeRunResult(anon)
 
-	if brr.Errored() || brr.HasError() {
-		brr.Status = StatusErrored
-	} else if brr.Blocked() {
-		brr.Status = StatusBlocked
-	} else if brr.Pending() || brr.ExternalPending {
-		brr.Status = StatusPending
+	if brr.Status.Errored() || brr.HasError() {
+		brr.Status = RunStatusErrored
+	} else if brr.Status.Blocked() {
+		brr.Status = RunStatusBlocked
+	} else if brr.Status.Pending() || brr.ExternalPending {
+		brr.Status = RunStatusPending
 	} else {
-		brr.Status = StatusCompleted
+		brr.Status = RunStatusCompleted
 	}
 
 	return err

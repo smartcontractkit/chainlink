@@ -12,44 +12,46 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type Status string
+type RunStatus string
 
 const (
-	// StatusInProgress is used for when a run is actively being executed.
-	StatusInProgress = Status("in progress")
-	// StatusBlocked is used for when a run is awaiting for block confirmations.
-	StatusBlocked = Status("blocked")
-	// StatusPending is used for when a run is waiting on the completion
+	// RunStatusUnstarted is the default state of any run status.
+	RunStatusUnstarted = RunStatus("")
+	// RunStatusInProgress is used for when a run is actively being executed.
+	RunStatusInProgress = RunStatus("in progress")
+	// RunStatusBlocked is used for when a run is awaiting for block confirmations.
+	RunStatusBlocked = RunStatus("blocked")
+	// RunStatusPending is used for when a run is waiting on the completion
 	// of another event.
-	StatusPending = Status("pending")
-	// StatusErrored is used for when a run has errored and will not complete.
-	StatusErrored = Status("errored")
-	// StatusCompleted is used for when a run has successfully completed execution.
-	StatusCompleted = Status("completed")
+	RunStatusPending = RunStatus("pending")
+	// RunStatusErrored is used for when a run has errored and will not complete.
+	RunStatusErrored = RunStatus("errored")
+	// RunStatusCompleted is used for when a run has successfully completed execution.
+	RunStatusCompleted = RunStatus("completed")
 )
 
-func (s Status) Waiting() bool {
+func (s RunStatus) Waiting() bool {
 	return s.Pending() || s.Blocked()
 }
 
 // Pending returns true if the status is pending.
-func (s Status) Pending() bool {
-	return s == StatusPending
+func (s RunStatus) Pending() bool {
+	return s == RunStatusPending
 }
 
 // Blocked returns true if the status is pending.
-func (s Status) Blocked() bool {
-	return s == StatusBlocked
+func (s RunStatus) Blocked() bool {
+	return s == RunStatusBlocked
 }
 
-// Completed returns true if the TaskRun status is StatusCompleted.
-func (s Status) Completed() bool {
-	return s == StatusCompleted
+// Completed returns true if the TaskRun status is RunStatusCompleted.
+func (s RunStatus) Completed() bool {
+	return s == RunStatusCompleted
 }
 
-// Errored returns true if the TaskRun status is StatusErrored.
-func (s Status) Errored() bool {
-	return s == StatusErrored
+// Errored returns true if the TaskRun status is RunStatusErrored.
+func (s RunStatus) Errored() bool {
+	return s == RunStatusErrored
 }
 
 // JSON stores the json types string, number, bool, and null.
