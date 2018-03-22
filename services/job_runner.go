@@ -73,13 +73,16 @@ func ExecuteRun(run models.JobRun, store *store.Store, input models.RunResult) (
 		}
 
 		if prevRun.Result.Pending() {
+			prevRun.Status = prevRun.Result.Status
 			logger.Infow(fmt.Sprintf("Task %v pending", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			break
 		}
-		if prevRun.Result.HasError() {
+		if prevRun.Result.Errored() {
+			prevRun.Status = prevRun.Result.Status
 			logger.Infow(fmt.Sprintf("Task %v errored", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			break
 		}
+		prevRun.Result.Status = models.StatusCompleted
 		logger.Infow(fmt.Sprintf("Task %v completed", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 	}
 
@@ -103,7 +106,7 @@ func startTask(
 	}
 
 	run.Result = adapter.Perform(input, store)
-	if run.Result.HasError() {
+	if run.Result.Errored() {
 		run.Status = models.StatusErrored
 	} else if run.Result.Pending() {
 		run.Status = models.StatusPending

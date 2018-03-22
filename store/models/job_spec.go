@@ -11,20 +11,6 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-const (
-	// StatusInProgress is used for when a run is actively being executed.
-	StatusInProgress = "in progress"
-	// StatusBlocked is used for when a run is awaiting for block confirmations.
-	StatusBlocked = "blocked"
-	// StatusPending is used for when a run is waiting on the completion
-	// of another event.
-	StatusPending = "pending"
-	// StatusErrored is used for when a run has errored and will not complete.
-	StatusErrored = "errored"
-	// StatusCompleted is used for when a run has successfully completed execution.
-	StatusCompleted = "completed"
-)
-
 // JobSpec is the definition for all the work to be carried out by the node
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.

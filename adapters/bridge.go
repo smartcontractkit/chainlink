@@ -24,7 +24,9 @@ type Bridge struct {
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	if input.Pending() {
+	if input.Errored() {
+		return input
+	} else if input.Pending() {
 		return markNotPending(input)
 	}
 	return ba.handleNewRun(input)
@@ -41,13 +43,13 @@ func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 		return baRunResultError(input, "post to external adapter", err)
 	}
 
-	var bi bridgeIncoming
-	err = json.Unmarshal(b, &bi)
+	var brr models.BridgeRunResult
+	err = json.Unmarshal(b, &brr)
 	if err != nil {
 		return baRunResultError(input, "unmarshaling JSON", err)
 	}
 
-	rr, err := input.Merge(bi.RunResult)
+	rr, err := input.Merge(brr.RunResult)
 	if err != nil {
 		return baRunResultError(rr, "Unable to merge received payload", err)
 	}
@@ -93,28 +95,4 @@ func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 		Data:     bp.Data,
 	}
 	return json.Marshal(anon)
-}
-
-type bridgeIncoming struct {
-	models.RunResult
-	ExternalPending bool `json:"pending"`
-}
-
-func (bi *bridgeIncoming) UnmarshalJSON(input []byte) error {
-	type alias bridgeIncoming
-	var anon alias
-	err := json.Unmarshal(input, &anon)
-	*bi = bridgeIncoming(anon)
-
-	if bi.HasError() {
-		bi.Status = models.StatusErrored
-	} else if bi.Blocked() {
-		bi.Status = models.StatusBlocked
-	} else if bi.Pending() || bi.ExternalPending {
-		bi.Status = models.StatusPending
-	} else {
-		bi.Status = models.StatusCompleted
-	}
-
-	return err
 }

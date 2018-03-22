@@ -76,7 +76,7 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
-	var rr models.RunResult
+	var brr models.BridgeRunResult
 	if jr, err := jrc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
 			"errors": []string{"Job Run not found"},
@@ -89,12 +89,12 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.JSON(405, gin.H{
 			"errors": []string{"Cannot resume a job run that isn't pending"},
 		})
-	} else if err := c.ShouldBindJSON(&rr); err != nil {
+	} else if err := c.ShouldBindJSON(&brr); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
 	} else {
-		executeRun(jr, jrc.App.Store, rr)
+		executeRun(jr, jrc.App.Store, brr.RunResult)
 		c.JSON(200, gin.H{"id": jr.ID})
 	}
 }

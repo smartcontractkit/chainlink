@@ -12,6 +12,46 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type Status string
+
+const (
+	// StatusInProgress is used for when a run is actively being executed.
+	StatusInProgress = Status("in progress")
+	// StatusBlocked is used for when a run is awaiting for block confirmations.
+	StatusBlocked = Status("blocked")
+	// StatusPending is used for when a run is waiting on the completion
+	// of another event.
+	StatusPending = Status("pending")
+	// StatusErrored is used for when a run has errored and will not complete.
+	StatusErrored = Status("errored")
+	// StatusCompleted is used for when a run has successfully completed execution.
+	StatusCompleted = Status("completed")
+)
+
+func (s Status) Waiting() bool {
+	return s.Pending() || s.Blocked()
+}
+
+// Pending returns true if the status is pending.
+func (s Status) Pending() bool {
+	return s == StatusPending
+}
+
+// Blocked returns true if the status is pending.
+func (s Status) Blocked() bool {
+	return s == StatusBlocked
+}
+
+// Completed returns true if the TaskRun status is StatusCompleted.
+func (s Status) Completed() bool {
+	return s == StatusCompleted
+}
+
+// Errored returns true if the TaskRun status is StatusErrored.
+func (s Status) Errored() bool {
+	return s == StatusErrored
+}
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
