@@ -407,10 +407,10 @@ func WaitForJobRunStatus(
 	t *testing.T,
 	store *store.Store,
 	jr models.JobRun,
-	status string,
+	status models.Status,
 ) models.JobRun {
 	t.Helper()
-	gomega.NewGomegaWithT(t).Eventually(func() string {
+	gomega.NewGomegaWithT(t).Eventually(func() models.Status {
 		assert.Nil(t, store.One("ID", jr.ID, &jr))
 		return jr.Status
 	}).Should(gomega.Equal(status))

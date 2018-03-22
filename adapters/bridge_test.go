@@ -9,10 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
-	null "gopkg.in/guregu/null.v3"
 )
 
-func TestBridge_Perform_FromUnstarted(t *testing.T) {
+func TestBridge_Perform_fromUnstarted(t *testing.T) {
 	cases := []struct {
 		name        string
 		status      int
@@ -59,15 +58,17 @@ func TestBridge_Perform_FromUnstarted(t *testing.T) {
 	}
 }
 
-func TestBridge_Perform_FromPending(t *testing.T) {
+func TestBridge_Perform_resuming(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
-		name         string
-		input        string
-		errorMessage null.String
-		want         string
+		name       string
+		input      string
+		status     models.Status
+		want       string
+		wantStatus models.Status
 	}{
-		{"basic", `{"value":"100","old":"remains"}`, cltest.NullString(nil), `{"value":"100","old":"remains"}`},
-		{"with error", `{"value":"100","old":"remains"}`, cltest.NullString("Big error!"), `{"value":"100","old":"remains"}`},
+		{"from pending", `{"value":"100","old":"remains"}`, models.StatusPending, `{"value":"100","old":"remains"}`, models.StatusInProgress},
+		{"from errored", `{"value":"100","old":"remains"}`, models.StatusErrored, `{"value":"100","old":"remains"}`, models.StatusErrored},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -78,18 +79,18 @@ func TestBridge_Perform_FromPending(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := models.RunResult{
-				Data:         cltest.JSONFromString(test.input),
-				ErrorMessage: test.errorMessage,
-				Status:       models.StatusPending,
+				Data:   cltest.JSONFromString(test.input),
+				Status: test.status,
 			}
 
 			result := ba.Perform(input, store)
 
 			assert.Equal(t, test.want, result.Data.String())
-			assert.Equal(t, test.errorMessage, result.ErrorMessage)
-			assert.Equal(t, false, result.Pending())
+			assert.Equal(t, test.wantStatus, result.Status)
+			if test.wantStatus.Errored() {
+				assert.Equal(t, input, result)
+			}
 		})
 	}
 }
