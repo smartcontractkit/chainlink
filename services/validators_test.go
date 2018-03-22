@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"net/url"
 )
 
 func TestValidateJob(t *testing.T) {
@@ -39,6 +40,40 @@ func TestValidateJob(t *testing.T) {
 			assert.Nil(t, json.Unmarshal(test.input, &j))
 			result := services.ValidateJob(j, store)
 			assert.Equal(t, test.want, result)
+		})
+	}
+}
+
+func TestValidateAdaptor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	tt := models.BridgeType{}
+	tt.Name = "solargridreporting"
+	u, err := url.Parse("https://denergy.eth")
+	assert.Nil(t, err)
+	tt.URL = models.WebURL{u}
+	assert.Nil(t, store.Save(&tt))
+
+	tests := []struct {
+		description string
+		name  string
+		want  error
+	}{
+		{"existing external adaptor", "solargridreporting",
+		errors.New("adaptor validation: adaptor solargridreporting exists")},
+		{"existing core adaptor", "ethtx",
+		errors.New("adaptor validation: adaptor ethtx exists")},
+		{"new external adaptor", "gdaxprice", nil},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			bt := &models.BridgeType{Name: test.name}
+			result := services.ValidateAdaptor(bt, store)
+			assert.Equal(t, result, test.want)
 		})
 	}
 }
