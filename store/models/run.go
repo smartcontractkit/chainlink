@@ -72,6 +72,7 @@ func (jr JobRun) ApplyResult(result RunResult) JobRun {
 // completed at time.
 func (jr JobRun) MarkCompleted() JobRun {
 	jr.Status = RunStatusCompleted
+	jr.Result.Status = RunStatusCompleted
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	return jr
 }
@@ -126,6 +127,7 @@ func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
 // MarkCompleted marks the task's status as completed.
 func (tr TaskRun) MarkCompleted() TaskRun {
 	tr.Status = RunStatusCompleted
+	tr.Result.Status = RunStatusCompleted
 	return tr
 }
 

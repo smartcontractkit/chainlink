@@ -30,10 +30,6 @@ const (
 	RunStatusCompleted = RunStatus("completed")
 )
 
-func (s RunStatus) Waiting() bool {
-	return s.Pending() || s.Blocked()
-}
-
 // Pending returns true if the status is pending.
 func (s RunStatus) Pending() bool {
 	return s == RunStatusPending
@@ -44,14 +40,24 @@ func (s RunStatus) Blocked() bool {
 	return s == RunStatusBlocked
 }
 
-// Completed returns true if the TaskRun status is RunStatusCompleted.
+// Completed returns true if the status is RunStatusCompleted.
 func (s RunStatus) Completed() bool {
 	return s == RunStatusCompleted
 }
 
-// Errored returns true if the TaskRun status is RunStatusErrored.
+// Errored returns true if the status is RunStatusErrored.
 func (s RunStatus) Errored() bool {
 	return s == RunStatusErrored
+}
+
+// Waiting returns true if the status is pending or blocked.
+func (s RunStatus) Waiting() bool {
+	return s.Pending() || s.Blocked()
+}
+
+// Runnable returns true if the status is ready to be run.
+func (s RunStatus) Runnable() bool {
+	return !s.Errored() && !s.Waiting()
 }
 
 // JSON stores the json types string, number, bool, and null.
