@@ -113,7 +113,7 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 // PendingJobRuns returns the JobRuns which have a status of "pending".
 func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("Status", StatusPending, &runs)
+	err := orm.Where("Status", RunStatusPending, &runs)
 	return runs, err
 }
 

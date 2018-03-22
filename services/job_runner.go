@@ -44,7 +44,7 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
 func ExecuteRun(run models.JobRun, store *store.Store, input models.RunResult) (models.JobRun, error) {
-	run.Status = models.StatusInProgress
+	run.Status = models.RunStatusInProgress
 	if err := store.Save(&run); err != nil {
 		return run, wrapError(run, err)
 	}
@@ -72,17 +72,17 @@ func ExecuteRun(run models.JobRun, store *store.Store, input models.RunResult) (
 			return run, wrapError(run, err)
 		}
 
-		if prevRun.Result.Pending() {
+		if prevRun.Result.Status.Pending() {
 			prevRun.Status = prevRun.Result.Status
 			logger.Infow(fmt.Sprintf("Task %v pending", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			break
 		}
-		if prevRun.Result.Errored() {
+		if prevRun.Result.Status.Errored() {
 			prevRun.Status = prevRun.Result.Status
 			logger.Infow(fmt.Sprintf("Task %v errored", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 			break
 		}
-		prevRun.Result.Status = models.StatusCompleted
+		prevRun.Result.Status = models.RunStatusCompleted
 		logger.Infow(fmt.Sprintf("Task %v completed", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 	}
 
@@ -96,22 +96,22 @@ func startTask(
 	input models.RunResult,
 	store *store.Store,
 ) models.TaskRun {
-	run.Status = models.StatusInProgress
+	run.Status = models.RunStatusInProgress
 
 	adapter, err := adapters.For(run.Task, store)
 	if err != nil {
-		run.Status = models.StatusErrored
+		run.Status = models.RunStatusErrored
 		run.Result.SetError(err)
 		return run
 	}
 
 	run.Result = adapter.Perform(input, store)
-	if run.Result.Errored() {
-		run.Status = models.StatusErrored
-	} else if run.Result.Pending() {
-		run.Status = models.StatusPending
+	if run.Result.Status.Errored() {
+		run.Status = models.RunStatusErrored
+	} else if run.Result.Status.Pending() {
+		run.Status = models.RunStatusPending
 	} else {
-		run.Status = models.StatusCompleted
+		run.Status = models.RunStatusCompleted
 	}
 
 	return run
