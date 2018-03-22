@@ -43,78 +43,73 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run models.JobRun, store *store.Store, input models.RunResult) (models.JobRun, error) {
-	run.Status = models.RunStatusInProgress
-	if err := store.Save(&run); err != nil {
-		return run, wrapError(run, err)
+func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult) (models.JobRun, error) {
+	jr.Status = models.RunStatusInProgress
+	if err := store.Save(&jr); err != nil {
+		return jr, wrapError(jr, err)
 	}
 
-	logger.Infow("Starting job", run.ForLogger()...)
-	unfinished := run.UnfinishedTaskRuns()
-	offset := len(run.TaskRuns) - len(unfinished)
-	prevRun := unfinished[0]
+	logger.Infow("Starting job", jr.ForLogger()...)
+	unfinished := jr.UnfinishedTaskRuns()
+	offset := len(jr.TaskRuns) - len(unfinished)
+	latestRun := unfinished[0]
 
-	merged, err := prevRun.Result.Merge(input)
+	merged, err := latestRun.Result.Merge(overrides)
 	if err != nil {
-		return run, wrapError(run, err)
+		return jr, wrapError(jr, err)
 	}
-	prevRun.Result = merged
+	latestRun.Result = merged
 
 	for i, taskRunTemplate := range unfinished {
-		taskRun, err := taskRunTemplate.MergeTaskParams(input.Data)
+		taskRun, err := taskRunTemplate.MergeTaskParams(overrides.Data)
 		if err != nil {
-			return run, wrapError(run, err)
-		}
-		prevRun = startTask(taskRun, prevRun.Result, store)
-		logger.Debugw("Produced task run", "tr", prevRun)
-		run.TaskRuns[i+offset] = prevRun
-		if err := store.Save(&run); err != nil {
-			return run, wrapError(run, err)
+			return jr, wrapError(jr, err)
 		}
 
-		if prevRun.Result.Status.Pending() {
-			prevRun.Status = prevRun.Result.Status
-			logger.Infow(fmt.Sprintf("Task %v pending", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
+		latestRun = markCompleted(startTask(taskRun, latestRun.Result, store)) // update to support blocking
+		jr.TaskRuns[i+offset] = latestRun
+		logTaskResult(latestRun, taskRun, i)
+
+		if err := store.Save(&jr); err != nil {
+			return jr, wrapError(jr, err)
+		}
+		if !latestRun.Status.Runnable() {
 			break
 		}
-		if prevRun.Result.Status.Errored() {
-			prevRun.Status = prevRun.Result.Status
-			logger.Infow(fmt.Sprintf("Task %v errored", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
-			break
-		}
-		prevRun.Result.Status = models.RunStatusCompleted
-		logger.Infow(fmt.Sprintf("Task %v completed", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
 	}
 
-	run = run.ApplyResult(prevRun.Result)
-	logger.Infow("Finished current job run execution", run.ForLogger()...)
-	return run, wrapError(run, store.Save(&run))
+	jr = jr.ApplyResult(latestRun.Result)
+	logger.Infow("Finished current job run execution", jr.ForLogger()...)
+	return jr, wrapError(jr, store.Save(&jr))
+}
+
+func logTaskResult(lr models.TaskRun, tr models.TaskRun, i int) {
+	logger.Debugw("Produced task run", "taskRun", lr)
+	logger.Debugw(fmt.Sprintf("Task %v %v", tr.Task.Type, tr.Result.Status), tr.ForLogger("task", i, "result", lr.Result)...)
+}
+
+func markCompleted(tr models.TaskRun) models.TaskRun {
+	if tr.Status.Runnable() {
+		return tr.MarkCompleted()
+	}
+	return tr
 }
 
 func startTask(
-	run models.TaskRun,
+	tr models.TaskRun,
 	input models.RunResult,
 	store *store.Store,
 ) models.TaskRun {
-	run.Status = models.RunStatusInProgress
+	tr.Status = models.RunStatusInProgress
 
-	adapter, err := adapters.For(run.Task, store)
+	adapter, err := adapters.For(tr.Task, store)
 	if err != nil {
-		run.Status = models.RunStatusErrored
-		run.Result.SetError(err)
-		return run
+		tr.Status = models.RunStatusErrored
+		tr.Result.SetError(err)
+		return tr
 	}
 
-	run.Result = adapter.Perform(input, store)
-	if run.Result.Status.Errored() {
-		run.Status = models.RunStatusErrored
-	} else if run.Result.Status.Pending() {
-		run.Status = models.RunStatusPending
-	} else {
-		run.Status = models.RunStatusCompleted
-	}
-
-	return run
+	return tr.ApplyResult(adapter.Perform(input, store))
 }
 
 func wrapError(run models.JobRun, err error) error {
