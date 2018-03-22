@@ -275,7 +275,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	jr = cltest.WaitForJobRunToPend(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, models.StatusPending, tr.Status)
+	assert.Equal(t, models.RunStatusPending, tr.Status)
 	val, err := tr.Result.Value()
 	assert.NotNil(t, err)
 	assert.Equal(t, "", val)
@@ -283,7 +283,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
-	assert.Equal(t, models.StatusCompleted, tr.Status)
+	assert.Equal(t, models.RunStatusCompleted, tr.Status)
 	val, err = tr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)

@@ -392,7 +392,7 @@ func WaitForJobRunToComplete(
 	store *store.Store,
 	jr models.JobRun,
 ) models.JobRun {
-	return WaitForJobRunStatus(t, store, jr, models.StatusCompleted)
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
 }
 
 func WaitForJobRunToPend(
@@ -400,17 +400,17 @@ func WaitForJobRunToPend(
 	store *store.Store,
 	jr models.JobRun,
 ) models.JobRun {
-	return WaitForJobRunStatus(t, store, jr, models.StatusPending)
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPending)
 }
 
 func WaitForJobRunStatus(
 	t *testing.T,
 	store *store.Store,
 	jr models.JobRun,
-	status models.Status,
+	status models.RunStatus,
 ) models.JobRun {
 	t.Helper()
-	gomega.NewGomegaWithT(t).Eventually(func() models.Status {
+	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		assert.Nil(t, store.One("ID", jr.ID, &jr))
 		return jr.Status
 	}).Should(gomega.Equal(status))

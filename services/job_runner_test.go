@@ -19,14 +19,14 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		name       string
 		input      string
 		runResult  string
-		wantStatus models.Status
+		wantStatus models.RunStatus
 		wantData   string
 	}{
-		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100"}`},
-		{"errored", `{}`, `{"error":"too much"}`, models.StatusErrored, `{}`},
-		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.StatusErrored, `{"value":"99"}`},
-		{"overriding bridge type params", `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100","url":"hack"}`},
-		{"type parameter does not override", `{"type":"0"}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100","type":"0"}`},
+		{"success", `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100"}`},
+		{"errored", `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{}`},
+		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99"}`},
+		{"overriding bridge type params", `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack"}`},
+		{"type parameter does not override", `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"0"}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -66,7 +66,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			assert.Equal(t, test.wantStatus, tr1.Status)
 			assert.JSONEq(t, test.wantData, tr1.Result.Data.String())
 
-			if test.wantStatus == models.StatusCompleted {
+			if test.wantStatus == models.RunStatusCompleted {
 				tr2 := run.TaskRuns[1]
 				assert.JSONEq(t, test.wantData, tr2.Result.Data.String())
 				assert.True(t, run.CompletedAt.Valid)
@@ -88,7 +88,7 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.StatusPending, run.Status)
+	assert.Equal(t, models.RunStatusPending, run.Status)
 }
 
 func TestJobRunner_BeginRun(t *testing.T) {
