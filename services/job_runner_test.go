@@ -19,7 +19,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		name       string
 		input      string
 		runResult  string
-		wantStatus string
+		wantStatus models.Status
 		wantData   string
 	}{
 		{"success", `{}`, `{"data":{"value":"100"}}`, models.StatusCompleted, `{"value":"100"}`},

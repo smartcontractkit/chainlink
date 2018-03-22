@@ -121,52 +121,56 @@ func TestRunResult_Value(t *testing.T) {
 func TestRunResult_Merge(t *testing.T) {
 	t.Parallel()
 
+	inProgress := models.StatusInProgress
+	pending := models.StatusPending
+	errored := models.StatusErrored
+
 	nullString := cltest.NullString(nil)
 	jrID := utils.NewBytes32ID()
 	tests := []struct {
 		name             string
 		originalData     string
 		originalError    null.String
-		originalStatus   string
+		originalStatus   models.Status
 		originalJRID     string
 		inData           string
 		inError          null.String
-		inStatus         string
+		inStatus         models.Status
 		inJRID           string
 		wantData         string
 		wantErrorMessage null.String
-		wantPending      bool
+		wantStatus       models.Status
 		wantJRID         string
 		wantErrored      bool
 	}{
 		{"merging data",
-			`{"value":"old&busted","unique":"1"}`, nullString, models.StatusInProgress, jrID,
-			`{"value":"newHotness","and":"!"}`, nullString, models.StatusInProgress, jrID,
-			`{"value":"newHotness","unique":"1","and":"!"}`, nullString, false, jrID, false},
+			`{"value":"old&busted","unique":"1"}`, nullString, inProgress, jrID,
+			`{"value":"newHotness","and":"!"}`, nullString, inProgress, jrID,
+			`{"value":"newHotness","unique":"1","and":"!"}`, nullString, inProgress, jrID, false},
 		{"original error throws",
-			`{"value":"old"}`, cltest.NullString("old problem"), models.StatusInProgress, jrID,
-			`{}`, nullString, models.StatusInProgress, jrID,
-			`{"value":"old"}`, cltest.NullString("old problem"), false, jrID, true},
+			`{"value":"old"}`, cltest.NullString("old problem"), errored, jrID,
+			`{}`, nullString, inProgress, jrID,
+			`{"value":"old"}`, cltest.NullString("old problem"), errored, jrID, true},
 		{"error override",
-			`{"value":"old"}`, nullString, models.StatusInProgress, jrID,
-			`{}`, cltest.NullString("new problem"), models.StatusInProgress, jrID,
-			`{"value":"old"}`, cltest.NullString("new problem"), false, jrID, false},
+			`{"value":"old"}`, nullString, inProgress, jrID,
+			`{}`, cltest.NullString("new problem"), errored, jrID,
+			`{"value":"old"}`, cltest.NullString("new problem"), errored, jrID, false},
 		{"original job run ID",
-			`{"value":"old"}`, nullString, models.StatusInProgress, jrID,
-			`{}`, nullString, models.StatusInProgress, "",
-			`{"value":"old"}`, nullString, false, jrID, false},
+			`{"value":"old"}`, nullString, inProgress, jrID,
+			`{}`, nullString, inProgress, "",
+			`{"value":"old"}`, nullString, inProgress, jrID, false},
 		{"job run ID override",
-			`{"value":"old"}`, nullString, models.StatusInProgress, utils.NewBytes32ID(),
-			`{}`, nullString, models.StatusInProgress, jrID,
-			`{"value":"old"}`, nullString, false, jrID, false},
+			`{"value":"old"}`, nullString, inProgress, utils.NewBytes32ID(),
+			`{}`, nullString, inProgress, jrID,
+			`{"value":"old"}`, nullString, inProgress, jrID, false},
 		{"original pending",
-			`{"value":"old"}`, nullString, models.StatusPending, jrID,
-			`{}`, nullString, models.StatusInProgress, jrID,
-			`{"value":"old"}`, nullString, true, jrID, false},
+			`{"value":"old"}`, nullString, pending, jrID,
+			`{}`, nullString, inProgress, jrID,
+			`{"value":"old"}`, nullString, pending, jrID, false},
 		{"pending override",
-			`{"value":"old"}`, nullString, models.StatusInProgress, jrID,
-			`{}`, nullString, models.StatusPending, jrID,
-			`{"value":"old"}`, nullString, true, jrID, false},
+			`{"value":"old"}`, nullString, inProgress, jrID,
+			`{}`, nullString, pending, jrID,
+			`{"value":"old"}`, nullString, pending, jrID, false},
 	}
 
 	for _, test := range tests {
@@ -199,7 +203,7 @@ func TestRunResult_Merge(t *testing.T) {
 			assert.JSONEq(t, test.wantData, merged.Data.String())
 			assert.Equal(t, test.wantErrorMessage, merged.ErrorMessage)
 			assert.Equal(t, test.wantJRID, merged.JobRunID)
-			assert.Equal(t, test.wantPending, merged.Pending())
+			assert.Equal(t, test.wantStatus, merged.Status)
 		})
 	}
 }
