@@ -34,6 +34,15 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 	return merr
 }
 
+// ValidateAdaptor checks that the bridge type doesn't have a duplicate name
+func ValidateAdaptor(bt *models.BridgeType, store *store.Store) (err error) {
+	ts := models.TaskSpec{Type: bt.Name}
+	if a, _ := adapters.For(ts, store); a != nil {
+		err = fmt.Errorf("adaptor validation: adaptor %v exists", bt.Name)
+	}
+	return err
+}
+
 func fmtJobError(err error) error {
 	return fmt.Errorf("job validation: %v", err)
 }
