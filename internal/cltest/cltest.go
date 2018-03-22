@@ -476,8 +476,18 @@ func ParseNullableTime(s string) null.Time {
 	return NullableTime(ParseISO8601(s))
 }
 
-func IndexableBlockNumber(n int64) *models.IndexableBlockNumber {
-	return models.NewIndexableBlockNumber(big.NewInt(n))
+func IndexableBlockNumber(val interface{}) *models.IndexableBlockNumber {
+	switch val.(type) {
+	case int:
+		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(int))))
+	case uint64:
+		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(uint64))))
+	case int64:
+		return models.NewIndexableBlockNumber(big.NewInt(val.(int64)))
+	default:
+		logger.Panicf("Could not convert %v of type %T to IndexableBlockNumber", val, val)
+		return nil
+	}
 }
 
 func mustNotErr(err error) {
