@@ -38,6 +38,7 @@ func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 }
 
 func TestModels_Header_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		path       string
@@ -60,8 +61,6 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			var header models.BlockHeader
 
 			data := cltest.LoadJSON(test.path)
@@ -75,6 +74,7 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 }
 
 func TestModels_IndexableBlockNumber_New(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input      *big.Int
 		want       string
@@ -86,7 +86,6 @@ func TestModels_IndexableBlockNumber_New(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			t.Parallel()
 			num := models.NewIndexableBlockNumber(test.input)
 			assert.Equal(t, test.want, num.String())
 			assert.Equal(t, test.wantDigits, num.Digits)
@@ -95,6 +94,7 @@ func TestModels_IndexableBlockNumber_New(t *testing.T) {
 }
 
 func TestModels_IndexableBlockNumber_GreaterThan(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		left    *models.IndexableBlockNumber
@@ -102,21 +102,21 @@ func TestModels_IndexableBlockNumber_GreaterThan(t *testing.T) {
 		greater bool
 	}{
 		{"nil nil", nil, nil, false},
-		{"present nil", cltest.IndexableBlockNumber(1), nil, false},
-		{"nil present", cltest.IndexableBlockNumber(2), cltest.IndexableBlockNumber(1), false},
+		{"present nil", cltest.IndexableBlockNumber(1), nil, true},
+		{"nil present", nil, cltest.IndexableBlockNumber(1), false},
 		{"less", cltest.IndexableBlockNumber(1), cltest.IndexableBlockNumber(2), false},
 		{"equal", cltest.IndexableBlockNumber(2), cltest.IndexableBlockNumber(2), false},
 		{"greater", cltest.IndexableBlockNumber(2), cltest.IndexableBlockNumber(1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(t, test.greater, test.left.GreaterThan(test.right))
 		})
 	}
 }
 
 func TestModels_IndexableBlockNumber_NextInt(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		bn   *models.IndexableBlockNumber
@@ -127,7 +127,6 @@ func TestModels_IndexableBlockNumber_NextInt(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(t, test.want, test.bn.NextInt())
 		})
 	}
