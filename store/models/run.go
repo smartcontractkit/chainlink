@@ -276,9 +276,7 @@ func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
 
 	if brr.Status.Errored() || brr.HasError() {
 		brr.Status = RunStatusErrored
-	} else if brr.Status.PendingConfirmations() {
-		brr.Status = RunStatusPendingConfirmations
-	} else if brr.Status.PendingExternal() || brr.ExternalPending {
+	} else if brr.ExternalPending || brr.Status.PendingExternal() {
 		brr.Status = RunStatusPendingExternal
 	} else {
 		brr.Status = RunStatusCompleted
