@@ -144,7 +144,7 @@ func (txm *TxManager) handleConfirmed(
 	blkNum uint64,
 ) (bool, error) {
 
-	minConfs := big.NewInt(int64(txm.Config.EthMinConfirmations))
+	minConfs := big.NewInt(int64(txm.Config.TxMinConfirmations))
 	rcptBlkNum := big.Int(rcpt.BlockNumber)
 	safeAt := minConfs.Add(&rcptBlkNum, minConfs)
 	if big.NewInt(int64(blkNum)).Cmp(safeAt) == -1 {

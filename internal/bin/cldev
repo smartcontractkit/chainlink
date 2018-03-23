@@ -11,7 +11,7 @@ export LOG_LEVEL=debug
 export ROOT=./internal/devnet
 export ETH_URL=ws://localhost:18546
 export ETH_CHAIN_ID=17
-export ETH_MIN_CONFIRMATIONS=2
+export TX_MIN_CONFIRMATIONS=2
 
 LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
 
