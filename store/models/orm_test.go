@@ -65,11 +65,11 @@ func TestPendingJobRuns(t *testing.T) {
 	assert.Nil(t, store.Save(&npr))
 
 	pr := j.NewRun(i)
-	pr.Status = models.RunStatusPending
+	pr.Status = models.RunStatusPendingExternal
 	assert.Nil(t, store.Save(&pr))
 
 	br := j.NewRun(i)
-	br.Status = models.RunStatusBlocked
+	br.Status = models.RunStatusPendingConfirmations
 	assert.Nil(t, store.Save(&br))
 
 	pending, err := store.PendingJobRuns()

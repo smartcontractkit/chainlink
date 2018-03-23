@@ -19,11 +19,11 @@ const (
 	RunStatusUnstarted = RunStatus("")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in progress")
-	// RunStatusBlocked is used for when a run is awaiting for block confirmations.
-	RunStatusBlocked = RunStatus("blocked")
-	// RunStatusPending is used for when a run is waiting on the completion
+	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
+	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
+	// RunStatusPendingExternal is used for when a run is waiting on the completion
 	// of another event.
-	RunStatusPending = RunStatus("pending")
+	RunStatusPendingExternal = RunStatus("pending_external")
 	// RunStatusErrored is used for when a run has errored and will not complete.
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
@@ -31,13 +31,13 @@ const (
 )
 
 // Pending returns true if the status is pending.
-func (s RunStatus) Pending() bool {
-	return s == RunStatusPending
+func (s RunStatus) PendingExternal() bool {
+	return s == RunStatusPendingExternal
 }
 
-// Blocked returns true if the status is pending.
-func (s RunStatus) Blocked() bool {
-	return s == RunStatusBlocked
+// PendingConfirmations returns true if the status is pending.
+func (s RunStatus) PendingConfirmations() bool {
+	return s == RunStatusPendingConfirmations
 }
 
 // Completed returns true if the status is RunStatusCompleted.
@@ -50,14 +50,14 @@ func (s RunStatus) Errored() bool {
 	return s == RunStatusErrored
 }
 
-// Waiting returns true if the status is pending or blocked.
-func (s RunStatus) Waiting() bool {
-	return s.Pending() || s.Blocked()
+// Pending returns true if the status is pending external or confirmations.
+func (s RunStatus) Pending() bool {
+	return s.PendingExternal() || s.PendingConfirmations()
 }
 
 // Runnable returns true if the status is ready to be run.
 func (s RunStatus) Runnable() bool {
-	return !s.Errored() && !s.Waiting()
+	return !s.Errored() && !s.Pending()
 }
 
 // JSON stores the json types string, number, bool, and null.

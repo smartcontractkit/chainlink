@@ -75,7 +75,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 }
 
-func TestExecuteRun_TransitionToBlocked(t *testing.T) {
+func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -90,7 +90,7 @@ func TestExecuteRun_TransitionToBlocked(t *testing.T) {
 	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.RunStatusBlocked, run.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 
 	trigger := cltest.IndexableBlockNumber(store.Config.TaskMinConfirmations)
 	run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
@@ -111,7 +111,7 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.RunStatusPending, run.Status)
+	assert.Equal(t, models.RunStatusPendingExternal, run.Status)
 }
 
 func TestJobRunner_BeginRun(t *testing.T) {

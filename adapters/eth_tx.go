@@ -20,7 +20,7 @@ type EthTx struct {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	if !input.Status.Pending() {
+	if !input.Status.PendingExternal() {
 		return createTxRunResult(etx, input, store)
 	} else {
 		return ensureTxRunResult(input, store)
@@ -67,7 +67,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 	if err != nil {
 		return input.WithError(err)
 	} else if !confirmed {
-		return input.MarkPending()
+		return input.MarkPendingExternal()
 	}
 	return input.WithValue(hash.String())
 }

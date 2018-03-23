@@ -153,7 +153,7 @@ func TestRunResult_Merge(t *testing.T) {
 	t.Parallel()
 
 	inProgress := models.RunStatusInProgress
-	pending := models.RunStatusPending
+	pending := models.RunStatusPendingExternal
 	errored := models.RunStatusErrored
 
 	nullString := cltest.NullString(nil)
