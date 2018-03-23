@@ -67,7 +67,8 @@ You can configure your node's behavior by setting environment variables which ca
     ETH_URL                  Default: ws://localhost:8546
     ETH_CHAIN_ID             Default: 0
     ETH_GAS_BUMP_THRESHOLD   Default: 12
-    ETH_MIN_CONFIRMATIONS    Default: 12
+    TX_MIN_CONFIRMATIONS     Default: 12
+    TASK_MIN_CONFIRMATIONS   Default: 6
     ETH_GAS_BUMP_WEI         Default: 5000000000  (5 gwei)
     ETH_GAS_PRICE_DEFAULT    Default: 20000000000 (20 gwei)
 

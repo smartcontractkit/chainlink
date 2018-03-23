@@ -76,13 +76,13 @@ func (el *EthereumListener) Disconnect() {
 }
 
 // OnNewHead resumes all pending job runs based on the new head activity.
-func (el *EthereumListener) OnNewHead(_ *models.BlockHeader) {
+func (el *EthereumListener) OnNewHead(head *models.BlockHeader) {
 	pendingRuns, err := el.Store.PendingJobRuns()
 	if err != nil {
 		logger.Error(err.Error())
 	}
 	for _, jr := range pendingRuns {
-		if _, err := ExecuteRun(jr, el.Store, models.RunResult{}); err != nil {
+		if _, err := ExecuteRunAtBlock(jr, el.Store, models.RunResult{}, head.ToIndexableBlockNumber()); err != nil {
 			logger.Error(err.Error())
 		}
 	}
@@ -262,7 +262,7 @@ func (ht *HeadTracker) updateBlockHeader() {
 		return
 	}
 
-	bn := header.IndexableBlockNumber()
+	bn := header.ToIndexableBlockNumber()
 	if bn.GreaterThan(ht.LastRecord()) {
 		logger.Debug("Fast forwarding to block header ", bn.FriendlyString())
 		ht.Save(bn)
@@ -274,7 +274,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 		logger.Debug("Tracking logs from last block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
 	}
 	for header := range ht.headers {
-		number := header.IndexableBlockNumber()
+		number := header.ToIndexableBlockNumber()
 		logger.Debugw(fmt.Sprintf("Received header %v", number.FriendlyString()), "hash", header.Hash())
 		if err := ht.Save(number); err != nil {
 			logger.Error(err.Error())

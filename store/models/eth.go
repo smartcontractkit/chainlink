@@ -126,7 +126,7 @@ func (h BlockHeader) Hash() common.Hash {
 	return h.ParityHash
 }
 
-func (h BlockHeader) IndexableBlockNumber() *IndexableBlockNumber {
+func (h BlockHeader) ToIndexableBlockNumber() *IndexableBlockNumber {
 	return NewIndexableBlockNumber(h.Number.ToInt(), h.Hash())
 }
 

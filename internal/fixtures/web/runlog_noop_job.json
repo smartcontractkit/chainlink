@@ -1,4 +1,4 @@
 {
   "initiators": [{"type": "runLog"}],
-  "tasks": [{"type": "HttpGet"}]
+  "tasks": [{"type": "NoOp"}]
 }

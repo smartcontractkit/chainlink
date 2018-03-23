@@ -75,6 +75,29 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 }
 
+func TestExecuteRun_TransitionToBlocked(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	store.Config.TaskMinConfirmations = 6
+
+	job, initr := cltest.NewJobWithLogInitiator()
+	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp")}
+
+	zero := cltest.IndexableBlockNumber(0)
+	run := job.NewRun(initr)
+	run, err := services.ExecuteRunAtBlock(run, store, models.RunResult{}, zero)
+	assert.Nil(t, err)
+
+	store.One("ID", run.ID, &run)
+	assert.Equal(t, models.RunStatusBlocked, run.Status)
+
+	trigger := cltest.IndexableBlockNumber(store.Config.TaskMinConfirmations)
+	run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
+	assert.Nil(t, err)
+	assert.Equal(t, models.RunStatusCompleted, run.Status)
+}
+
 func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
