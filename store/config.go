@@ -26,7 +26,7 @@ type Config struct {
 	ChainID              uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
 	ClientNodeURL        string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
 	TxMinConfirmations   uint64   `env:"TX_MIN_CONFIRMATIONS" envDefault:"12"`
-	TaskMinConfirmations uint64   `env:"TASK_MIN_CONFIRMATIONS" envDefault:"6"`
+	TaskMinConfirmations uint64   `env:"TASK_MIN_CONFIRMATIONS" envDefault:"0"`
 	EthGasBumpThreshold  uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
 	EthGasBumpWei        big.Int  `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
 	EthGasPriceDefault   big.Int  `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
