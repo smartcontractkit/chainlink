@@ -129,7 +129,7 @@ func startTask(
 ) models.TaskRun {
 
 	if !jr.Runnable(bn, store.Config.TaskMinConfirmations) {
-		return tr.MarkBlocked()
+		return tr.MarkPendingConfirmations()
 	}
 
 	tr.Status = models.RunStatusInProgress

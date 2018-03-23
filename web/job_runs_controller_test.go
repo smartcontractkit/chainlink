@@ -141,7 +141,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
-	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingExternal(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
@@ -186,7 +186,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
-	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingExternal(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
@@ -212,7 +212,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
-	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingExternal(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
@@ -220,7 +220,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
-	assert.Equal(t, models.RunStatusPending, jr.Status)
+	assert.Equal(t, models.RunStatusPendingExternal, jr.Status)
 }
 
 func TestJobRunsController_Update_NotFound(t *testing.T) {
@@ -233,7 +233,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
 	assert.Nil(t, app.Store.Save(&j))
-	jr := cltest.MarkJobRunPending(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingExternal(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID + "1"
@@ -241,5 +241,5 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
-	assert.Equal(t, models.RunStatusPending, jr.Status)
+	assert.Equal(t, models.RunStatusPendingExternal, jr.Status)
 }

@@ -87,12 +87,12 @@ func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
-	input := sentResult.MarkPending()
+	input := sentResult.MarkPendingExternal()
 
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
-	assert.True(t, output.Status.Pending())
+	assert.True(t, output.Status.PendingExternal())
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 1, len(attempts))
@@ -121,12 +121,12 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
-	input := sentResult.MarkPending()
+	input := sentResult.MarkPendingExternal()
 
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
-	assert.True(t, output.Status.Pending())
+	assert.True(t, output.Status.PendingExternal())
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 2, len(attempts))
@@ -159,13 +159,13 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	a3, _ := store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a3.Hash.String())
-	input := sentResult.MarkPending()
+	input := sentResult.MarkPendingExternal()
 
 	assert.False(t, tx.Confirmed)
 
 	output := adapter.Perform(input, store)
 
-	assert.False(t, output.Status.Pending())
+	assert.False(t, output.Status.PendingExternal())
 	assert.False(t, output.HasError())
 
 	assert.Nil(t, store.One("ID", tx.ID, tx))
