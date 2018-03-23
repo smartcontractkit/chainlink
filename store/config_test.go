@@ -10,6 +10,7 @@ import (
 )
 
 func TestStore_ConfigDefaults(t *testing.T) {
+	t.Parallel()
 	config := strpkg.NewConfig()
 	assert.Equal(t, uint64(0), config.ChainID)
 	assert.Equal(t, *big.NewInt(20000000000), config.EthGasPriceDefault)

@@ -11,6 +11,7 @@ import (
 )
 
 func TestEthClient_GetTxReceipt(t *testing.T) {
+	t.Parallel()
 	response := cltest.LoadJSON("../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
 	config := cltest.NewConfigWithWSServer(mockServer)
@@ -27,6 +28,7 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 }
 
 func TestEthClient_GetNonce(t *testing.T) {
+	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
@@ -39,6 +41,7 @@ func TestEthClient_GetNonce(t *testing.T) {
 }
 
 func TestEthClient_GetBlockNumber(t *testing.T) {
+	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
@@ -51,6 +54,7 @@ func TestEthClient_GetBlockNumber(t *testing.T) {
 }
 
 func TestEthClient_SendRawTx(t *testing.T) {
+	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
@@ -62,6 +66,7 @@ func TestEthClient_SendRawTx(t *testing.T) {
 }
 
 func TestEthClient_GetEthBalance(t *testing.T) {
+	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 
@@ -83,6 +88,7 @@ func TestEthClient_GetEthBalance(t *testing.T) {
 }
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
+	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 
