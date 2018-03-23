@@ -280,7 +280,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	jr = cltest.WaitForJobRunToPend(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, models.RunStatusPending, tr.Status)
+	assert.Equal(t, models.RunStatusPendingExternal, tr.Status)
 	val, err := tr.Result.Value()
 	assert.NotNil(t, err)
 	assert.Equal(t, "", val)

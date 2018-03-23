@@ -222,10 +222,10 @@ func RunResultWithError(err error) models.RunResult {
 	}
 }
 
-func MarkJobRunPending(jr models.JobRun, i int) models.JobRun {
-	jr.Status = models.RunStatusPending
-	jr.Result.Status = models.RunStatusPending
-	jr.TaskRuns[i].Status = models.RunStatusPending
-	jr.TaskRuns[i].Result.Status = models.RunStatusPending
+func MarkJobRunPendingExternal(jr models.JobRun, i int) models.JobRun {
+	jr.Status = models.RunStatusPendingExternal
+	jr.Result.Status = models.RunStatusPendingExternal
+	jr.TaskRuns[i].Status = models.RunStatusPendingExternal
+	jr.TaskRuns[i].Result.Status = models.RunStatusPendingExternal
 	return jr
 }

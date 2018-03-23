@@ -26,7 +26,7 @@ type Bridge struct {
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	if input.Status.Errored() {
 		return input
-	} else if input.Status.Pending() {
+	} else if input.Status.PendingExternal() {
 		return markNotPending(input)
 	}
 	return ba.handleNewRun(input)

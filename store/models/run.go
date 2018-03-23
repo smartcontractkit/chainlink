@@ -144,10 +144,10 @@ func (tr TaskRun) MarkCompleted() TaskRun {
 	return tr
 }
 
-// MarkBlocked marks the task's status as blocked.
-func (tr TaskRun) MarkBlocked() TaskRun {
-	tr.Status = RunStatusBlocked
-	tr.Result.Status = RunStatusBlocked
+// MarkPendingConfirmations marks the task's status as blocked.
+func (tr TaskRun) MarkPendingConfirmations() TaskRun {
+	tr.Status = RunStatusPendingConfirmations
+	tr.Result.Status = RunStatusPendingConfirmations
 	return tr
 }
 
@@ -181,9 +181,9 @@ func (rr RunResult) WithError(err error) RunResult {
 	return rr
 }
 
-// MarkPending returns a copy of RunResult but with status set to pending.
-func (rr RunResult) MarkPending() RunResult {
-	rr.Status = RunStatusPending
+// MarkPendingExternal returns a copy of RunResult but with status set to pending.
+func (rr RunResult) MarkPendingExternal() RunResult {
+	rr.Status = RunStatusPendingExternal
 	return rr
 }
 
@@ -254,8 +254,8 @@ func (rr RunResult) Merge(in RunResult) (RunResult, error) {
 	}
 	if in.Status.Errored() || rr.Status.Errored() {
 		in.Status = RunStatusErrored
-	} else if in.Status.Pending() || rr.Status.Pending() {
-		in = in.MarkPending()
+	} else if in.Status.PendingExternal() || rr.Status.PendingExternal() {
+		in = in.MarkPendingExternal()
 	}
 	return in, nil
 }
@@ -276,10 +276,10 @@ func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
 
 	if brr.Status.Errored() || brr.HasError() {
 		brr.Status = RunStatusErrored
-	} else if brr.Status.Blocked() {
-		brr.Status = RunStatusBlocked
-	} else if brr.Status.Pending() || brr.ExternalPending {
-		brr.Status = RunStatusPending
+	} else if brr.Status.PendingConfirmations() {
+		brr.Status = RunStatusPendingConfirmations
+	} else if brr.Status.PendingExternal() || brr.ExternalPending {
+		brr.Status = RunStatusPendingExternal
 	} else {
 		brr.Status = RunStatusCompleted
 	}
