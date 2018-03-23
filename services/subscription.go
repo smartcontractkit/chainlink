@@ -224,7 +224,7 @@ func receiveEthLog(le RPCLogEvent) {
 
 func runJob(le RPCLogEvent, data models.JSON, initr models.Initiator) {
 	input := models.RunResult{Data: data}
-	if _, err := BeginRun(le.Job, initr, input, le.store); err != nil {
+	if _, err := BeginRunAtBlock(le.Job, initr, input, le.store, le.ToIndexableBlockNumber()); err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 }
@@ -254,6 +254,12 @@ func (le RPCLogEvent) ToDebug() {
 	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
 	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.Job.ID)
 	logger.Debugw(msg, le.ForLogger()...)
+}
+
+func (le RPCLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
+	num := new(big.Int)
+	num.SetUint64(le.Log.BlockNumber)
+	return models.NewIndexableBlockNumber(num, le.Log.BlockHash)
 }
 
 // ValidateRunLog returns whether or not the contained log is a RunLog,

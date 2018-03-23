@@ -173,10 +173,11 @@ func JSONFromString(body string, args ...interface{}) models.JSON {
 	return j
 }
 
-func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
+func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes.Log {
 	return ethtypes.Log{
-		Address: addr,
-		Data:    StringToRunLogData(json),
+		Address:     addr,
+		BlockNumber: uint64(blk),
+		Data:        StringToRunLogData(json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
 			common.StringToHash("requestID"),
@@ -199,6 +200,11 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
+func NewBigHexInt(val interface{}) *hexutil.Big {
+	rval := BigHexInt(val)
+	return &rval
+}
+
 func RunResultWithValue(val string) models.RunResult {
 	data := models.JSON{}
 	data, err := data.Add("value", val)
@@ -211,6 +217,7 @@ func RunResultWithValue(val string) models.RunResult {
 
 func RunResultWithError(err error) models.RunResult {
 	return models.RunResult{
+		Status:       models.RunStatusErrored,
 		ErrorMessage: null.StringFrom(err.Error()),
 	}
 }

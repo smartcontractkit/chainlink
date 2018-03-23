@@ -3,8 +3,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -12,14 +14,15 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID          string    `json:"id" storm:"id,unique"`
-	JobID       string    `json:"jobId" storm:"index"`
-	Result      RunResult `json:"result" storm:"inline"`
-	Status      RunStatus `json:"status" storm:"index"`
-	TaskRuns    []TaskRun `json:"taskRuns" storm:"inline"`
-	CreatedAt   time.Time `json:"createdAt" storm:"index"`
-	CompletedAt null.Time `json:"completedAt"`
-	Initiator   Initiator `json:"initiator"`
+	ID             string       `json:"id" storm:"id,unique"`
+	JobID          string       `json:"jobId" storm:"index"`
+	Result         RunResult    `json:"result" storm:"inline"`
+	Status         RunStatus    `json:"status" storm:"index"`
+	TaskRuns       []TaskRun    `json:"taskRuns" storm:"inline"`
+	CreatedAt      time.Time    `json:"createdAt" storm:"index"`
+	CompletedAt    null.Time    `json:"completedAt"`
+	Initiator      Initiator    `json:"initiator"`
+	CreationHeight *hexutil.Big `json:"creationHeight"`
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.
@@ -57,6 +60,16 @@ func (jr JobRun) UnfinishedTaskRuns() []TaskRun {
 // of unfinished TaskRuns.
 func (jr JobRun) NextTaskRun() TaskRun {
 	return jr.UnfinishedTaskRuns()[0]
+}
+
+func (jr JobRun) Runnable(bn *IndexableBlockNumber, minConfs uint64) bool {
+	if jr.CreationHeight == nil || bn == nil {
+		return true
+	}
+
+	diff := new(big.Int).Sub(bn.ToInt(), jr.CreationHeight.ToInt())
+	min := new(big.Int).SetUint64(minConfs)
+	return diff.Cmp(min) >= 0
 }
 
 func (jr JobRun) ApplyResult(result RunResult) JobRun {
@@ -128,6 +141,13 @@ func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
 func (tr TaskRun) MarkCompleted() TaskRun {
 	tr.Status = RunStatusCompleted
 	tr.Result.Status = RunStatusCompleted
+	return tr
+}
+
+// MarkBlocked marks the task's status as blocked.
+func (tr TaskRun) MarkBlocked() TaskRun {
+	tr.Status = RunStatusBlocked
+	tr.Result.Status = RunStatusBlocked
 	return tr
 }
 

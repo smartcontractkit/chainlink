@@ -110,10 +110,25 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 	return tx.Commit()
 }
 
+func (orm *ORM) SaveCreationHeight(jr JobRun, bn *IndexableBlockNumber) (JobRun, error) {
+	if jr.CreationHeight != nil || bn == nil {
+		return jr, nil
+	}
+
+	dup := bn.Number
+	jr.CreationHeight = &dup
+	return jr, orm.Save(&jr)
+}
+
 // PendingJobRuns returns the JobRuns which have a status of "pending".
 func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("Status", RunStatusPending, &runs)
+	statuses := []RunStatus{RunStatusPending, RunStatusBlocked}
+	err := orm.Select(q.In("Status", statuses)).Find(&runs)
+	if err == storm.ErrNotFound {
+		return []JobRun{}, nil
+	}
+
 	return runs, err
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -50,6 +51,36 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	jr, err := services.ExecuteRun(jr, store, models.RunResult{})
 	assert.Nil(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
+}
+
+func TestJobRun_Runnable(t *testing.T) {
+	t.Parallel()
+
+	job, initr := cltest.NewJobWithLogInitiator()
+	tests := []struct {
+		name                 string
+		creationHeight       *hexutil.Big
+		blockNumber          *models.IndexableBlockNumber
+		minimumConfirmations uint64
+		want                 bool
+	}{
+		{"unset nil 0", nil, nil, 0, true},
+		{"1 nil 0", cltest.NewBigHexInt(1), nil, 0, true},
+		{"1 1 diff 0", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 0, true},
+		{"1 1 diff 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 1, false},
+		{"1 2 diff 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 1, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			jr := job.NewRun(initr)
+			if test.creationHeight != nil {
+				jr.CreationHeight = test.creationHeight
+			}
+
+			assert.Equal(t, test.want, jr.Runnable(test.blockNumber, test.minimumConfirmations))
+		})
+	}
 }
 
 func TestTaskRun_Merge(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
@@ -67,6 +68,10 @@ func TestPendingJobRuns(t *testing.T) {
 	pr.Status = models.RunStatusPending
 	assert.Nil(t, store.Save(&pr))
 
+	br := j.NewRun(i)
+	br.Status = models.RunStatusBlocked
+	assert.Nil(t, store.Save(&br))
+
 	pending, err := store.PendingJobRuns()
 	assert.Nil(t, err)
 	pendingIDs := []string{}
@@ -75,6 +80,7 @@ func TestPendingJobRuns(t *testing.T) {
 	}
 
 	assert.Contains(t, pendingIDs, pr.ID)
+	assert.Contains(t, pendingIDs, br.ID)
 	assert.NotContains(t, pendingIDs, npr.ID)
 }
 
@@ -137,6 +143,43 @@ func TestBridgeTypeFor(t *testing.T) {
 			tt, err := store.BridgeTypeFor(test.name)
 			assert.Equal(t, test.want, tt)
 			assert.Equal(t, test.errored, err != nil)
+		})
+	}
+}
+
+func TestORM_SaveCreationHeight(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithWebInitiator()
+	cases := []struct {
+		name            string
+		creationHeight  *big.Int
+		parameterHeight *big.Int
+		wantHeight      *big.Int
+	}{
+		{"unset", nil, big.NewInt(2), big.NewInt(2)},
+		{"set", big.NewInt(1), big.NewInt(2), big.NewInt(1)},
+		{"unset and nil", nil, nil, nil},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			jr := job.NewRun(initr)
+			if test.creationHeight != nil {
+				ch := hexutil.Big(*test.creationHeight)
+				jr.CreationHeight = &ch
+			}
+			assert.Nil(t, store.Save(&jr))
+
+			bn := models.NewIndexableBlockNumber(test.parameterHeight)
+			result, err := store.SaveCreationHeight(jr, bn)
+
+			assert.Nil(t, err)
+			assert.Equal(t, test.wantHeight, result.CreationHeight.ToInt())
+			assert.Nil(t, store.One("ID", jr.ID, &jr))
+			assert.Equal(t, test.wantHeight, jr.CreationHeight.ToInt())
 		})
 	}
 }

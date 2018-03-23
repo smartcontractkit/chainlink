@@ -57,7 +57,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
-	safe := confirmed + config.EthMinConfirmations
+	safe := confirmed + config.TxMinConfirmations
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", hash)
@@ -150,30 +150,35 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	config, _ := cltest.NewConfig()
+	config.TaskMinConfirmations = 6
+	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
 	eth := app.MockEthClient()
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
+	newHeads := eth.RegisterNewHeads()
 	app.Start()
 
-	gock.EnableNetworking()
-	defer cltest.CloseGock(t)
-	gock.New("https://etherprice.com").
-		Get("/api").
-		Reply(200).
-		JSON(`{}`)
-
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_random_number_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_noop_job.json")
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), `{"url":"https://etherprice.com/api"}`)
-
+	logBlockNumber := 1
+	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
 	cltest.WaitForRuns(t, j, app.Store, 1)
+
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.Nil(t, err)
+	jr := runs[0]
+	cltest.WaitForJobRunToBlock(t, app.Store, jr)
+
+	safeNumber := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
 func TestIntegration_EndAt(t *testing.T) {

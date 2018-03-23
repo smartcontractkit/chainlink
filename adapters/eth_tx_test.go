@@ -31,7 +31,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
-	safe := confirmed + config.EthMinConfirmations
+	safe := confirmed + config.TxMinConfirmations
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -150,7 +150,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations))
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.Save(tx))

@@ -16,11 +16,23 @@ func BeginRun(
 	input models.RunResult,
 	store *store.Store,
 ) (models.JobRun, error) {
+	return BeginRunAtBlock(job, initr, input, store, nil)
+}
+
+// BeginRunAtBlock builds and executes a new run if the job is valid with the block number
+// to determine if tasks should be resumed.
+func BeginRunAtBlock(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
 	run, err := BuildRun(job, initr, store)
 	if err != nil {
 		return models.JobRun{}, err
 	}
-	return ExecuteRun(run, store, input)
+	return ExecuteRunAtBlock(run, store, input, bn)
 }
 
 // BuildRun checks to ensure the given job has not started or ended before
@@ -44,11 +56,24 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
 func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult) (models.JobRun, error) {
+	return ExecuteRunAtBlock(jr, store, overrides, nil)
+}
+
+func ExecuteRunAtBlock(
+	jr models.JobRun,
+	store *store.Store,
+	overrides models.RunResult,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
 	jr.Status = models.RunStatusInProgress
 	if err := store.Save(&jr); err != nil {
 		return jr, wrapError(jr, err)
 	}
 
+	jr, err := store.SaveCreationHeight(jr, bn)
+	if err != nil {
+		return jr, wrapError(jr, err)
+	}
 	logger.Infow("Starting job", jr.ForLogger()...)
 	unfinished := jr.UnfinishedTaskRuns()
 	offset := len(jr.TaskRuns) - len(unfinished)
@@ -66,7 +91,7 @@ func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult
 			return jr, wrapError(jr, err)
 		}
 
-		latestRun = markCompleted(startTask(taskRun, latestRun.Result, store)) // update to support blocking
+		latestRun = markCompleted(startTask(jr, taskRun, latestRun.Result, bn, store))
 		jr.TaskRuns[i+offset] = latestRun
 		logTaskResult(latestRun, taskRun, i)
 
@@ -96,13 +121,20 @@ func markCompleted(tr models.TaskRun) models.TaskRun {
 }
 
 func startTask(
+	jr models.JobRun,
 	tr models.TaskRun,
 	input models.RunResult,
+	bn *models.IndexableBlockNumber,
 	store *store.Store,
 ) models.TaskRun {
-	tr.Status = models.RunStatusInProgress
 
+	if !jr.Runnable(bn, store.Config.TaskMinConfirmations) {
+		return tr.MarkBlocked()
+	}
+
+	tr.Status = models.RunStatusInProgress
 	adapter, err := adapters.For(tr.Task, store)
+
 	if err != nil {
 		tr.Status = models.RunStatusErrored
 		tr.Result.SetError(err)

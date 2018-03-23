@@ -63,15 +63,16 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
-			LogLevel:            store.LogLevel{zapcore.DebugLevel},
-			RootDir:             rootdir,
-			BasicAuthUsername:   Username,
-			BasicAuthPassword:   Password,
-			ChainID:             3,
-			EthMinConfirmations: 6,
-			EthGasBumpWei:       *big.NewInt(5000000000),
-			EthGasBumpThreshold: 3,
-			EthGasPriceDefault:  *big.NewInt(20000000000),
+			LogLevel:             store.LogLevel{zapcore.DebugLevel},
+			RootDir:              rootdir,
+			BasicAuthUsername:    Username,
+			BasicAuthPassword:    Password,
+			ChainID:              3,
+			TxMinConfirmations:   6,
+			TaskMinConfirmations: 0,
+			EthGasBumpWei:        *big.NewInt(5000000000),
+			EthGasBumpThreshold:  3,
+			EthGasPriceDefault:   *big.NewInt(20000000000),
 		},
 	}
 	config.SetEthereumServer(wsserver)
@@ -401,6 +402,14 @@ func WaitForJobRunToPend(
 	jr models.JobRun,
 ) models.JobRun {
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPending)
+}
+
+func WaitForJobRunToBlock(
+	t *testing.T,
+	store *store.Store,
+	jr models.JobRun,
+) models.JobRun {
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusBlocked)
 }
 
 func WaitForJobRunStatus(

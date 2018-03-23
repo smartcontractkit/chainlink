@@ -128,7 +128,7 @@ func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations))
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	a := tx.TxAttempt
@@ -161,7 +161,7 @@ func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations-1))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations-1))
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	a := tx.TxAttempt
