@@ -145,6 +145,7 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 }
 
 func TestTimeDurationFromNow(t *testing.T) {
+	t.Parallel()
 	future := models.Time{time.Now().Add(time.Second)}
 	duration := future.DurationFromNow()
 	assert.True(t, 0 < duration)

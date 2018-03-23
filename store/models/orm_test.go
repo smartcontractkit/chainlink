@@ -79,6 +79,7 @@ func TestPendingJobRuns(t *testing.T) {
 }
 
 func TestCreatingTx(t *testing.T) {
+	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
