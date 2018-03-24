@@ -12,11 +12,11 @@ func ExampleRun_Help() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		cmd.RendererTable{ioutil.Discard},
-		tc.Config,
-		cmd.ChainlinkAppFactory{},
-		cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: os.Exit},
-		cmd.ChainlinkRunner{},
+		Renderer: cmd.RendererTable{Writer: ioutil.Discard},
+		Config: tc.Config,
+		AppFactory: cmd.ChainlinkAppFactory{},
+		Auth: cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: os.Exit},
+		Runner: cmd.ChainlinkRunner{},
 	}
 
 	Run(testClient, "chainlink.test --help")

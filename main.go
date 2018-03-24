@@ -24,7 +24,7 @@ func Run(client *cmd.Client, args ...string) {
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.Bool("json") {
-			client.Renderer = cmd.RendererJSON{os.Stdout}
+			client.Renderer = cmd.RendererJSON{Writer: os.Stdout}
 		}
 		return nil
 	}
@@ -75,10 +75,10 @@ func Run(client *cmd.Client, args ...string) {
 
 func NewProductionClient() *cmd.Client {
 	return &cmd.Client{
-		cmd.RendererTable{os.Stdout},
-		store.NewConfig(),
-		cmd.ChainlinkAppFactory{},
-		cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
-		cmd.ChainlinkRunner{},
+		Renderer: cmd.RendererTable{Writer: os.Stdout},
+		Config: store.NewConfig(),
+		AppFactory: cmd.ChainlinkAppFactory{},
+		Auth: cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
+		Runner: cmd.ChainlinkRunner{},
 	}
 }
