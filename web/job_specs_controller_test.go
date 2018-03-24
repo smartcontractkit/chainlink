@@ -161,6 +161,42 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
+func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/initiator_only_job.json")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/specs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+
+	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+
+	expected := `{"errors":["job validation: Must have at least one Initiator and one Task"]}`
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+}
+
+func TestJobSpecsController_Create_Task_Only(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	jsonStr := cltest.LoadJSON("../internal/fixtures/web/task_only_job.json")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/specs",
+		"application/json",
+		bytes.NewBuffer(jsonStr),
+	)
+
+	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+
+	expected := `{"errors":["job validation: Must have at least one Initiator and one Task"]}`
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+}
+
 func BenchmarkJobSpecsController_Show(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
