@@ -72,6 +72,6 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, presenters.JobSpec{j, runs})
+		c.JSON(200, presenters.JobSpec{JobSpec: j, Runs: runs})
 	}
 }

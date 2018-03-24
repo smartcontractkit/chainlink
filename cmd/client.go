@@ -35,7 +35,7 @@ type Client struct {
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if c.Bool("debug") {
-		cli.Config.LogLevel = strpkg.LogLevel{zapcore.DebugLevel}
+		cli.Config.LogLevel = strpkg.LogLevel{Level: zapcore.DebugLevel}
 	}
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 	app := cli.AppFactory.NewApplication(cli.Config)

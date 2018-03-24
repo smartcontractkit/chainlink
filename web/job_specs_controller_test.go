@@ -46,7 +46,7 @@ func TestJobSpecsController_Index(t *testing.T) {
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) *models.JobSpec {
 	j1, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
-	j1.CreatedAt = models.Time{time.Now().AddDate(0, 0, -1)}
+	j1.CreatedAt = models.Time{Time: time.Now().AddDate(0, 0, -1)}
 	app.Store.SaveJob(&j1)
 	j2, _ := cltest.NewJobWithWebInitiator()
 	j2.Initiators[0].Ran = true

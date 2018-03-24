@@ -12,29 +12,29 @@ import (
 )
 
 func TestRendererJSONRenderJobs(t *testing.T) {
-	r := cmd.RendererJSON{ioutil.Discard}
+	r := cmd.RendererJSON{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
 	assert.Nil(t, r.Render(&jobs))
 }
 
 func TestRendererTableRenderJobs(t *testing.T) {
-	r := cmd.RendererTable{ioutil.Discard}
+	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
 	assert.Nil(t, r.Render(&jobs))
 }
 
 func TestRendererTableRenderShowJob(t *testing.T) {
-	r := cmd.RendererTable{ioutil.Discard}
+	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job, initr := cltest.NewJobWithWebInitiator()
 	run := job.NewRun(initr)
-	p := presenters.JobSpec{job, []models.JobRun{run}}
+	p := presenters.JobSpec{JobSpec: job, Runs: []models.JobRun{run}}
 	assert.Nil(t, r.Render(&p))
 }
 
 func TestRendererTableRenderUnknown(t *testing.T) {
-	r := cmd.RendererTable{ioutil.Discard}
+	r := cmd.RendererTable{Writer: ioutil.Discard}
 	anon := struct{ Name string }{"Romeo"}
 	assert.NotNil(t, r.Render(&anon))
 }

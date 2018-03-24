@@ -74,7 +74,7 @@ func render(name string, table *tablewriter.Table) {
 }
 
 func jobRowToStrings(job models.JobSpec) []string {
-	p := presenters.JobSpec{job, nil}
+	p := presenters.JobSpec{JobSpec: job, Runs: nil}
 	return []string{
 		p.ID,
 		p.FriendlyCreatedAt(),
@@ -120,7 +120,7 @@ func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Type", "Schedule", "Run At", "Address"})
 	for _, i := range j.Initiators {
-		p := presenters.Initiator{i}
+		p := presenters.Initiator{Initiator: i}
 		table.Append([]string{
 			p.Type,
 			p.Schedule.String(),
@@ -137,7 +137,7 @@ func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Type", "Config", "Value"})
 	for _, t := range j.Tasks {
-		p := presenters.TaskSpec{t}
+		p := presenters.TaskSpec{TaskSpec: t}
 		keys, values := p.FriendlyParams()
 		table.Append([]string{p.Type, keys, values})
 	}
