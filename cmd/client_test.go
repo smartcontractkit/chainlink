@@ -17,13 +17,13 @@ func TestClient_RunNode(t *testing.T) {
 	app, _ := cltest.NewApplicationWithKeyStore() // cleanup invoked in client.RunNode
 	r := &cltest.RendererMock{}
 	var called bool
-	auth := cltest.CallbackAuthenticator{func(*store.Store, string) { called = true }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) { called = true }}
 	client := cmd.Client{
-		r,
-		app.Store.Config,
-		cltest.InstanceAppFactory{App: app},
-		auth,
-		cltest.EmptyRunner{}}
+		Renderer:   r,
+		Config:     app.Store.Config,
+		AppFactory: cltest.InstanceAppFactory{App: app},
+		Auth:       auth,
+		Runner:     cltest.EmptyRunner{}}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{""})
