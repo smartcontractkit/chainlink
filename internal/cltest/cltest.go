@@ -63,7 +63,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
-			LogLevel:             store.LogLevel{zapcore.DebugLevel},
+			LogLevel:             store.LogLevel{Level: zapcore.DebugLevel},
 			RootDir:              rootdir,
 			BasicAuthUsername:    Username,
 			BasicAuthPassword:    Password,
@@ -369,11 +369,11 @@ func CreateBridgeTypeViaWeb(
 func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
-		r,
-		config,
-		EmptyAppFactory{},
-		CallbackAuthenticator{func(*store.Store, string) {}},
-		EmptyRunner{},
+		Renderer:   r,
+		Config:     config,
+		AppFactory: EmptyAppFactory{},
+		Auth:       CallbackAuthenticator{func(*store.Store, string) {}},
+		Runner:     EmptyRunner{},
 	}
 	return client, r
 }
@@ -468,7 +468,7 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) [
 func MustParseWebURL(str string) models.WebURL {
 	u, err := url.Parse(str)
 	mustNotErr(err)
-	return models.WebURL{u}
+	return models.WebURL{URL: u}
 }
 
 func ParseISO8601(s string) time.Time {
