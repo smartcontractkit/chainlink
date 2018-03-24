@@ -75,10 +75,10 @@ func Run(client *cmd.Client, args ...string) {
 
 func NewProductionClient() *cmd.Client {
 	return &cmd.Client{
-		Renderer: cmd.RendererTable{Writer: os.Stdout},
-		Config: store.NewConfig(),
+		Renderer:   cmd.RendererTable{Writer: os.Stdout},
+		Config:     store.NewConfig(),
 		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth: cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
-		Runner: cmd.ChainlinkRunner{},
+		Auth:       cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
+		Runner:     cmd.ChainlinkRunner{},
 	}
 }
