@@ -29,13 +29,13 @@ func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 	}{
 		{MI{Type: models.InitiatorWeb}, []string{"type"}},
 		{MI{Type: models.InitiatorCron, Schedule: models.Cron("* * * * *")}, []string{"type", "schedule"}},
-		{MI{Type: models.InitiatorRunAt, Time: models.Time{now}}, []string{"type", "time", "ran"}},
+		{MI{Type: models.InitiatorRunAt, Time: models.Time{Time: now}}, []string{"type", "time", "ran"}},
 		{MI{Type: models.InitiatorEthLog, Address: address}, []string{"type", "address"}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.i.Type, func(t *testing.T) {
-			j, err := json.Marshal(presenters.Initiator{test.i})
+			j, err := json.Marshal(presenters.Initiator{Initiator: test.i})
 			assert.Nil(t, err)
 
 			var value map[string]interface{}
