@@ -138,7 +138,7 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
 	assert.Nil(t, err)
-	wurl := &models.WebURL{parsed}
+	wurl := &models.WebURL{URL: parsed}
 	b, err := json.Marshal(wurl)
 	assert.Nil(t, err)
 	assert.Equal(t, `"`+str+`"`, string(b))
@@ -146,7 +146,7 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 
 func TestTimeDurationFromNow(t *testing.T) {
 	t.Parallel()
-	future := models.Time{time.Now().Add(time.Second)}
+	future := models.Time{Time: time.Now().Add(time.Second)}
 	duration := future.DurationFromNow()
 	assert.True(t, 0 < duration)
 }
