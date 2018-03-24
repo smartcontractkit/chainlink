@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 )
 
-func ExampleRun_Help() {
+func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{

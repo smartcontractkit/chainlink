@@ -105,7 +105,7 @@ func TestTaskRun_Merge(t *testing.T) {
 			orig := `{"url":"https://OLD.example.com/api"}`
 			tr := models.TaskRun{
 				Task: models.TaskSpec{
-					Params: models.JSON{gjson.Parse(orig)},
+					Params: models.JSON{Result: gjson.Parse(orig)},
 					Type:   "httpget",
 				},
 			}
@@ -207,7 +207,7 @@ func TestRunResult_Merge(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			original := models.RunResult{
-				Data:         models.JSON{gjson.Parse(test.originalData)},
+				Data:         models.JSON{Result: gjson.Parse(test.originalData)},
 				ErrorMessage: test.originalError,
 				JobRunID:     test.originalJRID,
 				Status:       test.originalStatus,
