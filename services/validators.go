@@ -18,6 +18,9 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 	if j.StartAt.Valid && j.EndAt.Valid && j.StartAt.Time.After(j.EndAt.Time) {
 		merr = multierr.Append(merr, fmtJobError(errors.New("startat cannot be before endat")))
 	}
+	if len(j.Initiators) < 1 || len(j.Tasks) < 1 {
+		merr = multierr.Append(merr, fmtJobError(errors.New("Must have at least one Initiator and one Task")))
+	}
 	for _, i := range j.Initiators {
 		if err := ValidateInitiator(i, j); err != nil {
 			merr = multierr.Append(merr, fmtJobError(err))
