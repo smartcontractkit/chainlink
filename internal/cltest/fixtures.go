@@ -65,7 +65,7 @@ func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type: models.InitiatorRunAt,
-		Time: models.Time{t},
+		Time: models.Time{Time: t},
 	}}
 	return j, j.Initiators[0]
 }
@@ -125,7 +125,7 @@ func NewBridgeType(info ...string) models.BridgeType {
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	mustNotErr(err)
-	return models.WebURL{parsed}
+	return models.WebURL{URL: parsed}
 }
 
 func NullString(val interface{}) null.String {
