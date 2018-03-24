@@ -45,7 +45,7 @@ func TestBridge_Perform_fromUnstarted(t *testing.T) {
 			defer cleanup()
 
 			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
-			eb := &adapters.Bridge{bt}
+			eb := &adapters.Bridge{BridgeType: bt}
 			result := cltest.RunResultWithValue("lot 49")
 			result.JobRunID = runID
 
@@ -75,7 +75,7 @@ func TestBridge_Perform_resuming(t *testing.T) {
 	defer cleanup()
 	bt := cltest.NewBridgeType("auctionBidding", "https://notused.example.com")
 	assert.Nil(t, store.Save(&bt))
-	ba := &adapters.Bridge{bt}
+	ba := &adapters.Bridge{BridgeType: bt}
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
