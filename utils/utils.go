@@ -16,16 +16,21 @@ import (
 
 	"math/big"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	uuid "github.com/smartcontractkit/go.uuid"
+	"github.com/jpillora/backoff"
+	uuid "github.com/satori/go.uuid"
+	null "gopkg.in/guregu/null.v3"
 )
 
 const (
 	HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
 	weiPerEth         = 1e18
+	EVMWordByteLen    = 32
+	EVMWordHexLen     = EVMWordByteLen * 2
 )
 
 // ZeroAddress is an empty address, otherwise in Ethereum as
@@ -65,8 +70,15 @@ func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-// BasicAuthPost posts to the HTTP client with the given username and password
-// to authenticate at the url with contentType and returns a response.
+func NullISO8601UTC(t null.Time) string {
+	if t.Valid {
+		return ISO8601UTC(t.Time)
+	}
+	return ""
+}
+
+// BasicAuthPost sends a POST request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("POST", url, body)
@@ -81,6 +93,17 @@ func BasicAuthPost(username, password, url string, contentType string, body io.R
 func BasicAuthGet(username, password, url string) (*http.Response, error) {
 	client := &http.Client{}
 	request, _ := http.NewRequest("GET", url, nil)
+	request.SetBasicAuth(username, password)
+	resp, err := client.Do(request)
+	return resp, err
+}
+
+// BasicAuthPatch sends a PATCH request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
+func BasicAuthPatch(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("PATCH", url, body)
+	request.Header.Set("Content-Type", contentType)
 	request.SetBasicAuth(username, password)
 	resp, err := client.Do(request)
 	return resp, err
@@ -194,4 +217,59 @@ func AddHexPrefix(str string) string {
 func HexToString(hex string) (string, error) {
 	b, err := HexToBytes(hex)
 	return string(b), err
+}
+
+// Returns a struct that encapsulates desired arguments used to filter
+// event logs.
+func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.FilterQuery {
+	return ethereum.FilterQuery{
+		FromBlock: fromBlock,
+		Addresses: WithoutZeroAddresses(addresses),
+	}
+}
+
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
+func ToFilterArg(q ethereum.FilterQuery) interface{} {
+	arg := map[string]interface{}{
+		"fromBlock": toBlockNumArg(q.FromBlock),
+		"toBlock":   toBlockNumArg(q.ToBlock),
+		"address":   q.Addresses,
+		"topics":    q.Topics,
+	}
+	if q.FromBlock == nil {
+		arg["fromBlock"] = "0x0"
+	}
+	return arg
+}
+
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	return hexutil.EncodeBig(number)
+}
+
+type Sleeper interface {
+	Reset()
+	Sleep()
+	Duration() time.Duration
+}
+
+type BackoffSleeper struct {
+	*backoff.Backoff
+}
+
+func NewBackoffSleeper() BackoffSleeper {
+	return BackoffSleeper{&backoff.Backoff{
+		Min: 1 * time.Second,
+		Max: 10 * time.Second,
+	}}
+}
+
+func (bs BackoffSleeper) Sleep() {
+	time.Sleep(bs.Backoff.Duration())
+}
+
+func (bs BackoffSleeper) Duration() time.Duration {
+	return bs.ForAttempt(bs.Attempt())
 }

@@ -34,7 +34,7 @@
   branch = "master"
 
 [[constraint]]
-  name = "github.com/smartcontractkit/go.uuid"
+  name = "github.com/satori/go.uuid"
   branch = "master"
 
 [[constraint]]
@@ -75,7 +75,7 @@
 
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
-  version = "1.7.3"
+  version = "1.8.1"
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
@@ -86,13 +86,17 @@
   name = "github.com/olekukonko/tablewriter"
 
 [[constraint]]
-  name = "github.com/smartcontractkit/env"
-  branch = "master"
-
-[[constraint]]
   name = "github.com/tidwall/gjson"
   version = "1.0.6"
 
 [[constraint]]
   name = "go.uber.org/multierr"
   version = "1.1.0"
+
+[[constraint]]
+  name = "github.com/jpillora/backoff"
+  version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/caarlos0/env"

@@ -9,105 +9,96 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHttpNotAUrlError(t *testing.T) {
-	t.Parallel()
-
+func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	tests := []struct {
 		name    string
 		adapter adapters.Adapter
 	}{
-		{"HttpGet", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
-		{"HttpPost", &adapters.HttpGet{URL: cltest.MustParseWebURL("NotAURL")}},
+		{"HTTPGet", &adapters.HTTPGet{URL: cltest.MustParseWebURL("NotAURL")}},
+		{"HTTPPost", &adapters.HTTPPost{URL: cltest.MustParseWebURL("NotAURL")}},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			result := test.adapter.Perform(models.RunResult{}, nil)
-			assert.Equal(t, models.JSON{}, result.Output)
+			assert.Equal(t, models.JSON{}, result.Data)
 			assert.NotNil(t, result.Error)
 		})
 	}
 }
 
-func TestHttpGetAdapterPerform(t *testing.T) {
-	t.Parallel()
-
+func TestHttpGet_Perform(t *testing.T) {
 	cases := []struct {
 		name        string
 		status      int
 		want        string
-		wantExists  bool
 		wantErrored bool
 		response    string
 	}{
-		{"success", 200, "so good", true, false, `so good`},
-		{"success but error in body", 200, `{"error": "so good"}`, true, false, `{"error": "so good"}`},
-		{"success with HTML", 200, `<html>so good</html>`, true, false, `<html>so good</html>`},
-		{"not found", 400, "", false, true, `<html>so bad</html>`},
-		{"server error", 400, "", false, true, `Invalid request`},
+		{"success", 200, "results!", false, `results!`},
+		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`},
+		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`},
+		{"not found", 400, "inputValue", true, `<html>so bad</html>`},
+		{"server error", 400, "inputValue", true, `Invalid request`},
 	}
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	for _, test := range cases {
+	for _, tt := range cases {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResultWithValue("unused")
+			t.Parallel()
+			input := cltest.RunResultWithValue("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
 
-			hga := adapters.HttpGet{URL: cltest.MustParseWebURL(mock.URL)}
-			result := hga.Perform(input, store)
+			hga := adapters.HTTPGet{URL: cltest.MustParseWebURL(mock.URL)}
+			result := hga.Perform(input, nil)
 
-			val, err := result.Get("value")
+			val, err := result.Value()
 			assert.Nil(t, err)
-			assert.Equal(t, test.want, val.String())
-			assert.Equal(t, test.wantExists, val.Exists())
+			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Pending)
+			assert.Equal(t, false, result.Status.PendingExternal())
 		})
 	}
 }
 
-func TestHttpPostAdapterPerform(t *testing.T) {
-	t.Parallel()
-
+func TestHttpPost_Perform(t *testing.T) {
 	cases := []struct {
 		name        string
 		status      int
 		want        string
-		wantExists  bool
 		wantErrored bool
 		response    string
 	}{
-		{"success", 200, "so meta", true, false, `so meta`},
-		{"success but error in body", 200, `{"error": "so meta"}`, true, false, `{"error": "so meta"}`},
-		{"success with HTML", 200, `<html>so meta</html>`, true, false, `<html>so meta</html>`},
-		{"not found", 400, "", false, true, `<html>so bad</html>`},
-		{"server error", 500, "", false, true, `big error`},
+		{"success", 200, "results!", false, `results!`},
+		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`},
+		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`},
+		{"not found", 400, "inputVal", true, `<html>so bad</html>`},
+		{"server error", 500, "inputVal", true, `big error`},
 	}
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	for _, test := range cases {
+	for _, tt := range cases {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResultWithValue("modern")
-			wantedBody := `{"value":"modern"}`
+			t.Parallel()
+			input := cltest.RunResultWithValue("inputVal")
+			wantedBody := `{"value":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()
 
-			hpa := adapters.HttpPost{URL: cltest.MustParseWebURL(mock.URL)}
-			result := hpa.Perform(input, store)
+			hpa := adapters.HTTPPost{URL: cltest.MustParseWebURL(mock.URL)}
+			result := hpa.Perform(input, nil)
 
 			val, err := result.Get("value")
 			assert.Nil(t, err)
 			assert.Equal(t, test.want, val.String())
-			assert.Equal(t, test.wantExists, val.Exists())
+			assert.Equal(t, true, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Pending)
+			assert.Equal(t, false, result.Status.PendingExternal())
 		})
 	}
 }

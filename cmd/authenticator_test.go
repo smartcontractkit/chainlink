@@ -19,7 +19,7 @@ func TestTerminalAuthenticatorWithNoAcctNoPwdCreatesAccount(t *testing.T) {
 		cltest.Password, "wrongconfirmation", cltest.Password, cltest.Password,
 	}}
 
-	auth := cmd.TerminalAuthenticator{prompt, func(i int) {
+	auth := cmd.TerminalAuthenticator{Prompter: prompt, Exiter: func(i int) {
 		exited = true
 	}}
 
@@ -37,15 +37,14 @@ func TestTerminalAuthenticatorWithNoAcctWithInitialPwd(t *testing.T) {
 	defer cleanup()
 
 	var exited bool
-	var rval int
-	auth := cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, func(i int) {
+	auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: func(i int) {
 		exited = true
-		rval = i
 	}}
 
 	auth.Authenticate(app.Store, "somepassword")
-	assert.Equal(t, true, exited)
-	assert.Equal(t, 1, rval)
+	assert.True(t, app.Store.KeyStore.HasAccounts())
+	assert.False(t, exited)
+	assert.Equal(t, 1, len(app.Store.KeyStore.Accounts()))
 }
 
 func TestTerminalAuthenticatorWithAcctNoInitialPwd(t *testing.T) {
@@ -69,7 +68,7 @@ func TestTerminalAuthenticatorWithAcctNoInitialPwd(t *testing.T) {
 				EnteredStrings: []string{test.password, cltest.Password},
 			}
 
-			auth := cmd.TerminalAuthenticator{prompt, func(i int) { exited = true }}
+			auth := cmd.TerminalAuthenticator{Prompter: prompt, Exiter: func(i int) { exited = true }}
 
 			auth.Authenticate(app.Store, "")
 			assert.False(t, exited)
@@ -97,7 +96,7 @@ func TestTerminalAuthenticatorWithAcctAndPwd(t *testing.T) {
 		t.Run(test.password, func(t *testing.T) {
 			var exited bool
 			var rval int
-			auth := cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, func(i int) {
+			auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: func(i int) {
 				exited = true
 				rval = i
 			}}

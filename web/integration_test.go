@@ -51,13 +51,13 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Reply(200).
 		JSON(tickerResponse)
 
-	newHeads := make(chan store.BlockHeader, 10)
+	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x0100`)
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
-	safe := confirmed + config.EthMinConfirmations
+	safe := confirmed + config.TxMinConfirmations
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", hash)
@@ -68,11 +68,11 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	jr := cltest.WaitForJobRunToPend(t, app, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPend(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -80,7 +80,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(confirmed)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)}
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -88,9 +88,9 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- store.BlockHeader{Number: cltest.BigHexInt(safe)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)}
 
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()
 	assert.Nil(t, err)
@@ -104,8 +104,9 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	val, err = jr.Result.Value()
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
+	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 
-	eth.EnsureAllCalled(t)
+	eth.EventuallyAllCalled(t)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -149,31 +150,35 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	config, _ := cltest.NewConfig()
+	config.TaskMinConfirmations = 6
+	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
 	eth := app.MockEthClient()
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
+	newHeads := eth.RegisterNewHeads()
 	app.Start()
 
-	gock.EnableNetworking()
-	defer cltest.CloseGock(t)
-	gock.New("https://etherprice.com").
-		Get("/api").
-		Reply(200).
-		JSON(`{}`)
-
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_random_number_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_noop_job.json")
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), `{"url":"https://etherprice.com/api"}`)
-
+	logBlockNumber := 1
+	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
 	cltest.WaitForRuns(t, j, app.Store, 1)
+
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.Nil(t, err)
+	jr := runs[0]
+	cltest.WaitForJobRunToBlock(t, app.Store, jr)
+
+	safeNumber := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -192,11 +197,11 @@ func TestIntegration_EndAt(t *testing.T) {
 
 	clock.SetTime(endAt.Add(time.Nanosecond))
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
-		jobRuns, err := app.Store.JobRunsFor(j)
+		jobRuns, err := app.Store.JobRunsFor(j.ID)
 		assert.Nil(t, err)
 		return jobRuns
 	}).Should(gomega.HaveLen(1))
@@ -214,7 +219,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
-	url := app.Server.URL + "/v2/jobs/" + j.ID + "/runs"
+	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
 	assert.Equal(t, 500, resp.StatusCode)
 	cltest.WaitForRuns(t, j, app.Store, 0)
@@ -225,8 +230,7 @@ func TestIntegration_StartAt(t *testing.T) {
 }
 
 func TestIntegration_ExternalAdapter(t *testing.T) {
-	gock.EnableNetworking()
-	defer cltest.CloseGock(t)
+	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -234,16 +238,14 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
-	eaResponse := fmt.Sprintf(`{"output":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
-	gock.New("https://example.com").
-		Post("/randomNumber").
-		Reply(200).
-		JSON(eaResponse)
+	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	defer cleanup()
 
-	cltest.FixtureCreateBridgeTypeViaWeb(t, app, "../internal/fixtures/web/create_random_number_bridge_type.json")
-
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
-	jr := cltest.WaitForJobRunToComplete(t, app, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
@@ -255,56 +257,85 @@ func TestIntegration_ExternalAdapter(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
-func TestIntegration_WeiWatchers(t *testing.T) {
+func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	app.Start()
 
-	en := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	marshaledEN, err := json.Marshal(&en)
+	var j models.JobSpec
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+		func(body string) {
+			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+			jr := jrs[0]
+			assert.JSONEq(t, fmt.Sprintf(`{"id":"%v","data":{}}`, jr.ID), body)
+		})
+	defer cleanup()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	jr = cltest.WaitForJobRunToPend(t, app.Store, jr)
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, models.RunStatusPendingExternal, tr.Status)
+	val, err := tr.Result.Value()
+	assert.NotNil(t, err)
+	assert.Equal(t, "", val)
+
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	tr = jr.TaskRuns[0]
+	assert.Equal(t, models.RunStatusCompleted, tr.Status)
+	val, err = tr.Result.Value()
 	assert.Nil(t, err)
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `response!`,
-		func(body string) { assert.JSONEq(t, string(marshaledEN), body) })
+	assert.Equal(t, "100", val)
+}
+
+func TestIntegration_WeiWatchers(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterNewHead(1)
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
+
+	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+		func(body string) {
+			marshaledLog, err := json.Marshal(&log)
+			assert.Nil(t, err)
+			assert.JSONEq(t, string(marshaledLog), body)
+		})
+	defer cleanup()
+
+	j, _ := cltest.NewJobWithLogInitiator()
+	post := cltest.NewTask("httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
+	tasks := []models.TaskSpec{post}
+	j.Tasks = tasks
+	cltest.CreateJobSpecViaWeb(t, app, j)
+
 	app.Start()
-
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/wei_watchers_job.json")
-	newParams, err := j.Tasks[0].Params.Add("url", mockServer.URL)
-	assert.Nil(t, err)
-	j.Tasks[0].Params = newParams
-	assert.Nil(t, app.Store.Save(&j))
-
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
-	assert.Equal(t, models.InitiatorEthLog, initr.Type)
-	assert.Equal(t, common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), initr.Address)
-
-	logs <- en
+	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
-	cltest.WaitForJobRunToComplete(t, app, jobRuns[0])
+	jr := cltest.WaitForJobRunToComplete(t, app.Store, jobRuns[0])
+	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 }
 
 func TestIntegration_MultiplierUint256(t *testing.T) {
-	gock.EnableNetworking()
-	defer cltest.CloseGock(t)
-
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	app.Start()
 
-	gock.New("https://bitstamp.net").
-		Get("/api/ticker").
-		Reply(200).
-		JSON(`{"last": "10221.30"}`)
-
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/uint256_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToComplete(t, app, jr)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"10221.30"}`)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)

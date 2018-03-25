@@ -44,7 +44,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
@@ -76,7 +76,7 @@ func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
@@ -108,7 +108,7 @@ func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
@@ -128,7 +128,7 @@ func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations))
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	a := tx.TxAttempt
@@ -141,7 +141,7 @@ func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
@@ -161,7 +161,7 @@ func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations-1))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations-1))
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	a := tx.TxAttempt
@@ -174,5 +174,5 @@ func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }

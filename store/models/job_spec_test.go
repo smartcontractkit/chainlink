@@ -12,33 +12,38 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestJobSave(t *testing.T) {
+func TestJobSpec_Save(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	j1, initr := cltest.NewJobWithSchedule("* * * * 7")
 	assert.Nil(t, store.SaveJob(&j1))
 
 	store.Save(j1)
 	j2, err := store.FindJob(j1.ID)
 	assert.Nil(t, err)
-	assert.Equal(t, j1.Initiators[0].Schedule, j2.Initiators[0].Schedule)
+	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)
 }
 
-func TestJobNewRun(t *testing.T) {
+func TestJobSpec_NewRun(t *testing.T) {
 	t.Parallel()
 
-	job := cltest.NewJobWithSchedule("1 * * * *")
-	job.Tasks = []models.Task{models.Task{Type: "NoOp"}}
+	job, initr := cltest.NewJobWithSchedule("1 * * * *")
+	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp", `{"a":1}`)}
 
-	newRun := job.NewRun()
-	assert.Equal(t, job.ID, newRun.JobID)
-	assert.Equal(t, 1, len(newRun.TaskRuns))
-	assert.Equal(t, "NoOp", job.Tasks[0].Type)
-	assert.True(t, job.Tasks[0].Params.Empty())
-	adapter, _ := adapters.For(job.Tasks[0], nil)
+	run := job.NewRun(initr)
+
+	assert.Equal(t, job.ID, run.JobID)
+	assert.Equal(t, 1, len(run.TaskRuns))
+
+	taskRun := run.TaskRuns[0]
+	assert.Equal(t, "NoOp", taskRun.Task.Type)
+	adapter, _ := adapters.For(taskRun.Task, nil)
 	assert.NotNil(t, adapter)
+	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.Task.Params.String())
+
+	assert.Equal(t, initr, run.Initiator)
 }
 
 func TestJobEnded(t *testing.T) {
@@ -68,7 +73,7 @@ func TestJobEnded(t *testing.T) {
 	}
 }
 
-func TestJobStarted(t *testing.T) {
+func TestJobSpec_Started(t *testing.T) {
 	t.Parallel()
 
 	startAt := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
@@ -95,36 +100,6 @@ func TestJobStarted(t *testing.T) {
 	}
 }
 
-func TestInitiatorUnmarshallingValidation(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		valid bool
-	}{
-		{models.InitiatorRunLog, true},
-		{models.InitiatorCron, true},
-		{models.InitiatorEthLog, true},
-		{models.InitiatorRunAt, true},
-		{models.InitiatorWeb, true},
-		{"smokesignals", false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			job := cltest.NewJob()
-			job.Initiators = []models.Initiator{{Type: test.name}}
-			s, err := json.Marshal(job)
-			assert.Nil(t, err)
-
-			var unmarshalled models.Job
-			err = json.Unmarshal(s, &unmarshalled)
-			assert.Equal(t, test.name, unmarshalled.Initiators[0].Type)
-			assert.Equal(t, test.valid, err == nil)
-		})
-	}
-}
-
 func TestTaskUnmarshalling(t *testing.T) {
 	t.Parallel()
 
@@ -138,7 +113,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var task models.Task
+			var task models.TaskSpec
 			err := json.Unmarshal([]byte(test.json), &task)
 			assert.Nil(t, err)
 
@@ -147,6 +122,7 @@ func TestTaskUnmarshalling(t *testing.T) {
 			assert.Nil(t, err)
 
 			s, err := json.Marshal(task)
+			assert.Nil(t, err)
 			assert.Equal(t, test.json, string(s))
 		})
 	}

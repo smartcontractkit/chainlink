@@ -31,7 +31,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
-	safe := confirmed + config.EthMinConfirmations
+	safe := confirmed + config.TxMinConfirmations
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -52,10 +52,10 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
-	input := models.RunResultWithValue(inputValue)
-	output := adapter.Perform(input, store)
+	input := cltest.RunResultWithValue(inputValue)
+	data := adapter.Perform(input, store)
 
-	assert.False(t, output.HasError())
+	assert.False(t, data.HasError())
 
 	from := store.KeyStore.GetAccount().Address
 	txs := []models.Tx{}
@@ -64,7 +64,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	attempts, _ := store.AttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
@@ -86,18 +86,18 @@ func TestEthTxAdapter_Perform_FromPending(t *testing.T) {
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := models.RunResultWithValue(a.Hash.String())
-	input := models.RunResultPending(sentResult)
+	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	input := sentResult.MarkPendingExternal()
 
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
-	assert.True(t, output.Pending)
+	assert.True(t, output.Status.PendingExternal())
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 1, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
@@ -120,18 +120,18 @@ func TestEthTxAdapter_Perform_FromPendingBumpGas(t *testing.T) {
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
 	assert.Nil(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := models.RunResultWithValue(a.Hash.String())
-	input := models.RunResultPending(sentResult)
+	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	input := sentResult.MarkPendingExternal()
 
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
-	assert.True(t, output.Pending)
+	assert.True(t, output.Status.PendingExternal())
 	assert.Nil(t, store.One("ID", tx.ID, tx))
 	attempts, _ := store.AttemptsFor(tx.ID)
 	assert.Equal(t, 2, len(attempts))
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
@@ -150,7 +150,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthMinConfirmations))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations))
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.Save(tx))
@@ -158,14 +158,14 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	sentResult := models.RunResultWithValue(a3.Hash.String())
-	input := models.RunResultPending(sentResult)
+	sentResult := cltest.RunResultWithValue(a3.Hash.String())
+	input := sentResult.MarkPendingExternal()
 
 	assert.False(t, tx.Confirmed)
 
 	output := adapter.Perform(input, store)
 
-	assert.False(t, output.Pending)
+	assert.False(t, output.Status.PendingExternal())
 	assert.False(t, output.HasError())
 
 	assert.Nil(t, store.One("ID", tx.ID, tx))
@@ -175,7 +175,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirm(t *testing.T) {
 	assert.True(t, attempts[1].Confirmed)
 	assert.False(t, attempts[2].Confirmed)
 
-	ethMock.EnsureAllCalled(t)
+	ethMock.EventuallyAllCalled(t)
 }
 
 func TestEthTxAdapter_Perform_WithError(t *testing.T) {
@@ -192,7 +192,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := models.RunResultWithValue("")
+	input := cltest.RunResultWithValue("")
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())

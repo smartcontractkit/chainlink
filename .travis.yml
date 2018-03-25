@@ -1,30 +1,43 @@
-sudo: false
+sudo: required
+services:
+  - docker
+
+node_js: 8.4
+cache: yarn
+
+env:
+  global:
+    - DEP_VERSION="0.4.1"
 
 matrix:
   include:
     - language: go
-      go: 1.9
+      go: "1.9"
+      env: COMMAND=./internal/ci/go_test
+    - language: go
+      go: "1.10"
+      env: COMMAND=./internal/ci/go_test
+    - language: go
+      go: "1.10"
+      env: COMMAND=./internal/ci/truffle_test
+    - language: go
+      go: "1.10"
+      env: COMMAND=./internal/ci/devnet_test
 
-      env:
-        - DEP_VERSION="0.4.1"
+before_install:
+  # Go dependency manager dep
+  - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
+  - chmod +x $GOPATH/bin/dep
+  - go get -u github.com/haya14busa/goverage
+  # Yarn
+  - sudo apt-key adv --fetch-keys http://dl.yarnpkg.com/debian/pubkey.gpg
+  - echo "deb http://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq yarn
 
-      before_install:
-        - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
-        - chmod +x $GOPATH/bin/dep
-        - go get -u github.com/haya14busa/goverage
+install:
+  - dep ensure
+  - cd solidity && yarn install && cd ..
 
-      install:
-        - dep ensure
-
-      script:
-        - goverage -v -coverprofile=coverage.out ./...
-
-      after_success:
-        - bash <(curl -s https://codecov.io/bash)
-
-    - language: node_js
-      cache: yarn
-      node_js: 8.4
-      before_install: cd solidity
-      install: npm install -g yarn && yarn
-      script: truffle test
+script:
+  - bash $COMMAND

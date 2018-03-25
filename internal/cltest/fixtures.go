@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -19,42 +20,54 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func NewJob() models.Job {
+func NewJob() models.JobSpec {
 	j := models.NewJob()
-	j.Tasks = []models.Task{{Type: "NoOp"}}
+	j.Tasks = []models.TaskSpec{NewTask("NoOp")}
 	return j
 }
 
-func NewTask(taskType, json string) models.Task {
-	params := JSONFromString(json)
+func NewTask(taskType string, json ...string) models.TaskSpec {
+	if len(json) == 0 {
+		json = append(json, ``)
+	}
+	params := JSONFromString(json[0])
 	params, err := params.Add("type", taskType)
 	mustNotErr(err)
 
-	return models.Task{
+	return models.TaskSpec{
 		Type:   taskType,
 		Params: params,
 	}
 }
 
-func NewJobWithSchedule(sched string) models.Job {
+func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}
-	return j
+	return j, j.Initiators[0]
 }
 
-func NewJobWithWebInitiator() models.Job {
+func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
-	return j
+	return j, j.Initiators[0]
 }
 
-func NewJobWithLogInitiator() models.Job {
+func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type:    models.InitiatorEthLog,
 		Address: NewAddress(),
 	}}
-	return j
+	return j, j.Initiators[0]
+}
+
+func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		Type: models.InitiatorRunAt,
+		Time: models.Time{Time: t},
+	}}
+	return j, j.Initiators[0]
 }
 
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
@@ -63,7 +76,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		Nonce:    0,
 		Data:     []byte{},
 		Value:    big.NewInt(0),
-		GasLimit: big.NewInt(250000),
+		GasLimit: 250000,
 	}
 }
 
@@ -112,7 +125,7 @@ func NewBridgeType(info ...string) models.BridgeType {
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	mustNotErr(err)
-	return models.WebURL{parsed}
+	return models.WebURL{URL: parsed}
 }
 
 func NullString(val interface{}) null.String {
@@ -149,17 +162,22 @@ func JSONFromFixture(path string) models.JSON {
 	return JSONFromString(string(LoadJSON(path)))
 }
 
+func JSONResultFromFixture(path string) models.JSON {
+	res := gjson.Get(string(LoadJSON(path)), "params.result")
+	return JSONFromString(res.String())
+}
+
 func JSONFromString(body string, args ...interface{}) models.JSON {
-	var j models.JSON
-	str := fmt.Sprintf(body, args...)
-	mustNotErr(json.Unmarshal([]byte(str), &j))
+	j, err := models.ParseJSON([]byte(fmt.Sprintf(body, args...)))
+	mustNotErr(err)
 	return j
 }
 
-func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
+func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes.Log {
 	return ethtypes.Log{
-		Address: addr,
-		Data:    StringToRunLogPayload(json),
+		Address:     addr,
+		BlockNumber: uint64(blk),
+		Data:        StringToRunLogData(json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
 			common.StringToHash("requestID"),
@@ -168,6 +186,46 @@ func NewRunLog(jobID string, addr common.Address, json string) ethtypes.Log {
 	}
 }
 
-func BigHexInt(val uint64) hexutil.Big {
-	return hexutil.Big(*big.NewInt(int64(val)))
+func BigHexInt(val interface{}) hexutil.Big {
+	switch val.(type) {
+	case int:
+		return hexutil.Big(*big.NewInt(int64(val.(int))))
+	case uint64:
+		return hexutil.Big(*big.NewInt(int64(val.(uint64))))
+	case int64:
+		return hexutil.Big(*big.NewInt(val.(int64)))
+	default:
+		logger.Panicf("Could not convert %v of type %T to hexutil.Big", val, val)
+		return hexutil.Big{}
+	}
+}
+
+func NewBigHexInt(val interface{}) *hexutil.Big {
+	rval := BigHexInt(val)
+	return &rval
+}
+
+func RunResultWithValue(val string) models.RunResult {
+	data := models.JSON{}
+	data, err := data.Add("value", val)
+	if err != nil {
+		return RunResultWithError(err)
+	}
+
+	return models.RunResult{Data: data}
+}
+
+func RunResultWithError(err error) models.RunResult {
+	return models.RunResult{
+		Status:       models.RunStatusErrored,
+		ErrorMessage: null.StringFrom(err.Error()),
+	}
+}
+
+func MarkJobRunPendingExternal(jr models.JobRun, i int) models.JobRun {
+	jr.Status = models.RunStatusPendingExternal
+	jr.Result.Status = models.RunStatusPendingExternal
+	jr.TaskRuns[i].Status = models.RunStatusPendingExternal
+	jr.TaskRuns[i].Result.Status = models.RunStatusPendingExternal
+	return jr
 }

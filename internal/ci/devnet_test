@@ -1,0 +1,73 @@
+#!/bin/bash
+
+set -e
+
+PATH=./internal/bin:./node_modules/.bin:$PATH
+
+# Run devnet
+docker pull smartcontract/devnet:latest
+devnet &
+DEVNETPID=$!
+sleep 1
+
+# Run CL against devnet
+cldev &
+CLDEVPID=$!
+sleep 4
+
+# Retrieve hello_chainlink
+mkdir tmp || true
+cd tmp
+wget -O hellocl https://github.com/smartcontractkit/hello_chainlink/archive/v0.2.0.tar.gz
+tar -xzf hellocl
+cd hello_chainlink-0.2.0
+
+# Run echo_server sample
+cd echo_server
+yarn install
+truffle migrate
+node echo.js &
+ECHOPID=$!
+
+cljob=`./create_ethlog_job`
+./send_ethlog_transaction.js
+sleep 2
+
+# Check echo count
+count=`curl localhost:6690/count`
+if [ "$count" -ne "1" ]; then
+  echo "Echo count is $count, not 1."
+  exit 1
+else
+  echo "Echo count is correctly $count"
+fi
+
+# Check CL counts
+cd ../../../
+
+## Check job counts
+jobs=`cldev -j j | jq length`
+echo Retrieved $jobs jobs
+if [ "$jobs" -ne "1" ]; then
+  echo "Jobs count is $jobs, not 1."
+  exit 1
+else
+  echo "Jobs count is correctly $jobs."
+fi
+
+## Check job runs
+jid=`echo $cljob | jq .id | tr -d '"'`
+echo Retrieved job id $jid
+runs=`cldev -j s $jid |  jq '.runs | length'`
+echo Retrieved $runs runs
+if [ "$runs" -ne "1" ]; then
+  echo "Runs count is $runs, not 1."
+  exit 1
+else
+  echo "Runs count is correctly $runs."
+fi
+
+# Unfortunately, does not kill off all bg processes
+kill $ECHOPID
+kill $CLDEVPID
+kill $DEVNETPID

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ func TestWhereNotFound(t *testing.T) {
 	defer cleanup()
 
 	j1 := models.NewJob()
-	jobs := []models.Job{j1}
+	jobs := []models.JobSpec{j1}
 
 	err := store.Where("ID", "bogus", &jobs)
 	assert.Nil(t, err)
@@ -30,7 +31,7 @@ func TestAllNotFound(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	var jobs []models.Job
+	var jobs []models.JobSpec
 	err := store.All(&jobs)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
@@ -41,7 +42,7 @@ func TestORMSaveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * *")
+	j1, initr := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(&j1)
 
 	j2, _ := store.FindJob(j1.ID)
@@ -49,8 +50,7 @@ func TestORMSaveJob(t *testing.T) {
 
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
 
-	var initr models.Initiator
-	store.One("JobID", j1.ID, &initr)
+	assert.Nil(t, store.One("JobID", j1.ID, &initr))
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
 }
 
@@ -59,14 +59,18 @@ func TestPendingJobRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j := models.NewJob()
+	j, i := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, store.SaveJob(&j))
-	npr := j.NewRun()
+	npr := j.NewRun(i)
 	assert.Nil(t, store.Save(&npr))
 
-	pr := j.NewRun()
-	pr.Status = models.StatusPending
+	pr := j.NewRun(i)
+	pr.Status = models.RunStatusPendingExternal
 	assert.Nil(t, store.Save(&pr))
+
+	br := j.NewRun(i)
+	br.Status = models.RunStatusPendingConfirmations
+	assert.Nil(t, store.Save(&br))
 
 	pending, err := store.PendingJobRuns()
 	assert.Nil(t, err)
@@ -76,10 +80,12 @@ func TestPendingJobRuns(t *testing.T) {
 	}
 
 	assert.Contains(t, pendingIDs, pr.ID)
+	assert.Contains(t, pendingIDs, br.ID)
 	assert.NotContains(t, pendingIDs, npr.ID)
 }
 
 func TestCreatingTx(t *testing.T) {
+	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
@@ -87,7 +93,7 @@ func TestCreatingTx(t *testing.T) {
 	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
 	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
 	nonce := uint64(1232421)
-	gasLimit := big.NewInt(50000)
+	gasLimit := uint64(50000)
 	data, err := hex.DecodeString("0987612345abcdef")
 	assert.Nil(t, err)
 
@@ -118,7 +124,7 @@ func TestBridgeTypeFor(t *testing.T) {
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)
-	tt.URL = models.WebURL{u}
+	tt.URL = models.WebURL{URL: u}
 	assert.Nil(t, store.Save(&tt))
 
 	cases := []struct {
@@ -137,6 +143,43 @@ func TestBridgeTypeFor(t *testing.T) {
 			tt, err := store.BridgeTypeFor(test.name)
 			assert.Equal(t, test.want, tt)
 			assert.Equal(t, test.errored, err != nil)
+		})
+	}
+}
+
+func TestORM_SaveCreationHeight(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithWebInitiator()
+	cases := []struct {
+		name            string
+		creationHeight  *big.Int
+		parameterHeight *big.Int
+		wantHeight      *big.Int
+	}{
+		{"unset", nil, big.NewInt(2), big.NewInt(2)},
+		{"set", big.NewInt(1), big.NewInt(2), big.NewInt(1)},
+		{"unset and nil", nil, nil, nil},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			jr := job.NewRun(initr)
+			if test.creationHeight != nil {
+				ch := hexutil.Big(*test.creationHeight)
+				jr.CreationHeight = &ch
+			}
+			assert.Nil(t, store.Save(&jr))
+
+			bn := models.NewIndexableBlockNumber(test.parameterHeight)
+			result, err := store.SaveCreationHeight(jr, bn)
+
+			assert.Nil(t, err)
+			assert.Equal(t, test.wantHeight, result.CreationHeight.ToInt())
+			assert.Nil(t, store.One("ID", jr.ID, &jr))
+			assert.Equal(t, test.wantHeight, jr.CreationHeight.ToInt())
 		})
 	}
 }

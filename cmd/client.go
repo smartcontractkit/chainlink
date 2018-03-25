@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -14,7 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
+	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -31,9 +35,9 @@ type Client struct {
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if c.Bool("debug") {
-		cli.Config.LogLevel = strpkg.LogLevel{zapcore.DebugLevel}
+		cli.Config.LogLevel = strpkg.LogLevel{Level: zapcore.DebugLevel}
 	}
-	logger.Infow("Starting Chainlink Node " + strpkg.Version)
+	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 	app := cli.AppFactory.NewApplication(cli.Config)
 	store := app.GetStore()
 	cli.Auth.Authenticate(store, c.String("password"))
@@ -49,10 +53,13 @@ func logNodeBalance(store *strpkg.Store) {
 	balance, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
 	logger.Infow(balance)
+	balance, err = presenters.ShowLinkBalance(store)
+	logger.WarnIf(err)
+	logger.Infow(balance)
 }
 
-// ShowJob returns the status of the given JobID to the console.
-func (cli *Client) ShowJob(c *clipkg.Context) error {
+// ShowJobSpec returns the status of the given JobID.
+func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
@@ -60,31 +67,111 @@ func (cli *Client) ShowJob(c *clipkg.Context) error {
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/jobs/"+c.Args().First(),
+		cfg.ClientNodeURL+"/v2/specs/"+c.Args().First(),
 	)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
-	var job presenters.Job
+	var job presenters.JobSpec
 	return cli.deserializeResponse(resp, &job)
 }
 
-// GetJobs returns all jobs to the console.
-func (cli *Client) GetJobs(c *clipkg.Context) error {
+// GetJobSpecs returns all job specs.
+func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/jobs",
+		cfg.ClientNodeURL+"/v2/specs",
 	)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 
-	var jobs []models.Job
+	var jobs []models.JobSpec
 	return cli.deserializeResponse(resp, &jobs)
+}
+
+// CreateJobSpec creates job spec based on JSON input
+func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
+	}
+
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/specs",
+		"application/json",
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var jobs presenters.JobSpec
+	return cli.deserializeResponse(resp, &jobs)
+}
+
+// CreateJobRun creates job run based on SpecID and optional JSON
+func (cli *Client) CreateJobRun(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
+	}
+
+	buf := bytes.NewBufferString("")
+	if c.NArg() > 1 {
+		jbuf, err := getBufferFromJSON(c.Args().Get(1))
+		if err != nil {
+			return cli.errorOut(err)
+		}
+		buf = jbuf
+	}
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/specs/"+c.Args().First()+"/runs",
+		"application/json",
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var jobs presenters.JobSpec
+	return cli.deserializeResponse(resp, &jobs)
+}
+
+func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {
+	if gjson.Valid(s) {
+		buf, err = bytes.NewBufferString(s), nil
+	} else if buf, err = fromFile(s); err != nil {
+		buf, err = nil, multierr.Append(errors.New("Must pass in JSON or filepath"), err)
+	}
+	return
+}
+
+func fromFile(arg string) (*bytes.Buffer, error) {
+	dir, err := homedir.Expand(arg)
+	if err != nil {
+		return nil, err
+	}
+	file, err := ioutil.ReadFile(dir)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewBuffer(file), nil
 }
 
 func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {

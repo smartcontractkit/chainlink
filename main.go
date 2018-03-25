@@ -24,7 +24,7 @@ func Run(client *cmd.Client, args ...string) {
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.Bool("json") {
-			client.Renderer = cmd.RendererJSON{os.Stdout}
+			client.Renderer = cmd.RendererJSON{Writer: os.Stdout}
 		}
 		return nil
 	}
@@ -46,16 +46,28 @@ func Run(client *cmd.Client, args ...string) {
 			Action: client.RunNode,
 		},
 		{
-			Name:    "jobs",
-			Aliases: []string{"j"},
+			Name:    "jobspecs",
+			Aliases: []string{"jobs", "j", "specs"},
 			Usage:   "Get all jobs",
-			Action:  client.GetJobs,
+			Action:  client.GetJobSpecs,
 		},
 		{
 			Name:    "show",
 			Aliases: []string{"s"},
 			Usage:   "Show a specific job",
-			Action:  client.ShowJob,
+			Action:  client.ShowJobSpec,
+		},
+		{
+			Name:    "create",
+			Aliases: []string{"c"},
+			Usage:   "Create job spec from JSON",
+			Action:  client.CreateJobSpec,
+		},
+		{
+			Name:    "run",
+			Aliases: []string{"r"},
+			Usage:   "Begin job run for specid",
+			Action:  client.CreateJobRun,
 		},
 	}
 	app.Run(args)
@@ -63,10 +75,10 @@ func Run(client *cmd.Client, args ...string) {
 
 func NewProductionClient() *cmd.Client {
 	return &cmd.Client{
-		cmd.RendererTable{os.Stdout},
-		store.NewConfig(),
-		cmd.ChainlinkAppFactory{},
-		cmd.TerminalAuthenticator{cmd.PasswordPrompter{}, os.Exit},
-		cmd.ChainlinkRunner{},
+		Renderer:   cmd.RendererTable{Writer: os.Stdout},
+		Config:     store.NewConfig(),
+		AppFactory: cmd.ChainlinkAppFactory{},
+		Auth:       cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
+		Runner:     cmd.ChainlinkRunner{},
 	}
 }

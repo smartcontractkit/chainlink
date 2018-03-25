@@ -11,19 +11,23 @@ contract Chainlinked {
 
   function newRun(
     bytes32 _jobId,
-    address _cbReceiver,
-    string _cbSignature
+    address _callbackAddress,
+    string _callbackFunctionSignature
   ) internal returns (Chainlink.Run) {
     Chainlink.Run memory run;
     run.jobId = _jobId;
-    run.receiver = _cbReceiver;
-    run.functionSelector = bytes4(keccak256(_cbSignature));
+    run.callbackAddress = _callbackAddress;
+    run.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
     return run;
   }
 
   function chainlinkRequest(Chainlink.Run _run) internal returns(uint256) {
     return oracle.requestData(
-      _run.jobId, _run.receiver, _run.functionSelector, _run.close());
+      _run.jobId, _run.callbackAddress, _run.callbackFunctionId, _run.close());
+  }
+
+  function setOracle(address _oracle) internal {
+    oracle = Oracle(_oracle);
   }
 
   modifier onlyOracle() {

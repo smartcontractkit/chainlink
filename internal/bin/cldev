@@ -3,20 +3,24 @@
 # Runs a Chainlink node preconfigured to communicate with smartcontract/devnet(parity).
 # Steps:
 # 0. Have docker installed and configured
-# 1. ./devnet/devnet
-# 2. cd solidity && truffle migrate --network devnet
-# 3. ./cldevnet
+# 1. ./internal/bin/devnet
+# 2. cd solidity && truffle migrate --network devnet && cd ..
+# 3. ./internal/bin/cldev
 
 export LOG_LEVEL=debug
 export ROOT=./internal/devnet
 export ETH_URL=ws://localhost:18546
 export ETH_CHAIN_ID=17
+export TX_MIN_CONFIRMATIONS=2
+
+LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
 
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
-  go run main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+  go run -ldflags "$LDFLAGS" \
+    main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
 elif [ "$1" == "clean" ]; then
   rm $ROOT/db.bolt
   rm $ROOT/log.jsonl
 else
-  go run main.go $@
+  go run -ldflags "$LDFLAGS" main.go $@
 fi

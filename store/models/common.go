@@ -12,18 +12,78 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type RunStatus string
+
+const (
+	// RunStatusUnstarted is the default state of any run status.
+	RunStatusUnstarted = RunStatus("")
+	// RunStatusInProgress is used for when a run is actively being executed.
+	RunStatusInProgress = RunStatus("in progress")
+	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
+	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
+	// RunStatusPendingExternal is used for when a run is waiting on the completion
+	// of another event.
+	RunStatusPendingExternal = RunStatus("pending_external")
+	// RunStatusErrored is used for when a run has errored and will not complete.
+	RunStatusErrored = RunStatus("errored")
+	// RunStatusCompleted is used for when a run has successfully completed execution.
+	RunStatusCompleted = RunStatus("completed")
+)
+
+// Pending returns true if the status is pending.
+func (s RunStatus) PendingExternal() bool {
+	return s == RunStatusPendingExternal
+}
+
+// PendingConfirmations returns true if the status is pending.
+func (s RunStatus) PendingConfirmations() bool {
+	return s == RunStatusPendingConfirmations
+}
+
+// Completed returns true if the status is RunStatusCompleted.
+func (s RunStatus) Completed() bool {
+	return s == RunStatusCompleted
+}
+
+// Errored returns true if the status is RunStatusErrored.
+func (s RunStatus) Errored() bool {
+	return s == RunStatusErrored
+}
+
+// Pending returns true if the status is pending external or confirmations.
+func (s RunStatus) Pending() bool {
+	return s.PendingExternal() || s.PendingConfirmations()
+}
+
+// Runnable returns true if the status is ready to be run.
+func (s RunStatus) Runnable() bool {
+	return !s.Errored() && !s.Pending()
+}
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
 }
 
+// ParseJSON attempts to coerce the input byte array into valid JSON
+// and parse it into a JSON object.
+func ParseJSON(b []byte) (JSON, error) {
+	var j JSON
+	str := string(b)
+	if len(str) == 0 {
+		str = `{}`
+	}
+	return j, json.Unmarshal([]byte(str), &j)
+}
+
 // UnmarshalJSON parses the JSON bytes and stores in the *JSON pointer.
 func (j *JSON) UnmarshalJSON(b []byte) error {
-	if !gjson.Valid(string(b)) {
-		return fmt.Errorf("invalid JSON: %v", string(b))
+	str := string(b)
+	if !gjson.Valid(str) {
+		return fmt.Errorf("invalid JSON: %v", str)
 	}
-	*j = JSON{gjson.ParseBytes(b)}
+	*j = JSON{gjson.Parse(str)}
 	return nil
 }
 

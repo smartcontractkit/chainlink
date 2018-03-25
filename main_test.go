@@ -8,15 +8,15 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 )
 
-func ExampleRun_Help() {
+func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		cmd.RendererTable{ioutil.Discard},
-		tc.Config,
-		cmd.ChainlinkAppFactory{},
-		cmd.TerminalAuthenticator{&cltest.MockCountingPrompt{}, os.Exit},
-		cmd.ChainlinkRunner{},
+		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
+		Config:     tc.Config,
+		AppFactory: cmd.ChainlinkAppFactory{},
+		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: os.Exit},
+		Runner:     cmd.ChainlinkRunner{},
 	}
 
 	Run(testClient, "chainlink.test --help")
@@ -31,10 +31,12 @@ func ExampleRun_Help() {
 	//    0.2.0
 	//
 	// COMMANDS:
-	//      node, n  Run the chainlink node
-	//      jobs, j  Get all jobs
-	//      show, s  Show a specific job
-	//      help, h  Shows a list of commands or help for one command
+	//      node, n                   Run the chainlink node
+	//      jobspecs, jobs, j, specs  Get all jobs
+	//      show, s                   Show a specific job
+	//      create, c                 Create job spec from JSON
+	//      run, r                    Begin job run for specid
+	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
 	//    --json, -j     json output as opposed to table

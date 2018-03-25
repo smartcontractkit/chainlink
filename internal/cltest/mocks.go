@@ -12,11 +12,12 @@ import (
 	"testing"
 	"time"
 
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,23 +26,16 @@ func (ta *TestApplication) MockEthClient() *EthMock {
 }
 
 func MockEthOnStore(s *store.Store) *EthMock {
-	mock := NewMockGethRpc()
-	eth := &store.EthClient{mock}
+	mock := &EthMock{}
+	eth := &store.EthClient{CallerSubscriber: mock}
 	s.TxManager.EthClient = eth
 	return mock
 }
 
-func NewMockGethRpc() *EthMock {
-	return &EthMock{
-		NewHeadsChannel: make(chan store.BlockHeader),
-	}
-}
-
 type EthMock struct {
-	Responses       []MockResponse
-	Subscriptions   []MockSubscription
-	NewHeadsChannel chan store.BlockHeader
-	newHeadsCalled  bool
+	Responses      []MockResponse
+	Subscriptions  []MockSubscription
+	newHeadsCalled bool
 }
 
 func (mock *EthMock) Register(
@@ -72,7 +66,7 @@ func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
-func (mock *EthMock) EnsureAllCalled(t *testing.T) {
+func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
@@ -89,7 +83,7 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 				reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
 				if resp.callback != nil {
 					if err := resp.callback(result, args); err != nil {
-						return fmt.Errorf("ethMock Error:", err)
+						return fmt.Errorf("ethMock Error: %v", err)
 					}
 				}
 				return nil
@@ -99,45 +93,77 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 	return fmt.Errorf("EthMock: Method %v not registered", method)
 }
 
-func (mock *EthMock) RegisterSubscription(name string, channel interface{}) {
-	res := MockSubscription{
+func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) MockSubscription {
+	var channel interface{}
+	if len(channels) > 0 {
+		channel = channels[0]
+	} else {
+		channel = channelFromSubscriptionName(name)
+	}
+
+	sub := MockSubscription{
 		name:    name,
 		channel: channel,
+		Errors:  make(chan error, 1),
 	}
-	mock.Subscriptions = append(mock.Subscriptions, res)
+	mock.Subscriptions = append(mock.Subscriptions, sub)
+	return sub
+}
+
+func channelFromSubscriptionName(name string) interface{} {
+	switch name {
+	case "logs":
+		return make(chan types.Log)
+	case "newHeads":
+		return make(chan models.BlockHeader)
+	default:
+		return make(chan struct{})
+	}
 }
 
 func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
-) (*rpc.ClientSubscription, error) {
+) (models.EthSubscription, error) {
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
-			case chan<- ethtypes.Log:
+			case chan<- types.Log:
 				fwdLogs(channel, sub.channel)
-			case chan<- store.BlockHeader:
+			case chan<- models.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
 			}
-			return &rpc.ClientSubscription{}, nil
+			return sub, nil
 		}
 	}
 	if args[0] == "newHeads" && !mock.newHeadsCalled {
 		mock.newHeadsCalled = true
-		return &rpc.ClientSubscription{}, nil
+		return EmptyMockSubscription(), nil
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed.")
 	}
 	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
 }
 
+func (mock *EthMock) RegisterNewHeads() chan models.BlockHeader {
+	newHeads := make(chan models.BlockHeader, 10)
+	mock.RegisterSubscription("newHeads", newHeads)
+	return newHeads
+}
+
+func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader {
+	newHeads := mock.RegisterNewHeads()
+	newHeads <- models.BlockHeader{Number: BigHexInt(blockNumber)}
+	return newHeads
+}
+
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- ethtypes.Log)
-	mockChan := mock.(chan ethtypes.Log)
+	logChan := actual.(chan<- types.Log)
+	mockChan := mock.(chan types.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -146,8 +172,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- store.BlockHeader)
-	mockChan := mock.(chan store.BlockHeader)
+	logChan := actual.(chan<- models.BlockHeader)
+	mockChan := mock.(chan models.BlockHeader)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -158,6 +184,26 @@ func fwdHeaders(actual, mock interface{}) {
 type MockSubscription struct {
 	name    string
 	channel interface{}
+	Errors  chan error
+}
+
+func EmptyMockSubscription() MockSubscription {
+	return MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+}
+
+func (mes MockSubscription) Err() <-chan error { return mes.Errors }
+func (mes MockSubscription) Unsubscribe() {
+	switch mes.channel.(type) {
+	case chan struct{}:
+		close(mes.channel.(chan struct{}))
+	case chan types.Log:
+		close(mes.channel.(chan types.Log))
+	case chan models.BlockHeader:
+		close(mes.channel.(chan models.BlockHeader))
+	default:
+		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
+	}
+	close(mes.Errors)
 }
 
 type MockResponse struct {
@@ -290,14 +336,16 @@ func NewHTTPMockServer(
 	status int,
 	wantMethod string,
 	response string,
-	callback func(string),
+	callback ...func(string),
 ) (*httptest.Server, func()) {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
 		assert.Nil(t, err)
 		assert.Equal(t, wantMethod, r.Method)
-		callback(string(b))
+		if len(callback) > 0 {
+			callback[0](string(b))
+		}
 		called = true
 
 		w.WriteHeader(status)
@@ -338,3 +386,23 @@ type MockCronEntry struct {
 	Schedule string
 	Function func()
 }
+
+type MockHeadTrackable struct {
+	ConnectedCount    int
+	DisconnectedCount int
+	OnNewHeadCount    int
+}
+
+func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
+	m.ConnectedCount += 1
+	return nil
+}
+
+func (m *MockHeadTrackable) Disconnect()                   { m.DisconnectedCount += 1 }
+func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount += 1 }
+
+type NeverSleeper struct{}
+
+func (ns NeverSleeper) Reset()                  {}
+func (ns NeverSleeper) Sleep()                  {}
+func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -45,11 +46,24 @@ func (orm *ORM) Where(field string, value interface{}, instance interface{}) err
 	return err
 }
 
-// FindJob uses the .One method in Storm to return a single job.
-func (orm *ORM) FindJob(id string) (Job, error) {
-	job := Job{}
+func emptySlice(to interface{}) {
+	ref := reflect.ValueOf(to)
+	results := reflect.MakeSlice(reflect.Indirect(ref).Type(), 0, 0)
+	reflect.Indirect(ref).Set(results)
+}
+
+// FindJob looks up a Job by its ID.
+func (orm *ORM) FindJob(id string) (JobSpec, error) {
+	var job JobSpec
 	err := orm.One("ID", id, &job)
 	return job, err
+}
+
+// FindJobRun looks up a JobRun by its ID.
+func (orm *ORM) FindJobRun(id string) (JobRun, error) {
+	var jr JobRun
+	err := orm.One("ID", id, &jr)
+	return jr, err
 }
 
 // InitBucket initializes buckets and indexes before saving an object.
@@ -58,27 +72,25 @@ func (orm *ORM) InitBucket(model interface{}) error {
 }
 
 // Jobs fetches all jobs.
-func (orm *ORM) Jobs() ([]Job, error) {
-	var jobs []Job
+func (orm *ORM) Jobs() ([]JobSpec, error) {
+	var jobs []JobSpec
 	err := orm.All(&jobs)
 	return jobs, err
 }
 
-// JobRunsFor fetches all JobRuns with a given JobID.
-func (orm *ORM) JobRunsFor(job Job) ([]JobRun, error) {
+// JobRunsFor fetches all JobRuns with a given Job ID,
+// sorted by their created at time.
+func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("JobID", job.ID, &runs)
+	err := orm.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Reverse().Find(&runs)
+	if err == storm.ErrNotFound {
+		return []JobRun{}, nil
+	}
 	return runs, err
 }
 
-func emptySlice(to interface{}) {
-	ref := reflect.ValueOf(to)
-	results := reflect.MakeSlice(reflect.Indirect(ref).Type(), 0, 0)
-	reflect.Indirect(ref).Set(results)
-}
-
 // SaveJob saves a job to the database.
-func (orm *ORM) SaveJob(job *Job) error {
+func (orm *ORM) SaveJob(job *JobSpec) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
 		return err
@@ -98,10 +110,25 @@ func (orm *ORM) SaveJob(job *Job) error {
 	return tx.Commit()
 }
 
+func (orm *ORM) SaveCreationHeight(jr JobRun, bn *IndexableBlockNumber) (JobRun, error) {
+	if jr.CreationHeight != nil || bn == nil {
+		return jr, nil
+	}
+
+	dup := bn.Number
+	jr.CreationHeight = &dup
+	return jr, orm.Save(&jr)
+}
+
 // PendingJobRuns returns the JobRuns which have a status of "pending".
 func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Where("Status", StatusPending, &runs)
+	statuses := []RunStatus{RunStatusPendingExternal, RunStatusPendingConfirmations}
+	err := orm.Select(q.In("Status", statuses)).Find(&runs)
+	if err == storm.ErrNotFound {
+		return []JobRun{}, nil
+	}
+
 	return runs, err
 }
 
@@ -112,7 +139,7 @@ func (orm *ORM) CreateTx(
 	to common.Address,
 	data []byte,
 	value *big.Int,
-	gasLimit *big.Int,
+	gasLimit uint64,
 ) (*Tx, error) {
 	tx := Tx{
 		From:     from,

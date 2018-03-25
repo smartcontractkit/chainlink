@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-var defaultGasLimit = big.NewInt(500000)
+const defaultGasLimit uint64 = 500000
 
 // TxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
@@ -144,7 +144,7 @@ func (txm *TxManager) handleConfirmed(
 	blkNum uint64,
 ) (bool, error) {
 
-	minConfs := big.NewInt(int64(txm.Config.EthMinConfirmations))
+	minConfs := big.NewInt(int64(txm.Config.TxMinConfirmations))
 	rcptBlkNum := big.Int(rcpt.BlockNumber)
 	safeAt := minConfs.Add(&rcptBlkNum, minConfs)
 	if big.NewInt(int64(blkNum)).Cmp(safeAt) == -1 {

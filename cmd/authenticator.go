@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -41,14 +40,14 @@ func (auth TerminalAuthenticator) authenticationPrompt(store *store.Store) {
 	if store.KeyStore.HasAccounts() {
 		auth.promptAndCheckPassword(store)
 	} else {
-		auth.createAccount(store)
+		auth.promptAndCreateAccount(store)
 	}
 }
 
 func (auth TerminalAuthenticator) authenticateWithPwd(store *store.Store, pwd string) {
 	if !store.KeyStore.HasAccounts() {
-		fmt.Println("Cannot authenticate with password because there are no accounts")
-		auth.Exiter(1)
+		fmt.Println("There are no accounts, creating a new account with the specified password")
+		createAccount(store, pwd)
 	} else if err := checkPassword(store, pwd); err != nil {
 		auth.Exiter(1)
 	}
@@ -71,21 +70,25 @@ func (auth TerminalAuthenticator) promptAndCheckPassword(store *store.Store) {
 	}
 }
 
-func (auth TerminalAuthenticator) createAccount(store *store.Store) {
+func (auth TerminalAuthenticator) promptAndCreateAccount(store *store.Store) {
 	for {
 		phrase := auth.Prompter.Prompt("New Password: ")
 		clearLine()
 		phraseConfirmation := auth.Prompter.Prompt("Confirm Password: ")
 		clearLine()
 		if phrase == phraseConfirmation {
-			_, err := store.KeyStore.NewAccount(phrase)
-			if err != nil {
-				logger.Fatal(err)
-			}
+			createAccount(store, phrase)
 			break
 		} else {
 			fmt.Printf("Passwords don't match. Please try again... ")
 		}
+	}
+}
+
+func createAccount(store *store.Store, password string) {
+	_, err := store.KeyStore.NewAccount(password)
+	if err != nil {
+		logger.Fatal(err)
 	}
 }
 
@@ -118,7 +121,9 @@ func (pp PasswordPrompter) Prompt(prompt string) string {
 // to ensure typed characters are echoed in terminal:
 // https://groups.google.com/forum/#!topic/Golang-nuts/kTVAbtee9UA
 func withTerminalResetter(f func()) {
-	initialTermState, err := terminal.GetState(syscall.Stdin)
+	osSafeStdin := int(os.Stdin.Fd())
+
+	initialTermState, err := terminal.GetState(osSafeStdin)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -127,7 +132,7 @@ func withTerminalResetter(f func()) {
 	signal.Notify(c, os.Interrupt, os.Kill)
 	go func() {
 		<-c
-		terminal.Restore(syscall.Stdin, initialTermState)
+		terminal.Restore(osSafeStdin, initialTermState)
 		os.Exit(1)
 	}()
 

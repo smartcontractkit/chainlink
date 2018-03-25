@@ -1,6 +1,10 @@
 package services
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -14,13 +18,16 @@ type Application interface {
 	GetStore() *store.Store
 }
 
-// ChainlinkApplication contains fields for the NotificationListener, Scheduler,
-// and Store. The NotificationListener and Scheduler are also available
+// ChainlinkApplication contains fields for the EthereumListener, Scheduler,
+// and Store. The EthereumListener and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	NotificationListener *NotificationListener
-	Scheduler            *Scheduler
-	Store                *store.Store
+	HeadTracker      *HeadTracker
+	EthereumListener *EthereumListener
+	Scheduler        *Scheduler
+	Store            *store.Store
+	Exiter           func(int)
+	attachmentID     string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -30,18 +37,32 @@ type ChainlinkApplication struct {
 func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
+	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		NotificationListener: &NotificationListener{Store: store},
-		Scheduler:            NewScheduler(store),
-		Store:                store,
+		HeadTracker:      ht,
+		EthereumListener: &EthereumListener{Store: store},
+		Scheduler:        NewScheduler(store),
+		Store:            store,
+		Exiter:           os.Exit,
 	}
 }
 
-// Start runs the Store, NotificationListener, and Scheduler. If successful,
+// Start runs the EthereumListener and Scheduler. If successful,
 // nil will be returned.
+// Also listens for interrupt signals from the operating system so
+// that the application can be properly closed before the application
+// exits.
 func (app *ChainlinkApplication) Start() error {
-	app.Store.Start()
-	return multierr.Combine(app.NotificationListener.Start(), app.Scheduler.Start())
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		app.Stop()
+		app.Exiter(1)
+	}()
+
+	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
+	return multierr.Combine(app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -50,7 +71,8 @@ func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
-	app.NotificationListener.Stop()
+	app.HeadTracker.Stop()
+	app.HeadTracker.Detach(app.attachmentID)
 	return app.Store.Close()
 }
 
@@ -62,12 +84,12 @@ func (app *ChainlinkApplication) GetStore() *store.Store {
 // AddJob adds a job to the store and the scheduler. If there was
 // an error from adding the job to the store, the job will not be
 // added to the scheduler.
-func (app *ChainlinkApplication) AddJob(job models.Job) error {
+func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	err := app.Store.SaveJob(&job)
 	if err != nil {
 		return err
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.NotificationListener.AddJob(job)
+	return app.EthereumListener.AddJob(job, app.HeadTracker.LastRecord())
 }

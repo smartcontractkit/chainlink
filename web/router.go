@@ -21,14 +21,15 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 
 	v2 := engine.Group("/v2")
 	{
-		j := JobsController{app}
-		v2.GET("/jobs", j.Index)
-		v2.POST("/jobs", j.Create)
-		v2.GET("/jobs/:ID", j.Show)
+		j := JobSpecsController{app}
+		v2.GET("/specs", j.Index)
+		v2.POST("/specs", j.Create)
+		v2.GET("/specs/:SpecID", j.Show)
 
 		jr := JobRunsController{app}
-		v2.GET("/jobs/:ID/runs", jr.Index)
-		v2.POST("/jobs/:JobID/runs", jr.Create)
+		v2.GET("/specs/:SpecID/runs", jr.Index)
+		v2.POST("/specs/:SpecID/runs", jr.Create)
+		v2.PATCH("/runs/:RunID", jr.Update)
 
 		tt := BridgeTypesController{app}
 		v2.POST("/bridge_types", tt.Create)
@@ -40,7 +41,12 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 // Inspired by https://github.com/gin-gonic/gin/issues/961
 func loggerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		buf, _ := ioutil.ReadAll(c.Request.Body)
+		buf, err := ioutil.ReadAll(c.Request.Body)
+		if err != nil {
+			logger.Warn("Web request log error: ", err.Error())
+			c.Next()
+			return
+		}
 		rdr := bytes.NewBuffer(buf)
 		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 

@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -12,25 +11,13 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-const (
-	// StatusInProgress is used for when a run is actively being executed.
-	StatusInProgress = "in progress"
-	// StatusPending is used for when a run is waiting on the completion
-	// of another event.
-	StatusPending = "pending"
-	// StatusErrored is used for when a run has errored and will not complete.
-	StatusErrored = "errored"
-	// StatusCompleted is used for when a run has successfully completed execution.
-	StatusCompleted = "completed"
-)
-
-// Job is the definition for all the work to be carried out by the node
+// JobSpec is the definition for all the work to be carried out by the node
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
-type Job struct {
-	ID         string      `json:"id" storm:"id,index,unique"`
+type JobSpec struct {
+	ID         string      `json:"id" storm:"id,unique"`
 	Initiators []Initiator `json:"initiators"`
-	Tasks      []Task      `json:"tasks" storm:"inline"`
+	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
 	CreatedAt  Time        `json:"createdAt" storm:"index"`
@@ -38,8 +25,8 @@ type Job struct {
 
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
-func NewJob() Job {
-	return Job{
+func NewJob() JobSpec {
+	return JobSpec{
 		ID:        utils.NewBytes32ID(),
 		CreatedAt: Time{Time: time.Now()},
 	}
@@ -47,26 +34,29 @@ func NewJob() Job {
 
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
-func (j Job) NewRun() JobRun {
+func (j JobSpec) NewRun(i Initiator) JobRun {
+	jrid := utils.NewBytes32ID()
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
 		taskRuns[i] = TaskRun{
-			ID:   utils.NewBytes32ID(),
-			Task: task,
+			ID:     utils.NewBytes32ID(),
+			Task:   task,
+			Result: RunResult{JobRunID: jrid},
 		}
 	}
 
 	return JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        jrid,
 		JobID:     j.ID,
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
+		Initiator: i,
 	}
 }
 
 // InitiatorsFor returns an array of Initiators for the given list of
 // Initiator types.
-func (j Job) InitiatorsFor(types ...string) []Initiator {
+func (j JobSpec) InitiatorsFor(types ...string) []Initiator {
 	list := []Initiator{}
 	for _, initr := range j.Initiators {
 		for _, t := range types {
@@ -79,7 +69,7 @@ func (j Job) InitiatorsFor(types ...string) []Initiator {
 }
 
 // WebAuthorized returns true if the "web" initiator is present.
-func (j Job) WebAuthorized() bool {
+func (j JobSpec) WebAuthorized() bool {
 	for _, initr := range j.Initiators {
 		if initr.Type == InitiatorWeb {
 			return true
@@ -88,8 +78,18 @@ func (j Job) WebAuthorized() bool {
 	return false
 }
 
+// Returns true if any of the job's initiators are triggered by event logs.
+func (j JobSpec) IsLogInitiated() bool {
+	for _, initr := range j.Initiators {
+		if initr.IsLogInitiated() {
+			return true
+		}
+	}
+	return false
+}
+
 // Ended returns true if the job has ended.
-func (j Job) Ended(t time.Time) bool {
+func (j JobSpec) Ended(t time.Time) bool {
 	if !j.EndAt.Valid {
 		return false
 	}
@@ -97,7 +97,7 @@ func (j Job) Ended(t time.Time) bool {
 }
 
 // Started returns true if the job has started.
-func (j Job) Started(t time.Time) bool {
+func (j JobSpec) Started(t time.Time) bool {
 	if !j.StartAt.Valid {
 		return true
 	}
@@ -117,14 +117,6 @@ const (
 	// InitiatorWeb for tasks in a job making a web request.
 	InitiatorWeb = "web"
 )
-
-var initiatorWhitelist = map[string]bool{
-	InitiatorRunLog: true,
-	InitiatorCron:   true,
-	InitiatorEthLog: true,
-	InitiatorRunAt:  true,
-	InitiatorWeb:    true,
-}
 
 // Initiator could be though of as a trigger, define how a Job can be
 // started, or rather, how a JobRun can be created from a Job.
@@ -151,27 +143,25 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 
 	*i = Initiator(aux)
 	i.Type = strings.ToLower(aux.Type)
-	if _, valid := initiatorWhitelist[i.Type]; !valid {
-		return fmt.Errorf("Initiator %v does not exist", aux.Type)
-	}
 	return nil
 }
 
-func (i Initiator) IsLogListener() bool {
+// Returns true if triggered by event logs.
+func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog
 }
 
-// Task is the specific unit of work to be carried out. The
+// TaskSpec is the definition of work to be carried out. The
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
-type Task struct {
+type TaskSpec struct {
 	Type   string `json:"type" storm:"index"`
 	Params JSON
 }
 
-// UnmarshalJSON parses the given input and updates the Task.
-func (t *Task) UnmarshalJSON(input []byte) error {
-	type Alias Task
+// UnmarshalJSON parses the given input and updates the TaskSpec.
+func (t *TaskSpec) UnmarshalJSON(input []byte) error {
+	type Alias TaskSpec
 	var aux Alias
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
@@ -187,15 +177,15 @@ func (t *Task) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON-encoded Task Params.
-func (t Task) MarshalJSON() ([]byte, error) {
+// MarshalJSON returns the JSON-encoded TaskSpec Params.
+func (t TaskSpec) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.Params)
 }
 
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name string `json:"name" storm:"id,index,unique"`
+	Name string `json:"name" storm:"id,unique"`
 	URL  WebURL `json:"url"`
 }
 

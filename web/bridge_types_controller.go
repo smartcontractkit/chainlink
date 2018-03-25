@@ -19,6 +19,10 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},
 		})
+	} else if err = services.ValidateAdaptor(bt, btc.App.GetStore()); err != nil {
+		c.JSON(400, gin.H{
+			"errors": []string{err.Error()},
+		})
 	} else if err = btc.App.GetStore().Save(bt); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{err.Error()},

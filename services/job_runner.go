@@ -10,17 +10,34 @@ import (
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(job models.Job, store *store.Store, input models.JSON) (models.JobRun, error) {
-	run, err := BuildRun(job, store)
+func BeginRun(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+) (models.JobRun, error) {
+	return BeginRunAtBlock(job, initr, input, store, nil)
+}
+
+// BeginRunAtBlock builds and executes a new run if the job is valid with the block number
+// to determine if tasks should be resumed.
+func BeginRunAtBlock(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
+	run, err := BuildRun(job, initr, store)
 	if err != nil {
 		return models.JobRun{}, err
 	}
-	return ExecuteRun(run, store, input)
+	return ExecuteRunAtBlock(run, store, input, bn)
 }
 
 // BuildRun checks to ensure the given job has not started or ended before
 // creating a new run for the job.
-func BuildRun(job models.Job, store *store.Store) (models.JobRun, error) {
+func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
 		return models.JobRun{}, JobRunnerError{
@@ -32,88 +49,99 @@ func BuildRun(job models.Job, store *store.Store) (models.JobRun, error) {
 			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
 		}
 	}
-	return job.NewRun(), nil
+	return job.NewRun(i), nil
 }
 
 // ExecuteRun starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRun(run models.JobRun, store *store.Store, input models.JSON) (models.JobRun, error) {
-	run.Status = models.StatusInProgress
-	if err := store.Save(&run); err != nil {
-		return run, wrapError(run, err)
+func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult) (models.JobRun, error) {
+	return ExecuteRunAtBlock(jr, store, overrides, nil)
+}
+
+func ExecuteRunAtBlock(
+	jr models.JobRun,
+	store *store.Store,
+	overrides models.RunResult,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
+	jr.Status = models.RunStatusInProgress
+	if err := store.Save(&jr); err != nil {
+		return jr, wrapError(jr, err)
 	}
 
-	logger.Infow("Starting job", run.ForLogger()...)
-	unfinished := run.UnfinishedTaskRuns()
-	offset := len(run.TaskRuns) - len(unfinished)
-	prevRun := unfinished[0]
-
-	merged, err := prevRun.Result.MergeOutput(input)
+	jr, err := store.SaveCreationHeight(jr, bn)
 	if err != nil {
-		return run, wrapError(run, err)
+		return jr, wrapError(jr, err)
 	}
-	prevRun.Result = merged
+	logger.Infow("Starting job", jr.ForLogger()...)
+	unfinished := jr.UnfinishedTaskRuns()
+	offset := len(jr.TaskRuns) - len(unfinished)
+	latestRun := unfinished[0]
+
+	merged, err := latestRun.Result.Merge(overrides)
+	if err != nil {
+		return jr, wrapError(jr, err)
+	}
+	latestRun.Result = merged
 
 	for i, taskRunTemplate := range unfinished {
-		taskRun, err := taskRunTemplate.MergeTaskParams(input)
+		taskRun, err := taskRunTemplate.MergeTaskParams(overrides.Data)
 		if err != nil {
-			return run, wrapError(run, err)
-		}
-		prevRun = startTask(taskRun, prevRun.Result, store)
-		logger.Debugw("Produced task run", "tr", prevRun)
-		run.TaskRuns[i+offset] = prevRun
-		if err := store.Save(&run); err != nil {
-			return run, wrapError(run, err)
+			return jr, wrapError(jr, err)
 		}
 
-		if prevRun.Result.Pending {
-			logger.Infow(fmt.Sprintf("Task %v pending", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
-			break
+		latestRun = markCompleted(startTask(jr, taskRun, latestRun.Result, bn, store))
+		jr.TaskRuns[i+offset] = latestRun
+		logTaskResult(latestRun, taskRun, i)
+
+		if err := store.Save(&jr); err != nil {
+			return jr, wrapError(jr, err)
 		}
-		logger.Infow(fmt.Sprintf("Task %v finished", taskRun.Task.Type), taskRun.ForLogger("task", i, "result", prevRun.Result)...)
-		if prevRun.Result.HasError() {
+		if !latestRun.Status.Runnable() {
 			break
 		}
 	}
 
-	run.Result = prevRun.Result
-	if run.Result.HasError() {
-		run.Status = models.StatusErrored
-	} else if run.Result.Pending {
-		run.Status = models.StatusPending
-	} else {
-		run.Status = models.StatusCompleted
-	}
+	jr = jr.ApplyResult(latestRun.Result)
+	logger.Infow("Finished current job run execution", jr.ForLogger()...)
+	return jr, wrapError(jr, store.Save(&jr))
+}
 
-	logger.Infow("Finished current job run execution", run.ForLogger()...)
-	return run, wrapError(run, store.Save(&run))
+func logTaskResult(lr models.TaskRun, tr models.TaskRun, i int) {
+	logger.Debugw("Produced task run", "taskRun", lr)
+	logger.Debugw(fmt.Sprintf("Task %v %v", tr.Task.Type, tr.Result.Status), tr.ForLogger("task", i, "result", lr.Result)...)
+}
+
+func markCompleted(tr models.TaskRun) models.TaskRun {
+	if tr.Status.Runnable() {
+		return tr.MarkCompleted()
+	}
+	return tr
 }
 
 func startTask(
-	run models.TaskRun,
+	jr models.JobRun,
+	tr models.TaskRun,
 	input models.RunResult,
+	bn *models.IndexableBlockNumber,
 	store *store.Store,
 ) models.TaskRun {
-	run.Status = models.StatusInProgress
-	adapter, err := adapters.For(run.Task, store)
+
+	if !jr.Runnable(bn, store.Config.TaskMinConfirmations) {
+		return tr.MarkPendingConfirmations()
+	}
+
+	tr.Status = models.RunStatusInProgress
+	adapter, err := adapters.For(tr.Task, store)
 
 	if err != nil {
-		run.Status = models.StatusErrored
-		run.Result.SetError(err)
-		return run
-	}
-	run.Result = adapter.Perform(input, store)
-
-	if run.Result.HasError() {
-		run.Status = models.StatusErrored
-	} else if run.Result.Pending {
-		run.Status = models.StatusPending
-	} else {
-		run.Status = models.StatusCompleted
+		tr.Status = models.RunStatusErrored
+		tr.Result.SetError(err)
+		return tr
 	}
 
-	return run
+	return tr.ApplyResult(adapter.Perform(input, store))
 }
 
 func wrapError(run models.JobRun, err error) error {

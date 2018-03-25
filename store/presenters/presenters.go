@@ -1,5 +1,5 @@
 // Package presenters allow for the specification and result
-// of a Job, its associated Tasks, and every JobRun and TaskRun
+// of a Job, its associated TaskSpecs, and every JobRun and TaskRun
 // to be returned in a user friendly human readable format.
 package presenters
 
@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,20 +36,39 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	}
 	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
 	if balance == 0 {
-		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit eth into your address: " + address.Hex())
+		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return result, nil
 }
 
-// Job holds the Job definition and each run associated with that Job.
-type Job struct {
-	models.Job
+func ShowLinkBalance(store *store.Store) (string, error) {
+	if !store.KeyStore.HasAccounts() {
+		logger.Panic("KeyStore must have an account in order to show balance")
+	}
+	address := store.KeyStore.GetAccount().Address
+	linkContractAddress := common.HexToAddress(store.Config.LinkContractAddress)
+	balance, err := store.TxManager.GetERC20Balance(address, linkContractAddress)
+	if err != nil {
+		return "", err
+	}
+	// Because Eth and Link both use 1e18 precision, we can correct using the same facility
+	linkBalance := utils.WeiToEth(balance)
+	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance)
+	if balance == big.NewInt(0) {
+		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit LINK into your address: " + address.Hex())
+	}
+	return result, nil
+}
+
+// JobSpec holds the JobSpec definition and each run associated with that Job.
+type JobSpec struct {
+	models.JobSpec
 	Runs []models.JobRun `json:"runs,omitempty"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
-func (j Job) MarshalJSON() ([]byte, error) {
-	type Alias Job
+func (j JobSpec) MarshalJSON() ([]byte, error) {
+	type Alias JobSpec
 	pis := make([]Initiator, len(j.Initiators))
 	for i, modelInitr := range j.Initiators {
 		pis[i] = Initiator{modelInitr}
@@ -64,13 +84,13 @@ func (j Job) MarshalJSON() ([]byte, error) {
 
 // FriendlyCreatedAt returns a human-readable string of the Job's
 // CreatedAt field.
-func (job Job) FriendlyCreatedAt() string {
+func (job JobSpec) FriendlyCreatedAt() string {
 	return job.CreatedAt.HumanString()
 }
 
 // FriendlyStartAt returns a human-readable string of the Job's
 // StartAt field.
-func (job Job) FriendlyStartAt() string {
+func (job JobSpec) FriendlyStartAt() string {
 	if job.StartAt.Valid {
 		return utils.ISO8601UTC(job.StartAt.Time)
 	}
@@ -79,7 +99,7 @@ func (job Job) FriendlyStartAt() string {
 
 // FriendlyEndAt returns a human-readable string of the Job's
 // EndAt field.
-func (job Job) FriendlyEndAt() string {
+func (job JobSpec) FriendlyEndAt() string {
 	if job.EndAt.Valid {
 		return utils.ISO8601UTC(job.EndAt.Time)
 	}
@@ -88,7 +108,7 @@ func (job Job) FriendlyEndAt() string {
 
 // FriendlyInitiators returns the list of Initiator types as
 // a comma separated string.
-func (job Job) FriendlyInitiators() string {
+func (job JobSpec) FriendlyInitiators() string {
 	var initrs []string
 	for _, i := range job.Initiators {
 		initrs = append(initrs, i.Type)
@@ -98,7 +118,7 @@ func (job Job) FriendlyInitiators() string {
 
 // FriendlyTasks returns the list of Task types as a comma
 // separated string.
-func (job Job) FriendlyTasks() string {
+func (job JobSpec) FriendlyTasks() string {
 	var tasks []string
 	for _, t := range job.Tasks {
 		tasks = append(tasks, t.Type)
@@ -174,19 +194,19 @@ var empty_address = common.Address{}.String()
 // FriendlyAddress returns the Ethereum address if present, and a blank
 // string if not.
 func (i Initiator) FriendlyAddress() string {
-	if i.IsLogListener() {
+	if i.IsLogInitiated() {
 		return LogListeningAddress(i.Address)
 	}
 	return ""
 }
 
-// Task holds a task specified in the Job definition.
-type Task struct {
-	models.Task
+// TaskSpec holds a task specified in the Job definition.
+type TaskSpec struct {
+	models.TaskSpec
 }
 
-// FriendlyParams returns a map of the Task's parameters.
-func (t Task) FriendlyParams() (string, string) {
+// FriendlyParams returns a map of the TaskSpec's parameters.
+func (t TaskSpec) FriendlyParams() (string, string) {
 	keys := []string{}
 	values := []string{}
 	t.Params.ForEach(func(key, value gjson.Result) bool {

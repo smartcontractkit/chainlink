@@ -1,9 +1,8 @@
 package store
 
 import (
+	"context"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -17,10 +16,16 @@ type Store struct {
 	*models.ORM
 	Config    Config
 	Clock     AfterNower
-	Exiter    func(int)
 	KeyStore  *KeyStore
 	TxManager *TxManager
-	sigs      chan os.Signal
+}
+
+type rpcSubscriptionWrapper struct {
+	*rpc.Client
+}
+
+func (wrapper rpcSubscriptionWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (models.EthSubscription, error) {
+	return wrapper.Client.EthSubscribe(ctx, channel, args...)
 }
 
 // NewStore will create a new database file at the config's RootDir if
@@ -37,33 +42,20 @@ func NewStore(config Config) *Store {
 		logger.Fatal(err)
 	}
 	keyStore := NewKeyStore(config.KeysDir())
+
 	store := &Store{
 		ORM:      orm,
 		Config:   config,
 		KeyStore: keyStore,
-		Exiter:   os.Exit,
 		Clock:    Clock{},
 		TxManager: &TxManager{
 			Config:    config,
-			EthClient: &EthClient{ethrpc},
+			EthClient: &EthClient{rpcSubscriptionWrapper{ethrpc}},
 			KeyStore:  keyStore,
 			ORM:       orm,
 		},
 	}
 	return store
-}
-
-// Start listens for interrupt signals from the operating system so
-// that the database can be properly closed before the application
-// exits.
-func (s *Store) Start() {
-	s.sigs = make(chan os.Signal, 1)
-	signal.Notify(s.sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-s.sigs
-		s.Close()
-		s.Exiter(1)
-	}()
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`

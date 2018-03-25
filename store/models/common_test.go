@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestJSONMerge(t *testing.T) {
+func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -46,7 +46,7 @@ func TestJSONMerge(t *testing.T) {
 	}
 }
 
-func TestJSONUnmarshalJSON(t *testing.T) {
+func TestJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -67,7 +67,30 @@ func TestJSONUnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestJSONAdd(t *testing.T) {
+func TestJSON_ParseJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		in          string
+		want        models.JSON
+		wantErrored bool
+	}{
+		{"basic", `{"num": 100}`, cltest.JSONFromString(`{"num": 100}`), false},
+		{"empty string", ``, cltest.JSONFromString(`{}`), false},
+		{"invalid JSON", `{`, models.JSON{}, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			json, err := models.ParseJSON([]byte(test.in))
+			assert.Equal(t, test.want, json)
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
+}
+
+func TestJSON_Add(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -93,7 +116,7 @@ func TestJSONAdd(t *testing.T) {
 	}
 }
 
-func TestWebURLUnmarshalJSONError(t *testing.T) {
+func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"NotAUrl"`)
 	wurl := &models.WebURL{}
@@ -101,7 +124,7 @@ func TestWebURLUnmarshalJSONError(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestWebURLUnmarshalJSON(t *testing.T) {
+func TestWebURL_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"http://www.duckduckgo.com"`)
 	wurl := &models.WebURL{}
@@ -109,20 +132,21 @@ func TestWebURLUnmarshalJSON(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestWebURLMarshalJSON(t *testing.T) {
+func TestWebURL_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
 	assert.Nil(t, err)
-	wurl := &models.WebURL{parsed}
+	wurl := &models.WebURL{URL: parsed}
 	b, err := json.Marshal(wurl)
 	assert.Nil(t, err)
 	assert.Equal(t, `"`+str+`"`, string(b))
 }
 
 func TestTimeDurationFromNow(t *testing.T) {
-	future := models.Time{time.Now().Add(time.Second)}
+	t.Parallel()
+	future := models.Time{Time: time.Now().Add(time.Second)}
 	duration := future.DurationFromNow()
 	assert.True(t, 0 < duration)
 }
