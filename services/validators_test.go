@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"net/url"
+
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
-	"net/url"
 )
 
 func TestValidateJob(t *testing.T) {
@@ -59,13 +60,13 @@ func TestValidateAdaptor(t *testing.T) {
 
 	tests := []struct {
 		description string
-		name  string
-		want  error
+		name        string
+		want        error
 	}{
 		{"existing external adaptor", "solargridreporting",
-		errors.New("adaptor validation: adaptor solargridreporting exists")},
+			errors.New("adaptor validation: adaptor solargridreporting exists")},
 		{"existing core adaptor", "ethtx",
-		errors.New("adaptor validation: adaptor ethtx exists")},
+			errors.New("adaptor validation: adaptor ethtx exists")},
 		{"new external adaptor", "gdaxprice", nil},
 	}
 
