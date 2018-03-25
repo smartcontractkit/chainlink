@@ -40,6 +40,15 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 	}
 }
 
+func NewTaskWithConfirmations(taskType string, confs int, params ...string) models.TaskSpec {
+	task := NewTask(taskType, params...)
+	task.Confirmations = uint64(confs)
+	var err error
+	task.Params, err = task.Params.Add("confirmations", task.Confirmations)
+	mustNotErr(err)
+	return task
+}
+
 func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}

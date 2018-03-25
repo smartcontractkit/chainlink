@@ -53,7 +53,7 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
-func TestJobRun_Runnable(t *testing.T) {
+func TestTaskRun_Runnable(t *testing.T) {
 	t.Parallel()
 
 	job, initr := cltest.NewJobWithLogInitiator()
