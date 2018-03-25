@@ -155,8 +155,9 @@ func (i Initiator) IsLogInitiated() bool {
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	Type   string `json:"type" storm:"index"`
-	Params JSON
+	Type          string `json:"type" storm:"index"`
+	Confirmations uint64 `json:"confirmations"`
+	Params        JSON
 }
 
 // UnmarshalJSON parses the given input and updates the TaskSpec.

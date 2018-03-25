@@ -77,25 +77,48 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 	t.Parallel()
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	store.Config.TaskMinConfirmations = 6
+	creationHeight := 1000
+	store.Config.TaskMinConfirmations = 10
+	configMin := int(store.Config.TaskMinConfirmations)
 
-	job, initr := cltest.NewJobWithLogInitiator()
-	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp")}
+	tests := []struct {
+		name           string
+		confirmations  int
+		triggeringConf int
+	}{
+		{"default", 0, configMin},
+		{"spec > confs", configMin + 1, configMin + 1},
+		{"spec == confs", configMin, configMin},
+		{"spec < confs", configMin - 1, configMin},
+	}
 
-	zero := cltest.IndexableBlockNumber(0)
-	run := job.NewRun(initr)
-	run, err := services.ExecuteRunAtBlock(run, store, models.RunResult{}, zero)
-	assert.Nil(t, err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job, initr := cltest.NewJobWithLogInitiator()
+			job.Tasks = []models.TaskSpec{
+				cltest.NewTaskWithConfirmations("NoOp", test.confirmations),
+			}
 
-	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+			run := job.NewRun(initr)
+			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
+			assert.Nil(t, err)
 
-	trigger := cltest.IndexableBlockNumber(store.Config.TaskMinConfirmations)
-	run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-	assert.Nil(t, err)
-	assert.Equal(t, models.RunStatusCompleted, run.Status)
+			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
+			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
+			assert.Nil(t, err)
+
+			store.One("ID", run.ID, &run)
+			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+
+			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf)
+			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
+			assert.Nil(t, err)
+			assert.Equal(t, models.RunStatusCompleted, run.Status)
+		})
+	}
 }
 
 func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
