@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"path"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -156,6 +157,33 @@ func TestClient_CreateJobRun(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_BackupDatabase(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+
+	job := cltest.NewJob()
+	assert.Nil(t, app.Store.SaveJob(&job))
+
+	set := flag.NewFlagSet("backupset", 0)
+	path := path.Join(app.Store.Config.RootDir, "backup.bolt")
+	set.Parse([]string{path})
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.BackupDatabase(c)
+	assert.Nil(t, err)
+
+	restored := models.NewORM(path)
+	restoredJob, err := restored.FindJob(job.ID)
+	assert.Nil(t, err)
+
+	reloaded, err := app.Store.FindJob(job.ID)
+	assert.Nil(t, err)
+	assert.Equal(t, reloaded, restoredJob)
 }
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {

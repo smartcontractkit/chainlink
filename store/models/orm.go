@@ -3,7 +3,6 @@ package models
 import (
 	"log"
 	"math/big"
-	"path"
 	"reflect"
 	"strings"
 
@@ -21,8 +20,7 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured path.
-func NewORM(dir string) *ORM {
-	path := path.Join(dir, "db.bolt")
+func NewORM(path string) *ORM {
 	orm := &ORM{initializeDatabase(path)}
 	orm.migrate()
 	return orm

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mitchellh/go-homedir"
@@ -151,6 +153,34 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	defer resp.Body.Close()
 	var jobs presenters.JobSpec
 	return cli.deserializeResponse(resp, &jobs)
+}
+
+// BackupDatabase streams a backup of the node's db to the passed filepath.
+func (cli *Client) BackupDatabase(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the path to save the backup"))
+	}
+	resp, err := utils.BasicAuthGet(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/backup",
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	return cli.errorOut(saveBodyAsFile(resp, c.Args().First()))
+}
+
+func saveBodyAsFile(resp *http.Response, dst string) error {
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {
