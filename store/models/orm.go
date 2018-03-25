@@ -9,6 +9,7 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
+	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -34,6 +35,10 @@ func initializeDatabase(path string) *storm.DB {
 	}
 
 	return db
+}
+
+func (orm *ORM) GetBolt() *bolt.DB {
+	return orm.DB.Bolt
 }
 
 // Where fetches multiple objects with "Find" in Storm.
