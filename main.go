@@ -69,6 +69,12 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:   "Begin job run for specid",
 			Action:  client.CreateJobRun,
 		},
+		{
+			Name:    "backup",
+			Aliases: []string{"b"},
+			Usage:   "Backup the database of the running node",
+			Action:  client.BackupDatabase,
+		},
 	}
 	app.Run(args)
 }

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"os"
+	"path"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
@@ -36,7 +37,7 @@ func NewStore(config Config) *Store {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	orm := models.NewORM(config.RootDir)
+	orm := models.NewORM(path.Join(config.RootDir, "db.bolt"))
 	ethrpc, err := rpc.Dial(config.EthereumURL)
 	if err != nil {
 		logger.Fatal(err)
