@@ -36,6 +36,7 @@ func ExampleRun() {
 	//      show, s                   Show a specific job
 	//      create, c                 Create job spec from JSON
 	//      run, r                    Begin job run for specid
+	//      backup, b                 Backup the database of the running node
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
