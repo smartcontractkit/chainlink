@@ -176,9 +176,11 @@ type Time struct {
 // data and stores it to the Time field.
 func (t *Time) UnmarshalJSON(b []byte) error {
 	var s string
-	err := json.Unmarshal(b, &s)
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
 	newTime, err := dateparse.ParseAny(s)
-	t.Time = newTime
+	t.Time = newTime.UTC()
 	return err
 }
 

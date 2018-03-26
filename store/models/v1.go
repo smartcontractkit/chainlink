@@ -24,7 +24,7 @@ type Subtask struct {
 }
 
 type Schedule struct {
-	EndAt       null.Time   `json:"endAt"`
+	EndAt       Time        `json:"endAt"`
 	Hour        null.String `json:"hour"`
 	Minute      null.String `json:"minute"`
 	DayOfMonth  null.String `json:"dayOfMonth"`
@@ -90,7 +90,7 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		ID:         utils.NewBytes32ID(),
 		CreatedAt:  Time{Time: time.Now()},
 		Tasks:      tasks,
-		EndAt:      s.Schedule.EndAt,
+		EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
 		Initiators: initiators,
 	}
 
