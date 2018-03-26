@@ -19,6 +19,12 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
 	engine.Use(loggerFunc(), gin.Recovery(), basicAuth)
 
+	v1 := engine.Group("/v1")
+	{
+		j := AssignmentsController{app}
+		v1.POST("/assignments", j.Create)
+	}
+
 	v2 := engine.Group("/v2")
 	{
 		j := JobSpecsController{app}
