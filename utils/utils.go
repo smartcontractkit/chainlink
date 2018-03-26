@@ -37,6 +37,7 @@ const (
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
 
+// WithoutZeroAddresses returns a list of addresses excluding the zero address.
 func WithoutZeroAddresses(addresses []common.Address) []common.Address {
 	var withoutZeros []common.Address
 	for _, address := range addresses {
@@ -47,6 +48,7 @@ func WithoutZeroAddresses(addresses []common.Address) []common.Address {
 	return withoutZeros
 }
 
+// HexToUint64 converts a given hex string to 64-bit unsigned integer.
 func HexToUint64(hex string) (uint64, error) {
 	return strconv.ParseUint(RemoveHexPrefix(hex), 16, 64)
 }
@@ -66,10 +68,12 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 	return common.ToHex(rlp.Bytes()), nil
 }
 
+// ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+// NullISO8601UTC returns formatted time if valid, empty string otherwise.
 func NullISO8601UTC(t null.Time) string {
 	if t.Valid {
 		return ISO8601UTC(t.Time)
@@ -153,6 +157,7 @@ func HexConcat(strs ...string) string {
 	return hex
 }
 
+// RemoveHexPrefix removes the prefix (0x) of a given hex string.
 func RemoveHexPrefix(str string) string {
 	if len(str) > 1 && strings.ToLower(str[0:2]) == "0x" {
 		return str[2:]
@@ -206,6 +211,7 @@ func StringToHex(in string) string {
 	return AddHexPrefix(hex.EncodeToString([]byte(in)))
 }
 
+// AddHexPrefix adds the previx (0x) to a given hex string.
 func AddHexPrefix(str string) string {
 	if len(str) < 2 || len(str) > 1 && strings.ToLower(str[0:2]) != "0x" {
 		str = "0x" + str
@@ -219,7 +225,7 @@ func HexToString(hex string) (string, error) {
 	return string(b), err
 }
 
-// Returns a struct that encapsulates desired arguments used to filter
+// ToFilterQueryFor returns a struct that encapsulates desired arguments used to filter
 // event logs.
 func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.FilterQuery {
 	return ethereum.FilterQuery{
@@ -249,16 +255,21 @@ func toBlockNumArg(number *big.Int) string {
 	return hexutil.EncodeBig(number)
 }
 
+// Sleeper interface is used for tasks that need to be done on some
+// interval, excluding Cron, like reconnecting.
 type Sleeper interface {
 	Reset()
 	Sleep()
 	Duration() time.Duration
 }
 
+// BackoffSleeper is a counter to assist with reattempts.
 type BackoffSleeper struct {
 	*backoff.Backoff
 }
 
+// NewBackoffSleeper returns a BackoffSleeper that is configured to
+// sleep for 1 second minimum, and 10 seconds maximum.
 func NewBackoffSleeper() BackoffSleeper {
 	return BackoffSleeper{&backoff.Backoff{
 		Min: 1 * time.Second,
@@ -266,10 +277,12 @@ func NewBackoffSleeper() BackoffSleeper {
 	}}
 }
 
+// Sleep waits for the given duration before reattempting.
 func (bs BackoffSleeper) Sleep() {
 	time.Sleep(bs.Backoff.Duration())
 }
 
+// Duration returns the current duration value.
 func (bs BackoffSleeper) Duration() time.Duration {
 	return bs.ForAttempt(bs.Attempt())
 }

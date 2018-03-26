@@ -113,6 +113,8 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 	return tx.Commit()
 }
 
+// SaveCreationHeight stores the JobRun in the database with the given
+// block number.
 func (orm *ORM) SaveCreationHeight(jr JobRun, bn *IndexableBlockNumber) (JobRun, error) {
 	if jr.CreationHeight != nil || bn == nil {
 		return jr, nil
