@@ -12,15 +12,14 @@
 // Eth creates transactions and tracks transaction attempts on the
 // Ethereum blockchain.
 //
-// Job
+// JobSpec
 //
-// A Job is the largest unit of work that a Chainlink node can take
+// A JobSpec is the largest unit of work that a Chainlink node can take
 // on. It will have Initiators, which is how a JobRun is started from
 // the job definition, and Tasks, which are the specific instructions
 // for what work needs to be performed.
 // The BridgeType is also located here, and is used to define the location
 // (URL) of external adapters.
-//
 //
 // ORM
 //
