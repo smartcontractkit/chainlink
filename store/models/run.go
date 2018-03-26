@@ -62,6 +62,9 @@ func (jr JobRun) NextTaskRun() TaskRun {
 	return jr.UnfinishedTaskRuns()[0]
 }
 
+// Runnable checks that the number of confirmations have passed since the
+// job's creation hight to determine if the JobRun can be started. Returns
+// true for non-EthereumListener (runlog & ethlog) initiators.
 func (jr JobRun) Runnable(bn *IndexableBlockNumber, minConfs uint64) bool {
 	if jr.CreationHeight == nil || bn == nil {
 		return true
@@ -72,6 +75,7 @@ func (jr JobRun) Runnable(bn *IndexableBlockNumber, minConfs uint64) bool {
 	return diff.Cmp(min) >= 0
 }
 
+// ApplyResult updates the JobRun's Result and Status
 func (jr JobRun) ApplyResult(result RunResult) JobRun {
 	jr.Result = result
 	jr.Status = result.Status
@@ -131,6 +135,7 @@ func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
 	return tr, nil
 }
 
+// ApplyResult updates the TaskRun's Result and Status
 func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
 	tr.Result = result
 	tr.Status = result.Status
@@ -173,7 +178,7 @@ func (rr RunResult) WithValue(val string) RunResult {
 	return rr
 }
 
-// WithValue returns a copy of the RunResult, setting the error field
+// WithError returns a copy of the RunResult, setting the error field
 // and setting the status to in progress.
 func (rr RunResult) WithError(err error) RunResult {
 	rr.ErrorMessage = null.StringFrom(err.Error())

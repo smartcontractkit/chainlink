@@ -21,6 +21,12 @@
 // the Ethereum blockhain.
 //  { "type": "EthBytes32" }
 //
+// EthUint256
+//
+// The EthUint256 adapter will take a given 256 bit integer and format it
+// in hex for the Ethereum blockchain.
+//  { "type": "EthUint256" }
+//
 // EthTx
 //
 // The EthTx adapter will write the data to the given address and functionSelector.
@@ -29,5 +35,19 @@
 //     "address": "0x0000000000000000000000000000000000000000",
 //     "functionSelector": "0xffffffff"
 //   }
+//
+// Multiplier
+//
+// The Multiplier adapter multiplies the given input value times another specified
+// value.
+//   { "type": "Multiply", "times": 100 }
+//
+// Bridge
+//
+// The Bridge adapter is used to send and receive data to and from external adapters.
+// The adapter will POST to the target adapter URL with an "id" field for the TaskRunID
+// and a "data" field.
+// For example:
+//  {"id":"b8004e2989e24e1d8e4449afad2eb480","data":{}}
 //
 package adapters
