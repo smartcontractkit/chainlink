@@ -162,6 +162,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_noop_job.json")
+	requiredConfs := 100
 
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
@@ -176,7 +177,12 @@ func TestIntegration_RunLog(t *testing.T) {
 	jr := runs[0]
 	cltest.WaitForJobRunToBlock(t, app.Store, jr)
 
-	safeNumber := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
+	minConfigHeight := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minConfigHeight)}
+	cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
+
+	assert.True(t, cltest.FindJobRun(app.Store, jr.ID).Status.PendingConfirmations())
+	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }

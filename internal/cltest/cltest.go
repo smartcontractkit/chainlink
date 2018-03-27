@@ -309,6 +309,13 @@ func FindJob(s *store.Store, id string) models.JobSpec {
 	return j
 }
 
+func FindJobRun(s *store.Store, id string) models.JobRun {
+	j, err := s.FindJobRun(id)
+	mustNotErr(err)
+
+	return j
+}
+
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v1/assignments",
@@ -450,6 +457,28 @@ func WaitForJobRunStatus(
 		return jr.Status
 	}).Should(gomega.Equal(status))
 	return jr
+}
+
+func JobRunStays(
+	t *testing.T,
+	store *store.Store,
+	jr models.JobRun,
+	status models.RunStatus,
+) models.JobRun {
+	t.Helper()
+	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
+		assert.Nil(t, store.One("ID", jr.ID, &jr))
+		return jr.Status
+	}).Should(gomega.Equal(status))
+	return jr
+}
+
+func JobRunStaysPendingConfirmations(
+	t *testing.T,
+	store *store.Store,
+	jr models.JobRun,
+) models.JobRun {
+	return JobRunStays(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
 func StringToRunLogData(str string) hexutil.Bytes {
