@@ -100,15 +100,18 @@ func TestJobSpec_Started(t *testing.T) {
 	}
 }
 
-func TestTaskUnmarshalling(t *testing.T) {
+func TestTask_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		json string
+		name          string
+		taskType      string
+		confirmations uint64
+		json          string
 	}{
-		{"noop", `{"type":"NoOp"}`},
-		{"httpget", `{"type":"httpget","url":"http://www.no.com"}`},
+		{"noop", "noop", 0, `{"type":"NoOp"}`},
+		{"httpget", "httpget", 0, `{"type":"httpget","url":"http://www.no.com"}`},
+		{"with confirmations", "noop", 10, `{"type":"noOp","confirmations":10}`},
 	}
 
 	for _, test := range tests {
@@ -116,8 +119,9 @@ func TestTaskUnmarshalling(t *testing.T) {
 			var task models.TaskSpec
 			err := json.Unmarshal([]byte(test.json), &task)
 			assert.Nil(t, err)
+			assert.Equal(t, test.confirmations, task.Confirmations)
 
-			assert.Equal(t, test.name, task.Type)
+			assert.Equal(t, test.taskType, task.Type)
 			_, err = adapters.For(task, nil)
 			assert.Nil(t, err)
 

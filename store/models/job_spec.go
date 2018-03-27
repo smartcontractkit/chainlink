@@ -168,6 +168,7 @@ func (t *TaskSpec) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
+	t.Confirmations = aux.Confirmations
 	t.Type = strings.ToLower(aux.Type)
 	var params json.RawMessage
 	if err := json.Unmarshal(input, &params); err != nil {
