@@ -20,6 +20,14 @@ contract('GetterSetter', () => {
       let currentBytes32 = await gs.getBytes32.call();
       assert.equal(web3.toUtf8(currentBytes32), bytes32);
     });
+
+    it("logs an event", async () => {
+      let tx = await gs.setBytes32(bytes32, {from: stranger});
+
+      assert.equal(1, tx.logs.length);
+      assert.equal(stranger, tx.logs[0].args.from);
+      assert.equal(bytes32, web3.toUtf8(tx.logs[0].args.value));
+    });
   });
 
   describe("#requestedBytes32", () => {
@@ -40,6 +48,14 @@ contract('GetterSetter', () => {
 
       let currentUint256 = await gs.getUint256.call();
       assert.equal(currentUint256, uint256);
+    });
+
+    it("logs an event", async () => {
+      let tx = await gs.setUint256(uint256, {from: stranger});
+
+      assert.equal(1, tx.logs.length);
+      assert.equal(stranger, tx.logs[0].args.from);
+      assert.equal(uint256, web3.toBigNumber(tx.logs[0].args.value));
     });
   });
 
