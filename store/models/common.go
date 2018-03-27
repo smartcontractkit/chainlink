@@ -167,6 +167,14 @@ func (w *WebURL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(w.String())
 }
 
+// String delegates to the wrapped URL struct or an empty string when it is nil
+func (w *WebURL) String() string {
+	if w.URL == nil {
+		return ""
+	}
+	return w.URL.String()
+}
+
 // Time holds a common field for time.
 type Time struct {
 	time.Time
