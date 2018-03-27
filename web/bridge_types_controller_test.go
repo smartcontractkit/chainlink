@@ -29,7 +29,7 @@ func TestBridgeTypesController_Create(t *testing.T) {
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 }
 
-func TestBridgeTypesController_Create_AdaptorExistsError(t *testing.T) {
+func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -38,7 +38,7 @@ func TestBridgeTypesController_Create_AdaptorExistsError(t *testing.T) {
 	resp := cltest.BasicAuthPost(
 		app.Server.URL+"/v2/bridge_types",
 		"application/json",
-		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/existing_core_adaptor.json")),
+		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/existing_core_adapter.json")),
 	)
 	cltest.CheckStatusCode(t, resp, 400)
 }
