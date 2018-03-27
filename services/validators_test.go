@@ -45,7 +45,7 @@ func TestValidateJob(t *testing.T) {
 	}
 }
 
-func TestValidateAdaptor(t *testing.T) {
+func TestValidateAdapter(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -63,17 +63,17 @@ func TestValidateAdaptor(t *testing.T) {
 		name        string
 		want        error
 	}{
-		{"existing external adaptor", "solargridreporting",
-			errors.New("adaptor validation: adaptor solargridreporting exists")},
-		{"existing core adaptor", "ethtx",
-			errors.New("adaptor validation: adaptor ethtx exists")},
-		{"new external adaptor", "gdaxprice", nil},
+		{"existing external adapter", "solargridreporting",
+			errors.New("adapter validation: adapter solargridreporting exists")},
+		{"existing core adapter", "ethtx",
+			errors.New("adapter validation: adapter ethtx exists")},
+		{"new external adapter", "gdaxprice", nil},
 	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			bt := &models.BridgeType{Name: test.name}
-			result := services.ValidateAdaptor(bt, store)
+			result := services.ValidateAdapter(bt, store)
 			assert.Equal(t, result, test.want)
 		})
 	}
