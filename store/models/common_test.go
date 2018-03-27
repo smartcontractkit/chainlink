@@ -144,6 +144,25 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 	assert.Equal(t, `"`+str+`"`, string(b))
 }
 
+func TestWebURL_String_HasURL(t *testing.T) {
+	t.Parallel()
+
+	u, _ := url.Parse("http://www.duckduckgo.com")
+	w := models.WebURL{
+		URL: u,
+	}
+
+	assert.Equal(t, "http://www.duckduckgo.com", w.String())
+}
+
+func TestWebURL_String_HasNilURL(t *testing.T) {
+	t.Parallel()
+
+	w := models.WebURL{}
+
+	assert.Equal(t, "", w.String())
+}
+
 func TestTimeDurationFromNow(t *testing.T) {
 	t.Parallel()
 	future := models.Time{Time: time.Now().Add(time.Second)}
