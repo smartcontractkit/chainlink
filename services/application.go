@@ -36,7 +36,6 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
-	logger.Reconfigure(config.RootDir, config.LogLevel.Level)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
 		HeadTracker:      ht,

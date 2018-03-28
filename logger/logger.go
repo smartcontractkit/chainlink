@@ -18,7 +18,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(NewLogger(zl))
+	SetLogger(zl)
 }
 
 // Logger holds a field for the logger interface.
@@ -33,37 +33,27 @@ func (l *Logger) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-// NewLogger returns the logger updated with the given Logger.
-func NewLogger(zl *zap.Logger) *Logger {
-	return &Logger{zl.Sugar()}
-}
-
 // SetLogger sets the internal logger to the given input.
-func SetLogger(l *Logger) {
+func SetLogger(zl *zap.Logger) {
 	if logger != nil {
 		defer logger.Sync()
 	}
-	logger = l
+	logger = &Logger{zl.Sugar()}
 }
 
-// Reconfigure creates a new log file at the configured directory
+// NewProductionConfig returns a log config for the passed directory
 // with the given LogLevel.
-func Reconfigure(dir string, lvl zapcore.Level) {
-	config := generateConfig(dir)
+func CreateDiskLogger(dir string, lvl zapcore.Level) *zap.Logger {
+	config := zap.NewProductionConfig()
+	destination := path.Join(dir, "log.jsonl")
+	config.OutputPaths = []string{"stderr", destination}
+	config.ErrorOutputPaths = []string{"stderr", destination}
 	config.Level.SetLevel(lvl)
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(NewLogger(zl))
-}
-
-func generateConfig(dir string) zap.Config {
-	config := zap.NewProductionConfig()
-	destination := path.Join(dir, "log.jsonl")
-	config.OutputPaths = []string{"stderr", destination}
-	config.ErrorOutputPaths = []string{"stderr", destination}
-	return config
+	return zl
 }
 
 // Infow logs an info message and any additional given information.
