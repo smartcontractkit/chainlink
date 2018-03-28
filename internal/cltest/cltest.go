@@ -110,8 +110,12 @@ func NewWSServer(msg string) *httptest.Server {
 }
 
 func NewApplication() (*TestApplication, func()) {
-	c, _ := NewConfig()
-	return NewApplicationWithConfig(c)
+	c, cfgCleanup := NewConfig()
+	app, cleanup := NewApplicationWithConfig(c)
+	return app, func() {
+		cleanup()
+		cfgCleanup()
+	}
 }
 
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
