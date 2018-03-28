@@ -60,15 +60,15 @@ func TestJobRun_Runnable(t *testing.T) {
 	tests := []struct {
 		name                 string
 		creationHeight       *hexutil.Big
-		blockNumber          *models.IndexableBlockNumber
+		currentHeight        *models.IndexableBlockNumber
 		minimumConfirmations uint64
 		want                 bool
 	}{
 		{"unset nil 0", nil, nil, 0, true},
 		{"1 nil 0", cltest.NewBigHexInt(1), nil, 0, true},
-		{"1 1 diff 0", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 0, true},
-		{"1 1 diff 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 1, false},
-		{"1 2 diff 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 1, true},
+		{"1 1 minconf 0", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 0, true},
+		{"1 1 minconf 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 1, false},
+		{"1 2 minconf 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 1, true},
 	}
 
 	for _, test := range tests {
@@ -78,7 +78,7 @@ func TestJobRun_Runnable(t *testing.T) {
 				jr.CreationHeight = test.creationHeight
 			}
 
-			assert.Equal(t, test.want, jr.Runnable(test.blockNumber, test.minimumConfirmations))
+			assert.Equal(t, test.want, jr.Runnable(test.currentHeight, test.minimumConfirmations))
 		})
 	}
 }

@@ -134,7 +134,16 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 }
 
 func NewApplicationWithKeyStore() (*TestApplication, func()) {
-	app, cleanup := NewApplication()
+	config, cfgCleanup := NewConfig()
+	app, cleanup := NewApplicationWithConfigAndKeyStore(config)
+	return app, func() {
+		cleanup()
+		cfgCleanup()
+	}
+}
+
+func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func()) {
+	app, cleanup := NewApplicationWithConfig(tc)
 	_, err := app.Store.KeyStore.NewAccount(Password)
 	mustNotErr(err)
 	mustNotErr(app.Store.KeyStore.Unlock(Password))

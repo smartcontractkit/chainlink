@@ -47,7 +47,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
+func TestTxManager_MeetsMinConfirmations_BeforeThreshold(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -68,7 +68,7 @@ func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	a := attempts[0]
 
-	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
+	confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 	assert.Nil(t, err)
 	assert.False(t, confirmed)
 	assert.Nil(t, store.One("ID", tx.ID, tx))
@@ -79,7 +79,7 @@ func TestTxManager_EnsureTxConfirmed_BeforeThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
+func TestTxManager_MeetsMinConfirmations_AtThreshold(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -100,7 +100,7 @@ func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	assert.Nil(t, err)
 	a := attempts[0]
 
-	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
+	confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 	assert.Nil(t, err)
 	assert.False(t, confirmed)
 	assert.Nil(t, store.One("ID", tx.ID, tx))
@@ -111,68 +111,56 @@ func TestTxManager_EnsureTxConfirmed_AtThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_EnsureTxConfirmed_WhenSafe(t *testing.T) {
+func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	config, configCleanup := cltest.NewConfig()
+	defer configCleanup()
+
+	sentAt := uint64(1)
+	confirmedAt := uint64(2)
+	config.TxMinConfirmations = 2
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
 	txm := store.TxManager
 
-	sentAt := uint64(23456)
 	from := store.KeyStore.GetAccount().Address
 
-	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewHash(),
-		BlockNumber: cltest.BigHexInt(sentAt),
-	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations))
+	tests := []struct {
+		name          string
+		currentHeight uint64
+		want          bool
+	}{
+		{"less than min confs", 3, false},
+		{"equal min confs", 4, true},
+		{"1 greater than min confs", 5, true},
+		{"2 greater than min confs", 6, true},
+	}
 
-	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
-	a := tx.TxAttempt
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ethMock := app.MockEthClient()
+			confirmationReceipt := strpkg.TxReceipt{
+				Hash:        cltest.NewHash(),
+				BlockNumber: cltest.BigHexInt(confirmedAt),
+			}
+			ethMock.Register("eth_getTransactionReceipt", confirmationReceipt)
+			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.currentHeight))
 
-	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
-	assert.Nil(t, err)
-	assert.True(t, confirmed)
-	assert.Nil(t, store.One("ID", tx.ID, tx))
-	attempts, err := store.AttemptsFor(tx.ID)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(attempts))
+			tx := cltest.CreateTxAndAttempt(store, from, sentAt)
+			a := tx.TxAttempt
 
-	ethMock.EventuallyAllCalled(t)
-}
+			actual, err := txm.MeetsMinConfirmations(a.Hash)
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, actual)
 
-func TestTxManager_EnsureTxConfirmed_WhenWithConfsButNotSafe(t *testing.T) {
-	t.Parallel()
+			attempts, err := store.AttemptsFor(tx.ID)
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(attempts))
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-	store := app.Store
-	config := store.Config
-	txm := store.TxManager
-
-	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address
-
-	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewHash(),
-		BlockNumber: cltest.BigHexInt(sentAt),
-	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations-1))
-
-	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
-	a := tx.TxAttempt
-
-	confirmed, err := txm.EnsureTxConfirmed(a.Hash)
-	assert.Nil(t, err)
-	assert.False(t, confirmed)
-	assert.Nil(t, store.One("ID", tx.ID, tx))
-	attempts, err := store.AttemptsFor(tx.ID)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(attempts))
-
-	ethMock.EventuallyAllCalled(t)
+			ethMock.EventuallyAllCalled(t)
+		})
+	}
 }
