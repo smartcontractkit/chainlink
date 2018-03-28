@@ -286,3 +286,10 @@ func (bs BackoffSleeper) Sleep() {
 func (bs BackoffSleeper) Duration() time.Duration {
 	return bs.ForAttempt(bs.Attempt())
 }
+
+func MaxUint64(x, y uint64) uint64 {
+	if x > y {
+		return x
+	}
+	return y
+}
