@@ -93,3 +93,15 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 	}
 	return nil
 }
+
+// ValidationError is an error that occurs during validation.
+type ValidationError struct {
+	msg string
+}
+
+func (e *ValidationError) Error() string { return e.msg }
+
+// NewValidationError returns a validation error.
+func NewValidationError(msg string) error {
+	return &ValidationError{msg}
+}
