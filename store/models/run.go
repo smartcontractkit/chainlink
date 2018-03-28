@@ -65,12 +65,12 @@ func (jr JobRun) NextTaskRun() TaskRun {
 // Runnable checks that the number of confirmations have passed since the
 // job's creation height to determine if the JobRun can be started. Returns
 // true for non-EthereumListener (runlog & ethlog) initiators.
-func (jr JobRun) Runnable(bn *IndexableBlockNumber, minConfs uint64) bool {
-	if jr.CreationHeight == nil || bn == nil {
+func (jr JobRun) Runnable(currentHeight *IndexableBlockNumber, minConfs uint64) bool {
+	if jr.CreationHeight == nil || currentHeight == nil {
 		return true
 	}
 
-	diff := new(big.Int).Sub(bn.ToInt(), jr.CreationHeight.ToInt())
+	diff := new(big.Int).Sub(currentHeight.ToInt(), jr.CreationHeight.ToInt())
 	min := new(big.Int).SetUint64(minConfs)
 	return diff.Cmp(min) >= 0
 }
