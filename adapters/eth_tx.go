@@ -62,7 +62,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	confirmed, err := store.TxManager.EnsureTxConfirmed(hash)
+	confirmed, err := store.TxManager.MeetsMinConfirmations(hash)
 
 	if err != nil {
 		return input.WithError(err)

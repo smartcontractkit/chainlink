@@ -54,9 +54,9 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 	return tx, nil
 }
 
-// EnsureTxConfirmed returns true if the given transaction hash has been
+// MeetsMinConfirmations returns true if the given transaction hash has been
 // confirmed on the blockchain.
-func (txm *TxManager) EnsureTxConfirmed(hash common.Hash) (bool, error) {
+func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return false, err
