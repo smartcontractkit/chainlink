@@ -36,11 +36,11 @@ type Client struct {
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	if c.Bool("debug") {
-		cli.Config.LogLevel = strpkg.LogLevel{Level: zapcore.DebugLevel}
-	}
+	config := updateConfig(cli.Config, c.Bool("debug"))
+	logger.SetLogger(config.CreateDiskLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
-	app := cli.AppFactory.NewApplication(cli.Config)
+
+	app := cli.AppFactory.NewApplication(config)
 	store := app.GetStore()
 	cli.Auth.Authenticate(store, c.String("password"))
 	if err := app.Start(); err != nil {
@@ -49,6 +49,13 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	defer app.Stop()
 	logNodeBalance(store)
 	return cli.errorOut(cli.Runner.Run(app))
+}
+
+func updateConfig(config strpkg.Config, debug bool) strpkg.Config {
+	if debug {
+		config.LogLevel = strpkg.LogLevel{Level: zapcore.DebugLevel}
+	}
+	return config
 }
 
 func logNodeBalance(store *strpkg.Store) {

@@ -11,6 +11,8 @@ import (
 	"github.com/caarlos0/env"
 	"github.com/gin-gonic/gin"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/smartcontractkit/chainlink/logger"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -54,6 +56,12 @@ func NewConfig() Config {
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
 	return path.Join(c.RootDir, "keys")
+}
+
+// CreateDiskLogger returns a logger for the config's root directory
+// and LogLevel.
+func (c Config) CreateDiskLogger() *zap.Logger {
+	return logger.CreateDiskLogger(c.RootDir, c.LogLevel.Level)
 }
 
 func parseEnv(cfg interface{}) error {
