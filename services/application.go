@@ -3,6 +3,7 @@ package services
 import (
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -28,6 +29,7 @@ type ChainlinkApplication struct {
 	Store            *store.Store
 	Exiter           func(int)
 	attachmentID     string
+	bridgeTypeMutex  sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
@@ -91,4 +93,24 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 	app.Scheduler.AddJob(job)
 	return app.EthereumListener.AddJob(job, app.HeadTracker.LastRecord())
+}
+
+// AddAdapter adds an adapter to the store. If another
+// adapter with the same name already exists the adapter
+// will not be added.
+func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
+	store := app.GetStore()
+
+	app.bridgeTypeMutex.Lock()
+	defer app.bridgeTypeMutex.Unlock()
+
+	if err := ValidateAdapter(bt, store); err != nil {
+		return NewValidationError(err.Error())
+	}
+
+	if err := store.Save(bt); err != nil {
+		return models.NewDatabaseAccessError(err.Error())
+	}
+
+	return nil
 }

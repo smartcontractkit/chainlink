@@ -229,3 +229,15 @@ func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
 	err := orm.One("Name", strings.ToLower(name), &tt)
 	return tt, err
 }
+
+// DatabaseAccessError is an error that occurs during database access.
+type DatabaseAccessError struct {
+	msg string
+}
+
+func (e *DatabaseAccessError) Error() string { return e.msg }
+
+// NewDatabaseAccessError returns a database access error.
+func NewDatabaseAccessError(msg string) error {
+	return &DatabaseAccessError{msg}
+}
