@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // BeginRun creates a new run if the job is valid and starts the job.
@@ -128,7 +129,8 @@ func startTask(
 	bn *models.IndexableBlockNumber,
 	store *store.Store,
 ) models.TaskRun {
-	if !jr.Runnable(bn, requiredConfs(store.Config, tr)) {
+	minConfs := utils.MaxUint64(store.Config.TaskMinConfirmations, tr.Task.Confirmations)
+	if !jr.Runnable(bn, minConfs) {
 		return tr.MarkPendingConfirmations()
 	}
 
@@ -142,14 +144,6 @@ func startTask(
 	}
 
 	return tr.ApplyResult(adapter.Perform(input, store))
-}
-
-func requiredConfs(c store.Config, tr models.TaskRun) uint64 {
-	min := c.TaskMinConfirmations
-	if tr.Task.Confirmations > min {
-		min = tr.Task.Confirmations
-	}
-	return min
 }
 
 func wrapError(run models.JobRun, err error) error {
