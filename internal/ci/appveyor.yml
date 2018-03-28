@@ -1,0 +1,35 @@
+build: false
+
+clone_folder: c:\gopath\src\github.com\smartcontractkit\chainlink
+
+deploy: false
+
+environment:
+  CC: gcc.exe
+  CGO_ENABLED: 1
+  GOPATH: c:\gopath
+  GOVERSION: 1.10
+  MSYS2_ARCH: x86_64
+  MSYS2_BITS: 64
+  MSYSTEM: MINGW64
+  PATH: C:\msys64\mingw64\bin\;C:\Program Files (x86)\NSIS\;%PATH%
+
+init:
+  - git config --global core.autocrlf input
+
+install:
+  # Install the specific Go version.
+  - rmdir c:\go /s /q
+  - appveyor DownloadFile https://storage.googleapis.com/golang/go%GOVERSION%.windows-amd64.msi
+  - msiexec /i go%GOVERSION%.windows-amd64.msi /q
+  - set Path=c:\go\bin;c:\gopath\bin;C:\msys64\mingw64\bin\;%Path%
+  # Check tools exist.
+  - gcc --version
+  - go version
+  - go env
+  - go get -u -v github.com/golang/dep/cmd/dep
+  # Install Go dependencies.
+  - dep ensure
+
+test_script:
+  - go test -v ./...
