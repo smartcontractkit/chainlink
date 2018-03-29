@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mitchellh/go-homedir"
@@ -178,6 +180,60 @@ func (cli *Client) BackupDatabase(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	return cli.errorOut(saveBodyAsFile(resp, c.Args().First()))
+}
+
+// ImportKey imports a key to be used with the chainlink node
+func (cli *Client) ImportKey(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in filepath to key"))
+	}
+
+	src := c.Args().First()
+	kdir := cfg.KeysDir()
+
+	if e, err := isDirEmpty(kdir); !e && err != nil {
+		return cli.errorOut(err)
+	}
+
+	if i := strings.LastIndex(src, "/"); i < 0 {
+		kdir += "/" + src
+	} else {
+		kdir += src[strings.LastIndex(src, "/"):]
+	}
+	return cli.errorOut(copyFile(src, kdir))
+}
+
+func isDirEmpty(dir string) (bool, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	if _, err = f.Readdirnames(1); err == io.EOF {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("Account already present in keystore: %s", dir)
+}
+
+func copyFile(src, dst string) error {
+	from, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer from.Close()
+
+	to, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer to.Close()
+
+	_, err = io.Copy(to, from)
+
+	return err
 }
 
 func saveBodyAsFile(resp *http.Response, dst string) error {
