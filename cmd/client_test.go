@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"os"
 	"path"
 	"testing"
 
@@ -184,6 +185,22 @@ func TestClient_BackupDatabase(t *testing.T) {
 	reloaded, err := app.Store.FindJob(job.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, reloaded, restoredJob)
+}
+
+func TestClient_ImportKey(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+
+	os.MkdirAll(app.Store.Config.KeysDir(), os.FileMode(0700))
+
+	set := flag.NewFlagSet("import", 0)
+	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.ImportKey(c))
+	assert.NotNil(t, client.ImportKey(c))
 }
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {
