@@ -11,7 +11,7 @@ contract DynamicConsumer is Chainlinked {
   }
 
   function requestEthereumPrice(string _currency) public {
-    Chainlink.Run memory run = newRun("someJobId", this, "fulfill(uint256,bytes32)");
+    ChainlinkLib.Run memory run = newRun("someJobId", this, "fulfill(uint256,bytes32)");
     run.add("url", "https://etherprice.com/api");
     string[] memory path = new string[](2);
     path[0] = "recent";
