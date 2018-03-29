@@ -5,6 +5,8 @@
   "license": "MIT",
   "dependencies": {
     "bignumber.js": "^5.0.0",
+    "ethereumjs-abi": "^0.6.5",
+    "ethereumjs-util": "^5.1.5",
     "ganache-cli": "^6.0.3",
     "linkToken": "github:smartcontractkit/linktoken",
     "moment": "^2.20.1",
