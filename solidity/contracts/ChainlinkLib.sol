@@ -2,7 +2,7 @@ pragma solidity ^0.4.18;
 
 import "solidity-stringutils/strings.sol";
 
-library Chainlink {
+library ChainlinkLib {
   using strings for *;
 
   struct Run {
