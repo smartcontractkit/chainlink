@@ -1,5 +1,7 @@
 BigNumber = require('bignumber.js');
 moment = require('moment');
+abi = require('ethereumjs-abi');
+util = require('ethereumjs-util');
 
 (() => {
   eth = web3.eth;
