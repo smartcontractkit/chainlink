@@ -75,6 +75,12 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:   "Backup the database of the running node",
 			Action:  client.BackupDatabase,
 		},
+		{
+			Name:    "import",
+			Aliases: []string{"i"},
+			Usage:   "Import a key file to use with the node",
+			Action:  client.ImportKey,
+		},
 	}
 	app.Run(args)
 }
