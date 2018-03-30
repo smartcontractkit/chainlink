@@ -150,7 +150,8 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	config, _ := cltest.NewConfig()
+	config, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
 	config.TaskMinConfirmations = 6
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
@@ -179,9 +180,9 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	minConfigHeight := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minConfigHeight)}
+	<-time.After(time.Second)
 	cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
 
-	assert.True(t, cltest.FindJobRun(app.Store, jr.ID).Status.PendingConfirmations())
 	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
