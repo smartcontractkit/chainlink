@@ -1,7 +1,8 @@
 pragma solidity ^0.4.18;
 
 contract Args {
-  string constant stringType = "string,";
+  bytes constant stringType = "string,";
+  bytes constant bytes32Type = "bytes32,";
 
   bytes types;
   bytes names;
@@ -16,8 +17,12 @@ contract Args {
     bytes values
   );
 
+  function fireEvent() public {
+    Data(types, lengths, names, values);
+  }
+
   function add(string _key, string _value) public {
-    types = concat(types, bytes(stringType));
+    types = concat(types, stringType);
     bytes memory value = bytes(_value);
     lengths.push(uint16(value.length));
     names = concat(names, bytes(_key));
@@ -25,8 +30,23 @@ contract Args {
     values = concat(values, value);
   }
 
-  function fireEvent() public {
-    Data(types, lengths, names, values);
+  function addBytes32(string _key, bytes32 _value) public {
+    types = concat(types, bytes32Type);
+    lengths.push(32);
+    names = concat(names, concat(bytes(_key), ","));
+    values = concat(values, bytes32ToBytes(_value));
+  }
+
+  function bytes32ToBytes(bytes32 _b)
+    internal
+    returns (bytes memory) 
+  {
+    bytes memory c = new bytes(32);
+    uint charCount = 0;
+    for (uint i = 0; i < 32; i++) {
+        c[i] = byte(bytes32(uint(_b) * 2 ** (8 * i)));
+    }
+    return c;
   }
 
   // https://ethereum.stackexchange.com/a/40456/24978
