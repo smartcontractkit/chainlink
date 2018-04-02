@@ -54,8 +54,7 @@ contract('Args', () => {
 
       assert.equal(type.toString(), "bytes32,");
       assert.equal(name.toString(), "word,");
-      assert.equal(valueLength, 32);
-      assert.equal(value.toString(), unpaddedBytes32("bytes32 4 LIFE"));
+      assert.equal(value.toString(), rPadWord("bytes32 4 LIFE"));
     });
   });
 
@@ -69,9 +68,9 @@ contract('Args', () => {
 
       assert.equal(type.toString(), "bytes32,");
       assert.equal(name.toString(), "word,");
-      assert.equal(valueLength, 3);
-      let expected = unpaddedBytes32("seinfeld") + unpaddedBytes32('"4"') + unpaddedBytes32("LIFE");
-      assert.equal(value.toString(), expected);
+      let wantLen = lPadWord("\x03");
+      let wantVals = rPadWord("seinfeld") + rPadWord('"4"') + rPadWord("LIFE");
+      assert.equal(value.toString(), wantLen + wantVals);
     });
   });
 });

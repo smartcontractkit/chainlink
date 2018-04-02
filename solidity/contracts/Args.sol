@@ -41,7 +41,7 @@ contract Args {
     types = concat(types, bytes32Type);
     lengths.push(32);
     names = concat(names, concat(bytes(_key), ","));
-    values = concat(values, bytes32ToBytes(_value));
+    values = concat(values, toBytes(_value));
   }
 
   function addBytes32Array(string _key, bytes32[] memory _values)
@@ -50,12 +50,13 @@ contract Args {
     types = concat(types, bytes32Type);
     lengths.push(uint16(_values.length));
     names = concat(names, concat(bytes(_key), ","));
+    values = concat(values, toBytes(_values.length));
     for (uint256 i = 0; i < _values.length; i++) {
-      values = concat(values, bytes32ToBytes(_values[i]));
+      values = concat(values, toBytes(_values[i]));
     }
   }
 
-  function bytes32ToBytes(bytes32 _b)
+  function toBytes(bytes32 _b)
     internal
     pure
     returns (bytes memory) 
@@ -66,6 +67,16 @@ contract Args {
         c[i] = byte(bytes32(uint(_b) * 2 ** (8 * i)));
     }
     return c;
+  }
+
+  function toBytes(uint256 _val)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    bytes memory val = new bytes(32);
+    assembly { mstore(add(val, 32), _val) }
+    return val;
   }
 
   // https://ethereum.stackexchange.com/a/40456/24978
