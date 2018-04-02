@@ -47,12 +47,12 @@ contract('Oracle', () => {
 
   describe("#requestData", () => {
     it("returns the id", async () => {
-      let requestId = await oc.requestData.call(jobId, to, fHash, "");
+      let requestId = await oc.requestData.call(1, jobId, to, fHash, "");
       assert.equal(1, requestId);
     });
 
     it("logs an event", async () => {
-      let tx = await oc.requestData(jobId, to, fHash, "");
+      let tx = await oc.requestData(1, jobId, to, fHash, "");
       assert.equal(1, tx.receipt.logs.length)
 
       let log = tx.receipt.logs[0];
@@ -61,18 +61,18 @@ contract('Oracle', () => {
 
     it("uses the expected event signature", async () => {
       // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
-      let tx = await oc.requestData(jobId, to, fHash, "");
+      let tx = await oc.requestData(1, jobId, to, fHash, "");
       assert.equal(1, tx.receipt.logs.length)
 
       let log = tx.receipt.logs[0];
-      let eventSignature = "0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2";
+      let eventSignature = "0xebd6778bf8984d5fefe04e8bc66094fd323427fc0a9ade188c67b9ffad15d5e1";
       assert.equal(eventSignature, log.topics[0]);
     });
 
     it("increments the request ID", async () => {
-      let tx1 = await oc.requestData(jobId, to, fHash, "");
+      let tx1 = await oc.requestData(1, jobId, to, fHash, "");
       let requestId1 = web3.toDecimal(tx1.receipt.logs[0].topics[1]);
-      let tx2 = await oc.requestData(jobId, to, fHash, "");
+      let tx2 = await oc.requestData(1, jobId, to, fHash, "");
       let requestId2 = web3.toDecimal(tx2.receipt.logs[0].topics[1]);
 
       assert.notEqual(requestId1, requestId2);
@@ -85,7 +85,7 @@ contract('Oracle', () => {
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fHash = functionSelector("requestedBytes32(uint256,bytes32)");
-      let req = await oc.requestData(jobId, mock.address, fHash, "");
+      let req = await oc.requestData(1, jobId, mock.address, fHash, "");
       requestId = web3.toDecimal(req.receipt.logs[0].topics[1]);
     });
 

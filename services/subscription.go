@@ -29,7 +29,7 @@ const (
 // RunLogTopic is the signature for the Request(uint256,bytes32,string) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-var RunLogTopic = common.HexToHash("0x06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2")
+var RunLogTopic = common.HexToHash("0xebd6778bf8984d5fefe04e8bc66094fd323427fc0a9ade188c67b9ffad15d5e1")
 
 // JobSubscription listens to event logs being pushed from the Ethereum Node to a job.
 type JobSubscription struct {
@@ -276,7 +276,7 @@ func (le RPCLogEvent) ValidateRunLog() bool {
 		logger.Warnw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
 	} else if jid != le.Job.ID {
-		logger.Warnw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
+		logger.Debugw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
 	return true
@@ -316,9 +316,10 @@ func (le RPCLogEvent) EthLogJSON() (models.JSON, error) {
 }
 
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
+	versionSize := 32
 	varLocationSize := 32
 	varLengthSize := 32
-	hex := []byte(string([]byte(data)[varLocationSize+varLengthSize:]))
+	hex := []byte(string([]byte(data)[versionSize+varLocationSize+varLengthSize:]))
 	return models.ParseJSON(bytes.TrimRight(hex, "\x00"))
 }
 
