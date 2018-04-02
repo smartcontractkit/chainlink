@@ -13,7 +13,7 @@ contract SimpleConsumer is Chainlinked {
   function requestEthereumPrice() public {
     var functionId = bytes4(keccak256("fulfill(uint256,bytes32)"));
     var data = '{"url":"https://etherprice.com/api","path":["recent","usd"]}';
-    requestId = oracle.requestData("someJobId", this, functionId, data);
+    requestId = oracle.requestData(clArgsVersion, "someJobId", this, functionId, data);
   }
 
   function fulfill(uint256 _requestId, bytes32 _data)
