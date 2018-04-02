@@ -11,7 +11,7 @@ contract('Args', () => {
   });
 
   it("has a limited public interface", () => {
-    checkPublicABI(Args, [ "add", "fireEvent", "addBytes32" ]);
+    checkPublicABI(Args, [ "add", "addBytes32", "addBytes32Array", "fireEvent", ]);
   });
 
   describe("#add", () => {
@@ -55,7 +55,23 @@ contract('Args', () => {
       assert.equal(type.toString(), "bytes32,");
       assert.equal(name.toString(), "word,");
       assert.equal(valueLength, 32);
-      assert.equal(value.toString(), "bytes32 4 LIFE\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+      assert.equal(value.toString(), unpaddedBytes32("bytes32 4 LIFE"));
+    });
+  });
+
+  describe("#addBytes32Array", () => {
+    it("stores and logs keys and values", async () => {
+      await args.addBytes32Array("word", ["seinfeld", '"4"', "LIFE"]);
+      let tx = await args.fireEvent();
+      let log = tx.receipt.logs[0];
+      let params = abi.rawDecode(["bytes", "uint16[]", "bytes", "bytes"], util.toBuffer(log.data));
+      let [type, valueLength, name, value] = params;
+
+      assert.equal(type.toString(), "bytes32,");
+      assert.equal(name.toString(), "word,");
+      assert.equal(valueLength, 3);
+      let expected = unpaddedBytes32("seinfeld") + unpaddedBytes32('"4"') + unpaddedBytes32("LIFE");
+      assert.equal(value.toString(), expected);
     });
   });
 });
