@@ -3,6 +3,7 @@ pragma solidity ^0.4.18;
 contract Args {
   bytes constant stringType = "string,";
   bytes constant bytes32Type = "bytes32,";
+  bytes constant bytes32ArrayType = "bytes32[],";
 
   bytes types;
   bytes names;
@@ -17,11 +18,15 @@ contract Args {
     bytes values
   );
 
-  function fireEvent() public {
+  function fireEvent()
+    public
+  {
     Data(types, lengths, names, values);
   }
 
-  function add(string _key, string _value) public {
+  function add(string _key, string _value)
+    public
+  {
     types = concat(types, stringType);
     bytes memory value = bytes(_value);
     lengths.push(uint16(value.length));
@@ -30,15 +35,29 @@ contract Args {
     values = concat(values, value);
   }
 
-  function addBytes32(string _key, bytes32 _value) public {
+  function addBytes32(string _key, bytes32 _value)
+    public
+  {
     types = concat(types, bytes32Type);
     lengths.push(32);
     names = concat(names, concat(bytes(_key), ","));
     values = concat(values, bytes32ToBytes(_value));
   }
 
+  function addBytes32Array(string _key, bytes32[] memory _values)
+    public
+  {
+    types = concat(types, bytes32Type);
+    lengths.push(uint16(_values.length));
+    names = concat(names, concat(bytes(_key), ","));
+    for (uint256 i = 0; i < _values.length; i++) {
+      values = concat(values, bytes32ToBytes(_values[i]));
+    }
+  }
+
   function bytes32ToBytes(bytes32 _b)
     internal
+    pure
     returns (bytes memory) 
   {
     bytes memory c = new bytes(32);
@@ -50,7 +69,11 @@ contract Args {
   }
 
   // https://ethereum.stackexchange.com/a/40456/24978
-  function concat(bytes memory a, bytes memory b) internal pure returns (bytes memory c) {
+  function concat(bytes memory a, bytes memory b)
+    internal
+    pure
+    returns (bytes memory c)
+  {
       // Store the length of the first array
       uint alen = a.length;
       // Store the length of BOTH arrays
