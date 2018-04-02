@@ -202,15 +202,17 @@ util = require('ethereumjs-util');
     return "0x" + web3.sha3(signature).slice(2).slice(0, 8);
   };
 
-  rPadWord = function rPadWord(string) {
-    for (let i = string.length; i < 32; i++) {
+  rPad = function rPad(string) {
+    let wordLen = parseInt((string.length + 31) / 32) * 32;
+    for (let i = string.length; i < wordLen; i++) {
       string = string + "\x00";
     }
     return string
   };
 
-  lPadWord = function lPadWord(string) {
-    for (let i = string.length; i < 32; i++) {
+  lPad = function lPad(string) {
+    let wordLen = parseInt((string.length + 31) / 32) * 32;
+    for (let i = string.length; i < wordLen; i++) {
       string = "\x00" + string;
     }
     return string
