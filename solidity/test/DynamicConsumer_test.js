@@ -54,7 +54,7 @@ contract('DynamicConsumer', () => {
 
     context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
-        await oc.requestData(jobId, cc.address, functionSelector("fulfill(uint256,bytes32)"), "");
+        await oc.requestData(1, jobId, cc.address, functionSelector("fulfill(uint256,bytes32)"), "");
         let event = await getLatestEvent(oc);
         requestId = event.args.id;
       });
