@@ -5,6 +5,8 @@ import "./ChainlinkLib.sol";
 
 
 contract Chainlinked {
+  uint256 constant clArgsVersion = 1;
+
   using ChainlinkLib for ChainlinkLib.Run;
 
   Oracle internal oracle;
@@ -23,7 +25,11 @@ contract Chainlinked {
 
   function chainlinkRequest(ChainlinkLib.Run _run) internal returns(uint256) {
     return oracle.requestData(
-      _run.jobId, _run.callbackAddress, _run.callbackFunctionId, _run.close());
+      clArgsVersion,
+      _run.jobId,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.close());
   }
 
   function setOracle(address _oracle) internal {

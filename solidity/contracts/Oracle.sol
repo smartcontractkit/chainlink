@@ -13,12 +13,14 @@ contract Oracle is Ownable {
   mapping(uint256 => Callback) private callbacks;
 
   event Request(
+    uint256 version,
     uint256 indexed id,
     bytes32 indexed jobId,
     string data
   );
 
   function requestData(
+    uint256 _version,
     bytes32 _jobId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
@@ -30,7 +32,7 @@ contract Oracle is Ownable {
     requestId += 1;
     Callback memory callback = Callback(_callbackAddress, _callbackFunctionId);
     callbacks[requestId] = callback;
-    Request(requestId, _jobId, _data);
+    Request(_version, requestId, _jobId, _data);
     return requestId;
   }
 
