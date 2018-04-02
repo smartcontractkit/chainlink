@@ -7,13 +7,10 @@ contract Args {
 
   bytes types;
   bytes names;
-  uint16[] lengths;
-  bytes values; // all implied to be [disk] storage.
+  bytes values;
 
-  // do we need to do lengths for every bytes array?
   event Data(
     bytes types,
-    uint16[] lengths,
     bytes names,
     bytes values
   );
@@ -21,7 +18,7 @@ contract Args {
   function fireEvent()
     public
   {
-    Data(types, lengths, names, values);
+    Data(types, names, values);
   }
 
   function add(string _key, string _value)
@@ -29,17 +26,16 @@ contract Args {
   {
     types = concat(types, stringType);
     bytes memory value = bytes(_value);
-    lengths.push(uint16(value.length));
     names = concat(names, bytes(_key));
     names = concat(names, ",");
-    values = concat(values, value);
+    values = concat(values, toBytes(value.length));
+    values = append(values, value);
   }
 
   function addBytes32(string _key, bytes32 _value)
     public
   {
     types = concat(types, bytes32Type);
-    lengths.push(32);
     names = concat(names, concat(bytes(_key), ","));
     values = concat(values, toBytes(_value));
   }
@@ -48,7 +44,6 @@ contract Args {
     public
   {
     types = concat(types, bytes32Type);
-    lengths.push(uint16(_values.length));
     names = concat(names, concat(bytes(_key), ","));
     values = concat(values, toBytes(_values.length));
     for (uint256 i = 0; i < _values.length; i++) {
@@ -86,13 +81,13 @@ contract Args {
     returns (bytes memory c)
   {
       // Store the length of the first array
-      uint alen = a.length;
+      uint256 alen = a.length;
       // Store the length of BOTH arrays
-      uint totallen = alen + b.length;
+      uint256 totallen = alen + b.length;
       // Count the loops required for array a (sets of 32 bytes)
-      uint loopsa = (a.length + 31) / 32;
+      uint256 loopsa = (a.length + 31) / 32;
       // Count the loops required for array b (sets of 32 bytes)
-      uint loopsb = (b.length + 31) / 32;
+      uint256 loopsb = (b.length + 31) / 32;
       assembly {
           let m := mload(0x40)
           // Load the length of both arrays to the head of the new bytes array
@@ -103,6 +98,28 @@ contract Args {
           for {  let i := 0 } lt(i, loopsb) { i := add(1, i) } { mstore(add(m, add(mul(32, add(1, i)), alen)), mload(add(b, mul(32, add(1, i))))) }
           mstore(0x40, add(m, add(32, totallen)))
           c := m
+      }
+  }
+
+  function append(bytes memory _a, bytes memory _b)
+    internal
+    pure
+    returns (bytes memory c)
+  {
+      uint256 loopsA = ((_a.length + 31) / 32) * 32;
+      uint256 loopsB = ((_b.length + 31) / 32) * 32;
+      uint256 totalLen = loopsA + loopsB;
+      assembly {
+          let mem := mload(0x40)
+          mstore(mem, totalLen)
+          for {  let i := 32 } lt(sub(i, 32), loopsA) { i := add(32, i) } {
+            mstore(add(mem, i), mload(add(_a, i)))
+          }
+          for {  let i := 32 } lt(sub(i, 32), loopsB) { i := add(32, i) } {
+            mstore(add(mem, add(i, loopsA)), mload(add(_b, i)))
+          }
+          mstore(0x40, add(mem, add(32, totalLen)))
+          c := mem
       }
   }
 }

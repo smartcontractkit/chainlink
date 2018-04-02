@@ -19,13 +19,12 @@ contract('Args', () => {
       await args.add("first", "word");
       let tx = await args.fireEvent();
       let log = tx.receipt.logs[0];
-      let params = abi.rawDecode(["bytes", "uint16[]", "bytes", "bytes"], util.toBuffer(log.data));
-      let [type, valueLength, name, value] = params;
+      let params = abi.rawDecode(["bytes", "bytes", "bytes"], util.toBuffer(log.data));
+      let [type, name, value] = params;
 
       assert.equal(type.toString(), "string,");
       assert.equal(name.toString(), "first,");
-      assert.equal(valueLength, 4);
-      assert.equal(value.toString(), "word");
+      assert.equal(value.toString(), lPad("\x04") + rPad("word"));
     });
 
     it("handles multiple entries", async () => {
@@ -34,13 +33,14 @@ contract('Args', () => {
       let tx = await args.fireEvent();
       let log = tx.receipt.logs[0];
 
-      let params = abi.rawDecode(["bytes", "uint16[]", "bytes", "bytes"], util.toBuffer(log.data));
-      let [types, valueLengths, names, values] = params;
+      let params = abi.rawDecode(["bytes", "bytes", "bytes"], util.toBuffer(log.data));
+      let [types, names, values] = params;
 
       assert.equal(types.toString(), "string,string,");
-      assert.equal(valueLengths.toString(), "3,3");
       assert.equal(names.toString(), "first,second,");
-      assert.equal(values.toString(), ["unodos"]);
+      let val1 = lPad("\x03") + rPad("uno");
+      let val2 = lPad("\x03") + rPad("dos");
+      assert.equal(values.toString(), val1 + val2);
     });
   });
 
@@ -49,12 +49,12 @@ contract('Args', () => {
       await args.addBytes32("word", "bytes32 4 LIFE");
       let tx = await args.fireEvent();
       let log = tx.receipt.logs[0];
-      let params = abi.rawDecode(["bytes", "uint16[]", "bytes", "bytes"], util.toBuffer(log.data));
-      let [type, valueLength, name, value] = params;
+      let params = abi.rawDecode(["bytes", "bytes", "bytes"], util.toBuffer(log.data));
+      let [type, name, value] = params;
 
       assert.equal(type.toString(), "bytes32,");
       assert.equal(name.toString(), "word,");
-      assert.equal(value.toString(), rPadWord("bytes32 4 LIFE"));
+      assert.equal(value.toString(), rPad("bytes32 4 LIFE"));
     });
   });
 
@@ -63,13 +63,13 @@ contract('Args', () => {
       await args.addBytes32Array("word", ["seinfeld", '"4"', "LIFE"]);
       let tx = await args.fireEvent();
       let log = tx.receipt.logs[0];
-      let params = abi.rawDecode(["bytes", "uint16[]", "bytes", "bytes"], util.toBuffer(log.data));
-      let [type, valueLength, name, value] = params;
+      let params = abi.rawDecode(["bytes", "bytes", "bytes"], util.toBuffer(log.data));
+      let [type, name, value] = params;
 
       assert.equal(type.toString(), "bytes32,");
       assert.equal(name.toString(), "word,");
-      let wantLen = lPadWord("\x03");
-      let wantVals = rPadWord("seinfeld") + rPadWord('"4"') + rPadWord("LIFE");
+      let wantLen = lPad("\x03");
+      let wantVals = rPad("seinfeld") + rPad('"4"') + rPad("LIFE");
       assert.equal(value.toString(), wantLen + wantVals);
     });
   });
