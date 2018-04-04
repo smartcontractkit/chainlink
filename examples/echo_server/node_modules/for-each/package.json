@@ -1,0 +1,56 @@
+{
+  "name": "for-each",
+  "version": "0.3.2",
+  "description": "A better forEach",
+  "keywords": [],
+  "author": "Raynos <raynos2@gmail.com>",
+  "repository": "git://github.com/Raynos/for-each.git",
+  "main": "index",
+  "homepage": "https://github.com/Raynos/for-each",
+  "contributors": [
+    {
+      "name": "Jake Verbaten"
+    },
+    {
+      "name": "Jordan Harband",
+      "url": "https://github.com/ljharb"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/Raynos/for-each/issues",
+    "email": "raynos2@gmail.com"
+  },
+  "dependencies": {
+    "is-function": "~1.0.0"
+  },
+  "devDependencies": {
+    "tape": "~1.1.0"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/Raynos/for-each/raw/master/LICENSE"
+    }
+  ],
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "testling": {
+    "files": "test/test.js",
+    "browsers": [
+      "iexplore/6.0..latest",
+      "firefox/3.0..6.0",
+      "firefox/15.0..latest",
+      "firefox/nightly",
+      "chrome/4.0..10.0",
+      "chrome/20.0..latest",
+      "chrome/canary",
+      "opera/10.0..latest",
+      "opera/next",
+      "safari/4.0..latest",
+      "ipad/6.0..latest",
+      "iphone/6.0..latest",
+      "android-browser/4.2"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+language: node_js
+node_js:
+  - "0.10"
+  - "4.8"
+  - "6.11"
+  - "8.1"
+sudo: false
+cache:
+  directories:
+    - node_modules
+before_install:
+  # Skip updating shrinkwrap / lock
+  - "npm config set shrinkwrap false"
+  # Update Node.js modules
+  - "test ! -d node_modules || npm prune"
+  - "test ! -d node_modules || npm rebuild"
+after_script:
+  # Report coverage
+  - "test -e ./coverage/lcov.info && npm install coveralls@2 && cat ./coverage/lcov.info | coveralls"

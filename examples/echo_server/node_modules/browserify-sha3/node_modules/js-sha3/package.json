@@ -1,0 +1,32 @@
+{
+  "name": "js-sha3",
+  "version": "0.3.1",
+  "description": "A simple SHA-3 / Keccak hash function for JavaScript supports UTF-8 encoding.",
+  "main": "src/sha3.js",
+  "devDependencies": {
+    "expect.js": "~0.3.1",
+    "jscoverage": "~0.5.9"
+  },
+  "scripts": {
+    "test": "mocha tests/node-test.js -r jscoverage",
+    "coveralls": "mocha tests/node-test.js -R mocha-lcov-reporter -r jscoverage | coveralls"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emn178/js-sha3.git"
+  },
+  "keywords": [
+    "sha3",
+    "keccak",
+    "hash",
+    "encryption",
+    "cryptography",
+    "HMAC"
+  ],
+  "license": "MIT",
+  "author": "emn178 <emn178@gmail.com>",
+  "homepage": "https://github.com/emn178/js-sha3",
+  "bugs": {
+    "url": "https://github.com/emn178/js-sha3/issues"
+  }
+}

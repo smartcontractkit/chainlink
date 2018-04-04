@@ -1,0 +1,14 @@
+language: node_js
+sudo: false
+node_js:
+  - "4"
+  - "5"
+  - "6"
+  - "7"
+env:
+  - ANY_PROMISE=
+  - ANY_PROMISE=es6-promise
+  - ANY_PROMISE=bluebird
+  - ANY_PROMISE=rsvp
+  - ANY_PROMISE=when
+  - ANY_PROMISE=q

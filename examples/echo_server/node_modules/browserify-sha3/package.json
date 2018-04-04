@@ -1,0 +1,30 @@
+{
+  "name": "browserify-sha3",
+  "version": "0.0.1",
+  "description": "node-sha3 compatability for browserify",
+  "main": "index.js",
+  "scripts": {
+    "test": "node ./tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wanderer/browserify-sha3.git"
+  },
+  "keywords": [
+    "sha3",
+    "browserify"
+  ],
+  "author": "mjbecze <mjbecze@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wanderer/browserify-sha3/issues"
+  },
+  "homepage": "https://github.com/wanderer/browserify-sha3#readme",
+  "devDependencies": {
+    "sha3": "^1.1.0",
+    "tape": "^4.0.1"
+  },
+  "dependencies": {
+    "js-sha3": "^0.3.1"
+  }
+}
