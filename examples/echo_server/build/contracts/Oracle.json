@@ -80,7 +80,7 @@
           "type": "address"
         },
         {
-          "name": "_callbackFunctionId",
+          "name": "_callbackFID",
           "type": "bytes4"
         },
         {
@@ -118,24 +118,24 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x6060604052336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610859806100536000396000f300606060405260043610610062576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680637549a09e1461006757806376005c261461012c5780638da5cb5b1461015c578063f2fde38b146101b1575b600080fd5b341561007257600080fd5b61011660048080356000191690602001909190803573ffffffffffffffffffffffffffffffffffffffff169060200190919080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690602001909190803590602001908201803590602001908080601f016020809104026020016040519081016040528093929190818152602001838380828437820191505050505050919050506101ea565b6040518082815260200191505060405180910390f35b341561013757600080fd5b61015a6004808035906020019091908035600019169060200190919050506103a3565b005b341561016757600080fd5b61016f610664565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156101bc57600080fd5b6101e8600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610689565b005b60006101f46107de565b6001806000828254019250508190555060408051908101604052808673ffffffffffffffffffffffffffffffffffffffff168152602001857bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191681525090508060026000600154815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555060208201518160000160146101000a81548163ffffffff02191690837c01000000000000000000000000000000000000000000000000000000009004021790555090505085600019166001547f06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2856040518080602001828103825283818151815260200191508051906020019080838360005b8381101561035b578082015181840152602081019050610340565b50505050905090810190601f1680156103885780820380516001836020036101000a031916815260200191505b509250505060405180910390a3600154915050949350505050565b6103ab6107de565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561040657600080fd5b82600073ffffffffffffffffffffffffffffffffffffffff166002600083815260200190815260200160002060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff161415151561047957600080fd5b600260008581526020019081526020016000206040805190810160405290816000820160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020016000820160149054906101000a90047c0100000000000000000000000000000000000000000000000000000000027bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250509150816000015173ffffffffffffffffffffffffffffffffffffffff1682602001517c0100000000000000000000000000000000000000000000000000000000900485856040518363ffffffff167c01000000000000000000000000000000000000000000000000000000000281526004018083815260200182600019166000191681526020019250505060006040518083038160008761646e5a03f192505050151561060a57600080fd5b60026000858152602001908152602001600020600080820160006101000a81549073ffffffffffffffffffffffffffffffffffffffff02191690556000820160146101000a81549063ffffffff0219169055505050505050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156106e457600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161415151561072057600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6040805190810160405280600073ffffffffffffffffffffffffffffffffffffffff16815260200160007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250905600a165627a7a723058204fec6c912832e25f2a0195ed69c0de877a95b75b610184a6886f2e9d21f364070029",
-  "deployedBytecode": "0x606060405260043610610062576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680637549a09e1461006757806376005c261461012c5780638da5cb5b1461015c578063f2fde38b146101b1575b600080fd5b341561007257600080fd5b61011660048080356000191690602001909190803573ffffffffffffffffffffffffffffffffffffffff169060200190919080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690602001909190803590602001908201803590602001908080601f016020809104026020016040519081016040528093929190818152602001838380828437820191505050505050919050506101ea565b6040518082815260200191505060405180910390f35b341561013757600080fd5b61015a6004808035906020019091908035600019169060200190919050506103a3565b005b341561016757600080fd5b61016f610664565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156101bc57600080fd5b6101e8600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610689565b005b60006101f46107de565b6001806000828254019250508190555060408051908101604052808673ffffffffffffffffffffffffffffffffffffffff168152602001857bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191681525090508060026000600154815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555060208201518160000160146101000a81548163ffffffff02191690837c01000000000000000000000000000000000000000000000000000000009004021790555090505085600019166001547f06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2856040518080602001828103825283818151815260200191508051906020019080838360005b8381101561035b578082015181840152602081019050610340565b50505050905090810190601f1680156103885780820380516001836020036101000a031916815260200191505b509250505060405180910390a3600154915050949350505050565b6103ab6107de565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561040657600080fd5b82600073ffffffffffffffffffffffffffffffffffffffff166002600083815260200190815260200160002060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff161415151561047957600080fd5b600260008581526020019081526020016000206040805190810160405290816000820160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020016000820160149054906101000a90047c0100000000000000000000000000000000000000000000000000000000027bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250509150816000015173ffffffffffffffffffffffffffffffffffffffff1682602001517c0100000000000000000000000000000000000000000000000000000000900485856040518363ffffffff167c01000000000000000000000000000000000000000000000000000000000281526004018083815260200182600019166000191681526020019250505060006040518083038160008761646e5a03f192505050151561060a57600080fd5b60026000858152602001908152602001600020600080820160006101000a81549073ffffffffffffffffffffffffffffffffffffffff02191690556000820160146101000a81549063ffffffff0219169055505050505050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156106e457600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161415151561072057600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6040805190810160405280600073ffffffffffffffffffffffffffffffffffffffff16815260200160007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250905600a165627a7a723058204fec6c912832e25f2a0195ed69c0de877a95b75b610184a6886f2e9d21f364070029",
-  "sourceMap": "87:1028:2:-;;;509:10:7;501:5;;:18;;;;;;;;;;;;;;;;;;87:1028:2;;;;;;",
-  "deployedSourceMap": "87:1028:2:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;355:363;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;722:278;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;238:20:7;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;832:169;;;;;;;;;;;;;;;;;;;;;;;;;;;;355:363:2;504:7;541:24;;:::i;:::-;534:1;521:9;;:14;;;;;;;;;;;568:47;;;;;;;;;577:16;568:47;;;;;;595:19;568:47;;;;;;541:74;;644:8;621:9;:20;631:9;;621:20;;;;;;;;;;;:31;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;677:6;658:33;;;666:9;;658:33;685:5;658:33;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;23:1:-1;8:100;33:3;30:1;27:2;8:100;;;99:1;94:3;90;84:5;80:1;75:3;71;64:6;52:2;49:1;45:3;40:15;;8:100;;;12:14;3:109;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;704:9:2;;697:16;;355:363;;;;;;;:::o;722:278::-;840:24;;:::i;:::-;653:5:7;;;;;;;;;;;639:19;;:10;:19;;;631:28;;;;;;;;820:10:2;1098:1;1060:40;;:9;:21;1070:10;1060:21;;;;;;;;;;;:26;;;;;;;;;;;;:40;;;;1052:49;;;;;;;;867:9;:21;877:10;867:21;;;;;;;;;;;840:48;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;902:8;:13;;;:18;;921:8;:19;;;902:58;;;942:10;954:5;902:58;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;894:67;;;;;;;;974:9;:21;984:10;974:21;;;;;;;;;;;;967:28;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;665:1:7;722:278:2;;;:::o;238:20:7:-;;;;;;;;;;;;;:::o;832:169::-;653:5;;;;;;;;;;;639:19;;:10;:19;;;631:28;;;;;;;;928:1;908:22;;:8;:22;;;;900:31;;;;;;;;965:8;937:37;;958:5;;;;;;;;;;;937:37;;;;;;;;;;;;988:8;980:5;;:16;;;;;;;;;;;;;;;;;;832:169;:::o;87:1028:2:-;;;;;;;;;;;;;;;;;;;;;;;;;:::o",
-  "source": "pragma solidity ^0.4.18;\n\nimport \"zeppelin-solidity/contracts/ownership/Ownable.sol\";\n\ncontract Oracle is Ownable {\n\n  struct Callback {\n    address addr;\n    bytes4 functionId;\n  }\n\n  uint256 private requestId;\n  mapping(uint256 => Callback) private callbacks;\n\n  event Request(\n    uint256 indexed id,\n    bytes32 indexed jobId,\n    string data\n  );\n\n  function requestData(\n    bytes32 _jobId,\n    address _callbackAddress,\n    bytes4 _callbackFunctionId,\n    string _data\n  )\n    public\n    returns (uint256)\n  {\n    requestId += 1;\n    Callback memory callback = Callback(_callbackAddress, _callbackFunctionId);\n    callbacks[requestId] = callback;\n    Request(requestId, _jobId, _data);\n    return requestId;\n  }\n\n  function fulfillData(uint256 _requestId, bytes32 _data)\n    public\n    onlyOwner\n    hasRequestId(_requestId)\n  {\n    Callback memory callback = callbacks[_requestId];\n    require(callback.addr.call(callback.functionId, _requestId, _data));\n    delete callbacks[_requestId];\n  }\n\n  modifier hasRequestId(uint256 _requestId) {\n    require(callbacks[_requestId].addr != address(0));\n    _;\n  }\n}\n",
-  "sourcePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Oracle.sol",
+  "bytecode": "0x6060604052336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610855806100536000396000f300606060405260043610610062576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680637549a09e1461006757806376005c261461012c5780638da5cb5b1461015c578063f2fde38b146101b1575b600080fd5b341561007257600080fd5b61011660048080356000191690602001909190803573ffffffffffffffffffffffffffffffffffffffff169060200190919080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690602001909190803590602001908201803590602001908080601f016020809104026020016040519081016040528093929190818152602001838380828437820191505050505050919050506101ea565b6040518082815260200191505060405180910390f35b341561013757600080fd5b61015a6004808035906020019091908035600019169060200190919050506103a3565b005b341561016757600080fd5b61016f610660565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156101bc57600080fd5b6101e8600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610685565b005b60006101f46107da565b6001806000828254019250508190555060408051908101604052808673ffffffffffffffffffffffffffffffffffffffff168152602001857bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191681525090508060026000600154815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555060208201518160000160146101000a81548163ffffffff02191690837c01000000000000000000000000000000000000000000000000000000009004021790555090505085600019166001547f06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2856040518080602001828103825283818151815260200191508051906020019080838360005b8381101561035b578082015181840152602081019050610340565b50505050905090810190601f1680156103885780820380516001836020036101000a031916815260200191505b509250505060405180910390a3600154915050949350505050565b6103ab6107da565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561040657600080fd5b82600073ffffffffffffffffffffffffffffffffffffffff166002600083815260200190815260200160002060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff161415151561047957600080fd5b600260008581526020019081526020016000206040805190810160405290816000820160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020016000820160149054906101000a90047c0100000000000000000000000000000000000000000000000000000000027bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250509150816000015173ffffffffffffffffffffffffffffffffffffffff1682602001517c0100000000000000000000000000000000000000000000000000000000900485856040518363ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401808381526020018260001916600019168152602001925050506000604051808303816000875af192505050151561060657600080fd5b60026000858152602001908152602001600020600080820160006101000a81549073ffffffffffffffffffffffffffffffffffffffff02191690556000820160146101000a81549063ffffffff0219169055505050505050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156106e057600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161415151561071c57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6040805190810160405280600073ffffffffffffffffffffffffffffffffffffffff16815260200160007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250905600a165627a7a7230582057915cdb2e03dffa4f19c9c38d1fdc523645ae946a438a058a0055a4426fde960029",
+  "deployedBytecode": "0x606060405260043610610062576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680637549a09e1461006757806376005c261461012c5780638da5cb5b1461015c578063f2fde38b146101b1575b600080fd5b341561007257600080fd5b61011660048080356000191690602001909190803573ffffffffffffffffffffffffffffffffffffffff169060200190919080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690602001909190803590602001908201803590602001908080601f016020809104026020016040519081016040528093929190818152602001838380828437820191505050505050919050506101ea565b6040518082815260200191505060405180910390f35b341561013757600080fd5b61015a6004808035906020019091908035600019169060200190919050506103a3565b005b341561016757600080fd5b61016f610660565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156101bc57600080fd5b6101e8600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610685565b005b60006101f46107da565b6001806000828254019250508190555060408051908101604052808673ffffffffffffffffffffffffffffffffffffffff168152602001857bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191681525090508060026000600154815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555060208201518160000160146101000a81548163ffffffff02191690837c01000000000000000000000000000000000000000000000000000000009004021790555090505085600019166001547f06f4bf36b4e011a5c499cef1113c2d166800ce4013f6c2509cab1a0e92b83fb2856040518080602001828103825283818151815260200191508051906020019080838360005b8381101561035b578082015181840152602081019050610340565b50505050905090810190601f1680156103885780820380516001836020036101000a031916815260200191505b509250505060405180910390a3600154915050949350505050565b6103ab6107da565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561040657600080fd5b82600073ffffffffffffffffffffffffffffffffffffffff166002600083815260200190815260200160002060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff161415151561047957600080fd5b600260008581526020019081526020016000206040805190810160405290816000820160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020016000820160149054906101000a90047c0100000000000000000000000000000000000000000000000000000000027bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250509150816000015173ffffffffffffffffffffffffffffffffffffffff1682602001517c0100000000000000000000000000000000000000000000000000000000900485856040518363ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401808381526020018260001916600019168152602001925050506000604051808303816000875af192505050151561060657600080fd5b60026000858152602001908152602001600020600080820160006101000a81549073ffffffffffffffffffffffffffffffffffffffff02191690556000820160146101000a81549063ffffffff0219169055505050505050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156106e057600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161415151561071c57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6040805190810160405280600073ffffffffffffffffffffffffffffffffffffffff16815260200160007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815250905600a165627a7a7230582057915cdb2e03dffa4f19c9c38d1fdc523645ae946a438a058a0055a4426fde960029",
+  "sourceMap": "87:970:5:-;;;509:10:8;501:5;;:18;;;;;;;;;;;;;;;;;;87:970:5;;;;;;",
+  "deployedSourceMap": "87:970:5:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;348:337;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;689:253;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;238:20:8;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;832:169;;;;;;;;;;;;;;;;;;;;;;;;;;;;348:337:5;490:7;527:18;;:::i;:::-;520:1;507:9;;:14;;;;;;;;;;;548:40;;;;;;;;;557:16;548:40;;;;;;575:12;548:40;;;;;;527:61;;617:2;594:9;:20;604:9;;594:20;;;;;;;;;;;:25;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;644:6;625:33;;;633:9;;625:33;652:5;625:33;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;23:1:-1;8:100;33:3;30:1;27:10;8:100;;;99:1;94:3;90:11;84:18;80:1;75:3;71:11;64:39;52:2;49:1;45:10;40:15;;8:100;;;12:14;625:33:5;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;671:9;;664:16;;348:337;;;;;;;:::o;689:253::-;807:18;;:::i;:::-;653:5:8;;;;;;;;;;;639:19;;:10;:19;;;631:28;;;;;;;;787:10:5;1040:1;1002:40;;:9;:21;1012:10;1002:21;;;;;;;;;;;:26;;;;;;;;;;;;:40;;;;994:49;;;;;;;;828:9;:21;838:10;828:21;;;;;;;;;;;807:42;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;863:2;:7;;;:12;;876:2;:6;;;863:39;;;884:10;896:5;863:39;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;855:48;;;;;;;;916:9;:21;926:10;916:21;;;;;;;;;;;;909:28;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;665:1:8;689:253:5;;;:::o;238:20:8:-;;;;;;;;;;;;;:::o;832:169::-;653:5;;;;;;;;;;;639:19;;:10;:19;;;631:28;;;;;;;;928:1;908:22;;:8;:22;;;;900:31;;;;;;;;965:8;937:37;;958:5;;;;;;;;;;;937:37;;;;;;;;;;;;988:8;980:5;;:16;;;;;;;;;;;;;;;;;;832:169;:::o;87:970:5:-;;;;;;;;;;;;;;;;;;;;;;;;;:::o",
+  "source": "pragma solidity ^0.4.18;\n\nimport \"zeppelin-solidity/contracts/ownership/Ownable.sol\";\n\ncontract Oracle is Ownable {\n\n  struct Callback {\n    address addr;\n    bytes4 fid;\n  }\n\n  uint256 private requestId;\n  mapping(uint256 => Callback) private callbacks;\n\n  event Request(\n    uint256 indexed id,\n    bytes32 indexed jobId,\n    string data\n  );\n\n  function requestData(\n    bytes32 _jobId,\n    address _callbackAddress,\n    bytes4 _callbackFID,\n    string _data\n  )\n    public\n    returns (uint256)\n  {\n    requestId += 1;\n    Callback memory cb = Callback(_callbackAddress, _callbackFID);\n    callbacks[requestId] = cb;\n    Request(requestId, _jobId, _data);\n    return requestId;\n  }\n\n  function fulfillData(uint256 _requestId, bytes32 _data)\n    public\n    onlyOwner\n    hasRequestId(_requestId)\n  {\n    Callback memory cb = callbacks[_requestId];\n    require(cb.addr.call(cb.fid, _requestId, _data));\n    delete callbacks[_requestId];\n  }\n\n  modifier hasRequestId(uint256 _requestId) {\n    require(callbacks[_requestId].addr != address(0));\n    _;\n  }\n}\n",
+  "sourcePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Oracle.sol",
   "ast": {
-    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Oracle.sol",
+    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Oracle.sol",
     "exportedSymbols": {
       "Oracle": [
-        413
+        552
       ]
     },
-    "id": 414,
+    "id": 553,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 299,
+        "id": 438,
         "literals": [
           "solidity",
           "^",
@@ -143,16 +143,16 @@
           ".18"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:2"
+        "src": "0:24:5"
       },
       {
         "absolutePath": "zeppelin-solidity/contracts/ownership/Ownable.sol",
         "file": "zeppelin-solidity/contracts/ownership/Ownable.sol",
-        "id": 300,
+        "id": 439,
         "nodeType": "ImportDirective",
-        "scope": 414,
-        "sourceUnit": 2184,
-        "src": "26:59:2",
+        "scope": 553,
+        "sourceUnit": 2385,
+        "src": "26:59:5",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -162,46 +162,46 @@
             "arguments": [],
             "baseName": {
               "contractScope": null,
-              "id": 301,
+              "id": 440,
               "name": "Ownable",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 2183,
-              "src": "106:7:2",
+              "referencedDeclaration": 2384,
+              "src": "106:7:5",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Ownable_$2183",
+                "typeIdentifier": "t_contract$_Ownable_$2384",
                 "typeString": "contract Ownable"
               }
             },
-            "id": 302,
+            "id": 441,
             "nodeType": "InheritanceSpecifier",
-            "src": "106:7:2"
+            "src": "106:7:5"
           }
         ],
         "contractDependencies": [
-          2183
+          2384
         ],
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 413,
+        "id": 552,
         "linearizedBaseContracts": [
-          413,
-          2183
+          552,
+          2384
         ],
         "name": "Oracle",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "canonicalName": "Oracle.Callback",
-            "id": 307,
+            "id": 446,
             "members": [
               {
                 "constant": false,
-                "id": 304,
+                "id": 443,
                 "name": "addr",
                 "nodeType": "VariableDeclaration",
-                "scope": 307,
-                "src": "141:12:2",
+                "scope": 446,
+                "src": "141:12:5",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -209,10 +209,10 @@
                   "typeString": "address"
                 },
                 "typeName": {
-                  "id": 303,
+                  "id": 442,
                   "name": "address",
                   "nodeType": "ElementaryTypeName",
-                  "src": "141:7:2",
+                  "src": "141:7:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_address",
                     "typeString": "address"
@@ -223,11 +223,11 @@
               },
               {
                 "constant": false,
-                "id": 306,
-                "name": "functionId",
+                "id": 445,
+                "name": "fid",
                 "nodeType": "VariableDeclaration",
-                "scope": 307,
-                "src": "159:17:2",
+                "scope": 446,
+                "src": "159:10:5",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -235,10 +235,10 @@
                   "typeString": "bytes4"
                 },
                 "typeName": {
-                  "id": 305,
+                  "id": 444,
                   "name": "bytes4",
                   "nodeType": "ElementaryTypeName",
-                  "src": "159:6:2",
+                  "src": "159:6:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_bytes4",
                     "typeString": "bytes4"
@@ -250,17 +250,17 @@
             ],
             "name": "Callback",
             "nodeType": "StructDefinition",
-            "scope": 413,
-            "src": "119:62:2",
+            "scope": 552,
+            "src": "119:55:5",
             "visibility": "public"
           },
           {
             "constant": false,
-            "id": 309,
+            "id": 448,
             "name": "requestId",
             "nodeType": "VariableDeclaration",
-            "scope": 413,
-            "src": "185:25:2",
+            "scope": 552,
+            "src": "178:25:5",
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -268,10 +268,10 @@
               "typeString": "uint256"
             },
             "typeName": {
-              "id": 308,
+              "id": 447,
               "name": "uint256",
               "nodeType": "ElementaryTypeName",
-              "src": "185:7:2",
+              "src": "178:7:5",
               "typeDescriptions": {
                 "typeIdentifier": "t_uint256",
                 "typeString": "uint256"
@@ -282,44 +282,44 @@
           },
           {
             "constant": false,
-            "id": 313,
+            "id": 452,
             "name": "callbacks",
             "nodeType": "VariableDeclaration",
-            "scope": 413,
-            "src": "214:46:2",
+            "scope": 552,
+            "src": "207:46:5",
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
-              "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+              "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
               "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
             },
             "typeName": {
-              "id": 312,
+              "id": 451,
               "keyType": {
-                "id": 310,
+                "id": 449,
                 "name": "uint256",
                 "nodeType": "ElementaryTypeName",
-                "src": "222:7:2",
+                "src": "215:7:5",
                 "typeDescriptions": {
                   "typeIdentifier": "t_uint256",
                   "typeString": "uint256"
                 }
               },
               "nodeType": "Mapping",
-              "src": "214:28:2",
+              "src": "207:28:5",
               "typeDescriptions": {
-                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                 "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
               },
               "valueType": {
                 "contractScope": null,
-                "id": 311,
+                "id": 450,
                 "name": "Callback",
                 "nodeType": "UserDefinedTypeName",
-                "referencedDeclaration": 307,
-                "src": "233:8:2",
+                "referencedDeclaration": 446,
+                "src": "226:8:5",
                 "typeDescriptions": {
-                  "typeIdentifier": "t_struct$_Callback_$307_storage_ptr",
+                  "typeIdentifier": "t_struct$_Callback_$446_storage_ptr",
                   "typeString": "struct Oracle.Callback storage pointer"
                 }
               }
@@ -329,21 +329,22 @@
           },
           {
             "anonymous": false,
-            "id": 321,
+            "documentation": null,
+            "id": 460,
             "name": "Request",
             "nodeType": "EventDefinition",
             "parameters": {
-              "id": 320,
+              "id": 459,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 315,
+                  "id": 454,
                   "indexed": true,
                   "name": "id",
                   "nodeType": "VariableDeclaration",
-                  "scope": 321,
-                  "src": "284:18:2",
+                  "scope": 460,
+                  "src": "277:18:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -351,10 +352,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 314,
+                    "id": 453,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "284:7:2",
+                    "src": "277:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -365,12 +366,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 317,
+                  "id": 456,
                   "indexed": true,
                   "name": "jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 321,
-                  "src": "308:21:2",
+                  "scope": 460,
+                  "src": "301:21:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -378,10 +379,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 316,
+                    "id": 455,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "308:7:2",
+                    "src": "301:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -392,12 +393,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 319,
+                  "id": 458,
                   "indexed": false,
                   "name": "data",
                   "nodeType": "VariableDeclaration",
-                  "scope": 321,
-                  "src": "335:11:2",
+                  "scope": 460,
+                  "src": "328:11:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -405,10 +406,10 @@
                     "typeString": "string memory"
                   },
                   "typeName": {
-                    "id": 318,
+                    "id": 457,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "335:6:2",
+                    "src": "328:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string storage pointer"
@@ -418,32 +419,32 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "278:72:2"
+              "src": "271:72:5"
             },
-            "src": "265:86:2"
+            "src": "258:86:5"
           },
           {
             "body": {
-              "id": 359,
+              "id": 498,
               "nodeType": "Block",
-              "src": "515:203:2",
+              "src": "501:184:5",
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 336,
+                    "id": 475,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftHandSide": {
                       "argumentTypes": null,
-                      "id": 334,
+                      "id": 473,
                       "name": "requestId",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 309,
-                      "src": "521:9:2",
+                      "referencedDeclaration": 448,
+                      "src": "507:9:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -454,14 +455,14 @@
                     "rightHandSide": {
                       "argumentTypes": null,
                       "hexValue": "31",
-                      "id": 335,
+                      "id": 474,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": true,
                       "kind": "number",
                       "lValueRequested": false,
                       "nodeType": "Literal",
-                      "src": "534:1:2",
+                      "src": "520:1:5",
                       "subdenomination": null,
                       "typeDescriptions": {
                         "typeIdentifier": "t_rational_1_by_1",
@@ -469,43 +470,43 @@
                       },
                       "value": "1"
                     },
-                    "src": "521:14:2",
+                    "src": "507:14:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
-                  "id": 337,
+                  "id": 476,
                   "nodeType": "ExpressionStatement",
-                  "src": "521:14:2"
+                  "src": "507:14:5"
                 },
                 {
                   "assignments": [
-                    339
+                    478
                   ],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 339,
-                      "name": "callback",
+                      "id": 478,
+                      "name": "cb",
                       "nodeType": "VariableDeclaration",
-                      "scope": 360,
-                      "src": "541:24:2",
+                      "scope": 499,
+                      "src": "527:18:5",
                       "stateVariable": false,
                       "storageLocation": "memory",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                        "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                         "typeString": "struct Oracle.Callback memory"
                       },
                       "typeName": {
                         "contractScope": null,
-                        "id": 338,
+                        "id": 477,
                         "name": "Callback",
                         "nodeType": "UserDefinedTypeName",
-                        "referencedDeclaration": 307,
-                        "src": "541:8:2",
+                        "referencedDeclaration": 446,
+                        "src": "527:8:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Callback_$307_storage_ptr",
+                          "typeIdentifier": "t_struct$_Callback_$446_storage_ptr",
                           "typeString": "struct Oracle.Callback storage pointer"
                         }
                       },
@@ -513,18 +514,18 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 344,
+                  "id": 483,
                   "initialValue": {
                     "argumentTypes": null,
                     "arguments": [
                       {
                         "argumentTypes": null,
-                        "id": 341,
+                        "id": 480,
                         "name": "_callbackAddress",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 325,
-                        "src": "577:16:2",
+                        "referencedDeclaration": 464,
+                        "src": "557:16:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
@@ -532,12 +533,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 342,
-                        "name": "_callbackFunctionId",
+                        "id": 481,
+                        "name": "_callbackFID",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 327,
-                        "src": "595:19:2",
+                        "referencedDeclaration": 466,
+                        "src": "575:12:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes4",
                           "typeString": "bytes4"
@@ -555,18 +556,18 @@
                           "typeString": "bytes4"
                         }
                       ],
-                      "id": 340,
+                      "id": 479,
                       "name": "Callback",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 307,
-                      "src": "568:8:2",
+                      "referencedDeclaration": 446,
+                      "src": "548:8:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_type$_t_struct$_Callback_$307_storage_ptr_$",
+                        "typeIdentifier": "t_type$_t_struct$_Callback_$446_storage_ptr_$",
                         "typeString": "type(struct Oracle.Callback storage pointer)"
                       }
                     },
-                    "id": 343,
+                    "id": 482,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -574,19 +575,19 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "568:47:2",
+                    "src": "548:40:5",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Callback_$307_memory",
+                      "typeIdentifier": "t_struct$_Callback_$446_memory",
                       "typeString": "struct Oracle.Callback memory"
                     }
                   },
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "541:74:2"
+                  "src": "527:61:5"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 349,
+                    "id": 488,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -595,26 +596,26 @@
                       "argumentTypes": null,
                       "baseExpression": {
                         "argumentTypes": null,
-                        "id": 345,
+                        "id": 484,
                         "name": "callbacks",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 313,
-                        "src": "621:9:2",
+                        "referencedDeclaration": 452,
+                        "src": "594:9:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                           "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                         }
                       },
-                      "id": 347,
+                      "id": 486,
                       "indexExpression": {
                         "argumentTypes": null,
-                        "id": 346,
+                        "id": 485,
                         "name": "requestId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 309,
-                        "src": "631:9:2",
+                        "referencedDeclaration": 448,
+                        "src": "604:9:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -625,9 +626,9 @@
                       "isPure": false,
                       "lValueRequested": true,
                       "nodeType": "IndexAccess",
-                      "src": "621:20:2",
+                      "src": "594:20:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_storage",
+                        "typeIdentifier": "t_struct$_Callback_$446_storage",
                         "typeString": "struct Oracle.Callback storage ref"
                       }
                     },
@@ -635,26 +636,26 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 348,
-                      "name": "callback",
+                      "id": 487,
+                      "name": "cb",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 339,
-                      "src": "644:8:2",
+                      "referencedDeclaration": 478,
+                      "src": "617:2:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                        "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                         "typeString": "struct Oracle.Callback memory"
                       }
                     },
-                    "src": "621:31:2",
+                    "src": "594:25:5",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Callback_$307_storage",
+                      "typeIdentifier": "t_struct$_Callback_$446_storage",
                       "typeString": "struct Oracle.Callback storage ref"
                     }
                   },
-                  "id": 350,
+                  "id": 489,
                   "nodeType": "ExpressionStatement",
-                  "src": "621:31:2"
+                  "src": "594:25:5"
                 },
                 {
                   "expression": {
@@ -662,12 +663,12 @@
                     "arguments": [
                       {
                         "argumentTypes": null,
-                        "id": 352,
+                        "id": 491,
                         "name": "requestId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 309,
-                        "src": "666:9:2",
+                        "referencedDeclaration": 448,
+                        "src": "633:9:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -675,12 +676,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 353,
+                        "id": 492,
                         "name": "_jobId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 323,
-                        "src": "677:6:2",
+                        "referencedDeclaration": 462,
+                        "src": "644:6:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes32",
                           "typeString": "bytes32"
@@ -688,12 +689,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 354,
+                        "id": 493,
                         "name": "_data",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 329,
-                        "src": "685:5:2",
+                        "referencedDeclaration": 468,
+                        "src": "652:5:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_string_memory_ptr",
                           "typeString": "string memory"
@@ -715,18 +716,18 @@
                           "typeString": "string memory"
                         }
                       ],
-                      "id": 351,
+                      "id": 490,
                       "name": "Request",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 321,
-                      "src": "658:7:2",
+                      "referencedDeclaration": 460,
+                      "src": "625:7:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_event_nonpayable$_t_uint256_$_t_bytes32_$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (uint256,bytes32,string memory)"
                       }
                     },
-                    "id": 355,
+                    "id": 494,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -734,38 +735,39 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "658:33:2",
+                    "src": "625:33:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 356,
+                  "id": 495,
                   "nodeType": "ExpressionStatement",
-                  "src": "658:33:2"
+                  "src": "625:33:5"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 357,
+                    "id": 496,
                     "name": "requestId",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 309,
-                    "src": "704:9:2",
+                    "referencedDeclaration": 448,
+                    "src": "671:9:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
-                  "functionReturnParameters": 333,
-                  "id": 358,
+                  "functionReturnParameters": 472,
+                  "id": 497,
                   "nodeType": "Return",
-                  "src": "697:16:2"
+                  "src": "664:16:5"
                 }
               ]
             },
-            "id": 360,
+            "documentation": null,
+            "id": 499,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -773,16 +775,16 @@
             "name": "requestData",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 330,
+              "id": 469,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 323,
+                  "id": 462,
                   "name": "_jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "381:14:2",
+                  "scope": 499,
+                  "src": "374:14:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -790,10 +792,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 322,
+                    "id": 461,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "381:7:2",
+                    "src": "374:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -804,11 +806,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 325,
+                  "id": 464,
                   "name": "_callbackAddress",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "401:24:2",
+                  "scope": 499,
+                  "src": "394:24:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -816,10 +818,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 324,
+                    "id": 463,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "401:7:2",
+                    "src": "394:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -830,11 +832,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 327,
-                  "name": "_callbackFunctionId",
+                  "id": 466,
+                  "name": "_callbackFID",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "431:26:2",
+                  "scope": 499,
+                  "src": "424:19:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -842,10 +844,10 @@
                     "typeString": "bytes4"
                   },
                   "typeName": {
-                    "id": 326,
+                    "id": 465,
                     "name": "bytes4",
                     "nodeType": "ElementaryTypeName",
-                    "src": "431:6:2",
+                    "src": "424:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes4",
                       "typeString": "bytes4"
@@ -856,11 +858,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 329,
+                  "id": 468,
                   "name": "_data",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "463:12:2",
+                  "scope": 499,
+                  "src": "449:12:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -868,10 +870,10 @@
                     "typeString": "string memory"
                   },
                   "typeName": {
-                    "id": 328,
+                    "id": 467,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "463:6:2",
+                    "src": "449:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string storage pointer"
@@ -881,20 +883,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "375:104:2"
+              "src": "368:97:5"
             },
             "payable": false,
             "returnParameters": {
-              "id": 333,
+              "id": 472,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 332,
+                  "id": 471,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "504:7:2",
+                  "scope": 499,
+                  "src": "490:7:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -902,10 +904,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 331,
+                    "id": 470,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "504:7:2",
+                    "src": "490:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -915,47 +917,47 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "503:9:2"
+              "src": "489:9:5"
             },
-            "scope": 413,
-            "src": "355:363:2",
+            "scope": 552,
+            "src": "348:337:5",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "public"
           },
           {
             "body": {
-              "id": 394,
+              "id": 533,
               "nodeType": "Block",
-              "src": "834:166:2",
+              "src": "801:141:5",
               "statements": [
                 {
                   "assignments": [
-                    373
+                    512
                   ],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 373,
-                      "name": "callback",
+                      "id": 512,
+                      "name": "cb",
                       "nodeType": "VariableDeclaration",
-                      "scope": 395,
-                      "src": "840:24:2",
+                      "scope": 534,
+                      "src": "807:18:5",
                       "stateVariable": false,
                       "storageLocation": "memory",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                        "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                         "typeString": "struct Oracle.Callback memory"
                       },
                       "typeName": {
                         "contractScope": null,
-                        "id": 372,
+                        "id": 511,
                         "name": "Callback",
                         "nodeType": "UserDefinedTypeName",
-                        "referencedDeclaration": 307,
-                        "src": "840:8:2",
+                        "referencedDeclaration": 446,
+                        "src": "807:8:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Callback_$307_storage_ptr",
+                          "typeIdentifier": "t_struct$_Callback_$446_storage_ptr",
                           "typeString": "struct Oracle.Callback storage pointer"
                         }
                       },
@@ -963,31 +965,31 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 377,
+                  "id": 516,
                   "initialValue": {
                     "argumentTypes": null,
                     "baseExpression": {
                       "argumentTypes": null,
-                      "id": 374,
+                      "id": 513,
                       "name": "callbacks",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 313,
-                      "src": "867:9:2",
+                      "referencedDeclaration": 452,
+                      "src": "828:9:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                        "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                         "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                       }
                     },
-                    "id": 376,
+                    "id": 515,
                     "indexExpression": {
                       "argumentTypes": null,
-                      "id": 375,
+                      "id": 514,
                       "name": "_requestId",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 362,
-                      "src": "877:10:2",
+                      "referencedDeclaration": 501,
+                      "src": "838:10:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -998,14 +1000,14 @@
                     "isPure": false,
                     "lValueRequested": false,
                     "nodeType": "IndexAccess",
-                    "src": "867:21:2",
+                    "src": "828:21:5",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Callback_$307_storage",
+                      "typeIdentifier": "t_struct$_Callback_$446_storage",
                       "typeString": "struct Oracle.Callback storage ref"
                     }
                   },
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "840:48:2"
+                  "src": "807:42:5"
                 },
                 {
                   "expression": {
@@ -1018,26 +1020,26 @@
                             "argumentTypes": null,
                             "expression": {
                               "argumentTypes": null,
-                              "id": 382,
-                              "name": "callback",
+                              "id": 521,
+                              "name": "cb",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 373,
-                              "src": "921:8:2",
+                              "referencedDeclaration": 512,
+                              "src": "876:2:5",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                                "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                                 "typeString": "struct Oracle.Callback memory"
                               }
                             },
-                            "id": 383,
+                            "id": 522,
                             "isConstant": false,
                             "isLValue": true,
                             "isPure": false,
                             "lValueRequested": false,
-                            "memberName": "functionId",
+                            "memberName": "fid",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 306,
-                            "src": "921:19:2",
+                            "referencedDeclaration": 445,
+                            "src": "876:6:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_bytes4",
                               "typeString": "bytes4"
@@ -1045,12 +1047,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 384,
+                            "id": 523,
                             "name": "_requestId",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 362,
-                            "src": "942:10:2",
+                            "referencedDeclaration": 501,
+                            "src": "884:10:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -1058,12 +1060,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 385,
+                            "id": 524,
                             "name": "_data",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 364,
-                            "src": "954:5:2",
+                            "referencedDeclaration": 503,
+                            "src": "896:5:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_bytes32",
                               "typeString": "bytes32"
@@ -1089,32 +1091,32 @@
                             "argumentTypes": null,
                             "expression": {
                               "argumentTypes": null,
-                              "id": 379,
-                              "name": "callback",
+                              "id": 518,
+                              "name": "cb",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 373,
-                              "src": "902:8:2",
+                              "referencedDeclaration": 512,
+                              "src": "863:2:5",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                                "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                                 "typeString": "struct Oracle.Callback memory"
                               }
                             },
-                            "id": 380,
+                            "id": 519,
                             "isConstant": false,
                             "isLValue": true,
                             "isPure": false,
                             "lValueRequested": false,
                             "memberName": "addr",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 304,
-                            "src": "902:13:2",
+                            "referencedDeclaration": 443,
+                            "src": "863:7:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
                             }
                           },
-                          "id": 381,
+                          "id": 520,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1122,13 +1124,13 @@
                           "memberName": "call",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "902:18:2",
+                          "src": "863:12:5",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_barecall_payable$__$returns$_t_bool_$",
                             "typeString": "function () payable returns (bool)"
                           }
                         },
-                        "id": 386,
+                        "id": 525,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1136,7 +1138,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "902:58:2",
+                        "src": "863:39:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -1150,18 +1152,18 @@
                           "typeString": "bool"
                         }
                       ],
-                      "id": 378,
+                      "id": 517,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 2198,
-                      "src": "894:7:2",
+                      "referencedDeclaration": 2400,
+                      "src": "855:7:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$returns$__$",
                         "typeString": "function (bool) pure"
                       }
                     },
-                    "id": 387,
+                    "id": 526,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1169,20 +1171,20 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "894:67:2",
+                    "src": "855:48:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 388,
+                  "id": 527,
                   "nodeType": "ExpressionStatement",
-                  "src": "894:67:2"
+                  "src": "855:48:5"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 392,
+                    "id": 531,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1190,31 +1192,31 @@
                     "nodeType": "UnaryOperation",
                     "operator": "delete",
                     "prefix": true,
-                    "src": "967:28:2",
+                    "src": "909:28:5",
                     "subExpression": {
                       "argumentTypes": null,
                       "baseExpression": {
                         "argumentTypes": null,
-                        "id": 389,
+                        "id": 528,
                         "name": "callbacks",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 313,
-                        "src": "974:9:2",
+                        "referencedDeclaration": 452,
+                        "src": "916:9:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                           "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                         }
                       },
-                      "id": 391,
+                      "id": 530,
                       "indexExpression": {
                         "argumentTypes": null,
-                        "id": 390,
+                        "id": 529,
                         "name": "_requestId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 362,
-                        "src": "984:10:2",
+                        "referencedDeclaration": 501,
+                        "src": "926:10:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -1225,9 +1227,9 @@
                       "isPure": false,
                       "lValueRequested": true,
                       "nodeType": "IndexAccess",
-                      "src": "974:21:2",
+                      "src": "916:21:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_storage",
+                        "typeIdentifier": "t_struct$_Callback_$446_storage",
                         "typeString": "struct Oracle.Callback storage ref"
                       }
                     },
@@ -1236,83 +1238,84 @@
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 393,
+                  "id": 532,
                   "nodeType": "ExpressionStatement",
-                  "src": "967:28:2"
+                  "src": "909:28:5"
                 }
               ]
             },
-            "id": 395,
+            "documentation": null,
+            "id": 534,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
             "modifiers": [
               {
                 "arguments": [],
-                "id": 367,
+                "id": 506,
                 "modifierName": {
                   "argumentTypes": null,
-                  "id": 366,
+                  "id": 505,
                   "name": "onlyOwner",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
-                  "referencedDeclaration": 2157,
-                  "src": "793:9:2",
+                  "referencedDeclaration": 2358,
+                  "src": "760:9:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_modifier$__$",
                     "typeString": "modifier ()"
                   }
                 },
                 "nodeType": "ModifierInvocation",
-                "src": "793:9:2"
+                "src": "760:9:5"
               },
               {
                 "arguments": [
                   {
                     "argumentTypes": null,
-                    "id": 369,
+                    "id": 508,
                     "name": "_requestId",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 362,
-                    "src": "820:10:2",
+                    "referencedDeclaration": 501,
+                    "src": "787:10:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   }
                 ],
-                "id": 370,
+                "id": 509,
                 "modifierName": {
                   "argumentTypes": null,
-                  "id": 368,
+                  "id": 507,
                   "name": "hasRequestId",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
-                  "referencedDeclaration": 412,
-                  "src": "807:12:2",
+                  "referencedDeclaration": 551,
+                  "src": "774:12:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_modifier$_t_uint256_$",
                     "typeString": "modifier (uint256)"
                   }
                 },
                 "nodeType": "ModifierInvocation",
-                "src": "807:24:2"
+                "src": "774:24:5"
               }
             ],
             "name": "fulfillData",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 365,
+              "id": 504,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 362,
+                  "id": 501,
                   "name": "_requestId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 395,
-                  "src": "743:18:2",
+                  "scope": 534,
+                  "src": "710:18:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1320,10 +1323,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 361,
+                    "id": 500,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "743:7:2",
+                    "src": "710:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1334,11 +1337,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 364,
+                  "id": 503,
                   "name": "_data",
                   "nodeType": "VariableDeclaration",
-                  "scope": 395,
-                  "src": "763:13:2",
+                  "scope": 534,
+                  "src": "730:13:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1346,10 +1349,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 363,
+                    "id": 502,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "763:7:2",
+                    "src": "730:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -1359,26 +1362,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "742:35:2"
+              "src": "709:35:5"
             },
             "payable": false,
             "returnParameters": {
-              "id": 371,
+              "id": 510,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "834:0:2"
+              "src": "801:0:5"
             },
-            "scope": 413,
-            "src": "722:278:2",
+            "scope": 552,
+            "src": "689:253:5",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "public"
           },
           {
             "body": {
-              "id": 411,
+              "id": 550,
               "nodeType": "Block",
-              "src": "1046:67:2",
+              "src": "988:67:5",
               "statements": [
                 {
                   "expression": {
@@ -1390,7 +1393,7 @@
                           "typeIdentifier": "t_address",
                           "typeString": "address"
                         },
-                        "id": 407,
+                        "id": 546,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1401,26 +1404,26 @@
                             "argumentTypes": null,
                             "baseExpression": {
                               "argumentTypes": null,
-                              "id": 400,
+                              "id": 539,
                               "name": "callbacks",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 313,
-                              "src": "1060:9:2",
+                              "referencedDeclaration": 452,
+                              "src": "1002:9:5",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                                 "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                               }
                             },
-                            "id": 402,
+                            "id": 541,
                             "indexExpression": {
                               "argumentTypes": null,
-                              "id": 401,
+                              "id": 540,
                               "name": "_requestId",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 397,
-                              "src": "1070:10:2",
+                              "referencedDeclaration": 536,
+                              "src": "1012:10:5",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_uint256",
                                 "typeString": "uint256"
@@ -1431,21 +1434,21 @@
                             "isPure": false,
                             "lValueRequested": false,
                             "nodeType": "IndexAccess",
-                            "src": "1060:21:2",
+                            "src": "1002:21:5",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_struct$_Callback_$307_storage",
+                              "typeIdentifier": "t_struct$_Callback_$446_storage",
                               "typeString": "struct Oracle.Callback storage ref"
                             }
                           },
-                          "id": 403,
+                          "id": 542,
                           "isConstant": false,
                           "isLValue": true,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "addr",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 304,
-                          "src": "1060:26:2",
+                          "referencedDeclaration": 443,
+                          "src": "1002:26:5",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -1459,14 +1462,14 @@
                             {
                               "argumentTypes": null,
                               "hexValue": "30",
-                              "id": 405,
+                              "id": 544,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": true,
                               "kind": "number",
                               "lValueRequested": false,
                               "nodeType": "Literal",
-                              "src": "1098:1:2",
+                              "src": "1040:1:5",
                               "subdenomination": null,
                               "typeDescriptions": {
                                 "typeIdentifier": "t_rational_0_by_1",
@@ -1482,20 +1485,20 @@
                                 "typeString": "int_const 0"
                               }
                             ],
-                            "id": 404,
+                            "id": 543,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": true,
                             "lValueRequested": false,
                             "nodeType": "ElementaryTypeNameExpression",
-                            "src": "1090:7:2",
+                            "src": "1032:7:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_type$_t_address_$",
                               "typeString": "type(address)"
                             },
                             "typeName": "address"
                           },
-                          "id": 406,
+                          "id": 545,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -1503,13 +1506,13 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "1090:10:2",
+                          "src": "1032:10:5",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
                           }
                         },
-                        "src": "1060:40:2",
+                        "src": "1002:40:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -1523,18 +1526,18 @@
                           "typeString": "bool"
                         }
                       ],
-                      "id": 399,
+                      "id": 538,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 2198,
-                      "src": "1052:7:2",
+                      "referencedDeclaration": 2400,
+                      "src": "994:7:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$returns$__$",
                         "typeString": "function (bool) pure"
                       }
                     },
-                    "id": 408,
+                    "id": 547,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1542,37 +1545,38 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1052:49:2",
+                    "src": "994:49:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 409,
+                  "id": 548,
                   "nodeType": "ExpressionStatement",
-                  "src": "1052:49:2"
+                  "src": "994:49:5"
                 },
                 {
-                  "id": 410,
+                  "id": 549,
                   "nodeType": "PlaceholderStatement",
-                  "src": "1107:1:2"
+                  "src": "1049:1:5"
                 }
               ]
             },
-            "id": 412,
+            "documentation": null,
+            "id": 551,
             "name": "hasRequestId",
             "nodeType": "ModifierDefinition",
             "parameters": {
-              "id": 398,
+              "id": 537,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 397,
+                  "id": 536,
                   "name": "_requestId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 412,
-                  "src": "1026:18:2",
+                  "scope": 551,
+                  "src": "968:18:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1580,10 +1584,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 396,
+                    "id": 535,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1026:7:2",
+                    "src": "968:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1593,30 +1597,30 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1025:20:2"
+              "src": "967:20:5"
             },
-            "src": "1004:109:2",
+            "src": "946:109:5",
             "visibility": "internal"
           }
         ],
-        "scope": 414,
-        "src": "87:1028:2"
+        "scope": 553,
+        "src": "87:970:5"
       }
     ],
-    "src": "0:1116:2"
+    "src": "0:1058:5"
   },
   "legacyAST": {
-    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Oracle.sol",
+    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Oracle.sol",
     "exportedSymbols": {
       "Oracle": [
-        413
+        552
       ]
     },
-    "id": 414,
+    "id": 553,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 299,
+        "id": 438,
         "literals": [
           "solidity",
           "^",
@@ -1624,16 +1628,16 @@
           ".18"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:2"
+        "src": "0:24:5"
       },
       {
         "absolutePath": "zeppelin-solidity/contracts/ownership/Ownable.sol",
         "file": "zeppelin-solidity/contracts/ownership/Ownable.sol",
-        "id": 300,
+        "id": 439,
         "nodeType": "ImportDirective",
-        "scope": 414,
-        "sourceUnit": 2184,
-        "src": "26:59:2",
+        "scope": 553,
+        "sourceUnit": 2385,
+        "src": "26:59:5",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1643,46 +1647,46 @@
             "arguments": [],
             "baseName": {
               "contractScope": null,
-              "id": 301,
+              "id": 440,
               "name": "Ownable",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 2183,
-              "src": "106:7:2",
+              "referencedDeclaration": 2384,
+              "src": "106:7:5",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Ownable_$2183",
+                "typeIdentifier": "t_contract$_Ownable_$2384",
                 "typeString": "contract Ownable"
               }
             },
-            "id": 302,
+            "id": 441,
             "nodeType": "InheritanceSpecifier",
-            "src": "106:7:2"
+            "src": "106:7:5"
           }
         ],
         "contractDependencies": [
-          2183
+          2384
         ],
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 413,
+        "id": 552,
         "linearizedBaseContracts": [
-          413,
-          2183
+          552,
+          2384
         ],
         "name": "Oracle",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "canonicalName": "Oracle.Callback",
-            "id": 307,
+            "id": 446,
             "members": [
               {
                 "constant": false,
-                "id": 304,
+                "id": 443,
                 "name": "addr",
                 "nodeType": "VariableDeclaration",
-                "scope": 307,
-                "src": "141:12:2",
+                "scope": 446,
+                "src": "141:12:5",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -1690,10 +1694,10 @@
                   "typeString": "address"
                 },
                 "typeName": {
-                  "id": 303,
+                  "id": 442,
                   "name": "address",
                   "nodeType": "ElementaryTypeName",
-                  "src": "141:7:2",
+                  "src": "141:7:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_address",
                     "typeString": "address"
@@ -1704,11 +1708,11 @@
               },
               {
                 "constant": false,
-                "id": 306,
-                "name": "functionId",
+                "id": 445,
+                "name": "fid",
                 "nodeType": "VariableDeclaration",
-                "scope": 307,
-                "src": "159:17:2",
+                "scope": 446,
+                "src": "159:10:5",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -1716,10 +1720,10 @@
                   "typeString": "bytes4"
                 },
                 "typeName": {
-                  "id": 305,
+                  "id": 444,
                   "name": "bytes4",
                   "nodeType": "ElementaryTypeName",
-                  "src": "159:6:2",
+                  "src": "159:6:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_bytes4",
                     "typeString": "bytes4"
@@ -1731,17 +1735,17 @@
             ],
             "name": "Callback",
             "nodeType": "StructDefinition",
-            "scope": 413,
-            "src": "119:62:2",
+            "scope": 552,
+            "src": "119:55:5",
             "visibility": "public"
           },
           {
             "constant": false,
-            "id": 309,
+            "id": 448,
             "name": "requestId",
             "nodeType": "VariableDeclaration",
-            "scope": 413,
-            "src": "185:25:2",
+            "scope": 552,
+            "src": "178:25:5",
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -1749,10 +1753,10 @@
               "typeString": "uint256"
             },
             "typeName": {
-              "id": 308,
+              "id": 447,
               "name": "uint256",
               "nodeType": "ElementaryTypeName",
-              "src": "185:7:2",
+              "src": "178:7:5",
               "typeDescriptions": {
                 "typeIdentifier": "t_uint256",
                 "typeString": "uint256"
@@ -1763,44 +1767,44 @@
           },
           {
             "constant": false,
-            "id": 313,
+            "id": 452,
             "name": "callbacks",
             "nodeType": "VariableDeclaration",
-            "scope": 413,
-            "src": "214:46:2",
+            "scope": 552,
+            "src": "207:46:5",
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
-              "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+              "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
               "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
             },
             "typeName": {
-              "id": 312,
+              "id": 451,
               "keyType": {
-                "id": 310,
+                "id": 449,
                 "name": "uint256",
                 "nodeType": "ElementaryTypeName",
-                "src": "222:7:2",
+                "src": "215:7:5",
                 "typeDescriptions": {
                   "typeIdentifier": "t_uint256",
                   "typeString": "uint256"
                 }
               },
               "nodeType": "Mapping",
-              "src": "214:28:2",
+              "src": "207:28:5",
               "typeDescriptions": {
-                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                 "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
               },
               "valueType": {
                 "contractScope": null,
-                "id": 311,
+                "id": 450,
                 "name": "Callback",
                 "nodeType": "UserDefinedTypeName",
-                "referencedDeclaration": 307,
-                "src": "233:8:2",
+                "referencedDeclaration": 446,
+                "src": "226:8:5",
                 "typeDescriptions": {
-                  "typeIdentifier": "t_struct$_Callback_$307_storage_ptr",
+                  "typeIdentifier": "t_struct$_Callback_$446_storage_ptr",
                   "typeString": "struct Oracle.Callback storage pointer"
                 }
               }
@@ -1810,21 +1814,22 @@
           },
           {
             "anonymous": false,
-            "id": 321,
+            "documentation": null,
+            "id": 460,
             "name": "Request",
             "nodeType": "EventDefinition",
             "parameters": {
-              "id": 320,
+              "id": 459,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 315,
+                  "id": 454,
                   "indexed": true,
                   "name": "id",
                   "nodeType": "VariableDeclaration",
-                  "scope": 321,
-                  "src": "284:18:2",
+                  "scope": 460,
+                  "src": "277:18:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1832,10 +1837,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 314,
+                    "id": 453,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "284:7:2",
+                    "src": "277:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1846,12 +1851,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 317,
+                  "id": 456,
                   "indexed": true,
                   "name": "jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 321,
-                  "src": "308:21:2",
+                  "scope": 460,
+                  "src": "301:21:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1859,10 +1864,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 316,
+                    "id": 455,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "308:7:2",
+                    "src": "301:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -1873,12 +1878,12 @@
                 },
                 {
                   "constant": false,
-                  "id": 319,
+                  "id": 458,
                   "indexed": false,
                   "name": "data",
                   "nodeType": "VariableDeclaration",
-                  "scope": 321,
-                  "src": "335:11:2",
+                  "scope": 460,
+                  "src": "328:11:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1886,10 +1891,10 @@
                     "typeString": "string memory"
                   },
                   "typeName": {
-                    "id": 318,
+                    "id": 457,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "335:6:2",
+                    "src": "328:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string storage pointer"
@@ -1899,32 +1904,32 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "278:72:2"
+              "src": "271:72:5"
             },
-            "src": "265:86:2"
+            "src": "258:86:5"
           },
           {
             "body": {
-              "id": 359,
+              "id": 498,
               "nodeType": "Block",
-              "src": "515:203:2",
+              "src": "501:184:5",
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 336,
+                    "id": 475,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftHandSide": {
                       "argumentTypes": null,
-                      "id": 334,
+                      "id": 473,
                       "name": "requestId",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 309,
-                      "src": "521:9:2",
+                      "referencedDeclaration": 448,
+                      "src": "507:9:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -1935,14 +1940,14 @@
                     "rightHandSide": {
                       "argumentTypes": null,
                       "hexValue": "31",
-                      "id": 335,
+                      "id": 474,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": true,
                       "kind": "number",
                       "lValueRequested": false,
                       "nodeType": "Literal",
-                      "src": "534:1:2",
+                      "src": "520:1:5",
                       "subdenomination": null,
                       "typeDescriptions": {
                         "typeIdentifier": "t_rational_1_by_1",
@@ -1950,43 +1955,43 @@
                       },
                       "value": "1"
                     },
-                    "src": "521:14:2",
+                    "src": "507:14:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
-                  "id": 337,
+                  "id": 476,
                   "nodeType": "ExpressionStatement",
-                  "src": "521:14:2"
+                  "src": "507:14:5"
                 },
                 {
                   "assignments": [
-                    339
+                    478
                   ],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 339,
-                      "name": "callback",
+                      "id": 478,
+                      "name": "cb",
                       "nodeType": "VariableDeclaration",
-                      "scope": 360,
-                      "src": "541:24:2",
+                      "scope": 499,
+                      "src": "527:18:5",
                       "stateVariable": false,
                       "storageLocation": "memory",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                        "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                         "typeString": "struct Oracle.Callback memory"
                       },
                       "typeName": {
                         "contractScope": null,
-                        "id": 338,
+                        "id": 477,
                         "name": "Callback",
                         "nodeType": "UserDefinedTypeName",
-                        "referencedDeclaration": 307,
-                        "src": "541:8:2",
+                        "referencedDeclaration": 446,
+                        "src": "527:8:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Callback_$307_storage_ptr",
+                          "typeIdentifier": "t_struct$_Callback_$446_storage_ptr",
                           "typeString": "struct Oracle.Callback storage pointer"
                         }
                       },
@@ -1994,18 +1999,18 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 344,
+                  "id": 483,
                   "initialValue": {
                     "argumentTypes": null,
                     "arguments": [
                       {
                         "argumentTypes": null,
-                        "id": 341,
+                        "id": 480,
                         "name": "_callbackAddress",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 325,
-                        "src": "577:16:2",
+                        "referencedDeclaration": 464,
+                        "src": "557:16:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
@@ -2013,12 +2018,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 342,
-                        "name": "_callbackFunctionId",
+                        "id": 481,
+                        "name": "_callbackFID",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 327,
-                        "src": "595:19:2",
+                        "referencedDeclaration": 466,
+                        "src": "575:12:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes4",
                           "typeString": "bytes4"
@@ -2036,18 +2041,18 @@
                           "typeString": "bytes4"
                         }
                       ],
-                      "id": 340,
+                      "id": 479,
                       "name": "Callback",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 307,
-                      "src": "568:8:2",
+                      "referencedDeclaration": 446,
+                      "src": "548:8:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_type$_t_struct$_Callback_$307_storage_ptr_$",
+                        "typeIdentifier": "t_type$_t_struct$_Callback_$446_storage_ptr_$",
                         "typeString": "type(struct Oracle.Callback storage pointer)"
                       }
                     },
-                    "id": 343,
+                    "id": 482,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2055,19 +2060,19 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "568:47:2",
+                    "src": "548:40:5",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Callback_$307_memory",
+                      "typeIdentifier": "t_struct$_Callback_$446_memory",
                       "typeString": "struct Oracle.Callback memory"
                     }
                   },
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "541:74:2"
+                  "src": "527:61:5"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 349,
+                    "id": 488,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2076,26 +2081,26 @@
                       "argumentTypes": null,
                       "baseExpression": {
                         "argumentTypes": null,
-                        "id": 345,
+                        "id": 484,
                         "name": "callbacks",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 313,
-                        "src": "621:9:2",
+                        "referencedDeclaration": 452,
+                        "src": "594:9:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                           "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                         }
                       },
-                      "id": 347,
+                      "id": 486,
                       "indexExpression": {
                         "argumentTypes": null,
-                        "id": 346,
+                        "id": 485,
                         "name": "requestId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 309,
-                        "src": "631:9:2",
+                        "referencedDeclaration": 448,
+                        "src": "604:9:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -2106,9 +2111,9 @@
                       "isPure": false,
                       "lValueRequested": true,
                       "nodeType": "IndexAccess",
-                      "src": "621:20:2",
+                      "src": "594:20:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_storage",
+                        "typeIdentifier": "t_struct$_Callback_$446_storage",
                         "typeString": "struct Oracle.Callback storage ref"
                       }
                     },
@@ -2116,26 +2121,26 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 348,
-                      "name": "callback",
+                      "id": 487,
+                      "name": "cb",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 339,
-                      "src": "644:8:2",
+                      "referencedDeclaration": 478,
+                      "src": "617:2:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                        "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                         "typeString": "struct Oracle.Callback memory"
                       }
                     },
-                    "src": "621:31:2",
+                    "src": "594:25:5",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Callback_$307_storage",
+                      "typeIdentifier": "t_struct$_Callback_$446_storage",
                       "typeString": "struct Oracle.Callback storage ref"
                     }
                   },
-                  "id": 350,
+                  "id": 489,
                   "nodeType": "ExpressionStatement",
-                  "src": "621:31:2"
+                  "src": "594:25:5"
                 },
                 {
                   "expression": {
@@ -2143,12 +2148,12 @@
                     "arguments": [
                       {
                         "argumentTypes": null,
-                        "id": 352,
+                        "id": 491,
                         "name": "requestId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 309,
-                        "src": "666:9:2",
+                        "referencedDeclaration": 448,
+                        "src": "633:9:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -2156,12 +2161,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 353,
+                        "id": 492,
                         "name": "_jobId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 323,
-                        "src": "677:6:2",
+                        "referencedDeclaration": 462,
+                        "src": "644:6:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes32",
                           "typeString": "bytes32"
@@ -2169,12 +2174,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 354,
+                        "id": 493,
                         "name": "_data",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 329,
-                        "src": "685:5:2",
+                        "referencedDeclaration": 468,
+                        "src": "652:5:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_string_memory_ptr",
                           "typeString": "string memory"
@@ -2196,18 +2201,18 @@
                           "typeString": "string memory"
                         }
                       ],
-                      "id": 351,
+                      "id": 490,
                       "name": "Request",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 321,
-                      "src": "658:7:2",
+                      "referencedDeclaration": 460,
+                      "src": "625:7:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_event_nonpayable$_t_uint256_$_t_bytes32_$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (uint256,bytes32,string memory)"
                       }
                     },
-                    "id": 355,
+                    "id": 494,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2215,38 +2220,39 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "658:33:2",
+                    "src": "625:33:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 356,
+                  "id": 495,
                   "nodeType": "ExpressionStatement",
-                  "src": "658:33:2"
+                  "src": "625:33:5"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 357,
+                    "id": 496,
                     "name": "requestId",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 309,
-                    "src": "704:9:2",
+                    "referencedDeclaration": 448,
+                    "src": "671:9:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
-                  "functionReturnParameters": 333,
-                  "id": 358,
+                  "functionReturnParameters": 472,
+                  "id": 497,
                   "nodeType": "Return",
-                  "src": "697:16:2"
+                  "src": "664:16:5"
                 }
               ]
             },
-            "id": 360,
+            "documentation": null,
+            "id": 499,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -2254,16 +2260,16 @@
             "name": "requestData",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 330,
+              "id": 469,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 323,
+                  "id": 462,
                   "name": "_jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "381:14:2",
+                  "scope": 499,
+                  "src": "374:14:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2271,10 +2277,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 322,
+                    "id": 461,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "381:7:2",
+                    "src": "374:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -2285,11 +2291,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 325,
+                  "id": 464,
                   "name": "_callbackAddress",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "401:24:2",
+                  "scope": 499,
+                  "src": "394:24:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2297,10 +2303,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 324,
+                    "id": 463,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "401:7:2",
+                    "src": "394:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -2311,11 +2317,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 327,
-                  "name": "_callbackFunctionId",
+                  "id": 466,
+                  "name": "_callbackFID",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "431:26:2",
+                  "scope": 499,
+                  "src": "424:19:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2323,10 +2329,10 @@
                     "typeString": "bytes4"
                   },
                   "typeName": {
-                    "id": 326,
+                    "id": 465,
                     "name": "bytes4",
                     "nodeType": "ElementaryTypeName",
-                    "src": "431:6:2",
+                    "src": "424:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes4",
                       "typeString": "bytes4"
@@ -2337,11 +2343,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 329,
+                  "id": 468,
                   "name": "_data",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "463:12:2",
+                  "scope": 499,
+                  "src": "449:12:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2349,10 +2355,10 @@
                     "typeString": "string memory"
                   },
                   "typeName": {
-                    "id": 328,
+                    "id": 467,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "463:6:2",
+                    "src": "449:6:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string storage pointer"
@@ -2362,20 +2368,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "375:104:2"
+              "src": "368:97:5"
             },
             "payable": false,
             "returnParameters": {
-              "id": 333,
+              "id": 472,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 332,
+                  "id": 471,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 360,
-                  "src": "504:7:2",
+                  "scope": 499,
+                  "src": "490:7:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2383,10 +2389,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 331,
+                    "id": 470,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "504:7:2",
+                    "src": "490:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2396,47 +2402,47 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "503:9:2"
+              "src": "489:9:5"
             },
-            "scope": 413,
-            "src": "355:363:2",
+            "scope": 552,
+            "src": "348:337:5",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "public"
           },
           {
             "body": {
-              "id": 394,
+              "id": 533,
               "nodeType": "Block",
-              "src": "834:166:2",
+              "src": "801:141:5",
               "statements": [
                 {
                   "assignments": [
-                    373
+                    512
                   ],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 373,
-                      "name": "callback",
+                      "id": 512,
+                      "name": "cb",
                       "nodeType": "VariableDeclaration",
-                      "scope": 395,
-                      "src": "840:24:2",
+                      "scope": 534,
+                      "src": "807:18:5",
                       "stateVariable": false,
                       "storageLocation": "memory",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                        "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                         "typeString": "struct Oracle.Callback memory"
                       },
                       "typeName": {
                         "contractScope": null,
-                        "id": 372,
+                        "id": 511,
                         "name": "Callback",
                         "nodeType": "UserDefinedTypeName",
-                        "referencedDeclaration": 307,
-                        "src": "840:8:2",
+                        "referencedDeclaration": 446,
+                        "src": "807:8:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Callback_$307_storage_ptr",
+                          "typeIdentifier": "t_struct$_Callback_$446_storage_ptr",
                           "typeString": "struct Oracle.Callback storage pointer"
                         }
                       },
@@ -2444,31 +2450,31 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 377,
+                  "id": 516,
                   "initialValue": {
                     "argumentTypes": null,
                     "baseExpression": {
                       "argumentTypes": null,
-                      "id": 374,
+                      "id": 513,
                       "name": "callbacks",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 313,
-                      "src": "867:9:2",
+                      "referencedDeclaration": 452,
+                      "src": "828:9:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                        "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                         "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                       }
                     },
-                    "id": 376,
+                    "id": 515,
                     "indexExpression": {
                       "argumentTypes": null,
-                      "id": 375,
+                      "id": 514,
                       "name": "_requestId",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 362,
-                      "src": "877:10:2",
+                      "referencedDeclaration": 501,
+                      "src": "838:10:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -2479,14 +2485,14 @@
                     "isPure": false,
                     "lValueRequested": false,
                     "nodeType": "IndexAccess",
-                    "src": "867:21:2",
+                    "src": "828:21:5",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Callback_$307_storage",
+                      "typeIdentifier": "t_struct$_Callback_$446_storage",
                       "typeString": "struct Oracle.Callback storage ref"
                     }
                   },
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "840:48:2"
+                  "src": "807:42:5"
                 },
                 {
                   "expression": {
@@ -2499,26 +2505,26 @@
                             "argumentTypes": null,
                             "expression": {
                               "argumentTypes": null,
-                              "id": 382,
-                              "name": "callback",
+                              "id": 521,
+                              "name": "cb",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 373,
-                              "src": "921:8:2",
+                              "referencedDeclaration": 512,
+                              "src": "876:2:5",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                                "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                                 "typeString": "struct Oracle.Callback memory"
                               }
                             },
-                            "id": 383,
+                            "id": 522,
                             "isConstant": false,
                             "isLValue": true,
                             "isPure": false,
                             "lValueRequested": false,
-                            "memberName": "functionId",
+                            "memberName": "fid",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 306,
-                            "src": "921:19:2",
+                            "referencedDeclaration": 445,
+                            "src": "876:6:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_bytes4",
                               "typeString": "bytes4"
@@ -2526,12 +2532,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 384,
+                            "id": 523,
                             "name": "_requestId",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 362,
-                            "src": "942:10:2",
+                            "referencedDeclaration": 501,
+                            "src": "884:10:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -2539,12 +2545,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 385,
+                            "id": 524,
                             "name": "_data",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 364,
-                            "src": "954:5:2",
+                            "referencedDeclaration": 503,
+                            "src": "896:5:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_bytes32",
                               "typeString": "bytes32"
@@ -2570,32 +2576,32 @@
                             "argumentTypes": null,
                             "expression": {
                               "argumentTypes": null,
-                              "id": 379,
-                              "name": "callback",
+                              "id": 518,
+                              "name": "cb",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 373,
-                              "src": "902:8:2",
+                              "referencedDeclaration": 512,
+                              "src": "863:2:5",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_struct$_Callback_$307_memory_ptr",
+                                "typeIdentifier": "t_struct$_Callback_$446_memory_ptr",
                                 "typeString": "struct Oracle.Callback memory"
                               }
                             },
-                            "id": 380,
+                            "id": 519,
                             "isConstant": false,
                             "isLValue": true,
                             "isPure": false,
                             "lValueRequested": false,
                             "memberName": "addr",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 304,
-                            "src": "902:13:2",
+                            "referencedDeclaration": 443,
+                            "src": "863:7:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
                             }
                           },
-                          "id": 381,
+                          "id": 520,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -2603,13 +2609,13 @@
                           "memberName": "call",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "902:18:2",
+                          "src": "863:12:5",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_barecall_payable$__$returns$_t_bool_$",
                             "typeString": "function () payable returns (bool)"
                           }
                         },
-                        "id": 386,
+                        "id": 525,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2617,7 +2623,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "902:58:2",
+                        "src": "863:39:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -2631,18 +2637,18 @@
                           "typeString": "bool"
                         }
                       ],
-                      "id": 378,
+                      "id": 517,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 2198,
-                      "src": "894:7:2",
+                      "referencedDeclaration": 2400,
+                      "src": "855:7:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$returns$__$",
                         "typeString": "function (bool) pure"
                       }
                     },
-                    "id": 387,
+                    "id": 526,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2650,20 +2656,20 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "894:67:2",
+                    "src": "855:48:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 388,
+                  "id": 527,
                   "nodeType": "ExpressionStatement",
-                  "src": "894:67:2"
+                  "src": "855:48:5"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 392,
+                    "id": 531,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2671,31 +2677,31 @@
                     "nodeType": "UnaryOperation",
                     "operator": "delete",
                     "prefix": true,
-                    "src": "967:28:2",
+                    "src": "909:28:5",
                     "subExpression": {
                       "argumentTypes": null,
                       "baseExpression": {
                         "argumentTypes": null,
-                        "id": 389,
+                        "id": 528,
                         "name": "callbacks",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 313,
-                        "src": "974:9:2",
+                        "referencedDeclaration": 452,
+                        "src": "916:9:5",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                           "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                         }
                       },
-                      "id": 391,
+                      "id": 530,
                       "indexExpression": {
                         "argumentTypes": null,
-                        "id": 390,
+                        "id": 529,
                         "name": "_requestId",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 362,
-                        "src": "984:10:2",
+                        "referencedDeclaration": 501,
+                        "src": "926:10:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -2706,9 +2712,9 @@
                       "isPure": false,
                       "lValueRequested": true,
                       "nodeType": "IndexAccess",
-                      "src": "974:21:2",
+                      "src": "916:21:5",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Callback_$307_storage",
+                        "typeIdentifier": "t_struct$_Callback_$446_storage",
                         "typeString": "struct Oracle.Callback storage ref"
                       }
                     },
@@ -2717,83 +2723,84 @@
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 393,
+                  "id": 532,
                   "nodeType": "ExpressionStatement",
-                  "src": "967:28:2"
+                  "src": "909:28:5"
                 }
               ]
             },
-            "id": 395,
+            "documentation": null,
+            "id": 534,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
             "modifiers": [
               {
                 "arguments": [],
-                "id": 367,
+                "id": 506,
                 "modifierName": {
                   "argumentTypes": null,
-                  "id": 366,
+                  "id": 505,
                   "name": "onlyOwner",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
-                  "referencedDeclaration": 2157,
-                  "src": "793:9:2",
+                  "referencedDeclaration": 2358,
+                  "src": "760:9:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_modifier$__$",
                     "typeString": "modifier ()"
                   }
                 },
                 "nodeType": "ModifierInvocation",
-                "src": "793:9:2"
+                "src": "760:9:5"
               },
               {
                 "arguments": [
                   {
                     "argumentTypes": null,
-                    "id": 369,
+                    "id": 508,
                     "name": "_requestId",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 362,
-                    "src": "820:10:2",
+                    "referencedDeclaration": 501,
+                    "src": "787:10:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   }
                 ],
-                "id": 370,
+                "id": 509,
                 "modifierName": {
                   "argumentTypes": null,
-                  "id": 368,
+                  "id": 507,
                   "name": "hasRequestId",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
-                  "referencedDeclaration": 412,
-                  "src": "807:12:2",
+                  "referencedDeclaration": 551,
+                  "src": "774:12:5",
                   "typeDescriptions": {
                     "typeIdentifier": "t_modifier$_t_uint256_$",
                     "typeString": "modifier (uint256)"
                   }
                 },
                 "nodeType": "ModifierInvocation",
-                "src": "807:24:2"
+                "src": "774:24:5"
               }
             ],
             "name": "fulfillData",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 365,
+              "id": 504,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 362,
+                  "id": 501,
                   "name": "_requestId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 395,
-                  "src": "743:18:2",
+                  "scope": 534,
+                  "src": "710:18:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2801,10 +2808,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 361,
+                    "id": 500,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "743:7:2",
+                    "src": "710:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2815,11 +2822,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 364,
+                  "id": 503,
                   "name": "_data",
                   "nodeType": "VariableDeclaration",
-                  "scope": 395,
-                  "src": "763:13:2",
+                  "scope": 534,
+                  "src": "730:13:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2827,10 +2834,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 363,
+                    "id": 502,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "763:7:2",
+                    "src": "730:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -2840,26 +2847,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "742:35:2"
+              "src": "709:35:5"
             },
             "payable": false,
             "returnParameters": {
-              "id": 371,
+              "id": 510,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "834:0:2"
+              "src": "801:0:5"
             },
-            "scope": 413,
-            "src": "722:278:2",
+            "scope": 552,
+            "src": "689:253:5",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "public"
           },
           {
             "body": {
-              "id": 411,
+              "id": 550,
               "nodeType": "Block",
-              "src": "1046:67:2",
+              "src": "988:67:5",
               "statements": [
                 {
                   "expression": {
@@ -2871,7 +2878,7 @@
                           "typeIdentifier": "t_address",
                           "typeString": "address"
                         },
-                        "id": 407,
+                        "id": 546,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2882,26 +2889,26 @@
                             "argumentTypes": null,
                             "baseExpression": {
                               "argumentTypes": null,
-                              "id": 400,
+                              "id": 539,
                               "name": "callbacks",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 313,
-                              "src": "1060:9:2",
+                              "referencedDeclaration": 452,
+                              "src": "1002:9:5",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$307_storage_$",
+                                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_Callback_$446_storage_$",
                                 "typeString": "mapping(uint256 => struct Oracle.Callback storage ref)"
                               }
                             },
-                            "id": 402,
+                            "id": 541,
                             "indexExpression": {
                               "argumentTypes": null,
-                              "id": 401,
+                              "id": 540,
                               "name": "_requestId",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 397,
-                              "src": "1070:10:2",
+                              "referencedDeclaration": 536,
+                              "src": "1012:10:5",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_uint256",
                                 "typeString": "uint256"
@@ -2912,21 +2919,21 @@
                             "isPure": false,
                             "lValueRequested": false,
                             "nodeType": "IndexAccess",
-                            "src": "1060:21:2",
+                            "src": "1002:21:5",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_struct$_Callback_$307_storage",
+                              "typeIdentifier": "t_struct$_Callback_$446_storage",
                               "typeString": "struct Oracle.Callback storage ref"
                             }
                           },
-                          "id": 403,
+                          "id": 542,
                           "isConstant": false,
                           "isLValue": true,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "addr",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 304,
-                          "src": "1060:26:2",
+                          "referencedDeclaration": 443,
+                          "src": "1002:26:5",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -2940,14 +2947,14 @@
                             {
                               "argumentTypes": null,
                               "hexValue": "30",
-                              "id": 405,
+                              "id": 544,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": true,
                               "kind": "number",
                               "lValueRequested": false,
                               "nodeType": "Literal",
-                              "src": "1098:1:2",
+                              "src": "1040:1:5",
                               "subdenomination": null,
                               "typeDescriptions": {
                                 "typeIdentifier": "t_rational_0_by_1",
@@ -2963,20 +2970,20 @@
                                 "typeString": "int_const 0"
                               }
                             ],
-                            "id": 404,
+                            "id": 543,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": true,
                             "lValueRequested": false,
                             "nodeType": "ElementaryTypeNameExpression",
-                            "src": "1090:7:2",
+                            "src": "1032:7:5",
                             "typeDescriptions": {
                               "typeIdentifier": "t_type$_t_address_$",
                               "typeString": "type(address)"
                             },
                             "typeName": "address"
                           },
-                          "id": 406,
+                          "id": 545,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -2984,13 +2991,13 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "1090:10:2",
+                          "src": "1032:10:5",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
                           }
                         },
-                        "src": "1060:40:2",
+                        "src": "1002:40:5",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -3004,18 +3011,18 @@
                           "typeString": "bool"
                         }
                       ],
-                      "id": 399,
+                      "id": 538,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 2198,
-                      "src": "1052:7:2",
+                      "referencedDeclaration": 2400,
+                      "src": "994:7:5",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$returns$__$",
                         "typeString": "function (bool) pure"
                       }
                     },
-                    "id": 408,
+                    "id": 547,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -3023,37 +3030,38 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1052:49:2",
+                    "src": "994:49:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 409,
+                  "id": 548,
                   "nodeType": "ExpressionStatement",
-                  "src": "1052:49:2"
+                  "src": "994:49:5"
                 },
                 {
-                  "id": 410,
+                  "id": 549,
                   "nodeType": "PlaceholderStatement",
-                  "src": "1107:1:2"
+                  "src": "1049:1:5"
                 }
               ]
             },
-            "id": 412,
+            "documentation": null,
+            "id": 551,
             "name": "hasRequestId",
             "nodeType": "ModifierDefinition",
             "parameters": {
-              "id": 398,
+              "id": 537,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 397,
+                  "id": 536,
                   "name": "_requestId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 412,
-                  "src": "1026:18:2",
+                  "scope": 551,
+                  "src": "968:18:5",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3061,10 +3069,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 396,
+                    "id": 535,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1026:7:2",
+                    "src": "968:7:5",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -3074,23 +3082,30 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1025:20:2"
+              "src": "967:20:5"
             },
-            "src": "1004:109:2",
+            "src": "946:109:5",
             "visibility": "internal"
           }
         ],
-        "scope": 414,
-        "src": "87:1028:2"
+        "scope": 553,
+        "src": "87:970:5"
       }
     ],
-    "src": "0:1116:2"
+    "src": "0:1058:5"
   },
   "compiler": {
     "name": "solc",
-    "version": "0.4.19+commit.c4cbbb05.Emscripten.clang"
+    "version": "0.4.21+commit.dfe3193c.Emscripten.clang"
   },
-  "networks": {},
+  "networks": {
+    "17": {
+      "events": {},
+      "links": {},
+      "address": "0x73e7ca685e73fc28507bfde1b1a3a228320fcb42",
+      "transactionHash": "0xa9ed4176596b84081a0df3d7a630ecbecd8fcb9eb795aff0f34bc343f3dd7c25"
+    }
+  },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-04-03T19:26:35.390Z"
+  "updatedAt": "2018-04-04T17:26:26.446Z"
 }
