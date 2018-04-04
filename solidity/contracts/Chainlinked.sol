@@ -29,7 +29,7 @@ contract Chainlinked {
       _run.jobId,
       _run.callbackAddress,
       _run.callbackFunctionId,
-      _run.close());
+      _run.payload());
   }
 
   function setOracle(address _oracle) internal {
