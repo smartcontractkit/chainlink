@@ -13,7 +13,7 @@ step to bridging on chain to off chain activity.
 Uses an `ethlog` initiator to echo all log events. An `ethlog` initiator starts
 a job anytime a log event occurs. It can optionally be filtered by an `address`.
 
-1. Check out this repo and go to folder [hello_chainlink/echo_server](https://github.com/smartcontractkit/hello_chainlink/tree/master/echo_server).
+1. Complete the [Run Chainlink Development Environment](../README.md#run-chainlink-development-environment) steps.
 2. `./create_ethlog_job` to create the Chainlink (CL) job
 3. `yarn install`
 4. `node echo.js`
@@ -25,7 +25,7 @@ a job anytime a log event occurs. It can optionally be filtered by an `address`.
 
 Uses a `runlog` initiator to echo Chainlink log events with the matching job id.
 
-1. Check out this repo and go to folder [hello_chainlink/echo_server](https://github.com/smartcontractkit/hello_chainlink/tree/master/echo_server).
+1. Complete the [Run Chainlink Development Environment](../README.md#run-chainlink-development-environment) steps.
 2. `./create_runlog_job` to create CL job. Keep track of the returned job id.
 3. `yarn install`
 4. `node echo.js`

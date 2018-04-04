@@ -47,12 +47,11 @@ function updateUptime(string _when) public {
 
 The API returns the percentage as a float, for example the current value is `0.999999178716033`. The `multiply` adapter takes that result and multiplies it by 1000, which [a parameter specified in the `times` field](https://github.com/smartcontractkit/hello_chainlink/blob/4b42f127ddeca6541ac2aba1803f458d0a3bf460/uptime_sla/http_json_x10000_job.json). The result is `9999`, allowing the contract to check for "four nines" of uptime.
 
-## Configure and run [Chainlink development environment](../README.md)
+## Configure and run [Chainlink development environment](../README.md#run-chainlink-development-environment)
 
 ## Run and update the Uptime SLA contract.
 
-1. Check out this repo and go to folder [hello_chainlink/uptime_sla](https://github.com/smartcontractkit/hello_chainlink/tree/master/uptime_sla).
-2. `yarn install`
-3. `./deploy` in another window
-4. `./send_sla_transaction.js` to trigger an update to the SLA
-5. `./get_uptime.js` get the latest uptime
+1. `yarn install`
+2. `./deploy` in another window
+3. `./send_sla_transaction.js` to trigger an update to the SLA
+4. `./get_uptime.js` get the latest uptime
