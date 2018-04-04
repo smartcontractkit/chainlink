@@ -6,7 +6,7 @@ In this example, we will send a text message when a contract address receives et
 This will link Ethereum events (on-chain) with the [Twilio](https://www.twilio.com) SMS service
 (off-chain) using Chainlink (CL) 
 
-## Configure and run [Chainlink development environment](../README.md)
+## Configure and run [Chainlink development environment](../README.md#run-chainlink-development-environment)
 
 ## Sign up for a free Twilio account
 
