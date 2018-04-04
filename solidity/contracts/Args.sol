@@ -18,18 +18,19 @@ contract Args {
   function fireEvent()
     public
   {
-    Data(types, names, values);
+    emit Data(types, names, values);
   }
 
   function add(string _key, string _value)
     public
   {
     types = concat(types, stringType);
-    bytes memory value = bytes(_value);
-    names = concat(names, bytes(_key));
-    names = concat(names, ",");
-    values = concat(values, toBytes(value.length));
-    values = append(values, value);
+    names = concat(concat(names, bytes(_key)), ",");
+    if (values.length == 0) {
+      values = addLengthPrefix(bytes(_value));
+    } else {
+      values = append(values, bytes(_value));
+    }
   }
 
   function addBytes32(string _key, bytes32 _value)
@@ -107,19 +108,38 @@ contract Args {
     returns (bytes memory c)
   {
       uint256 loopsA = ((_a.length + 31) / 32) * 32;
-      uint256 loopsB = ((_b.length + 31) / 32) * 32;
+      uint256 loopsB = (((_b.length + 31) / 32) + 1) * 32;
       uint256 totalLen = loopsA + loopsB;
       assembly {
           let mem := mload(0x40)
           mstore(mem, totalLen)
-          for {  let i := 32 } lt(sub(i, 32), loopsA) { i := add(32, i) } {
-            mstore(add(mem, i), mload(add(_a, i)))
+          mem := add(32, mem)
+          for {  let i := 0 } lt(i, loopsA) { i := add(32, i) } {
+            mstore(add(mem, i), mload(add(_a, add(i, 32))))
           }
-          for {  let i := 32 } lt(sub(i, 32), loopsB) { i := add(32, i) } {
+          for {  let i := 0 } lt(i, loopsB) { i := add(32, i) } {
             mstore(add(mem, add(i, loopsA)), mload(add(_b, i)))
           }
-          mstore(0x40, add(mem, add(32, totalLen)))
-          c := mem
+          mstore(0x40, add(mem, totalLen))
+          c := sub(mem, 32)
+      }
+  }
+
+  function addLengthPrefix(bytes memory _in)
+    internal
+    pure
+    returns (bytes memory c)
+  {
+      uint256 totalLen = (((_in.length + 31) / 32) + 1) * 32;
+      assembly {
+          let mem := mload(0x40)
+          mstore(mem, totalLen)
+          mem := add(32, mem)
+          for {  let i := 0 } lt(i, totalLen) { i := add(32, i) } {
+            mstore(add(mem, i), mload(add(_in, i)))
+          }
+          mstore(0x40, add(mem, totalLen))
+          c := sub(mem, 32)
       }
   }
 }

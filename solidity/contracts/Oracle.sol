@@ -32,7 +32,7 @@ contract Oracle is Ownable {
     requestId += 1;
     Callback memory callback = Callback(_callbackAddress, _callbackFunctionId);
     callbacks[requestId] = callback;
-    Request(_version, requestId, _jobId, _data);
+    emit Request(_version, requestId, _jobId, _data);
     return requestId;
   }
 
