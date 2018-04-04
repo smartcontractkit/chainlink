@@ -6145,7 +6145,7 @@ solc@0.4.19:
     semver "^5.3.0"
     yargs "^4.7.1"
 
-solc@^0.4.11:
+solc@0.4.21, solc@^0.4.11:
   version "0.4.21"
   resolved "https://registry.yarnpkg.com/solc/-/solc-0.4.21.tgz#6a7ecd505bfa0fc268330d5de6b9ae65c8c68264"
   dependencies:
@@ -6639,6 +6639,14 @@ truffle@^4.0.4:
     mocha "^3.4.2"
     original-require "^1.0.1"
     solc "0.4.19"
+
+truffle@^4.1.5:
+  version "4.1.5"
+  resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.5.tgz#763c8175fe5ea1ada92aa7a02eff84b4ab272f72"
+  dependencies:
+    mocha "^3.4.2"
+    original-require "^1.0.1"
+    solc "0.4.21"
 
 tty-browserify@0.0.0:
   version "0.0.0"
