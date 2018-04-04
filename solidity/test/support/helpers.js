@@ -226,8 +226,12 @@ util = require('ethereumjs-util');
     return string
   };
 
-  toHex = function toHex(string) {
-    return web3.toHex(string).slice(2);
+  toHex = function toHex(arg) {
+    if (arg instanceof Buffer) {
+      return arg.toString("hex");
+    } else {
+      return Buffer.from(arg, "ascii").toString("hex");
+    }
   };
 
 })();

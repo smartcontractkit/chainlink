@@ -85,7 +85,7 @@ contract('Args', () => {
       let params = abi.rawDecode(["bytes", "bytes", "bytes"], util.toBuffer(log.data));
       let [type, name, value] = params;
 
-      assert.equal(type.toString(), "bytes32,");
+      assert.equal(type.toString(), "bytes32[],");
       assert.equal(name.toString(), "word,");
       let wantLen = lPad("\x03");
       let wantVals = rPad("seinfeld") + rPad('"4"') + rPad("LIFE");
