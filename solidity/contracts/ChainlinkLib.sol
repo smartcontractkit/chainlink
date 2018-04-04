@@ -14,15 +14,7 @@ library ChainlinkLib {
     bytes values;
   }
 
-  function payload(Run self)
-    internal
-    returns (bytes)
-  {
-    bytes memory result = addLengthPrefix(self.names);
-    return append(append(result, self.types), self.values);
-  }
-
-  function add(Run self, string _key, string _value)
+  function add(Run memory self, string _key, string _value)
     internal
   {
     self.types = concat(self.types, stringType);
@@ -49,7 +41,13 @@ library ChainlinkLib {
     }
   }
 
-  // INTERNAL
+  function payload(Run self)
+    internal
+    returns (bytes)
+  {
+    bytes memory result = addLengthPrefix(self.names);
+    return append(append(result, self.types), self.values);
+  }
 
   function toBytes(bytes32 _b)
     internal
