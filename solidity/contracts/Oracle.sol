@@ -12,11 +12,11 @@ contract Oracle is Ownable {
   uint256 private requestId;
   mapping(uint256 => Callback) private callbacks;
 
-  event Request(
-    uint256 version,
+  event RunRequest(
     uint256 indexed id,
     bytes32 indexed jobId,
-    string data
+    uint256 version,
+    bytes data
   );
 
   function requestData(
@@ -24,7 +24,7 @@ contract Oracle is Ownable {
     bytes32 _jobId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
-    string _data
+    bytes _data
   )
     public
     returns (uint256)
@@ -32,7 +32,7 @@ contract Oracle is Ownable {
     requestId += 1;
     Callback memory callback = Callback(_callbackAddress, _callbackFunctionId);
     callbacks[requestId] = callback;
-    emit Request(_version, requestId, _jobId, _data);
+    emit RunRequest(requestId, _jobId, _version, _data);
     return requestId;
   }
 

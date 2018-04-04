@@ -21,16 +21,20 @@ contract Args {
     emit Data(types, names, values);
   }
 
+  function close()
+    internal
+    returns (bytes)
+  {
+    bytes memory result = addLengthPrefix(names);
+    return append(append(result, types), values);
+  }
+
   function add(string _key, string _value)
     public
   {
     types = concat(types, stringType);
     names = concat(concat(names, bytes(_key)), ",");
-    if (values.length == 0) {
-      values = addLengthPrefix(bytes(_value));
-    } else {
-      values = append(values, bytes(_value));
-    }
+    values = append(values, bytes(_value));
   }
 
   function addBytes32(string _key, bytes32 _value)
@@ -44,7 +48,7 @@ contract Args {
   function addBytes32Array(string _key, bytes32[] memory _values)
     public
   {
-    types = concat(types, bytes32Type);
+    types = concat(types, bytes32ArrayType);
     names = concat(names, concat(bytes(_key), ","));
     values = concat(values, toBytes(_values.length));
     for (uint256 i = 0; i < _values.length; i++) {
@@ -103,6 +107,18 @@ contract Args {
   }
 
   function append(bytes memory _a, bytes memory _b)
+    internal
+    pure
+    returns (bytes memory c)
+  {
+    if (_a.length == 0) {
+      return addLengthPrefix(_b);
+    } else {
+      return nestBytes(_a, _b);
+    }
+  }
+
+  function nestBytes(bytes memory _a, bytes memory _b)
     internal
     pure
     returns (bytes memory c)

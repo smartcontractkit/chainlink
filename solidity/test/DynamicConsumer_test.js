@@ -21,17 +21,29 @@ contract('DynamicConsumer', () => {
   describe("#requestEthereumPrice", () => {
     it("triggers a log event in the Oracle contract", async () => {
       let tx = await cc.requestEthereumPrice("usd");
+      let log = tx.receipt.logs[0];
+      assert.equal(log.address, oc.address);
 
-      let events = await getEvents(oc);
-      assert.equal(1, events.length)
-      let event = events[0]
-      assert.equal(event.args.data, `{"url":"https://etherprice.com/api","path":["recent","usd"]}`)
+      let names = lPadHex("09") + toHex(rPad("url,path,"));
+      let types = lPadHex("11") + toHex(rPad("string,bytes32[],"));
+      let values = lPadHex("a0") +
+        lPadHex("1a") + toHex(rPad("https://etherprice.com/api")) +
+        lPadHex("02") + toHex(rPad("recent") + rPad("usd"));
+      let expected = names + types + values;
+      let params = abi.rawDecode(["uint256", "bytes"], util.toBuffer(log.data));
+
+      let [version, logData] = params;
+      assert.equal(version, 1);
+      assert.equal(toHex(logData), expected);
+
+      let event = await getLatestEvent(oc);
       assert.equal(web3.toUtf8(event.args.jobId), "someJobId");
+
     });
 
     it("has a reasonable gas cost", async () => {
       let tx = await cc.requestEthereumPrice("usd");
-      assert.isBelow(tx.receipt.gasUsed, 120000);
+      assert.isBelow(tx.receipt.gasUsed, 140000);
     });
   });
 

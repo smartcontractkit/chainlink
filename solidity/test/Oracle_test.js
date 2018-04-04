@@ -55,8 +55,8 @@ contract('Oracle', () => {
       let tx = await oc.requestData(1, jobId, to, fHash, "");
       assert.equal(1, tx.receipt.logs.length)
 
-      let log = tx.receipt.logs[0];
-      assert.equal(jobId, web3.toUtf8(log.topics[2]));
+      let log1 = tx.receipt.logs[0];
+      assert.equal(jobId, web3.toUtf8(log1.topics[2]));
     });
 
     it("uses the expected event signature", async () => {
@@ -65,7 +65,7 @@ contract('Oracle', () => {
       assert.equal(1, tx.receipt.logs.length)
 
       let log = tx.receipt.logs[0];
-      let eventSignature = "0xebd6778bf8984d5fefe04e8bc66094fd323427fc0a9ade188c67b9ffad15d5e1";
+      let eventSignature = "0xd27ce9cd40e3b9de8d013e1c32693550a6f543fec0191156dc826978fffb3f48";
       assert.equal(eventSignature, log.topics[0]);
     });
 
