@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "../../contracts/Chainlinked.sol";
+import "../Chainlinked.sol";
 
 contract DynamicConsumer is Chainlinked {
   uint256 private requestId;

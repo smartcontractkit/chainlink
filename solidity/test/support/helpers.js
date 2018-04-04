@@ -218,4 +218,16 @@ util = require('ethereumjs-util');
     return string
   };
 
+  lPadHex = function lPadHex(string) {
+    let wordLen = parseInt((string.length + 63) / 64) * 64;
+    for (let i = string.length; i < wordLen; i++) {
+      string = "0" + string;
+    }
+    return string
+  };
+
+  toHex = function toHex(string) {
+    return web3.toHex(string).slice(2);
+  };
+
 })();
