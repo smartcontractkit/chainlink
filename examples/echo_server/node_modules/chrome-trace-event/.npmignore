@@ -1,0 +1,13 @@
+/tmp
+/node_modules
+/npm-debug.log
+/examples/*.log
+/examples/*.json
+
+/tools
+/test
+/examples
+/CHANGES.md
+/README.md
+/TODO.txt
+

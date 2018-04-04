@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+
+// jshint maxlen: 103
+var targz = require('../');
+var commander = require('commander');
+var package = require('../package.json');
+var fs = require('fs');
+commander.version(package.version);
+
+// Extract files
+commander
+  .command('extract <source> <target>')
+  .alias('e')
+  .description('Extracts the source tarball into the target directory')
+  .action(function(source, target) {
+    targz().extract(source, target, function(err) {
+      if (err)
+        throw err;
+    });
+  });
+
+// Compress files
+commander
+  .command('compress <source> <target>')
+  .alias('c')
+  .description('Compress the source directory into the target tarball')
+  .option('-l, --level', 'Compression level', 6)
+  .option('-m, --memlevel', 'Memory level used during compression', 6)
+  .action(function(source, target, options) {
+    targz({
+      memLevel: options.memlevel,
+      level: options.level
+    }).compress(source, target, function(err) {
+      if (err)
+        throw err;
+    });
+  });
+
+// List paths
+commander
+  .command('list <source>')
+  .alias('l')
+  .description('List all paths inside the source tarball')
+  .action(function(source) {
+    var parse = targz().createParseStream();
+    parse.on('entry', function(entry) {
+      console.log(entry.path);
+    });
+
+    fs.createReadStream(source).pipe(parse);
+  });
+
+// Catch all
+commander.parse(process.argv);

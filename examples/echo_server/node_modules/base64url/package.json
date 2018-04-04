@@ -1,0 +1,32 @@
+{
+  "name": "base64url",
+  "version": "2.0.0",
+  "description": "For encoding to/from base64urls",
+  "main": "index.js",
+  "typings": "dist/base64url.d.ts",
+  "files": [
+    "dist/",
+    "typings/",
+    "index.js"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -f dist/*",
+    "test": "npm run clean && npm run build && tap test/*.test.js",
+    "prepublish": "npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/brianloveswords/base64url.git"
+  },
+  "keywords": [
+    "base64",
+    "base64url"
+  ],
+  "author": "Brian J Brennan",
+  "license": "MIT",
+  "readmeFilename": "README.md",
+  "devDependencies": {
+    "tap": "6.1.1"
+  }
+}

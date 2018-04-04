@@ -1,0 +1,6 @@
+--no-colors
+--ui bdd
+--reporter spec
+--require test/register
+test/basic.js
+test/mz.js

@@ -1,0 +1,55 @@
+{
+  "name": "cli-table2",
+  "version": "0.2.0",
+  "description": "Pretty unicode tables for the command line. Based on the original cli-table.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "lodash": "^3.10.1",
+    "string-width": "^1.0.1"
+  },
+  "devDependencies": {
+    "ansi-256-colors": "^1.1.0",
+    "chai": "^3.4.1",
+    "cli-table": "^0.3.1",
+    "coveralls": "^2.11.4",
+    "git-rev": "^0.2.1",
+    "growl": "^1.8.1",
+    "gulp": "^3.9.0",
+    "gulp-istanbul": "^0.10.3",
+    "gulp-mocha": "^2.2.0",
+    "gulp-util": "^3.0.7",
+    "sinon": "^1.17.2",
+    "sinon-chai": "^2.8.0"
+  },
+  "optionalDependencies": {
+    "colors": "^1.1.2"
+  },
+  "scripts": {
+    "test": "gulp coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jamestalmage/cli-table2.git"
+  },
+  "keywords": [
+    "node",
+    "command",
+    "line",
+    "cli",
+    "table",
+    "tables",
+    "tabular",
+    "unicode",
+    "colors",
+    "grid"
+  ],
+  "author": "James Talmage",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jamestalmage/cli-table2/issues"
+  },
+  "homepage": "https://github.com/jamestalmage/cli-table2"
+}

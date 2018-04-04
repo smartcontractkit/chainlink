@@ -1,0 +1,7 @@
+{
+  "_comment": "An ethlog with no address listens to all addresses.",
+  "initiators": [{ "type": "ethlog" }],
+  "tasks": [
+    { "type": "HttpPost", "url": "http://localhost:6690" }
+  ]
+}
