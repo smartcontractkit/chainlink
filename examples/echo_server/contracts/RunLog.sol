@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "../../../Chainlinked.sol";
+import "../node_modules/chainlink/solidity/contracts/Chainlinked.sol";
 
 contract RunLog is Chainlinked {
   uint256 private requestId;
