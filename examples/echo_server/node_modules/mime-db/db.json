@@ -369,9 +369,6 @@
   "application/fdt+xml": {
     "source": "iana"
   },
-  "application/fhir+xml": {
-    "source": "iana"
-  },
   "application/fido.trusted-apps+json": {
     "compressible": true
   },
@@ -389,6 +386,10 @@
     "source": "iana",
     "compressible": false,
     "extensions": ["woff"]
+  },
+  "application/font-woff2": {
+    "compressible": false,
+    "extensions": ["woff2"]
   },
   "application/framework-attributes+xml": {
     "source": "iana"
@@ -426,9 +427,6 @@
   },
   "application/held+xml": {
     "source": "iana"
-  },
-  "application/hjson": {
-    "extensions": ["hjson"]
   },
   "application/http": {
     "source": "iana"
@@ -778,9 +776,6 @@
   "application/nlsml+xml": {
     "source": "iana"
   },
-  "application/node": {
-    "source": "iana"
-  },
   "application/nss": {
     "source": "iana"
   },
@@ -885,9 +880,6 @@
     "source": "iana",
     "extensions": ["p8"]
   },
-  "application/pkcs8-encrypted": {
-    "source": "iana"
-  },
   "application/pkix-attr-cert": {
     "source": "iana",
     "extensions": ["ac"]
@@ -962,10 +954,6 @@
   },
   "application/qsig": {
     "source": "iana"
-  },
-  "application/raml+yaml": {
-    "compressible": true,
-    "extensions": ["raml"]
   },
   "application/raptorfec": {
     "source": "iana"
@@ -1252,9 +1240,6 @@
     "source": "iana",
     "extensions": ["tsd"]
   },
-  "application/tnauthlist": {
-    "source": "iana"
-  },
   "application/trig": {
     "source": "iana"
   },
@@ -1301,9 +1286,6 @@
   "application/vnd.3gpp-prose-pc3ch+xml": {
     "source": "iana"
   },
-  "application/vnd.3gpp-v2x-local-service-information": {
-    "source": "iana"
-  },
   "application/vnd.3gpp.access-transfer-events+xml": {
     "source": "iana"
   },
@@ -1313,22 +1295,10 @@
   "application/vnd.3gpp.gmop+xml": {
     "source": "iana"
   },
-  "application/vnd.3gpp.mcptt-affiliation-command+xml": {
-    "source": "iana"
-  },
-  "application/vnd.3gpp.mcptt-floor-request+xml": {
-    "source": "iana"
-  },
   "application/vnd.3gpp.mcptt-info+xml": {
     "source": "iana"
   },
-  "application/vnd.3gpp.mcptt-location-info+xml": {
-    "source": "iana"
-  },
   "application/vnd.3gpp.mcptt-mbms-usage-info+xml": {
-    "source": "iana"
-  },
-  "application/vnd.3gpp.mcptt-signed+xml": {
     "source": "iana"
   },
   "application/vnd.3gpp.mid-call+xml": {
@@ -1441,10 +1411,6 @@
     "source": "iana",
     "extensions": ["azs"]
   },
-  "application/vnd.amadeus+json": {
-    "source": "iana",
-    "compressible": true
-  },
   "application/vnd.amazon.ebook": {
     "source": "apache",
     "extensions": ["azw"]
@@ -1533,10 +1499,6 @@
   "application/vnd.autopackage": {
     "source": "iana"
   },
-  "application/vnd.avalon+json": {
-    "source": "iana",
-    "compressible": true
-  },
   "application/vnd.avistar+xml": {
     "source": "iana"
   },
@@ -1545,13 +1507,6 @@
   },
   "application/vnd.balsamiq.bmpr": {
     "source": "iana"
-  },
-  "application/vnd.bbf.usp.msg": {
-    "source": "iana"
-  },
-  "application/vnd.bbf.usp.msg+json": {
-    "source": "iana",
-    "compressible": true
   },
   "application/vnd.bekitzur-stech+json": {
     "source": "iana",
@@ -1647,24 +1602,6 @@
   "application/vnd.coffeescript": {
     "source": "iana"
   },
-  "application/vnd.collabio.xodocuments.document": {
-    "source": "iana"
-  },
-  "application/vnd.collabio.xodocuments.document-template": {
-    "source": "iana"
-  },
-  "application/vnd.collabio.xodocuments.presentation": {
-    "source": "iana"
-  },
-  "application/vnd.collabio.xodocuments.presentation-template": {
-    "source": "iana"
-  },
-  "application/vnd.collabio.xodocuments.spreadsheet": {
-    "source": "iana"
-  },
-  "application/vnd.collabio.xodocuments.spreadsheet-template": {
-    "source": "iana"
-  },
   "application/vnd.collection+json": {
     "source": "iana",
     "compressible": true
@@ -1678,9 +1615,6 @@
     "compressible": true
   },
   "application/vnd.comicbook+zip": {
-    "source": "iana"
-  },
-  "application/vnd.comicbook-rar": {
     "source": "iana"
   },
   "application/vnd.commerce-battelle": {
@@ -1940,9 +1874,6 @@
     "source": "iana"
   },
   "application/vnd.ecdis-update": {
-    "source": "iana"
-  },
-  "application/vnd.ecip.rlp": {
     "source": "iana"
   },
   "application/vnd.ecowin.chart": {
@@ -3477,6 +3408,9 @@
   "application/vnd.openxmlformats-officedocument.extended-properties+xml": {
     "source": "iana"
   },
+  "application/vnd.openxmlformats-officedocument.presentationml-template": {
+    "source": "iana"
+  },
   "application/vnd.openxmlformats-officedocument.presentationml.commentauthors+xml": {
     "source": "iana"
   },
@@ -3533,13 +3467,16 @@
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.presentationml.template": {
-    "source": "iana",
+    "source": "apache",
     "extensions": ["potx"]
   },
   "application/vnd.openxmlformats-officedocument.presentationml.template.main+xml": {
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.presentationml.viewprops+xml": {
+    "source": "iana"
+  },
+  "application/vnd.openxmlformats-officedocument.spreadsheetml-template": {
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.calcchain+xml": {
@@ -3602,7 +3539,7 @@
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.template": {
-    "source": "iana",
+    "source": "apache",
     "extensions": ["xltx"]
   },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml": {
@@ -3624,6 +3561,9 @@
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.vmldrawing": {
+    "source": "iana"
+  },
+  "application/vnd.openxmlformats-officedocument.wordprocessingml-template": {
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml": {
@@ -3662,7 +3602,7 @@
     "source": "iana"
   },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.template": {
-    "source": "iana",
+    "source": "apache",
     "extensions": ["dotx"]
   },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml": {
@@ -3727,9 +3667,6 @@
   },
   "application/vnd.paos.xml": {
     "source": "apache"
-  },
-  "application/vnd.patentdive": {
-    "source": "iana"
   },
   "application/vnd.pawaafile": {
     "source": "iana",
@@ -3890,10 +3827,6 @@
   "application/vnd.renlearn.rlprint": {
     "source": "iana"
   },
-  "application/vnd.restful+json": {
-    "source": "iana",
-    "compressible": true
-  },
   "application/vnd.rig.cryptonote": {
     "source": "iana",
     "extensions": ["cryptonote"]
@@ -4040,9 +3973,6 @@
   "application/vnd.spotfire.sfs": {
     "source": "iana",
     "extensions": ["sfs"]
-  },
-  "application/vnd.sqlite3": {
-    "source": "iana"
   },
   "application/vnd.sss-cod": {
     "source": "iana"
@@ -4469,9 +4399,6 @@
     "source": "iana",
     "extensions": ["cmp"]
   },
-  "application/vnd.youtube.yt": {
-    "source": "iana"
-  },
   "application/vnd.zul": {
     "source": "iana",
     "extensions": ["zir","zirz"]
@@ -4484,23 +4411,11 @@
     "source": "iana",
     "extensions": ["vxml"]
   },
-  "application/voucher-cms+json": {
-    "source": "iana",
-    "compressible": true
-  },
   "application/vq-rtcpxr": {
     "source": "iana"
   },
-  "application/wasm": {
-    "compressible": true,
-    "extensions": ["wasm"]
-  },
   "application/watcherinfo+xml": {
     "source": "iana"
-  },
-  "application/webpush-options+json": {
-    "source": "iana",
-    "compressible": true
   },
   "application/whoispp-query": {
     "source": "iana"
@@ -4699,6 +4614,11 @@
     "source": "apache",
     "extensions": ["psf"]
   },
+  "application/x-font-otf": {
+    "source": "apache",
+    "compressible": true,
+    "extensions": ["otf"]
+  },
   "application/x-font-pcf": {
     "source": "apache",
     "extensions": ["pcf"]
@@ -4712,6 +4632,11 @@
   },
   "application/x-font-sunos-news": {
     "source": "apache"
+  },
+  "application/x-font-ttf": {
+    "source": "apache",
+    "compressible": true,
+    "extensions": ["ttf","ttc"]
   },
   "application/x-font-type1": {
     "source": "apache",
@@ -5790,32 +5715,9 @@
     "source": "apache",
     "extensions": ["xyz"]
   },
-  "font/collection": {
-    "source": "iana",
-    "extensions": ["ttc"]
-  },
   "font/otf": {
-    "source": "iana",
     "compressible": true,
     "extensions": ["otf"]
-  },
-  "font/sfnt": {
-    "source": "iana"
-  },
-  "font/ttf": {
-    "source": "iana",
-    "extensions": ["ttf"]
-  },
-  "font/woff": {
-    "source": "iana",
-    "extensions": ["woff"]
-  },
-  "font/woff2": {
-    "source": "iana",
-    "extensions": ["woff2"]
-  },
-  "image/aces": {
-    "source": "iana"
   },
   "image/apng": {
     "compressible": false,
@@ -5856,9 +5758,7 @@
     "source": "iana"
   },
   "image/jp2": {
-    "source": "iana",
-    "compressible": false,
-    "extensions": ["jp2","jpg2"]
+    "source": "iana"
   },
   "image/jpeg": {
     "source": "iana",
@@ -5866,14 +5766,10 @@
     "extensions": ["jpeg","jpg","jpe"]
   },
   "image/jpm": {
-    "source": "iana",
-    "compressible": false,
-    "extensions": ["jpm"]
+    "source": "iana"
   },
   "image/jpx": {
-    "source": "iana",
-    "compressible": false,
-    "extensions": ["jpx","jpf"]
+    "source": "iana"
   },
   "image/ktx": {
     "source": "iana",
@@ -6122,10 +6018,7 @@
     "source": "iana"
   },
   "message/disposition-notification": {
-    "source": "iana",
-    "extensions": [
-      "disposition-notification"
-    ]
+    "source": "iana"
   },
   "message/external-body": {
     "source": "iana"
@@ -6134,20 +6027,16 @@
     "source": "iana"
   },
   "message/global": {
-    "source": "iana",
-    "extensions": ["u8msg"]
+    "source": "iana"
   },
   "message/global-delivery-status": {
-    "source": "iana",
-    "extensions": ["u8dsn"]
+    "source": "iana"
   },
   "message/global-disposition-notification": {
-    "source": "iana",
-    "extensions": ["u8mdn"]
+    "source": "iana"
   },
   "message/global-headers": {
-    "source": "iana",
-    "extensions": ["u8hdr"]
+    "source": "iana"
   },
   "message/http": {
     "source": "iana",
@@ -6185,8 +6074,7 @@
     "source": "iana"
   },
   "message/vnd.wfa.wsc": {
-    "source": "iana",
-    "extensions": ["wsc"]
+    "source": "iana"
   },
   "model/3mf": {
     "source": "iana"
@@ -6197,7 +6085,6 @@
     "extensions": ["gltf"]
   },
   "model/gltf-binary": {
-    "source": "iana",
     "compressible": true,
     "extensions": ["glb"]
   },
@@ -6316,9 +6203,6 @@
     "source": "iana",
     "compressible": false
   },
-  "multipart/multilingual": {
-    "source": "iana"
-  },
   "multipart/parallel": {
     "source": "iana"
   },
@@ -6397,6 +6281,9 @@
   },
   "text/grammar-ref-list": {
     "source": "iana"
+  },
+  "text/hjson": {
+    "extensions": ["hjson"]
   },
   "text/html": {
     "source": "iana",
@@ -6492,9 +6379,6 @@
   "text/sgml": {
     "source": "iana",
     "extensions": ["sgml","sgm"]
-  },
-  "text/shex": {
-    "extensions": ["shex"]
   },
   "text/slim": {
     "extensions": ["slim","slm"]
@@ -6876,9 +6760,6 @@
   "video/rtx": {
     "source": "iana"
   },
-  "video/smpte291": {
-    "source": "iana"
-  },
   "video/smpte292m": {
     "source": "iana"
   },
@@ -6967,9 +6848,6 @@
     "extensions": ["pyv"]
   },
   "video/vnd.nokia.interleaved-multimedia": {
-    "source": "iana"
-  },
-  "video/vnd.nokia.mp4vr": {
     "source": "iana"
   },
   "video/vnd.nokia.videovoip": {

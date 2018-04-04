@@ -1,4 +1,4 @@
-# find-up [![Build Status: Linux and macOS](https://travis-ci.org/sindresorhus/find-up.svg?branch=master)](https://travis-ci.org/sindresorhus/find-up) [![Build Status: Windows](https://ci.appveyor.com/api/projects/status/l0cyjmvh5lq72vq2/branch/master?svg=true)](https://ci.appveyor.com/project/sindresorhus/find-up/branch/master)
+# find-up [![Build Status](https://travis-ci.org/sindresorhus/find-up.svg?branch=master)](https://travis-ci.org/sindresorhus/find-up)
 
 > Find a file by walking up parent directories
 
@@ -15,12 +15,12 @@ $ npm install --save find-up
 ```
 /
 └── Users
-		└── sindresorhus
-				├── unicorn.png
-				└── foo
-						└── bar
-								├── baz
-								└── example.js
+    └── sindresorhus
+        ├── unicorn.png
+        └── foo
+            └── bar
+                ├── baz
+                └── example.js
 ```
 
 ```js
@@ -31,11 +31,6 @@ findUp('unicorn.png').then(filepath => {
 	console.log(filepath);
 	//=> '/Users/sindresorhus/unicorn.png'
 });
-
-findUp(['rainbow.png', 'unicorn.png']).then(filepath => {
-	console.log(filepath);
-	//=> '/Users/sindresorhus/unicorn.png'
-});
 ```
 
 
@@ -43,19 +38,11 @@ findUp(['rainbow.png', 'unicorn.png']).then(filepath => {
 
 ### findUp(filename, [options])
 
-Returns a `Promise` for the filepath or `null`.
-
-### findUp([filenameA, filenameB], [options])
-
-Returns a `Promise` for the first filepath found (by respecting the order) or `null`.
+Returns a promise for the filepath or `null`.
 
 ### findUp.sync(filename, [options])
 
 Returns a filepath or `null`.
-
-### findUp.sync([filenameA, filenameB], [options])
-
-Returns the first filepath found (by respecting the order) or `null`.
 
 #### filename
 
@@ -67,7 +54,7 @@ Filename of the file to find.
 
 ##### cwd
 
-Type: `string`<br>
+Type: `string`  
 Default: `process.cwd()`
 
 Directory to start from.
@@ -82,4 +69,4 @@ Directory to start from.
 
 ## License
 
-MIT © [Sindre Sorhus](https://sindresorhus.com)
+MIT © [Sindre Sorhus](http://sindresorhus.com)

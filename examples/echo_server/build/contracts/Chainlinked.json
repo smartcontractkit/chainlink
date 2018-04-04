@@ -1,24 +1,24 @@
 {
   "contractName": "Chainlinked",
   "abi": [],
-  "bytecode": "0x60606040523415600e57600080fd5b603580601b6000396000f3006060604052600080fd00a165627a7a723058206d49357fb1029ea5103838940c70f90bb3085373063b824368707995842fe2a30029",
-  "deployedBytecode": "0x6060604052600080fd00a165627a7a723058206d49357fb1029ea5103838940c70f90bb3085373063b824368707995842fe2a30029",
-  "sourceMap": "77:787:1:-;;;;;;;;;;;;;;;;;",
-  "deployedSourceMap": "77:787:1:-;;;;;",
-  "source": "pragma solidity ^0.4.18;\n\nimport \"./Oracle.sol\";\nimport \"./Chainlink.sol\";\n\n\ncontract Chainlinked {\n  using Chainlink for Chainlink.Run;\n\n  Oracle internal oracle;\n\n  function newRun(\n    bytes32 _jobId,\n    address _callbackAddress,\n    string _callbackFunctionSignature\n  ) internal returns (Chainlink.Run) {\n    Chainlink.Run memory run;\n    run.jobId = _jobId;\n    run.callbackAddress = _callbackAddress;\n    run.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));\n    return run;\n  }\n\n  function chainlinkRequest(Chainlink.Run _run) internal returns(uint256) {\n    return oracle.requestData(\n      _run.jobId, _run.callbackAddress, _run.callbackFunctionId, _run.close());\n  }\n\n  function setOracle(address _oracle) internal {\n    oracle = Oracle(_oracle);\n  }\n\n  modifier onlyOracle() {\n    require(msg.sender == address(oracle));\n    _;\n  }\n}\n",
-  "sourcePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Chainlinked.sol",
+  "bytecode": "0x60606040523415600e57600080fd5b603580601b6000396000f3006060604052600080fd00a165627a7a723058206f734dc3beae4f1e5ea7cb308e189f269116c5c7bf5c78b95ca6ad82f5d7e0410029",
+  "deployedBytecode": "0x6060604052600080fd00a165627a7a723058206f734dc3beae4f1e5ea7cb308e189f269116c5c7bf5c78b95ca6ad82f5d7e0410029",
+  "sourceMap": "77:731:4:-;;;;;;;;;;;;;;;;;",
+  "deployedSourceMap": "77:731:4:-;;;;;",
+  "source": "pragma solidity ^0.4.18;\n\nimport \"./Oracle.sol\";\nimport \"./Chainlink.sol\";\n\n\ncontract Chainlinked {\n  using Chainlink for Chainlink.Run;\n\n  Oracle internal oracle;\n\n  function newRun(\n    bytes32 _jobId,\n    address _cbReceiver,\n    string _cbSignature\n  ) internal returns (Chainlink.Run) {\n    Chainlink.Run memory run;\n    run.jobId = _jobId;\n    run.receiver = _cbReceiver;\n    run.functionSelector = bytes4(keccak256(_cbSignature));\n    return run;\n  }\n\n  function chainlinkRequest(Chainlink.Run _run) internal returns(uint256) {\n    return oracle.requestData(\n      _run.jobId, _run.receiver, _run.functionSelector, _run.close());\n  }\n\n  function setOracle(address _oracle) internal {\n    oracle = Oracle(_oracle);\n  }\n\n  modifier onlyOracle() {\n    require(msg.sender == address(oracle));\n    _;\n  }\n}\n",
+  "sourcePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Chainlinked.sol",
   "ast": {
-    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Chainlinked.sol",
+    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Chainlinked.sol",
     "exportedSymbols": {
       "Chainlinked": [
-        297
+        436
       ]
     },
-    "id": 298,
+    "id": 437,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 202,
+        "id": 341,
         "literals": [
           "solidity",
           "^",
@@ -26,27 +26,27 @@
           ".18"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:1"
+        "src": "0:24:4"
       },
       {
-        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Oracle.sol",
+        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Oracle.sol",
         "file": "./Oracle.sol",
-        "id": 203,
+        "id": 342,
         "nodeType": "ImportDirective",
-        "scope": 298,
-        "sourceUnit": 414,
-        "src": "26:22:1",
+        "scope": 437,
+        "sourceUnit": 553,
+        "src": "26:22:4",
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Chainlink.sol",
+        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Chainlink.sol",
         "file": "./Chainlink.sol",
-        "id": 204,
+        "id": 343,
         "nodeType": "ImportDirective",
-        "scope": 298,
-        "sourceUnit": 201,
-        "src": "49:25:1",
+        "scope": 437,
+        "sourceUnit": 340,
+        "src": "49:25:4",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -56,64 +56,64 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 297,
+        "id": 436,
         "linearizedBaseContracts": [
-          297
+          436
         ],
         "name": "Chainlinked",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
-            "id": 207,
+            "id": 346,
             "libraryName": {
               "contractScope": null,
-              "id": 205,
+              "id": 344,
               "name": "Chainlink",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 200,
-              "src": "108:9:1",
+              "referencedDeclaration": 339,
+              "src": "108:9:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Chainlink_$200",
+                "typeIdentifier": "t_contract$_Chainlink_$339",
                 "typeString": "library Chainlink"
               }
             },
             "nodeType": "UsingForDirective",
-            "src": "102:34:1",
+            "src": "102:34:4",
             "typeName": {
               "contractScope": null,
-              "id": 206,
+              "id": 345,
               "name": "Chainlink.Run",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 13,
-              "src": "122:13:1",
+              "referencedDeclaration": 152,
+              "src": "122:13:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                 "typeString": "struct Chainlink.Run storage pointer"
               }
             }
           },
           {
             "constant": false,
-            "id": 209,
+            "id": 348,
             "name": "oracle",
             "nodeType": "VariableDeclaration",
-            "scope": 297,
-            "src": "140:22:1",
+            "scope": 436,
+            "src": "140:22:4",
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
-              "typeIdentifier": "t_contract$_Oracle_$413",
+              "typeIdentifier": "t_contract$_Oracle_$552",
               "typeString": "contract Oracle"
             },
             "typeName": {
               "contractScope": null,
-              "id": 208,
+              "id": 347,
               "name": "Oracle",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 413,
-              "src": "140:6:1",
+              "referencedDeclaration": 552,
+              "src": "140:6:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Oracle_$413",
+                "typeIdentifier": "t_contract$_Oracle_$552",
                 "typeString": "contract Oracle"
               }
             },
@@ -122,35 +122,35 @@
           },
           {
             "body": {
-              "id": 249,
+              "id": 388,
               "nodeType": "Block",
-              "src": "309:195:1",
+              "src": "290:167:4",
               "statements": [
                 {
                   "assignments": [],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 223,
+                      "id": 362,
                       "name": "run",
                       "nodeType": "VariableDeclaration",
-                      "scope": 250,
-                      "src": "315:24:1",
+                      "scope": 389,
+                      "src": "296:24:4",
                       "stateVariable": false,
                       "storageLocation": "memory",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                        "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                         "typeString": "struct Chainlink.Run memory"
                       },
                       "typeName": {
                         "contractScope": null,
-                        "id": 222,
+                        "id": 361,
                         "name": "Chainlink.Run",
                         "nodeType": "UserDefinedTypeName",
-                        "referencedDeclaration": 13,
-                        "src": "315:13:1",
+                        "referencedDeclaration": 152,
+                        "src": "296:13:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                           "typeString": "struct Chainlink.Run storage pointer"
                         }
                       },
@@ -158,15 +158,15 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 224,
+                  "id": 363,
                   "initialValue": null,
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "315:24:1"
+                  "src": "296:24:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 229,
+                    "id": 368,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -175,26 +175,26 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 225,
+                        "id": 364,
                         "name": "run",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 223,
-                        "src": "345:3:1",
+                        "referencedDeclaration": 362,
+                        "src": "326:3:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                           "typeString": "struct Chainlink.Run memory"
                         }
                       },
-                      "id": 227,
+                      "id": 366,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
                       "lValueRequested": true,
                       "memberName": "jobId",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 8,
-                      "src": "345:9:1",
+                      "referencedDeclaration": 147,
+                      "src": "326:9:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes32",
                         "typeString": "bytes32"
@@ -204,31 +204,31 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 228,
+                      "id": 367,
                       "name": "_jobId",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 211,
-                      "src": "357:6:1",
+                      "referencedDeclaration": 350,
+                      "src": "338:6:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes32",
                         "typeString": "bytes32"
                       }
                     },
-                    "src": "345:18:1",
+                    "src": "326:18:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
                     }
                   },
-                  "id": 230,
+                  "id": 369,
                   "nodeType": "ExpressionStatement",
-                  "src": "345:18:1"
+                  "src": "326:18:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 235,
+                    "id": 374,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -237,26 +237,26 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 231,
+                        "id": 370,
                         "name": "run",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 223,
-                        "src": "369:3:1",
+                        "referencedDeclaration": 362,
+                        "src": "350:3:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                           "typeString": "struct Chainlink.Run memory"
                         }
                       },
-                      "id": 233,
+                      "id": 372,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
                       "lValueRequested": true,
-                      "memberName": "callbackAddress",
+                      "memberName": "receiver",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 10,
-                      "src": "369:19:1",
+                      "referencedDeclaration": 149,
+                      "src": "350:12:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
@@ -266,31 +266,31 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 234,
-                      "name": "_callbackAddress",
+                      "id": 373,
+                      "name": "_cbReceiver",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 213,
-                      "src": "391:16:1",
+                      "referencedDeclaration": 352,
+                      "src": "365:11:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "src": "369:38:1",
+                    "src": "350:26:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
-                  "id": 236,
+                  "id": 375,
                   "nodeType": "ExpressionStatement",
-                  "src": "369:38:1"
+                  "src": "350:26:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 245,
+                    "id": 384,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -299,26 +299,26 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 237,
+                        "id": 376,
                         "name": "run",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 223,
-                        "src": "413:3:1",
+                        "referencedDeclaration": 362,
+                        "src": "382:3:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                           "typeString": "struct Chainlink.Run memory"
                         }
                       },
-                      "id": 239,
+                      "id": 378,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
                       "lValueRequested": true,
-                      "memberName": "callbackFunctionId",
+                      "memberName": "functionSelector",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 12,
-                      "src": "413:22:1",
+                      "referencedDeclaration": 151,
+                      "src": "382:20:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes4",
                         "typeString": "bytes4"
@@ -334,12 +334,12 @@
                           "arguments": [
                             {
                               "argumentTypes": null,
-                              "id": 242,
-                              "name": "_callbackFunctionSignature",
+                              "id": 381,
+                              "name": "_cbSignature",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 215,
-                              "src": "455:26:1",
+                              "referencedDeclaration": 354,
+                              "src": "422:12:4",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_string_memory_ptr",
                                 "typeString": "string memory"
@@ -353,18 +353,18 @@
                                 "typeString": "string memory"
                               }
                             ],
-                            "id": 241,
+                            "id": 380,
                             "name": "keccak256",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 2189,
-                            "src": "445:9:1",
+                            "referencedDeclaration": 2391,
+                            "src": "412:9:4",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_sha3_pure$__$returns$_t_bytes32_$",
                               "typeString": "function () pure returns (bytes32)"
                             }
                           },
-                          "id": 243,
+                          "id": 382,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -372,7 +372,7 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "445:37:1",
+                          "src": "412:23:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_bytes32",
                             "typeString": "bytes32"
@@ -386,20 +386,20 @@
                             "typeString": "bytes32"
                           }
                         ],
-                        "id": 240,
+                        "id": 379,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "lValueRequested": false,
                         "nodeType": "ElementaryTypeNameExpression",
-                        "src": "438:6:1",
+                        "src": "405:6:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_type$_t_bytes4_$",
                           "typeString": "type(bytes4)"
                         },
                         "typeName": "bytes4"
                       },
-                      "id": 244,
+                      "id": 383,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -407,44 +407,45 @@
                       "lValueRequested": false,
                       "names": [],
                       "nodeType": "FunctionCall",
-                      "src": "438:45:1",
+                      "src": "405:31:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes4",
                         "typeString": "bytes4"
                       }
                     },
-                    "src": "413:70:1",
+                    "src": "382:54:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes4",
                       "typeString": "bytes4"
                     }
                   },
-                  "id": 246,
+                  "id": 385,
                   "nodeType": "ExpressionStatement",
-                  "src": "413:70:1"
+                  "src": "382:54:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 247,
+                    "id": 386,
                     "name": "run",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 223,
-                    "src": "496:3:1",
+                    "referencedDeclaration": 362,
+                    "src": "449:3:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                      "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                       "typeString": "struct Chainlink.Run memory"
                     }
                   },
-                  "functionReturnParameters": 219,
-                  "id": 248,
+                  "functionReturnParameters": 358,
+                  "id": 387,
                   "nodeType": "Return",
-                  "src": "489:10:1"
+                  "src": "442:10:4"
                 }
               ]
             },
-            "id": 250,
+            "documentation": null,
+            "id": 389,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -452,16 +453,16 @@
             "name": "newRun",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 216,
+              "id": 355,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 211,
+                  "id": 350,
                   "name": "_jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "188:14:1",
+                  "scope": 389,
+                  "src": "188:14:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -469,10 +470,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 210,
+                    "id": 349,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "188:7:1",
+                    "src": "188:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -483,11 +484,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 213,
-                  "name": "_callbackAddress",
+                  "id": 352,
+                  "name": "_cbReceiver",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "208:24:1",
+                  "scope": 389,
+                  "src": "208:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -495,10 +496,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 212,
+                    "id": 351,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "208:7:1",
+                    "src": "208:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -509,11 +510,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 215,
-                  "name": "_callbackFunctionSignature",
+                  "id": 354,
+                  "name": "_cbSignature",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "238:33:1",
+                  "scope": 389,
+                  "src": "233:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -521,10 +522,10 @@
                     "typeString": "string memory"
                   },
                   "typeName": {
-                    "id": 214,
+                    "id": 353,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "238:6:1",
+                    "src": "233:6:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string storage pointer"
@@ -534,35 +535,35 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "182:93:1"
+              "src": "182:74:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 219,
+              "id": 358,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 218,
+                  "id": 357,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "294:13:1",
+                  "scope": 389,
+                  "src": "275:13:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                    "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                     "typeString": "struct Chainlink.Run memory"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 217,
+                    "id": 356,
                     "name": "Chainlink.Run",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 13,
-                    "src": "294:13:1",
+                    "referencedDeclaration": 152,
+                    "src": "275:13:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                      "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                       "typeString": "struct Chainlink.Run storage pointer"
                     }
                   },
@@ -570,19 +571,19 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "293:15:1"
+              "src": "274:15:4"
             },
-            "scope": 297,
-            "src": "167:337:1",
+            "scope": 436,
+            "src": "167:290:4",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "internal"
           },
           {
             "body": {
-              "id": 270,
+              "id": 409,
               "nodeType": "Block",
-              "src": "580:116:1",
+              "src": "533:107:4",
               "statements": [
                 {
                   "expression": {
@@ -592,26 +593,26 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 259,
+                          "id": 398,
                           "name": "_run",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 252,
-                          "src": "619:4:1",
+                          "referencedDeclaration": 391,
+                          "src": "572:4:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                            "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                             "typeString": "struct Chainlink.Run memory"
                           }
                         },
-                        "id": 260,
+                        "id": 399,
                         "isConstant": false,
                         "isLValue": true,
                         "isPure": false,
                         "lValueRequested": false,
                         "memberName": "jobId",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 8,
-                        "src": "619:10:1",
+                        "referencedDeclaration": 147,
+                        "src": "572:10:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes32",
                           "typeString": "bytes32"
@@ -621,26 +622,26 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 261,
+                          "id": 400,
                           "name": "_run",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 252,
-                          "src": "631:4:1",
+                          "referencedDeclaration": 391,
+                          "src": "584:4:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                            "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                             "typeString": "struct Chainlink.Run memory"
                           }
                         },
-                        "id": 262,
+                        "id": 401,
                         "isConstant": false,
                         "isLValue": true,
                         "isPure": false,
                         "lValueRequested": false,
-                        "memberName": "callbackAddress",
+                        "memberName": "receiver",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 10,
-                        "src": "631:20:1",
+                        "referencedDeclaration": 149,
+                        "src": "584:13:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
@@ -650,26 +651,26 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 263,
+                          "id": 402,
                           "name": "_run",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 252,
-                          "src": "653:4:1",
+                          "referencedDeclaration": 391,
+                          "src": "599:4:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                            "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                             "typeString": "struct Chainlink.Run memory"
                           }
                         },
-                        "id": 264,
+                        "id": 403,
                         "isConstant": false,
                         "isLValue": true,
                         "isPure": false,
                         "lValueRequested": false,
-                        "memberName": "callbackFunctionId",
+                        "memberName": "functionSelector",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 12,
-                        "src": "653:23:1",
+                        "referencedDeclaration": 151,
+                        "src": "599:21:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes4",
                           "typeString": "bytes4"
@@ -682,32 +683,32 @@
                           "argumentTypes": [],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 265,
+                            "id": 404,
                             "name": "_run",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 252,
-                            "src": "678:4:1",
+                            "referencedDeclaration": 391,
+                            "src": "622:4:4",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                              "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                               "typeString": "struct Chainlink.Run memory"
                             }
                           },
-                          "id": 266,
+                          "id": 405,
                           "isConstant": false,
                           "isLValue": true,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "close",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 170,
-                          "src": "678:10:1",
+                          "referencedDeclaration": 309,
+                          "src": "622:10:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_function_internal_nonpayable$_t_struct$_Run_$13_memory_ptr_$returns$_t_string_memory_ptr_$bound_to$_t_struct$_Run_$13_memory_ptr_$",
+                            "typeIdentifier": "t_function_internal_nonpayable$_t_struct$_Run_$152_memory_ptr_$returns$_t_string_memory_ptr_$bound_to$_t_struct$_Run_$152_memory_ptr_$",
                             "typeString": "function (struct Chainlink.Run memory) returns (string memory)"
                           }
                         },
-                        "id": 267,
+                        "id": 406,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -715,7 +716,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "678:12:1",
+                        "src": "622:12:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_string_memory_ptr",
                           "typeString": "string memory"
@@ -743,32 +744,32 @@
                       ],
                       "expression": {
                         "argumentTypes": null,
-                        "id": 257,
+                        "id": 396,
                         "name": "oracle",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 209,
-                        "src": "593:6:1",
+                        "referencedDeclaration": 348,
+                        "src": "546:6:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_Oracle_$413",
+                          "typeIdentifier": "t_contract$_Oracle_$552",
                           "typeString": "contract Oracle"
                         }
                       },
-                      "id": 258,
+                      "id": 397,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "requestData",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 360,
-                      "src": "593:18:1",
+                      "referencedDeclaration": 499,
+                      "src": "546:18:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_external_nonpayable$_t_bytes32_$_t_address_$_t_bytes4_$_t_string_memory_ptr_$returns$_t_uint256_$",
                         "typeString": "function (bytes32,address,bytes4,string memory) external returns (uint256)"
                       }
                     },
-                    "id": 268,
+                    "id": 407,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -776,20 +777,21 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "593:98:1",
+                    "src": "546:89:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
-                  "functionReturnParameters": 256,
-                  "id": 269,
+                  "functionReturnParameters": 395,
+                  "id": 408,
                   "nodeType": "Return",
-                  "src": "586:105:1"
+                  "src": "539:96:4"
                 }
               ]
             },
-            "id": 271,
+            "documentation": null,
+            "id": 410,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -797,31 +799,31 @@
             "name": "chainlinkRequest",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 253,
+              "id": 392,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 252,
+                  "id": 391,
                   "name": "_run",
                   "nodeType": "VariableDeclaration",
-                  "scope": 271,
-                  "src": "534:18:1",
+                  "scope": 410,
+                  "src": "487:18:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                    "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                     "typeString": "struct Chainlink.Run memory"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 251,
+                    "id": 390,
                     "name": "Chainlink.Run",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 13,
-                    "src": "534:13:1",
+                    "referencedDeclaration": 152,
+                    "src": "487:13:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                      "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                       "typeString": "struct Chainlink.Run storage pointer"
                     }
                   },
@@ -829,20 +831,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "533:20:1"
+              "src": "486:20:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 256,
+              "id": 395,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 255,
+                  "id": 394,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 271,
-                  "src": "571:7:1",
+                  "scope": 410,
+                  "src": "524:7:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -850,10 +852,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 254,
+                    "id": 393,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "571:7:1",
+                    "src": "524:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -863,38 +865,38 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "570:9:1"
+              "src": "523:9:4"
             },
-            "scope": 297,
-            "src": "508:188:1",
+            "scope": 436,
+            "src": "461:179:4",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "internal"
           },
           {
             "body": {
-              "id": 282,
+              "id": 421,
               "nodeType": "Block",
-              "src": "745:35:1",
+              "src": "689:35:4",
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 280,
+                    "id": 419,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftHandSide": {
                       "argumentTypes": null,
-                      "id": 276,
+                      "id": 415,
                       "name": "oracle",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 209,
-                      "src": "751:6:1",
+                      "referencedDeclaration": 348,
+                      "src": "695:6:4",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_contract$_Oracle_$413",
+                        "typeIdentifier": "t_contract$_Oracle_$552",
                         "typeString": "contract Oracle"
                       }
                     },
@@ -905,12 +907,12 @@
                       "arguments": [
                         {
                           "argumentTypes": null,
-                          "id": 278,
+                          "id": 417,
                           "name": "_oracle",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 273,
-                          "src": "767:7:1",
+                          "referencedDeclaration": 412,
+                          "src": "711:7:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -924,18 +926,18 @@
                             "typeString": "address"
                           }
                         ],
-                        "id": 277,
+                        "id": 416,
                         "name": "Oracle",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 413,
-                        "src": "760:6:1",
+                        "referencedDeclaration": 552,
+                        "src": "704:6:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_type$_t_contract$_Oracle_$413_$",
+                          "typeIdentifier": "t_type$_t_contract$_Oracle_$552_$",
                           "typeString": "type(contract Oracle)"
                         }
                       },
-                      "id": 279,
+                      "id": 418,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -943,25 +945,26 @@
                       "lValueRequested": false,
                       "names": [],
                       "nodeType": "FunctionCall",
-                      "src": "760:15:1",
+                      "src": "704:15:4",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_contract$_Oracle_$413",
+                        "typeIdentifier": "t_contract$_Oracle_$552",
                         "typeString": "contract Oracle"
                       }
                     },
-                    "src": "751:24:1",
+                    "src": "695:24:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_contract$_Oracle_$413",
+                      "typeIdentifier": "t_contract$_Oracle_$552",
                       "typeString": "contract Oracle"
                     }
                   },
-                  "id": 281,
+                  "id": 420,
                   "nodeType": "ExpressionStatement",
-                  "src": "751:24:1"
+                  "src": "695:24:4"
                 }
               ]
             },
-            "id": 283,
+            "documentation": null,
+            "id": 422,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -969,16 +972,16 @@
             "name": "setOracle",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 274,
+              "id": 413,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 273,
+                  "id": 412,
                   "name": "_oracle",
                   "nodeType": "VariableDeclaration",
-                  "scope": 283,
-                  "src": "719:15:1",
+                  "scope": 422,
+                  "src": "663:15:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -986,10 +989,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 272,
+                    "id": 411,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "719:7:1",
+                    "src": "663:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -999,26 +1002,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "718:17:1"
+              "src": "662:17:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 275,
+              "id": 414,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "745:0:1"
+              "src": "689:0:4"
             },
-            "scope": 297,
-            "src": "700:80:1",
+            "scope": 436,
+            "src": "644:80:4",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "internal"
           },
           {
             "body": {
-              "id": 295,
+              "id": 434,
               "nodeType": "Block",
-              "src": "806:56:1",
+              "src": "750:56:4",
               "statements": [
                 {
                   "expression": {
@@ -1030,7 +1033,7 @@
                           "typeIdentifier": "t_address",
                           "typeString": "address"
                         },
-                        "id": 291,
+                        "id": 430,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1039,18 +1042,18 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 286,
+                            "id": 425,
                             "name": "msg",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 2195,
-                            "src": "820:3:1",
+                            "referencedDeclaration": 2397,
+                            "src": "764:3:4",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_message",
                               "typeString": "msg"
                             }
                           },
-                          "id": 287,
+                          "id": 426,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1058,7 +1061,7 @@
                           "memberName": "sender",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "820:10:1",
+                          "src": "764:10:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -1071,14 +1074,14 @@
                           "arguments": [
                             {
                               "argumentTypes": null,
-                              "id": 289,
+                              "id": 428,
                               "name": "oracle",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 209,
-                              "src": "842:6:1",
+                              "referencedDeclaration": 348,
+                              "src": "786:6:4",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_contract$_Oracle_$413",
+                                "typeIdentifier": "t_contract$_Oracle_$552",
                                 "typeString": "contract Oracle"
                               }
                             }
@@ -1086,24 +1089,24 @@
                           "expression": {
                             "argumentTypes": [
                               {
-                                "typeIdentifier": "t_contract$_Oracle_$413",
+                                "typeIdentifier": "t_contract$_Oracle_$552",
                                 "typeString": "contract Oracle"
                               }
                             ],
-                            "id": 288,
+                            "id": 427,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": true,
                             "lValueRequested": false,
                             "nodeType": "ElementaryTypeNameExpression",
-                            "src": "834:7:1",
+                            "src": "778:7:4",
                             "typeDescriptions": {
                               "typeIdentifier": "t_type$_t_address_$",
                               "typeString": "type(address)"
                             },
                             "typeName": "address"
                           },
-                          "id": 290,
+                          "id": 429,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1111,13 +1114,13 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "834:15:1",
+                          "src": "778:15:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
                           }
                         },
-                        "src": "820:29:1",
+                        "src": "764:29:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -1131,18 +1134,18 @@
                           "typeString": "bool"
                         }
                       ],
-                      "id": 285,
+                      "id": 424,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 2198,
-                      "src": "812:7:1",
+                      "referencedDeclaration": 2400,
+                      "src": "756:7:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$returns$__$",
                         "typeString": "function (bool) pure"
                       }
                     },
-                    "id": 292,
+                    "id": 431,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1150,54 +1153,55 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "812:38:1",
+                    "src": "756:38:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 293,
+                  "id": 432,
                   "nodeType": "ExpressionStatement",
-                  "src": "812:38:1"
+                  "src": "756:38:4"
                 },
                 {
-                  "id": 294,
+                  "id": 433,
                   "nodeType": "PlaceholderStatement",
-                  "src": "856:1:1"
+                  "src": "800:1:4"
                 }
               ]
             },
-            "id": 296,
+            "documentation": null,
+            "id": 435,
             "name": "onlyOracle",
             "nodeType": "ModifierDefinition",
             "parameters": {
-              "id": 284,
+              "id": 423,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "803:2:1"
+              "src": "747:2:4"
             },
-            "src": "784:78:1",
+            "src": "728:78:4",
             "visibility": "internal"
           }
         ],
-        "scope": 298,
-        "src": "77:787:1"
+        "scope": 437,
+        "src": "77:731:4"
       }
     ],
-    "src": "0:865:1"
+    "src": "0:809:4"
   },
   "legacyAST": {
-    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Chainlinked.sol",
+    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Chainlinked.sol",
     "exportedSymbols": {
       "Chainlinked": [
-        297
+        436
       ]
     },
-    "id": 298,
+    "id": 437,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 202,
+        "id": 341,
         "literals": [
           "solidity",
           "^",
@@ -1205,27 +1209,27 @@
           ".18"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:1"
+        "src": "0:24:4"
       },
       {
-        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Oracle.sol",
+        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Oracle.sol",
         "file": "./Oracle.sol",
-        "id": 203,
+        "id": 342,
         "nodeType": "ImportDirective",
-        "scope": 298,
-        "sourceUnit": 414,
-        "src": "26:22:1",
+        "scope": 437,
+        "sourceUnit": 553,
+        "src": "26:22:4",
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/Chainlink.sol",
+        "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/node_modules/chainlink/solidity/contracts/Chainlink.sol",
         "file": "./Chainlink.sol",
-        "id": 204,
+        "id": 343,
         "nodeType": "ImportDirective",
-        "scope": 298,
-        "sourceUnit": 201,
-        "src": "49:25:1",
+        "scope": 437,
+        "sourceUnit": 340,
+        "src": "49:25:4",
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1235,64 +1239,64 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 297,
+        "id": 436,
         "linearizedBaseContracts": [
-          297
+          436
         ],
         "name": "Chainlinked",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
-            "id": 207,
+            "id": 346,
             "libraryName": {
               "contractScope": null,
-              "id": 205,
+              "id": 344,
               "name": "Chainlink",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 200,
-              "src": "108:9:1",
+              "referencedDeclaration": 339,
+              "src": "108:9:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Chainlink_$200",
+                "typeIdentifier": "t_contract$_Chainlink_$339",
                 "typeString": "library Chainlink"
               }
             },
             "nodeType": "UsingForDirective",
-            "src": "102:34:1",
+            "src": "102:34:4",
             "typeName": {
               "contractScope": null,
-              "id": 206,
+              "id": 345,
               "name": "Chainlink.Run",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 13,
-              "src": "122:13:1",
+              "referencedDeclaration": 152,
+              "src": "122:13:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                 "typeString": "struct Chainlink.Run storage pointer"
               }
             }
           },
           {
             "constant": false,
-            "id": 209,
+            "id": 348,
             "name": "oracle",
             "nodeType": "VariableDeclaration",
-            "scope": 297,
-            "src": "140:22:1",
+            "scope": 436,
+            "src": "140:22:4",
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
-              "typeIdentifier": "t_contract$_Oracle_$413",
+              "typeIdentifier": "t_contract$_Oracle_$552",
               "typeString": "contract Oracle"
             },
             "typeName": {
               "contractScope": null,
-              "id": 208,
+              "id": 347,
               "name": "Oracle",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 413,
-              "src": "140:6:1",
+              "referencedDeclaration": 552,
+              "src": "140:6:4",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Oracle_$413",
+                "typeIdentifier": "t_contract$_Oracle_$552",
                 "typeString": "contract Oracle"
               }
             },
@@ -1301,35 +1305,35 @@
           },
           {
             "body": {
-              "id": 249,
+              "id": 388,
               "nodeType": "Block",
-              "src": "309:195:1",
+              "src": "290:167:4",
               "statements": [
                 {
                   "assignments": [],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 223,
+                      "id": 362,
                       "name": "run",
                       "nodeType": "VariableDeclaration",
-                      "scope": 250,
-                      "src": "315:24:1",
+                      "scope": 389,
+                      "src": "296:24:4",
                       "stateVariable": false,
                       "storageLocation": "memory",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                        "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                         "typeString": "struct Chainlink.Run memory"
                       },
                       "typeName": {
                         "contractScope": null,
-                        "id": 222,
+                        "id": 361,
                         "name": "Chainlink.Run",
                         "nodeType": "UserDefinedTypeName",
-                        "referencedDeclaration": 13,
-                        "src": "315:13:1",
+                        "referencedDeclaration": 152,
+                        "src": "296:13:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                           "typeString": "struct Chainlink.Run storage pointer"
                         }
                       },
@@ -1337,15 +1341,15 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 224,
+                  "id": 363,
                   "initialValue": null,
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "315:24:1"
+                  "src": "296:24:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 229,
+                    "id": 368,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1354,26 +1358,26 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 225,
+                        "id": 364,
                         "name": "run",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 223,
-                        "src": "345:3:1",
+                        "referencedDeclaration": 362,
+                        "src": "326:3:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                           "typeString": "struct Chainlink.Run memory"
                         }
                       },
-                      "id": 227,
+                      "id": 366,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
                       "lValueRequested": true,
                       "memberName": "jobId",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 8,
-                      "src": "345:9:1",
+                      "referencedDeclaration": 147,
+                      "src": "326:9:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes32",
                         "typeString": "bytes32"
@@ -1383,31 +1387,31 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 228,
+                      "id": 367,
                       "name": "_jobId",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 211,
-                      "src": "357:6:1",
+                      "referencedDeclaration": 350,
+                      "src": "338:6:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes32",
                         "typeString": "bytes32"
                       }
                     },
-                    "src": "345:18:1",
+                    "src": "326:18:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
                     }
                   },
-                  "id": 230,
+                  "id": 369,
                   "nodeType": "ExpressionStatement",
-                  "src": "345:18:1"
+                  "src": "326:18:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 235,
+                    "id": 374,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1416,26 +1420,26 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 231,
+                        "id": 370,
                         "name": "run",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 223,
-                        "src": "369:3:1",
+                        "referencedDeclaration": 362,
+                        "src": "350:3:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                           "typeString": "struct Chainlink.Run memory"
                         }
                       },
-                      "id": 233,
+                      "id": 372,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
                       "lValueRequested": true,
-                      "memberName": "callbackAddress",
+                      "memberName": "receiver",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 10,
-                      "src": "369:19:1",
+                      "referencedDeclaration": 149,
+                      "src": "350:12:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
@@ -1445,31 +1449,31 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 234,
-                      "name": "_callbackAddress",
+                      "id": 373,
+                      "name": "_cbReceiver",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 213,
-                      "src": "391:16:1",
+                      "referencedDeclaration": 352,
+                      "src": "365:11:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "src": "369:38:1",
+                    "src": "350:26:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
-                  "id": 236,
+                  "id": 375,
                   "nodeType": "ExpressionStatement",
-                  "src": "369:38:1"
+                  "src": "350:26:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 245,
+                    "id": 384,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1478,26 +1482,26 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 237,
+                        "id": 376,
                         "name": "run",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 223,
-                        "src": "413:3:1",
+                        "referencedDeclaration": 362,
+                        "src": "382:3:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                          "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                           "typeString": "struct Chainlink.Run memory"
                         }
                       },
-                      "id": 239,
+                      "id": 378,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
                       "lValueRequested": true,
-                      "memberName": "callbackFunctionId",
+                      "memberName": "functionSelector",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 12,
-                      "src": "413:22:1",
+                      "referencedDeclaration": 151,
+                      "src": "382:20:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes4",
                         "typeString": "bytes4"
@@ -1513,12 +1517,12 @@
                           "arguments": [
                             {
                               "argumentTypes": null,
-                              "id": 242,
-                              "name": "_callbackFunctionSignature",
+                              "id": 381,
+                              "name": "_cbSignature",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 215,
-                              "src": "455:26:1",
+                              "referencedDeclaration": 354,
+                              "src": "422:12:4",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_string_memory_ptr",
                                 "typeString": "string memory"
@@ -1532,18 +1536,18 @@
                                 "typeString": "string memory"
                               }
                             ],
-                            "id": 241,
+                            "id": 380,
                             "name": "keccak256",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 2189,
-                            "src": "445:9:1",
+                            "referencedDeclaration": 2391,
+                            "src": "412:9:4",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_sha3_pure$__$returns$_t_bytes32_$",
                               "typeString": "function () pure returns (bytes32)"
                             }
                           },
-                          "id": 243,
+                          "id": 382,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1551,7 +1555,7 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "445:37:1",
+                          "src": "412:23:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_bytes32",
                             "typeString": "bytes32"
@@ -1565,20 +1569,20 @@
                             "typeString": "bytes32"
                           }
                         ],
-                        "id": 240,
+                        "id": 379,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "lValueRequested": false,
                         "nodeType": "ElementaryTypeNameExpression",
-                        "src": "438:6:1",
+                        "src": "405:6:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_type$_t_bytes4_$",
                           "typeString": "type(bytes4)"
                         },
                         "typeName": "bytes4"
                       },
-                      "id": 244,
+                      "id": 383,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -1586,44 +1590,45 @@
                       "lValueRequested": false,
                       "names": [],
                       "nodeType": "FunctionCall",
-                      "src": "438:45:1",
+                      "src": "405:31:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bytes4",
                         "typeString": "bytes4"
                       }
                     },
-                    "src": "413:70:1",
+                    "src": "382:54:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes4",
                       "typeString": "bytes4"
                     }
                   },
-                  "id": 246,
+                  "id": 385,
                   "nodeType": "ExpressionStatement",
-                  "src": "413:70:1"
+                  "src": "382:54:4"
                 },
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 247,
+                    "id": 386,
                     "name": "run",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 223,
-                    "src": "496:3:1",
+                    "referencedDeclaration": 362,
+                    "src": "449:3:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                      "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                       "typeString": "struct Chainlink.Run memory"
                     }
                   },
-                  "functionReturnParameters": 219,
-                  "id": 248,
+                  "functionReturnParameters": 358,
+                  "id": 387,
                   "nodeType": "Return",
-                  "src": "489:10:1"
+                  "src": "442:10:4"
                 }
               ]
             },
-            "id": 250,
+            "documentation": null,
+            "id": 389,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -1631,16 +1636,16 @@
             "name": "newRun",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 216,
+              "id": 355,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 211,
+                  "id": 350,
                   "name": "_jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "188:14:1",
+                  "scope": 389,
+                  "src": "188:14:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1648,10 +1653,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 210,
+                    "id": 349,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "188:7:1",
+                    "src": "188:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -1662,11 +1667,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 213,
-                  "name": "_callbackAddress",
+                  "id": 352,
+                  "name": "_cbReceiver",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "208:24:1",
+                  "scope": 389,
+                  "src": "208:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1674,10 +1679,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 212,
+                    "id": 351,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "208:7:1",
+                    "src": "208:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -1688,11 +1693,11 @@
                 },
                 {
                   "constant": false,
-                  "id": 215,
-                  "name": "_callbackFunctionSignature",
+                  "id": 354,
+                  "name": "_cbSignature",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "238:33:1",
+                  "scope": 389,
+                  "src": "233:19:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1700,10 +1705,10 @@
                     "typeString": "string memory"
                   },
                   "typeName": {
-                    "id": 214,
+                    "id": 353,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "238:6:1",
+                    "src": "233:6:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string storage pointer"
@@ -1713,35 +1718,35 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "182:93:1"
+              "src": "182:74:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 219,
+              "id": 358,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 218,
+                  "id": 357,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 250,
-                  "src": "294:13:1",
+                  "scope": 389,
+                  "src": "275:13:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                    "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                     "typeString": "struct Chainlink.Run memory"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 217,
+                    "id": 356,
                     "name": "Chainlink.Run",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 13,
-                    "src": "294:13:1",
+                    "referencedDeclaration": 152,
+                    "src": "275:13:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                      "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                       "typeString": "struct Chainlink.Run storage pointer"
                     }
                   },
@@ -1749,19 +1754,19 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "293:15:1"
+              "src": "274:15:4"
             },
-            "scope": 297,
-            "src": "167:337:1",
+            "scope": 436,
+            "src": "167:290:4",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "internal"
           },
           {
             "body": {
-              "id": 270,
+              "id": 409,
               "nodeType": "Block",
-              "src": "580:116:1",
+              "src": "533:107:4",
               "statements": [
                 {
                   "expression": {
@@ -1771,26 +1776,26 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 259,
+                          "id": 398,
                           "name": "_run",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 252,
-                          "src": "619:4:1",
+                          "referencedDeclaration": 391,
+                          "src": "572:4:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                            "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                             "typeString": "struct Chainlink.Run memory"
                           }
                         },
-                        "id": 260,
+                        "id": 399,
                         "isConstant": false,
                         "isLValue": true,
                         "isPure": false,
                         "lValueRequested": false,
                         "memberName": "jobId",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 8,
-                        "src": "619:10:1",
+                        "referencedDeclaration": 147,
+                        "src": "572:10:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes32",
                           "typeString": "bytes32"
@@ -1800,26 +1805,26 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 261,
+                          "id": 400,
                           "name": "_run",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 252,
-                          "src": "631:4:1",
+                          "referencedDeclaration": 391,
+                          "src": "584:4:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                            "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                             "typeString": "struct Chainlink.Run memory"
                           }
                         },
-                        "id": 262,
+                        "id": 401,
                         "isConstant": false,
                         "isLValue": true,
                         "isPure": false,
                         "lValueRequested": false,
-                        "memberName": "callbackAddress",
+                        "memberName": "receiver",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 10,
-                        "src": "631:20:1",
+                        "referencedDeclaration": 149,
+                        "src": "584:13:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
@@ -1829,26 +1834,26 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 263,
+                          "id": 402,
                           "name": "_run",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 252,
-                          "src": "653:4:1",
+                          "referencedDeclaration": 391,
+                          "src": "599:4:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                            "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                             "typeString": "struct Chainlink.Run memory"
                           }
                         },
-                        "id": 264,
+                        "id": 403,
                         "isConstant": false,
                         "isLValue": true,
                         "isPure": false,
                         "lValueRequested": false,
-                        "memberName": "callbackFunctionId",
+                        "memberName": "functionSelector",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 12,
-                        "src": "653:23:1",
+                        "referencedDeclaration": 151,
+                        "src": "599:21:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes4",
                           "typeString": "bytes4"
@@ -1861,32 +1866,32 @@
                           "argumentTypes": [],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 265,
+                            "id": 404,
                             "name": "_run",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 252,
-                            "src": "678:4:1",
+                            "referencedDeclaration": 391,
+                            "src": "622:4:4",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                              "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                               "typeString": "struct Chainlink.Run memory"
                             }
                           },
-                          "id": 266,
+                          "id": 405,
                           "isConstant": false,
                           "isLValue": true,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "close",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 170,
-                          "src": "678:10:1",
+                          "referencedDeclaration": 309,
+                          "src": "622:10:4",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_function_internal_nonpayable$_t_struct$_Run_$13_memory_ptr_$returns$_t_string_memory_ptr_$bound_to$_t_struct$_Run_$13_memory_ptr_$",
+                            "typeIdentifier": "t_function_internal_nonpayable$_t_struct$_Run_$152_memory_ptr_$returns$_t_string_memory_ptr_$bound_to$_t_struct$_Run_$152_memory_ptr_$",
                             "typeString": "function (struct Chainlink.Run memory) returns (string memory)"
                           }
                         },
-                        "id": 267,
+                        "id": 406,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1894,7 +1899,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "678:12:1",
+                        "src": "622:12:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_string_memory_ptr",
                           "typeString": "string memory"
@@ -1922,32 +1927,32 @@
                       ],
                       "expression": {
                         "argumentTypes": null,
-                        "id": 257,
+                        "id": 396,
                         "name": "oracle",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 209,
-                        "src": "593:6:1",
+                        "referencedDeclaration": 348,
+                        "src": "546:6:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_Oracle_$413",
+                          "typeIdentifier": "t_contract$_Oracle_$552",
                           "typeString": "contract Oracle"
                         }
                       },
-                      "id": 258,
+                      "id": 397,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "requestData",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 360,
-                      "src": "593:18:1",
+                      "referencedDeclaration": 499,
+                      "src": "546:18:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_external_nonpayable$_t_bytes32_$_t_address_$_t_bytes4_$_t_string_memory_ptr_$returns$_t_uint256_$",
                         "typeString": "function (bytes32,address,bytes4,string memory) external returns (uint256)"
                       }
                     },
-                    "id": 268,
+                    "id": 407,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1955,20 +1960,21 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "593:98:1",
+                    "src": "546:89:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
-                  "functionReturnParameters": 256,
-                  "id": 269,
+                  "functionReturnParameters": 395,
+                  "id": 408,
                   "nodeType": "Return",
-                  "src": "586:105:1"
+                  "src": "539:96:4"
                 }
               ]
             },
-            "id": 271,
+            "documentation": null,
+            "id": 410,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -1976,31 +1982,31 @@
             "name": "chainlinkRequest",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 253,
+              "id": 392,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 252,
+                  "id": 391,
                   "name": "_run",
                   "nodeType": "VariableDeclaration",
-                  "scope": 271,
-                  "src": "534:18:1",
+                  "scope": 410,
+                  "src": "487:18:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_Run_$13_memory_ptr",
+                    "typeIdentifier": "t_struct$_Run_$152_memory_ptr",
                     "typeString": "struct Chainlink.Run memory"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 251,
+                    "id": 390,
                     "name": "Chainlink.Run",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 13,
-                    "src": "534:13:1",
+                    "referencedDeclaration": 152,
+                    "src": "487:13:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_Run_$13_storage_ptr",
+                      "typeIdentifier": "t_struct$_Run_$152_storage_ptr",
                       "typeString": "struct Chainlink.Run storage pointer"
                     }
                   },
@@ -2008,20 +2014,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "533:20:1"
+              "src": "486:20:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 256,
+              "id": 395,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 255,
+                  "id": 394,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 271,
-                  "src": "571:7:1",
+                  "scope": 410,
+                  "src": "524:7:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2029,10 +2035,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 254,
+                    "id": 393,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "571:7:1",
+                    "src": "524:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2042,38 +2048,38 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "570:9:1"
+              "src": "523:9:4"
             },
-            "scope": 297,
-            "src": "508:188:1",
+            "scope": 436,
+            "src": "461:179:4",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "internal"
           },
           {
             "body": {
-              "id": 282,
+              "id": 421,
               "nodeType": "Block",
-              "src": "745:35:1",
+              "src": "689:35:4",
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 280,
+                    "id": 419,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftHandSide": {
                       "argumentTypes": null,
-                      "id": 276,
+                      "id": 415,
                       "name": "oracle",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 209,
-                      "src": "751:6:1",
+                      "referencedDeclaration": 348,
+                      "src": "695:6:4",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_contract$_Oracle_$413",
+                        "typeIdentifier": "t_contract$_Oracle_$552",
                         "typeString": "contract Oracle"
                       }
                     },
@@ -2084,12 +2090,12 @@
                       "arguments": [
                         {
                           "argumentTypes": null,
-                          "id": 278,
+                          "id": 417,
                           "name": "_oracle",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 273,
-                          "src": "767:7:1",
+                          "referencedDeclaration": 412,
+                          "src": "711:7:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -2103,18 +2109,18 @@
                             "typeString": "address"
                           }
                         ],
-                        "id": 277,
+                        "id": 416,
                         "name": "Oracle",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 413,
-                        "src": "760:6:1",
+                        "referencedDeclaration": 552,
+                        "src": "704:6:4",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_type$_t_contract$_Oracle_$413_$",
+                          "typeIdentifier": "t_type$_t_contract$_Oracle_$552_$",
                           "typeString": "type(contract Oracle)"
                         }
                       },
-                      "id": 279,
+                      "id": 418,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -2122,25 +2128,26 @@
                       "lValueRequested": false,
                       "names": [],
                       "nodeType": "FunctionCall",
-                      "src": "760:15:1",
+                      "src": "704:15:4",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_contract$_Oracle_$413",
+                        "typeIdentifier": "t_contract$_Oracle_$552",
                         "typeString": "contract Oracle"
                       }
                     },
-                    "src": "751:24:1",
+                    "src": "695:24:4",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_contract$_Oracle_$413",
+                      "typeIdentifier": "t_contract$_Oracle_$552",
                       "typeString": "contract Oracle"
                     }
                   },
-                  "id": 281,
+                  "id": 420,
                   "nodeType": "ExpressionStatement",
-                  "src": "751:24:1"
+                  "src": "695:24:4"
                 }
               ]
             },
-            "id": 283,
+            "documentation": null,
+            "id": 422,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -2148,16 +2155,16 @@
             "name": "setOracle",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 274,
+              "id": 413,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 273,
+                  "id": 412,
                   "name": "_oracle",
                   "nodeType": "VariableDeclaration",
-                  "scope": 283,
-                  "src": "719:15:1",
+                  "scope": 422,
+                  "src": "663:15:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2165,10 +2172,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 272,
+                    "id": 411,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "719:7:1",
+                    "src": "663:7:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -2178,26 +2185,26 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "718:17:1"
+              "src": "662:17:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 275,
+              "id": 414,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "745:0:1"
+              "src": "689:0:4"
             },
-            "scope": 297,
-            "src": "700:80:1",
+            "scope": 436,
+            "src": "644:80:4",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "internal"
           },
           {
             "body": {
-              "id": 295,
+              "id": 434,
               "nodeType": "Block",
-              "src": "806:56:1",
+              "src": "750:56:4",
               "statements": [
                 {
                   "expression": {
@@ -2209,7 +2216,7 @@
                           "typeIdentifier": "t_address",
                           "typeString": "address"
                         },
-                        "id": 291,
+                        "id": 430,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2218,18 +2225,18 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 286,
+                            "id": 425,
                             "name": "msg",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 2195,
-                            "src": "820:3:1",
+                            "referencedDeclaration": 2397,
+                            "src": "764:3:4",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_message",
                               "typeString": "msg"
                             }
                           },
-                          "id": 287,
+                          "id": 426,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -2237,7 +2244,7 @@
                           "memberName": "sender",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "820:10:1",
+                          "src": "764:10:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -2250,14 +2257,14 @@
                           "arguments": [
                             {
                               "argumentTypes": null,
-                              "id": 289,
+                              "id": 428,
                               "name": "oracle",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 209,
-                              "src": "842:6:1",
+                              "referencedDeclaration": 348,
+                              "src": "786:6:4",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_contract$_Oracle_$413",
+                                "typeIdentifier": "t_contract$_Oracle_$552",
                                 "typeString": "contract Oracle"
                               }
                             }
@@ -2265,24 +2272,24 @@
                           "expression": {
                             "argumentTypes": [
                               {
-                                "typeIdentifier": "t_contract$_Oracle_$413",
+                                "typeIdentifier": "t_contract$_Oracle_$552",
                                 "typeString": "contract Oracle"
                               }
                             ],
-                            "id": 288,
+                            "id": 427,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": true,
                             "lValueRequested": false,
                             "nodeType": "ElementaryTypeNameExpression",
-                            "src": "834:7:1",
+                            "src": "778:7:4",
                             "typeDescriptions": {
                               "typeIdentifier": "t_type$_t_address_$",
                               "typeString": "type(address)"
                             },
                             "typeName": "address"
                           },
-                          "id": 290,
+                          "id": 429,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -2290,13 +2297,13 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "834:15:1",
+                          "src": "778:15:4",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
                           }
                         },
-                        "src": "820:29:1",
+                        "src": "764:29:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -2310,18 +2317,18 @@
                           "typeString": "bool"
                         }
                       ],
-                      "id": 285,
+                      "id": 424,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 2198,
-                      "src": "812:7:1",
+                      "referencedDeclaration": 2400,
+                      "src": "756:7:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$returns$__$",
                         "typeString": "function (bool) pure"
                       }
                     },
-                    "id": 292,
+                    "id": 431,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2329,47 +2336,48 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "812:38:1",
+                    "src": "756:38:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 293,
+                  "id": 432,
                   "nodeType": "ExpressionStatement",
-                  "src": "812:38:1"
+                  "src": "756:38:4"
                 },
                 {
-                  "id": 294,
+                  "id": 433,
                   "nodeType": "PlaceholderStatement",
-                  "src": "856:1:1"
+                  "src": "800:1:4"
                 }
               ]
             },
-            "id": 296,
+            "documentation": null,
+            "id": 435,
             "name": "onlyOracle",
             "nodeType": "ModifierDefinition",
             "parameters": {
-              "id": 284,
+              "id": 423,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "803:2:1"
+              "src": "747:2:4"
             },
-            "src": "784:78:1",
+            "src": "728:78:4",
             "visibility": "internal"
           }
         ],
-        "scope": 298,
-        "src": "77:787:1"
+        "scope": 437,
+        "src": "77:731:4"
       }
     ],
-    "src": "0:865:1"
+    "src": "0:809:4"
   },
   "compiler": {
     "name": "solc",
-    "version": "0.4.19+commit.c4cbbb05.Emscripten.clang"
+    "version": "0.4.21+commit.dfe3193c.Emscripten.clang"
   },
   "networks": {},
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-04-03T19:26:35.389Z"
+  "updatedAt": "2018-04-04T17:24:03.055Z"
 }

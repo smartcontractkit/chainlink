@@ -23,24 +23,24 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x60606040523415600e57600080fd5b60d18061001c6000396000f300606060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063a5fe0872146044575b600080fd5b3415604e57600080fd5b60546056565b005b7f68656c6c6f5f636861696e6c696e6b00000000000000000000000000000000007fd226ed2bc8a4081ee6d62540525cd9a44aa022eca68e344a7f7b924a75faeed560405160405180910390a25600a165627a7a723058205073c815507fb89bd3c4ef30b0375a5aa90f9413001e2a4a3ce4c37a9e6e01a40029",
-  "deployedBytecode": "0x606060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063a5fe0872146044575b600080fd5b3415604e57600080fd5b60546056565b005b7f68656c6c6f5f636861696e6c696e6b00000000000000000000000000000000007fd226ed2bc8a4081ee6d62540525cd9a44aa022eca68e344a7f7b924a75faeed560405160405180910390a25600a165627a7a723058205073c815507fb89bd3c4ef30b0375a5aa90f9413001e2a4a3ce4c37a9e6e01a40029",
-  "sourceMap": "26:129:3:-;;;;;;;;;;;;;;;;;",
-  "deployedSourceMap": "26:129:3:-;;;;;;;;;;;;;;;;;;;;;;;;88:65;;;;;;;;;;;;;;;121:27;;;;;;;;;;;88:65::o",
+  "bytecode": "0x60606040523415600e57600080fd5b60d18061001c6000396000f300606060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063a5fe0872146044575b600080fd5b3415604e57600080fd5b60546056565b005b7f68656c6c6f5f636861696e6c696e6b00000000000000000000000000000000007fd226ed2bc8a4081ee6d62540525cd9a44aa022eca68e344a7f7b924a75faeed560405160405180910390a25600a165627a7a7230582015608f411ab2e98d19e56b10b16b64e5e15e4b890059ab114e90004cb9884c550029",
+  "deployedBytecode": "0x606060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063a5fe0872146044575b600080fd5b3415604e57600080fd5b60546056565b005b7f68656c6c6f5f636861696e6c696e6b00000000000000000000000000000000007fd226ed2bc8a4081ee6d62540525cd9a44aa022eca68e344a7f7b924a75faeed560405160405180910390a25600a165627a7a7230582015608f411ab2e98d19e56b10b16b64e5e15e4b890059ab114e90004cb9884c550029",
+  "sourceMap": "26:129:0:-;;;;;;;;;;;;;;;;;",
+  "deployedSourceMap": "26:129:0:-;;;;;;;;;;;;;;;;;;;;;;;;88:65;;;;;;;;;;;;;;;121:27;;;;;;;;;;;88:65::o",
   "source": "pragma solidity ^0.4.18;\n\ncontract EthLog {\n  event LogEvent(bytes32 indexed jobId);\n\n  function logEvent() public {\n    LogEvent(\"hello_chainlink\");\n  }\n}\n",
-  "sourcePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/examples/echo_server/contracts/EthLog.sol",
+  "sourcePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/contracts/EthLog.sol",
   "ast": {
-    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/examples/echo_server/contracts/EthLog.sol",
+    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/contracts/EthLog.sol",
     "exportedSymbols": {
       "EthLog": [
-        428
+        14
       ]
     },
-    "id": 429,
+    "id": 15,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 415,
+        "id": 1,
         "literals": [
           "solidity",
           "^",
@@ -48,7 +48,7 @@
           ".18"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:3"
+        "src": "0:24:0"
       },
       {
         "baseContracts": [],
@@ -56,30 +56,31 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 428,
+        "id": 14,
         "linearizedBaseContracts": [
-          428
+          14
         ],
         "name": "EthLog",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "anonymous": false,
-            "id": 419,
+            "documentation": null,
+            "id": 5,
             "name": "LogEvent",
             "nodeType": "EventDefinition",
             "parameters": {
-              "id": 418,
+              "id": 4,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 417,
+                  "id": 3,
                   "indexed": true,
                   "name": "jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 419,
-                  "src": "61:21:3",
+                  "scope": 5,
+                  "src": "61:21:0",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -87,10 +88,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 416,
+                    "id": 2,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "61:7:3",
+                    "src": "61:7:0",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -100,15 +101,15 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "60:23:3"
+              "src": "60:23:0"
             },
-            "src": "46:38:3"
+            "src": "46:38:0"
           },
           {
             "body": {
-              "id": 426,
+              "id": 12,
               "nodeType": "Block",
-              "src": "115:38:3",
+              "src": "115:38:0",
               "statements": [
                 {
                   "expression": {
@@ -117,14 +118,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "68656c6c6f5f636861696e6c696e6b",
-                        "id": 423,
+                        "id": 9,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "130:17:3",
+                        "src": "130:17:0",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_15b5d3ad5b1ba8cad73ce2868ded2799adf077624ef02e3e52e32e75b4650f7b",
@@ -140,18 +141,18 @@
                           "typeString": "literal_string \"hello_chainlink\""
                         }
                       ],
-                      "id": 422,
+                      "id": 8,
                       "name": "LogEvent",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 419,
-                      "src": "121:8:3",
+                      "referencedDeclaration": 5,
+                      "src": "121:8:0",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_event_nonpayable$_t_bytes32_$returns$__$",
                         "typeString": "function (bytes32)"
                       }
                     },
-                    "id": 424,
+                    "id": 10,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -159,19 +160,20 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "121:27:3",
+                    "src": "121:27:0",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 425,
+                  "id": 11,
                   "nodeType": "ExpressionStatement",
-                  "src": "121:27:3"
+                  "src": "121:27:0"
                 }
               ]
             },
-            "id": 427,
+            "documentation": null,
+            "id": 13,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -179,43 +181,43 @@
             "name": "logEvent",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 420,
+              "id": 6,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "105:2:3"
+              "src": "105:2:0"
             },
             "payable": false,
             "returnParameters": {
-              "id": 421,
+              "id": 7,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "115:0:3"
+              "src": "115:0:0"
             },
-            "scope": 428,
-            "src": "88:65:3",
+            "scope": 14,
+            "src": "88:65:0",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "public"
           }
         ],
-        "scope": 429,
-        "src": "26:129:3"
+        "scope": 15,
+        "src": "26:129:0"
       }
     ],
-    "src": "0:156:3"
+    "src": "0:156:0"
   },
   "legacyAST": {
-    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/solidity/contracts/examples/echo_server/contracts/EthLog.sol",
+    "absolutePath": "/home/thomas/go/src/github.com/smartcontractkit/chainlink/examples/echo_server/contracts/EthLog.sol",
     "exportedSymbols": {
       "EthLog": [
-        428
+        14
       ]
     },
-    "id": 429,
+    "id": 15,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 415,
+        "id": 1,
         "literals": [
           "solidity",
           "^",
@@ -223,7 +225,7 @@
           ".18"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:3"
+        "src": "0:24:0"
       },
       {
         "baseContracts": [],
@@ -231,30 +233,31 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 428,
+        "id": 14,
         "linearizedBaseContracts": [
-          428
+          14
         ],
         "name": "EthLog",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "anonymous": false,
-            "id": 419,
+            "documentation": null,
+            "id": 5,
             "name": "LogEvent",
             "nodeType": "EventDefinition",
             "parameters": {
-              "id": 418,
+              "id": 4,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 417,
+                  "id": 3,
                   "indexed": true,
                   "name": "jobId",
                   "nodeType": "VariableDeclaration",
-                  "scope": 419,
-                  "src": "61:21:3",
+                  "scope": 5,
+                  "src": "61:21:0",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -262,10 +265,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 416,
+                    "id": 2,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "61:7:3",
+                    "src": "61:7:0",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -275,15 +278,15 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "60:23:3"
+              "src": "60:23:0"
             },
-            "src": "46:38:3"
+            "src": "46:38:0"
           },
           {
             "body": {
-              "id": 426,
+              "id": 12,
               "nodeType": "Block",
-              "src": "115:38:3",
+              "src": "115:38:0",
               "statements": [
                 {
                   "expression": {
@@ -292,14 +295,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "68656c6c6f5f636861696e6c696e6b",
-                        "id": 423,
+                        "id": 9,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "130:17:3",
+                        "src": "130:17:0",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_15b5d3ad5b1ba8cad73ce2868ded2799adf077624ef02e3e52e32e75b4650f7b",
@@ -315,18 +318,18 @@
                           "typeString": "literal_string \"hello_chainlink\""
                         }
                       ],
-                      "id": 422,
+                      "id": 8,
                       "name": "LogEvent",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 419,
-                      "src": "121:8:3",
+                      "referencedDeclaration": 5,
+                      "src": "121:8:0",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_event_nonpayable$_t_bytes32_$returns$__$",
                         "typeString": "function (bytes32)"
                       }
                     },
-                    "id": 424,
+                    "id": 10,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -334,19 +337,20 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "121:27:3",
+                    "src": "121:27:0",
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 425,
+                  "id": 11,
                   "nodeType": "ExpressionStatement",
-                  "src": "121:27:3"
+                  "src": "121:27:0"
                 }
               ]
             },
-            "id": 427,
+            "documentation": null,
+            "id": 13,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": false,
@@ -354,43 +358,43 @@
             "name": "logEvent",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 420,
+              "id": 6,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "105:2:3"
+              "src": "105:2:0"
             },
             "payable": false,
             "returnParameters": {
-              "id": 421,
+              "id": 7,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "115:0:3"
+              "src": "115:0:0"
             },
-            "scope": 428,
-            "src": "88:65:3",
+            "scope": 14,
+            "src": "88:65:0",
             "stateMutability": "nonpayable",
             "superFunction": null,
             "visibility": "public"
           }
         ],
-        "scope": 429,
-        "src": "26:129:3"
+        "scope": 15,
+        "src": "26:129:0"
       }
     ],
-    "src": "0:156:3"
+    "src": "0:156:0"
   },
   "compiler": {
     "name": "solc",
-    "version": "0.4.19+commit.c4cbbb05.Emscripten.clang"
+    "version": "0.4.21+commit.dfe3193c.Emscripten.clang"
   },
   "networks": {
     "17": {
       "events": {},
       "links": {},
-      "address": "0xb67ef7cf8e98a284e5800fb5de767c3047d94276",
-      "transactionHash": "0x31a4833b77bd25e969afefbc552702b0eed52d1c0cbd8994ddaf0465db164e36"
+      "address": "0xaf8b30fb625185b924e323ce728bec3fe9c2680c",
+      "transactionHash": "0x2772e5ac35a7c4c38eee123ad1145022ae838a54eb3a7d7e9172462704cf10d0"
     }
   },
   "schemaVersion": "2.0.0",
-  "updatedAt": "2018-04-03T20:34:44.454Z"
+  "updatedAt": "2018-04-04T17:24:07.303Z"
 }
