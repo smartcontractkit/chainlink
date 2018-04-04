@@ -1,0 +1,11 @@
+#!/bin/bash
+CURRENTDIR=`pwd`
+for D in `find . -mindepth 1 -maxdepth 1 -type d`
+do
+  if [ $D != "./node_modules" ]; then
+    echo $D
+    cd $D
+    truffle migrate
+    cd $CURRENTDIR
+  fi
+done
