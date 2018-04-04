@@ -1,0 +1,20 @@
+#!/usr/bin/env node
+
+if (process.argv.length <= 2) {
+  console.log("Usage: " + __filename + " <contract_address>");
+  process.exit(-1);
+}
+
+const job = {
+  "_comment": "An ethlog with a specific address only listens to that address.",
+  "initiators": [{ "type": "ethlog", "address": process.argv[2]}],
+  "tasks": [{ "type": "HttpPost", "url": "http://localhost:6691" }]
+};
+
+const request = require('request');
+request.post({
+  url: 'http://localhost:6688/v2/specs',
+  body: job,
+  json: true,
+  auth: {username: 'chainlink', password: 'twochains'}
+}, function(err, response, body) { console.log(body) });
