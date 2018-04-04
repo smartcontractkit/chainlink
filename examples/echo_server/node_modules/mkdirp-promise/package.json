@@ -1,0 +1,40 @@
+{
+  "version": "5.0.1",
+  "name": "mkdirp-promise",
+  "description": "Promise version of mkdirp",
+  "author": "Ahmad Nassri <ahmad@ahmadnassri.com> (https://www.ahmadnassri.com/)",
+  "homepage": "https://github.com/ahmadnassri/mkdirp-promise",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahmadnassri/mkdirp-promise.git"
+  },
+  "license": "ISC",
+  "main": "lib/index.js",
+  "keywords": [
+    "mkdirp",
+    "promise"
+  ],
+  "engines": {
+    "node": ">=4"
+  },
+  "files": [
+    "lib"
+  ],
+  "bugs": {
+    "url": "https://github.com/ahmadnassri/mkdirp-promise/issues"
+  },
+  "scripts": {
+    "pretest": "snazzy && echint",
+    "test": "tap test",
+    "coverage": "tap test --reporter silent --coverage"
+  },
+  "devDependencies": {
+    "echint": "^2.1.0",
+    "rimraf": "^2.5.4",
+    "snazzy": "^6.0.0",
+    "tap": "^9.0.2"
+  },
+  "dependencies": {
+    "mkdirp": "*"
+  }
+}

@@ -1,0 +1,132 @@
+#!/usr/bin/env node
+
+// hold on to any exception handlers that existed prior to this script running, we'll be adding them back at the end
+var originalUncaughtExceptionListeners = process.listeners("uncaughtException");
+
+var fs = require('fs-extra');
+var path = require('path');
+var solc = require('./index.js');
+// FIXME: remove annoying exception catcher of Emscripten
+//        see https://github.com/chriseth/browser-solidity/issues/167
+process.removeAllListeners('uncaughtException');
+
+var yargs = require('yargs')
+  .usage('Usage: $0 [options] [input_file...]')
+  .option('version', {
+    describe: 'Show version and exit.',
+    type: 'boolean'
+  })
+  .option('optimize', {
+    describe: 'Enable bytecode optimizer.',
+    type: 'boolean'
+  })
+  .option('bin', {
+    describe: 'Binary of the contracts in hex.',
+    type: 'boolean'
+  })
+  .option('abi', {
+    describe: 'ABI of the contracts.',
+    type: 'boolean'
+  })
+  .option('standard-json', {
+    describe: 'Turn on Standard JSON Input / Output mode.',
+    type: 'boolean'
+  })
+  .option('output-dir', {
+    alias: 'o',
+    describe: 'Output directory for the contracts.',
+    type: 'string'
+  })
+  .global([ 'version', 'optimize' ])
+  .version(function() { return solc.version(); })
+  .showHelpOnFail(false, 'Specify --help for available options')
+  .help()
+
+var argv = yargs.argv;
+var files = argv._;
+var destination = argv['output-dir'] || '.'
+
+function abort (msg) {
+  console.error(msg || 'Error occured');
+  process.exit(1);
+}
+
+if (argv['standard-json']) {
+  if (!solc.supportsStandard) {
+    abort('Compiler does not support Standard JSON I/O');
+  }
+
+  var size = fs.fstatSync(process.stdin.fd).size;
+
+  if (size <= 0) {
+    abort('Empty input was read');
+  }
+
+  var input = fs.readSync(process.stdin.fd, size)[0];
+
+  console.log(solc.compileStandard(input));
+  process.exit(0);
+} else if (files.length === 0) {
+  console.error('Must provide a file');
+  process.exit(1);
+}
+
+if (!(argv.bin || argv.abi)) {
+  abort('Invalid option selected, must specify either --bin or --abi');
+}
+
+var sources = {};
+
+for (var i = 0; i < files.length; i++) {
+  try {
+    sources[ files[i] ] = fs.readFileSync(files[i]).toString();
+  } catch (e) {
+    abort('Error reading ' + files[i] + ': ' + e);
+  }
+}
+
+var output = solc.compile({ sources: sources }, argv.optimize ? 1 : 0);
+if (!output) {
+  abort('No output from compiler');
+} else if (output['errors']) {
+  function isWarning (message) {
+    return message.match(/^(.*:[0-9]*:[0-9]* )?Warning: /)
+  }
+
+  for (var error in output['errors']) {
+    var message = output['errors'][error]
+    if (isWarning(message)) {
+      console.log(message)
+    } else {
+      console.error(message)
+    }
+  }
+}
+
+fs.ensureDirSync (destination);
+
+function writeFile (file, content) {
+  file = path.join(destination, file);
+  fs.writeFile(file, content, function (err) {
+    if (err) {
+      console.error('Failed to write ' + file + ': ' + err);
+    }
+  });
+}
+
+for (var contractName in output.contracts) {
+  var contractFileName = contractName.replace(/[:./]/g, '_');
+
+  if (argv.bin) {
+    writeFile(contractFileName + '.bin', output.contracts[contractName].bytecode);
+  }
+
+  if (argv.abi) {
+    writeFile(contractFileName + '.abi', output.contracts[contractName].interface);
+  }
+}
+
+// Put back original exception handlers.
+originalUncaughtExceptionListeners.forEach(function (listener) {
+  process.addListener('uncaughtException', listener);
+});

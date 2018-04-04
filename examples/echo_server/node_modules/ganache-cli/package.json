@@ -1,0 +1,37 @@
+{
+  "name": "ganache-cli",
+  "version": "6.1.0",
+  "bin": {
+    "ganache-cli": "./build/cli.node.js"
+  },
+  "main": "./build/lib.node.js",
+  "directories": {
+    "lib": "./lib"
+  },
+  "scripts": {
+    "start": "./build/cli.node.js",
+    "build": "npm run build-cli && npm run build-server && npm run build-provider && npm run build-lib",
+    "build-cli": "webpack-cli --config ./webpack/cli.webpack.config.js",
+    "build-server": "webpack-cli --config ./webpack/server.webpack.config.js",
+    "build-provider": "webpack-cli --config ./webpack/provider.webpack.config.js",
+    "build-lib": "webpack-cli --config ./webpack/lib.webpack.config.js",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "ganache-core": "2.1.0",
+    "prepend-file": "^1.3.1",
+    "shebang-loader": "0.0.1",
+    "yargs": "^11.0.0",
+    "on-build-webpack": "^0.1.0",
+    "webpack": "^4.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/trufflesuite/ganache-cli"
+  },
+  "dependencies": {
+    "source-map-support": "^0.5.3",
+    "webpack-cli": "^2.0.9"
+  },
+  "license": "MIT"
+}

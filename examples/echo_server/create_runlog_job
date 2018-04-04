@@ -1,0 +1,4 @@
+#!/bin/bash
+
+curl -u chainlink:twochains -X POST -H 'Content-Type: application/json' \
+       -d @./only_jobid_logs_job.json http://localhost:6688/v2/specs
