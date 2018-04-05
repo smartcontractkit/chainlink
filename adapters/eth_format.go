@@ -11,6 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+var evmUint256Max *big.Int
+
+func init() {
+	var ok bool
+	evmUint256Max, ok = (&big.Int{}).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	if !ok {
+		panic("could not parse evmUint256Max")
+	}
+}
+
 // EthBytes32 holds no fields.
 type EthBytes32 struct{}
 
@@ -53,7 +63,12 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	parts := strings.Split(val.String(), ".")
 	i, ok := (&big.Int{}).SetString(parts[0], 10)
 	if !ok {
-		return input.WithError(fmt.Errorf("cannot parse into big.Rat: %v", val.String()))
+		return input.WithError(fmt.Errorf("cannot parse into big.Int: %v", val.String()))
+	}
+	i = i.Abs(i)
+
+	if evmUint256Max.Cmp(i) == -1 {
+		return input.WithError(fmt.Errorf("value %v too large", val.String()))
 	}
 
 	b, err := utils.HexToBytes(bigToUintHex(i))
