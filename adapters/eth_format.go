@@ -3,6 +3,7 @@ package adapters
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store"
@@ -49,9 +50,10 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	i, ok := (&big.Float{}).SetString(val.String())
+	parts := strings.Split(val.String(), ".")
+	i, ok := (&big.Int{}).SetString(parts[0], 10)
 	if !ok {
-		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+		return input.WithError(fmt.Errorf("cannot parse into big.Rat: %v", val.String()))
 	}
 
 	b, err := utils.HexToBytes(bigToUintHex(i))
@@ -63,12 +65,8 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	return input.WithValue(common.ToHex(padded))
 }
 
-func bigToUintHex(f *big.Float) string {
-	i, _ := f.Int(nil)
-	if i.Sign() == -1 {
-		i.Neg(i)
-	}
-	hex := fmt.Sprintf("%x", i)
+func bigToUintHex(f *big.Int) string {
+	hex := fmt.Sprintf("%s", f.Abs(f).Text(16))
 	if len(hex)%2 != 0 {
 		hex = "0" + hex
 	}
