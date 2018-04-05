@@ -47,42 +47,60 @@ func TestEthBytes32_Perform(t *testing.T) {
 }
 
 func TestEthUint256_Perform(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		json    string
 		want    string
 		errored bool
 	}{
-		{"string", `{"value":"123"}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"integer", `{"value":123}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"integer", `{"value":"18446744073709551615"}`, "0x000000000000000000000000000000000000000000000000ffffffffffffffff", false},
-		{"integer", `{"value":"170141183460469231731687303715884105728"}`, "0x0000000000000000000000000000000080000000000000000000000000000000", false},
-		{"float", `{"value":123.0}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"rounded float", `{"value":123.99}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"negative integer", `{"value":-123}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"negative string", `{"value":"-123"}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"negative float", `{"value":-123.99}`, "0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"object", `{"value":{"a": "b"}}`, "", true},
-		{"odd length result", `{"value":"1234"}`, "0x00000000000000000000000000000000000000000000000000000000000004d2", false},
+		{"string", `{"value":"123"}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"integer", `{"value":123}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"integer", `{"value":"18446744073709551615"}`,
+			"0x000000000000000000000000000000000000000000000000ffffffffffffffff", false},
+		{"integer", `{"value":"170141183460469231731687303715884105728"}`,
+			"0x0000000000000000000000000000000080000000000000000000000000000000", false},
+		{"integer", `{"value":"170141183460469231731687303715884105729"}`,
+			"0x0000000000000000000000000000000080000000000000000000000000000001", false},
+		{"2^128", `{"value":"340282366920938463463374607431768211456"}`,
+			"0x0000000000000000000000000000000100000000000000000000000000000000", false},
+		{"2^256 - 2", `{"value":"115792089237316195423570985008687907853269984665640564039457584007913129639934"}`,
+			"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe", false},
+		{"2^256 - 1", `{"value":"115792089237316195423570985008687907853269984665640564039457584007913129639935"}`,
+			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", false},
+		{"float", `{"value":123.0}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"rounded float", `{"value":123.99}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"negative integer", `{"value":-123}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"negative string", `{"value":"-123"}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"negative float", `{"value":-123.99}`,
+			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"object", `{"value":{"a": "b"}}`,
+			"", true},
+		{"odd length result", `{"value":"1234"}`,
+			"0x00000000000000000000000000000000000000000000000000000000000004d2", false},
 	}
 
-	for _, tt := range tests {
-		test := tt
+	adapter := adapters.EthUint256{}
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := models.RunResult{
 				Data: cltest.JSONFromString(test.json),
 			}
-			adapter := adapters.EthUint256{}
 			result := adapter.Perform(input, nil)
 
 			if test.errored {
 				assert.NotNil(t, result.GetError())
 			} else {
 				val, err := result.Value()
+				assert.Nil(t, result.GetError())
 				assert.Nil(t, err)
 				assert.Equal(t, test.want, val)
-				assert.Nil(t, result.GetError())
 			}
 		})
 	}
