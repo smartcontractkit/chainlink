@@ -65,28 +65,21 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	if !ok {
 		return input.WithError(fmt.Errorf("cannot parse into big.Int: %v", val.String()))
 	}
-	i = i.Abs(i)
 
-	if evmUint256Max.Cmp(i) == -1 {
-		return input.WithError(fmt.Errorf("value %v too large", val.String()))
-	}
-
-	b, err := utils.HexToBytes(bigToUintHex(i))
-	if err != nil {
+	if err = validateRange(i); err != nil {
 		return input.WithError(err)
 	}
-	padded := common.LeftPadBytes(b, utils.EVMWordByteLen)
 
-	return input.WithValue(common.ToHex(padded))
+	return input.WithValue("0x" + fmt.Sprintf("%064x", i))
 }
 
-func bigToUintHex(f *big.Int) string {
-	hex := fmt.Sprintf("%s", f.Abs(f).Text(16))
-	if len(hex)%2 != 0 {
-		hex = "0" + hex
+func validateRange(i *big.Int) error {
+	if i.Sign() == -1 {
+		return fmt.Errorf("ethUint256: value %v is negative", i.String())
 	}
-	if len(hex) > utils.EVMWordHexLen {
-		hex = hex[len(hex)-utils.EVMWordHexLen:]
+
+	if evmUint256Max.Cmp(i) == -1 {
+		return fmt.Errorf("ethUint256: value %v too large", i.String())
 	}
-	return hex
+	return nil
 }
