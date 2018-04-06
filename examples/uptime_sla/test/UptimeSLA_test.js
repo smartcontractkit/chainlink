@@ -3,7 +3,7 @@
 require('./support/helpers.js')
 
 contract('UptimeSLA', () => {
-  let Oracle = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/Oracle.sol");
+  let Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
   let SLA = artifacts.require("UptimeSLA.sol");
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let deposit = 1000000000;

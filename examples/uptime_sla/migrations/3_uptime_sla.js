@@ -1,6 +1,6 @@
 let chainlinkDeployer = require("../chainlink_deployer.js");
 let UptimeSLA = artifacts.require("./UptimeSLA.sol");
-let Oracle = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/Oracle.sol");
+let Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 
 module.exports = function(truffleDeployer) {
   let client = "0x542B68aE7029b7212A5223ec2867c6a94703BeE3";
