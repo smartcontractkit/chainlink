@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "bignumber.js": "^6.0.0",
-    "chainlink": "github:smartcontractkit/chainlink",
     "fs": "^0.0.1-security",
     "moment": "^2.20.1",
     "request": "^2.83.0",
