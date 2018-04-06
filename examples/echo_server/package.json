@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "chainlink": "github:smartcontractkit/chainlink",
     "express": "^4.16.2",
     "solidity-stringutils": "github:Arachnid/solidity-stringutils",
     "truffle": "^4.0.6",
