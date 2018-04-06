@@ -24,15 +24,15 @@ type Bridge struct {
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	if input.Status.Errored() {
+	if input.Status.Runnable() {
+		return ba.handleNewRun(input)
+	} else if input.Status.Errored() {
 		return input
-	} else if input.Status.PendingExternal() {
-		return markNotPending(input)
 	}
-	return ba.handleNewRun(input)
+	return resumeBridge(input)
 }
 
-func markNotPending(input models.RunResult) models.RunResult {
+func resumeBridge(input models.RunResult) models.RunResult {
 	input.Status = models.RunStatusInProgress
 	return input
 }
