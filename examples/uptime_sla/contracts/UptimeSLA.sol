@@ -1,7 +1,7 @@
 pragma solidity ^0.4.18;
 
-import "chainlink/solidity/contracts/Chainlinked.sol";
-import "chainlink/solidity/contracts/Chainlink.sol";
+import "../../../solidity/contracts/Chainlinked.sol";
+import "../../../solidity/contracts/Chainlink.sol";
 
 contract UptimeSLA is Chainlinked {
   uint256 constant uptimeThreshold = 9999;
