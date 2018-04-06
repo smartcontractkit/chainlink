@@ -293,3 +293,7 @@ func MaxUint64(x, y uint64) uint64 {
 	}
 	return y
 }
+
+func EVMHexNumber(val interface{}) string {
+	return fmt.Sprintf("0x%064x", val)
+}

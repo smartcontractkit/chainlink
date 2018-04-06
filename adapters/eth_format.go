@@ -70,7 +70,7 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	return input.WithValue("0x" + fmt.Sprintf("%064x", i))
+	return input.WithValue(utils.EVMHexNumber(i))
 }
 
 func validateRange(i *big.Int) error {

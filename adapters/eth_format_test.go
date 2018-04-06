@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,10 +55,8 @@ func TestEthUint256_Perform(t *testing.T) {
 		want    string
 		errored bool
 	}{
-		{"string", `{"value":"123"}`,
-			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"integer", `{"value":123}`,
-			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"string", `{"value":"123"}`, utils.EVMHexNumber(123), false},
+		{"integer", `{"value":123}`, utils.EVMHexNumber(123), false},
 		{"integer", `{"value":"18446744073709551615"}`,
 			"0x000000000000000000000000000000000000000000000000ffffffffffffffff", false},
 		{"integer", `{"value":"170141183460469231731687303715884105728"}`,
@@ -74,20 +73,13 @@ func TestEthUint256_Perform(t *testing.T) {
 			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", false},
 		{"2^256", `{"value":"115792089237316195423570985008687907853269984665640564039457584007913129639936"}`,
 			"", true},
-		{"float", `{"value":123.0}`,
-			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"rounded float", `{"value":123.99}`,
-			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"negative integer", `{"value":-123}`,
-			"", true},
-		{"negative string", `{"value":"-123"}`,
-			"", true},
-		{"negative float", `{"value":-123.99}`,
-			"", true},
-		{"object", `{"value":{"a": "b"}}`,
-			"", true},
-		{"odd length result", `{"value":"1234"}`,
-			"0x00000000000000000000000000000000000000000000000000000000000004d2", false},
+		{"float", `{"value":123.0}`, utils.EVMHexNumber(123), false},
+		{"rounded float", `{"value":123.99}`, utils.EVMHexNumber(123), false},
+		{"negative integer", `{"value":-123}`, "", true},
+		{"negative string", `{"value":"-123"}`, "", true},
+		{"negative float", `{"value":-123.99}`, "", true},
+		{"object", `{"value":{"a": "b"}}`, "", true},
+		{"odd length result", `{"value":"1234"}`, utils.EVMHexNumber(1234), false},
 	}
 
 	adapter := adapters.EthUint256{}
