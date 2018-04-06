@@ -76,10 +76,6 @@ camelcase@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/camelcase/-/camelcase-3.0.0.tgz#32fc4b9fcdaf845fcdf7e73bb97cac2261f0ab0a"
 
-"chainlink@github:smartcontractkit/chainlink":
-  version "0.0.0"
-  resolved "https://codeload.github.com/smartcontractkit/chainlink/tar.gz/42e8a59a5fe96d2a3603203f7afa55f674c8b54d"
-
 cliui@^3.2.0:
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/cliui/-/cliui-3.2.0.tgz#120601537a916d29940f934da3b48d585a39213d"
