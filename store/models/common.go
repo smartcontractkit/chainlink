@@ -30,7 +30,7 @@ const (
 	RunStatusCompleted = RunStatus("completed")
 )
 
-// Pending returns true if the status is pending.
+// PendingExternal returns true if the status is pending.
 func (s RunStatus) PendingExternal() bool {
 	return s == RunStatusPendingExternal
 }

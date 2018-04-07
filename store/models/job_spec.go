@@ -78,7 +78,7 @@ func (j JobSpec) WebAuthorized() bool {
 	return false
 }
 
-// Returns true if any of the job's initiators are triggered by event logs.
+// IsLogInitiated Returns true if any of the job's initiators are triggered by event logs.
 func (j JobSpec) IsLogInitiated() bool {
 	for _, initr := range j.Initiators {
 		if initr.IsLogInitiated() {
@@ -146,7 +146,7 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-// Returns true if triggered by event logs.
+// IsLogInitiated Returns true if triggered by event logs.
 func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog
 }
