@@ -134,7 +134,7 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	assert.Nil(t, err)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.RunStatusPendingExternal, run.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 }
 
 func TestJobRunner_BeginRun(t *testing.T) {

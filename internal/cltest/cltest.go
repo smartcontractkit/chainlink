@@ -429,7 +429,7 @@ func WaitForJobRunToComplete(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
 }
 
-func WaitForJobRunToPend(
+func WaitForJobRunToPendExternal(
 	t *testing.T,
 	store *store.Store,
 	jr models.JobRun,
@@ -437,7 +437,7 @@ func WaitForJobRunToPend(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingExternal)
 }
 
-func WaitForJobRunToBlock(
+func WaitForJobRunToPendConfirmations(
 	t *testing.T,
 	store *store.Store,
 	jr models.JobRun,

@@ -192,6 +192,12 @@ func (rr RunResult) MarkPendingExternal() RunResult {
 	return rr
 }
 
+// MarkPendingExternal returns a copy of RunResult but with status set to pending.
+func (rr RunResult) MarkPendingConfirmations() RunResult {
+	rr.Status = RunStatusPendingConfirmations
+	return rr
+}
+
 // Get searches for and returns the JSON at the given path.
 func (rr RunResult) Get(path string) (gjson.Result, error) {
 	return rr.Data.Get(path), nil
