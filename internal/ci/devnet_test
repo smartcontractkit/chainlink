@@ -15,15 +15,8 @@ cldev &
 CLDEVPID=$!
 sleep 4
 
-# Retrieve hello_chainlink
-mkdir tmp || true
-cd tmp
-wget -O hellocl https://github.com/smartcontractkit/hello_chainlink/archive/v0.2.0.tar.gz
-tar -xzf hellocl
-cd hello_chainlink-0.2.0
-
 # Run echo_server sample
-cd echo_server
+cd examples/echo_server
 yarn install
 truffle migrate
 node echo.js &
@@ -43,7 +36,7 @@ else
 fi
 
 # Check CL counts
-cd ../../../
+cd ../../
 
 ## Check job counts
 jobs=`cldev -j j | jq length`
