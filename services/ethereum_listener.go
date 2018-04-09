@@ -82,7 +82,7 @@ func (el *EthereumListener) OnNewHead(head *models.BlockHeader) {
 		logger.Error(err.Error())
 	}
 	for _, jr := range pendingRuns {
-		if _, err := ExecuteRunAtBlock(jr, el.Store, models.RunResult{}, head.ToIndexableBlockNumber()); err != nil {
+		if _, err := ExecuteRunAtBlock(jr, el.Store, jr.Result, head.ToIndexableBlockNumber()); err != nil {
 			logger.Error(err.Error())
 		}
 	}
