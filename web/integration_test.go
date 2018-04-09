@@ -68,11 +68,11 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	jr := cltest.WaitForJobRunToPend(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -80,7 +80,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
@@ -88,7 +88,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23466
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -176,7 +176,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	runs, err := app.Store.JobRunsFor(j.ID)
 	assert.Nil(t, err)
 	jr := runs[0]
-	cltest.WaitForJobRunToBlock(t, app.Store, jr)
+	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	minConfigHeight := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minConfigHeight)}
@@ -284,7 +284,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToPend(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendExternal(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusPendingExternal, tr.Status)
