@@ -554,6 +554,10 @@ func IndexableBlockNumber(val interface{}) *models.IndexableBlockNumber {
 	}
 }
 
+func NewBlockHeader(number int) *models.BlockHeader {
+	return &models.BlockHeader{Number: BigHexInt(number)}
+}
+
 func mustNotErr(err error) {
 	if err != nil {
 		logger.Panic(err)
