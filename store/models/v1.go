@@ -1,7 +1,9 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/utils"
@@ -66,6 +68,7 @@ func appendCronInitiator(initiators []Initiator, s AssignmentSpec) []Initiator {
 	return initiators
 }
 
+// ConvertToJobSpec converts an AssignmentSpec to a JobSpec
 func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 	var merr error
 	tasks := []TaskSpec{}
@@ -95,4 +98,83 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 	}
 
 	return j, merr
+}
+
+func addCronToSchedule(s Schedule, it Initiator) Schedule {
+	t := strings.Split(it.Schedule.String(), " ")
+
+	tk := make([]null.String, len(t))
+	for i, v := range t {
+		if v != "*" {
+			tk[i] = null.StringFrom(v)
+		}
+	}
+
+	s.Minute = tk[1]
+	s.Hour = tk[2]
+	s.DayOfMonth = tk[3]
+	s.MonthOfYear = tk[4]
+	s.DayOfWeek = tk[5]
+
+	return s
+}
+
+func removeTypeFromParams(s string) (JSON, error) {
+	var m map[string]interface{}
+
+	json.Unmarshal([]byte(s), &m)
+	if _, ok := m["type"]; ok {
+		delete(m, "type")
+	}
+
+	var err error
+	if b, err := json.Marshal(m); err == nil {
+		return ParseJSON(b)
+	}
+
+	return JSON{}, err
+}
+
+// ConvertToAssignment converts JobSpec to AssignmentSpec ignoring
+// JobSpecs that do not contain a web initiator.
+func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
+	var merr error
+
+	subtasks := []Subtask{}
+	for _, t := range j.Tasks {
+		var err error
+		t.Params, err = removeTypeFromParams(t.Params.String())
+		if err != nil {
+			multierr.Append(merr, err)
+		}
+
+		subtasks = append(subtasks, Subtask{
+			Type:   t.Type,
+			Params: t.Params,
+		})
+	}
+
+	schedule := Schedule{}
+
+	for _, r := range j.Initiators {
+		switch r.Type {
+		case InitiatorCron:
+			schedule = addCronToSchedule(schedule, r)
+		case InitiatorRunAt:
+			schedule.RunAt = append(schedule.RunAt, r.Time)
+		}
+	}
+
+	schedule.EndAt.Time = j.EndAt.Time
+
+	a := Assignment{
+		Subtasks: subtasks,
+	}
+
+	as := AssignmentSpec{
+		Assignment: a,
+		Schedule:   schedule,
+	}
+
+	return as, merr
 }
