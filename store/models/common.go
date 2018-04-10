@@ -18,7 +18,7 @@ const (
 	// RunStatusUnstarted is the default state of any run status.
 	RunStatusUnstarted = RunStatus("")
 	// RunStatusInProgress is used for when a run is actively being executed.
-	RunStatusInProgress = RunStatus("in progress")
+	RunStatusInProgress = RunStatus("in_progress")
 	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
 	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
 	// RunStatusPendingExternal is used for when a run is waiting on the completion
