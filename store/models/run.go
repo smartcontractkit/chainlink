@@ -186,13 +186,13 @@ func (rr RunResult) WithError(err error) RunResult {
 	return rr
 }
 
-// MarkPendingBridge returns a copy of RunResult but with status set to pending.
+// MarkPendingBridge returns a copy of RunResult but with status set to pending_bridge.
 func (rr RunResult) MarkPendingBridge() RunResult {
 	rr.Status = RunStatusPendingBridge
 	return rr
 }
 
-// MarkPendingBridge returns a copy of RunResult but with status set to pending.
+// MarkPendingConfirmations returns a copy of RunResult but with status set to pending_confirmations.
 func (rr RunResult) MarkPendingConfirmations() RunResult {
 	rr.Status = RunStatusPendingConfirmations
 	return rr

@@ -23,19 +23,19 @@ const (
 	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
 	// RunStatusPendingBridge is used for when a run is waiting on the completion
 	// of another event.
-	RunStatusPendingBridge = RunStatus("pending_external")
+	RunStatusPendingBridge = RunStatus("pending_bridge")
 	// RunStatusErrored is used for when a run has errored and will not complete.
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
 	RunStatusCompleted = RunStatus("completed")
 )
 
-// PendingBridge returns true if the status is pending.
+// PendingBridge returns true if the status is pending_bridge.
 func (s RunStatus) PendingBridge() bool {
 	return s == RunStatusPendingBridge
 }
 
-// PendingConfirmations returns true if the status is pending.
+// PendingConfirmations returns true if the status is pending_confirmations.
 func (s RunStatus) PendingConfirmations() bool {
 	return s == RunStatusPendingConfirmations
 }
