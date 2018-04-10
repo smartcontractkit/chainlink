@@ -51,7 +51,8 @@
 
 [[constraint]]
   name = "go.uber.org/zap"
-  version = "1.7.1"
+  source = "github.com/smartcontractkit/zap"
+  branch = "features/custom-sinks"
 
 [[constraint]]
   name = "github.com/onsi/gomega"
