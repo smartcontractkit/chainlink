@@ -54,7 +54,7 @@ func TestORMSaveJob(t *testing.T) {
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
 }
 
-func TestPendingJobRuns(t *testing.T) {
+func TestJobRunsWithStatus(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -64,24 +64,49 @@ func TestPendingJobRuns(t *testing.T) {
 	npr := j.NewRun(i)
 	assert.Nil(t, store.Save(&npr))
 
-	pr := j.NewRun(i)
-	pr.Status = models.RunStatusPendingBridge
-	assert.Nil(t, store.Save(&pr))
-
-	br := j.NewRun(i)
-	br.Status = models.RunStatusPendingConfirmations
-	assert.Nil(t, store.Save(&br))
-
-	pending, err := store.PendingJobRuns()
-	assert.Nil(t, err)
-	pendingIDs := []string{}
-	for _, jr := range pending {
-		pendingIDs = append(pendingIDs, jr.ID)
+	statuses := []models.RunStatus{
+		models.RunStatusPendingBridge,
+		models.RunStatusPendingConfirmations,
+		models.RunStatusCompleted}
+	var seedIds []string
+	for _, status := range statuses {
+		run := j.NewRun(i)
+		run.Status = status
+		assert.Nil(t, store.Save(&run))
+		seedIds = append(seedIds, run.ID)
 	}
 
-	assert.Contains(t, pendingIDs, pr.ID)
-	assert.Contains(t, pendingIDs, br.ID)
-	assert.NotContains(t, pendingIDs, npr.ID)
+	tests := []struct {
+		name     string
+		statuses []models.RunStatus
+		expected []string
+	}{
+		{
+			"single status",
+			[]models.RunStatus{models.RunStatusPendingBridge},
+			[]string{seedIds[0]},
+		},
+		{
+			"multiple status'",
+			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations},
+			[]string{seedIds[0], seedIds[1]},
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+
+			pending, err := store.JobRunsWithStatus(test.statuses...)
+			assert.Nil(t, err)
+
+			pendingIDs := []string{}
+			for _, jr := range pending {
+				pendingIDs = append(pendingIDs, jr.ID)
+			}
+			assert.ElementsMatch(t, pendingIDs, test.expected)
+		})
+	}
 }
 
 func TestCreatingTx(t *testing.T) {

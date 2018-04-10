@@ -150,6 +150,38 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 	}
 }
 
+func TestEthereumListener_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status     models.RunStatus
+		wantStatus models.RunStatus
+	}{
+		{models.RunStatusPendingBridge, models.RunStatusPendingBridge},
+		{models.RunStatusPendingConfirmations, models.RunStatusCompleted},
+	}
+
+	for _, test := range tests {
+		t.Run(string(test.status), func(t *testing.T) {
+			el, cleanup := cltest.NewEthereumListener()
+			defer cleanup()
+			store := el.Store
+
+			job, initr := cltest.NewJobWithWebInitiator()
+			run := job.NewRun(initr)
+			run.Status = test.status
+
+			assert.Nil(t, store.SaveJob(&job))
+			assert.Nil(t, store.Save(&run))
+			el.OnNewHead(cltest.NewBlockHeader(10))
+
+			refreshed, err := store.FindJobRun(run.ID)
+			assert.Nil(t, err)
+			assert.Equal(t, test.wantStatus, refreshed.Status)
+		})
+	}
+}
+
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
