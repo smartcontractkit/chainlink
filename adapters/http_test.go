@@ -60,7 +60,7 @@ func TestHttpGet_Perform(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Status.PendingExternal())
+			assert.Equal(t, false, result.Status.PendingBridge())
 		})
 	}
 }
@@ -98,7 +98,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, true, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Status.PendingExternal())
+			assert.Equal(t, false, result.Status.PendingBridge())
 		})
 	}
 }

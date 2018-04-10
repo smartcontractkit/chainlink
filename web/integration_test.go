@@ -284,10 +284,10 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
-	jr = cltest.WaitForJobRunToPendExternal(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, models.RunStatusPendingExternal, tr.Status)
+	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
 	val, err := tr.Result.Value()
 	assert.NotNil(t, err)
 	assert.Equal(t, "", val)

@@ -65,7 +65,7 @@ func TestPendingJobRuns(t *testing.T) {
 	assert.Nil(t, store.Save(&npr))
 
 	pr := j.NewRun(i)
-	pr.Status = models.RunStatusPendingExternal
+	pr.Status = models.RunStatusPendingBridge
 	assert.Nil(t, store.Save(&pr))
 
 	br := j.NewRun(i)
