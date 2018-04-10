@@ -53,7 +53,7 @@ func TestBridge_Perform_fromUnstarted(t *testing.T) {
 			val, _ := result.Get("value")
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, test.wantPending, result.Status.PendingExternal())
+			assert.Equal(t, test.wantPending, result.Status.PendingBridge())
 		})
 	}
 }
@@ -67,7 +67,7 @@ func TestBridge_Perform_resuming(t *testing.T) {
 		want       string
 		wantStatus models.RunStatus
 	}{
-		{"from pending", `{"value":"100","old":"remains"}`, models.RunStatusPendingExternal, `{"value":"100","old":"remains"}`, models.RunStatusInProgress},
+		{"from pending", `{"value":"100","old":"remains"}`, models.RunStatusPendingBridge, `{"value":"100","old":"remains"}`, models.RunStatusInProgress},
 		{"from errored", `{"value":"100","old":"remains"}`, models.RunStatusErrored, `{"value":"100","old":"remains"}`, models.RunStatusErrored},
 	}
 

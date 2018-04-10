@@ -231,10 +231,10 @@ func RunResultWithError(err error) models.RunResult {
 	}
 }
 
-func MarkJobRunPendingExternal(jr models.JobRun, i int) models.JobRun {
-	jr.Status = models.RunStatusPendingExternal
-	jr.Result.Status = models.RunStatusPendingExternal
-	jr.TaskRuns[i].Status = models.RunStatusPendingExternal
-	jr.TaskRuns[i].Result.Status = models.RunStatusPendingExternal
+func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
+	jr.Status = models.RunStatusPendingBridge
+	jr.Result.Status = models.RunStatusPendingBridge
+	jr.TaskRuns[i].Status = models.RunStatusPendingBridge
+	jr.TaskRuns[i].Result.Status = models.RunStatusPendingBridge
 	return jr
 }

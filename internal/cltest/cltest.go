@@ -429,12 +429,12 @@ func WaitForJobRunToComplete(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
 }
 
-func WaitForJobRunToPendExternal(
+func WaitForJobRunToPendBridge(
 	t *testing.T,
 	store *store.Store,
 	jr models.JobRun,
 ) models.JobRun {
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingExternal)
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
 }
 
 func WaitForJobRunToPendConfirmations(
