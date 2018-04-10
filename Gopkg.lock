@@ -295,6 +295,7 @@
   version = "v1.1.0"
 
 [[projects]]
+  branch = "features/custom-sinks"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -305,8 +306,8 @@
     "zapcore",
     "zaptest/observer"
   ]
-  revision = "35aad584952c3e7020db7b839f6b102de6271f89"
-  version = "v1.7.1"
+  revision = "e41e067dc85a8d73da3ab67d7bcfd5ad34c79d4f"
+  source = "github.com/smartcontractkit/zap"
 
 [[projects]]
   branch = "master"
@@ -401,6 +402,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b43ece1f022da72289721f53c30489afe6aa9329f426173d24ad2d834b6e85cc"
+  inputs-digest = "13d8670a7e980cb515215c49427e5359d8ab6eb27f2ffb5b5092853131d045e7"
   solver-name = "gps-cdcl"
   solver-version = 1
