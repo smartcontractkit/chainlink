@@ -79,3 +79,76 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestAssignmentSpec_ConvertToAssignment(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+
+		{"with endAt as ISO-8601",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z"}}`},
+		{"with endAt as unix timestamp",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2018-03-26T21:22:16.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"1522099336"}}`},
+		{"with runAt as ISO-8601",
+			`{"initiators":[{"type":"web"},{"type":"runAt","time":"2016-01-02T15:04:05.000Z"},{"type":"runAt","time":"2026-01-02T15:04:05.000Z"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2222-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2222-01-02T15:04:05.000Z","runAt":["2016-01-02T15:04:05.000Z","2026-01-02T15:04:05.000Z"]}}`},
+		{"with runAt as unix timestamp",
+			`{"initiators":[{"type":"web"},{"type":"runAt","time":"2018-03-26T21:22:16.000Z"},{"type":"runAt","time":"2018-03-27T00:08:56.000Z"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2222-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2222-01-02T15:04:05.000Z","runAt":["1522099336","1522109336"]}}`},
+		{"with cron minute",
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 1 * * * *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","minute":"1"}}`},
+		{"with cron hour",
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * 2 * * *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","hour":"2"}}`},
+		{"with cron day of month",
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * * 3 * *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","dayOfMonth":"3"}}`},
+		{"with cron month of year",
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * * * 4 *"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","monthOfYear":"4"}}`},
+		{"with cron day of week",
+			`{"initiators":[{"type":"web"},{"type":"cron","schedule":"0 * * * * 5"}],"tasks":[{"type":"noOp","foo":"bar"}],"endAt":"2006-01-02T15:04:05.000Z"}`,
+			`{"assignment":{"subtasks":[{"adapterType":"noOp","adapterParams":{"foo":"bar"}}]},"schedule":{"endAt":"2006-01-02T15:04:05.000Z","dayOfWeek":"5"}}`,
+		},
+	}
+
+	_, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var js1 models.JobSpec
+			assert.Nil(t, json.Unmarshal([]byte(test.input), &js1))
+
+			a1, err := models.ConvertToAssignment(js1)
+			assert.Nil(t, err)
+
+			a2 := models.AssignmentSpec{}
+			assert.Nil(t, json.Unmarshal([]byte(test.want), &a2))
+
+			for i, wantTask := range a2.Assignment.Subtasks {
+				actualTask := a1.Assignment.Subtasks[i]
+				assert.Equal(t, strings.ToLower(wantTask.Type), actualTask.Type)
+				assert.JSONEq(t, strings.ToLower(wantTask.Params.String()), actualTask.Params.String())
+			}
+
+			for i, v := range a1.Schedule.RunAt {
+				assert.Equal(t, a2.Schedule.RunAt[i], v)
+			}
+
+			assert.Equal(t, a2.Schedule.Minute, a1.Schedule.Minute)
+			assert.Equal(t, a2.Schedule.Hour, a1.Schedule.Hour)
+			assert.Equal(t, a2.Schedule.DayOfMonth, a1.Schedule.DayOfMonth)
+			assert.Equal(t, a2.Schedule.MonthOfYear, a1.Schedule.MonthOfYear)
+			assert.Equal(t, a2.Schedule.DayOfWeek, a1.Schedule.DayOfWeek)
+			assert.Equal(t, a2.Schedule.EndAt, a1.Schedule.EndAt)
+		})
+	}
+}
