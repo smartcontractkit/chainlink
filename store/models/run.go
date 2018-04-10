@@ -186,13 +186,13 @@ func (rr RunResult) WithError(err error) RunResult {
 	return rr
 }
 
-// MarkPendingExternal returns a copy of RunResult but with status set to pending.
-func (rr RunResult) MarkPendingExternal() RunResult {
-	rr.Status = RunStatusPendingExternal
+// MarkPendingBridge returns a copy of RunResult but with status set to pending.
+func (rr RunResult) MarkPendingBridge() RunResult {
+	rr.Status = RunStatusPendingBridge
 	return rr
 }
 
-// MarkPendingExternal returns a copy of RunResult but with status set to pending.
+// MarkPendingBridge returns a copy of RunResult but with status set to pending.
 func (rr RunResult) MarkPendingConfirmations() RunResult {
 	rr.Status = RunStatusPendingConfirmations
 	return rr
@@ -265,8 +265,8 @@ func (rr RunResult) Merge(in RunResult) (RunResult, error) {
 	}
 	if in.Status.Errored() || rr.Status.Errored() {
 		in.Status = RunStatusErrored
-	} else if in.Status.PendingExternal() || rr.Status.PendingExternal() {
-		in = in.MarkPendingExternal()
+	} else if in.Status.PendingBridge() || rr.Status.PendingBridge() {
+		in = in.MarkPendingBridge()
 	}
 	return in, nil
 }
@@ -287,8 +287,8 @@ func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
 
 	if brr.Status.Errored() || brr.HasError() {
 		brr.Status = RunStatusErrored
-	} else if brr.ExternalPending || brr.Status.PendingExternal() {
-		brr.Status = RunStatusPendingExternal
+	} else if brr.ExternalPending || brr.Status.PendingBridge() {
+		brr.Status = RunStatusPendingBridge
 	} else {
 		brr.Status = RunStatusCompleted
 	}

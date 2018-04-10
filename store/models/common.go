@@ -21,18 +21,18 @@ const (
 	RunStatusInProgress = RunStatus("in progress")
 	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
 	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
-	// RunStatusPendingExternal is used for when a run is waiting on the completion
+	// RunStatusPendingBridge is used for when a run is waiting on the completion
 	// of another event.
-	RunStatusPendingExternal = RunStatus("pending_external")
+	RunStatusPendingBridge = RunStatus("pending_external")
 	// RunStatusErrored is used for when a run has errored and will not complete.
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
 	RunStatusCompleted = RunStatus("completed")
 )
 
-// PendingExternal returns true if the status is pending.
-func (s RunStatus) PendingExternal() bool {
-	return s == RunStatusPendingExternal
+// PendingBridge returns true if the status is pending.
+func (s RunStatus) PendingBridge() bool {
+	return s == RunStatusPendingBridge
 }
 
 // PendingConfirmations returns true if the status is pending.
@@ -52,7 +52,7 @@ func (s RunStatus) Errored() bool {
 
 // Pending returns true if the status is pending external or confirmations.
 func (s RunStatus) Pending() bool {
-	return s.PendingExternal() || s.PendingConfirmations()
+	return s.PendingBridge() || s.PendingConfirmations()
 }
 
 // Runnable returns true if the status is ready to be run.
