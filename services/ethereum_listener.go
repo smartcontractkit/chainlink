@@ -77,7 +77,7 @@ func (el *EthereumListener) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (el *EthereumListener) OnNewHead(head *models.BlockHeader) {
-	pendingRuns, err := el.Store.PendingJobRuns()
+	pendingRuns, err := el.Store.JobRunsWithStatus(models.RunStatusPendingConfirmations)
 	if err != nil {
 		logger.Error(err.Error())
 	}

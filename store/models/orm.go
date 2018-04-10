@@ -125,10 +125,9 @@ func (orm *ORM) SaveCreationHeight(jr JobRun, bn *IndexableBlockNumber) (JobRun,
 	return jr, orm.Save(&jr)
 }
 
-// PendingJobRuns returns the JobRuns which have a status of "pending".
-func (orm *ORM) PendingJobRuns() ([]JobRun, error) {
+// JobRunsWithStatus returns the JobRuns which have the passed statuses.
+func (orm *ORM) JobRunsWithStatus(statuses ...RunStatus) ([]JobRun, error) {
 	runs := []JobRun{}
-	statuses := []RunStatus{RunStatusPendingBridge, RunStatusPendingConfirmations}
 	err := orm.Select(q.In("Status", statuses)).Find(&runs)
 	if err == storm.ErrNotFound {
 		return []JobRun{}, nil
