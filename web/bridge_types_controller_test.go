@@ -26,6 +26,7 @@ func TestBridgeTypesController_Create(t *testing.T) {
 	bt := &models.BridgeType{}
 	assert.Nil(t, app.Store.One("Name", btName, bt))
 	assert.Equal(t, "randomnumber", bt.Name)
+	assert.Equal(t, uint64(10), bt.DefaultConfirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 }
 
