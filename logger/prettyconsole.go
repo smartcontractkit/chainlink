@@ -22,6 +22,8 @@ var levelColors = map[string]func(...interface{}) string{
 	"fatal":   color.New(color.FgRed).SprintFunc(),
 }
 
+var blue = color.New(color.FgBlue).SprintFunc()
+
 type PrettyConsole struct {
 	io *os.File
 }
@@ -39,6 +41,7 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 	output := []interface{}{
 		coloredLevel(js.Get("level")),
 		js.Get("msg"),
+		blue(js.Get("caller")),
 	}
 	return fmt.Println(output...)
 }
