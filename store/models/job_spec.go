@@ -187,8 +187,9 @@ func (t TaskSpec) MarshalJSON() ([]byte, error) {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name string `json:"name" storm:"id,unique"`
-	URL  WebURL `json:"url"`
+	Name                 string `json:"name" storm:"id,unique"`
+	URL                  WebURL `json:"url"`
+	DefaultConfirmations uint64 `json:"defaultConfirmations"`
 }
 
 // UnmarshalJSON parses the given input and updates the BridgeType
@@ -201,5 +202,6 @@ func (bt *BridgeType) UnmarshalJSON(input []byte) error {
 	}
 	bt.Name = strings.ToLower(aux.Name)
 	bt.URL = aux.URL
+	bt.DefaultConfirmations = aux.DefaultConfirmations
 	return nil
 }
