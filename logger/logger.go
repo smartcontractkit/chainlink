@@ -4,7 +4,6 @@ package logger
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -51,30 +50,17 @@ func CreateDiskLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	config.OutputPaths = []string{"pretty", destination}
 	config.ErrorOutputPaths = []string{"pretty", destination}
 	config.Level.SetLevel(lvl)
-	zl, err := config.BuildWithSinks(generateSinkFactories(), zap.AddCallerSkip(1))
+	zl, err := config.BuildWithSinks(generateSinks(), zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	return zl
 }
 
-func generateSinkFactories() map[string]zap.SinkFactory {
-	factories := zap.DefaultSinkFactories()
-	factories["pretty"] = zap.SinkFactory{PrettyConsole{os.Stdout}, ioutil.NopCloser(os.Stdout)}
+func generateSinks() map[string]zap.Sink {
+	factories := zap.DefaultSinks()
+	factories["pretty"] = PrettyConsole{os.Stdout}
 	return factories
-}
-
-type PrettyConsole struct {
-	io *os.File
-}
-
-func (p PrettyConsole) Write(p []byte) (n int, err error) {
-	logger.Info("We out here %v", p)
-	return 0, nil
-}
-
-func (p PrettyConsole) Sync() error {
-	return nil
 }
 
 // Infow logs an info message and any additional given information.
