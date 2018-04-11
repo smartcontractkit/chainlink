@@ -306,7 +306,7 @@
     "zapcore",
     "zaptest/observer"
   ]
-  revision = "e41e067dc85a8d73da3ab67d7bcfd5ad34c79d4f"
+  revision = "9b29574bcabf3cc60be7333276909c93c41504e8"
   source = "github.com/smartcontractkit/zap"
 
 [[projects]]
