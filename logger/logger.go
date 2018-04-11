@@ -4,7 +4,10 @@ package logger
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
+	"os"
 	"path"
 
 	"go.uber.org/zap"
@@ -46,14 +49,28 @@ func SetLogger(zl *zap.Logger) {
 func CreateDiskLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	config := zap.NewProductionConfig()
 	destination := path.Join(dir, "log.jsonl")
-	config.OutputPaths = []string{"stderr", destination}
-	config.ErrorOutputPaths = []string{"stderr", destination}
+	config.OutputPaths = []string{"pretty", destination}
+	config.ErrorOutputPaths = []string{"pretty", destination}
 	config.Level.SetLevel(lvl)
-	zl, err := config.Build(zap.AddCallerSkip(1))
+	zl, err := config.BuildWithSinks(generateSinkFactories(), zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	return zl
+}
+
+func generateSinkFactories() map[string]zap.SinkFactory {
+	factories := zap.DefaultSinkFactories()
+	factories["pretty"] = PrettyConsoleFactory{os.Stdout}
+	return factories
+}
+
+type PrettyConsoleFactory struct {
+	io *os.File
+}
+
+func (p PrettyConsoleFactory) Create() (zapcore.WriteSyncer, io.Closer) {
+	return p.io, ioutil.NopCloser(p.io)
 }
 
 // Infow logs an info message and any additional given information.
