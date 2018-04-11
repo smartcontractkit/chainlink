@@ -101,3 +101,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/caarlos0/env"
+
+[[constraint]]
+  name = "github.com/fatih/color"
+  version = "1.6.0"
