@@ -29,7 +29,7 @@ type Logger struct {
 
 // Write logs a message at the Info level and returns the length
 // of the given bytes.
-func (l *Logger) Write(b []byte) (n int, err error) {
+func (l *Logger) Write(b []byte) (int, error) {
 	l.Info(string(b))
 	return len(b), nil
 }

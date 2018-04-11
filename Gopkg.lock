@@ -84,6 +84,12 @@
   version = "v1.8.2"
 
 [[projects]]
+  name = "github.com/fatih/color"
+  packages = ["."]
+  revision = "507f6050b8568533fb3f5504de8e5205fa62a114"
+  version = "v1.6.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/gin-contrib/sse"
   packages = ["."]
@@ -141,6 +147,12 @@
   packages = ["."]
   revision = "ca39e5af3ece67bbcda3d0f4f56a8e24d9f2dad4"
   version = "1.1.3"
+
+[[projects]]
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -402,6 +414,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "13d8670a7e980cb515215c49427e5359d8ab6eb27f2ffb5b5092853131d045e7"
+  inputs-digest = "a81c9a903ab3c87643544711cb8b6cb97c7b858db0d3b577148a9d9124f1f118"
   solver-name = "gps-cdcl"
   solver-version = 1
