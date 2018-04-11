@@ -92,10 +92,10 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 		confirmations  int
 		triggeringConf int
 	}{
-		{"default", 0, configMin},
-		{"spec > confs", configMin + 1, configMin + 1},
-		{"spec == confs", configMin, configMin},
-		{"spec < confs", configMin - 1, configMin},
+		{"not defined in task spec", 0, configMin},
+		{"task spec > global min confs", configMin + 1, configMin + 1},
+		{"task spec == global min confs", configMin, configMin},
+		{"task spec < global min confs", configMin - 1, configMin},
 	}
 
 	for _, test := range tests {
