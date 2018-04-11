@@ -6,9 +6,9 @@
 // Router defines the valid paths for the node and responds
 // to requests.
 //
-// JobsController
+// JobSpecsController
 //
-// JobsController allows for the creation of Jobs to be added
+// JobSpecsController allows for the creation of Jobs to be added
 // to the node, and shows the current jobs which have already
 // been added.
 //
