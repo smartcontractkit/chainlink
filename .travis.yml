@@ -3,7 +3,11 @@ services:
   - docker
 
 node_js: 8.4
-cache: yarn
+cache:
+  yarn: true
+  directories:
+    - vendor
+    - solidity/node_modules
 
 env:
   global:
