@@ -130,12 +130,20 @@ func startTask(
 	store *store.Store,
 ) models.TaskRun {
 	minConfs := utils.MaxUint64(store.Config.TaskMinConfirmations, tr.Task.Confirmations)
+	adapter, err := adapters.For(tr.Task, store)
+
+	switch t := adapter.(type) {
+	case *adapters.Bridge:
+		if t.DefaultConfirmations > minConfs {
+			minConfs = t.DefaultConfirmations
+		}
+	}
+
 	if !jr.Runnable(bn, minConfs) {
 		return tr.MarkPendingConfirmations()
 	}
 
 	tr.Status = models.RunStatusInProgress
-	adapter, err := adapters.For(tr.Task, store)
 
 	if err != nil {
 		return tr.ApplyResult(tr.Result.WithError(err))
