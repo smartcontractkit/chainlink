@@ -3,9 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
-	"os"
 	"strings"
 	"time"
 
@@ -13,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 var levelColors = map[string]func(...interface{}) string{
@@ -28,22 +27,19 @@ var levelColors = map[string]func(...interface{}) string{
 var blue = color.New(color.FgBlue).SprintFunc()
 
 type PrettyConsole struct {
-	io *os.File
+	zap.Sink
 }
-
-func (PrettyConsole) Sync() error  { return nil }
-func (PrettyConsole) Close() error { return nil }
 
 func (pc PrettyConsole) Write(b []byte) (int, error) {
 	var js models.JSON
 	err := json.Unmarshal(b, &js)
 	if err != nil {
-		log.Panic(err)
+		return 0, err
 	}
 
 	headline := generateHeadline(js)
 	details := generateDetails(js)
-	return fmt.Println(headline, details)
+	return pc.Sink.Write([]byte(fmt.Sprintln(headline, details)))
 }
 
 func generateHeadline(js models.JSON) string {
