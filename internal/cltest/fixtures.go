@@ -131,6 +131,13 @@ func NewBridgeType(info ...string) models.BridgeType {
 	return bt
 }
 
+func NewBridgeTypeWithDefaultConfirmations(defaultConfirmations uint64, info ...string) models.BridgeType {
+	bt := NewBridgeType(info...)
+	bt.DefaultConfirmations = defaultConfirmations
+
+	return bt
+}
+
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	mustNotErr(err)
