@@ -42,14 +42,24 @@ func SetLogger(zl *zap.Logger) {
 	logger = &Logger{zl.Sugar()}
 }
 
-// NewProductionConfig returns a log config for the passed directory
-// with the given LogLevel.
-func CreateDiskLogger(dir string, lvl zapcore.Level) *zap.Logger {
+// CreateProductionLogger returns a log config for the passed directory
+// with the given LogLevel and customizes stdout for pretty printing.
+func CreateProductionLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	config := zap.NewProductionConfig()
 	destination := path.Join(dir, "log.jsonl")
 	config.OutputPaths = []string{"pretty", destination}
-	config.ErrorOutputPaths = []string{"pretty", destination}
+	config.ErrorOutputPaths = []string{"stderr", destination}
 	config.Level.SetLevel(lvl)
+	zl, err := config.BuildWithSinks(generateSinks(), zap.AddCallerSkip(1))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return zl
+}
+
+func CreateConsoleLogger() *zap.Logger {
+	config := zap.NewProductionConfig()
+	config.OutputPaths = []string{"pretty"}
 	zl, err := config.BuildWithSinks(generateSinks(), zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
