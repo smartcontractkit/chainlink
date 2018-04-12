@@ -15,18 +15,21 @@ import (
 func TestJobRunner_ExecuteRun(t *testing.T) {
 	t.Parallel()
 
+	bridgeName := "auctionBidding"
 	tests := []struct {
 		name       string
+		bridgeType string
 		input      string
 		runResult  string
 		wantStatus models.RunStatus
 		wantData   string
 	}{
-		{"success", `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100"}`},
-		{"errored", `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{}`},
-		{"errored with a value", `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99"}`},
-		{"overriding bridge type params", `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack"}`},
-		{"type parameter does not override", `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"0"}`},
+		{"success", bridgeName, `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100"}`},
+		{"errored", bridgeName, `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{}`},
+		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99"}`},
+		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack"}`},
+		{"type parameter does not override", bridgeName, `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"0"}`},
+		{"non-existent bridge type", "non-existent", `{}`, `{}`, models.RunStatusErrored, `{}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -37,18 +40,17 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			var run models.JobRun
-			mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", test.runResult,
+			mockServer, _ := cltest.NewHTTPMockServer(t, 200, "POST", test.runResult,
 				func(body string) {
 					want := fmt.Sprintf(`{"id":"%v","data":%v}`, run.ID, test.input)
 					assert.JSONEq(t, want, body)
 				})
-			defer cleanup()
-			bt := cltest.NewBridgeType("auctionBidding", mockServer.URL)
+			bt := cltest.NewBridgeType(bridgeName, mockServer.URL)
 			assert.Nil(t, store.Save(&bt))
 
 			job, initr := cltest.NewJobWithWebInitiator()
 			job.Tasks = []models.TaskSpec{
-				cltest.NewTask(bt.Name),
+				cltest.NewTask(test.bridgeType),
 				cltest.NewTask("noop"),
 			}
 			assert.Nil(t, store.Save(&job))
@@ -64,6 +66,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 			tr1 := run.TaskRuns[0]
 			assert.Equal(t, test.wantStatus, tr1.Status)
+			assert.Equal(t, test.wantStatus, tr1.Result.Status)
 			assert.JSONEq(t, test.wantData, tr1.Result.Data.String())
 
 			if test.wantStatus == models.RunStatusCompleted {

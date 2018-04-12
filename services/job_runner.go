@@ -138,9 +138,7 @@ func startTask(
 	adapter, err := adapters.For(tr.Task, store)
 
 	if err != nil {
-		tr.Status = models.RunStatusErrored
-		tr.Result.SetError(err)
-		return tr
+		return tr.ApplyResult(tr.Result.SetError(err))
 	}
 
 	return tr.ApplyResult(adapter.Perform(input, store))
