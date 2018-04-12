@@ -6,6 +6,7 @@ library ChainlinkLib {
   bytes constant bytes32ArrayType = "bytes32[],";
 
   struct Run {
+    bytes32 id;
     bytes32 jobId;
     address callbackAddress;
     bytes4 callbackFunctionId;
@@ -46,7 +47,7 @@ library ChainlinkLib {
     returns (bytes)
   {
     bytes memory result = addLengthPrefix(self.names);
-    return append(append(result, self.types), self.values);
+    return addLengthPrefix(append(append(result, self.types), self.values));
   }
 
   function toBytes(bytes32 _b)
@@ -57,6 +58,19 @@ library ChainlinkLib {
     bytes memory c = new bytes(32);
     uint charCount = 0;
     for (uint i = 0; i < 32; i++) {
+        c[i] = byte(bytes32(uint(_b) * 2 ** (8 * i)));
+    }
+    return c;
+  }
+
+  function toBytes(bytes4 _b)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    bytes memory c = new bytes(4);
+    uint charCount = 0;
+    for (uint i = 0; i < 4; i++) {
         c[i] = byte(bytes32(uint(_b) * 2 ** (8 * i)));
     }
     return c;

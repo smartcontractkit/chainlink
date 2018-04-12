@@ -1,4 +1,4 @@
-var DynamicConsumer = artifacts.require("./DynamicConsumer.sol");
+var DynamicConsumer = artifacts.require("./DynamicConsumer1.sol");
 var Oracle = artifacts.require("./Oracle.sol");
 
 module.exports = function(deployer) {
