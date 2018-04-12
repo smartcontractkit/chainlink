@@ -150,14 +150,14 @@ func TestRunResult_Value(t *testing.T) {
 	}
 }
 
-func TestRunResult_SetError(t *testing.T) {
+func TestRunResult_WithError(t *testing.T) {
 	t.Parallel()
 
 	rr := models.RunResult{}
 
 	assert.Equal(t, models.RunStatusUnstarted, rr.Status)
 
-	rr = rr.SetError(errors.New("this blew up"))
+	rr = rr.WithError(errors.New("this blew up"))
 
 	assert.Equal(t, models.RunStatusErrored, rr.Status)
 	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)

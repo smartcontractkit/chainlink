@@ -138,7 +138,7 @@ func startTask(
 	adapter, err := adapters.For(tr.Task, store)
 
 	if err != nil {
-		return tr.ApplyResult(tr.Result.SetError(err))
+		return tr.ApplyResult(tr.Result.WithError(err))
 	}
 
 	return tr.ApplyResult(adapter.Perform(input, store))
