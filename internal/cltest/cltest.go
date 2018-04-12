@@ -47,6 +47,7 @@ var storeCounter uint64 = 0
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
+	logger.SetLogger(logger.CreateConsoleLogger())
 }
 
 type TestConfig struct {

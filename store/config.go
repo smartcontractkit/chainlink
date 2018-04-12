@@ -58,10 +58,10 @@ func (c Config) KeysDir() string {
 	return path.Join(c.RootDir, "keys")
 }
 
-// CreateDiskLogger returns a logger for the config's root directory
-// and LogLevel.
-func (c Config) CreateDiskLogger() *zap.Logger {
-	return logger.CreateDiskLogger(c.RootDir, c.LogLevel.Level)
+// CreateProductionLogger returns a custom logger for the config's root directory
+// and LogLevel, with pretty printing for stdout.
+func (c Config) CreateProductionLogger() *zap.Logger {
+	return logger.CreateProductionLogger(c.RootDir, c.LogLevel.Level)
 }
 
 func parseEnv(cfg interface{}) error {

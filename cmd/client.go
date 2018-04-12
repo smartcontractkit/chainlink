@@ -39,7 +39,7 @@ type Client struct {
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	config := updateConfig(cli.Config, c.Bool("debug"))
-	logger.SetLogger(config.CreateDiskLogger())
+	logger.SetLogger(config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
 	app := cli.AppFactory.NewApplication(config)
