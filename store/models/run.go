@@ -230,8 +230,10 @@ func (rr RunResult) Error() string {
 }
 
 // SetError stores the given error in the ErrorMessage field.
-func (rr RunResult) SetError(err error) {
+func (rr RunResult) SetError(err error) RunResult {
+	rr.Status = RunStatusErrored
 	rr.ErrorMessage = null.StringFrom(err.Error())
+	return rr
 }
 
 // GetError returns the error of a RunResult if it is present.
