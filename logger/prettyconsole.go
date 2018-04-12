@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 )
 
@@ -38,12 +41,47 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 		log.Panic(err)
 	}
 
-	output := []interface{}{
+	headline := generateHeadline(js)
+	details := generateDetails(js)
+	return fmt.Println(headline, details)
+}
+
+func generateHeadline(js models.JSON) string {
+	sec, dec := math.Modf(js.Get("ts").Float())
+	headline := []interface{}{
+		utils.ISO8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
+		" ",
 		coloredLevel(js.Get("level")),
 		js.Get("msg"),
+		" ",
 		blue(js.Get("caller")),
 	}
-	return fmt.Println(output...)
+	return fmt.Sprint(headline...)
+}
+
+// blacklist of key value pairs to show in details. This does not
+// exclude it from being present in other logger sinks, like .jsonl files.
+var blacklist = map[string]bool{"hash": true}
+
+func generateDetails(js models.JSON) string {
+	entries := js.Map()
+	delete(entries, "level")
+	delete(entries, "ts")
+	delete(entries, "msg")
+	delete(entries, "caller")
+
+	var details string
+	for k, v := range entries {
+		if blacklist[k] || len(v.String()) == 0 {
+			continue
+		}
+		details += fmt.Sprintf("%s=%v ", k, v)
+	}
+
+	if len(details) > 0 {
+		details = fmt.Sprint("\n", details)
+	}
+	return details
 }
 
 func coloredLevel(level gjson.Result) string {
@@ -51,5 +89,5 @@ func coloredLevel(level gjson.Result) string {
 	if !ok {
 		color = levelColors["default"]
 	}
-	return color(fmt.Sprintf("%-10s", fmt.Sprint("[", strings.ToUpper(level.String()), "]")))
+	return color(fmt.Sprintf("%-8s", fmt.Sprint("[", strings.ToUpper(level.String()), "]")))
 }
