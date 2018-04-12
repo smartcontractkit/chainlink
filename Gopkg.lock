@@ -318,7 +318,7 @@
     "zapcore",
     "zaptest/observer"
   ]
-  revision = "9b29574bcabf3cc60be7333276909c93c41504e8"
+  revision = "08c8e44075833fdbb6fd221d82fa708350686e7e"
   source = "github.com/smartcontractkit/zap"
 
 [[projects]]
@@ -414,6 +414,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a81c9a903ab3c87643544711cb8b6cb97c7b858db0d3b577148a9d9124f1f118"
+  inputs-digest = "1b6fc1b6ef73e600a6987ea3ba64c3d74bc88ec2e430e6ca951c1a15b8f23db8"
   solver-name = "gps-cdcl"
   solver-version = 1
