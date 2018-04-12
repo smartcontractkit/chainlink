@@ -57,6 +57,7 @@ func CreateProductionLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	return zl
 }
 
+// CreateConsoleLogger creates a logger that directs output to PrettyConsole.
 func CreateConsoleLogger() *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"pretty"}
