@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -147,6 +148,19 @@ func TestRunResult_Value(t *testing.T) {
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
+}
+
+func TestRunResult_SetError(t *testing.T) {
+	t.Parallel()
+
+	rr := models.RunResult{}
+
+	assert.Equal(t, models.RunStatusUnstarted, rr.Status)
+
+	rr = rr.SetError(errors.New("this blew up"))
+
+	assert.Equal(t, models.RunStatusErrored, rr.Status)
+	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)
 }
 
 func TestRunResult_Merge(t *testing.T) {
