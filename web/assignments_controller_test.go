@@ -44,7 +44,6 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	// create JobWithAssignment
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job_with_schedule.json")
 	a1, err := models.ConvertToAssignment(j)
 	assert.Nil(t, err)
