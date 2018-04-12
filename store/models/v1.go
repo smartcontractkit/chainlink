@@ -135,45 +135,59 @@ func removeTypeFromParams(s string) (JSON, error) {
 	return JSON{}, err
 }
 
-// ConvertToAssignment converts JobSpec to AssignmentSpec ignoring
-// JobSpecs that do not contain a web initiator.
-func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
+func buildAssignment(ts []TaskSpec) (Assignment, error) {
 	var merr error
+	st := []Subtask{}
 
-	subtasks := []Subtask{}
-	for _, t := range j.Tasks {
+	for _, t := range ts {
 		var err error
 		t.Params, err = removeTypeFromParams(t.Params.String())
 		if err != nil {
 			multierr.Append(merr, err)
 		}
 
-		subtasks = append(subtasks, Subtask{
+		st = append(st, Subtask{
 			Type:   t.Type,
 			Params: t.Params,
 		})
 	}
 
-	schedule := Schedule{}
+	a := Assignment{
+		Subtasks: st,
+	}
 
+	return a, merr
+}
+
+func buildScheduleFromJobSpec(j JobSpec) Schedule {
+	var s Schedule
 	for _, r := range j.Initiators {
 		switch r.Type {
 		case InitiatorCron:
-			schedule = addCronToSchedule(schedule, r)
+			s = addCronToSchedule(s, r)
 		case InitiatorRunAt:
-			schedule.RunAt = append(schedule.RunAt, r.Time)
+			s.RunAt = append(s.RunAt, r.Time)
 		}
 	}
+	s.EndAt.Time = j.EndAt.Time
 
-	schedule.EndAt.Time = j.EndAt.Time
+	return s
+}
 
-	a := Assignment{
-		Subtasks: subtasks,
+// ConvertToAssignment converts JobSpec to AssignmentSpec
+func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
+	var merr error
+
+	a, err := buildAssignment(j.Tasks)
+	if err != nil {
+		multierr.Append(merr, err)
 	}
+
+	s := buildScheduleFromJobSpec(j)
 
 	as := AssignmentSpec{
 		Assignment: a,
-		Schedule:   schedule,
+		Schedule:   s,
 	}
 
 	return as, merr
