@@ -26,10 +26,15 @@ var levelColors = map[string]func(...interface{}) string{
 
 var blue = color.New(color.FgBlue).SprintFunc()
 
+// PrettyConsole wraps a Sink (Writer, Syncer, Closer), usually stdout, and
+// formats the incoming json bytes with colors and white space for readability
+// before passing on to the underlying Writer in Sink.
 type PrettyConsole struct {
 	zap.Sink
 }
 
+// Write reformats the incoming json bytes with colors, newlines and whitespace
+// for better readability in console.
 func (pc PrettyConsole) Write(b []byte) (int, error) {
 	var js models.JSON
 	err := json.Unmarshal(b, &js)
