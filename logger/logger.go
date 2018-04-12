@@ -50,27 +50,27 @@ func CreateProductionLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	config.OutputPaths = []string{"pretty", destination}
 	config.ErrorOutputPaths = []string{"stderr", destination}
 	config.Level.SetLevel(lvl)
-	zl, err := config.BuildWithSinks(generateSinks(), zap.AddCallerSkip(1))
+	zl, err := config.BuildWithSinks(prettyConsoleSinks(os.Stdout), zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	return zl
 }
 
-// CreateConsoleLogger creates a logger that directs output to PrettyConsole.
-func CreateConsoleLogger() *zap.Logger {
+// CreateTestLogger creates a logger that directs output to PrettyConsole.
+func CreateTestLogger() *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"pretty"}
-	zl, err := config.BuildWithSinks(generateSinks(), zap.AddCallerSkip(1))
+	zl, err := config.BuildWithSinks(prettyConsoleSinks(os.Stderr), zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	return zl
 }
 
-func generateSinks() map[string]zap.Sink {
+func prettyConsoleSinks(s zap.Sink) map[string]zap.Sink {
 	factories := zap.DefaultSinks()
-	factories["pretty"] = PrettyConsole{os.Stdout}
+	factories["pretty"] = PrettyConsole{s}
 	return factories
 }
 
