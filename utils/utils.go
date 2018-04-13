@@ -287,11 +287,14 @@ func (bs BackoffSleeper) Duration() time.Duration {
 	return bs.ForAttempt(bs.Attempt())
 }
 
-func MaxUint64(x, y uint64) uint64 {
-	if x > y {
-		return x
+func MaxUint64(uints ...uint64) uint64 {
+	var max uint64
+	for _, n := range uints {
+		if n > max {
+			max = n
+		}
 	}
-	return y
+	return max
 }
 
 func EVMHexNumber(val interface{}) string {
