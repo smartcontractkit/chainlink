@@ -129,15 +129,13 @@ func startTask(
 	bn *models.IndexableBlockNumber,
 	store *store.Store,
 ) models.TaskRun {
-	minConfs := utils.MaxUint64(store.Config.TaskMinConfirmations, tr.Task.Confirmations)
 	adapter, err := adapters.For(tr.Task, store)
-
-	switch t := adapter.(type) {
-	case *adapters.Bridge:
-		if t.DefaultConfirmations > minConfs {
-			minConfs = t.DefaultConfirmations
-		}
+	if err != nil {
+		return tr.ApplyResult(tr.Result.WithError(err))
 	}
+
+	minConfs := utils.MaxUint64(store.Config.TaskMinConfirmations, tr.Task.Confirmations)
+	minConfs = utils.MaxUint64(minConfs, adapter.MinConfs())
 
 	if !jr.Runnable(bn, minConfs) {
 		return tr.MarkPendingConfirmations()
