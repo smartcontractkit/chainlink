@@ -15,8 +15,23 @@ type Adapter interface {
 	Perform(models.RunResult, *store.Store) models.RunResult
 }
 
-// For determines the adapter type to use for a given task
-func For(task models.TaskSpec, store *store.Store) (ac Adapter, err error) {
+type AdapterWithMinConfs interface {
+	Adapter
+	MinConfs() uint64
+}
+
+type MinConfsWrappedAdapter struct {
+	Adapter
+}
+
+func (wa MinConfsWrappedAdapter) MinConfs() uint64 {
+	return 0
+}
+
+// For determines the adapter type to use for a given task.
+func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) {
+	var ac Adapter
+	var err error
 	switch strings.ToLower(task.Type) {
 	case "httpget":
 		ac = &HTTPGet{}
@@ -49,10 +64,10 @@ func For(task models.TaskSpec, store *store.Store) (ac Adapter, err error) {
 		if bt, err := store.BridgeTypeFor(task.Type); err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		} else {
-			ac = &Bridge{bt}
+			return &Bridge{bt}, nil
 		}
 	}
-	return ac, err
+	return MinConfsWrappedAdapter{ac}, err
 }
 
 func unmarshalParams(params models.JSON, dst interface{}) error {

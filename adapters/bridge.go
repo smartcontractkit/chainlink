@@ -32,6 +32,10 @@ func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResu
 	return resumeBridge(input)
 }
 
+func (ba *Bridge) MinConfs() uint64 {
+	return ba.DefaultConfirmations
+}
+
 func resumeBridge(input models.RunResult) models.RunResult {
 	input.Status = models.RunStatusInProgress
 	return input
