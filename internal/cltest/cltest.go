@@ -23,6 +23,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
@@ -562,4 +563,8 @@ func mustNotErr(err error) {
 	if err != nil {
 		logger.Panic(err)
 	}
+}
+
+func UnwrapAdapter(wa adapters.AdapterWithMinConfs) adapters.Adapter {
+	return wa.(adapters.MinConfsWrappedAdapter).Adapter
 }
