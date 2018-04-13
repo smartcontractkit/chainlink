@@ -60,20 +60,20 @@ func generateHeadline(js models.JSON) string {
 	return fmt.Sprint(headline...)
 }
 
-// blacklist of key value pairs to show in details. This does not
+// detailsBlacklist of keys to show in details. This does not
 // exclude it from being present in other logger sinks, like .jsonl files.
-var blacklist = map[string]bool{"hash": true}
+var detailsBlacklist = map[string]bool{
+	"level":  true,
+	"ts":     true,
+	"msg":    true,
+	"caller": true,
+	"hash":   true,
+}
 
 func generateDetails(js models.JSON) string {
-	entries := js.Map()
-	delete(entries, "level")
-	delete(entries, "ts")
-	delete(entries, "msg")
-	delete(entries, "caller")
-
 	var details string
-	for k, v := range entries {
-		if blacklist[k] || len(v.String()) == 0 {
+	for k, v := range js.Map() {
+		if detailsBlacklist[k] || len(v.String()) == 0 {
 			continue
 		}
 		details += fmt.Sprintf("%s=%v ", k, v)
