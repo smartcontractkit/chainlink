@@ -28,6 +28,8 @@ func TestJobSpec_Save(t *testing.T) {
 
 func TestJobSpec_NewRun(t *testing.T) {
 	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	job, initr := cltest.NewJobWithSchedule("1 * * * *")
 	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp", `{"a":1}`)}
@@ -39,7 +41,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 
 	taskRun := run.TaskRuns[0]
 	assert.Equal(t, "NoOp", taskRun.Task.Type)
-	adapter, _ := adapters.For(taskRun.Task, nil)
+	adapter, _ := adapters.For(taskRun.Task, store)
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.Task.Params.String())
 
@@ -102,6 +104,8 @@ func TestJobSpec_Started(t *testing.T) {
 
 func TestTask_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
 	tests := []struct {
 		name          string
@@ -122,7 +126,7 @@ func TestTask_UnmarshalJSON(t *testing.T) {
 			assert.Equal(t, test.confirmations, task.Confirmations)
 
 			assert.Equal(t, test.taskType, task.Type)
-			_, err = adapters.For(task, nil)
+			_, err = adapters.For(task, store)
 			assert.Nil(t, err)
 
 			s, err := json.Marshal(task)

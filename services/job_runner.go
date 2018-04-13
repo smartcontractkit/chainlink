@@ -134,8 +134,10 @@ func startTask(
 		return tr.ApplyResult(tr.Result.WithError(err))
 	}
 
-	minConfs := utils.MaxUint64(store.Config.TaskMinConfirmations, tr.Task.Confirmations)
-	minConfs = utils.MaxUint64(minConfs, adapter.MinConfs())
+	minConfs := utils.MaxUint64(
+		store.Config.TaskMinConfirmations,
+		tr.Task.Confirmations,
+		adapter.MinConfs())
 
 	if !jr.Runnable(bn, minConfs) {
 		return tr.MarkPendingConfirmations()
