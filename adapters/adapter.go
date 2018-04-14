@@ -53,6 +53,9 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 	case "ethbytes32":
 		ac = &EthBytes32{}
 		err = unmarshalParams(task.Params, ac)
+	case "ethint256":
+		ac = &EthInt256{}
+		err = unmarshalParams(task.Params, ac)
 	case "ethuint256":
 		ac = &EthUint256{}
 		err = unmarshalParams(task.Params, ac)
