@@ -12,9 +12,19 @@ import (
 )
 
 var evmUint256Max *big.Int
+var evmInt256Max *big.Int
+var evmInt256Min *big.Int
 
 func init() {
 	var ok bool
+	evmInt256Max, ok = (&big.Int{}).SetString("0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	if !ok {
+		panic("could not parse evmInt256Max")
+	}
+	evmInt256Min, ok = (&big.Int{}).SetString("-fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+	if !ok {
+		panic("could not parse evmInt256Min")
+	}
 	evmUint256Max, ok = (&big.Int{}).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	if !ok {
 		panic("could not parse evmUint256Max")
@@ -45,6 +55,34 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	return input.WithValue(utils.AddHexPrefix(hex))
 }
 
+// EthInt256 holds no fields
+type EthInt256 struct {}
+
+// Perform returns the hex value of a given string so that it
+// is in the proper format to be written to the blockchain.
+//
+// For example, after converting the string "-123" to hex for
+// the blockchain, it would be:
+// "0x-00000000000000000000000000000000000000000000000000000000000007b"
+func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+	val, err := getValue(&input)
+	if err != nil {
+		return input.WithError(err)
+	}
+
+	parts := strings.Split(val, ".")
+	i, ok := (&big.Int{}).SetString(parts[0], 10)
+	if !ok {
+		return input.WithError(fmt.Errorf("cannot parse into big.Int: %v", val))
+	}
+
+	if err = validateSignedRange(i); err != nil {
+		return input.WithError(err)
+	}
+
+	return input.WithValue(utils.EVMHexNumber(i))
+}
+
 // EthUint256 holds no fields.
 type EthUint256 struct{}
 
@@ -55,25 +93,42 @@ type EthUint256 struct{}
 // the blockchain, it would be:
 // "0x31363830302e3030000000000000000000000000000000000000000000000000"
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val, err := input.Get("value")
+	val, err := getValue(&input)
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	parts := strings.Split(val.String(), ".")
+	parts := strings.Split(val, ".")
 	i, ok := (&big.Int{}).SetString(parts[0], 10)
 	if !ok {
-		return input.WithError(fmt.Errorf("cannot parse into big.Int: %v", val.String()))
+		return input.WithError(fmt.Errorf("cannot parse into big.Int: %v", val))
 	}
 
-	if err = validateRange(i); err != nil {
+	if err = validateUnsignedRange(i); err != nil {
 		return input.WithError(err)
 	}
 
 	return input.WithValue(utils.EVMHexNumber(i))
 }
 
-func validateRange(i *big.Int) error {
+func getValue(input *models.RunResult) (string, error) {
+	val, err := input.Get("value")
+	return val.String(), err
+}
+
+func validateSignedRange(i *big.Int) error {
+	if evmInt256Max.Cmp(i) == -1 {
+		return fmt.Errorf("ethInt256: value %v too large", i.String())
+	}
+
+	if evmInt256Min.Cmp(i) == 1 {
+		return fmt.Errorf("ethInt256: value %v too small", i.String())
+	}
+	return nil
+}
+
+
+func validateUnsignedRange(i *big.Int) error {
 	if i.Sign() == -1 {
 		return fmt.Errorf("ethUint256: value %v is negative", i.String())
 	}
