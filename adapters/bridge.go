@@ -32,6 +32,13 @@ func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResu
 	return resumeBridge(input)
 }
 
+// MinConfs specifies the number of block confirmations
+// needed for the Bridge to run. This method enables the Bridge to meet the
+// adapters.AdapterWithMinConfs interface.
+func (ba *Bridge) MinConfs() uint64 {
+	return ba.DefaultConfirmations
+}
+
 func resumeBridge(input models.RunResult) models.RunResult {
 	input.Status = models.RunStatusInProgress
 	return input

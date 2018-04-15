@@ -13,8 +13,11 @@ import (
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
 	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
 	task := models.TaskSpec{Type: "NoOp"}
-	adapter, err := adapters.For(task, nil)
+	adapter, err := adapters.For(task, store)
 	adapter.Perform(models.RunResult{}, nil)
 	assert.Nil(t, err)
 }
@@ -47,7 +50,12 @@ func TestAdapterFor(t *testing.T) {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
-				assert.Equal(t, test.want, reflect.TypeOf(adapter).String())
+				wa, ok := adapter.(adapters.MinConfsWrappedAdapter)
+				if ok {
+					assert.Equal(t, test.want, reflect.TypeOf(wa.Adapter).String())
+				} else {
+					assert.Equal(t, test.want, reflect.TypeOf(adapter).String())
+				}
 			}
 		})
 	}

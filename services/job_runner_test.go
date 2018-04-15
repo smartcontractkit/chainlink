@@ -92,10 +92,10 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 		confirmations  int
 		triggeringConf int
 	}{
-		{"default", 0, configMin},
-		{"spec > confs", configMin + 1, configMin + 1},
-		{"spec == confs", configMin, configMin},
-		{"spec < confs", configMin - 1, configMin},
+		{"not defined in task spec", 0, configMin},
+		{"task spec > global min confs", configMin + 1, configMin + 1},
+		{"task spec == global min confs", configMin, configMin},
+		{"task spec < global min confs", configMin - 1, configMin},
 	}
 
 	for _, test := range tests {
@@ -106,6 +106,61 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 			}
 
 			run := job.NewRun(initr)
+			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
+			assert.Nil(t, err)
+
+			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
+			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
+			assert.Nil(t, err)
+
+			store.One("ID", run.ID, &run)
+			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+
+			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf)
+			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
+			assert.Nil(t, err)
+			assert.Equal(t, models.RunStatusCompleted, run.Status)
+		})
+	}
+}
+
+func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	creationHeight := 1000
+	store.Config.TaskMinConfirmations = 10
+	configMin := int(store.Config.TaskMinConfirmations)
+
+	tests := []struct {
+		name                    string
+		bridgeTypeConfirmations int
+		taskSpecConfirmations   int
+		triggeringConf          int
+	}{
+		{"not defined in task spec or bridge type", 0, 0, configMin},
+		{"bridge type confirmations > task spec confirmations", configMin + 1, configMin, configMin + 1},
+		{"bridge type confirmations = task spec confirmations", configMin, configMin, configMin},
+		{"bridge type confirmations < task spec confirmations", configMin - 2, configMin - 1, configMin},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job, initr := cltest.NewJobWithLogInitiator()
+			job.Tasks = []models.TaskSpec{
+				cltest.NewTaskWithConfirmations("randomNumber", test.taskSpecConfirmations),
+			}
+
+			run := job.NewRun(initr)
+			mockServer, _ := cltest.NewHTTPMockServer(t, 200, "POST", "{\"todo\": \"todo\"}",
+				func(body string) {
+					want := fmt.Sprintf(`{"id":"%v","data":%v}`, run.ID, "{}")
+					assert.JSONEq(t, want, body)
+				})
+			bt := cltest.NewBridgeTypeWithDefaultConfirmations(uint64(test.bridgeTypeConfirmations), "randomNumber", mockServer.URL)
+			assert.Nil(t, store.Save(&bt))
+
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
 			assert.Nil(t, err)
 
