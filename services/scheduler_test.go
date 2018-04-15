@@ -123,61 +123,110 @@ func TestRecurring_AddJob(t *testing.T) {
 	}
 }
 
-func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
-        t.Parallel()
+func TestOneTime_AddJob(t *testing.T) {
+	nullTime := cltest.NullTime(nil)
+	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
+	futureTime := cltest.NullTime("3000-01-01T00:00:00.000Z")
+	pastRunTime := time.Now().Add(time.Hour * -1)
+	tests := []struct {
+		name     string
+		startAt  null.Time
+		endAt    null.Time
+		runAt    time.Time
+		wantRuns bool
+	}{
+		{"run at before start at", futureTime, nullTime, pastRunTime, false},
+		{"run at before end at", nullTime, futureTime, pastRunTime, true},
+		{"run at after start at", pastTime, nullTime, pastRunTime, true},
+		{"run at after end at", nullTime, pastTime, pastRunTime, false},
+		{"no range", nullTime, nullTime, pastRunTime, true},
+		{"start at after end at", futureTime, pastTime, pastRunTime, false},
+	}
 
-        store, cleanup := cltest.NewStore()
-        defer cleanup()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			ot := services.OneTime{
+				Clock: store.Clock,
+				Store: store,
+			}
 
-        ot := services.OneTime{
-                Clock: &cltest.NeverClock{},
-                Store: store,
-        }
-        ot.Start()
-        j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour))
-        assert.Nil(t, store.SaveJob(&j))
+			j, _ := cltest.NewJobWithRunAtInitiator(test.runAt)
+			assert.Nil(t, store.SaveJob(&j))
 
-        var finished bool
-        go func() {
-                ot.RunJobAt(initr, j)
-                finished = true
-        }()
+			j.StartAt = test.startAt
+			j.EndAt = test.endAt
 
-        ot.Stop()
+			ot.AddJob(j)
 
-        gomega.NewGomegaWithT(t).Eventually(func() bool {
-                return finished
-        }).Should(gomega.Equal(true))
-        jobRuns := []models.JobRun{}
-        assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
-        assert.Equal(t, 0, len(jobRuns))
+			gomega.NewGomegaWithT(t).Eventually(func() bool {
+				jobRuns := []models.JobRun{}
+				completed := false
+				assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+				if (len(jobRuns) > 0) && (jobRuns[0].Status == models.RunStatusCompleted) {
+					completed = true
+				}
+				return completed
+			}).Should(gomega.Equal(test.wantRuns))
+		})
+	}
 }
 
+func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	ot := services.OneTime{
+		Clock: &cltest.NeverClock{},
+		Store: store,
+	}
+	ot.Start()
+	j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour))
+	assert.Nil(t, store.SaveJob(&j))
+
+	var finished bool
+	go func() {
+		ot.RunJobAt(initr, j)
+		finished = true
+	}()
+
+	ot.Stop()
+
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		return finished
+	}).Should(gomega.Equal(true))
+	jobRuns := []models.JobRun{}
+	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	assert.Equal(t, 0, len(jobRuns))
+}
 
 func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
-        t.Parallel()
+	t.Parallel()
 
-        store, cleanup := cltest.NewStore()
-        defer cleanup()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
 
-        ot := services.OneTime{
-                Clock: store.Clock,
-                Store: store,
-        }
-        j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour * -1))
-        assert.Nil(t, store.SaveJob(&j))
+	ot := services.OneTime{
+		Clock: store.Clock,
+		Store: store,
+	}
+	j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour * -1))
+	assert.Nil(t, store.SaveJob(&j))
 
-        var finished bool
-        go func() {
-                ot.RunJobAt(initr, j)
-                finished = true
-        }()
+	var finished bool
+	go func() {
+		ot.RunJobAt(initr, j)
+		finished = true
+	}()
 
-        gomega.NewGomegaWithT(t).Eventually(func() bool {
-                return finished
-        }).Should(gomega.Equal(true))
-        jobRuns := []models.JobRun{}
-        assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
-        assert.Equal(t, 1, len(jobRuns))
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		return finished
+	}).Should(gomega.Equal(true))
+	jobRuns := []models.JobRun{}
+	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	assert.Equal(t, 1, len(jobRuns))
 }
-
