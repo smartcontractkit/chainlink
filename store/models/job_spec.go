@@ -118,9 +118,9 @@ const (
 	InitiatorWeb = "web"
 )
 
-// Initiator could be though of as a trigger, define how a Job can be
+// Initiator could be thought of as a trigger, defines how a Job can be
 // started, or rather, how a JobRun can be created from a Job.
-// Initiators will have their own unique ID, but will be assocated
+// Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
 	ID       int            `json:"id" storm:"id,increment"`
