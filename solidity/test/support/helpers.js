@@ -1,5 +1,7 @@
 BigNumber = require('bignumber.js');
 moment = require('moment');
+abi = require('ethereumjs-abi');
+util = require('ethereumjs-util');
 
 (() => {
   eth = web3.eth;
@@ -198,6 +200,38 @@ moment = require('moment');
 
   functionSelector = function functionSelector(signature) {
     return "0x" + web3.sha3(signature).slice(2).slice(0, 8);
+  };
+
+  rPad = function rPad(string) {
+    let wordLen = parseInt((string.length + 31) / 32) * 32;
+    for (let i = string.length; i < wordLen; i++) {
+      string = string + "\x00";
+    }
+    return string
+  };
+
+  lPad = function lPad(string) {
+    let wordLen = parseInt((string.length + 31) / 32) * 32;
+    for (let i = string.length; i < wordLen; i++) {
+      string = "\x00" + string;
+    }
+    return string
+  };
+
+  lPadHex = function lPadHex(string) {
+    let wordLen = parseInt((string.length + 63) / 64) * 64;
+    for (let i = string.length; i < wordLen; i++) {
+      string = "0" + string;
+    }
+    return string
+  };
+
+  toHex = function toHex(arg) {
+    if (arg instanceof Buffer) {
+      return arg.toString("hex");
+    } else {
+      return Buffer.from(arg, "ascii").toString("hex");
+    }
   };
 
 })();

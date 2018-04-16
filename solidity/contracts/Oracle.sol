@@ -9,32 +9,31 @@ contract Oracle is Ownable {
     bytes4 functionId;
   }
 
-  uint256 private requestId;
-  mapping(uint256 => Callback) private callbacks;
+  mapping(bytes32 => Callback) private callbacks;
 
-  event Request(
-    uint256 indexed id,
+  event RunRequest(
+    bytes32 indexed id,
     bytes32 indexed jobId,
-    string data
+    uint256 version,
+    bytes data
   );
 
   function requestData(
+    uint256 _version,
     bytes32 _jobId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
-    string _data
+    bytes32 _requestId,
+    bytes _data
   )
     public
-    returns (uint256)
   {
-    requestId += 1;
     Callback memory callback = Callback(_callbackAddress, _callbackFunctionId);
-    callbacks[requestId] = callback;
-    Request(requestId, _jobId, _data);
-    return requestId;
+    callbacks[_requestId] = callback;
+    emit RunRequest(_requestId, _jobId, _version, _data);
   }
 
-  function fulfillData(uint256 _requestId, bytes32 _data)
+  function fulfillData(bytes32 _requestId, bytes32 _data)
     public
     onlyOwner
     hasRequestId(_requestId)
@@ -44,7 +43,15 @@ contract Oracle is Ownable {
     delete callbacks[_requestId];
   }
 
-  modifier hasRequestId(uint256 _requestId) {
+  function onTokenTransfer(address _sender, uint _amount, bytes _data)
+    public
+  {
+    if (_data.length > 0) {
+      require(address(this).delegatecall(_data));
+    }
+  }
+
+  modifier hasRequestId(bytes32 _requestId) {
     require(callbacks[_requestId].addr != address(0));
     _;
   }

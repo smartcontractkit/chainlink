@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -200,6 +201,24 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 			common.StringToHash(jobID),
 		},
 	}
+}
+
+func StringToRunLogData(str string) hexutil.Bytes {
+	length := len([]byte(str))
+	lenHex := utils.RemoveHexPrefix(hexutil.EncodeUint64(uint64(length)))
+	if len(lenHex) < 64 {
+		lenHex = strings.Repeat("0", 64-len(lenHex)) + lenHex
+	}
+
+	data := utils.RemoveHexPrefix(utils.StringToHex(str))
+	version := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	offset := "0000000000000000000000000000000000000000000000000000000000000020"
+
+	var endPad string
+	if length%32 != 0 {
+		endPad = strings.Repeat("00", (32 - (length % 32)))
+	}
+	return hexutil.MustDecode(version + offset + lenHex + data + endPad)
 }
 
 func BigHexInt(val interface{}) hexutil.Big {

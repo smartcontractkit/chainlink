@@ -4,7 +4,7 @@ require('./support/helpers.js')
 
 contract('GetterSetter', () => {
   let GetterSetter = artifacts.require("examples/GetterSetter.sol");
-  let requestId = 5432;
+  let requestId = "0x" + toHex(rPad("5432"));
   let bytes32 = "Hi Mom!";
   let uint256 = 645746535432;
   let gs;
