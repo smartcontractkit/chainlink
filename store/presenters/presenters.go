@@ -62,7 +62,7 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 	// Because Eth and Link both use 1e18 precision, we can correct using the same facility
 	linkBalance := utils.WeiToEth(balance)
 	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance)
-	if balance == big.NewInt(0) {
+	if balance.Cmp(big.NewInt(0)) == 0 {
 		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit LINK into your address: " + address.Hex())
 	}
 	return result, nil
