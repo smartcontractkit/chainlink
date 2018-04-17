@@ -7,10 +7,6 @@ import "./CBOR.sol";
 library ChainlinkLib {
   using CBOR for Buffer.buffer;
 
-  bytes constant stringType = "string,";
-  bytes constant bytes32Type = "bytes32,";
-  bytes constant bytes32ArrayType = "bytes32[],";
-
   struct Run {
     bytes32 id;
     bytes32 jobId;
