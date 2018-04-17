@@ -19,20 +19,19 @@ contract('ConcreteChainlinked', () => {
 
   describe("#newRun", () => {
     it("forwards the information to the oracle contract through the link token", async () => {
-      let tx = await cc.publicNewRun(jobId, gs.address, "requestedBytes32(uint256,bytes32)");
+      let tx = await cc.publicNewRun(
+        jobId,
+        gs.address,
+        "requestedBytes32(uint256,bytes32)");
 
-      assert.equal(3, tx.receipt.logs.length);
-      let transferLog = tx.receipt.logs[0];
-      let transferAndCallLog = tx.receipt.logs[1];
-      let oracleLog = tx.receipt.logs[2];
+      assert.equal(1, tx.receipt.logs.length);
+      let [id, jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0]);
+      let params = await cbor.decodeFirst(cborData);
 
-      let expected = "0x" + lPadHex("1") + // version number
-        lPadHex("40") + // payload offset
-        lPadHex("60") + // total payload length
-        lPadHex("0") + // payload prefix
-        lPadHex("0") + // payload internal length
-        lPadHex("0"); // payload internal value
-      assert.equal(expected, oracleLog.data);
+      assert.equal(jobId, jId);
+      assert.equal(gs.address, `0x${cbAddr}`);
+      assert.equal("d67ce1e1", toHex(cbFId));
+      assert.deepEqual({}, params);
     });
   });
 });

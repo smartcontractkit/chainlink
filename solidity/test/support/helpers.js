@@ -2,6 +2,7 @@ BigNumber = require('bignumber.js');
 moment = require('moment');
 abi = require('ethereumjs-abi');
 util = require('ethereumjs-util');
+cbor = require("cbor");
 
 (() => {
   eth = web3.eth;
@@ -233,5 +234,18 @@ util = require('ethereumjs-util');
       return Buffer.from(arg, "ascii").toString("hex");
     }
   };
+
+  decodeRunABI = function decodeRunABI(log) {
+    let runABI = util.toBuffer(log.data);
+    let types = ["bytes32", "bytes32", "address", "bytes4", "bytes"];
+    return abi.rawDecode(types, runABI);
+  }
+
+  decodeRunRequest = function decodeRunRequest(log) {
+    let runABI = util.toBuffer(log.data);
+    let types = ["uint256", "bytes"];
+    let [version, data] = abi.rawDecode(types, runABI);
+    return [log.topics[1], log.topics[2], version, data];
+  }
 
 })();
