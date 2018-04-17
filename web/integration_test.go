@@ -236,7 +236,59 @@ func TestIntegration_StartAt(t *testing.T) {
 	cltest.CreateJobRunViaWeb(t, app, j)
 }
 
-func TestIntegration_ExternalAdapter(t *testing.T) {
+func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	eth := app.MockEthClient()
+	logs := make(chan types.Log, 1)
+	eth.RegisterSubscription("logs", logs)
+	newHeads := make(chan models.BlockHeader, 10)
+	eth.RegisterSubscription("newHeads", newHeads)
+	app.Start()
+
+	eaValue := "87698118359"
+	eaExtra := "other values to be used by external adapters"
+	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	mockServer, ensureRequest := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	defer ensureRequest()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","defaultConfirmations":10}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/log_initiated_bridge_type_job.json")
+
+	logBlockNumber := 1
+	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
+	time.Sleep(100 * time.Millisecond)
+	jrs, err := app.Store.JobRunsFor(j.ID)
+	assert.Nil(t, err)
+	jr := jrs[0]
+	assert.True(t, jr.Status.PendingConfirmations())
+
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 1)}
+	time.Sleep(100 * time.Millisecond)
+	assert.True(t, jr.Status.PendingConfirmations())
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
+	time.Sleep(100 * time.Millisecond)
+	assert.True(t, jr.Status.PendingConfirmations())
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 10)}
+	time.Sleep(1000 * time.Millisecond)
+	jr = cltest.FindJobRun(app.Store, jr.ID)
+	assert.True(t, jr.Status.Completed())
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, "randomnumber", tr.Task.Type)
+	val, err := tr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, eaValue, val)
+	res, err := tr.Result.Get("extra")
+	assert.Nil(t, err)
+	assert.Equal(t, eaExtra, res.String())
+}
+
+func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
