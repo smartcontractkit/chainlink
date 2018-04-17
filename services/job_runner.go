@@ -93,7 +93,7 @@ func ExecuteRunAtBlock(
 			return jr, wrapError(jr, err)
 		}
 
-		latestRun = markCompleted(startTask(jr, taskRun, latestRun.Result, bn, store))
+		latestRun = markCompletedIfRunnable(startTask(jr, taskRun, latestRun.Result, bn, store))
 		jr.TaskRuns[i+offset] = latestRun
 		logTaskResult(latestRun, taskRun, i)
 
@@ -115,7 +115,7 @@ func logTaskResult(lr models.TaskRun, tr models.TaskRun, i int) {
 	logger.Debugw(fmt.Sprintf("Task %v %v", tr.Task.Type, tr.Result.Status), tr.ForLogger("task", i, "result", lr.Result)...)
 }
 
-func markCompleted(tr models.TaskRun) models.TaskRun {
+func markCompletedIfRunnable(tr models.TaskRun) models.TaskRun {
 	if tr.Status.Runnable() {
 		return tr.MarkCompleted()
 	}
@@ -141,12 +141,6 @@ func startTask(
 
 	if !jr.Runnable(bn, minConfs) {
 		return tr.MarkPendingConfirmations()
-	}
-
-	tr.Status = models.RunStatusInProgress
-
-	if err != nil {
-		return tr.ApplyResult(tr.Result.WithError(err))
 	}
 
 	return tr.ApplyResult(adapter.Perform(input, store))
