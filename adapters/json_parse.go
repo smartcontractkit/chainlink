@@ -29,7 +29,7 @@ type JSONParse struct {
 //
 // Then ["0","last"] would be the path, and "111" would be the returned value
 func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val, err := input.Value()
+	val, err := input.Result()
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -46,7 +46,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 
 	rval, ok := js.CheckGet(jpa.Path[len(jpa.Path)-1])
 	if !ok {
-		input.Data, err = input.Data.Add("value", nil)
+		input.Data, err = input.Data.Add("result", nil)
 		if err != nil {
 			return input.WithError(err)
 		}
@@ -57,7 +57,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 	if err != nil {
 		return input.WithError(err)
 	}
-	return input.WithValue(result)
+	return input.WithResult(result)
 }
 
 func getStringValue(js *simplejson.Json) (string, error) {

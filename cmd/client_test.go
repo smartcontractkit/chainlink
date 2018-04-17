@@ -126,7 +126,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 		jobSpec models.JobSpec
 		errored bool
 	}{
-		{"CreateSuccess", `{"value": 100}`, first(cltest.NewJobWithWebInitiator()), false},
+		{"CreateSuccess", `{"result": 100}`, first(cltest.NewJobWithWebInitiator()), false},
 		{"EmptyBody", ``, first(cltest.NewJobWithWebInitiator()), false},
 		{"InvalidBody", `{`, first(cltest.NewJobWithWebInitiator()), true},
 		{"WithoutWebInitiator", ``, first(cltest.NewJobWithLogInitiator()), true},

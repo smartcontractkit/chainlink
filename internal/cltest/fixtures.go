@@ -221,9 +221,9 @@ func NewBigHexInt(val interface{}) *hexutil.Big {
 	return &rval
 }
 
-func RunResultWithValue(val string) models.RunResult {
+func RunResultWithResult(val string) models.RunResult {
 	data := models.JSON{}
-	data, err := data.Add("value", val)
+	data, err := data.Add("result", val)
 	if err != nil {
 		return RunResultWithError(err)
 	}

@@ -35,13 +35,13 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			ba := &adapters.Bridge{BridgeType: bt}
 
 			input := models.RunResult{
-				Data:   cltest.JSONFromString(`{"value":"100"}`),
+				Data:   cltest.JSONFromString(`{"result":"100"}`),
 				Status: test.status,
 			}
 
 			result := ba.Perform(input, store)
 
-			assert.Equal(t, `{"value":"100"}`, result.Data.String())
+			assert.Equal(t, `{"result":"100"}`, result.Data.String())
 			assert.Equal(t, test.wantStatus, result.Status)
 			if test.wantStatus.Errored() || test.wantStatus.Completed() {
 				assert.Equal(t, input, result)
@@ -60,19 +60,19 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 		wantPending bool
 		response    string
 	}{
-		{"success", 200, "purchased", false, false, `{"data":{"value": "purchased"}}`},
+		{"success", 200, "purchased", false, false, `{"data":{"result": "purchased"}}`},
 		{"run error", 200, "lot 49", true, false, `{"error": "overload", "data": {}}`},
 		{"server error", 400, "lot 49", true, false, `bad request`},
 		{"server error", 500, "lot 49", true, false, `big error`},
 		{"JSON parse error", 200, "lot 49", true, false, `}`},
 		{"pending response", 200, "lot 49", false, true, `{"pending":true}`},
-		{"unsetting value", 200, "", false, false, `{"data":{"value":null}}`},
+		{"unsetting value", 200, "", false, false, `{"data":{"result":null}}`},
 	}
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	runID := utils.NewBytes32ID()
-	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"value":"lot 49"}}`, runID)
+	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"}}`, runID)
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -84,11 +84,11 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
-			input := cltest.RunResultWithValue("lot 49")
+			input := cltest.RunResultWithResult("lot 49")
 			input.JobRunID = runID
 
 			result := eb.Perform(input, store)
-			val, _ := result.Get("value")
+			val, _ := result.Get("result")
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, test.wantPending, result.Status.PendingBridge())

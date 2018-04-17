@@ -135,11 +135,11 @@ func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
 
 func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Type", "Config", "Value"})
+	table.SetHeader([]string{"Type", "Config", "Result"})
 	for _, t := range j.Tasks {
 		p := presenters.TaskSpec{TaskSpec: t}
-		keys, values := p.FriendlyParams()
-		table.Append([]string{p.Type, keys, values})
+		keys, results := p.FriendlyParams()
+		table.Append([]string{p.Type, keys, results})
 	}
 
 	render("Tasks", table)

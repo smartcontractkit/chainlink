@@ -75,9 +75,9 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	j, _ := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
-	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -145,14 +145,14 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -171,7 +171,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
 }
@@ -190,14 +190,14 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
-	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID)
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, "0", val)
 }
@@ -237,7 +237,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID + "1"
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))

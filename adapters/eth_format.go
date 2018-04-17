@@ -31,7 +31,7 @@ type EthBytes32 struct{}
 // the blockchain, it would be:
 // "0x000000000000000000000000000000000000000000000000000000000000007b"
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	result, err := input.Get("value")
+	result, err := input.Get("result")
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -42,7 +42,7 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 	if len(hex) > utils.EVMWordHexLen {
 		hex = hex[:utils.EVMWordHexLen]
 	}
-	return input.WithValue(utils.AddHexPrefix(hex))
+	return input.WithResult(utils.AddHexPrefix(hex))
 }
 
 // EthUint256 holds no fields.
@@ -55,7 +55,7 @@ type EthUint256 struct{}
 // the blockchain, it would be:
 // "0x31363830302e3030000000000000000000000000000000000000000000000000"
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val, err := input.Get("value")
+	val, err := input.Get("result")
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -70,7 +70,7 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	return input.WithValue(utils.EVMHexNumber(i))
+	return input.WithResult(utils.EVMHexNumber(i))
 }
 
 func validateRange(i *big.Int) error {

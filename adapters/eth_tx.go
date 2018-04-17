@@ -32,7 +32,7 @@ func createTxRunResult(
 	input models.RunResult,
 	store *store.Store,
 ) models.RunResult {
-	val, err := input.Value()
+	val, err := input.Result()
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -47,12 +47,12 @@ func createTxRunResult(
 		return input.WithError(err)
 	}
 
-	sendResult := input.WithValue(attempt.Hash.String())
+	sendResult := input.WithResult(attempt.Hash.String())
 	return ensureTxRunResult(sendResult, store)
 }
 
 func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
-	val, err := input.Value()
+	val, err := input.Result()
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -69,5 +69,5 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 	} else if !confirmed {
 		return input.MarkPendingConfirmations()
 	}
-	return input.WithValue(hash.String())
+	return input.WithResult(hash.String())
 }

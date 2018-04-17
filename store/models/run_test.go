@@ -129,11 +129,11 @@ func TestRunResult_Value(t *testing.T) {
 		want        string
 		wantErrored bool
 	}{
-		{"string", `{"value": "100", "other": "101"}`, "100", false},
-		{"integer", `{"value": 100}`, "", true},
-		{"float", `{"value": 100.01}`, "", true},
-		{"boolean", `{"value": true}`, "", true},
-		{"null", `{"value": null}`, "", true},
+		{"string", `{"result": "100", "other": "101"}`, "100", false},
+		{"integer", `{"result": 100}`, "", true},
+		{"float", `{"result": 100.01}`, "", true},
+		{"boolean", `{"result": true}`, "", true},
+		{"null", `{"result": null}`, "", true},
 		{"no key", `{"other": 100}`, "", true},
 	}
 
@@ -143,7 +143,7 @@ func TestRunResult_Value(t *testing.T) {
 			assert.Nil(t, json.Unmarshal([]byte(test.json), &data))
 			rr := models.RunResult{Data: data}
 
-			val, err := rr.Value()
+			val, err := rr.Result()
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
@@ -189,33 +189,33 @@ func TestRunResult_Merge(t *testing.T) {
 		wantErrored      bool
 	}{
 		{"merging data",
-			`{"value":"old&busted","unique":"1"}`, nullString, inProgress, jrID,
-			`{"value":"newHotness","and":"!"}`, nullString, inProgress, jrID,
-			`{"value":"newHotness","unique":"1","and":"!"}`, nullString, inProgress, jrID, false},
+			`{"result":"old&busted","unique":"1"}`, nullString, inProgress, jrID,
+			`{"result":"newHotness","and":"!"}`, nullString, inProgress, jrID,
+			`{"result":"newHotness","unique":"1","and":"!"}`, nullString, inProgress, jrID, false},
 		{"original error throws",
-			`{"value":"old"}`, cltest.NullString("old problem"), errored, jrID,
+			`{"result":"old"}`, cltest.NullString("old problem"), errored, jrID,
 			`{}`, nullString, inProgress, jrID,
-			`{"value":"old"}`, cltest.NullString("old problem"), errored, jrID, true},
+			`{"result":"old"}`, cltest.NullString("old problem"), errored, jrID, true},
 		{"error override",
-			`{"value":"old"}`, nullString, inProgress, jrID,
+			`{"result":"old"}`, nullString, inProgress, jrID,
 			`{}`, cltest.NullString("new problem"), errored, jrID,
-			`{"value":"old"}`, cltest.NullString("new problem"), errored, jrID, false},
+			`{"result":"old"}`, cltest.NullString("new problem"), errored, jrID, false},
 		{"original job run ID",
-			`{"value":"old"}`, nullString, inProgress, jrID,
+			`{"result":"old"}`, nullString, inProgress, jrID,
 			`{}`, nullString, inProgress, "",
-			`{"value":"old"}`, nullString, inProgress, jrID, false},
+			`{"result":"old"}`, nullString, inProgress, jrID, false},
 		{"job run ID override",
-			`{"value":"old"}`, nullString, inProgress, utils.NewBytes32ID(),
+			`{"result":"old"}`, nullString, inProgress, utils.NewBytes32ID(),
 			`{}`, nullString, inProgress, jrID,
-			`{"value":"old"}`, nullString, inProgress, jrID, false},
+			`{"result":"old"}`, nullString, inProgress, jrID, false},
 		{"original pending",
-			`{"value":"old"}`, nullString, pending, jrID,
+			`{"result":"old"}`, nullString, pending, jrID,
 			`{}`, nullString, inProgress, jrID,
-			`{"value":"old"}`, nullString, pending, jrID, false},
+			`{"result":"old"}`, nullString, pending, jrID, false},
 		{"pending override",
-			`{"value":"old"}`, nullString, inProgress, jrID,
+			`{"result":"old"}`, nullString, inProgress, jrID,
 			`{}`, nullString, pending, jrID,
-			`{"value":"old"}`, nullString, pending, jrID, false},
+			`{"result":"old"}`, nullString, pending, jrID, false},
 	}
 
 	for _, test := range tests {
