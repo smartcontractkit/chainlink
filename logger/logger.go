@@ -60,6 +60,7 @@ func CreateProductionLogger(dir string, lvl zapcore.Level) *zap.Logger {
 // CreateTestLogger creates a logger that directs output to PrettyConsole.
 func CreateTestLogger() *zap.Logger {
 	config := zap.NewProductionConfig()
+	config.Level.SetLevel(zapcore.DebugLevel)
 	config.OutputPaths = []string{"pretty"}
 	zl, err := config.BuildWithSinks(prettyConsoleSinks(os.Stderr), zap.AddCallerSkip(1))
 	if err != nil {
