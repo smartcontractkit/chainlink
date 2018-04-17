@@ -262,7 +262,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	logBlockNumber := 1
 	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
-	assert.True(t, jr.Status.PendingConfirmations())
+	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
