@@ -13,6 +13,7 @@ contract Chainlinked is BytesUtils {
   using CBOR for Buffer.buffer;
 
   uint256 constant clArgsVersion = 1;
+  bytes4 constant oracleFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
 
   LinkToken internal link;
   Oracle internal oracle;
@@ -38,10 +39,8 @@ contract Chainlinked is BytesUtils {
     internal
     returns(bytes32)
   {
-    bytes4 fid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
-
     bytes memory payload = append(append(append(append(append(append(append(
-      bytes4toBytes(fid),
+      bytes4toBytes(oracleFid),
       uint256toBytes(clArgsVersion)),
       bytes32toBytes(_run.jobId)),
       addressToBytes(_run.callbackAddress)),
