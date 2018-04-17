@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"log"
 	"math/big"
 	"reflect"
@@ -235,8 +236,20 @@ func (orm *ORM) MarkRan(i *Initiator) error {
 		return err
 	}
 	defer dbtx.Rollback()
-	i.Ran = true
-	if err := dbtx.Save(i); err != nil {
+
+	var ir Initiator
+	if err := orm.One("ID", i.ID, &ir); err != nil {
+		return err
+	}
+
+	if !ir.Ran {
+		ir.Ran = true
+	} else {
+		return fmt.Errorf("Job runner: Initiator: %v cannot run more than once", ir.ID)
+	}
+
+	ir.Ran = true
+	if err := dbtx.Save(&ir); err != nil {
 		return err
 	}
 	return dbtx.Commit()
