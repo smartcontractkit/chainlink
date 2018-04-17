@@ -24,7 +24,7 @@ type Bridge struct {
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
 func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	if input.Status.Errored() {
+	if input.Status.Finished() {
 		return input
 	} else if input.Status.PendingBridge() {
 		return resumeBridge(input)
