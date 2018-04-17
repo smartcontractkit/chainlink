@@ -18,7 +18,7 @@ contract('DynamicConsumer', () => {
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 2250000);
+    assert.isBelow(rec.gasUsed, 1500000);
   });
 
   describe("#requestEthereumPrice", () => {
@@ -27,26 +27,21 @@ contract('DynamicConsumer', () => {
       let log = tx.receipt.logs[2];
       assert.equal(log.address, oc.address);
 
-      let names = lPadHex("09") + toHex(rPad("url,path,"));
-      let types = lPadHex("11") + toHex(rPad("string,bytes32[],"));
-      let values = lPadHex("a0") +
-        lPadHex("1a") + toHex(rPad("https://etherprice.com/api")) +
-        lPadHex("02") + toHex(rPad("recent") + rPad("usd"));
-      let expected = names + types + values;
+      let [id, jId, ver, cborData] = decodeRunRequest(log);
+      let params = await cbor.decodeFirst(cborData);
+      let expected = {
+        "path":["recent", "usd"],
+        "url":"https://etherprice.com/api"
+      };
 
-      let params = abi.rawDecode(["uint256", "bytes"], util.toBuffer(log.data));
-      let [version, logData] = params;
-      assert.equal(version, 1);
-      assert.equal(toHex(logData), expected);
-
-      let event = await getLatestEvent(oc);
-      assert.equal(web3.toUtf8(event.args.jobId), "someJobId");
-
+      assert.equal(`0x${toHex(rPad("someJobId"))}`, jId);
+      assert.equal(1, ver);
+      assert.deepEqual(expected, params);
     });
 
     it("has a reasonable gas cost", async () => {
       let tx = await cc.requestEthereumPrice("usd");
-      assert.isBelow(tx.receipt.gasUsed, 200000);
+      assert.isBelow(tx.receipt.gasUsed, 150000);
     });
   });
 
