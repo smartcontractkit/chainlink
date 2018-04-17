@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -78,6 +79,9 @@ func ExecuteRunAtBlock(
 	}
 	logger.Infow("Starting job", jr.ForLogger()...)
 	unfinished := jr.UnfinishedTaskRuns()
+	if len(unfinished) == 0 {
+		return jr, wrapError(jr, errors.New("No unfinished tasks to run"))
+	}
 	offset := len(jr.TaskRuns) - len(unfinished)
 	latestRun := unfinished[0]
 

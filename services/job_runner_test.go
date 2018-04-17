@@ -127,10 +127,12 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	config, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
+	config.TaskMinConfirmations = 10
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	creationHeight := 1000
-	store.Config.TaskMinConfirmations = 10
 	configMin := int(store.Config.TaskMinConfirmations)
 
 	tests := []struct {
