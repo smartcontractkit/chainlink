@@ -200,6 +200,18 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 }
 
+func TestJobRunner_ExecuteRun_ErrorsWithNoRuns(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{}
+	run := job.NewRun(initr)
+	run, err := services.ExecuteRun(run, store, models.RunResult{})
+	assert.NotNil(t, err)
+}
+
 func TestJobRunner_BeginRun(t *testing.T) {
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
 	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
