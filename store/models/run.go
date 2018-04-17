@@ -166,10 +166,10 @@ type RunResult struct {
 	ErrorMessage null.String `json:"error"`
 }
 
-// WithValue returns a copy of the RunResult, overriding the "value" field of
+// WithResult returns a copy of the RunResult, overriding the "result" field of
 // Data and setting the status to completed.
-func (rr RunResult) WithValue(val string) RunResult {
-	data, err := rr.Data.Add("value", val)
+func (rr RunResult) WithResult(result string) RunResult {
+	data, err := rr.Data.Add("result", result)
 	if err != nil {
 		return rr.WithError(err)
 	}
@@ -203,13 +203,13 @@ func (rr RunResult) Get(path string) (gjson.Result, error) {
 	return rr.Data.Get(path), nil
 }
 
-func (rr RunResult) value() (gjson.Result, error) {
-	return rr.Get("value")
+func (rr RunResult) result() (gjson.Result, error) {
+	return rr.Get("result")
 }
 
-// Value returns the string value of the Data JSON field.
-func (rr RunResult) Value() (string, error) {
-	val, err := rr.value()
+// Result returns the string result of the Data JSON field.
+func (rr RunResult) Result() (string, error) {
+	val, err := rr.result()
 	if err != nil {
 		return "", err
 	}

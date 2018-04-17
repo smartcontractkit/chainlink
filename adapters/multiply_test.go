@@ -19,21 +19,21 @@ func TestMultiply_Perform(t *testing.T) {
 		errored   bool
 		jsonError bool
 	}{
-		{"string", `{"times":100}`, `{"value":"1.23"}`, "123", false, false},
-		{"integer", `{"times":100}`, `{"value":123}`, "12300", false, false},
-		{"float", `{"times":100}`, `{"value":1.23}`, "123", false, false},
-		{"object", `{"times":100}`, `{"value":{"foo":"bar"}}`, "", true, false},
-		{"zero_integer_string", `{"times":0}`, `{"value":"1.23"}`, "0", false, false},
-		{"negative_integer_string", `{"times":-5}`, `{"value":"1.23"}`, "-6.15", false, false},
+		{"string", `{"times":100}`, `{"result":"1.23"}`, "123", false, false},
+		{"integer", `{"times":100}`, `{"result":123}`, "12300", false, false},
+		{"float", `{"times":100}`, `{"result":1.23}`, "123", false, false},
+		{"object", `{"times":100}`, `{"result":{"foo":"bar"}}`, "", true, false},
+		{"zero_integer_string", `{"times":0}`, `{"result":"1.23"}`, "0", false, false},
+		{"negative_integer_string", `{"times":-5}`, `{"result":"1.23"}`, "-6.15", false, false},
 
-		{"string_string", `{"times":"100"}`, `{"value":"1.23"}`, "123", false, false},
-		{"string_integer", `{"times":"100"}`, `{"value":123}`, "12300", false, false},
-		{"string_float", `{"times":"100"}`, `{"value":1.23}`, "123", false, false},
-		{"string_object", `{"times":"100"}`, `{"value":{"foo":"bar"}}`, "", true, false},
-		{"array_string", `{"times":[1, 2, 3]}`, `{"value":"1.23"}`, "", false, true},
-		{"rubbish_string", `{"times":"123aaa123"}`, `{"value":"1.23"}`, "", false, true},
-		{"zero_string_string", `{"times":"0"}`, `{"value":"1.23"}`, "0", false, false},
-		{"negative_string_string", `{"times":"-5"}`, `{"value":"1.23"}`, "-6.15", false, false},
+		{"string_string", `{"times":"100"}`, `{"result":"1.23"}`, "123", false, false},
+		{"string_integer", `{"times":"100"}`, `{"result":123}`, "12300", false, false},
+		{"string_float", `{"times":"100"}`, `{"result":1.23}`, "123", false, false},
+		{"string_object", `{"times":"100"}`, `{"result":{"foo":"bar"}}`, "", true, false},
+		{"array_string", `{"times":[1, 2, 3]}`, `{"result":"1.23"}`, "", false, true},
+		{"rubbish_string", `{"times":"123aaa123"}`, `{"result":"1.23"}`, "", false, true},
+		{"zero_string_string", `{"times":"0"}`, `{"result":"1.23"}`, "0", false, false},
+		{"negative_string_string", `{"times":"-5"}`, `{"result":"1.23"}`, "-6.15", false, false},
 	}
 
 	for _, tt := range tests {
@@ -53,7 +53,7 @@ func TestMultiply_Perform(t *testing.T) {
 				assert.NotNil(t, result.GetError())
 				assert.Nil(t, jsonErr)
 			} else {
-				val, err := result.Value()
+				val, err := result.Result()
 				assert.Nil(t, err)
 				assert.Equal(t, test.want, val)
 				assert.Nil(t, result.GetError())

@@ -92,16 +92,16 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.TaskRuns[0].Result.Value()
+	val, err := jr.TaskRuns[0].Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, tickerResponse, val)
-	val, err = jr.TaskRuns[1].Result.Value()
+	val, err = jr.TaskRuns[1].Result.Result()
 	assert.Equal(t, "10583.75", val)
 	assert.Nil(t, err)
-	val, err = jr.TaskRuns[3].Result.Value()
+	val, err = jr.TaskRuns[3].Result.Result()
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
-	val, err = jr.Result.Value()
+	val, err = jr.Result.Result()
 	assert.Equal(t, hash.String(), val)
 	assert.Nil(t, err)
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
@@ -251,7 +251,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
-	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	eaResponse := fmt.Sprintf(`{"data":{"result": "%v", "extra": "%v"}}`, eaValue, eaExtra)
 	mockServer, ensureRequest := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
 	defer ensureRequest()
 
@@ -272,7 +272,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
-	val, err := tr.Result.Value()
+	val, err := tr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, eaValue, val)
 	res, err := tr.Result.Get("extra")
@@ -289,7 +289,7 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
-	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
+	eaResponse := fmt.Sprintf(`{"data":{"result": "%v", "extra": "%v"}}`, eaValue, eaExtra)
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
 	defer cleanup()
 
@@ -300,7 +300,7 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
-	val, err := tr.Result.Value()
+	val, err := tr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, eaValue, val)
 	res, err := tr.Result.Get("extra")
@@ -332,15 +332,15 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
-	val, err := tr.Result.Value()
+	val, err := tr.Result.Result()
 	assert.NotNil(t, err)
 	assert.Equal(t, "", val)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
-	val, err = tr.Result.Value()
+	val, err = tr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -385,10 +385,10 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/uint256_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"10221.30"}`)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
 }

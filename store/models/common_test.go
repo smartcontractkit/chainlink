@@ -21,20 +21,20 @@ func TestJSON_Merge(t *testing.T) {
 		wantErrored bool
 	}{
 		{"new field", `{"extra":"fields"}`,
-			`{"value":"OLD","other":1,"extra":"fields"}`, false},
-		{"overwritting fields", `{"value":["new","new"],"extra":2}`,
-			`{"value":["new","new"],"other":1,"extra":2}`, false},
+			`{"result":"OLD","other":1,"extra":"fields"}`, false},
+		{"overwritting fields", `{"result":["new","new"],"extra":2}`,
+			`{"result":["new","new"],"other":1,"extra":2}`, false},
 		{"nested JSON", `{"extra":{"fields": ["more", 1]}}`,
-			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`, false},
+			`{"result":"OLD","other":1,"extra":{"fields":["more",1]}}`, false},
 		{"empty JSON", `{}`,
-			`{"value":"OLD","other":1}`, false},
-		{"null values", `{"value":null}`,
-			`{"value":null,"other":1}`, false},
+			`{"result":"OLD","other":1}`, false},
+		{"null values", `{"result":null}`,
+			`{"result":null,"other":1}`, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			orig := `{"value":"OLD","other":1}`
+			orig := `{"result":"OLD","other":1}`
 			j1 := cltest.JSONFromString(orig)
 			j2 := cltest.JSONFromString(test.input)
 

@@ -24,11 +24,11 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		wantStatus models.RunStatus
 		wantData   string
 	}{
-		{"success", bridgeName, `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100"}`},
+		{"success", bridgeName, `{}`, `{"data":{"result":"100"}}`, models.RunStatusCompleted, `{"result":"100"}`},
 		{"errored", bridgeName, `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{}`},
-		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99"}`},
-		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack"}`},
-		{"type parameter does not override", bridgeName, `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"0"}`},
+		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"result":"99"}}`, models.RunStatusErrored, `{"result":"99"}`},
+		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"result":"100"}}`, models.RunStatusCompleted, `{"result":"100","url":"hack"}`},
+		{"type parameter does not override", bridgeName, `{"type":"0"}`, `{"data":{"result":"100"}}`, models.RunStatusCompleted, `{"result":"100","type":"0"}`},
 		{"non-existent bridge type", "non-existent", `{}`, `{}`, models.RunStatusErrored, `{}`},
 	}
 

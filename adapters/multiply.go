@@ -33,13 +33,13 @@ type Multiply struct {
 	Times Multiplier `json:"times"`
 }
 
-// Perform returns the input's "value" field, multiplied times the adapter's
+// Perform returns the input's "result" field, multiplied times the adapter's
 // "times" field.
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
 func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val, err := input.Get("value")
+	val, err := input.Get("result")
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -50,7 +50,7 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	}
 
 	res := i.Mul(i, big.NewFloat(float64(ma.Times)))
-	return input.WithValue(res.String())
+	return input.WithResult(res.String())
 }
 
 func isString(input []byte) bool {
