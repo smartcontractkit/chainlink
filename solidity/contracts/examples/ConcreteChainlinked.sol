@@ -13,14 +13,29 @@ contract ConcreteChainlinked is Chainlinked {
     setOracle(_oracle);
   }
 
+  event Run(
+    bytes32 id,
+    bytes32 jobId,
+    address callbackAddress,
+    bytes4 callbackfunctionSelector,
+    bytes data
+  );
+
   function publicNewRun(
     bytes32 _jobId,
     address _address,
-    string _functionSignature
+    string _fulfillmentSignature
   )
     public
   {
-    chainlinkRequest(newRun(_jobId, _address, _functionSignature));
+    ChainlinkLib.Run memory run = newRun(_jobId, _address, _fulfillmentSignature);
+    emit Run(
+      run.id,
+      run.jobId,
+      run.callbackAddress,
+      run.callbackFunctionId,
+      run.close()
+    );
   }
 
 }

@@ -13,15 +13,15 @@ contract DynamicConsumer1 is Chainlinked {
     setOracle(_oracle);
   }
 
-  function requestEthereumPrice(bytes32 _currency)
+  function requestEthereumPrice(string _currency)
     public
   {
     ChainlinkLib.Run memory run = newRun("someJobId", this, "fulfill(bytes32,bytes32)");
     run.add("url", "https://etherprice.com/api");
-    bytes32[] memory path = new bytes32[](2);
+    string[] memory path = new string[](2);
     path[0] = "recent";
     path[1] = _currency;
-    run.addBytes32Array("path", path);
+    run.addStringArray("path", path);
     requestId = chainlinkRequest(run);
   }
 
