@@ -48,10 +48,10 @@ func (eth *EthClient) GetWeiBalance(address common.Address) (*big.Int, error) {
 }
 
 // GetEthBalance returns the balance of the given addresses in Ether.
-func (eth *EthClient) GetEthBalance(address common.Address) (float64, error) {
+func (eth *EthClient) GetEthBalance(address common.Address) (*big.Rat, error) {
 	numWei, err := eth.GetWeiBalance(address)
 	if err != nil {
-		return 0, err
+		return new(big.Rat).SetInt64(0), err
 	}
 	return utils.WeiToEth(numWei), nil
 }

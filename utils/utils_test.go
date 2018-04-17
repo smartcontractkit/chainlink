@@ -20,10 +20,10 @@ func TestUtils_NewBytes32ID(t *testing.T) {
 
 func TestUtils_WeiToEth(t *testing.T) {
 	t.Parallel()
-	var numWei *big.Int = new(big.Int).SetInt64(1)
-	var expectedNumEth float64 = 1e-18
+	numWei := new(big.Int).SetInt64(1)
+
 	actualNumEth := utils.WeiToEth(numWei)
-	assert.Equal(t, expectedNumEth, actualNumEth)
+	assert.Equal(t, big.NewRat(1, 1e18), actualNumEth)
 }
 
 func TestUtils_EthToWei(t *testing.T) {

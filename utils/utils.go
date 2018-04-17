@@ -28,10 +28,11 @@ import (
 
 const (
 	HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
-	weiPerEth         = 1e18
 	EVMWordByteLen    = 32
 	EVMWordHexLen     = EVMWordByteLen * 2
 )
+
+var weiPerEth = big.NewInt(1e18)
 
 // ZeroAddress is an empty address, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
@@ -177,19 +178,14 @@ func DecodeEthereumTx(hex string) (types.Transaction, error) {
 }
 
 // WeiToEth converts wei amounts to ether.
-func WeiToEth(numWei *big.Int) float64 {
-	numWeiBigFloat := new(big.Float).SetInt(numWei)
-	weiPerEthBigFloat := new(big.Float).SetFloat64(weiPerEth)
-	numEthBigFloat := new(big.Float)
-	numEthBigFloat.Quo(numWeiBigFloat, weiPerEthBigFloat)
-	numEthFloat64, _ := numEthBigFloat.Float64()
-	return numEthFloat64
+func WeiToEth(numWei *big.Int) *big.Rat {
+	return new(big.Rat).SetFrac(numWei, weiPerEth)
 }
 
 // EthToWei converts ether amounts to wei.
 func EthToWei(numEth float64) *big.Int {
 	numEthBigFloat := new(big.Float).SetFloat64(numEth)
-	weiPerEthBigFloat := new(big.Float).SetFloat64(weiPerEth)
+	weiPerEthBigFloat := new(big.Float).SetInt(weiPerEth)
 	numWeiBigFloat := new(big.Float)
 	numWeiBigFloat.Mul(weiPerEthBigFloat, numEthBigFloat)
 	numWeiBigInt, _ := numWeiBigFloat.Int(nil)
