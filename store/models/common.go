@@ -55,6 +55,11 @@ func (s RunStatus) Pending() bool {
 	return s.PendingBridge() || s.PendingConfirmations()
 }
 
+// Finished returns true if the status is final and can't be changed.
+func (s RunStatus) Finished() bool {
+	return s.Completed() || s.Errored()
+}
+
 // Runnable returns true if the status is ready to be run.
 func (s RunStatus) Runnable() bool {
 	return !s.Errored() && !s.Pending()
