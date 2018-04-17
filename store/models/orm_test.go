@@ -217,10 +217,10 @@ func TestMarkRan(t *testing.T) {
 	defer cleanup()
 
 	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
+	assert.Nil(t, store.Save(&initr))
 
 	assert.Nil(t, store.MarkRan(&initr))
 	var ir models.Initiator
 	assert.Nil(t, store.One("ID", initr.ID, &ir))
 	assert.True(t, ir.Ran)
-
 }
