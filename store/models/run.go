@@ -72,6 +72,7 @@ func (jr JobRun) Runnable(currentHeight *IndexableBlockNumber, minConfs uint64) 
 
 	diff := new(big.Int).Sub(currentHeight.ToInt(), jr.CreationHeight.ToInt())
 	min := new(big.Int).SetUint64(minConfs)
+	min = min.Sub(min, big.NewInt(1))
 	return diff.Cmp(min) >= 0
 }
 
