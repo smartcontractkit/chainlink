@@ -261,22 +261,14 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	logBlockNumber := 1
 	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
-	time.Sleep(100 * time.Millisecond)
-	jrs, err := app.Store.JobRunsFor(j.ID)
-	assert.Nil(t, err)
-	jr := jrs[0]
+	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	assert.True(t, jr.Status.PendingConfirmations())
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 1)}
-	time.Sleep(100 * time.Millisecond)
-	assert.True(t, jr.Status.PendingConfirmations())
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
-	time.Sleep(100 * time.Millisecond)
-	assert.True(t, jr.Status.PendingConfirmations())
+	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 10)}
-	time.Sleep(1000 * time.Millisecond)
-	jr = cltest.FindJobRun(app.Store, jr.ID)
-	assert.True(t, jr.Status.Completed())
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
