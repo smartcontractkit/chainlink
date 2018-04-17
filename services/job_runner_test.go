@@ -81,10 +81,13 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	config, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
+	config.TaskMinConfirmations = 10
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	creationHeight := 1000
-	store.Config.TaskMinConfirmations = 10
 	configMin := int(store.Config.TaskMinConfirmations)
 
 	tests := []struct {
@@ -109,14 +112,14 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
 			assert.Nil(t, err)
 
-			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
+			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
 			assert.Nil(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 
-			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf)
+			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
 			assert.Nil(t, err)
 			assert.Equal(t, models.RunStatusCompleted, run.Status)
@@ -166,14 +169,14 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
 			assert.Nil(t, err)
 
-			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
+			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
 			assert.Nil(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 
-			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf)
+			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
 			assert.Nil(t, err)
 			assert.Equal(t, models.RunStatusCompleted, run.Status)

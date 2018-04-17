@@ -67,9 +67,11 @@ func TestTaskRun_Runnable(t *testing.T) {
 	}{
 		{"unset nil 0", nil, nil, 0, true},
 		{"1 nil 0", cltest.NewBigHexInt(1), nil, 0, true},
-		{"1 1 minconf 0", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 0, true},
-		{"1 1 minconf 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 1, false},
-		{"1 2 minconf 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 1, true},
+		{"1 1 0", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 0, true},
+		{"1 1 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 1, true},
+		{"1 2 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 1, true},
+		{"1 2 2", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 2, true},
+		{"1 2 3", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 3, false},
 	}
 
 	for _, test := range tests {
