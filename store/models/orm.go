@@ -228,6 +228,20 @@ func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
 	return tt, err
 }
 
+// MarkRan will set Ran to true for a given initiator
+func (orm *ORM) MarkRan(i *Initiator) error {
+	dbtx, err := orm.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer dbtx.Rollback()
+	i.Ran = true
+	if err := dbtx.Save(i); err != nil {
+		return err
+	}
+	return dbtx.Commit()
+}
+
 // DatabaseAccessError is an error that occurs during database access.
 type DatabaseAccessError struct {
 	msg string
