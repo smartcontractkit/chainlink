@@ -38,11 +38,19 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
-	if balance == 0 {
+	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance.FloatString(18))
+	if isZero(balance) {
 		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return result, nil
+}
+
+func isZero(val *big.Rat) bool {
+	zero := new(big.Rat).SetInt64(0)
+	if val.Cmp(zero) == 0 {
+		return true
+	}
+	return false
 }
 
 func ShowLinkBalance(store *store.Store) (string, error) {
@@ -61,7 +69,7 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 	}
 	// Because Eth and Link both use 1e18 precision, we can correct using the same facility
 	linkBalance := utils.WeiToEth(balance)
-	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance)
+	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.FloatString(18))
 	if balance.Cmp(big.NewInt(0)) == 0 {
 		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit LINK into your address: " + address.Hex())
 	}
