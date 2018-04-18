@@ -7,9 +7,44 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
+
+func Test_ParseCBOR(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		in          string
+		want        models.JSON
+		wantErrored bool
+	}{
+		{"hello world",
+			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff`,
+			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+			false},
+		{"trailing empty bytes",
+			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`,
+			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+			false},
+		{"empty object", `a0`, cltest.JSONFromString(`{}`), false},
+		{"empty string", ``, models.JSON{}, true},
+		{"invalid CBOR", `ff`, models.JSON{}, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			b, err := utils.HexToBytes(test.in)
+			assert.Nil(t, err)
+
+			json, err := models.ParseCBOR(b)
+			assert.Equal(t, test.want, json)
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
+}
 
 func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
