@@ -39,7 +39,7 @@ func TestJobSpecsController_Index(t *testing.T) {
 
 	j1 := setupJobSpecsControllerIndex(app)
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v3/specs?size=1")
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=1")
 	cltest.AssertServerResponse(t, resp, 200)
 
 	specs := JobSpecs{}
@@ -62,24 +62,6 @@ func TestJobSpecsController_Index(t *testing.T) {
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, models.InitiatorWeb, jobs[0].Initiators[0].Type, "should have the same type")
 	assert.NotEqual(t, true, jobs[0].Initiators[0].Ran, "should ignore fields for other initiators")
-}
-
-func TestJobSpecsController_IndexV2(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-
-	j1 := setupJobSpecsControllerIndex(app)
-
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs")
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-
-	var jobs []models.JobSpec
-	json.Unmarshal(cltest.ParseResponseBody(resp), &jobs)
-	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
-	assert.Equal(t, models.InitiatorWeb, jobs[1].Initiators[0].Type, "should have the same type")
-	assert.NotEqual(t, true, jobs[1].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) *models.JobSpec {
