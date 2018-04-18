@@ -38,6 +38,10 @@ type EthMock struct {
 	newHeadsCalled bool
 }
 
+func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
+	return mock, nil
+}
+
 func (mock *EthMock) Register(
 	method string,
 	response interface{},
