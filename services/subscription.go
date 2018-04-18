@@ -29,7 +29,7 @@ const (
 // RunLogTopic is the signature for the Request(uint256,bytes32,string) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-var RunLogTopic = common.HexToHash("0xebd6778bf8984d5fefe04e8bc66094fd323427fc0a9ade188c67b9ffad15d5e1")
+var RunLogTopic = common.HexToHash("0xaf9f8a8db54550d87fa898afef13596723c796bf6c1f94b0cb7b067de135428f")
 
 // JobSubscription listens to event logs being pushed from the Ethereum Node to a job.
 type JobSubscription struct {
