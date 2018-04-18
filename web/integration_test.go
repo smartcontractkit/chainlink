@@ -264,10 +264,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 10)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
