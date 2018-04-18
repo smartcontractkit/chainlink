@@ -564,3 +564,34 @@ func GetAccountAddress(store *store.Store) common.Address {
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
 }
+
+// AssertServerResponse is used to match against a client response, will print
+// any errors returned if the request fails.
+func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode int) {
+	if resp.StatusCode != expectedStatusCode {
+		if resp.StatusCode >= 300 && resp.StatusCode < 600 {
+			b, err := ioutil.ReadAll(resp.Body)
+			mustNotErr(err)
+			mustNotErr(resp.Body.Close())
+
+			var result map[string][]string
+			err = json.Unmarshal(b, &result)
+			mustNotErr(err)
+
+			assert.FailNowf(
+				t,
+				"Request failed",
+				"Expected %d response, got %d with errors: %s",
+				expectedStatusCode,
+				resp.StatusCode,
+				result["errors"])
+		} else {
+			assert.FailNowf(
+				t,
+				"Unexpected response",
+				"Expected %d response, got %d",
+				expectedStatusCode,
+				resp.StatusCode)
+		}
+	}
+}
