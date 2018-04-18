@@ -9,12 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -295,4 +294,20 @@ func MaxUint64(uints ...uint64) uint64 {
 
 func EVMHexNumber(val interface{}) string {
 	return fmt.Sprintf("0x%064x", val)
+}
+
+func BigRatIsZero(val *big.Rat) bool {
+	zero := new(big.Rat).SetInt64(0)
+	if val.Cmp(zero) == 0 {
+		return true
+	}
+	return false
+}
+
+func BigIntIsZero(val *big.Int) bool {
+	zero := new(big.Int).SetInt64(0)
+	if val.Cmp(zero) == 0 {
+		return true
+	}
+	return false
 }
