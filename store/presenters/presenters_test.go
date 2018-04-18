@@ -83,7 +83,7 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 	output, err := presenters.ShowEthBalance(app.Store)
 	assert.Nil(t, err)
 	addr := cltest.GetAccountAddress(app.Store).Hex()
-	want := fmt.Sprintf("ETH Balance for %v: 2.56e-16", addr)
+	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
 }
 
@@ -103,8 +103,11 @@ func TestPresenterShowLinkBalance_WithEmptyAccount(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_call", "0x00") // 0
+
 	_, err := presenters.ShowLinkBalance(app.Store)
-	fmt.Println(err)
 	assert.NotNil(t, err)
 }
 
@@ -122,6 +125,6 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 	assert.Nil(t, err)
 
 	addr := cltest.GetAccountAddress(app.Store).Hex()
-	want := fmt.Sprintf("Link Balance for %v: 2.56e-16", addr)
+	want := fmt.Sprintf("Link Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
 }
