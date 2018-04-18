@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -568,4 +569,11 @@ func mustNotErr(err error) {
 
 func UnwrapAdapter(wa adapters.AdapterWithMinConfs) adapters.Adapter {
 	return wa.(adapters.MinConfsWrappedAdapter).Adapter
+}
+
+func GetAccountAddress(store *store.Store) common.Address {
+	account, err := store.KeyStore.GetAccount()
+	mustNotErr(err)
+
+	return account.Address
 }
