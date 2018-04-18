@@ -27,11 +27,9 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	}
 
 	v2 := engine.Group("/v2")
-	v3 := engine.Group("/v3")
 	{
 		j := JobSpecsController{app}
-		v2.GET("/specs", j.IndexV2)
-		v3.GET("/specs", j.Index)
+		v2.GET("/specs", j.Index)
 		v2.POST("/specs", j.Create)
 		v2.GET("/specs/:SpecID", j.Show)
 

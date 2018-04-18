@@ -76,24 +76,6 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 	}
 }
 
-// Index lists *ALL* of the existing JobSpecs.
-// Example:
-//  "<application>/specs"
-func (jsc *JobSpecsController) IndexV2(c *gin.Context) {
-	var jobs []models.JobSpec
-	if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
-	} else {
-		pjs := make([]presenters.JobSpec, len(jobs))
-		for i, j := range jobs {
-			pjs[i] = presenters.JobSpec{JobSpec: j}
-		}
-		c.JSON(200, pjs)
-	}
-}
-
 // Create adds validates, saves, and starts a new JobSpec.
 // Example:
 //  "<application>/specs"
