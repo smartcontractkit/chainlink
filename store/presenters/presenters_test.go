@@ -82,7 +82,9 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 
 	output, err := presenters.ShowEthBalance(app.Store)
 	assert.Nil(t, err)
-	assert.Equal(t, fmt.Sprintf("ETH Balance for %v: 2.56e-16", app.Store.KeyStore.GetAccount().Address.Hex()), output)
+	addr := cltest.GetAccountAddress(app.Store).Hex()
+	want := fmt.Sprintf("ETH Balance for %v: 2.56e-16", addr)
+	assert.Equal(t, want, output)
 }
 
 func TestPresenterShowLinkBalance_NoAccount(t *testing.T) {
@@ -118,5 +120,8 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 
 	output, err := presenters.ShowLinkBalance(app.Store)
 	assert.Nil(t, err)
-	assert.Equal(t, fmt.Sprintf("Link Balance for %v: 2.56e-16", app.Store.KeyStore.GetAccount().Address.Hex()), output)
+
+	addr := cltest.GetAccountAddress(app.Store).Hex()
+	want := fmt.Sprintf("Link Balance for %v: 2.56e-16", addr)
+	assert.Equal(t, want, output)
 }

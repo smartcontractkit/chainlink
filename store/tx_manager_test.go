@@ -57,7 +57,7 @@ func TestTxManager_MeetsMinConfirmations_BeforeThreshold(t *testing.T) {
 	txm := store.TxManager
 
 	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address
+	from := cltest.GetAccountAddress(store)
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
@@ -88,7 +88,7 @@ func TestTxManager_MeetsMinConfirmations_AtThreshold(t *testing.T) {
 	txm := store.TxManager
 
 	sentAt := uint64(23456)
-	from := store.KeyStore.GetAccount().Address
+	from := cltest.GetAccountAddress(store)
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
@@ -126,7 +126,7 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 	store := app.Store
 	txm := store.TxManager
 
-	from := store.KeyStore.GetAccount().Address
+	from := cltest.GetAccountAddress(store)
 
 	tests := []struct {
 		name          string
