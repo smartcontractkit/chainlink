@@ -230,3 +230,34 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
 	assert.Equal(t, 1, len(jobRuns))
 }
+
+func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	ot := services.OneTime{
+		Clock: store.Clock,
+		Store: store,
+	}
+
+	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
+	assert.Nil(t, store.SaveJob(&j))
+
+	var initrs []models.Initiator
+	store.Where("JobID", j.ID, &initrs)
+
+	ot.RunJobAt(initrs[0], j)
+	j2, err := ot.Store.FindJob(j.ID)
+	assert.Nil(t, err)
+
+	var initrs2 []models.Initiator
+	store.Where("JobID", j.ID, &initrs2)
+
+	ot.RunJobAt(initrs2[0], j2)
+
+	jobRuns := []models.JobRun{}
+	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	assert.Equal(t, 1, len(jobRuns))
+}

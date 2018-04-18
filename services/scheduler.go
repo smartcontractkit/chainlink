@@ -159,14 +159,11 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(initr.Time.DurationFromNow()):
-		if initr.Ran {
-			logger.Error((fmt.Errorf("Job runner: Initiator: %v cannot be run more than once", initr.ID)))
+		if err := ot.Store.MarkRan(&initr); err != nil {
+			logger.Error(err.Error())
 			return
 		}
-
-		initr.Ran = true
-		_, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
-		if err != nil {
+		if _, err := BeginRun(job, initr, models.RunResult{}, ot.Store); err != nil {
 			logger.Error(err.Error())
 		}
 	}
