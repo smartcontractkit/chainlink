@@ -103,7 +103,7 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 	for i, initr := range job.Initiators {
 		job.Initiators[i].JobID = job.ID
 		initr.JobID = job.ID
-		if err := tx.Save(&initr); err != nil {
+		if err := tx.Save(&job.Initiators[i]); err != nil {
 			return err
 		}
 	}
