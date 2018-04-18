@@ -67,7 +67,7 @@ func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
 func TestServices_RunLogTopic_ExpectedEventSignature(t *testing.T) {
 	t.Parallel()
 
-	expected := "0xebd6778bf8984d5fefe04e8bc66094fd323427fc0a9ade188c67b9ffad15d5e1"
+	expected := "0xaf9f8a8db54550d87fa898afef13596723c796bf6c1f94b0cb7b067de135428f"
 	assert.Equal(t, expected, services.RunLogTopic.Hex())
 }
 
