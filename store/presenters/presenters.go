@@ -29,7 +29,11 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
-	address := store.KeyStore.GetAccount().Address
+	account, err := store.KeyStore.GetAccount()
+	if err != nil {
+		return "", err
+	}
+	address := account.Address
 	balance, err := store.TxManager.GetEthBalance(address)
 	if err != nil {
 		return "", err
@@ -45,7 +49,11 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
-	address := store.KeyStore.GetAccount().Address
+	account, err := store.KeyStore.GetAccount()
+	if err != nil {
+		return "", err
+	}
+	address := account.Address
 	linkContractAddress := common.HexToAddress(store.Config.LinkContractAddress)
 	balance, err := store.TxManager.GetERC20Balance(address, linkContractAddress)
 	if err != nil {

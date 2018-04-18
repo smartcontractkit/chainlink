@@ -57,7 +57,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	assert.False(t, data.HasError())
 
-	from := store.KeyStore.GetAccount().Address
+	from := cltest.GetAccountAddress(store)
 	txs := []models.Tx{}
 	assert.Nil(t, store.Where("From", from, &txs))
 	assert.Equal(t, 1, len(txs))
@@ -80,7 +80,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations(t *testing.T) {
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold-1))
 
-	from := store.KeyStore.GetAccount().Address
+	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.Save(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
@@ -114,7 +114,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
-	from := store.KeyStore.GetAccount().Address
+	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.Save(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
