@@ -10,6 +10,7 @@ import (
 	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"github.com/ugorji/go/codec"
 )
 
 type RunStatus string
@@ -63,6 +64,25 @@ func (s RunStatus) Finished() bool {
 // Runnable returns true if the status is ready to be run.
 func (s RunStatus) Runnable() bool {
 	return !s.Errored() && !s.Pending()
+}
+
+// ParseCBOR attempts to coerce the input byte array into valid CBOR
+// and then coerces it into a JSON object.
+func ParseCBOR(b []byte) (JSON, error) {
+	var j JSON
+	var m map[string]interface{}
+
+	cbor := codec.NewDecoderBytes(b, new(codec.CborHandle))
+	if err := cbor.Decode(&m); err != nil {
+		return j, err
+	}
+
+	jsb, err := json.Marshal(m)
+	if err != nil {
+		return j, err
+	}
+
+	return j, json.Unmarshal(jsb, &j)
 }
 
 // JSON stores the json types string, number, bool, and null.
