@@ -96,7 +96,7 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-// Represents a block header in the Ethereum blockchain.
+// BlockHeader represents a block header in the Ethereum blockchain.
 // Deliberately does not have required fields because some fields aren't
 // present depending on the Ethereum node.
 // i.e. Parity does not always send mixHash
