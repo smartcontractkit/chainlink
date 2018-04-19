@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -57,8 +58,10 @@ func CreateProductionLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	return zl
 }
 
-// CreateTestLogger creates a logger that directs output to PrettyConsole.
+// CreateTestLogger creates a logger that directs output to PrettyConsole
+// configured for test output.
 func CreateTestLogger() *zap.Logger {
+	color.NoColor = false
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(zapcore.DebugLevel)
 	config.OutputPaths = []string{"pretty"}
