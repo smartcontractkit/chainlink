@@ -68,10 +68,10 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		KeyStore: keyStore,
 		Clock:    Clock{},
 		TxManager: &TxManager{
-			Config:    config,
 			EthClient: &EthClient{ethrpc},
-			KeyStore:  keyStore,
-			ORM:       orm,
+			config:    config,
+			keyStore:  keyStore,
+			orm:       orm,
 		},
 	}
 	return store
