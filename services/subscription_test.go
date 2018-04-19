@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -15,9 +14,7 @@ import (
 func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
-	var clData models.JSON
-	clDataFixture := `{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"76005c26"}`
-	assert.Nil(t, json.Unmarshal([]byte(clDataFixture), &clData))
+	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"76005c26"}`)
 
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
@@ -34,6 +31,7 @@ func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
 			le := services.RPCLogEvent{Log: test.el}
 			output, err := le.RunLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
+			assert.Nil(t, err)
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
