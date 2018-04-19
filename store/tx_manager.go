@@ -18,15 +18,15 @@ const defaultGasLimit uint64 = 500000
 // the local Config for the application, and the database.
 type TxManager struct {
 	*EthClient
-	KeyStore      *KeyStore
-	Config        Config
-	ORM           *models.ORM
+	keyStore      *KeyStore
+	config        Config
+	orm           *models.ORM
 	activeAccount *ActiveAccount
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	account, err := txm.KeyStore.GetAccount()
+	account, err := txm.keyStore.GetAccount()
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 	if err != nil {
 		return nil, err
 	}
-	tx, err := txm.ORM.CreateTx(
+	tx, err := txm.orm.CreateTx(
 		account.Address,
 		nonce,
 		to,
@@ -50,7 +50,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 		return nil, err
 	}
 
-	gasPrice := &txm.Config.EthGasPriceDefault
+	gasPrice := &txm.config.EthGasPriceDefault
 	_, err = txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
 		return tx, err
@@ -74,7 +74,7 @@ func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 		return false, fmt.Errorf("Can only ensure transactions with attempts")
 	}
 	tx := models.Tx{}
-	if err := txm.ORM.One("ID", attempts[0].TxID, &tx); err != nil {
+	if err := txm.orm.One("ID", attempts[0].TxID, &tx); err != nil {
 		return false, err
 	}
 
@@ -93,12 +93,12 @@ func (txm *TxManager) createAttempt(
 	blkNum uint64,
 ) (*models.TxAttempt, error) {
 	etx := tx.EthTx(gasPrice)
-	etx, err := txm.KeyStore.SignTx(etx, txm.Config.ChainID)
+	etx, err := txm.keyStore.SignTx(etx, txm.config.ChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	a, err := txm.ORM.AddAttempt(tx, etx, blkNum)
+	a, err := txm.orm.AddAttempt(tx, etx, blkNum)
 	if err != nil {
 		return nil, err
 	}
@@ -116,10 +116,10 @@ func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
 
 func (txm *TxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {
 	attempt := &models.TxAttempt{}
-	if err := txm.ORM.One("Hash", hash, attempt); err != nil {
+	if err := txm.orm.One("Hash", hash, attempt); err != nil {
 		return []models.TxAttempt{}, err
 	}
-	attempts, err := txm.ORM.AttemptsFor(attempt.TxID)
+	attempts, err := txm.orm.AttemptsFor(attempt.TxID)
 	if err != nil {
 		return []models.TxAttempt{}, err
 	}
@@ -149,7 +149,7 @@ func (txm *TxManager) handleConfirmed(
 	blkNum uint64,
 ) (bool, error) {
 
-	minConfs := big.NewInt(int64(txm.Config.TxMinConfirmations))
+	minConfs := big.NewInt(int64(txm.config.TxMinConfirmations))
 	rcptBlkNum := big.Int(rcpt.BlockNumber)
 	safeAt := minConfs.Add(&rcptBlkNum, minConfs)
 	safeAt.Sub(safeAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
@@ -157,7 +157,7 @@ func (txm *TxManager) handleConfirmed(
 		return false, nil
 	}
 
-	if err := txm.ORM.ConfirmTx(tx, txat); err != nil {
+	if err := txm.orm.ConfirmTx(tx, txat); err != nil {
 		return false, err
 	}
 	logger.Infow(fmt.Sprintf("Confirmed tx %v", txat.Hash.String()), "txat", txat, "receipt", rcpt)
@@ -170,7 +170,7 @@ func (txm *TxManager) handleUnconfirmed(
 	blkNum uint64,
 ) (bool, error) {
 	bumpable := tx.Hash == txat.Hash
-	pastThreshold := blkNum >= txat.SentAt+txm.Config.EthGasBumpThreshold
+	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold
 	if bumpable && pastThreshold {
 		return false, txm.bumpGas(txat, blkNum)
 	}
@@ -179,10 +179,10 @@ func (txm *TxManager) handleUnconfirmed(
 
 func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	tx := &models.Tx{}
-	if err := txm.ORM.One("ID", txat.TxID, tx); err != nil {
+	if err := txm.orm.One("ID", txat.TxID, tx); err != nil {
 		return err
 	}
-	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.Config.EthGasBumpWei)
+	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.config.EthGasBumpWei)
 	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
 	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
 	return err
