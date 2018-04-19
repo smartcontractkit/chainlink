@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -204,13 +205,16 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 }
 
 func StringToRunLogData(str string) hexutil.Bytes {
-	length := len([]byte(str))
+	j := JSONFromString(str)
+	cbor, err := j.CBOR()
+	mustNotErr(err)
+	length := len(cbor)
 	lenHex := utils.RemoveHexPrefix(hexutil.EncodeUint64(uint64(length)))
 	if len(lenHex) < 64 {
 		lenHex = strings.Repeat("0", 64-len(lenHex)) + lenHex
 	}
 
-	data := utils.RemoveHexPrefix(utils.StringToHex(str))
+	data := hex.EncodeToString(cbor)
 	version := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	offset := "0000000000000000000000000000000000000000000000000000000000000020"
 

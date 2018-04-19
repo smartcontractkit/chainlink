@@ -1,7 +1,6 @@
 package services
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -324,8 +323,9 @@ func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 	versionSize := 32
 	varLocationSize := 32
 	varLengthSize := 32
-	hex := []byte(string([]byte(data)[versionSize+varLocationSize+varLengthSize:]))
-	return models.ParseJSON(bytes.TrimRight(hex, "\x00"))
+	prefix := versionSize + varLocationSize + varLengthSize
+	hex := []byte(string([]byte(data)[prefix:]))
+	return models.ParseCBOR(hex)
 }
 
 func isRunLog(log types.Log) bool {
