@@ -3,11 +3,12 @@ package logger
 import (
 	"testing"
 
+	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPrettyConsole_Write(t *testing.T) {
-	t.Parallel()
+	color.NoColor = false
 
 	tests := []struct {
 		name      string
@@ -18,19 +19,19 @@ func TestPrettyConsole_Write(t *testing.T) {
 		{
 			"headline",
 			`{"ts":1523537728.7260377, "level":"info", "msg":"top level"}`,
-			"2018-04-12T12:55:28Z [INFO]  top level  \n",
+			"2018-04-12T12:55:28Z \x1b[37m[INFO]  \x1b[0mtop level \x1b[34m\x1b[0m \n",
 			false,
 		},
 		{
 			"details",
 			`{"ts":1523537728, "level":"debug", "msg":"top level", "details":"nuances"}`,
-			"2018-04-12T12:55:28Z [DEBUG] top level  \ndetails=nuances \n",
+			"2018-04-12T12:55:28Z \x1b[32m[DEBUG] \x1b[0mtop level \x1b[34m\x1b[0m \ndetails=nuances \n",
 			false,
 		},
 		{
 			"blacklist",
 			`{"ts":1523537728, "level":"warn", "msg":"top level", "hash":"nuances"}`,
-			"2018-04-12T12:55:28Z [WARN]  top level  \n",
+			"2018-04-12T12:55:28Z \x1b[33m[WARN]  \x1b[0mtop level \x1b[34m\x1b[0m \n",
 			false,
 		},
 		{"error", `{"broken":}`, `{}`, true},
