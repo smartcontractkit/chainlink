@@ -1,14 +1,15 @@
 package models_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -147,6 +148,34 @@ func TestJSON_Add(t *testing.T) {
 			json, err := json.Add(test.key, test.value)
 			assert.Equal(t, test.errored, (err != nil))
 			assert.Equal(t, test.want, json.String())
+		})
+	}
+}
+
+func TestJSON_CBOR(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   models.JSON
+		want string
+	}{
+		{"empty object", models.JSON{}, "a0"},
+		{"hello world",
+			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+			`a264706174688266726563656e74637573646375726c781a68747470733a2f2f657468657270726963652e636f6d2f617069`},
+		{"complex object",
+			cltest.JSONFromString(`{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
+			`a16161a1613183a161626466726565a16163646d6f7265a1616482646c657373a1676e657374696e67a16134646c696665`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cbor, err := test.in.CBOR()
+			assert.Nil(t, err)
+
+			cborHex := hex.EncodeToString(cbor)
+			assert.Equal(t, test.want, cborHex)
 		})
 	}
 }
