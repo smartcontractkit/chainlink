@@ -577,3 +577,7 @@ func GetAccountAddress(store *store.Store) common.Address {
 
 	return account.Address
 }
+
+func StringToHash(s string) common.Hash {
+	return common.BytesToHash([]byte(s))
+}

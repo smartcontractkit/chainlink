@@ -196,8 +196,8 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 		Data:        StringToRunLogData(json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
-			common.StringToHash("requestID"),
-			common.StringToHash(jobID),
+			StringToHash("requestID"),
+			StringToHash(jobID),
 		},
 	}
 }
