@@ -166,6 +166,19 @@ func (j JSON) Add(key string, val interface{}) (JSON, error) {
 	return j.Merge(j2)
 }
 
+// CBOR returns a bytes array of the JSON object encoded to CBOR.
+func (j JSON) CBOR() ([]byte, error) {
+	m := map[string]interface{}{}
+	j.ForEach(func(k, v gjson.Result) bool {
+		m[k.String()] = v.Value()
+		return true
+	})
+
+	var b []byte
+	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
+	return b, cbor.Encode(m)
+}
+
 // WebURL contains the URL of the endpoint.
 type WebURL struct {
 	*url.URL
