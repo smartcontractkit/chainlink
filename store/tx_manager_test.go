@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -163,4 +165,22 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 			ethMock.EventuallyAllCalled(t)
 		})
 	}
+}
+
+func TestTxManager_ActivateAccount(t *testing.T) {
+	t.Parallel()
+
+	ethMock := &cltest.EthMock{}
+	txm := &strpkg.TxManager{
+		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
+	}
+	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
+
+	ethMock.Register("eth_getTransactionCount", `0x2D0`)
+	assert.Nil(t, txm.ActivateAccount(account))
+	ethMock.EventuallyAllCalled(t)
+
+	aa := txm.GetActiveAccount()
+	assert.Equal(t, account.Address, aa.Address)
+	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
 }

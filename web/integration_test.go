@@ -53,7 +53,8 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
-	eth.Register("eth_getTransactionCount", `0x0100`)
+	eth.Register("eth_getTransactionCount", `0x0100`) // for TxManager#ActivateAccount
+	eth.Register("eth_getTransactionCount", `0x0100`) // for TxManager#CreateTx
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
@@ -64,7 +65,8 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 
-	app.Start()
+	err := app.Start()
+	assert.Nil(t, err)
 	defer cleanup()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")

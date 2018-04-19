@@ -77,6 +77,15 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	return store
 }
 
+// Start initiates all of Store's dependencies including the TxManager.
+func (s *Store) Start() error {
+	acc, err := s.KeyStore.GetAccount()
+	if err != nil {
+		return err
+	}
+	return s.TxManager.ActivateAccount(acc)
+}
+
 // AfterNower is an interface that fulfills the `After()` and `Now()`
 // methods.
 type AfterNower interface {

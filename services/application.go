@@ -63,7 +63,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
-	return multierr.Combine(app.HeadTracker.Start(), app.Scheduler.Start())
+	return multierr.Combine(app.Store.Start(), app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
