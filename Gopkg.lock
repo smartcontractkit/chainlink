@@ -5,13 +5,13 @@
   branch = "master"
   name = "github.com/araddon/dateparse"
   packages = ["."]
-  revision = "934b3f146d3245bc533d3c44a1b4c99a8fefa068"
+  revision = "4b079c6fdd8d7d3e224357566f278da3c159f441"
 
 [[projects]]
   branch = "master"
   name = "github.com/aristanetworks/goarista"
   packages = ["monotime"]
-  revision = "c4abbbe01ef7ae5ffd295b3a85493582e704cfa2"
+  revision = "7744847ed4e70ed5e50090f9094ed621b4f305d6"
 
 [[projects]]
   name = "github.com/asdine/storm"
@@ -36,7 +36,7 @@
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
-  revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
+  revision = "675abc5df3c5531bc741b56a765e35623459da6d"
 
 [[projects]]
   branch = "master"
@@ -80,8 +80,8 @@
     "rpc",
     "trie"
   ]
-  revision = "b8b9f7f4476a30a0aaf6077daade6ae77f969960"
-  version = "v1.8.2"
+  revision = "2423ae01e0d2f853512eb2b46954b5ad0754a897"
+  version = "v1.8.4"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -104,7 +104,7 @@
     "json",
     "render"
   ]
-  revision = "65a65c2edd4e86f96634a553f07a25c38f2b1c75"
+  revision = "3455d7f38877a931d0b97bc7c800e6963351ed2f"
 
 [[projects]]
   name = "github.com/go-stack/stack"
@@ -194,7 +194,7 @@
   branch = "master"
   name = "github.com/olekukonko/tablewriter"
   packages = ["."]
-  revision = "b8a9be070da40449e501c3c4730a889e42d87a9e"
+  revision = "d5dd8a50526aadb3d5f2c9b5233277bc2db90e88"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -268,7 +268,7 @@
     "leveldb/table",
     "leveldb/util"
   ]
-  revision = "169b1b37be738edb2813dab48c97a549bcf99bb5"
+  revision = "714f901b98fdb3aa954b4193d8cbd64a28d80cad"
 
 [[projects]]
   name = "github.com/tidwall/gjson"
@@ -285,8 +285,8 @@
 [[projects]]
   name = "github.com/ugorji/go"
   packages = ["codec"]
-  revision = "9831f2c3ac1068a78f50999a30db84270f647af6"
-  version = "v1.1"
+  revision = "b4c50a2b199d93b13dc15e78929cfb23bfdf21ab"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/urfave/cli"
@@ -329,7 +329,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
+  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
 
 [[projects]]
   branch = "master"
@@ -340,7 +340,7 @@
     "html/charset",
     "websocket"
   ]
-  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
+  revision = "d41e8174641f662c5a2d1c7a5f9e828788eb8706"
 
 [[projects]]
   branch = "master"
@@ -349,7 +349,7 @@
     "unix",
     "windows"
   ]
-  revision = "91ee8cde435411ca3f1cd365e8f20131aed4d0a1"
+  revision = "3ccc7e5779793fd54564baf60c51bf017955e0ba"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -408,8 +408,8 @@
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
-  version = "v2.1.1"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
