@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -17,9 +18,10 @@ const defaultGasLimit uint64 = 500000
 // the local Config for the application, and the database.
 type TxManager struct {
 	*EthClient
-	KeyStore *KeyStore
-	Config   Config
-	ORM      *models.ORM
+	KeyStore      *KeyStore
+	Config        Config
+	ORM           *models.ORM
+	activeAccount *ActiveAccount
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
@@ -184,4 +186,38 @@ func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
 	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
 	return err
+}
+
+// GetActiveAccount returns a copy of the TxManager's active nonce managed
+// account.
+func (txm *TxManager) GetActiveAccount() *ActiveAccount {
+	if txm.activeAccount == nil {
+		return nil
+	}
+	dup := *txm.activeAccount
+	return &dup
+}
+
+// ActivateAccount retrieves an account's nonce from the blockchain for client
+// side management in ActiveAccount.
+func (txm *TxManager) ActivateAccount(account accounts.Account) error {
+	nonce, err := txm.GetNonce(account.Address)
+	if err != nil {
+		return err
+	}
+
+	txm.activeAccount = &ActiveAccount{Account: account, nonce: nonce}
+	return nil
+}
+
+// ActiveAccount holds the account information alongside a client managed nonce
+// to coordinate outgoing transactions.
+type ActiveAccount struct {
+	accounts.Account
+	nonce uint64
+}
+
+// GetNonce returns the client side managed nonce.
+func (a *ActiveAccount) GetNonce() uint64 {
+	return a.nonce
 }
