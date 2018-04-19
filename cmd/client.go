@@ -78,6 +78,11 @@ func logConfigVariables(config strpkg.Config) {
 	logger.Debug("Environment variables\n", config)
 }
 
+// DisplayAccountBalance returns the address, plus it's ETH & LINK balance
+func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
+	return nil
+}
+
 // ShowJobSpec returns the status of the given JobID.
 func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	cfg := cli.Config
