@@ -282,6 +282,7 @@ func (bs BackoffSleeper) Duration() time.Duration {
 	return bs.ForAttempt(bs.Attempt())
 }
 
+// MaxUint64 finds the maximum value of a list of uint64s.
 func MaxUint64(uints ...uint64) uint64 {
 	var max uint64
 	for _, n := range uints {
@@ -292,10 +293,12 @@ func MaxUint64(uints ...uint64) uint64 {
 	return max
 }
 
+// EVMHexNumber formats a number as a 32 byte hex string.
 func EVMHexNumber(val interface{}) string {
 	return fmt.Sprintf("0x%064x", val)
 }
 
+// BigRatIsZero checks if a big.Rat is equal to 0.
 func BigRatIsZero(val *big.Rat) bool {
 	zero := new(big.Rat).SetInt64(0)
 	if val.Cmp(zero) == 0 {
@@ -304,6 +307,7 @@ func BigRatIsZero(val *big.Rat) bool {
 	return false
 }
 
+// BigIntIsZero checks if a big.Int is equal to 0.
 func BigIntIsZero(val *big.Int) bool {
 	zero := new(big.Int).SetInt64(0)
 	if val.Cmp(zero) == 0 {
