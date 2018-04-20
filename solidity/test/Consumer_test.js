@@ -2,10 +2,10 @@
 
 require('./support/helpers.js')
 
-contract('DynamicConsumer', () => {
+contract('Consumer', () => {
   let Link = artifacts.require("LinkToken.sol");
   let Oracle = artifacts.require("Oracle.sol");
-  let Consumer = artifacts.require("examples/DynamicConsumer1.sol");
+  let Consumer = artifacts.require("examples/Consumer.sol");
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let link, oc, cc;
 

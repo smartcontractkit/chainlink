@@ -2,7 +2,7 @@ pragma solidity ^0.4.21;
 
 import "../Chainlinked.sol";
 
-contract DynamicConsumer1 is Chainlinked {
+contract Consumer is Chainlinked {
   bytes32 internal requestId;
   bytes32 public currentPrice;
 
