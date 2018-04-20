@@ -81,6 +81,12 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:   "Import a key file to use with the node",
 			Action:  client.ImportKey,
 		},
+		{
+			Name:    "adapter",
+			Aliases: []string{"a"},
+			Usage:   "Add a new bridge to an external adapter",
+			Action:  client.AddAdapter,
+		},
 	}
 	app.Run(args)
 }
