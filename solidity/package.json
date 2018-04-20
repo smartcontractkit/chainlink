@@ -8,13 +8,13 @@
     "cbor": "^4.0.0",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
-    "ganache-cli": "^6.0.3",
+    "ganache-cli": "^6.1.0",
     "linkToken": "github:smartcontractkit/linktoken",
     "moment": "^2.20.1",
     "solidity-cborutils": "https://github.com/smartcontractkit/solidity-cborutils",
-    "truffle": "^4.1.5",
+    "truffle": "^4.1.7",
     "web3": "^1.0.0-beta.29",
     "wscat": "^2.1.1",
-    "zeppelin-solidity": "^1.6.0"
+    "zeppelin-solidity": "^1.8.0"
   }
 }
