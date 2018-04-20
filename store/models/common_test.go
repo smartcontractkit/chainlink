@@ -189,6 +189,9 @@ func TestJSON_CBOR(t *testing.T) {
 		{"complex object",
 			cltest.JSONFromString(`{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
 			`a16161a1613183a161626466726565a16163646d6f7265a1616482646c657373a1676e657374696e67a16134646c696665`},
+		{"unordered keys",
+			cltest.JSONFromString(`{"b":0,"a":0}`),
+			`a26161fb00000000000000006162fb0000000000000000`},
 	}
 
 	for _, test := range tests {
