@@ -1273,7 +1273,7 @@ caseless@~0.12.0:
   version "0.12.0"
   resolved "https://registry.yarnpkg.com/caseless/-/caseless-0.12.0.tgz#1b681c21ff84033c826543090689420d187151dc"
 
-cbor@^4.0.0:
+cbor@>=4.0.0, cbor@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/cbor/-/cbor-4.0.0.tgz#c69e0124dc225156c0a32a70ebf0bbaf032eac0a"
   dependencies:
@@ -6186,9 +6186,11 @@ solc@0.4.21, solc@^0.4.11:
     semver "^5.3.0"
     yargs "^4.7.1"
 
-"solidity-stringutils@github:Arachnid/solidity-stringutils":
-  version "0.0.0"
-  resolved "https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4c36b494ded3661fdd2210b56fd6acc27d9a8d2a"
+"solidity-cborutils@https://github.com/smartcontractkit/solidity-cborutils":
+  version "1.0.0"
+  resolved "https://github.com/smartcontractkit/solidity-cborutils#4fe3d337aa8b534a9ab1ee535bedfb63e8b04bb4"
+  dependencies:
+    cbor ">=4.0.0"
 
 sort-keys@^2.0.0:
   version "2.0.0"
