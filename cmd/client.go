@@ -204,6 +204,34 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 	return cli.errorOut(copyFile(src, kdir))
 }
 
+// AddAdapter adds a new bridge to an external adapter to be used with the chainlink node
+func (cli *Client) AddAdapter(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in the adapter's parameters [JSON blob | JSON filepath]"))
+	}
+
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/bridge_types",
+		"application/json",
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var bridge models.BridgeType
+	return cli.deserializeResponse(resp, &bridge)
+}
+
 func isDirEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {
