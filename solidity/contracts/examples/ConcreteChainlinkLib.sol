@@ -1,10 +1,9 @@
 pragma solidity ^0.4.19;
 pragma experimental ABIEncoderV2;
 
-import "../BytesUtils.sol";
 import "../ChainlinkLib.sol";
 
-contract ConcreteChainlinkLib is BytesUtils {
+contract ConcreteChainlinkLib {
   using ChainlinkLib for ChainlinkLib.Run;
   using CBOR for Buffer.buffer;
 
