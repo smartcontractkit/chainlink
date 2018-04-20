@@ -6,7 +6,7 @@ contract Consumer is Chainlinked {
   bytes32 internal requestId;
   bytes32 public currentPrice;
 
-  function DynamicConsumer(address _link, address _oracle)
+  function Consumer(address _link, address _oracle)
     public
   {
     setLinkToken(_link);
