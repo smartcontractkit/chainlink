@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"time"
 
 	"github.com/araddon/dateparse"
@@ -177,6 +178,30 @@ func (j JSON) CBOR() ([]byte, error) {
 	var b []byte
 	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
 	return b, cbor.Encode(m)
+}
+
+// Keys returns an alphebetized slice of strings for
+// all of the top level keys in the JSON.
+func (j JSON) Keys() []string {
+	keys := []string{}
+	j.ForEach(func(k, _ gjson.Result) bool {
+		key := k.String()
+		if !stringExists(key, keys) {
+			keys = append(keys, key)
+		}
+		return true
+	})
+	sort.Strings(keys)
+	return keys
+}
+
+func stringExists(v string, list []string) bool {
+	for _, i := range list {
+		if i == v {
+			return true
+		}
+	}
+	return false
 }
 
 // WebURL contains the URL of the endpoint.
