@@ -152,6 +152,28 @@ func TestJSON_Add(t *testing.T) {
 	}
 }
 
+func TestJSON_Keys(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"empty object", "{}", []string{}},
+		{"ordered", `{"a":1,"b":1,"c":1}`, []string{"a", "b", "c"}},
+		{"unordered", `{"c":1,"a":1,"b":1}`, []string{"a", "b", "c"}},
+		{"duplicates", `{"a":1,"a":1,"b":1}`, []string{"a", "b"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			j := cltest.JSONFromString(test.in)
+			assert.Equal(t, test.want, j.Keys())
+		})
+	}
+}
+
 func TestJSON_CBOR(t *testing.T) {
 	t.Parallel()
 
