@@ -13,7 +13,6 @@ contract('Consumer', () => {
     link = await Link.new();
     oc = await Oracle.new({from: oracleNode});
     cc = await Consumer.new(link.address, oc.address, {from: stranger});
-    await cc.DynamicConsumer(link.address, oc.address);
   });
 
   it("has a predictable gas price", async () => {
