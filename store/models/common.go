@@ -170,10 +170,9 @@ func (j JSON) Add(key string, val interface{}) (JSON, error) {
 // CBOR returns a bytes array of the JSON object encoded to CBOR.
 func (j JSON) CBOR() ([]byte, error) {
 	m := map[string]interface{}{}
-	j.ForEach(func(k, v gjson.Result) bool {
-		m[k.String()] = v.Value()
-		return true
-	})
+	for _, key := range j.Keys() {
+		m[key] = j.Get(key).Value()
+	}
 
 	var b []byte
 	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
