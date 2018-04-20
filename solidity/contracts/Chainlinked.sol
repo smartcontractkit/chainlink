@@ -1,6 +1,5 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.23;
 
-import "./BytesUtils.sol";
 import "./ChainlinkLib.sol";
 import "./LinkToken.sol";
 import "./Oracle.sol";
@@ -8,7 +7,7 @@ import "./Buffer.sol";
 import "./CBOR.sol";
 
 
-contract Chainlinked is BytesUtils {
+contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using CBOR for Buffer.buffer;
 
@@ -39,17 +38,15 @@ contract Chainlinked is BytesUtils {
     internal
     returns(bytes32)
   {
-    bytes memory payload = append(append(append(append(append(append(append(
-      bytes4toBytes(oracleFid),
-      uint256toBytes(clArgsVersion)),
-      bytes32toBytes(_run.jobId)),
-      addressToBytes(_run.callbackAddress)),
-      bytes4toBytes(_run.callbackFunctionId)),
-      bytes32toBytes(_run.id)),
-      uint256toBytes(192)),
-      addLengthPrefix(_run.close()));
-
-    link.transferAndCall(oracle, 0, payload);
+    link.transferAndCall(oracle, 0, abi.encodeWithSelector(
+      oracleFid,
+      clArgsVersion,
+      _run.jobId,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.id,
+      _run.close()
+    ));
 
     return _run.id;
   }
@@ -65,23 +62,5 @@ contract Chainlinked is BytesUtils {
   modifier onlyOracle() {
     require(msg.sender == address(oracle));
     _;
-  }
-
-  function addLengthPrefix(bytes memory _in)
-    internal
-    pure
-    returns (bytes memory c)
-  {
-      uint256 totalLen = (((_in.length + 31) / 32) + 1) * 32;
-      assembly {
-          let mem := mload(0x40)
-          mstore(mem, totalLen)
-          mem := add(32, mem)
-          for {  let i := 0 } lt(i, totalLen) { i := add(32, i) } {
-            mstore(add(mem, i), mload(add(_in, i)))
-          }
-          mstore(0x40, add(mem, totalLen))
-          c := sub(mem, 32)
-      }
   }
 }
