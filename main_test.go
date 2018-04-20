@@ -40,6 +40,7 @@ func ExampleRun() {
 	//      run, r                    Begin job run for specid
 	//      backup, b                 Backup the database of the running node
 	//      import, i                 Import a key file to use with the node
+	//      adapter, a                Add a new bridge to an external adapter
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
