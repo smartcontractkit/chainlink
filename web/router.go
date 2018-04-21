@@ -24,6 +24,8 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		ac := AssignmentsController{app}
 		v1.POST("/assignments", ac.Create)
 		v1.GET("/assignments/:ID", ac.Show)
+		v1.POST("/assignments/:AID/snapshots", ac.CreateSnapshot)
+		v1.GET("/snapshots/:ID", ac.ShowSnapshot)
 	}
 
 	v2 := engine.Group("/v2")

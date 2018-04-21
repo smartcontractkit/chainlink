@@ -60,3 +60,18 @@ func (ac *AssignmentsController) Show(c *gin.Context) {
 		c.JSON(200, as)
 	}
 }
+
+// CreateSnapshot will always return the Assignment ID of a snapshot. It may return all of the snapshot immediately,
+// or if the details take time to compute the results of the snapshot will be retrievable with the assignment’s XID.
+// Example:
+//  "/assignments/:AID/snapshots"
+func (ac *AssignmentsController) CreateSnapshot(c *gin.Context) {
+
+}
+
+// ShowSnapshot returns snapshots for a given assignment ID
+// Example:
+//  "/snapshots/:ID"
+func (ac *AssignmentsController) ShowSnapshot(c *gin.Context) {
+
+}
