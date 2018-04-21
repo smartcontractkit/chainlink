@@ -136,13 +136,9 @@ type IndexableBlockNumber struct {
 	Hash   common.Hash `json:"hash"`
 }
 
-func NewIndexableBlockNumber(bigint *big.Int, hashes ...common.Hash) *IndexableBlockNumber {
+func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockNumber {
 	if bigint == nil {
 		return nil
-	}
-	var hash common.Hash
-	if len(hashes) > 0 {
-		hash = hashes[0]
 	}
 	number := hexutil.Big(*bigint)
 	return &IndexableBlockNumber{
@@ -188,13 +184,6 @@ func (l *IndexableBlockNumber) NextInt() *big.Int {
 		return big.NewInt(0)
 	}
 	return new(big.Int).Add(l.ToInt(), big.NewInt(1))
-}
-
-func (l *IndexableBlockNumber) NextNumber() *IndexableBlockNumber {
-	if l != nil {
-		return NewIndexableBlockNumber(l.NextInt(), l.Hash)
-	}
-	return NewIndexableBlockNumber(l.NextInt())
 }
 
 type EthSubscription interface {

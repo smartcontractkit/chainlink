@@ -108,9 +108,9 @@ func NewRPCLogSubscription(
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
 
-	listenFrom := head.NextNumber()
-	loggerLogListening(initr, listenFrom)
-	q := utils.ToFilterQueryFor(listenFrom.ToInt(), []common.Address{initr.Address})
+	listenFromNumber := head.NextInt()
+	loggerLogListening(initr, listenFromNumber)
+	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
 	es, err := store.TxManager.SubscribeToLogs(sub.logs, q)
 	if err != nil {
 		return sub, err
@@ -184,11 +184,11 @@ func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *m
 	return NewRPCLogSubscription(initr, job, head, store, receiveEthLog)
 }
 
-func loggerLogListening(initr models.Initiator, number *models.IndexableBlockNumber) {
+func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 	msg := fmt.Sprintf(
 		"Listening for %v from block %v for address %v for job %v",
 		initr.Type,
-		number.FriendlyString(),
+		blockNumber,
 		presenters.LogListeningAddress(initr.Address),
 		initr.JobID)
 	logger.Infow(msg)

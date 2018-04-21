@@ -90,7 +90,7 @@ func TestModels_IndexableBlockNumber_New(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			num := models.NewIndexableBlockNumber(test.input)
+			num := cltest.IndexableBlockNumber(test.input)
 			assert.Equal(t, test.want, num.String())
 			assert.Equal(t, test.wantDigits, num.Digits)
 		})
