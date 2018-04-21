@@ -8,7 +8,6 @@ library ChainlinkLib {
   using CBOR for Buffer.buffer;
 
   struct Run {
-    bytes32 id;
     bytes32 jobId;
     address callbackAddress;
     bytes4 callbackFunctionId;

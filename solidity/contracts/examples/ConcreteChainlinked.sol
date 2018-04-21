@@ -14,7 +14,6 @@ contract ConcreteChainlinked is Chainlinked {
   }
 
   event Run(
-    bytes32 id,
     bytes32 jobId,
     address callbackAddress,
     bytes4 callbackfunctionSelector,
@@ -30,7 +29,6 @@ contract ConcreteChainlinked is Chainlinked {
   {
     ChainlinkLib.Run memory run = newRun(_jobId, _address, _fulfillmentSignature);
     emit Run(
-      run.id,
       run.jobId,
       run.callbackAddress,
       run.callbackFunctionId,
