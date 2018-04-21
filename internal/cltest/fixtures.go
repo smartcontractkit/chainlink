@@ -215,7 +215,7 @@ func StringToRunLogData(str string) hexutil.Bytes {
 	}
 
 	data := hex.EncodeToString(cbor)
-	version := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	version := utils.EVMHexNumber(1)
 	offset := "0000000000000000000000000000000000000000000000000000000000000020"
 
 	var endPad string
