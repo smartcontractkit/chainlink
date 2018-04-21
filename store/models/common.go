@@ -179,15 +179,6 @@ func (j JSON) CBOR() ([]byte, error) {
 	}
 }
 
-func stringExists(v string, list []string) bool {
-	for _, i := range list {
-		if i == v {
-			return true
-		}
-	}
-	return false
-}
-
 // WebURL contains the URL of the endpoint.
 type WebURL struct {
 	*url.URL
