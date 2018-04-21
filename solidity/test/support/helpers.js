@@ -237,7 +237,7 @@ cbor = require("cbor");
 
   decodeRunABI = function decodeRunABI(log) {
     let runABI = util.toBuffer(log.data);
-    let types = ["bytes32", "bytes32", "address", "bytes4", "bytes"];
+    let types = ["bytes32", "address", "bytes4", "bytes"];
     return abi.rawDecode(types, runABI);
   }
 
