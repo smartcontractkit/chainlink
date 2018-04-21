@@ -3,17 +3,19 @@
 require('./support/helpers.js')
 
 contract('UptimeSLA', () => {
+  let Link = artifacts.require("../../../solidity/contracts/LinkToken.sol");
   let Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
   let SLA = artifacts.require("UptimeSLA.sol");
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let deposit = 1000000000;
-  let oc, sla, client, serviceProvider, startAt;
+  let link, oc, sla, client, serviceProvider, startAt;
 
   beforeEach(async () => {
     client = newAddress()
     serviceProvider = newAddress();
+    link = await Link.new();
     oc = await Oracle.new({from: oracleNode});
-    sla = await SLA.new(client, serviceProvider, oc.address, jobId, {
+    sla = await SLA.new(client, serviceProvider, link.address, oc.address, jobId, {
       value: deposit
     });
     startAt = await getLatestTimestamp();
@@ -33,10 +35,15 @@ contract('UptimeSLA', () => {
 
       let events = await getEvents(oc);
       assert.equal(1, events.length)
-      let event = events[0]
-      assert.equal(event.args.data, `{"url":"https://status.heroku.com/api/ui/availabilities","path":["data","0","attributes","calculation"]}`)
 
+      let event = events[0]
       assert.equal(web3.toUtf8(event.args.jobId), jobId);
+
+      let decoded = cbor.decodeFirstSync(util.toBuffer(event.args.data));
+      assert.deepEqual(
+        decoded,
+        {"url":"https://status.heroku.com/api/ui/availabilities","path":["data","0","attributes","calculation"]}
+      )
     });
   });
 
@@ -90,7 +97,13 @@ contract('UptimeSLA', () => {
 
     context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
-        await oc.requestData(jobId, sla.address, functionSelector("fulfill(uint256,bytes32)"), "");
+        await oc.requestData(
+          1,
+          jobId,
+          sla.address,
+          functionSelector("fulfill(uint256,bytes32)"),
+          "externalId",
+          "");
         let event = await getLatestEvent(oc);
         requestId = event.args.id;
       });

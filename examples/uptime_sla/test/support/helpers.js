@@ -1,5 +1,8 @@
 BigNumber = require('bignumber.js');
+abi = require('ethereumjs-abi');
+cbor = require("cbor");
 moment = require('moment');
+util = require('ethereumjs-util');
 
 (() => {
   eth = web3.eth;
@@ -216,6 +219,5 @@ moment = require('moment');
   newAddress = function newAddress() {
     return "0x" + randomHex(40);
   };
-
 
 })();
