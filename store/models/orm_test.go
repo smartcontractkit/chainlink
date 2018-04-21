@@ -198,7 +198,7 @@ func TestORM_SaveCreationHeight(t *testing.T) {
 			}
 			assert.Nil(t, store.Save(&jr))
 
-			bn := models.NewIndexableBlockNumber(test.parameterHeight)
+			bn := cltest.IndexableBlockNumber(test.parameterHeight)
 			result, err := store.SaveCreationHeight(jr, bn)
 
 			assert.Nil(t, err)

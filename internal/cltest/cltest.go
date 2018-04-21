@@ -546,11 +546,13 @@ func ParseNullableTime(s string) null.Time {
 func IndexableBlockNumber(val interface{}) *models.IndexableBlockNumber {
 	switch val.(type) {
 	case int:
-		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(int))))
+		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(int))), NewHash())
 	case uint64:
-		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(uint64))))
+		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(uint64))), NewHash())
 	case int64:
-		return models.NewIndexableBlockNumber(big.NewInt(val.(int64)))
+		return models.NewIndexableBlockNumber(big.NewInt(val.(int64)), NewHash())
+	case *big.Int:
+		return models.NewIndexableBlockNumber(val.(*big.Int), NewHash())
 	default:
 		logger.Panicf("Could not convert %v of type %T to IndexableBlockNumber", val, val)
 		return nil
