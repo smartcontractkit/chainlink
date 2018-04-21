@@ -152,28 +152,6 @@ func TestJSON_Add(t *testing.T) {
 	}
 }
 
-func TestJSON_Keys(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		in   string
-		want []string
-	}{
-		{"empty object", "{}", []string{}},
-		{"ordered", `{"a":1,"b":1,"c":1}`, []string{"a", "b", "c"}},
-		{"unordered", `{"c":1,"a":1,"b":1}`, []string{"a", "b", "c"}},
-		{"duplicates", `{"a":1,"a":1,"b":1}`, []string{"a", "b"}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			j := cltest.JSONFromString(test.in)
-			assert.Equal(t, test.want, j.Keys())
-		})
-	}
-}
-
 func TestJSON_CBOR(t *testing.T) {
 	t.Parallel()
 
@@ -182,24 +160,22 @@ func TestJSON_CBOR(t *testing.T) {
 		in   models.JSON
 		want string
 	}{
-		{"empty object", models.JSON{}, "a0"},
+		{"empty object", models.JSON{}, "f6"},
 		{"hello world",
 			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
 			`a264706174688266726563656e74637573646375726c781a68747470733a2f2f657468657270726963652e636f6d2f617069`},
 		{"complex object",
 			cltest.JSONFromString(`{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
 			`a16161a1613183a161626466726565a16163646d6f7265a1616482646c657373a1676e657374696e67a16134646c696665`},
-		{"unordered keys",
-			cltest.JSONFromString(`{"b":0,"a":0}`),
-			`a26161fb00000000000000006162fb0000000000000000`},
+		{"array", cltest.JSONFromString(`[1,2,3,4]`), `84fb3ff0000000000000fb4000000000000000fb4008000000000000fb4010000000000000`},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cbor, err := test.in.CBOR()
+			bytes, err := test.in.CBOR()
 			assert.Nil(t, err)
 
-			cborHex := hex.EncodeToString(cbor)
+			cborHex := hex.EncodeToString(bytes)
 			assert.Equal(t, test.want, cborHex)
 		})
 	}
