@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"sort"
 	"time"
 
 	"github.com/araddon/dateparse"
@@ -167,31 +166,17 @@ func (j JSON) Add(key string, val interface{}) (JSON, error) {
 	return j.Merge(j2)
 }
 
-// CBOR returns a bytes array of the JSON object encoded to CBOR.
+// CBOR returns a bytes array of the JSON map or array encoded to CBOR.
 func (j JSON) CBOR() ([]byte, error) {
-	m := map[string]interface{}{}
-	for _, key := range j.Keys() {
-		m[key] = j.Get(key).Value()
-	}
-
 	var b []byte
 	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
-	return b, cbor.Encode(m)
-}
 
-// Keys returns an alphebetized slice of strings for
-// all of the top level keys in the JSON.
-func (j JSON) Keys() []string {
-	keys := []string{}
-	j.ForEach(func(k, _ gjson.Result) bool {
-		key := k.String()
-		if !stringExists(key, keys) {
-			keys = append(keys, key)
-		}
-		return true
-	})
-	sort.Strings(keys)
-	return keys
+	switch v := j.Value().(type) {
+	case map[string]interface{}, []interface{}, nil:
+		return b, cbor.Encode(v)
+	default:
+		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
+	}
 }
 
 func stringExists(v string, list []string) bool {
