@@ -3399,9 +3399,9 @@ libnpx@^10.0.1:
     y18n "^4.0.0"
     yargs "^11.0.0"
 
-"linkToken@https://github.com/smartcontractkit/LinkToken":
+"linkToken@github:smartcontractkit/linktoken":
   version "1.0.0"
-  resolved "https://github.com/smartcontractkit/LinkToken#db2b6b58370d1c8fd2f8fb7e55bbc9d1b3db8302"
+  resolved "https://codeload.github.com/smartcontractkit/linktoken/tar.gz/db2b6b58370d1c8fd2f8fb7e55bbc9d1b3db8302"
   dependencies:
     bignumber.js "^2.0.0"
     ganache-cli "^6.1.0"
@@ -5570,15 +5570,11 @@ solc@^0.4.11:
     semver "^5.3.0"
     yargs "^4.7.1"
 
-"solidity-cborutils@https://github.com/smartcontractkit/solidity-cborutils":
+"solidity-cborutils@github:smartcontractkit/solidity-cborutils":
   version "1.0.0"
-  resolved "https://github.com/smartcontractkit/solidity-cborutils#4fe3d337aa8b534a9ab1ee535bedfb63e8b04bb4"
+  resolved "https://codeload.github.com/smartcontractkit/solidity-cborutils/tar.gz/4fe3d337aa8b534a9ab1ee535bedfb63e8b04bb4"
   dependencies:
     cbor ">=4.0.0"
-
-"solidity-stringutils@github:Arachnid/solidity-stringutils":
-  version "0.0.0"
-  resolved "https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4c36b494ded3661fdd2210b56fd6acc27d9a8d2a"
 
 sort-keys@^2.0.0:
   version "2.0.0"
