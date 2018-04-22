@@ -242,14 +242,12 @@ func (orm *ORM) MarkRan(i *Initiator) error {
 		return err
 	}
 
-	if !ir.Ran {
-		ir.Ran = true
-	} else {
+	if ir.Ran {
 		return fmt.Errorf("Job runner: Initiator: %v cannot run more than once", ir.ID)
 	}
 
-	ir.Ran = true
-	if err := dbtx.Save(&ir); err != nil {
+	i.Ran = true
+	if err := dbtx.Save(i); err != nil {
 		return err
 	}
 	return dbtx.Commit()
