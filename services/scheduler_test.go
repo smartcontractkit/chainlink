@@ -263,3 +263,26 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
 	assert.Equal(t, 1, len(jobRuns))
 }
+
+func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	ot := services.OneTime{
+		Clock: store.Clock,
+		Store: store,
+	}
+
+	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
+	j.EndAt = cltest.NullTime("2000-01-01T00:10:00.000Z")
+	assert.Nil(t, store.SaveJob(&j))
+
+	ot.RunJobAt(j.Initiators[0], j)
+
+	var initrs2 []models.Initiator
+	store.Where("JobID", j.ID, &initrs2)
+
+	assert.Equal(t, false, initrs2[0].Ran)
+}
