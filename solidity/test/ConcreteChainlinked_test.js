@@ -25,7 +25,7 @@ contract('ConcreteChainlinked', () => {
         "requestedBytes32(uint256,bytes32)");
 
       assert.equal(1, tx.receipt.logs.length);
-      let [id, jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0]);
+      let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0]);
       let params = await cbor.decodeFirst(cborData);
 
       assert.equal(jobId, jId);
