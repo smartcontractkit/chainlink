@@ -61,19 +61,20 @@ contract('Oracle', () => {
       assert.equal(1, tx.receipt.logs.length)
 
       let log = tx.receipt.logs[0];
-      let eventSignature = "0xaf9f8a8db54550d87fa898afef13596723c796bf6c1f94b0cb7b067de135428f";
+      let eventSignature = "0xd27ce9cd40e3b9de8d013e1c32693550a6f543fec0191156dc826978fffb3f48";
       assert.equal(eventSignature, log.topics[0]);
     });
   });
 
   describe("#fulfillData", () => {
-    let mock;
-    let requestId = "requestId"
+    let mock, requestId;
+    let externalId = "XID";
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");
-      let req = await oc.requestData(1, jobId, mock.address, fHash, requestId, "");
+      let req = await oc.requestData(1, jobId, mock.address, fHash, externalId, "");
+      requestId = req.logs[0].args.id;
     });
 
     context("when the called by a non-owner", () => {
@@ -87,15 +88,15 @@ contract('Oracle', () => {
     context("when called by an owner", () => {
       it("raises an error if the request ID does not exist", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData(requestId + "!", "Hello World!", {from: oracleNode});
+          await oc.fulfillData(requestId + 10000, "Hello World!", {from: oracleNode});
         });
       });
 
       it("sets the value on the requested contract", async () => {
         await oc.fulfillData(requestId, "Hello World!", {from: oracleNode});
 
-        let currentRequestId = await mock.requestId.call();
-        assert.equal(requestId, web3.toUtf8(currentRequestId));
+        let currentExternalId = await mock.requestId.call();
+        assert.equal(externalId.toString(), web3.toUtf8(currentExternalId));
 
         let currentValue = await mock.getBytes32.call();
         assert.equal("Hello World!", web3.toUtf8(currentValue));
