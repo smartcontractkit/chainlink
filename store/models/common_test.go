@@ -1,9 +1,9 @@
 package models_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/ugorji/go/codec"
 )
 
 func Test_ParseCBOR(t *testing.T) {
@@ -158,26 +159,51 @@ func TestJSON_CBOR(t *testing.T) {
 	tests := []struct {
 		name string
 		in   models.JSON
-		want string
 	}{
-		{"empty object", models.JSON{}, "f6"},
-		{"hello world",
+		{"empty object", models.JSON{}},
+		{"array", cltest.JSONFromString(`[1,2,3,4]`)},
+		{
+			"hello world",
 			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-			`a264706174688266726563656e74637573646375726c781a68747470733a2f2f657468657270726963652e636f6d2f617069`},
-		{"complex object",
+		},
+		{
+			"complex object",
 			cltest.JSONFromString(`{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
-			`a16161a1613183a161626466726565a16163646d6f7265a1616482646c657373a1676e657374696e67a16134646c696665`},
-		{"array", cltest.JSONFromString(`[1,2,3,4]`), `84fb3ff0000000000000fb4000000000000000fb4008000000000000fb4010000000000000`},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bytes, err := test.in.CBOR()
+			encoded, err := test.in.CBOR()
 			assert.Nil(t, err)
 
-			cborHex := hex.EncodeToString(bytes)
-			assert.Equal(t, test.want, cborHex)
+			var decoded interface{}
+			cbor := codec.NewDecoderBytes(encoded, new(codec.CborHandle))
+			assert.Nil(t, cbor.Decode(&decoded))
+
+			decoded = coerceInterfaceMapToStringMap(decoded)
+
+			assert.True(t, reflect.DeepEqual(test.in.Value(), decoded))
 		})
+	}
+}
+
+func coerceInterfaceMapToStringMap(in interface{}) interface{} {
+	switch typed := in.(type) {
+	case map[interface{}]interface{}:
+		m := map[string]interface{}{}
+		for k, v := range typed {
+			m[k.(string)] = coerceInterfaceMapToStringMap(v)
+		}
+		return m
+	case []interface{}:
+		r := make([]interface{}, len(typed))
+		for i, v := range typed {
+			r[i] = coerceInterfaceMapToStringMap(v)
+		}
+		return r
+	default:
+		return in
 	}
 }
 
