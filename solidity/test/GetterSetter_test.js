@@ -4,7 +4,7 @@ require('./support/helpers.js')
 
 contract('GetterSetter', () => {
   let GetterSetter = artifacts.require("examples/GetterSetter.sol");
-  let externalId = "0x" + toHex(rPad("5432"));
+  let requestId = "0x" + toHex(rPad("5432"));
   let bytes32 = "Hi Mom!";
   let uint256 = 645746535432;
   let gs;
@@ -32,10 +32,10 @@ contract('GetterSetter', () => {
 
   describe("#requestedBytes32", () => {
     it("updates the request ID and value", async () => {
-      await gs.requestedBytes32(externalId, bytes32, {from: stranger});
+      await gs.requestedBytes32(requestId, bytes32, {from: stranger});
 
-      let currentExternalId = await gs.externalId.call();
-      assert.equal(currentExternalId, externalId);
+      let currentRequestId = await gs.requestId.call();
+      assert.equal(currentRequestId, requestId);
 
       let currentBytes32 = await gs.getBytes32.call();
       assert.equal(web3.toUtf8(currentBytes32), bytes32);
@@ -61,10 +61,10 @@ contract('GetterSetter', () => {
 
   describe("#requestedUint256", () => {
     it("updates the request ID and value", async () => {
-      await gs.requestedUint256(externalId, uint256, {from: stranger});
+      await gs.requestedUint256(requestId, uint256, {from: stranger});
 
-      let currentExternalId = await gs.externalId.call();
-      assert.equal(currentExternalId, externalId);
+      let currentRequestId = await gs.requestId.call();
+      assert.equal(currentRequestId, requestId);
 
       let currentUint256 = await gs.getUint256.call();
       assert.equal(currentUint256, uint256);

@@ -25,6 +25,7 @@ contract Chainlinked {
   ) internal returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
     Buffer.init(run.buf, 128);
+    run.id = keccak256(this, requests++);
     run.jobId = _jobId;
     run.callbackAddress = _callbackAddress;
     run.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
@@ -37,18 +38,17 @@ contract Chainlinked {
     internal
     returns(bytes32)
   {
-    bytes32 externalId = keccak256(this, requests++);
     link.transferAndCall(oracle, 0, abi.encodeWithSelector(
       oracleFid,
       clArgsVersion,
       _run.jobId,
       _run.callbackAddress,
       _run.callbackFunctionId,
-      externalId,
+      _run.id,
       _run.close()
     ));
 
-    return externalId;
+    return _run.id;
   }
 
   function setOracle(address _oracle) internal {
