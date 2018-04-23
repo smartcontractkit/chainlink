@@ -40,7 +40,7 @@ contract('Consumer', () => {
 
     it("has a reasonable gas cost", async () => {
       let tx = await cc.requestEthereumPrice("usd");
-      assert.isBelow(tx.receipt.gasUsed, 120000);
+      assert.isBelow(tx.receipt.gasUsed, 150000);
     });
   });
 
@@ -51,7 +51,7 @@ contract('Consumer', () => {
     beforeEach(async () => {
       await cc.requestEthereumPrice("usd");
       let event = await getLatestEvent(oc);
-      requestId = event.args.id
+      requestId = event.args.id;
     });
 
     it("records the data given to it by the oracle", async () => {
@@ -64,7 +64,7 @@ contract('Consumer', () => {
     context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
         let funcSig = functionSelector("fulfill(bytes32,bytes32)");
-        let reqId = "~weird~Request~ID~";
+        let reqId = 42;
         await oc.requestData(1, jobId, cc.address, funcSig, reqId, "");
         let event = await getLatestEvent(oc);
         requestId = event.args.id;
