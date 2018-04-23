@@ -150,6 +150,7 @@ func (txm *TxManager) handleConfirmed(
 	minConfs := big.NewInt(int64(txm.Config.TxMinConfirmations))
 	rcptBlkNum := big.Int(rcpt.BlockNumber)
 	safeAt := minConfs.Add(&rcptBlkNum, minConfs)
+	safeAt.Sub(safeAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 	if big.NewInt(int64(blkNum)).Cmp(safeAt) == -1 {
 		return false, nil
 	}
