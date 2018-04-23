@@ -4,7 +4,7 @@ pragma solidity ^0.4.23;
 contract GetterSetter {
   bytes32 public getBytes32;
   uint256 public getUint256;
-  bytes32 public externalId;
+  bytes32 public requestId;
 
   event SetBytes32(address indexed from, bytes32 indexed value);
   event SetUint256(address indexed from, uint256 indexed value);
@@ -16,8 +16,8 @@ contract GetterSetter {
     emit SetBytes32(msg.sender, _value);
   }
 
-  function requestedBytes32(bytes32 _externalId, bytes32 _value) public {
-    externalId = _externalId;
+  function requestedBytes32(bytes32 _requestId, bytes32 _value) public {
+    requestId = _requestId;
     setBytes32(_value);
   }
 
@@ -26,8 +26,8 @@ contract GetterSetter {
     emit SetUint256(msg.sender, _value);
   }
 
-  function requestedUint256(bytes32 _externalId, uint256 _value) public {
-    externalId = _externalId;
+  function requestedUint256(bytes32 _requestId, uint256 _value) public {
+    requestId = _requestId;
     setUint256(_value);
   }
 }

@@ -22,15 +22,15 @@ contract('ConcreteChainlinked', () => {
       let tx = await cc.publicNewRun(
         jobId,
         gs.address,
-        "requestedBytes32(bytes32,bytes32)");
+        "requestedBytes32(uint256,bytes32)");
 
       assert.equal(1, tx.receipt.logs.length);
-      let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0]);
+      let [id, jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0]);
       let params = await cbor.decodeFirst(cborData);
 
       assert.equal(jobId, jId);
       assert.equal(gs.address, `0x${cbAddr}`);
-      assert.equal("ed53e511", toHex(cbFId));
+      assert.equal("d67ce1e1", toHex(cbFId));
       assert.deepEqual({}, params);
     });
   });
