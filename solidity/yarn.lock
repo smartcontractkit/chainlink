@@ -6012,9 +6012,9 @@ solc@0.4.23, solc@^0.4.11:
     semver "^5.3.0"
     yargs "^4.7.1"
 
-"solidity-cborutils@https://github.com/smartcontractkit/solidity-cborutils":
+"solidity-cborutils@github:smartcontractkit/solidity-cborutils":
   version "1.0.0"
-  resolved "https://github.com/smartcontractkit/solidity-cborutils#4fe3d337aa8b534a9ab1ee535bedfb63e8b04bb4"
+  resolved "https://codeload.github.com/smartcontractkit/solidity-cborutils/tar.gz/4fe3d337aa8b534a9ab1ee535bedfb63e8b04bb4"
   dependencies:
     cbor ">=4.0.0"
 
