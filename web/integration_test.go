@@ -57,7 +57,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
-	safe := confirmed + config.TxMinConfirmations
+	safe := confirmed + config.TxMinConfirmations - 1
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", hash)
@@ -88,7 +88,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.BigHexInt(confirmed),
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23466
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
