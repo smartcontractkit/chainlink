@@ -67,7 +67,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestEthTxAdapter_Perform_FromPendingConfirmations(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -134,7 +134,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestEthTxAdapter_Perform_FromPendingConfirmations_Confirm(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -150,7 +150,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_Confirm(t *testing.T) {
 		Hash:        cltest.NewHash(),
 		BlockNumber: cltest.BigHexInt(sentAt),
 	})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.TxMinConfirmations))
+	confirmedAt := sentAt + config.TxMinConfirmations - 1 // confirmations are 0-based idx
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.Save(tx))
@@ -165,7 +166,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_Confirm(t *testing.T) {
 
 	output := adapter.Perform(input, store)
 
-	assert.False(t, output.Status.PendingConfirmations())
+	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
 
 	assert.Nil(t, store.One("ID", tx.ID, tx))
