@@ -3,7 +3,7 @@ pragma solidity ^0.4.23;
 import "../Chainlinked.sol";
 
 contract Consumer is Chainlinked {
-  bytes32 internal externalId;
+  bytes32 internal requestId;
   bytes32 public currentPrice;
 
   function Consumer(address _link, address _oracle)
@@ -22,19 +22,19 @@ contract Consumer is Chainlinked {
     path[0] = "recent";
     path[1] = _currency;
     run.addStringArray("path", path);
-    externalId = chainlinkRequest(run);
+    requestId = chainlinkRequest(run);
   }
 
-  function fulfill(bytes32 _externalId, bytes32 _data)
+  function fulfill(bytes32 _requestId, bytes32 _data)
     public
     onlyOracle
-    checkRequestId(_externalId)
+    checkRequestId(_requestId)
   {
     currentPrice = _data;
   }
 
-  modifier checkRequestId(bytes32 _externalId) {
-    require(externalId == _externalId);
+  modifier checkRequestId(bytes32 _requestId) {
+    require(requestId == _requestId);
     _;
   }
 
