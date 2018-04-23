@@ -1,8 +1,11 @@
 pragma solidity ^0.4.23;
 
 import "zeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./LinkToken.sol";
 
 contract Oracle is Ownable {
+
+  LinkToken internal LINK;
 
   struct Callback {
     bytes32 externalId;
@@ -20,7 +23,20 @@ contract Oracle is Ownable {
     bytes data
   );
 
-  function onTokenTransfer(address _sender, uint _amount, bytes _data)
+  function Oracle(
+    address _link
+  )
+    Ownable()
+    public
+  {
+    LINK = LinkToken(_link);
+  }
+
+  function onTokenTransfer(
+    address _sender,
+    uint256 _amount,
+    bytes _data
+  )
     public
   {
     if (_data.length > 0) {
@@ -46,7 +62,10 @@ contract Oracle is Ownable {
     emit RunRequest(currentInternalId, _jobId, _version, _data);
   }
 
-  function fulfillData(uint256 _internalId, bytes32 _data)
+  function fulfillData(
+    uint256 _internalId,
+    bytes32 _data
+  )
     public
     onlyOwner
     hasInternalId(_internalId)
@@ -57,8 +76,13 @@ contract Oracle is Ownable {
   }
 
 
-  modifier hasInternalId(uint256 _internalId) {
+  // MODIFIERS
+
+  modifier hasInternalId(
+    uint256 _internalId
+  ) {
     require(callbacks[_internalId].addr != address(0));
     _;
   }
+
 }
