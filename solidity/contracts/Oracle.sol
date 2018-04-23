@@ -10,7 +10,7 @@ contract Oracle is Ownable {
     bytes4 functionId;
   }
 
-  uint256 private requestId = 1;
+  uint256 private currentInternalId = 1;
   mapping(uint256 => Callback) private callbacks;
 
   event RunRequest(
@@ -19,6 +19,14 @@ contract Oracle is Ownable {
     uint256 version,
     bytes data
   );
+
+  function onTokenTransfer(address _sender, uint _amount, bytes _data)
+    public
+  {
+    if (_data.length > 0) {
+      require(address(this).delegatecall(_data)); // calls requestData
+    }
+  }
 
   function requestData(
     uint256 _version,
@@ -30,34 +38,27 @@ contract Oracle is Ownable {
   )
     public
   {
-    requestId += 1;
-    callbacks[requestId] = Callback(
+    currentInternalId += 1;
+    callbacks[currentInternalId] = Callback(
       _externalId,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(requestId, _jobId, _version, _data);
+    emit RunRequest(currentInternalId, _jobId, _version, _data);
   }
 
-  function fulfillData(uint256 _requestId, bytes32 _data)
+  function fulfillData(uint256 _internalId, bytes32 _data)
     public
     onlyOwner
-    hasRequestId(_requestId)
+    hasInternalId(_internalId)
   {
-    Callback memory callback = callbacks[_requestId];
+    Callback memory callback = callbacks[_internalId];
     require(callback.addr.call(callback.functionId, callback.externalId, _data));
-    delete callbacks[_requestId];
+    delete callbacks[_internalId];
   }
 
-  function onTokenTransfer(address _sender, uint _amount, bytes _data)
-    public
-  {
-    if (_data.length > 0) {
-      require(address(this).delegatecall(_data));
-    }
-  }
 
-  modifier hasRequestId(uint256 _requestId) {
-    require(callbacks[_requestId].addr != address(0));
+  modifier hasInternalId(uint256 _internalId) {
+    require(callbacks[_internalId].addr != address(0));
     _;
   }
 }
