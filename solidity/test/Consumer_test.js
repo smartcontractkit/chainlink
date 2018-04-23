@@ -11,7 +11,7 @@ contract('Consumer', () => {
 
   beforeEach(async () => {
     link = await Link.new();
-    oc = await Oracle.new({from: oracleNode});
+    oc = await Oracle.new(link.address, {from: oracleNode});
     cc = await Consumer.new(link.address, oc.address, {from: stranger});
   });
 

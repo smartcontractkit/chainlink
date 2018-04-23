@@ -12,7 +12,7 @@ contract('ConcreteChainlinked', () => {
 
   beforeEach(async () => {
     link = await Link.new();
-    oc = await Oracle.new();
+    oc = await Oracle.new(link.address);
     gs = await GetterSetter.new();
     cc = await Chainlinked.new(link.address, oc.address);
   });

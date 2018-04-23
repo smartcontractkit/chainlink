@@ -4,14 +4,16 @@ require('./support/helpers.js')
 
 contract('Oracle', () => {
   let Oracle = artifacts.require("Oracle.sol");
+  let LinkToken = artifacts.require("LinkToken.sol");
   let GetterSetter = artifacts.require("examples/GetterSetter.sol");
   let fHash = "0x12345678";
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
   let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
-  let oc;
+  let link, oc;
 
   beforeEach(async () => {
-    oc = await Oracle.new({from: oracleNode});
+    link = await LinkToken.new();
+    oc = await Oracle.new(link.address, {from: oracleNode});
   });
 
   it("has a limited public interface", () => {
