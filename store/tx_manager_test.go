@@ -118,7 +118,7 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 	defer configCleanup()
 
 	sentAt := uint64(1)
-	confirmedAt := uint64(2)
+	receiptAt := uint64(2)
 	config.TxMinConfirmations = 2
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
@@ -133,10 +133,10 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 		currentHeight uint64
 		want          bool
 	}{
-		{"less than min confs", 3, false},
-		{"equal min confs", 4, true},
-		{"1 greater than min confs", 5, true},
-		{"2 greater than min confs", 6, true},
+		{"less than min confs", 2, false},
+		{"equal min confs", 3, true},
+		{"1 greater than min confs", 4, true},
+		{"2 greater than min confs", 5, true},
 	}
 
 	for _, test := range tests {
@@ -144,7 +144,7 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 			ethMock := app.MockEthClient()
 			confirmationReceipt := strpkg.TxReceipt{
 				Hash:        cltest.NewHash(),
-				BlockNumber: cltest.BigHexInt(confirmedAt),
+				BlockNumber: cltest.BigHexInt(receiptAt),
 			}
 			ethMock.Register("eth_getTransactionReceipt", confirmationReceipt)
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.currentHeight))
