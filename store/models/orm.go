@@ -97,18 +97,18 @@ func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 func (orm *ORM) SaveJob(job *JobSpec) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
-		return err
+		return fmt.Errorf("error starting transaction: %+v", err)
 	}
 	defer tx.Rollback()
 
 	for i := range job.Initiators {
 		job.Initiators[i].JobID = job.ID
 		if err := tx.Save(&job.Initiators[i]); err != nil {
-			return err
+			return fmt.Errorf("error saving Job Initiators: %+v", err)
 		}
 	}
 	if err := tx.Save(job); err != nil {
-		return err
+		return fmt.Errorf("error saving job: %+v", err)
 	}
 	return tx.Commit()
 }
