@@ -71,7 +71,6 @@ func Run(client *cmd.Client, args ...string) {
 		},
 		{
 			Name:    "backup",
-			Aliases: []string{"b"},
 			Usage:   "Backup the database of the running node",
 			Action:  client.BackupDatabase,
 		},
@@ -82,10 +81,10 @@ func Run(client *cmd.Client, args ...string) {
 			Action:  client.ImportKey,
 		},
 		{
-			Name:    "adapter",
-			Aliases: []string{"a"},
-			Usage:   "Add a new bridge to an external adapter",
-			Action:  client.AddAdapter,
+			Name:    "bridge",
+			Aliases: []string{"b"},
+			Usage:   "Add a new bridge to the node",
+			Action:  client.AddBridge,
 		},
 	}
 	app.Run(args)
