@@ -37,7 +37,7 @@ contract UptimeSLA is Chainlinked {
     path[2] = "attributes";
     path[3] = "calculation";
     run.addStringArray("path", path);
-    externalId = chainlinkRequest(run);
+    externalId = chainlinkRequest(run, 1000000000000000);
   }
 
   function report(bytes32 _externalId, uint256 _uptime)

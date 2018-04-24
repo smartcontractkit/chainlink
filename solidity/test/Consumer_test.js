@@ -21,26 +21,40 @@ contract('Consumer', () => {
   });
 
   describe("#requestEthereumPrice", () => {
-    it("triggers a log event in the Oracle contract", async () => {
-      let tx = await cc.requestEthereumPrice("usd");
-      let log = tx.receipt.logs[2];
-      assert.equal(log.address, oc.address);
-
-      let [id, jId, ver, cborData] = decodeRunRequest(log);
-      let params = await cbor.decodeFirst(cborData);
-      let expected = {
-        "path":["recent", "usd"],
-        "url":"https://etherprice.com/api"
-      };
-
-      assert.equal(`0x${toHex(rPad("someJobId"))}`, jId);
-      assert.equal(1, ver);
-      assert.deepEqual(expected, params);
+    context("without LINK", () => {
+      it("reverts", async () => {
+        await assertActionThrows(async () => {
+          await cc.requestEthereumPrice("usd");
+        });
+      });
     });
 
-    it("has a reasonable gas cost", async () => {
-      let tx = await cc.requestEthereumPrice("usd");
-      assert.isBelow(tx.receipt.gasUsed, 150000);
+    context("with LINK", () => {
+      beforeEach(async () => {
+        await link.transfer(cc.address, toWei(1));
+      });
+
+      it("triggers a log event in the Oracle contract", async () => {
+        let tx = await cc.requestEthereumPrice("usd");
+        let log = tx.receipt.logs[2];
+        assert.equal(log.address, oc.address);
+
+        let [id, jId, ver, cborData] = decodeRunRequest(log);
+        let params = await cbor.decodeFirst(cborData);
+        let expected = {
+          "path":["recent", "usd"],
+          "url":"https://etherprice.com/api"
+        };
+
+        assert.equal(`0x${toHex(rPad("someJobId"))}`, jId);
+        assert.equal(1, ver);
+        assert.deepEqual(expected, params);
+      });
+
+      it("has a reasonable gas cost", async () => {
+        let tx = await cc.requestEthereumPrice("usd");
+        assert.isBelow(tx.receipt.gasUsed, 190000);
+      });
     });
   });
 
@@ -49,6 +63,7 @@ contract('Consumer', () => {
     let requestId;
 
     beforeEach(async () => {
+      await link.transfer(cc.address, toWei(1));
       await cc.requestEthereumPrice("usd");
       let event = await getLatestEvent(oc);
       requestId = event.args.id;

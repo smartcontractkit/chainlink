@@ -22,7 +22,7 @@ contract Consumer is Chainlinked {
     path[0] = "recent";
     path[1] = _currency;
     run.addStringArray("path", path);
-    requestId = chainlinkRequest(run);
+    requestId = chainlinkRequest(run, 1000000000000000);
   }
 
   function fulfill(bytes32 _requestId, bytes32 _data)

@@ -33,20 +33,20 @@ contract Chainlinked {
     return run;
   }
 
-  function chainlinkRequest(ChainlinkLib.Run memory _run)
+  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _wei)
     internal
     returns(bytes32)
   {
     bytes32 requestId = keccak256(this, requests++);
-    link.transferAndCall(oracle, 0, abi.encodeWithSelector(
+    bytes memory requestDataABI = abi.encodeWithSelector(
       oracleFid,
       clArgsVersion,
       _run.jobId,
       _run.callbackAddress,
       _run.callbackFunctionId,
       requestId,
-      _run.close()
-    ));
+      _run.close());
+    link.transferAndCall(oracle, _wei, requestDataABI);
 
     return requestId;
   }
