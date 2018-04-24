@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
@@ -11,38 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
-const (
-	// PaginationDefault is the number of records to supply from a paginated
-	// request when no size param is supplied.
-	PaginationDefault = 20
-)
-
 // JobSpecsController manages JobSpec requests.
 type JobSpecsController struct {
 	App *services.ChainlinkApplication
-}
-
-// ParsePaginatedRequest parses the parameters that control pagination for a
-// collection request, returning the size and offset if specified, or a
-// sensible default.
-func ParsePaginatedRequest(sizeParam, offsetParam string) (int, int, error) {
-	var err error
-	var offset int
-	size := PaginationDefault
-
-	if sizeParam != "" {
-		if size, err = strconv.Atoi(sizeParam); err != nil {
-			return 0, 0, fmt.Errorf("invalid size param, error: %+v", err)
-		}
-	}
-
-	if offsetParam != "" {
-		if offset, err = strconv.Atoi(offsetParam); err != nil {
-			return 0, 0, fmt.Errorf("invalid offset param, error: %+v", err)
-		}
-	}
-
-	return size, offset, nil
 }
 
 // Index lists JobSpecs, one page at a time.
@@ -72,7 +42,15 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 		for i, j := range jobs {
 			pjs[i] = presenters.JobSpec{JobSpec: j}
 		}
-		c.JSON(200, presenters.NewHALResponse(c.Request.URL.Path, size, offset, count, pjs))
+
+		buffer, err := NewPaginatedResponse(c.Request.URL.Path, size, offset, count, pjs)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
+			})
+		} else {
+			c.Data(200, MediaType, buffer)
+		}
 	}
 }
 

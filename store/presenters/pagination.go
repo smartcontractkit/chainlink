@@ -1,46 +1,31 @@
 package presenters
 
-import "fmt"
+import (
+	"encoding/json"
 
-// HALResource is a wrapper for any collection of resources that is paginated.
-type HALResource struct {
-	Data  interface{} `json:"data"`
-	Links Links       `json:"_links"`
+	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/store/models"
+)
+
+type JobSpecsDocument struct {
+	Data []models.JobSpec
+	jsonapi.Links
 }
 
-// Links refers to the relations to the currently returned record in HAL spec.
-type Links struct {
-	Next *Ref `json:"next,omitempty"`
-	Self *Ref `json:"self,omitempty"`
-	Prev *Ref `json:"prev,omitempty"`
-}
-
-// Ref is a HAL JSON structure for a link
-type Ref struct {
-	Href string `json:"href"`
-}
-
-// NewPaginatedResponse returns a HALResource with links to next and previous collection pages
-func NewHALResponse(path string, size, offset, count int, resource interface{}) *HALResource {
-	var next *Ref
-	var prev *Ref
-
-	if count > size {
-		if offset+size < count {
-			nextURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset+size)
-			next = &Ref{Href: nextURI}
-		}
-		if offset > 0 {
-			prevURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset-size)
-			prev = &Ref{Href: prevURI}
-		}
+func (js *JobSpecsDocument) UnmarshalJSON(input []byte) error {
+	// First unmarshal using the jsonAPI into the JobSpec slice, as is api2go will discard the links
+	err := jsonapi.Unmarshal(input, &js.Data)
+	if err != nil {
+		return err
 	}
 
-	return &HALResource{
-		Data: resource,
-		Links: Links{
-			Next: next,
-			Prev: prev,
-		},
+	// Unmarshal using the stdlib Unmarshal to extract the Links part of the document
+	document := jsonapi.Document{}
+	err = json.Unmarshal(input, &document)
+	if err != nil {
+		return err
 	}
+	js.Links = document.Links
+
+	return nil
 }
