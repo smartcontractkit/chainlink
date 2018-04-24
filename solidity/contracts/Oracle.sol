@@ -9,11 +9,18 @@ contract Oracle is Ownable {
 
   struct Callback {
     bytes32 externalId;
+    uint256 amount;
     address addr;
     bytes4 functionId;
   }
 
-  uint256 private currentInternalId = 1;
+  // We initialize fields to 1 instead of 0 so that the first invocation
+  // does not take a higher cost.
+  uint256 constant private consistentGasCostInitializer = 1;
+  uint256 private currentInternalId = consistentGasCostInitializer;
+  uint256 private currentAmount = consistentGasCostInitializer;
+  uint256 private withdrawableWei = consistentGasCostInitializer;
+
   mapping(uint256 => Callback) private callbacks;
 
   event RunRequest(
@@ -27,15 +34,11 @@ contract Oracle is Ownable {
     LINK = LinkToken(_link);
   }
 
-  function onTokenTransfer(
-    address _sender,
-    uint256 _amount,
-    bytes _data
-  )
-    public
-    onlyLINK
+  function onTokenTransfer(address _sender, uint _wei, bytes _data)
+    public onlyLINK
   {
     if (_data.length > 0) {
+      currentAmount = _wei;
       require(address(this).delegatecall(_data)); // calls requestData
     }
   }
@@ -54,6 +57,7 @@ contract Oracle is Ownable {
     currentInternalId += 1;
     callbacks[currentInternalId] = Callback(
       _externalId,
+      currentAmount,
       _callbackAddress,
       _callbackFunctionId);
     emit RunRequest(currentInternalId, _jobId, _version, _data);
@@ -69,9 +73,14 @@ contract Oracle is Ownable {
   {
     Callback memory callback = callbacks[_internalId];
     require(callback.addr.call(callback.functionId, callback.externalId, _data));
+    withdrawableWei += callback.amount;
     delete callbacks[_internalId];
   }
 
+  function withdraw() public onlyOwner {
+    LINK.transfer(owner, withdrawableWei - consistentGasCostInitializer);
+    withdrawableWei = consistentGasCostInitializer;
+  }
 
   // MODIFIERS
 
