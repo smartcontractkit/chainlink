@@ -54,7 +54,6 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x0100`) // for TxManager#ActivateAccount
-	eth.Register("eth_getTransactionCount", `0x0100`) // for TxManager#CreateTx
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
@@ -393,4 +392,47 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	val, err := jr.Result.Value()
 	assert.Nil(t, err)
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
+}
+
+func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/web_initiated_eth_tx_job.json")
+
+	eth := app.MockEthClient()
+	eth.Register("eth_getTransactionCount", `0x0100`) // activate account nonce
+	app.Start()
+
+	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
+		hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(blockNumber))
+		eth.Register("eth_sendRawTransaction", hash)
+
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+			Hash:        hash,
+			BlockNumber: cltest.BigHexInt(blockNumber),
+		})
+		confirmedBlockNumber := blockNumber + app.Store.Config.TxMinConfirmations
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))
+
+		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"0x11"}`)
+		jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+
+		txHashString, err := jr.Result.Value()
+		txHash := common.HexToHash(txHashString)
+		assert.Nil(t, err)
+		attempt := &models.TxAttempt{}
+		err = app.Store.One("Hash", txHash, attempt)
+		assert.Nil(t, err)
+		var tx models.Tx
+		err = app.Store.One("ID", attempt.TxID, &tx)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedNonce, tx.Nonce)
+	}
+
+	createCompletedJobRun(100, uint64(0x0100))
+	createCompletedJobRun(200, uint64(0x0101))
 }
