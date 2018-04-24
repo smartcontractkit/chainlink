@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -87,10 +88,11 @@ func jobRowToStrings(job models.JobSpec) []string {
 
 func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Name", "URL"})
+	table.SetHeader([]string{"Name", "URL", "DefaultConfirmations"})
 	table.Append([]string{
 		bridge.Name,
 		bridge.URL.String(),
+		strconv.FormatUint(bridge.DefaultConfirmations, 10),
 	})
 	render("Bridge", table)
 	return nil
