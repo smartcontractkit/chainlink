@@ -220,4 +220,16 @@ util = require('ethereumjs-util');
     return "0x" + randomHex(40);
   };
 
+  requestDataBytes = function requestDataBytes(jobId, to, fHash, runId, data) {
+    let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
+    let values = [1, jobId, to, fHash, runId, data];
+    let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
+    let encoded = abi.rawEncode(types, values);
+    return funcSelector + encoded.toString("hex");
+  };
+
+  requestDataFrom = function requestDataFrom(oc, link, amount, args) {
+    return link.transferAndCall(oc.address, amount, args);
+  };
+
 })();
