@@ -89,12 +89,12 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &job)
 }
 
-func (cli *Client) getPageOfJobSpecs(requestURI string, jobs *[]models.JobSpec, links *jsonapi.Links) error {
+func (cli *Client) getPageOfJobSpecs(requestURI string, offset int, jobs *[]models.JobSpec, links *jsonapi.Links) error {
 	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
-		requestURI,
+		requestURI+fmt.Sprintf("?offset=%d", offset),
 	)
 	if err != nil {
 		return cli.errorOut(err)
@@ -108,22 +108,19 @@ func (cli *Client) getPageOfJobSpecs(requestURI string, jobs *[]models.JobSpec, 
 func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
 	requestURI := cfg.ClientNodeURL + "/v2/specs"
-	var allJobs []models.JobSpec
-	for {
-		var links jsonapi.Links
-		var jobs []models.JobSpec
-		err := cli.getPageOfJobSpecs(requestURI, &jobs, &links)
-		if err != nil {
-			return err
-		}
-		allJobs = append(allJobs, jobs...)
 
-		if links["next"].Href == "" {
-			break
-		}
-		requestURI = cfg.ClientNodeURL + links["next"].Href
+	offset := 0
+	if c != nil && c.IsSet("page") {
+		offset = c.Int("page") - 1
 	}
-	return cli.errorOut(cli.Render(&allJobs))
+
+	var links jsonapi.Links
+	var jobs []models.JobSpec
+	err := cli.getPageOfJobSpecs(requestURI, offset, &jobs, &links)
+	if err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&jobs))
 }
 
 // CreateJobSpec creates job spec based on JSON input
