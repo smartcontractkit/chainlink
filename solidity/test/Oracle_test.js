@@ -48,6 +48,27 @@ contract('Oracle', () => {
     });
   });
 
+  describe("#onTokenTransfer", () => {
+    context("when called from the LINK token", () => {
+      it("triggers the intended method", async () => {
+        let callData = requestDataBytes(jobId, to, fHash, "id", "");
+
+        let tx = await link.transferAndCall(oc.address, 0, callData);
+        assert.equal(3, tx.receipt.logs.length)
+      });
+    });
+
+    context("when called from any address but the LINK token", () => {
+      it("triggers the intended method", async () => {
+        let callData = requestDataBytes(jobId, to, fHash, "id", "");
+
+        await assertActionThrows(async () => {
+          let tx = await oc.onTokenTransfer(oracleNode, 0, callData);
+        });
+      });
+    });
+  });
+
   describe("#requestData", () => {
     it("logs an event", async () => {
       let tx = await oc.requestData(1, jobId, to, fHash, "id", "");

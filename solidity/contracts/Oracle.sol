@@ -38,6 +38,7 @@ contract Oracle is Ownable {
     bytes _data
   )
     public
+    onlyLINK
   {
     if (_data.length > 0) {
       require(address(this).delegatecall(_data)); // calls requestData
@@ -82,6 +83,11 @@ contract Oracle is Ownable {
     uint256 _internalId
   ) {
     require(callbacks[_internalId].addr != address(0));
+    _;
+  }
+
+  modifier onlyLINK() {
+    require(msg.sender == address(LINK));
     _;
   }
 
