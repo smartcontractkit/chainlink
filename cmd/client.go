@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
@@ -88,36 +89,41 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &job)
 }
 
+func (cli *Client) getPageOfJobSpecs(requestURI string, jobs *[]models.JobSpec, links *jsonapi.Links) error {
+	cfg := cli.Config
+	resp, err := utils.BasicAuthGet(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		requestURI,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.deserializeAPIResponse(resp, jobs, links)
+}
+
 // GetJobSpecs returns all job specs.
 func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
-
-	requestURL := cfg.ClientNodeURL + "/v2/specs"
-	var jobs []models.JobSpec
+	requestURI := cfg.ClientNodeURL + "/v2/specs"
+	var allJobs []models.JobSpec
 	for {
-		resp, err := utils.BasicAuthGet(
-			cfg.BasicAuthUsername,
-			cfg.BasicAuthPassword,
-			requestURL,
-		)
-		if err != nil {
-			return cli.errorOut(err)
-		}
-		defer resp.Body.Close()
-
-		document := presenters.JobSpecsDocument{}
-		err = cli.deserializeResponse(resp, &document)
+		var links jsonapi.Links
+		var jobs []models.JobSpec
+		err := cli.getPageOfJobSpecs(requestURI, &jobs, &links)
 		if err != nil {
 			return err
 		}
-		jobs = append(jobs, document.Data...)
+		allJobs = append(allJobs, jobs...)
 
-		if document.Links["next"].Href == "" {
+		if links["next"].Href == "" {
 			break
 		}
-		requestURL = cfg.ClientNodeURL + document.Links["next"].Href
+		requestURI = cfg.ClientNodeURL + links["next"].Href
 	}
-	return cli.errorOut(cli.Render(&jobs))
+	return cli.errorOut(cli.Render(&allJobs))
 }
 
 // CreateJobSpec creates job spec based on JSON input
@@ -280,6 +286,21 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 		return nil, err
 	}
 	return bytes.NewBuffer(file), nil
+}
+
+// deserializeAPIResponse is distinct from deserializeResponse in that it supports JSONAPI responses with Links
+func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
+	if resp.StatusCode >= 400 {
+		return cli.errorOut(errors.New(resp.Status))
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if err = web.ParsePaginatedResponse(b, dst, links); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
 }
 
 func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {

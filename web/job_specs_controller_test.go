@@ -7,10 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,26 +43,26 @@ func TestJobSpecsController_Index(t *testing.T) {
 	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=1")
 	cltest.AssertServerResponse(t, resp, 200)
 
-	document := presenters.JobSpecsDocument{}
-	err = json.Unmarshal(cltest.ParseResponseBody(resp), &document)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, document.Links["next"].Href)
-	assert.Empty(t, document.Links["prev"].Href)
+	var links jsonapi.Links
+	jobs := []models.JobSpec{}
 
-	jobs := document.Data
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &jobs, &links)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, links["next"].Href)
+	assert.Empty(t, links["prev"].Href)
+
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
 
-	resp = cltest.BasicAuthGet(app.Server.URL + document.Links["next"].Href)
+	resp = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	document = presenters.JobSpecsDocument{}
-	err = json.Unmarshal(cltest.ParseResponseBody(resp), &document)
+	jobs = []models.JobSpec{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &jobs, &links)
 	assert.NoError(t, err)
-	assert.Empty(t, document.Links["next"])
-	assert.NotEmpty(t, document.Links["prev"])
+	assert.Empty(t, links["next"])
+	assert.NotEmpty(t, links["prev"])
 
-	jobs = document.Data
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, models.InitiatorWeb, jobs[0].Initiators[0].Type, "should have the same type")
 	assert.NotEqual(t, true, jobs[0].Initiators[0].Ran, "should ignore fields for other initiators")

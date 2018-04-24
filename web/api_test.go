@@ -3,6 +3,7 @@ package web
 import (
 	"testing"
 
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,6 +48,10 @@ func (r TestResource) GetID() string {
 	return "1"
 }
 
+func (r *TestResource) SetID(value string) error {
+	return nil
+}
+
 func TestApi_NewPaginatedResponse(t *testing.T) {
 	var buffer []byte
 	var err error
@@ -76,4 +81,21 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 	buffer, err = NewPaginatedResponse("/v2/index", 1, 2, 3, resources)
 	assert.NoError(t, err)
 	assert.Equal(t, `{"links":{"prev":"/v2/index?size=1\u0026offset=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`, string(buffer))
+}
+
+func TestPagination_ParsePaginatedResponse(t *testing.T) {
+	var docs []TestResource
+	var links jsonapi.Links
+
+	err := ParsePaginatedResponse([]byte(`{"data":[{"type":"testResources","id":"1","attributes":{"Title":"album 1"}}]}`), &docs, &links)
+	assert.NoError(t, err)
+	assert.Equal(t, "album 1", docs[0].Title)
+
+	// Typo in "type"
+	err = ParsePaginatedResponse([]byte(`{"data":[{"type":"testNotResources","id":"1","attributes":{}}]}`), &docs, &links)
+	assert.Error(t, err)
+
+	// Typo in "links"
+	err = ParsePaginatedResponse([]byte(`{"links":[],"data":[{"type":"testResources","id":"1","attributes":{}}]}`), &docs, &links)
+	assert.Error(t, err)
 }

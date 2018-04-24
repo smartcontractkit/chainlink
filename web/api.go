@@ -16,7 +16,11 @@ const (
 	// MediaType is the response header for JSONAPI documents.
 	MediaType = "application/vnd.api+json"
 
-	KeyNextLink     = "next"
+	// KeyNextLink is the name of the key that contains the HREF for the next
+	// document in a paginated response.
+	KeyNextLink = "next"
+	// KeyPreviousLink is the name of the key that contains the HREF for the
+	// previous document in a paginated response.
 	KeyPreviousLink = "prev"
 )
 
@@ -43,7 +47,17 @@ func ParsePaginatedRequest(sizeParam, offsetParam string) (int, int, error) {
 	return size, offset, nil
 }
 
-// NewPaginatedResponse returns a HALResource with links to next and previous collection pages
+func nextLink(path string, size, offset int) jsonapi.Link {
+	nextURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset+size)
+	return jsonapi.Link{Href: nextURI}
+}
+
+func prevLink(path string, size, offset int) jsonapi.Link {
+	prevURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset-size)
+	return jsonapi.Link{Href: prevURI}
+}
+
+// NewPaginatedResponse returns a jsonapi.Document with links to next and previous collection pages
 func NewPaginatedResponse(path string, size, offset, count int, resource interface{}) ([]byte, error) {
 	document, err := jsonapi.MarshalToStruct(resource, nil)
 	if err != nil {
@@ -53,14 +67,32 @@ func NewPaginatedResponse(path string, size, offset, count int, resource interfa
 	document.Links = make(jsonapi.Links)
 	if count > size {
 		if offset+size < count {
-			nextURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset+size)
-			document.Links["next"] = jsonapi.Link{Href: nextURI}
+			document.Links[KeyNextLink] = nextLink(path, size, offset)
 		}
 		if offset > 0 {
-			prevURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset-size)
-			document.Links["prev"] = jsonapi.Link{Href: prevURI}
+			document.Links[KeyPreviousLink] = prevLink(path, size, offset)
 		}
 	}
 
 	return json.Marshal(document)
+}
+
+// ParsePaginatedResponse parse a JSONAPI response
+func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
+	// First unmarshal using the jsonAPI into the Resource, whatever it may be,
+	// as is api2go will discard the links
+	err := jsonapi.Unmarshal(input, resource)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal Data record: %+v", err)
+	}
+
+	// Unmarshal using the stdlib Unmarshal to extract the Links part of the document
+	document := jsonapi.Document{}
+	err = json.Unmarshal(input, &document)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal Links: %+v", err)
+	}
+	*links = document.Links
+
+	return nil
 }
