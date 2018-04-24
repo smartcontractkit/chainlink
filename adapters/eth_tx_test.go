@@ -28,6 +28,8 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
@@ -187,15 +189,17 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 
 	store := app.Store
 	ethMock := app.MockEthClient()
-	ethMock.RegisterError("eth_getTransactionCount", "Cannot connect to nodes")
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
 	input := cltest.RunResultWithValue("")
+	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
-	assert.Equal(t, output.Error(), "Cannot connect to nodes")
+	assert.Equal(t, "Cannot connect to nodes", output.Error())
 }

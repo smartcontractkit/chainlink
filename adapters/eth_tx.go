@@ -42,12 +42,12 @@ func createTxRunResult(
 		return input.WithError(err)
 	}
 
-	attempt, err := store.TxManager.CreateTx(e.Address, data)
+	tx, err := store.TxManager.CreateTx(e.Address, data)
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	sendResult := input.WithValue(attempt.Hash.String())
+	sendResult := input.WithValue(tx.Hash.String())
 	return ensureTxRunResult(sendResult, store)
 }
 
