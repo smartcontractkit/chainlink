@@ -64,8 +64,8 @@ contract('Consumer', () => {
     context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
         let funcSig = functionSelector("fulfill(bytes32,bytes32)");
-        let reqId = 42;
-        await oc.requestData(1, jobId, cc.address, funcSig, reqId, "");
+        let args = requestDataBytes(jobId, cc.address, funcSig, 42, "");
+        await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
         requestId = event.args.id;
       });

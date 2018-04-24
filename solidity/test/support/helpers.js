@@ -239,14 +239,14 @@ cbor = require("cbor");
     let runABI = util.toBuffer(log.data);
     let types = ["bytes32", "address", "bytes4", "bytes"];
     return abi.rawDecode(types, runABI);
-  }
+  };
 
   decodeRunRequest = function decodeRunRequest(log) {
     let runABI = util.toBuffer(log.data);
     let types = ["uint256", "bytes"];
     let [version, data] = abi.rawDecode(types, runABI);
     return [log.topics[1], log.topics[2], version, data];
-  }
+  };
 
   requestDataBytes = function requestDataBytes(jobId, to, fHash, runId, data) {
     let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
@@ -254,6 +254,10 @@ cbor = require("cbor");
     let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
     let encoded = abi.rawEncode(types, values);
     return funcSelector + encoded.toString("hex");
-  }
+  };
+
+  requestDataFrom = function requestDataFrom(oc, link, amount, args) {
+    return link.transferAndCall(oc.address, amount, args);
+  };
 
 })();
