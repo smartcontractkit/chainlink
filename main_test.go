@@ -38,9 +38,9 @@ func ExampleRun() {
 	//      show, s                   Show a specific job
 	//      create, c                 Create job spec from JSON
 	//      run, r                    Begin job run for specid
-	//      backup, b                 Backup the database of the running node
+	//      backup                    Backup the database of the running node
 	//      import, i                 Import a key file to use with the node
-	//      adapter, a                Add a new bridge to an external adapter
+	//      bridge, b                 Add a new bridge to the node
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
