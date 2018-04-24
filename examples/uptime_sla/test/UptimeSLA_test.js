@@ -14,7 +14,7 @@ contract('UptimeSLA', () => {
     client = newAddress()
     serviceProvider = newAddress();
     link = await Link.new();
-    oc = await Oracle.new({from: oracleNode});
+    oc = await Oracle.new(link.address, {from: oracleNode});
     sla = await SLA.new(client, serviceProvider, link.address, oc.address, jobId, {
       value: deposit
     });
@@ -97,13 +97,10 @@ contract('UptimeSLA', () => {
 
     context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
-        await oc.requestData(
-          1,
-          jobId,
-          sla.address,
-          functionSelector("fulfill(uint256,bytes32)"),
-          "externalId",
-          "");
+
+        let fid = functionSelector("fulfill(uint256,bytes32)");
+        let args = requestDataBytes(jobId, sla.address, fid, "xid", "");
+        await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
         requestId = event.args.id;
       });
