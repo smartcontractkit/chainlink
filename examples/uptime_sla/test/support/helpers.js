@@ -54,7 +54,7 @@ util = require('ethereumjs-util');
   }
 
   toWei = function toWei(number) {
-    return bigNum(web3.toWei(number));
+    return web3.toWei(number);
   }
 
   tokens = function tokens(number) {
