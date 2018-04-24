@@ -26,53 +26,57 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 	}
 }
 
-type JobSpecs struct {
-	Jobs  []models.JobSpec `json:"data"`
-	Links presenters.Links `json:"_links"`
-}
-
 func TestJobSpecsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j1 := setupJobSpecsControllerIndex(app)
+	j1, err := setupJobSpecsControllerIndex(app)
+	assert.NoError(t, err)
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=1")
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=x")
+	cltest.AssertServerResponse(t, resp, 422)
+
+	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=1")
 	cltest.AssertServerResponse(t, resp, 200)
 
-	specs := JobSpecs{}
-	err := json.Unmarshal(cltest.ParseResponseBody(resp), &specs)
-	assert.Zero(t, err)
-	assert.NotZero(t, specs.Links.Next)
+	document := presenters.JobSpecsDocument{}
+	err = json.Unmarshal(cltest.ParseResponseBody(resp), &document)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, document.Links["next"].Href)
+	assert.Empty(t, document.Links["prev"].Href)
 
-	jobs := specs.Jobs
+	jobs := document.Data
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
 
-	resp = cltest.BasicAuthGet(app.Server.URL + specs.Links.Next.Href)
+	resp = cltest.BasicAuthGet(app.Server.URL + document.Links["next"].Href)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	specs = JobSpecs{}
-	json.Unmarshal(cltest.ParseResponseBody(resp), &specs)
-	assert.Zero(t, specs.Links.Next)
+	document = presenters.JobSpecsDocument{}
+	err = json.Unmarshal(cltest.ParseResponseBody(resp), &document)
+	assert.NoError(t, err)
+	assert.Empty(t, document.Links["next"])
+	assert.NotEmpty(t, document.Links["prev"])
 
-	jobs = specs.Jobs
+	jobs = document.Data
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, models.InitiatorWeb, jobs[0].Initiators[0].Type, "should have the same type")
 	assert.NotEqual(t, true, jobs[0].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
-func setupJobSpecsControllerIndex(app *cltest.TestApplication) *models.JobSpec {
+func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
 	j1, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
 	j1.CreatedAt = models.Time{Time: time.Now().AddDate(0, 0, -1)}
-	app.Store.SaveJob(&j1)
+	err := app.Store.SaveJob(&j1)
+	if err != nil {
+		return nil, err
+	}
 	j2, _ := cltest.NewJobWithWebInitiator()
 	j2.Initiators[0].Ran = true
-	app.Store.SaveJob(&j2)
-
-	return &j1
+	err = app.Store.SaveJob(&j2)
+	return &j1, err
 }
 
 func TestJobSpecsController_Create(t *testing.T) {

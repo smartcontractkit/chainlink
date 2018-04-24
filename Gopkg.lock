@@ -91,6 +91,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gedex/inflector"
+  packages = ["."]
+  revision = "16278e9db8130ac7ec405dc174cfb94344f16325"
+
+[[projects]]
+  branch = "master"
   name = "github.com/gin-contrib/sse"
   packages = ["."]
   revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
@@ -147,6 +153,12 @@
   packages = ["."]
   revision = "ca39e5af3ece67bbcda3d0f4f56a8e24d9f2dad4"
   version = "1.1.3"
+
+[[projects]]
+  name = "github.com/manyminds/api2go"
+  packages = ["jsonapi"]
+  revision = "e7b693844a6ff1798ca2a84d8481884ca81d191a"
+  version = "1.0-RC4"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -414,6 +426,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6a82210bbe34a3a5654671d761f6d5b5e5d14f70db45f60b8d7f803407e39905"
+  inputs-digest = "20c1589b09f59661fa3c8de087c084d78483b1dfb378c2a4767a7bfad9e9bf01"
   solver-name = "gps-cdcl"
   solver-version = 1

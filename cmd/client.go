@@ -85,24 +85,39 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	var job presenters.JobSpec
-	return cli.deserializeResponse(resp, &job)
+	return cli.renderResponse(resp, &job)
 }
 
 // GetJobSpecs returns all job specs.
 func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs",
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
 
+	requestURL := cfg.ClientNodeURL + "/v2/specs"
 	var jobs []models.JobSpec
-	return cli.deserializeResponse(resp, &jobs)
+	for {
+		resp, err := utils.BasicAuthGet(
+			cfg.BasicAuthUsername,
+			cfg.BasicAuthPassword,
+			requestURL,
+		)
+		if err != nil {
+			return cli.errorOut(err)
+		}
+		defer resp.Body.Close()
+
+		document := presenters.JobSpecsDocument{}
+		err = cli.deserializeResponse(resp, &document)
+		if err != nil {
+			return err
+		}
+		jobs = append(jobs, document.Data...)
+
+		if document.Links["next"].Href == "" {
+			break
+		}
+		requestURL = cfg.ClientNodeURL + document.Links["next"].Href
+	}
+	return cli.errorOut(cli.Render(&jobs))
 }
 
 // CreateJobSpec creates job spec based on JSON input
@@ -130,7 +145,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var jobs presenters.JobSpec
-	return cli.deserializeResponse(resp, &jobs)
+	return cli.renderResponse(resp, &jobs)
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON
@@ -161,7 +176,7 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	var jobs presenters.JobSpec
-	return cli.deserializeResponse(resp, &jobs)
+	return cli.renderResponse(resp, &jobs)
 }
 
 // BackupDatabase streams a backup of the node's db to the passed filepath.
@@ -276,6 +291,14 @@ func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) err
 		return cli.errorOut(err)
 	}
 	if err = json.Unmarshal(b, &dst); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
+	err := cli.deserializeResponse(resp, dst)
+	if err != nil {
 		return cli.errorOut(err)
 	}
 	return cli.errorOut(cli.Render(dst))
