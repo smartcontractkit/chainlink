@@ -23,12 +23,7 @@ contract Oracle is Ownable {
     bytes data
   );
 
-  function Oracle(
-    address _link
-  )
-    Ownable()
-    public
-  {
+  function Oracle(address _link) Ownable() public {
     LINK = LinkToken(_link);
   }
 
@@ -80,9 +75,7 @@ contract Oracle is Ownable {
 
   // MODIFIERS
 
-  modifier hasInternalId(
-    uint256 _internalId
-  ) {
+  modifier hasInternalId(uint256 _internalId) {
     require(callbacks[_internalId].addr != address(0));
     _;
   }
