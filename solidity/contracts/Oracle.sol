@@ -54,6 +54,7 @@ contract Oracle is Ownable {
     bytes _data
   )
     public
+    onlyLINK
   {
     currentInternalId += 1;
     callbacks[currentInternalId] = Callback(

@@ -70,22 +70,33 @@ contract('Oracle', () => {
   });
 
   describe("#requestData", () => {
-    it("logs an event", async () => {
-      let tx = await oc.requestData(1, jobId, to, fHash, "id", "");
-      assert.equal(1, tx.receipt.logs.length)
+    context("when called through the LINK token", () => {
+      let log, tx;
+      beforeEach(async () => {
+        let args = requestDataBytes(jobId, to, fHash, "id", "");
+        tx = await requestDataFrom(oc, link, 0, args);
+        assert.equal(3, tx.receipt.logs.length)
 
-      let log1 = tx.receipt.logs[0];
-      assert.equal(jobId, web3.toUtf8(log1.topics[2]));
+        log = tx.receipt.logs[2];
+      });
+
+      it("logs an event", async () => {
+        assert.equal(jobId, web3.toUtf8(log.topics[2]));
+      });
+
+      it("uses the expected event signature", async () => {
+        // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
+        let eventSignature = "0xd27ce9cd40e3b9de8d013e1c32693550a6f543fec0191156dc826978fffb3f48";
+        assert.equal(eventSignature, log.topics[0]);
+      });
     });
 
-    it("uses the expected event signature", async () => {
-      // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
-      let tx = await oc.requestData(1, jobId, to, fHash, "id", "");
-      assert.equal(1, tx.receipt.logs.length)
-
-      let log = tx.receipt.logs[0];
-      let eventSignature = "0xd27ce9cd40e3b9de8d013e1c32693550a6f543fec0191156dc826978fffb3f48";
-      assert.equal(eventSignature, log.topics[0]);
+    context("when not called through the LINK token", () => {
+      it("logs an event", async () => {
+        await assertActionThrows(async () => {
+          let tx = await oc.requestData(1, jobId, to, fHash, "id", "", {from: oracleNode});
+        });
+      });
     });
   });
 
@@ -96,11 +107,12 @@ contract('Oracle', () => {
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");
-      let req = await oc.requestData(1, jobId, mock.address, fHash, externalId, "");
-      requestId = req.logs[0].args.id;
+      let args = requestDataBytes(jobId, mock.address, fHash, externalId, "");
+      let req = await requestDataFrom(oc, link, 0, args);
+      requestId = req.receipt.logs[2].topics[1];
     });
 
-    context("when the called by a non-owner", () => {
+    context("when called by a non-owner", () => {
       it("raises an error", async () => {
         await assertActionThrows(async () => {
           await oc.fulfillData(requestId, "Hello World!", {from: stranger});
