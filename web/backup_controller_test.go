@@ -13,5 +13,5 @@ func TestBackupController_Show(t *testing.T) {
 	defer cleanup()
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/backup")
-	cltest.CheckStatusCode(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, 200)
 }
