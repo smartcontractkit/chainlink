@@ -26,6 +26,7 @@ contract Oracle is Ownable {
   event RunRequest(
     uint256 indexed id,
     bytes32 indexed jobId,
+    uint256 indexed amount,
     uint256 version,
     bytes data
   );
@@ -60,7 +61,7 @@ contract Oracle is Ownable {
       currentAmount,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(currentInternalId, _jobId, _version, _data);
+    emit RunRequest(currentInternalId, _jobId, currentAmount, _version, _data);
   }
 
   function fulfillData(

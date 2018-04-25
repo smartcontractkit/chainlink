@@ -61,14 +61,6 @@ func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
 	}
 }
 
-// If updating this test, be sure to update the truffle suite's "expected event signature" test.
-func TestServices_RunLogTopic_ExpectedEventSignature(t *testing.T) {
-	t.Parallel()
-
-	expected := "0xd27ce9cd40e3b9de8d013e1c32693550a6f543fec0191156dc826978fffb3f48"
-	assert.Equal(t, expected, services.RunLogTopic.Hex())
-}
-
 func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
 	t.Parallel()
 
