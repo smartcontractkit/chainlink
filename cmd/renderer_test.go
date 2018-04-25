@@ -33,6 +33,12 @@ func TestRendererTableRenderShowJob(t *testing.T) {
 	assert.Nil(t, r.Render(&p))
 }
 
+func TestRendererTableRenderBridge(t *testing.T) {
+	r := cmd.RendererTable{Writer: ioutil.Discard}
+	bridge := models.BridgeType{}
+	assert.Nil(t, r.Render(&bridge))
+}
+
 func TestRendererTableRenderUnknown(t *testing.T) {
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	anon := struct{ Name string }{"Romeo"}
