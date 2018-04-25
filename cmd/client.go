@@ -8,7 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -91,11 +93,16 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 
 func (cli *Client) getPageOfJobSpecs(requestURI string, offset int, jobs *[]models.JobSpec, links *jsonapi.Links) error {
 	cfg := cli.Config
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		requestURI+fmt.Sprintf("?offset=%d", offset),
-	)
+
+	uri, err := url.Parse(requestURI)
+	if err != nil {
+		return err
+	}
+	q := uri.Query()
+	q.Set("offset", strconv.Itoa(offset))
+	uri.RawQuery = q.Encode()
+
+	resp, err := utils.BasicAuthGet(cfg.BasicAuthUsername, cfg.BasicAuthPassword, uri.String())
 	if err != nil {
 		return cli.errorOut(err)
 	}
