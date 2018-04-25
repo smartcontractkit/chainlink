@@ -159,9 +159,19 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(initr.Time.DurationFromNow()):
-		_, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
+		if err := ot.Store.MarkRan(&initr); err != nil {
+			logger.Error(err.Error())
+			return
+		}
+		jr, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
 		if err != nil {
 			logger.Error(err.Error())
+		}
+		if jr.Status == models.RunStatusUnstarted {
+			initr.Ran = false
+			if err := ot.Store.Save(&initr); err != nil {
+				logger.Error(err.Error())
+			}
 		}
 	}
 }

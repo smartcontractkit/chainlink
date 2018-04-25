@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -207,4 +208,19 @@ func TestORM_SaveCreationHeight(t *testing.T) {
 			assert.Equal(t, test.wantHeight, jr.CreationHeight.ToInt())
 		})
 	}
+}
+
+func TestMarkRan(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
+	assert.Nil(t, store.Save(&initr))
+
+	assert.Nil(t, store.MarkRan(&initr))
+	var ir models.Initiator
+	assert.Nil(t, store.One("ID", initr.ID, &ir))
+	assert.True(t, ir.Ran)
 }
