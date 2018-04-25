@@ -74,9 +74,8 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	assert.Nil(t, app.Start())
 
-	createdTx, err := manager.CreateTx(to, data)
+	_, err = manager.CreateTx(to, data)
 	assert.NotNil(t, err)
-	assert.Nil(t, nil, createdTx.TxID)
 
 	var txs []models.Tx
 	err = store.ORM.All(&txs)
