@@ -210,8 +210,10 @@ func (txm *TxManager) GetActiveAccount() *ActiveAccount {
 	if txm.activeAccount == nil {
 		return nil
 	}
-	dup := *txm.activeAccount
-	return &dup
+	return &ActiveAccount{
+		Account: txm.activeAccount.Account,
+		nonce:   txm.activeAccount.nonce,
+	}
 }
 
 // ActivateAccount retrieves an account's nonce from the blockchain for client
