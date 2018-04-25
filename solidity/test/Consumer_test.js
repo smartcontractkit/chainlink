@@ -39,7 +39,7 @@ contract('Consumer', () => {
         let log = tx.receipt.logs[2];
         assert.equal(log.address, oc.address);
 
-        let [id, jId, ver, cborData] = decodeRunRequest(log);
+        let [id, jId, wei, ver, cborData] = decodeRunRequest(log);
         let params = await cbor.decodeFirst(cborData);
         let expected = {
           "path":["recent", "usd"],
@@ -47,6 +47,7 @@ contract('Consumer', () => {
         };
 
         assert.equal(`0x${toHex(rPad("someJobId"))}`, jId);
+        assert.equal(1000000000000000, wei);
         assert.equal(1, ver);
         assert.deepEqual(expected, params);
       });

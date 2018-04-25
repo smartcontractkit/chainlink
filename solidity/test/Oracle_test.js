@@ -87,7 +87,7 @@ contract('Oracle', () => {
 
       it("uses the expected event signature", async () => {
         // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
-        let eventSignature = "0xd27ce9cd40e3b9de8d013e1c32693550a6f543fec0191156dc826978fffb3f48";
+        let eventSignature = "0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d";
         assert.equal(eventSignature, log.topics[0]);
       });
     });
