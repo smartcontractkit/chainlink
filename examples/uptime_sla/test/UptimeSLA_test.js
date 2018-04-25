@@ -18,7 +18,7 @@ contract('UptimeSLA', () => {
     sla = await SLA.new(client, serviceProvider, link.address, oc.address, jobId, {
       value: deposit
     });
-    link.transfer(sla.address, toWei(1));
+    link.transfer(sla.address, web3.toWei(1, 'ether'));
     startAt = await getLatestTimestamp();
   });
 
