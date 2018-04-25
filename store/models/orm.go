@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"log"
 	"math/big"
 	"reflect"
@@ -226,6 +227,30 @@ func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
 	tt := BridgeType{}
 	err := orm.One("Name", strings.ToLower(name), &tt)
 	return tt, err
+}
+
+// MarkRan will set Ran to true for a given initiator
+func (orm *ORM) MarkRan(i *Initiator) error {
+	dbtx, err := orm.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer dbtx.Rollback()
+
+	var ir Initiator
+	if err := orm.One("ID", i.ID, &ir); err != nil {
+		return err
+	}
+
+	if ir.Ran {
+		return fmt.Errorf("Job runner: Initiator: %v cannot run more than once", ir.ID)
+	}
+
+	i.Ran = true
+	if err := dbtx.Save(i); err != nil {
+		return err
+	}
+	return dbtx.Commit()
 }
 
 // DatabaseAccessError is an error that occurs during database access.
