@@ -4,6 +4,7 @@ import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 import "./LinkToken.sol";
 
 contract Oracle is Ownable {
+  using SafeMath for uint256;
 
   LinkToken internal LINK;
 
@@ -74,7 +75,7 @@ contract Oracle is Ownable {
   {
     Callback memory callback = callbacks[_internalId];
     require(callback.addr.call(callback.functionId, callback.externalId, _data));
-    withdrawableWei += callback.amount;
+    withdrawableWei = withdrawableWei.add(callback.amount);
     delete callbacks[_internalId];
   }
 
