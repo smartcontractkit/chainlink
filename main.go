@@ -82,7 +82,6 @@ func Run(client *cmd.Client, args ...string) {
 		},
 		{
 			Name:    "bridge",
-			Aliases: []string{"b"},
 			Usage:   "Add a new bridge to the node",
 			Action:  client.AddBridge,
 		},
