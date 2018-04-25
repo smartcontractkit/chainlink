@@ -10,31 +10,33 @@ import (
 
 func TestApi_ParsePaginatedRequest(t *testing.T) {
 	tests := []struct {
-		name        string
-		sizeParam   string
-		offsetParam string
-		err         bool
-		size        int
-		offset      int
+		name      string
+		sizeParam string
+		pageParam string
+		err       bool
+		size      int
+		page      int
+		offset    int
 	}{
-		{"blank values", "", "", false, 25, 0},
-		{"valid sizeParam", "10", "", false, 10, 0},
-		{"valid offsetParam", "", "10", false, 25, 10},
-		{"invalid sizeParam", "xhje", "", true, 0, 0},
-		{"invalid offsetParam", "", "ewjh", true, 0, 0},
-		{"small sizeParam", "0", "", true, 0, 0},
-		{"negative offsetParam", "", "-1", true, 0, 0},
+		{"blank values", "", "", false, 25, 1, 0},
+		{"valid sizeParam", "10", "", false, 10, 1, 0},
+		{"valid pageParam", "", "3", false, 25, 3, 50},
+		{"invalid sizeParam", "xhje", "", true, 0, 0, 0},
+		{"invalid pageParam", "", "ewjh", true, 0, 0, 0},
+		{"small sizeParam", "0", "", true, 0, 0, 0},
+		{"negative pageParam", "", "-1", true, 0, 0, 0},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			size, offset, err := ParsePaginatedRequest(test.sizeParam, test.offsetParam)
+			size, page, offset, err := ParsePaginatedRequest(test.sizeParam, test.pageParam)
 			if test.err {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, test.size, size)
+			assert.Equal(t, test.page, page)
 			assert.Equal(t, test.offset, offset)
 		})
 	}
@@ -57,7 +59,7 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 		name     string
 		path     string
 		size     int
-		offset   int
+		page     int
 		count    int
 		resource interface{}
 		err      bool
@@ -75,23 +77,23 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 		},
 		{
 			"first page of collection results",
-			"/v2/index", 1, 0, 3, []TestResource{TestResource{Title: "Item 1"}},
-			false, `{"links":{"next":"/v2/index?offset=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`,
+			"/v2/index", 5, 1, 7, []TestResource{TestResource{Title: "Item 1"}},
+			false, `{"links":{"next":"/v2/index?page=2\u0026size=5"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`,
 		},
 		{
 			"middle page of collection results",
-			"/v2/index", 1, 1, 3, []TestResource{TestResource{Title: "Item 2"}},
-			false, `{"links":{"next":"/v2/index?offset=2\u0026size=1","prev":"/v2/index?offset=0\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}]}`,
+			"/v2/index", 5, 2, 13, []TestResource{TestResource{Title: "Item 2"}},
+			false, `{"links":{"next":"/v2/index?page=3\u0026size=5","prev":"/v2/index?page=1\u0026size=5"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}]}`,
 		},
 		{
 			"end page of collection results",
-			"/v2/index", 1, 2, 3, []TestResource{TestResource{Title: "Item 3"}},
-			false, `{"links":{"prev":"/v2/index?offset=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 3"}}]}`,
+			"/v2/index", 5, 3, 13, []TestResource{TestResource{Title: "Item 3"}},
+			false, `{"links":{"prev":"/v2/index?page=2\u0026size=5"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 3"}}]}`,
 		},
 		{
 			"path with existing query",
 			"/v2/index?authToken=3123", 1, 0, 2, []TestResource{TestResource{Title: "Item 1"}},
-			false, `{"links":{"next":"/v2/index?authToken=3123\u0026offset=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`,
+			false, `{"links":{"next":"/v2/index?authToken=3123\u0026page=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`,
 		},
 		{
 			"json marshalling failure",
@@ -104,7 +106,7 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			url, err := url.Parse(test.path)
 			assert.NoError(t, err)
-			buffer, err := NewPaginatedResponse(*url, test.size, test.offset, test.count, test.resource)
+			buffer, err := NewPaginatedResponse(*url, test.size, test.page, test.count, test.resource)
 			if test.err {
 				assert.Error(t, err)
 			} else {

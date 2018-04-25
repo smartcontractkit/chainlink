@@ -91,7 +91,7 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &job)
 }
 
-func (cli *Client) getPageOfJobSpecs(requestURI string, offset int, jobs *[]models.JobSpec, links *jsonapi.Links) error {
+func (cli *Client) getPageOfJobSpecs(requestURI string, page int, jobs *[]models.JobSpec, links *jsonapi.Links) error {
 	cfg := cli.Config
 
 	uri, err := url.Parse(requestURI)
@@ -99,7 +99,9 @@ func (cli *Client) getPageOfJobSpecs(requestURI string, offset int, jobs *[]mode
 		return err
 	}
 	q := uri.Query()
-	q.Set("offset", strconv.Itoa(offset))
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
 	uri.RawQuery = q.Encode()
 
 	resp, err := utils.BasicAuthGet(cfg.BasicAuthUsername, cfg.BasicAuthPassword, uri.String())
@@ -116,14 +118,14 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
 	requestURI := cfg.ClientNodeURL + "/v2/specs"
 
-	offset := 0
+	page := 0
 	if c != nil && c.IsSet("page") {
-		offset = c.Int("page") - 1
+		page = c.Int("page")
 	}
 
 	var links jsonapi.Links
 	var jobs []models.JobSpec
-	err := cli.getPageOfJobSpecs(requestURI, offset, &jobs, &links)
+	err := cli.getPageOfJobSpecs(requestURI, page, &jobs, &links)
 	if err != nil {
 		return err
 	}
