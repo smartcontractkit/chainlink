@@ -31,7 +31,7 @@ contract('Consumer', () => {
 
     context("with LINK", () => {
       beforeEach(async () => {
-        await link.transfer(cc.address, toWei(1));
+        await link.transfer(cc.address, web3.toWei('1', 'ether'));
       });
 
       it("triggers a log event in the Oracle contract", async () => {
@@ -47,7 +47,7 @@ contract('Consumer', () => {
         };
 
         assert.equal(`0x${toHex(rPad("someJobId"))}`, jId);
-        assert.equal(1000000000000000, wei);
+        assert.equal(web3.toWei('1', 'szabo'), hexToInt(wei));
         assert.equal(1, ver);
         assert.deepEqual(expected, params);
       });
@@ -64,7 +64,7 @@ contract('Consumer', () => {
     let requestId;
 
     beforeEach(async () => {
-      await link.transfer(cc.address, toWei(1));
+      await link.transfer(cc.address, web3.toWei('1', 'ether'));
       await cc.requestEthereumPrice("usd");
       let event = await getLatestEvent(oc);
       requestId = event.args.id;
