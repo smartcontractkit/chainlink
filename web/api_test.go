@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -8,36 +9,35 @@ import (
 )
 
 func TestApi_ParsePaginatedRequest(t *testing.T) {
-	var size int
-	var offset int
-	var err error
+	tests := []struct {
+		name        string
+		sizeParam   string
+		offsetParam string
+		err         bool
+		size        int
+		offset      int
+	}{
+		{"blank values", "", "", false, 25, 0},
+		{"valid sizeParam", "10", "", false, 10, 0},
+		{"valid offsetParam", "", "10", false, 25, 10},
+		{"invalid sizeParam", "xhje", "", true, 0, 0},
+		{"invalid offsetParam", "", "ewjh", true, 0, 0},
+		{"small sizeParam", "0", "", true, 0, 0},
+		{"negative offsetParam", "", "-1", true, 0, 0},
+	}
 
-	size, offset, err = ParsePaginatedRequest("", "")
-	assert.NoError(t, err)
-	assert.Equal(t, size, 25)
-	assert.Equal(t, offset, 0)
-
-	size, offset, err = ParsePaginatedRequest("10", "")
-	assert.NoError(t, err)
-	assert.Equal(t, size, 10)
-	assert.Equal(t, offset, 0)
-
-	size, offset, err = ParsePaginatedRequest("", "10")
-	assert.NoError(t, err)
-	assert.Equal(t, size, 25)
-	assert.Equal(t, offset, 10)
-
-	size, offset, err = ParsePaginatedRequest("x!", "")
-	assert.Error(t, err)
-
-	size, offset, err = ParsePaginatedRequest("0", "")
-	assert.Error(t, err)
-
-	size, offset, err = ParsePaginatedRequest("", "hh")
-	assert.Error(t, err)
-
-	size, offset, err = ParsePaginatedRequest("", "-1")
-	assert.Error(t, err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			size, offset, err := ParsePaginatedRequest(test.sizeParam, test.offsetParam)
+			if test.err {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, test.size, size)
+			assert.Equal(t, test.offset, offset)
+		})
+	}
 }
 
 type TestResource struct {
@@ -53,34 +53,66 @@ func (r *TestResource) SetID(value string) error {
 }
 
 func TestApi_NewPaginatedResponse(t *testing.T) {
-	var buffer []byte
-	var err error
+	tests := []struct {
+		name     string
+		path     string
+		size     int
+		offset   int
+		count    int
+		resource interface{}
+		err      bool
+		output   string
+	}{
+		{
+			"a single resource",
+			"/v2/index", 1, 0, 0, TestResource{Title: "Item"},
+			false, `{"data":{"type":"testResources","id":"1","attributes":{"Title":"Item"}}}`,
+		},
+		{
+			"a resource collection",
+			"/v2/index", 1, 0, 0, []TestResource{TestResource{Title: "Item 1"}, TestResource{Title: "Item 2"}},
+			false, `{"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}},{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}]}`,
+		},
+		{
+			"first page of collection results",
+			"/v2/index", 1, 0, 3, []TestResource{TestResource{Title: "Item 1"}},
+			false, `{"links":{"next":"/v2/index?offset=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`,
+		},
+		{
+			"middle page of collection results",
+			"/v2/index", 1, 1, 3, []TestResource{TestResource{Title: "Item 2"}},
+			false, `{"links":{"next":"/v2/index?offset=2\u0026size=1","prev":"/v2/index?offset=0\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}]}`,
+		},
+		{
+			"end page of collection results",
+			"/v2/index", 1, 2, 3, []TestResource{TestResource{Title: "Item 3"}},
+			false, `{"links":{"prev":"/v2/index?offset=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 3"}}]}`,
+		},
+		{
+			"path with existing query",
+			"/v2/index?authToken=3123", 1, 0, 2, []TestResource{TestResource{Title: "Item 1"}},
+			false, `{"links":{"next":"/v2/index?authToken=3123\u0026offset=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`,
+		},
+		{
+			"json marshalling failure",
+			"/v2/index", 1, 0, 0, "",
+			true, ``,
+		},
+	}
 
-	resource := TestResource{Title: "Item"}
-
-	buffer, err = NewPaginatedResponse("/v2/index", 1, 0, 0, resource)
-	assert.NoError(t, err)
-	assert.Equal(t, `{"data":{"type":"testResources","id":"1","attributes":{"Title":"Item"}}}`, string(buffer))
-
-	resources := []TestResource{TestResource{Title: "Item 1"}, TestResource{Title: "Item 2"}}
-
-	buffer, err = NewPaginatedResponse("/v2/index", 25, 0, 2, resources)
-	assert.NoError(t, err)
-	assert.Equal(t, `{"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}},{"type":"testResources","id":"1","attributes":{"Title":"Item 2"}}]}`, string(buffer))
-
-	resources = []TestResource{TestResource{Title: "Item 1"}}
-
-	buffer, err = NewPaginatedResponse("/v2/index", 1, 0, 3, resources)
-	assert.NoError(t, err)
-	assert.Equal(t, `{"links":{"next":"/v2/index?size=1\u0026offset=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`, string(buffer))
-
-	buffer, err = NewPaginatedResponse("/v2/index", 1, 1, 3, resources)
-	assert.NoError(t, err)
-	assert.Equal(t, `{"links":{"next":"/v2/index?size=1\u0026offset=2","prev":"/v2/index?size=1\u0026offset=0"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`, string(buffer))
-
-	buffer, err = NewPaginatedResponse("/v2/index", 1, 2, 3, resources)
-	assert.NoError(t, err)
-	assert.Equal(t, `{"links":{"prev":"/v2/index?size=1\u0026offset=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}]}`, string(buffer))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			url, err := url.Parse(test.path)
+			assert.NoError(t, err)
+			buffer, err := NewPaginatedResponse(*url, test.size, test.offset, test.count, test.resource)
+			if test.err {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, test.output, string(buffer))
+		})
+	}
 }
 
 func TestPagination_ParsePaginatedResponse(t *testing.T) {
