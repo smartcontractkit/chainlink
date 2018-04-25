@@ -28,44 +28,45 @@ const (
 // ParsePaginatedRequest parses the parameters that control pagination for a
 // collection request, returning the size and offset if specified, or a
 // sensible default.
-func ParsePaginatedRequest(sizeParam, offsetParam string) (int, int, error) {
+func ParsePaginatedRequest(sizeParam, pageParam string) (int, int, int, error) {
 	var err error
-	var offset int
+	page := 1
 	size := PaginationDefault
 
 	if sizeParam != "" {
-		if size, err = strconv.Atoi(sizeParam); err != nil || size <= 0 {
-			return 0, 0, fmt.Errorf("invalid size param, error: %+v", err)
+		if size, err = strconv.Atoi(sizeParam); err != nil || size < 1 {
+			return 0, 0, 0, fmt.Errorf("invalid size param, error: %+v", err)
 		}
 	}
 
-	if offsetParam != "" {
-		if offset, err = strconv.Atoi(offsetParam); err != nil || offset < 0 {
-			return 0, 0, fmt.Errorf("invalid offset param, error: %+v", err)
+	if pageParam != "" {
+		if page, err = strconv.Atoi(pageParam); err != nil || page < 1 {
+			return 0, 0, 0, fmt.Errorf("invalid page param, error: %+v", err)
 		}
 	}
 
-	return size, offset, nil
+	offset := (page - 1) * size
+	return size, page, offset, nil
 }
 
-func nextLink(url url.URL, size, offset int) jsonapi.Link {
+func paginationLink(url url.URL, size, page int) jsonapi.Link {
 	query := url.Query()
 	query.Add("size", strconv.Itoa(size))
-	query.Add("offset", strconv.Itoa(offset+size))
+	query.Add("page", strconv.Itoa(page))
 	url.RawQuery = query.Encode()
 	return jsonapi.Link{Href: url.String()}
 }
 
-func prevLink(url url.URL, size, offset int) jsonapi.Link {
-	query := url.Query()
-	query.Add("size", strconv.Itoa(size))
-	query.Add("offset", strconv.Itoa(offset-size))
-	url.RawQuery = query.Encode()
-	return jsonapi.Link{Href: url.String()}
+func nextLink(url url.URL, size, page int) jsonapi.Link {
+	return paginationLink(url, size, page+1)
+}
+
+func prevLink(url url.URL, size, page int) jsonapi.Link {
+	return paginationLink(url, size, page-1)
 }
 
 // NewPaginatedResponse returns a jsonapi.Document with links to next and previous collection pages
-func NewPaginatedResponse(url url.URL, size, offset, count int, resource interface{}) ([]byte, error) {
+func NewPaginatedResponse(url url.URL, size, page, count int, resource interface{}) ([]byte, error) {
 	document, err := jsonapi.MarshalToStruct(resource, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
@@ -73,11 +74,11 @@ func NewPaginatedResponse(url url.URL, size, offset, count int, resource interfa
 
 	document.Links = make(jsonapi.Links)
 	if count > size {
-		if offset+size < count {
-			document.Links[KeyNextLink] = nextLink(url, size, offset)
+		if page*size < count {
+			document.Links[KeyNextLink] = nextLink(url, size, page)
 		}
-		if offset > 0 {
-			document.Links[KeyPreviousLink] = prevLink(url, size, offset)
+		if page > 1 {
+			document.Links[KeyPreviousLink] = prevLink(url, size, page)
 		}
 	}
 

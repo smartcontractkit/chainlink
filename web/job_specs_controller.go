@@ -19,21 +19,22 @@ type JobSpecsController struct {
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Index(c *gin.Context) {
-	sizeParam := c.Query("size")
-	offsetParam := c.Query("offset")
-	size, offset, err := ParsePaginatedRequest(sizeParam, offsetParam)
+	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
 		c.JSON(422, gin.H{
 			"errors": []string{err.Error()},
 		})
 	}
 
+	skip := storm.Skip(offset)
+	limit := storm.Limit(size)
+
 	var jobs []models.JobSpec
 	if count, err := jsc.App.Store.Count(&models.JobSpec{}); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{fmt.Errorf("error getting count of JobSpec: %+v", err).Error()},
 		})
-	} else if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs, storm.Limit(size), storm.Skip(offset)); err != nil {
+	} else if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs, skip, limit); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{fmt.Errorf("erorr fetching All JobSpecs: %+v", err).Error()},
 		})
@@ -43,7 +44,7 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 			pjs[i] = presenters.JobSpec{JobSpec: j}
 		}
 
-		buffer, err := NewPaginatedResponse(*c.Request.URL, size, offset, count, pjs)
+		buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pjs)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
