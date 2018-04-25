@@ -43,7 +43,7 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 			pjs[i] = presenters.JobSpec{JobSpec: j}
 		}
 
-		buffer, err := NewPaginatedResponse(c.Request.URL.Path, size, offset, count, pjs)
+		buffer, err := NewPaginatedResponse(*c.Request.URL, size, offset, count, pjs)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},

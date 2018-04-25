@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -47,30 +48,36 @@ func ParsePaginatedRequest(sizeParam, offsetParam string) (int, int, error) {
 	return size, offset, nil
 }
 
-func nextLink(path string, size, offset int) jsonapi.Link {
-	nextURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset+size)
-	return jsonapi.Link{Href: nextURI}
+func nextLink(url url.URL, size, offset int) jsonapi.Link {
+	query := url.Query()
+	query.Add("size", strconv.Itoa(size))
+	query.Add("offset", strconv.Itoa(offset+size))
+	url.RawQuery = query.Encode()
+	return jsonapi.Link{Href: url.String()}
 }
 
-func prevLink(path string, size, offset int) jsonapi.Link {
-	prevURI := fmt.Sprintf("%s?size=%d&offset=%d", path, size, offset-size)
-	return jsonapi.Link{Href: prevURI}
+func prevLink(url url.URL, size, offset int) jsonapi.Link {
+	query := url.Query()
+	query.Add("size", strconv.Itoa(size))
+	query.Add("offset", strconv.Itoa(offset-size))
+	url.RawQuery = query.Encode()
+	return jsonapi.Link{Href: url.String()}
 }
 
 // NewPaginatedResponse returns a jsonapi.Document with links to next and previous collection pages
-func NewPaginatedResponse(path string, size, offset, count int, resource interface{}) ([]byte, error) {
+func NewPaginatedResponse(url url.URL, size, offset, count int, resource interface{}) ([]byte, error) {
 	document, err := jsonapi.MarshalToStruct(resource, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal jobs to struct: %+v", err)
+		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
 	}
 
 	document.Links = make(jsonapi.Links)
 	if count > size {
 		if offset+size < count {
-			document.Links[KeyNextLink] = nextLink(path, size, offset)
+			document.Links[KeyNextLink] = nextLink(url, size, offset)
 		}
 		if offset > 0 {
-			document.Links[KeyPreviousLink] = prevLink(path, size, offset)
+			document.Links[KeyPreviousLink] = prevLink(url, size, offset)
 		}
 	}
 
