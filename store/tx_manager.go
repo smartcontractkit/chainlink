@@ -38,7 +38,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 	}
 
 	var tx *models.Tx
-	txm.activeAccount.GetAndIncrementNonce(func(nonce uint64) error {
+	err = txm.activeAccount.GetAndIncrementNonce(func(nonce uint64) error {
 		tx, err = txm.orm.CreateTx(
 			txm.activeAccount.Address,
 			nonce,
