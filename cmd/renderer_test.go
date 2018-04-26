@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"io/ioutil"
 	"testing"
 
@@ -31,6 +32,29 @@ func TestRendererTableRenderShowJob(t *testing.T) {
 	run := job.NewRun(initr)
 	p := presenters.JobSpec{JobSpec: job, Runs: []models.JobRun{run}}
 	assert.Nil(t, r.Render(&p))
+}
+
+type testWriter struct {
+	expected string
+	t        testing.TB
+	found    bool
+}
+
+func (w *testWriter) Write(actual []byte) (int, error) {
+	if bytes.Index(actual, []byte(w.expected)) != -1 {
+		w.found = true
+	}
+	return len(actual), nil
+}
+
+func TestRendererTableRenderBridge(t *testing.T) {
+	bridge := models.BridgeType{Name: "hapax",
+		URL:                  cltest.WebURL("http://hap.ax"),
+		DefaultConfirmations: 0}
+	tw := &testWriter{bridge.Name, t, false}
+	r := cmd.RendererTable{Writer: tw}
+	assert.Nil(t, r.Render(&bridge))
+	assert.Equal(t, tw.found, true)
 }
 
 func TestRendererTableRenderUnknown(t *testing.T) {
