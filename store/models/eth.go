@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -155,18 +154,6 @@ func (n *IndexableBlockNumber) ToInt() *big.Int {
 		return nil
 	}
 	return n.Number.ToInt()
-}
-
-// Return a hex string representation of the block number, or empty string if nil.
-func (n *IndexableBlockNumber) String() string {
-	if n == nil {
-		return ""
-	}
-	return n.Number.String()
-}
-
-func (n *IndexableBlockNumber) FriendlyString() string {
-	return fmt.Sprintf("#%v (%v)", n.ToInt(), n.String())
 }
 
 func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
