@@ -36,7 +36,7 @@ contract Oracle is Ownable {
     LINK = LinkToken(_link);
   }
 
-  function onTokenTransfer(address _sender, uint _wei, bytes _data)
+  function onTokenTransfer(address _sender, uint256 _wei, bytes _data)
     public onlyLINK
   {
     if (_data.length > 0) {
