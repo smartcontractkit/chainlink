@@ -18,7 +18,7 @@ Each example requires the development environment, set up as follows:
 3. Run truffle migrations for the Chainlink contracts:
   1. `cd ../solidity`
   2. `yarn install`
-  3. `./node_modules/.bin/truffle migrate --network devnet`
+  3. `./node_modules/.bin/truffle migrate`
 4. Run `./internal/bin/cldev` in top level repo folder
 
 Go to our [development wiki](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips) to read more.
