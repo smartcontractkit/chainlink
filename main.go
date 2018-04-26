@@ -70,9 +70,9 @@ func Run(client *cmd.Client, args ...string) {
 			Action:  client.CreateJobRun,
 		},
 		{
-			Name:    "backup",
-			Usage:   "Backup the database of the running node",
-			Action:  client.BackupDatabase,
+			Name:   "backup",
+			Usage:  "Backup the database of the running node",
+			Action: client.BackupDatabase,
 		},
 		{
 			Name:    "import",
@@ -81,9 +81,9 @@ func Run(client *cmd.Client, args ...string) {
 			Action:  client.ImportKey,
 		},
 		{
-			Name:    "bridge",
-			Usage:   "Add a new bridge to the node",
-			Action:  client.AddBridge,
+			Name:   "bridge",
+			Usage:  "Add a new bridge to the node",
+			Action: client.AddBridge,
 		},
 	}
 	app.Run(args)
