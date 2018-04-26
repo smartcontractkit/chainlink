@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -80,19 +81,18 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 func TestModels_IndexableBlockNumber_New(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		input      *big.Int
-		want       string
-		wantDigits int
+		input *big.Int
+		want  string
 	}{
-		{big.NewInt(0), "0x0", 1},
-		{big.NewInt(0xf), "0xf", 1},
-		{big.NewInt(0x10), "0x10", 2},
+		{big.NewInt(0), "0"},
+		{big.NewInt(0xf), "f"},
+		{big.NewInt(0x10), "10"},
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
 			num := cltest.IndexableBlockNumber(test.input)
-			assert.Equal(t, test.want, num.String())
-			assert.Equal(t, test.wantDigits, num.Digits)
+			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
+			assert.Equal(t, len(test.want), num.Digits)
 		})
 	}
 }

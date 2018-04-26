@@ -187,7 +187,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 	msg := fmt.Sprintf(
 		"Listening for %v from block %v for address %v for job %v",
 		initr.Type,
-		blockNumber,
+		presenters.FriendlyBigInt(blockNumber),
 		presenters.LogListeningAddress(initr.Address),
 		initr.JobID)
 	logger.Infow(msg)
