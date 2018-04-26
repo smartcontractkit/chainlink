@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -113,16 +114,22 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 			assert.Nil(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
+			initialData := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
+			runLogInitialInput := models.RunResult{
+				Data: initialData,
+			}
+			run, err = services.ExecuteRunAtBlock(run, store, runLogInitialInput, early)
 			assert.Nil(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+			assert.Equal(t, initialData, run.Result.Data)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
 			assert.Nil(t, err)
 			assert.Equal(t, models.RunStatusCompleted, run.Status)
+			assert.Equal(t, initialData, run.Result.Data)
 		})
 	}
 }
