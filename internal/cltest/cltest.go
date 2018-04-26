@@ -298,7 +298,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 		bytes.NewBuffer(LoadJSON(path)),
 	)
 	defer resp.Body.Close()
-	CheckStatusCode(t, resp, 200)
+	AssertServerResponse(t, resp, 200)
 
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
@@ -324,7 +324,7 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 		bytes.NewBuffer(LoadJSON(path)),
 	)
 	defer resp.Body.Close()
-	CheckStatusCode(t, resp, 200)
+	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
@@ -337,7 +337,7 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 		bytes.NewBuffer(marshaled),
 	)
 	defer resp.Body.Close()
-	CheckStatusCode(t, resp, 200)
+	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
@@ -350,7 +350,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	}
 	resp := BasicAuthPost(url, "application/json", bodyBuffer)
 	defer resp.Body.Close()
-	CheckStatusCode(t, resp, 200)
+	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
 
 	jrs := []models.JobRun{}
@@ -375,7 +375,7 @@ func UpdateJobRunViaWeb(
 	resp := BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
 	defer resp.Body.Close()
 
-	CheckStatusCode(t, resp, 200)
+	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
 	assert.Nil(t, app.Store.One("ID", jrID, &jr))
 	return jr
@@ -392,7 +392,7 @@ func CreateBridgeTypeViaWeb(
 		bytes.NewBufferString(payload),
 	)
 	defer resp.Body.Close()
-	CheckStatusCode(t, resp, 200)
+	AssertServerResponse(t, resp, 200)
 	var bt models.BridgeType
 	name := ParseCommonJSON(resp.Body).Name
 	assert.Nil(t, app.Store.One("Name", name, &bt))
@@ -410,16 +410,6 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 		Runner:     EmptyRunner{},
 	}
 	return client, r
-}
-
-func CheckStatusCode(t *testing.T, resp *http.Response, expected int) {
-	assert.Equal(t, expected, resp.StatusCode)
-	if resp.StatusCode != expected {
-		buf, err := ioutil.ReadAll(resp.Body)
-		assert.Nil(t, err)
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
-		fmt.Printf("\n\nERROR unexpected HTML Response: %v\n\n", string(buf))
-	}
 }
 
 func WaitForJobRunToComplete(
@@ -563,4 +553,22 @@ func GetAccountAddress(store *store.Store) common.Address {
 
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
+}
+
+// AssertServerResponse is used to match against a client response, will print
+// any errors returned if the request fails.
+func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode int) {
+	if resp.StatusCode == expectedStatusCode {
+		return
+	}
+
+	if resp.StatusCode >= 300 && resp.StatusCode < 600 {
+		var result map[string][]string
+		err := json.Unmarshal(ParseResponseBody(resp), &result)
+		mustNotErr(err)
+
+		assert.FailNowf(t, "Request failed", "Expected %d response, got %d with errors: %s", expectedStatusCode, resp.StatusCode, result["errors"])
+	} else {
+		assert.FailNowf(t, "Unexpected response", "Expected %d response, got %d", expectedStatusCode, resp.StatusCode)
+	}
 }

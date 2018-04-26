@@ -1,6 +1,8 @@
 package web
 
 import (
+	"fmt"
+
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
@@ -13,21 +15,43 @@ type JobSpecsController struct {
 	App *services.ChainlinkApplication
 }
 
-// Index lists all of the existing JobSpecs.
+// Index lists JobSpecs, one page at a time.
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Index(c *gin.Context) {
-	var jobs []models.JobSpec
-	if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs); err != nil {
-		c.JSON(500, gin.H{
+	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
+	if err != nil {
+		c.JSON(422, gin.H{
 			"errors": []string{err.Error()},
+		})
+	}
+
+	skip := storm.Skip(offset)
+	limit := storm.Limit(size)
+
+	var jobs []models.JobSpec
+	if count, err := jsc.App.Store.Count(&models.JobSpec{}); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("error getting count of JobSpec: %+v", err).Error()},
+		})
+	} else if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs, skip, limit); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("erorr fetching All JobSpecs: %+v", err).Error()},
 		})
 	} else {
 		pjs := make([]presenters.JobSpec, len(jobs))
 		for i, j := range jobs {
 			pjs[i] = presenters.JobSpec{JobSpec: j}
 		}
-		c.JSON(200, pjs)
+
+		buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pjs)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
+			})
+		} else {
+			c.Data(200, MediaType, buffer)
+		}
 	}
 }
 
