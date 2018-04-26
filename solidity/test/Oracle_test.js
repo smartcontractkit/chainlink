@@ -18,6 +18,7 @@ contract('Oracle', () => {
 
   it("has a limited public interface", () => {
     checkPublicABI(Oracle, [
+      "cancel",
       "fulfillData",
       "onTokenTransfer",
       "owner",
@@ -193,6 +194,67 @@ contract('Oracle', () => {
         it("does not allow a transfer of funds by non-owner", async () => {
           await assertActionThrows(async () => {
             await oc.withdraw({from: stranger});
+          });
+        });
+      });
+    });
+  });
+
+  describe("#cancel", () => {
+    context("with no pending requests", () => {
+      it("fails", async () => {
+        await assertActionThrows(async () => {
+          await oc.cancel(1337, {from: stranger});
+        });
+      });
+    });
+
+    context("with a pending request", () => {
+      let log, tx, mock, internalId, requestAmount, startingBalance;
+      beforeEach(async () => {
+        startingBalance = 100;
+        requestAmount = 20;
+
+        mock = await GetterSetter.new({from: consumer});
+        await link.transfer(consumer, startingBalance);
+
+        let args = requestDataBytes(jobId, consumer, fHash, "id", "");
+        tx = await link.transferAndCall(oc.address, requestAmount, args, {from: consumer});
+        assert.equal(3, tx.receipt.logs.length)
+
+        log = tx.receipt.logs[2];
+        internalId = hexToInt(log.topics[1]);
+      });
+
+      it("has correct initial balances", async () => {
+        let oracleBalance = await link.balanceOf(oc.address);
+        assert.equal(requestAmount, oracleBalance);
+
+        let consumerAmount = await link.balanceOf(consumer);
+        assert.equal(startingBalance - requestAmount, consumerAmount);
+      });
+
+      context("from a stranger", () => {
+        it("fails", async () => {
+          await assertActionThrows(async () => {
+            await oc.cancel(internalId, {from: stranger});
+          });
+        });
+      });
+
+      context("from the requester", () => {
+        it("refunds the correct amount", async () => {
+          await oc.cancel(internalId, {from: consumer});
+          let balance = await link.balanceOf(consumer);
+          assert.equal(startingBalance, balance); // 100
+        });
+
+        context("canceling twice", () => {
+          it("fails", async () => {
+            await oc.cancel(internalId, {from: consumer});
+            await assertActionThrows(async () => {
+              await oc.cancel(internalId, {from: consumer});
+            });
           });
         });
       });

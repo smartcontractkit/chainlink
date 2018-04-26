@@ -9,11 +9,10 @@ cbor = require("cbor");
 
   before(async function () {
     accounts = await eth.accounts;
-    Accounts = accounts.slice(1);
-
-    oracleNode = Accounts[0];
-    stranger = Accounts[1];
-    consumer = Accounts[2];
+    defaultAccount = accounts[0];
+    oracleNode = accounts[1];
+    stranger = accounts[2];
+    consumer = accounts[3];
   });
 
   Eth = function sendEth(method, params) {
@@ -251,8 +250,8 @@ cbor = require("cbor");
   requestDataBytes = function requestDataBytes(jobId, to, fHash, runId, data) {
     let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
     let values = [1, jobId, to, fHash, runId, data];
-    let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
     let encoded = abi.rawEncode(types, values);
+    let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
     return funcSelector + encoded.toString("hex");
   };
 

@@ -36,13 +36,17 @@ contract Oracle is Ownable {
     LINK = LinkToken(_link);
   }
 
-  function onTokenTransfer(address _sender, uint256 _wei, bytes _data)
-    public onlyLINK
+  function onTokenTransfer(
+    address _sender,
+    uint256 _wei,
+    bytes _data
+  )
+    public
+    onlyLINK
   {
-    if (_data.length > 0) {
-      currentAmount = _wei;
-      require(address(this).delegatecall(_data)); // calls requestData
-    }
+    require(_data.length > 0);
+    currentAmount = _wei;
+    require(address(this).delegatecall(_data)); // calls requestData
   }
 
   function requestData(
@@ -82,6 +86,14 @@ contract Oracle is Ownable {
   function withdraw() public onlyOwner {
     LINK.transfer(owner, withdrawableWei.sub(oneForConsistentGasCost));
     withdrawableWei = oneForConsistentGasCost;
+  }
+
+  function cancel(uint256 _internalId) public hasInternalId(_internalId) {
+    Callback memory cb = callbacks[_internalId];
+    require(msg.sender == cb.addr);
+
+    LINK.transfer(cb.addr, cb.amount);
+    delete callbacks[_internalId];
   }
 
   // MODIFIERS
