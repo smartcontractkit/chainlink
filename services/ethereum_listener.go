@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
@@ -264,18 +265,18 @@ func (ht *HeadTracker) updateBlockHeader() {
 
 	bn := header.ToIndexableBlockNumber()
 	if bn.GreaterThan(ht.LastRecord()) {
-		logger.Debug("Fast forwarding to block header ", bn.FriendlyString())
+		logger.Debug("Fast forwarding to block header ", presenters.FriendlyBigInt(bn.ToInt()))
 		ht.Save(bn)
 	}
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
 	if ht.number != nil {
-		logger.Debug("Tracking logs from last block ", ht.number.FriendlyString(), " with hash ", ht.number.Hash.String())
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(ht.number.ToInt()), " with hash ", ht.number.Hash.String())
 	}
 	for header := range ht.headers {
 		number := header.ToIndexableBlockNumber()
-		logger.Debugw(fmt.Sprintf("Received header %v with hash %s", number.FriendlyString(), header.Hash().String()), "hash", header.Hash())
+		logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
 		if err := ht.Save(number); err != nil {
 			logger.Error(err.Error())
 		} else {
