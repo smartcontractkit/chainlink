@@ -4,7 +4,7 @@
 # Steps:
 # 0. Have docker installed and configured
 # 1. ./internal/bin/devnet
-# 2. cd solidity && truffle migrate --network devnet && cd ..
+# 2. cd solidity && truffle migrate && cd ..
 # 3. ./internal/bin/cldev
 
 export LOG_LEVEL=debug
