@@ -6,16 +6,12 @@ contract Consumer is Chainlinked {
   bytes32 internal requestId;
   bytes32 public currentPrice;
 
-  function Consumer(address _link, address _oracle)
-    public
-  {
+  function Consumer(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
   }
 
-  function requestEthereumPrice(string _currency)
-    public
-  {
+  function requestEthereumPrice(string _currency) public {
     ChainlinkLib.Run memory run = newRun("someJobId", this, "fulfill(bytes32,bytes32)");
     run.add("url", "https://etherprice.com/api");
     string[] memory path = new string[](2);
