@@ -100,18 +100,6 @@ func TestPresenterShowLinkBalance_NoAccount(t *testing.T) {
 	presenters.ShowLinkBalance(store)
 }
 
-func TestPresenterShowLinkBalance_WithEmptyAccount(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-
-	ethMock := app.MockEthClient()
-	ethMock.Register("eth_call", "0x00") // 0
-
-	_, err := presenters.ShowLinkBalance(app.Store)
-	assert.NotNil(t, err)
-}
-
 func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
