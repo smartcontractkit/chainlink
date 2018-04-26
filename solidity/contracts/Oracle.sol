@@ -16,11 +16,11 @@ contract Oracle is Ownable {
   }
 
   // We initialize fields to 1 instead of 0 so that the first invocation
-  // does not take a higher cost.
-  uint256 constant private consistentGasCostInitializer = 1;
-  uint256 private currentInternalId = consistentGasCostInitializer;
-  uint256 private currentAmount = consistentGasCostInitializer;
-  uint256 private withdrawableWei = consistentGasCostInitializer;
+  // does not cost more gas.
+  uint256 constant private oneForConsistentGasCost = 1;
+  uint256 private currentInternalId = oneForConsistentGasCost;
+  uint256 private currentAmount = oneForConsistentGasCost;
+  uint256 private withdrawableWei = oneForConsistentGasCost;
 
   mapping(uint256 => Callback) private callbacks;
 
@@ -80,8 +80,8 @@ contract Oracle is Ownable {
   }
 
   function withdraw() public onlyOwner {
-    LINK.transfer(owner, withdrawableWei - consistentGasCostInitializer);
-    withdrawableWei = consistentGasCostInitializer;
+    LINK.transfer(owner, withdrawableWei.sub(oneForConsistentGasCost));
+    withdrawableWei = oneForConsistentGasCost;
   }
 
   // MODIFIERS
