@@ -144,7 +144,9 @@ func startTask(
 		adapter.MinConfs())
 
 	if !jr.Runnable(bn, minConfs) {
-		return tr.MarkPendingConfirmations()
+		tr = tr.MarkPendingConfirmations()
+		tr.Result.Data = input.Data
+		return tr
 	}
 
 	return tr.ApplyResult(adapter.Perform(input, store))
