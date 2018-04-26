@@ -8,10 +8,13 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
@@ -85,24 +88,48 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	var job presenters.JobSpec
-	return cli.deserializeResponse(resp, &job)
+	return cli.renderResponse(resp, &job)
 }
 
-// GetJobSpecs returns all job specs.
-func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
+func (cli *Client) getPageOfJobSpecs(requestURI string, page int, jobs *[]models.JobSpec, links *jsonapi.Links) error {
 	cfg := cli.Config
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs",
-	)
+
+	uri, err := url.Parse(requestURI)
+	if err != nil {
+		return err
+	}
+	q := uri.Query()
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	uri.RawQuery = q.Encode()
+
+	resp, err := utils.BasicAuthGet(cfg.BasicAuthUsername, cfg.BasicAuthPassword, uri.String())
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 
+	return cli.deserializeAPIResponse(resp, jobs, links)
+}
+
+// GetJobSpecs returns all job specs.
+func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
+	cfg := cli.Config
+	requestURI := cfg.ClientNodeURL + "/v2/specs"
+
+	page := 0
+	if c != nil && c.IsSet("page") {
+		page = c.Int("page")
+	}
+
+	var links jsonapi.Links
 	var jobs []models.JobSpec
-	return cli.deserializeResponse(resp, &jobs)
+	err := cli.getPageOfJobSpecs(requestURI, page, &jobs, &links)
+	if err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&jobs))
 }
 
 // CreateJobSpec creates job spec based on JSON input
@@ -130,7 +157,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var jobs presenters.JobSpec
-	return cli.deserializeResponse(resp, &jobs)
+	return cli.renderResponse(resp, &jobs)
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON
@@ -161,7 +188,7 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	var jobs presenters.JobSpec
-	return cli.deserializeResponse(resp, &jobs)
+	return cli.renderResponse(resp, &jobs)
 }
 
 // BackupDatabase streams a backup of the node's db to the passed filepath.
@@ -267,6 +294,21 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 	return bytes.NewBuffer(file), nil
 }
 
+// deserializeAPIResponse is distinct from deserializeResponse in that it supports JSONAPI responses with Links
+func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
+	if resp.StatusCode >= 400 {
+		return cli.errorOut(errors.New(resp.Status))
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if err = web.ParsePaginatedResponse(b, dst, links); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
 func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
 	if resp.StatusCode >= 400 {
 		return cli.errorOut(errors.New(resp.Status))
@@ -276,6 +318,14 @@ func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) err
 		return cli.errorOut(err)
 	}
 	if err = json.Unmarshal(b, &dst); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
+	err := cli.deserializeResponse(resp, dst)
+	if err != nil {
 		return cli.errorOut(err)
 	}
 	return cli.errorOut(cli.Render(dst))

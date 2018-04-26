@@ -23,6 +23,22 @@ type JobSpec struct {
 	CreatedAt  Time        `json:"createdAt" storm:"index"`
 }
 
+// GetID returns the ID of this structure for jsonapi serialization.
+func (j JobSpec) GetID() string {
+	return j.ID
+}
+
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (j JobSpec) GetName() string {
+	return "specs"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (j *JobSpec) SetID(value string) error {
+	j.ID = value
+	return nil
+}
+
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {

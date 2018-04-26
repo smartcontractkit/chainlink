@@ -105,7 +105,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
 	defer resp.Body.Close()
-	cltest.CheckStatusCode(t, resp, 500)
+	cltest.AssertServerResponse(t, resp, 500)
 }
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {

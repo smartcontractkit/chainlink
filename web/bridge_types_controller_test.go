@@ -20,7 +20,7 @@ func TestBridgeTypesController_Create(t *testing.T) {
 		"application/json",
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
 	)
-	cltest.CheckStatusCode(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, 200)
 	btName := cltest.ParseCommonJSON(resp.Body).Name
 
 	bt := &models.BridgeType{}
@@ -41,7 +41,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 		"application/json",
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/existing_core_adapter.json")),
 	)
-	cltest.CheckStatusCode(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, 400)
 }
 
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
@@ -55,7 +55,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 		"application/json",
 		bytes.NewBufferString("}"),
 	)
-	cltest.CheckStatusCode(t, resp, 500)
+	cltest.AssertServerResponse(t, resp, 500)
 }
 
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
@@ -69,5 +69,5 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 		"application/json",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
-	cltest.CheckStatusCode(t, resp, 500)
+	cltest.AssertServerResponse(t, resp, 500)
 }
