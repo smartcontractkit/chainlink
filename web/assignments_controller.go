@@ -66,7 +66,23 @@ func (ac *AssignmentsController) Show(c *gin.Context) {
 // Example:
 //  "/assignments/:AID/snapshots"
 func (ac *AssignmentsController) CreateSnapshot(c *gin.Context) {
+	id := c.Param("AID")
 
+	if j, err := ac.App.Store.FindJob(id); err == storm.ErrNotFound {
+		c.JSON(404, gin.H{
+			"errors": []string{"Job not found"},
+		})
+	} else if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else if jr, err := startJob(j, ac.App.Store, models.JSON{}); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else {
+		c.JSON(200, gin.H{"id": jr.ID})
+	}
 }
 
 // ShowSnapshot returns snapshots for a given assignment ID
