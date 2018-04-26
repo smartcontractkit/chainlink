@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -224,4 +225,10 @@ func (t TaskSpec) FriendlyParams() (string, string) {
 		return true
 	})
 	return strings.Join(keys, "\n"), strings.Join(values, "\n")
+}
+
+// FriendlyBigInt returns a string printing the integer in both
+// decimal and hexidecimal formats.
+func FriendlyBigInt(n *big.Int) string {
+	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
 }
