@@ -1,6 +1,7 @@
 let chainlinkDeployer = require("../chainlink_deployer.js");
 let UptimeSLA = artifacts.require("./UptimeSLA.sol");
 let Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
+let LINK = artifacts.require("../../../solidity/contracts/LinkToken.sol");
 
 module.exports = function(truffleDeployer) {
   let client = "0x542B68aE7029b7212A5223ec2867c6a94703BeE3";
@@ -12,7 +13,7 @@ module.exports = function(truffleDeployer) {
     console.log(`\tclient: ${client}`);
     console.log(`\tservice provider: ${serviceProvider}`);
 
-    truffleDeployer.deploy(UptimeSLA, client, serviceProvider, Oracle.address, body.id, {
+    truffleDeployer.deploy(UptimeSLA, client, serviceProvider, LINK.address, Oracle.address, body.id, {
       value: 1000000000
     });
   }, function(error) {
