@@ -1,6 +1,6 @@
 module.exports = {
   networks: {
-    devnet: {
+    development: {
       host: "127.0.0.1",
       port: 18545,
       network_id: "*",
