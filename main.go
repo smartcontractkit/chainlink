@@ -77,16 +77,20 @@ func Run(client *cmd.Client, args ...string) {
 			Action:  client.CreateJobRun,
 		},
 		{
-			Name:    "backup",
-			Aliases: []string{"b"},
-			Usage:   "Backup the database of the running node",
-			Action:  client.BackupDatabase,
+			Name:   "backup",
+			Usage:  "Backup the database of the running node",
+			Action: client.BackupDatabase,
 		},
 		{
 			Name:    "import",
 			Aliases: []string{"i"},
 			Usage:   "Import a key file to use with the node",
 			Action:  client.ImportKey,
+		},
+		{
+			Name:   "bridge",
+			Usage:  "Add a new bridge to the node",
+			Action: client.AddBridge,
 		},
 	}
 	app.Run(args)

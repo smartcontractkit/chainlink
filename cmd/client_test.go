@@ -160,6 +160,40 @@ func TestClient_CreateJobRun(t *testing.T) {
 	}
 }
 
+func TestClient_AddBridge(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+
+	tests := []struct {
+		name    string
+		param   string
+		errored bool
+	}{
+		{"EmptyString", "", true},
+		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
+		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
+		{"ValidPath", "../internal/fixtures/web/create_random_number_bridge_type.json", false},
+		{"InvalidPath", "bad/filepath/", true},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+
+			set := flag.NewFlagSet("bridge", 0)
+			set.Parse([]string{test.param})
+			c := cli.NewContext(nil, set, nil)
+			if test.errored {
+				assert.NotNil(t, client.AddBridge(c))
+			} else {
+				assert.Nil(t, client.AddBridge(c))
+			}
+		})
+	}
+}
+
 func TestClient_BackupDatabase(t *testing.T) {
 	t.Parallel()
 
