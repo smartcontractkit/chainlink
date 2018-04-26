@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"reflect"
@@ -70,4 +71,22 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 	assert.Equal(t, a1.Schedule.Minute, respAssignment.Schedule.Minute)
 	assert.Equal(t, a1.Schedule.MonthOfYear, respAssignment.Schedule.MonthOfYear)
 
+}
+
+func TestAssignmentsController_CreateSnapshot_V1_Format(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
+
+	j.EndAt.Valid = false
+	app.Store.SaveJob(&j)
+
+	url := app.Server.URL + "/v1/assignments/" + j.ID + "/snapshots"
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+
+	runID := cltest.ParseCommonJSON(resp.Body).ID
+
+	assert.NotNil(t, runID)
 }
