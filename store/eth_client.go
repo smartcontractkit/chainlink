@@ -28,7 +28,7 @@ type CallerSubscriber interface {
 // GetNonce returns the nonce (transaction count) for a given address.
 func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
 	result := ""
-	err := eth.Call(&result, "eth_getTransactionCount", address.Hex())
+	err := eth.Call(&result, "eth_getTransactionCount", address.Hex(), "latest")
 	if err != nil {
 		return 0, err
 	}
