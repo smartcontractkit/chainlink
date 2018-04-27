@@ -90,3 +90,13 @@ func TestAssignmentsController_CreateSnapshot_V1_Format(t *testing.T) {
 
 	assert.NotNil(t, runID)
 }
+
+func TestAssignmentsController_CreateSnapshot_V1_NotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	url := app.Server.URL + "/v1/assignments/" + "badid" + "/snapshots"
+	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+}
