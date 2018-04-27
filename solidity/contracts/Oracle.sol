@@ -44,7 +44,6 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    require(_data.length > 0);
     currentAmount = _wei;
     require(address(this).delegatecall(_data)); // calls requestData
   }

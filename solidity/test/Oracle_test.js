@@ -58,6 +58,14 @@ contract('Oracle', () => {
         let tx = await link.transferAndCall(oc.address, 0, callData);
         assert.equal(3, tx.receipt.logs.length)
       });
+
+      context("with no data", () => {
+        it("reverts", async () => {
+          await assertActionThrows(async () => {
+            await link.transferAndCall(oc.address, 0, "");
+          });
+        });
+      });
     });
 
     context("when called from any address but the LINK token", () => {
