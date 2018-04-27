@@ -88,15 +88,18 @@ contract Oracle is Ownable {
     withdrawableWei = oneForConsistentGasCost;
   }
 
-  function cancel(uint256 _internalId) public hasInternalId(_internalId) {
+  function cancel(uint256 _internalId) public fromCallback(_internalId) {
     Callback memory cb = callbacks[_internalId];
-    require(msg.sender == cb.addr);
-
     LINK.transfer(cb.addr, cb.amount);
     delete callbacks[_internalId];
   }
 
   // MODIFIERS
+
+  modifier fromCallback(uint256 _internalId) {
+    require(msg.sender == callbacks[_internalId].addr);
+    _;
+  }
 
   modifier hasInternalId(uint256 _internalId) {
     require(callbacks[_internalId].addr != address(0));
