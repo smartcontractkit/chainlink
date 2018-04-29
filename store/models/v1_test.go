@@ -153,3 +153,38 @@ func TestAssignmentSpec_ConvertToAssignment(t *testing.T) {
 		})
 	}
 }
+
+func TestAssignmentSpec_ConvertToSnapShot(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"Pending-ID123",
+			`{"jobRunId": "123", "data": {"value": "1035.03"}, "status": "pending_bridge" ,"error": ""}`,
+			`{"details": {"value": "1035.03"}, "xid": "123", "error": "", "pending": true}`},
+		{"NotPending",
+			`{"jobRunId": "1337", "data": {"value": "1035.03"}, "status": "in_progress" ,"error": "badstuff"}`,
+			`{"details": {"value": "1035.03"}, "xid": "1337", "error": "badstuff", "pending": false}`},
+	}
+
+	_, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	for _, test := range tests {
+		var rr models.RunResult
+		assert.Nil(t, json.Unmarshal([]byte(test.input), &rr))
+
+		ss1 := models.ConvertToSnapShot(rr)
+
+		var ss2 models.SnapShot
+		assert.Nil(t, json.Unmarshal([]byte(test.want), &ss2))
+
+		assert.Equal(t, ss2.Details, ss1.Details)
+		assert.Equal(t, ss2.ID, ss1.ID)
+		assert.Equal(t, ss2.Error, ss1.Error)
+		assert.Equal(t, ss2.Pending, ss1.Pending)
+	}
+}
