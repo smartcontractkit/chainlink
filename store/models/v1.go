@@ -35,6 +35,13 @@ type Schedule struct {
 	RunAt       []Time      `json:"runAt"`
 }
 
+type SnapShot struct {
+	Details JSON        `json:"details"`
+	ID      string      `json:"xid"`
+	Error   null.String `json:"error"`
+	Pending bool        `json:"pending"`
+}
+
 func (s Schedule) hasCron() bool {
 	return s.Minute.Valid || s.Hour.Valid || s.DayOfMonth.Valid ||
 		s.MonthOfYear.Valid || s.DayOfWeek.Valid
@@ -191,4 +198,14 @@ func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
 	}
 
 	return as, merr
+}
+
+// ConvertToSnapShot convert given RunResult to a SnapShot
+func ConvertToSnapShot(rr RunResult) SnapShot {
+	return SnapShot{
+		Details: rr.Data,
+		ID:      rr.JobRunID,
+		Error:   rr.ErrorMessage,
+		Pending: rr.Status.PendingBridge(),
+	}
 }
