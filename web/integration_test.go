@@ -36,8 +36,8 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 func TestIntegration_HelloWorld(t *testing.T) {
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse, func(body string) {})
-	defer cleanup()
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse, func(body string) {})
+	defer assertCalled()
 
 	config, _ := cltest.NewConfig()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
@@ -62,7 +62,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	assert.Nil(t, err)
 	defer cleanup()
 
-	j := cltest.NewJobHelloWorld(t, app, mockServer.URL)
+	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
