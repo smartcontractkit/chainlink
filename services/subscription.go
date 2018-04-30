@@ -297,7 +297,17 @@ func (le RPCLogEvent) RunLogJSON() (models.JSON, error) {
 		return js, err
 	}
 
-	js, err = js.Add("address", el.Address.String())
+	fullfillmentJSON, err := fulfillmentToJSON(le)
+	if err != nil {
+		return js, err
+	}
+	return js.Merge(fullfillmentJSON)
+}
+
+func fulfillmentToJSON(le RPCLogEvent) (models.JSON, error) {
+	el := le.Log
+	var js models.JSON
+	js, err := js.Add("address", el.Address.String())
 	if err != nil {
 		return js, err
 	}
