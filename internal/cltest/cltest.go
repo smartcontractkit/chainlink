@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/h2non/gock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -204,12 +203,6 @@ func NewEthereumListener() (*services.EthereumListener, func()) {
 	}
 }
 
-func CloseGock(t *testing.T) {
-	assert.True(t, gock.IsDone(), "Not all gock requests were fulfilled")
-	gock.DisableNetworking()
-	gock.Off()
-}
-
 type CommonJSON struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -362,6 +355,13 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	assert.Equal(t, j.ID, jr.JobID)
 
 	return jr
+}
+
+// CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
+func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
+	j := FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
+	j.Tasks[0] = NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
+	return CreateJobSpecViaWeb(t, app, j)
 }
 
 func UpdateJobRunViaWeb(
