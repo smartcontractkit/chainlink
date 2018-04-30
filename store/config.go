@@ -69,7 +69,6 @@ func (c Config) String() string {
 		"ROOT: %s\n" +
 		"PORT: %s\n" +
 		"USERNAME: %s\n" +
-		"PASSWORD: %s\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
 		"CLIENT_NODE_URL: %s\n" +
@@ -86,7 +85,6 @@ func (c Config) String() string {
 		c.RootDir,
 		c.Port,
 		c.BasicAuthUsername,
-		c.BasicAuthPassword,
 		c.EthereumURL,
 		c.ChainID,
 		c.ClientNodeURL,
