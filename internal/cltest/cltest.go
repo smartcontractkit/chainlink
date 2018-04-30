@@ -357,14 +357,10 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	return jr
 }
 
-// NewJobHelloWorld creates a JobSpec with the given MockServer Url
-func NewJobHelloWorld(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	j, _ := NewJobWithWebInitiator()
-	t1 := NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
-	t2 := NewTask("JsonParse", `{"path":["last"]}`)
-	t3 := NewTask("EthBytes32")
-	t4 := NewTask("EthTx", `{"address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3","functionSelector": "0x609ff1bd"}`)
-	j.Tasks = []models.TaskSpec{t1, t2, t3, t4}
+// CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
+func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
+	j := FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
+	j.Tasks[0] = NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
 	return CreateJobSpecViaWeb(t, app, j)
 }
 

@@ -137,12 +137,6 @@
   version = "v1.2.0"
 
 [[projects]]
-  name = "github.com/h2non/gock"
-  packages = ["."]
-  revision = "550b7ca3aa563b9974e2391274ea55a940d05ca9"
-  version = "v1.0.8"
-
-[[projects]]
   name = "github.com/jpillora/backoff"
   packages = ["."]
   revision = "8eab2debe79d12b7bd3d10653910df25fa9552ba"
@@ -426,6 +420,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8981b2fe1f2ed0bf55911bbb007191a9db92199b48a3eed6a86dcd348e70ec1c"
+  inputs-digest = "0b98768e1213306d11824936c455c7ac502fe8cba28873825578256ce29fb3c8"
   solver-name = "gps-cdcl"
   solver-version = 1
