@@ -64,6 +64,41 @@ func (c Config) CreateProductionLogger() *zap.Logger {
 	return logger.CreateProductionLogger(c.RootDir, c.LogLevel.Level)
 }
 
+func (c Config) String() string {
+	longStr := "LOG_LEVEL: %v\n" +
+		"ROOT: %s\n" +
+		"PORT: %s\n" +
+		"USERNAME: %s\n" +
+		"PASSWORD: %s\n" +
+		"ETH_URL: %s\n" +
+		"ETH_CHAIN_ID: %d\n" +
+		"CLIENT_NODE_URL: %s\n" +
+		"TX_MIN_CONFIRMATIONS: %d\n" +
+		"TASK_MIN_CONFIRMATIONS: %d\n" +
+		"ETH_GAS_BUMP_THRESHOLD: %d\n" +
+		"ETH_GAS_BUMP_WEI: %s\n" +
+		"ETH_GAS_PRICE_DEFAULT: %s\n" +
+		"LINK_CONTRACT_ADDRESS: %s\n"
+
+	return fmt.Sprintf(
+		longStr,
+		c.LogLevel,
+		c.RootDir,
+		c.Port,
+		c.BasicAuthUsername,
+		c.BasicAuthPassword,
+		c.EthereumURL,
+		c.ChainID,
+		c.ClientNodeURL,
+		c.TxMinConfirmations,
+		c.TaskMinConfirmations,
+		c.EthGasBumpThreshold,
+		c.EthGasBumpWei.String(),
+		c.EthGasPriceDefault.String(),
+		c.LinkContractAddress,
+	)
+}
+
 func parseEnv(cfg interface{}) error {
 	return env.ParseWithFuncs(cfg, env.CustomParsers{
 		reflect.TypeOf(big.Int{}):  bigIntParser,
