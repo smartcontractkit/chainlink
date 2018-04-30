@@ -65,7 +65,7 @@ func (c Config) CreateProductionLogger() *zap.Logger {
 }
 
 func (c Config) String() string {
-	longStr := "LOG_LEVEL: %v\n" +
+	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
 		"PORT: %s\n" +
 		"USERNAME: %s\n" +
@@ -81,7 +81,7 @@ func (c Config) String() string {
 		"LINK_CONTRACT_ADDRESS: %s\n"
 
 	return fmt.Sprintf(
-		longStr,
+		fmtConfig,
 		c.LogLevel,
 		c.RootDir,
 		c.Port,
