@@ -356,7 +356,9 @@ func NewHTTPMockServer(
 		io.WriteString(w, response)
 	})
 
-	return httptest.NewServer(handler), func() {
+	server := httptest.NewServer(handler)
+	return server, func() {
+		server.Close()
 		assert.True(t, called)
 	}
 }
