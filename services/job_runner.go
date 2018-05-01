@@ -34,6 +34,10 @@ func BeginRunAtBlock(
 	if err != nil {
 		return models.JobRun{}, err
 	}
+	if input.Amount != nil && store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
+		logger.Infow(fmt.Sprintf("Rejecting job %s with payment %s below minimum threshold (%s)", job.ID, input.Amount, store.Config.MinimumContractPayment))
+		run.Status = models.RunStatusErrored
+	}
 	return ExecuteRunAtBlock(run, store, input, bn)
 }
 
@@ -68,6 +72,9 @@ func ExecuteRunAtBlock(
 	overrides models.RunResult,
 	bn *models.IndexableBlockNumber,
 ) (models.JobRun, error) {
+	if jr.Result.HasError() {
+		return jr, nil
+	}
 	jr.Status = models.RunStatusInProgress
 	if err := store.Save(&jr); err != nil {
 		return jr, wrapError(jr, err)

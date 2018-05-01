@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -111,15 +112,13 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 
 			run := job.NewRun(initr)
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
 			initialData := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-			runLogInitialInput := models.RunResult{
-				Data: initialData,
-			}
+			runLogInitialInput := models.RunResult{Data: initialData}
 			run, err = services.ExecuteRunAtBlock(run, store, runLogInitialInput, early)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
@@ -127,7 +126,7 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, models.RunStatusCompleted, run.Status)
 			assert.Equal(t, initialData, run.Result.Data)
 		})
@@ -217,6 +216,39 @@ func TestJobRunner_ExecuteRun_ErrorsWithNoRuns(t *testing.T) {
 	run := job.NewRun(initr)
 	run, err := services.ExecuteRun(run, store, models.RunResult{})
 	assert.NotNil(t, err)
+}
+
+func TestJobRunner_BeginRunWithAmount(t *testing.T) {
+	tests := []struct {
+		name   string
+		amount *big.Int
+		status models.RunStatus
+	}{
+		{"job with no amount", nil, models.RunStatusCompleted},
+		{"job with zero amount", big.NewInt(9), models.RunStatusErrored},
+		{"job with valid amount", big.NewInt(11), models.RunStatusCompleted},
+	}
+
+	config, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
+	config.MinimumContractPayment = big.NewInt(10)
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			job, initr := cltest.NewJobWithWebInitiator()
+			assert.Nil(t, store.SaveJob(&job))
+
+			runResult := models.RunResult{
+				Amount: test.amount,
+			}
+			run, _ := services.BeginRun(job, initr, runResult, store)
+			assert.Equal(t, test.status, run.Status)
+		})
+	}
 }
 
 func TestJobRunner_BeginRun(t *testing.T) {
