@@ -8,7 +8,7 @@
 # 3. ./internal/bin/cldev
 
 export LOG_LEVEL=debug
-export ROOT=./internal/devnet
+export ROOT=./internal/clroot
 export ETH_URL=ws://localhost:18546
 export ETH_CHAIN_ID=17
 export TX_MIN_CONFIRMATIONS=2
