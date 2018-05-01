@@ -138,8 +138,9 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 				Data:    test.data,
 				Topics: []common.Hash{
 					services.RunLogTopic,
-					cltest.StringToHash("requestID"),
+					cltest.StringToHash("internalID"),
 					cltest.StringToHash(j.ID),
+					cltest.StringToHash(utils.Uint64ToHex(1)),
 				},
 			}
 
