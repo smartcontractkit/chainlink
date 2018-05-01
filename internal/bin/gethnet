@@ -4,16 +4,35 @@ set -e
 
 cd "$(dirname "$0")"
 ./print_account
-./topoff_gethnet
 
-if [ "$1" = "console" ]; then
-  CMD="geth console"
-else
-  CMD="geth"
-fi
-
-$CMD --dev --mine --networkid 17 --wsorigins "*" --rpc --ws \
-  --dev.period 2 --rpcport 18545 --wsport 18546 \
-  --datadir ../gethnet/datadir \
-  --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" \
-  --password ../gethnet/password.txt
+# Enable different gethnet subcommands such as clean or console.
+# No subcommand runs the main mining geth.
+case "$1" in
+  attach)
+    geth attach ws://localhost:18546
+    ;;
+  clean)
+    rm -rf ../gethnet/datadir/geth
+    ;;
+  console)
+    geth console --dev --mine --networkid 17 --wsorigins "*" --rpc --ws \
+      --rpcport 18545 --wsport 18546 --datadir ../gethnet/datadir \
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" \
+      --password ../gethnet/password.txt
+    ;;
+  topoff)
+    geth console --dev \
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" \
+      --password ../gethnet/password.txt \
+      --datadir ../gethnet/datadir \
+      --exec 'loadScript("../gethnet/gethload.js"); topOffAccount();'
+    ;;
+  *)
+    ./gethnet topoff
+    geth --dev --mine --networkid 17 --wsorigins "*" --rpc --ws \
+      --dev.period 2 --rpcport 18545 --wsport 18546 \
+      --datadir ../gethnet/datadir \
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" \
+      --password ../gethnet/password.txt
+    ;;
+esac
