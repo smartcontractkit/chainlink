@@ -34,9 +34,14 @@ func BeginRunAtBlock(
 	if err != nil {
 		return models.JobRun{}, err
 	}
-	if input.Amount != nil && store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
-		logger.Infow(fmt.Sprintf("Rejecting job %s with payment %s below minimum threshold (%s)", job.ID, input.Amount, store.Config.MinimumContractPayment))
-		run.Status = models.RunStatusErrored
+	if input.Amount != nil &&
+		store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
+		msg := fmt.Sprintf(
+			"Rejecting job %s with payment %s below minimum threshold (%s)",
+			job.ID,
+			input.Amount,
+			store.Config.MinimumContractPayment.Text(10))
+		run = run.ApplyResult(input.WithError(errors.New(msg)))
 	}
 	return ExecuteRunAtBlock(run, store, input, bn)
 }

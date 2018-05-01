@@ -33,7 +33,7 @@ type Config struct {
 	EthGasBumpWei          big.Int  `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
 	EthGasPriceDefault     big.Int  `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
 	LinkContractAddress    string   `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
-	MinimumContractPayment *big.Int `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
+	MinimumContractPayment big.Int  `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -41,14 +41,14 @@ type Config struct {
 func NewConfig() Config {
 	config := Config{}
 	if err := parseEnv(&config); err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("error parsing environment: %+v", err))
 	}
 	dir, err := homedir.Expand(config.RootDir)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("error expanding $HOME: %+v", err))
 	}
 	if err = os.MkdirAll(dir, os.FileMode(0700)); err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("error creating %s: %+v", dir, err))
 	}
 	config.RootDir = dir
 	return config
