@@ -6002,7 +6002,7 @@ truffle-provider@^0.0.4:
     truffle-error "^0.0.2"
     web3 "^0.20.1"
 
-truffle@^4.0.4, truffle@^4.0.6:
+truffle@^4.0.4, truffle@^4.1.6:
   version "4.1.7"
   resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.7.tgz#b2d66d26eafd92da868d67765953e12c8160aedb"
   dependencies:
