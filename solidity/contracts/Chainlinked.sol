@@ -46,7 +46,7 @@ contract Chainlinked {
       _run.callbackFunctionId,
       requestId,
       _run.close());
-    link.transferAndCall(oracle, _wei, requestDataABI);
+    require(link.transferAndCall(oracle, _wei, requestDataABI));
 
     return requestId;
   }
