@@ -21,8 +21,9 @@ import (
 // Descriptive indices of a RunLog's Topic array
 const (
 	EventTopicSignature = iota
-	EventTopicRequestID
+	EventTopicInternalID
 	EventTopicJobID
+	EventTopicAmount
 )
 
 // RunLogTopic is the signature for the Request(uint256,bytes32,string) event
@@ -301,7 +302,7 @@ func (le RPCLogEvent) RunLogJSON() (models.JSON, error) {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", el.Topics[EventTopicRequestID].String())
+	js, err = js.Add("dataPrefix", el.Topics[EventTopicInternalID].String())
 	if err != nil {
 		return js, err
 	}
@@ -330,7 +331,7 @@ func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
 }
 
 func isRunLog(log types.Log) bool {
-	return len(log.Topics) == 3 && log.Topics[0] == RunLogTopic
+	return len(log.Topics) == 4 && log.Topics[0] == RunLogTopic
 }
 
 func jobIDFromLog(log types.Log) (string, error) {

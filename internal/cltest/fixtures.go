@@ -200,6 +200,7 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 			services.RunLogTopic,
 			StringToHash("requestID"),
 			StringToHash(jobID),
+			StringToHash(utils.Uint64ToHex(1)),
 		},
 	}
 }
