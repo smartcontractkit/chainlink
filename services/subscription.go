@@ -224,7 +224,15 @@ func receiveEthLog(le RPCLogEvent) {
 }
 
 func runJob(le RPCLogEvent, data models.JSON, initr models.Initiator) {
-	input := models.RunResult{Data: data}
+	payment, err := le.ContractPayment()
+	if err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
+	}
+	input := models.RunResult{
+		Data:   data,
+		Amount: payment,
+	}
 	if _, err := BeginRunAtBlock(le.Job, initr, input, le.store, le.ToIndexableBlockNumber()); err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
@@ -329,6 +337,19 @@ func (le RPCLogEvent) EthLogJSON() (models.JSON, error) {
 		return out, err
 	}
 	return out, json.Unmarshal(b, &out)
+}
+
+// ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
+func (le RPCLogEvent) ContractPayment() (*big.Int, error) {
+	if !isRunLog(le.Log) {
+		return nil, nil
+	}
+	encodedAmount := le.Log.Topics[EventTopicAmount].Hex()
+	payment, ok := new(big.Int).SetString(encodedAmount, 0)
+	if !ok {
+		return payment, fmt.Errorf("unable to decoded amount from RunLog: %s", encodedAmount)
+	}
+	return payment, nil
 }
 
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {

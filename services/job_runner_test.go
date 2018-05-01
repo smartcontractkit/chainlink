@@ -225,13 +225,14 @@ func TestJobRunner_BeginRunWithAmount(t *testing.T) {
 		status models.RunStatus
 	}{
 		{"job with no amount", nil, models.RunStatusCompleted},
-		{"job with zero amount", big.NewInt(9), models.RunStatusErrored},
+		{"job with insufficient amount", big.NewInt(9), models.RunStatusErrored},
+		{"job with exact amount", big.NewInt(10), models.RunStatusCompleted},
 		{"job with valid amount", big.NewInt(11), models.RunStatusCompleted},
 	}
 
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.MinimumContractPayment = big.NewInt(10)
+	config.MinimumContractPayment = *big.NewInt(10)
 
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
