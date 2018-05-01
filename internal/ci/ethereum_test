@@ -4,25 +4,38 @@ set -e
 
 PATH=./internal/bin:./node_modules/.bin:$PATH
 
-# Run devnet
-docker pull smartcontract/devnet:latest
-devnet &
-DEVNETPID=$!
+# Run gethnet
+echo Downloading geth...
+go get -d github.com/ethereum/go-ethereum
+echo Installing geth...
+go install github.com/ethereum/go-ethereum/cmd/geth
+echo Funding geth...
+fund_gethnet
+echo Running geth...
+gethnet &
+ETHEREUMPID=$!
 sleep 1
 
-# Run CL against devnet
+# Run CL against ethereum node
 cldev &
 CLDEVPID=$!
 sleep 4
 
-# Run echo_server sample
+########################
+## Run echo_server sample
+########################
+
 cd examples/echo_server
 yarn install
 truffle migrate
 node echo.js &
 ECHOPID=$!
 
-cljob=`./create_ethlog_job`
+########################
+## ethlog
+########################
+
+ethjob=`./create_ethlog_job`
 ./send_ethlog_transaction.js
 sleep 2
 
@@ -49,7 +62,7 @@ else
 fi
 
 ## Check job runs
-jid=`echo $cljob | jq .id | tr -d '"'`
+jid=`echo $ethjob | jq .id | tr -d '"'`
 echo Retrieved job id $jid
 runs=`cldev -j s $jid |  jq '.runs | length'`
 echo Retrieved $runs runs
@@ -63,4 +76,4 @@ fi
 # Unfortunately, does not kill off all bg processes
 kill $ECHOPID
 kill $CLDEVPID
-kill $DEVNETPID
+kill $ETHEREUMPID
