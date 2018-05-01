@@ -67,6 +67,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		CreatedAt: time.Now(),
 		TaskRuns:  taskRuns,
 		Initiator: i,
+		Status:    RunStatusUnstarted,
 	}
 }
 
