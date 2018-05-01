@@ -9,10 +9,20 @@ function checkAllBalances() {
   console.log("  Total balance: " + totalBal + " ether");
 };
 
-function fundAccount() {
+function fundAccount(amount) {
+  amount = amount || 1000;
   return eth.sendTransaction({
     from:eth.accounts[0],
     to:eth.accounts[1],
-    value: web3.toWei(1000, "ether")
+    value: web3.toWei(amount, "ether")
   });
+};
+
+function topOffAccount() {
+  var acct = "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f";
+  var acctBal = web3.fromWei(eth.getBalance(acct), "ether");
+  var diff = 10000 - acctBal;
+  if (diff > 0) {
+    fundAccount(diff);
+  }
 };

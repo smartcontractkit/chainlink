@@ -1,8 +1,18 @@
 #!/bin/bash
 
+set -e
+
 cd "$(dirname "$0")"
 ./print_account
-geth --dev --mine --networkid 17 --wsorigins "*" --rpc --ws \
+./topoff_gethnet
+
+if [ "$1" = "console" ]; then
+  CMD="geth console"
+else
+  CMD="geth"
+fi
+
+$CMD --dev --mine --networkid 17 --wsorigins "*" --rpc --ws \
   --dev.period 2 --rpcport 18545 --wsport 18546 \
   --datadir ../gethnet/datadir \
   --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" \
