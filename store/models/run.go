@@ -157,14 +157,14 @@ func (tr TaskRun) MarkPendingConfirmations() TaskRun {
 	return tr
 }
 
-// RunResult keeps track of the outcome of a TaskRun. It stores
-// the Data and ErrorMessage, if any of either, and contains
-// a Pending field to track the status.
+// RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
+// Data and ErrorMessage, and contains a Pending field to track the status.
 type RunResult struct {
 	JobRunID     string      `json:"jobRunId"`
 	Data         JSON        `json:"data"`
 	Status       RunStatus   `json:"status"`
 	ErrorMessage null.String `json:"error"`
+	Amount       *big.Int    `json:"amount,omitempty"`
 }
 
 // WithValue returns a copy of the RunResult, overriding the "value" field of
