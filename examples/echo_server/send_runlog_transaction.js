@@ -11,5 +11,8 @@ RunLog.setProvider(provider);
 var devnetAddress = "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f";
 
 RunLog.deployed().then(function(instance) {
-  return instance.request({from: devnetAddress});
+  return instance.request({
+    from: devnetAddress,
+    gas: 200000
+  });
 }).then(console.log, console.log);
