@@ -1,0 +1,8 @@
+#!/bin/bash
+
+cd "$(dirname "$0")"
+geth console --dev \
+  --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" \
+  --password ../gethnet/password.txt \
+  --datadir ../gethnet/datadir \
+  --exec 'loadScript("../gethnet/gethload.js"); fundAccount();'
