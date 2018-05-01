@@ -44,5 +44,4 @@ install:
   - cd solidity && yarn install && cd ..
 
 script:
-  - bash ./internal/ci/debug_info
   - bash $COMMAND
