@@ -75,13 +75,14 @@
     "event",
     "log",
     "metrics",
+    "p2p/netutil",
     "params",
     "rlp",
     "rpc",
     "trie"
   ]
-  revision = "2423ae01e0d2f853512eb2b46954b5ad0754a897"
-  version = "v1.8.4"
+  revision = "12683feca7483f0b0bf425c3c520e2724f69f2aa"
+  version = "v1.8.6"
 
 [[projects]]
   name = "github.com/fatih/color"
