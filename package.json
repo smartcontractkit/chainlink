@@ -10,10 +10,10 @@
     "ganache-cli": "^6.1.0",
     "linkToken": "github:smartcontractkit/linktoken",
     "moment": "^2.20.1",
+    "openzeppelin-solidity": "^1.8.0",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
     "truffle": "^4.1.7",
     "web3": "^1.0.0-beta.29",
-    "wscat": "^2.1.1",
-    "openzeppelin-solidity": "^1.8.0"
+    "wscat": "^2.1.1"
   }
 }
