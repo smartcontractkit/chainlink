@@ -25,6 +25,7 @@ var levelColors = map[string]func(...interface{}) string{
 }
 
 var blue = color.New(color.FgBlue).SprintFunc()
+var green = color.New(color.FgGreen).SprintFunc()
 
 // PrettyConsole wraps a Sink (Writer, Syncer, Closer), usually stdout, and
 // formats the incoming json bytes with colors and white space for readability
@@ -53,9 +54,9 @@ func generateHeadline(js models.JSON) string {
 		utils.ISO8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
 		" ",
 		coloredLevel(js.Get("level")),
-		js.Get("msg"),
+		fmt.Sprintf("%-50s", js.Get("msg")),
 		" ",
-		blue(js.Get("caller")),
+		fmt.Sprintf("%-32s", blue(js.Get("caller"))),
 	}
 	return fmt.Sprint(headline...)
 }
@@ -76,11 +77,7 @@ func generateDetails(js models.JSON) string {
 		if detailsBlacklist[k] || len(v.String()) == 0 {
 			continue
 		}
-		details += fmt.Sprintf("%s=%v ", k, v)
-	}
-
-	if len(details) > 0 {
-		details = fmt.Sprint("\n", details)
+		details += fmt.Sprintf("%s=%v ", green(k), v)
 	}
 	return details
 }
