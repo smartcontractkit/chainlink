@@ -17,6 +17,9 @@ import (
 
 func TestClient_RunNode(t *testing.T) {
 	app, _ := cltest.NewApplicationWithKeyStore() // cleanup invoked in client.RunNode
+	eth := app.MockEthClient()
+	eth.Register("eth_getTransactionCount", `0x1`)	
+	
 	r := &cltest.RendererMock{}
 	var called bool
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) { called = true }}
@@ -28,10 +31,10 @@ func TestClient_RunNode(t *testing.T) {
 		Runner:     cltest.EmptyRunner{}}
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{""})
+	set.Bool("debug", true, "")
 	c := cli.NewContext(nil, set, nil)
 
-	client.RunNode(c)
+	assert.Nil(t, client.RunNode(c))
 	assert.True(t, called)
 }
 
