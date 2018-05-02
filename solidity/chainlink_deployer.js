@@ -4,21 +4,18 @@ let url = "http://"+process.env.USERNAME+":"+process.env.PASSWORD+"@localhost:66
 
 module.exports = {
   // Deploys chainlink jobs.
-  job: function(filename, callback, callbackError) {
-    fs.readFile(filename, 'utf8', (err, file) => {
-      let data = JSON.parse(file);
-      console.log(`Posting to ${url}:\n`, data);
-      request.post(url, {json: data},
-        function (error, response, body) {
-          if (!error && response && response.statusCode == 200) {
-            callback(error, response, body);
-          } else {
-            if (callbackError) {
-              callbackError(error, response);
-            }
+  job: function(data, callback, callbackError) {
+    let job = JSON.parse(data);
+    console.log(`Posting to ${url}:\n`, job);
+    request.post(url, {json: job}, function (error, response, body) {
+        if (!error && response && response.statusCode == 200) {
+          callback(error, response, body);
+        } else {
+          if (callbackError) {
+            callbackError(error, response);
           }
         }
-      );
-    });
+      }
+    );
   }
 };
