@@ -13,11 +13,8 @@ Please click on each folder for more information.
 
 Each example requires the development environment, set up as follows:
 
-1. Run `../internal/bin/gethnet` (or configure direnv `.envrc` to add `chainlink/internal/bin` to your `PATH`)
-2. Run truffle migrations for the Chainlink contracts:
-  1. `cd ../solidity`
-  2. `yarn install`
-  3. `./node_modules/.bin/truffle migrate`
-3. Run `./internal/bin/cldev` in top level repo folder
+From the `chainlink/` directory:
+1. Run `./internal/bin/gethnet` (or configure direnv `.envrc` to add `chainlink/internal/bin` to your `PATH`)
+2. Run `./internal/bin/cldev` in top level repo folder
 
 Go to our [development wiki](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips) to read more.
