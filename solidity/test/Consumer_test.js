@@ -120,7 +120,7 @@ contract('Consumer', () => {
       let event = await getLatestEvent(oc);
       requestId = event.args.id;
     });
-    
+
     context("when called by a non-owner", () => {
       it("cannot cancel a request", async () => {
         await assertActionThrows(async () => {
