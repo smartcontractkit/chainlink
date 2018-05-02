@@ -154,7 +154,7 @@ func TestAssignmentSpec_ConvertToAssignment(t *testing.T) {
 	}
 }
 
-func TestAssignmentSpec_ConvertToSnapShot(t *testing.T) {
+func TestAssignmentSpec_ConvertToSnapshot(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -177,9 +177,9 @@ func TestAssignmentSpec_ConvertToSnapShot(t *testing.T) {
 		var rr models.RunResult
 		assert.Nil(t, json.Unmarshal([]byte(test.input), &rr))
 
-		ss1 := models.ConvertToSnapShot(rr)
+		ss1 := models.ConvertToSnapshot(rr)
 
-		var ss2 models.SnapShot
+		var ss2 models.Snapshot
 		assert.Nil(t, json.Unmarshal([]byte(test.want), &ss2))
 
 		assert.Equal(t, ss2.Details, ss1.Details)
