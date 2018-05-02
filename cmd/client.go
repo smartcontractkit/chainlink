@@ -53,6 +53,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	defer app.Stop()
 	logNodeBalance(store)
+	logConfigVariables(config)
+
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
@@ -70,6 +72,10 @@ func logNodeBalance(store *strpkg.Store) {
 	balance, err = presenters.ShowLinkBalance(store)
 	logger.WarnIf(err)
 	logger.Infow(balance)
+}
+
+func logConfigVariables(config strpkg.Config) {
+	logger.Debug("Environment variables\n", config)
 }
 
 // ShowJobSpec returns the status of the given JobID.
