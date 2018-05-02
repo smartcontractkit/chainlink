@@ -7,6 +7,7 @@ contract('Consumer', () => {
   let Oracle = artifacts.require("Oracle.sol");
   let Consumer = artifacts.require("examples/Consumer.sol");
   let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
+  let currency = "USD";
   let link, oc, cc;
 
   beforeEach(async () => {
@@ -24,7 +25,7 @@ contract('Consumer', () => {
     context("without LINK", () => {
       it("reverts", async () => {
         await assertActionThrows(async () => {
-          await cc.requestEthereumPrice("usd");
+          await cc.requestEthereumPrice(jobId, currency);
         });
       });
     });
@@ -35,25 +36,25 @@ contract('Consumer', () => {
       });
 
       it("triggers a log event in the Oracle contract", async () => {
-        let tx = await cc.requestEthereumPrice("usd");
+        let tx = await cc.requestEthereumPrice(jobId, currency);
         let log = tx.receipt.logs[2];
         assert.equal(log.address, oc.address);
 
         let [id, jId, wei, ver, cborData] = decodeRunRequest(log);
         let params = await cbor.decodeFirst(cborData);
         let expected = {
-          "path":["recent", "usd"],
-          "url":"https://etherprice.com/api"
+          "path":["USD"],
+          "url":"https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
         };
 
-        assert.equal(`0x${toHex(rPad("someJobId"))}`, jId);
+        assert.equal(`0x${toHex(rPad(jobId))}`, jId);
         assert.equal(web3.toWei('1', 'szabo'), hexToInt(wei));
         assert.equal(1, ver);
         assert.deepEqual(expected, params);
       });
 
       it("has a reasonable gas cost", async () => {
-        let tx = await cc.requestEthereumPrice("usd");
+        let tx = await cc.requestEthereumPrice(jobId, currency);
         assert.isBelow(tx.receipt.gasUsed, 190000);
       });
     });
@@ -65,7 +66,7 @@ contract('Consumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
-      await cc.requestEthereumPrice("usd");
+      await cc.requestEthereumPrice(jobId, currency);
       let event = await getLatestEvent(oc);
       requestId = event.args.id;
     });
@@ -87,7 +88,7 @@ contract('Consumer', () => {
       });
 
       it("does not accept the data provided", async () => {
-        let tx = await cc.requestEthereumPrice("usd");
+        let tx = await cc.requestEthereumPrice(jobId, currency);
 
         await assertActionThrows(async () => {
           await oc.fulfillData(requestId, response, {from: oracleNode})
@@ -106,6 +107,25 @@ contract('Consumer', () => {
 
         let received = await cc.currentPrice.call();
         assert.equal(web3.toUtf8(received), "");
+      });
+    });
+  });
+
+  describe("#cancelRequest", () => {
+    let requestId;
+
+    beforeEach(async () => {
+      await link.transfer(cc.address, web3.toWei('1', 'ether'));
+      await cc.requestEthereumPrice(jobId, currency);
+      let event = await getLatestEvent(oc);
+      requestId = event.args.id;
+    });
+    
+    context("when called by a non-owner", () => {
+      it("cannot cancel a request", async () => {
+        await assertActionThrows(async () => {
+          await cc.cancelRequest(stranger, {from: stranger});
+        });
       });
     });
   });
