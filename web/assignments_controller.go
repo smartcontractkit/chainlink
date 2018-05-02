@@ -100,6 +100,6 @@ func (ac *AssignmentsController) ShowSnapshot(c *gin.Context) {
 			"errors": []string{err.Error()},
 		})
 	} else {
-		c.JSON(200, models.ConvertToSnapShot(jr.Result))
+		c.JSON(200, models.ConvertToSnapshot(jr.Result))
 	}
 }

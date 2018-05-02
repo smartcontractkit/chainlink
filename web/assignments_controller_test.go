@@ -122,7 +122,7 @@ func TestAssignmentsController_ShowSnapshot_V1_Format(t *testing.T) {
 	resp2 := cltest.BasicAuthGet(url)
 	assert.Equal(t, 200, resp2.StatusCode, "Response should be successful")
 
-	var ss models.SnapShot
+	var ss models.Snapshot
 	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp2), &ss))
 
 }

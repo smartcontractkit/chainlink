@@ -35,7 +35,7 @@ type Schedule struct {
 	RunAt       []Time      `json:"runAt"`
 }
 
-type SnapShot struct {
+type Snapshot struct {
 	Details JSON        `json:"details"`
 	ID      string      `json:"xid"`
 	Error   null.String `json:"error"`
@@ -200,9 +200,9 @@ func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
 	return as, merr
 }
 
-// ConvertToSnapShot convert given RunResult to a SnapShot
-func ConvertToSnapShot(rr RunResult) SnapShot {
-	return SnapShot{
+// ConvertToSnapshot convert given RunResult to a Snapshot
+func ConvertToSnapshot(rr RunResult) Snapshot {
+	return Snapshot{
 		Details: rr.Data,
 		ID:      rr.JobRunID,
 		Error:   rr.ErrorMessage,
