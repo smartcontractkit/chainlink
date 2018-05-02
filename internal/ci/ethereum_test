@@ -12,7 +12,7 @@ time go install github.com/ethereum/go-ethereum/cmd/geth
 echo Running gethnet...
 gethnet &
 ETHEREUMPID=$!
-sleep 1
+sleep 3
 
 # Run CL against ethereum node
 cldev &
