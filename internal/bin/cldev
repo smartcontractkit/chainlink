@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Runs a Chainlink node preconfigured to communicate with smartcontract/devnet(parity).
+# Runs a Chainlink node preconfigured to communicate with gethnet.
 # Steps:
-# 0. Have docker installed and configured
-# 1. ./internal/bin/devnet
-# 2. cd solidity && truffle migrate && cd ..
-# 3. ./internal/bin/cldev
+# 1. ./internal/bin/gethnet
+# 2. yarn install
+# 3. cd solidity && truffle migrate && cd ..
+# 4. ./internal/bin/cldev
 
 export LOG_LEVEL=debug
 export ROOT=./internal/clroot
