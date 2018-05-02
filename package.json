@@ -1,7 +1,6 @@
 {
   "name": "chainlink",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "0.2.0",
   "license": "MIT",
   "dependencies": {
     "bignumber.js": "^5.0.0",
