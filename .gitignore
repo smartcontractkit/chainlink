@@ -7,3 +7,4 @@ internal/gethnet/datadir/geth.ipc
 internal/gethnet/datadir/history
 /chainlink
 .envrc
+node_modules/
