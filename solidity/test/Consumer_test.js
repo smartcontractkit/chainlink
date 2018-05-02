@@ -13,7 +13,7 @@ contract('Consumer', () => {
   beforeEach(async () => {
     link = await Link.new();
     oc = await Oracle.new(link.address, {from: oracleNode});
-    cc = await Consumer.new(link.address, oc.address, {from: stranger});
+    cc = await Consumer.new(link.address, oc.address, jobId, {from: stranger});
   });
 
   it("has a predictable gas price", async () => {
@@ -25,7 +25,7 @@ contract('Consumer', () => {
     context("without LINK", () => {
       it("reverts", async () => {
         await assertActionThrows(async () => {
-          await cc.requestEthereumPrice(jobId, currency);
+          await cc.requestEthereumPrice(currency);
         });
       });
     });
@@ -36,7 +36,7 @@ contract('Consumer', () => {
       });
 
       it("triggers a log event in the Oracle contract", async () => {
-        let tx = await cc.requestEthereumPrice(jobId, currency);
+        let tx = await cc.requestEthereumPrice(currency);
         let log = tx.receipt.logs[2];
         assert.equal(log.address, oc.address);
 
@@ -54,7 +54,7 @@ contract('Consumer', () => {
       });
 
       it("has a reasonable gas cost", async () => {
-        let tx = await cc.requestEthereumPrice(jobId, currency);
+        let tx = await cc.requestEthereumPrice(currency);
         assert.isBelow(tx.receipt.gasUsed, 190000);
       });
     });
@@ -66,7 +66,7 @@ contract('Consumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
-      await cc.requestEthereumPrice(jobId, currency);
+      await cc.requestEthereumPrice(currency);
       let event = await getLatestEvent(oc);
       requestId = event.args.id;
     });
@@ -88,7 +88,7 @@ contract('Consumer', () => {
       });
 
       it("does not accept the data provided", async () => {
-        let tx = await cc.requestEthereumPrice(jobId, currency);
+        let tx = await cc.requestEthereumPrice(currency);
 
         await assertActionThrows(async () => {
           await oc.fulfillData(requestId, response, {from: oracleNode})
@@ -116,7 +116,7 @@ contract('Consumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
-      await cc.requestEthereumPrice(jobId, currency);
+      await cc.requestEthereumPrice(currency);
       let event = await getLatestEvent(oc);
       requestId = event.args.id;
     });
