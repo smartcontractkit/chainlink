@@ -1,8 +1,9 @@
 pragma solidity ^0.4.23;
 
 import "../Chainlinked.sol";
+import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract Consumer is Chainlinked {
+contract Consumer is Chainlinked, Ownable {
   bytes32 internal requestId;
   bytes32 public currentPrice;
 
@@ -11,14 +12,33 @@ contract Consumer is Chainlinked {
     setOracle(_oracle);
   }
 
-  function requestEthereumPrice(string _currency) public {
-    ChainlinkLib.Run memory run = newRun("someJobId", this, "fulfill(bytes32,bytes32)");
-    run.add("url", "https://etherprice.com/api");
-    string[] memory path = new string[](2);
-    path[0] = "recent";
-    path[1] = _currency;
+  function requestEthereumPrice(string _jobid, string _currency) public {
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobid), this, "fulfill(bytes32,bytes32)");
+    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    string[] memory path = new string[](1);
+    path[0] = _currency;
     run.addStringArray("path", path);
     requestId = chainlinkRequest(run, 1 szabo);
+  }
+
+  function stringToBytes32(string memory source)
+    internal
+    returns (bytes32 result) {
+      bytes memory tempEmptyStringTest = bytes(source);
+      if (tempEmptyStringTest.length == 0) {
+          return 0x0;
+    }
+
+    assembly {
+        result := mload(add(source, 32))
+    }
+  }
+
+  function cancelRequest(uint256 _requestId) 
+    public 
+    onlyOwner 
+  {
+    oracle.cancel(_requestId);
   }
 
   function fulfill(bytes32 _requestId, bytes32 _data)
