@@ -35,7 +35,7 @@ ethjob=`./create_ethlog_job`
 sleep 2
 
 # Check echo count
-count=`curl localhost:6690/count`
+count=`curl -sS localhost:6690/count`
 if [ "$count" -ne "1" ]; then
   echo "Echo count is $count, not 1."
   exit 1
