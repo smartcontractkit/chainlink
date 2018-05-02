@@ -5,6 +5,6 @@
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
     "truffle": "^4.1.6",
     "truffle-contract": "^3.0.3",
-    "zeppelin-solidity": "^1.6.0"
+    "openzeppelin-solidity": "^1.6.0"
   }
 }
