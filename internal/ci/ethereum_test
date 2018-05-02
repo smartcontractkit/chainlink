@@ -1,22 +1,20 @@
 #!/bin/bash
 
-set -e
+set -ex
+
+# Kill all background processes when this shell script finishes
+trap "kill -- -$$ || true" SIGINT SIGTERM EXIT
 
 PATH=./internal/bin:./node_modules/.bin:$PATH
 
 # Run gethnet
-echo Downloading geth...
 time go get -d github.com/ethereum/go-ethereum
-echo Installing geth...
 time go install github.com/ethereum/go-ethereum/cmd/geth
-echo Running gethnet...
 gethnet &
-ETHEREUMPID=$!
-sleep 1
+sleep 3
 
 # Run CL against ethereum node
 cldev &
-CLDEVPID=$!
 sleep 4
 
 ########################
@@ -27,7 +25,6 @@ cd examples/echo_server
 yarn install
 truffle migrate
 node echo.js &
-ECHOPID=$!
 
 ########################
 ## ethlog
@@ -38,7 +35,7 @@ ethjob=`./create_ethlog_job`
 sleep 2
 
 # Check echo count
-count=`curl localhost:6690/count`
+count=`curl -sS localhost:6690/count`
 if [ "$count" -ne "1" ]; then
   echo "Echo count is $count, not 1."
   exit 1
@@ -70,8 +67,3 @@ if [ "$runs" -ne "1" ]; then
 else
   echo "Runs count is correctly $runs."
 fi
-
-# Unfortunately, does not kill off all bg processes
-kill $ECHOPID
-kill $CLDEVPID
-kill $ETHEREUMPID
