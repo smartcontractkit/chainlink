@@ -18,6 +18,7 @@ Add the Ropsten LINK token to Metamask:
 - Click Add Token button
 - Paste the contract address 0x20fe562d797a42dcb3399062ae9546cd06f63280
 - The rest should fill in, if it doesn't the Token Symbol is LINK and use 18 for Decimals
+
 You should now see your Ropsten LINK
 
 ### Faucets
