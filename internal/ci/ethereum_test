@@ -1,15 +1,12 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 PATH=./internal/bin:./node_modules/.bin:$PATH
 
 # Run gethnet
-echo Downloading geth...
 time go get -d github.com/ethereum/go-ethereum
-echo Installing geth...
 time go install github.com/ethereum/go-ethereum/cmd/geth
-echo Running gethnet...
 gethnet &
 ETHEREUMPID=$!
 sleep 3
