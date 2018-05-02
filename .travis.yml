@@ -7,7 +7,6 @@ cache:
   yarn: true
   directories:
     - vendor
-    - solidity/node_modules
 
 env:
   global:
@@ -41,7 +40,7 @@ before_install:
 
 install:
   - dep ensure
-  - cd solidity && yarn install && cd ..
+  - yarn install
 
 script:
   - bash $COMMAND
