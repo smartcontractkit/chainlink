@@ -26,13 +26,12 @@ a job anytime a log event occurs. It can optionally be filtered by an `address`.
 Uses a `runlog` initiator to echo Chainlink log events with the matching job id.
 
 1. Complete the [Run Chainlink Development Environment](../README.md#run-chainlink-development-environment) steps.
-2. `./create_runlog_job` to create CL job. Keep track of the returned job id.
-3. `yarn install`
-4. `node echo.js`
-5. Add job id to `contracts/RunLog.sol` where it says `MY_JOB_ID`
-5. `./node_modules/.bin/truffle migrate --reset` in another window
-6. `node send_runlog_transaction.js`
-7. Wait for log to show up in echo server
+2. `yarn install`
+3. `node echo.js`
+4. `./node_modules/.bin/truffle migrate` in another window
+5. `node send_runlog_transaction.js`
+6. Wait for log to show up in echo server
+7. Investigate migrations/5_run_log.js for insight
 
 
 ## Further Reading
