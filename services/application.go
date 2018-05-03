@@ -59,7 +59,7 @@ func (app *ChainlinkApplication) Start() error {
 	go func() {
 		<-sigs
 		app.Stop()
-		app.Exiter(1)
+		app.Exiter(0)
 	}()
 
 	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
