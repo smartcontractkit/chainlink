@@ -70,3 +70,20 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 		}
 	}
 }
+
+// Show returns the details of a specific Bridge.
+
+func (btc *BridgeTypesController) Show(c *gin.Context) {
+	name := c.Param("BridgeName")
+	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
+		c.JSON(404, gin.H{
+			"errors": []string{"Bridge Name not found."},
+		})
+	} else if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else {
+		c.JSON(200, presenters.BridgeType{BridgeType: bt})
+	}
+}
