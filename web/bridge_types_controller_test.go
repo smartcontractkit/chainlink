@@ -104,6 +104,28 @@ func TestBridgeTypesController_Create(t *testing.T) {
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 }
 
+func TestBridgeController_Show(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	bt := &models.BridgeType{Name: "testingbridges1",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	err := app.AddAdapter(bt)
+	assert.NoError(t, err)
+
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/" + bt.Name)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+
+	var respBridge presenters.BridgeType
+	json.Unmarshal(cltest.ParseResponseBody(resp), &respBridge)
+	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
+	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
+	assert.Equal(t, respBridge.DefaultConfirmations, bt.DefaultConfirmations, "should have the same DefaultConfirmations")
+}
+
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
