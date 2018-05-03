@@ -25,7 +25,7 @@ contract Consumer is Chainlinked, Ownable {
 
   function cancelRequest(uint256 _requestId) 
     public 
-    onlyOwner 
+    onlyOwner
   {
     oracle.cancel(_requestId);
   }

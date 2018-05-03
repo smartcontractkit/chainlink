@@ -16,7 +16,6 @@ contract LinkToken {
 }
 
 contract Oracle {
-    function withdraw() public;
     function cancel(uint256 _internalId) public;
 }
 
