@@ -103,7 +103,9 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
 		Initiators: initiators,
 	}
-
+	if j.EndAt.Time.IsZero() {
+		j.EndAt.Valid = false
+	}
 	return j, merr
 }
 
