@@ -6,14 +6,17 @@ import "./CBOR.sol";
 
 
 contract LinkToken {
+    // ERC20 interface
+    function transfer(address to, uint tokens) public returns (bool success);
+    function approve(address spender, uint tokens) public returns (bool success);
+    function transferFrom(address from, address to, uint tokens) public returns (bool success);
+    
+    // ERC677 interface
     function transferAndCall(address receiver, uint amount, bytes data) public returns (bool success);
     function tokenFallback(address from, uint256 amount, bytes data) public returns (bool success);
 }
 
 contract Oracle {
-    function onTokenTransfer(address _sender, uint256 _wei, bytes _data) public;
-    function requestData(uint256 _version, bytes32 _jobId, address _callbackAddress, bytes4 _callbackFunctionId, bytes32 _externalId, bytes _data) public;
-    function fulfillData(uint256 _internalId, bytes32 _data) public;
     function withdraw() public;
     function cancel(uint256 _internalId) public;
 }

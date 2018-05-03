@@ -8,7 +8,7 @@ contract Consumer is Chainlinked, Ownable {
   bytes32 internal jobId;
   bytes32 public currentPrice;
 
-  function Consumer(address _link, address _oracle, bytes32 _jobId) public {
+  function Consumer(address _link, address _oracle, bytes32 _jobId) Ownable() public {
     setLinkToken(_link);
     setOracle(_oracle);
     jobId = _jobId;
