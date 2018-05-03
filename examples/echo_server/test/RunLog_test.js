@@ -9,7 +9,7 @@ contract('RunLog', () => {
   beforeEach(async () => {
     link = await LinkToken.new();
     oc = await Oracle.new(link.address);
-    logger = await RunLog.new(link.address, oc.address);
+    logger = await RunLog.new(link.address, oc.address, "SOME_JOB_ID");
     await link.transfer(logger.address, web3.toWei(1));
   });
 
