@@ -108,6 +108,8 @@ type HeadTracker struct {
 	number           *models.IndexableBlockNumber
 	headMutex        sync.RWMutex
 	trackersMutex    sync.RWMutex
+	startMutex       sync.Mutex
+	started          bool
 	connected        bool
 	sleeper          utils.Sleeper
 }
@@ -129,6 +131,12 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 // subscribes to new heads, and if successful fires Connect on the
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
+	ht.startMutex.Lock()
+	defer ht.startMutex.Unlock()
+	if ht.started {
+		return errors.New("HeadTracker already started")
+	}
+
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
 	if err != nil && err != storm.ErrNotFound {
@@ -147,11 +155,18 @@ func (ht *HeadTracker) Start() error {
 	ht.connect(ht.number)
 	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
+	ht.started = true
 	return nil
 }
 
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
+	ht.startMutex.Lock()
+	defer ht.startMutex.Unlock()
+	if !ht.started {
+		return nil
+	}
+
 	if ht.headSubscription != nil {
 		ht.headSubscription.Unsubscribe()
 		ht.headSubscription = nil
@@ -161,6 +176,7 @@ func (ht *HeadTracker) Stop() error {
 		ht.headers = nil
 	}
 	ht.disconnect()
+	ht.started = false
 	return nil
 }
 
