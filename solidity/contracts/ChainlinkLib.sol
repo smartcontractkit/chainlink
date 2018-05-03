@@ -16,14 +16,14 @@ library ChainlinkLib {
   }
 
   function add(Run memory self, string _key, string _value)
-    internal
+    internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeString(_value);
   }
 
   function addStringArray(Run memory self, string _key, string[] memory _values)
-    internal
+    internal pure
   {
     self.buf.encodeString(_key);
     self.buf.startArray();
@@ -34,7 +34,7 @@ library ChainlinkLib {
   }
 
   function close(Run memory self)
-    internal
+    internal pure
     returns (bytes)
   {
      self.buf.endSequence();

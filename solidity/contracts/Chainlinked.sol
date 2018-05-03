@@ -22,7 +22,7 @@ contract Chainlinked {
     bytes32 _jobId,
     address _callbackAddress,
     string _callbackFunctionSignature
-  ) internal returns (ChainlinkLib.Run memory) {
+  ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
     Buffer.init(run.buf, 128);
     run.jobId = _jobId;

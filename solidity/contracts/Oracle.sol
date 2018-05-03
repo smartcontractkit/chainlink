@@ -32,7 +32,7 @@ contract Oracle is Ownable {
     bytes data
   );
 
-  function Oracle(address _link) Ownable() public {
+  constructor(address _link) Ownable() public {
     LINK = LinkToken(_link);
   }
 
