@@ -39,7 +39,9 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		v2.PATCH("/runs/:RunID", jr.Update)
 
 		tt := BridgeTypesController{app}
+		v2.GET("/bridge_types", tt.Index)
 		v2.POST("/bridge_types", tt.Create)
+		//v2.GET("/bridge_types/:BridgeName", tt.Show)
 
 		backup := BackupController{app}
 		v2.GET("/backup", backup.Show)
