@@ -177,6 +177,7 @@ func TestClient_AddBridge(t *testing.T) {
 		{"EmptyString", "", true},
 		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
 		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
+		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true},
 		{"ValidPath", "../internal/fixtures/web/create_random_number_bridge_type.json", false},
 		{"InvalidPath", "bad/filepath/", true},
 	}
