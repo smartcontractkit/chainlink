@@ -31,6 +31,11 @@ const (
 	RunStatusCompleted = RunStatus("completed")
 )
 
+// Unstarted returns true if the status is the initial state.
+func (s RunStatus) Unstarted() bool {
+	return s == RunStatusUnstarted
+}
+
 // PendingBridge returns true if the status is pending_bridge.
 func (s RunStatus) PendingBridge() bool {
 	return s == RunStatusPendingBridge
@@ -64,6 +69,11 @@ func (s RunStatus) Finished() bool {
 // Runnable returns true if the status is ready to be run.
 func (s RunStatus) Runnable() bool {
 	return !s.Errored() && !s.Pending()
+}
+
+// CanStart returns true if the run is ready to begin processed.
+func (s RunStatus) CanStart() bool {
+	return !s.Errored() && (s.Pending() || s.Unstarted())
 }
 
 // ParseCBOR attempts to coerce the input byte array into valid CBOR

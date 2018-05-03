@@ -77,12 +77,14 @@ func ExecuteRunAtBlock(
 	overrides models.RunResult,
 	bn *models.IndexableBlockNumber,
 ) (models.JobRun, error) {
-	if jr.Result.HasError() {
-		return jr, nil
+	if jr.Status.CanStart() {
+		jr.Status = models.RunStatusInProgress
 	}
-	jr.Status = models.RunStatusInProgress
 	if err := store.Save(&jr); err != nil {
 		return jr, wrapError(jr, err)
+	}
+	if jr.Result.HasError() {
+		return jr, wrapError(jr, jr.Result)
 	}
 
 	jr, err := store.SaveCreationHeight(jr, bn)
