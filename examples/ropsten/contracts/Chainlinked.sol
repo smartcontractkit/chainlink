@@ -16,9 +16,6 @@ contract LinkToken {
 }
 
 contract Oracle {
-    function onTokenTransfer(address _sender, uint256 _wei, bytes _data) public;
-    function requestData(uint256 _version, bytes32 _jobId, address _callbackAddress, bytes4 _callbackFunctionId, bytes32 _externalId, bytes _data) public;
-    function fulfillData(uint256 _internalId, bytes32 _data) public;
     function withdraw() public;
     function cancel(uint256 _internalId) public;
 }
