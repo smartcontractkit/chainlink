@@ -18,8 +18,8 @@ import (
 func TestClient_RunNode(t *testing.T) {
 	app, _ := cltest.NewApplicationWithKeyStore() // cleanup invoked in client.RunNode
 	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionCount", `0x1`)	
-	
+	eth.Register("eth_getTransactionCount", `0x1`)
+
 	r := &cltest.RendererMock{}
 	var called bool
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) { called = true }}
@@ -195,6 +195,24 @@ func TestClient_AddBridge(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_ShowBridge(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	bt := &models.BridgeType{Name: "testingbridges1",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	app.AddAdapter(&bt)
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{bt.Name})
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.ShowBridge(c))
+	assert.Equal(t, 1, len(r.Renders))
+	assert.Equal(t, bt.Name, r.Renders[0].(*presenters.BridgeType).Name)
 }
 
 func TestClient_BackupDatabase(t *testing.T) {
