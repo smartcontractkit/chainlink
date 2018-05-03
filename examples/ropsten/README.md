@@ -58,6 +58,11 @@ Now that your Consumer contract is deployed to Ropsten, you need to send some Ro
   - Contract address: 0x20fe562d797a42dcb3399062ae9546cd06f63280
   - Token Symbol: LINK
   - Decimals: 18
+- Send LINK to the deployed address of your Consumer contract (1 LINK is enough)
+
+## Call the Consumer Contract to Request Data from Chainlink
+
+The Consumer contract should now have some Ropsten LINK on it. Now you can call it to make a request on the network. The examples below use functionallity from MyEtherWallet & MyCrypto.
 
 - Go to the Contracts tab
 - Paste your deployed Consumer contract address
