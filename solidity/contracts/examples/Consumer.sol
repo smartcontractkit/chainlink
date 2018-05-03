@@ -8,7 +8,7 @@ contract Consumer is Chainlinked, Ownable {
   bytes32 internal jobId;
   bytes32 public currentPrice;
 
-  function Consumer(address _link, address _oracle, bytes32 _jobId) public {
+  constructor(address _link, address _oracle, bytes32 _jobId) public {
     setLinkToken(_link);
     setOracle(_oracle);
     jobId = _jobId;
@@ -24,7 +24,7 @@ contract Consumer is Chainlinked, Ownable {
   }
 
   function stringToBytes32(string memory source)
-    internal
+    internal pure
     returns (bytes32 result) {
       bytes memory tempEmptyStringTest = bytes(source);
       if (tempEmptyStringTest.length == 0) {
@@ -36,9 +36,9 @@ contract Consumer is Chainlinked, Ownable {
     }
   }
 
-  function cancelRequest(uint256 _requestId) 
-    public 
-    onlyOwner 
+  function cancelRequest(uint256 _requestId)
+    public
+    onlyOwner
   {
     oracle.cancel(_requestId);
   }
