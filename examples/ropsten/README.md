@@ -39,10 +39,10 @@ Ropsten LINK
 - Change to the Run tab
 - Select the Consumer contract on the right side-bar
 - Copy and paste the line below and enter it into the text field next to the Create button <br>
-    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x3d4B58A86a0Ee06A99CFCD7AB8abb3d0d1458C9a", "some-jobid-fill-me-in"
+    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x4d40982F8408e496F3dEEfE72550F23680013872", "82ca2fc464b24ddab501969bcda34dac"
 - Click Create
 - Metamask will prompt you to Confirm the Transaction
-- You will need to choose a Gas Price (use 40 if you don't know what to pick)
+- You will need to choose a Gas Price (use 20 if you don't know what to pick)
 - Select Submit
 - A link to Etherscan will display at the bottom, you can open that in a new tab to keep track of the transaction
 - Once successful, you should have a new address for the Consumer contract
@@ -52,11 +52,13 @@ Ropsten LINK
 Now that your Consumer contract is deployed to Ropsten, you need to send some Ropsten LINK to it.
 
 - Open your favorite wallet (MEW, MyCrypto, etc.) and connect to the Ropsten network
+- Go to the Send tab in MEW or MyCrypto
+- Access your wallet using Metamask
 - You may need to add the Ropsten LINK token to the wallet so that it recognizes it
   - Contract address: 0x20fe562d797a42dcb3399062ae9546cd06f63280
   - Token Symbol: LINK
   - Decimals: 18
-- Send LINK to the deployed address of your Consumer contract
+- Send LINK to the deployed address of your Consumer contract (1 LINK is enough)
 
 ## Call the Consumer Contract to Request Data from Chainlink
 
@@ -73,6 +75,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 - A new section appears labeled Read / Write Contract
 - Click the Select a function drop-down and choose `requestEthereumPrice`
 - The values accepted for the `_currency` field are `USD`, `EUR`, and `JPY`.
+- Access your wallet using Metamask again, and send the transaction leaving the Amount to Send as 0, and Gas Limit as the default.
 
 ## Verify Data was Written
 
