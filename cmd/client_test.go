@@ -212,7 +212,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.ShowBridge(c))
 	assert.Equal(t, 1, len(r.Renders))
-	assert.Equal(t, bt.Name, r.Renders[0].(*presenters.BridgeType).Name)
+	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
 func TestClient_BackupDatabase(t *testing.T) {
