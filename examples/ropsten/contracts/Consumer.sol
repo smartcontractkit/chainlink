@@ -5,15 +5,17 @@ import "./Ownable.sol";
 
 contract Consumer is Chainlinked, Ownable {
   bytes32 internal requestId;
+  bytes32 internal jobId;
   bytes32 public currentPrice;
 
-  function Consumer(address _link, address _oracle) public {
+  function Consumer(address _link, address _oracle, bytes32 _jobId) public {
     setLinkToken(_link);
     setOracle(_oracle);
+    jobId = _jobId;
   }
 
-  function requestEthereumPrice(string _jobid, string _currency) public {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobid), this, "fulfill(bytes32,bytes32)");
+  function requestEthereumPrice(string _currency) public {
+    ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,bytes32)");
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;

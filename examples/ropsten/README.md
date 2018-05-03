@@ -39,7 +39,7 @@ Ropsten LINK
 - Change to the Run tab
 - Select the Consumer contract on the right side-bar
 - Copy and paste the line below and enter it into the text field next to the Create button <br>
-    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x3d4B58A86a0Ee06A99CFCD7AB8abb3d0d1458C9a"
+    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x3d4B58A86a0Ee06A99CFCD7AB8abb3d0d1458C9a", "some-jobid-fill-me-in"
 - Click Create
 - Metamask will prompt you to Confirm the Transaction
 - You will need to choose a Gas Price (use 40 if you don't know what to pick)
@@ -64,7 +64,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 - Go to the Contracts tab
 - Paste your deployed Consumer contract address
-- You can get the API / JSON Interface from Remix:
+- You can get the API / JSON Interface from the `ConsumerABI.json` file or from Remix:
   - In Remix, go to the Compile tab
   - Select the Consumer contract from the drop-down
   - Click the Details button
@@ -72,7 +72,6 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 - Paste the ABI and click the Access button
 - A new section appears labeled Read / Write Contract
 - Click the Select a function drop-down and choose `requestEthereumPrice`
-- Enter `fill-in-with-JobID` into the `_jobid` field
 - The values accepted for the `_currency` field are `USD`, `EUR`, and `JPY`.
 
 ## Verify Data was Written
