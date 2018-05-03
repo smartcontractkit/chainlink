@@ -203,7 +203,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	bt := &models.BridgeType{Name: "testingbridges1",
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
 		DefaultConfirmations: 0}
-	app.AddAdapter(&bt)
+	app.AddAdapter(bt)
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
