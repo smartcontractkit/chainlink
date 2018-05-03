@@ -12,7 +12,7 @@ contract UptimeSLA is Chainlinked {
   bytes32 public externalId;
   uint256 public uptime;
 
-  function UptimeSLA(
+  constructor(
     address _client,
     address _serviceProvider,
     address _link,
