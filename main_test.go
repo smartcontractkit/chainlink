@@ -41,8 +41,8 @@ func ExampleRun() {
 	//      backup                    Backup the database of the running node
 	//      import, i                 Import a key file to use with the node
 	//      bridge                    Add a new bridge to the node
-	//	getbridges		  List all bridges added to the node
-	//	showbridge		  Show a specific bridge
+	//      getbridges                List all bridges added to the node
+	//      showbridge                Show a specific bridge
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
