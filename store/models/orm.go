@@ -56,6 +56,13 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
+// FindBridge looks up a Bridge by its Name.
+func (orm *ORM) FindBridge(name string) (BridgeType, error) {
+	var bt BridgeType
+	err := orm.One("Name", name, &bt)
+	return bt, err
+}
+
 // FindJob looks up a Job by its ID.
 func (orm *ORM) FindJob(id string) (JobSpec, error) {
 	var job JobSpec
