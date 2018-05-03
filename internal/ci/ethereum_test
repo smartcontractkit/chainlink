@@ -7,6 +7,15 @@ trap "kill -- -$$ || true" SIGINT SIGTERM EXIT
 
 PATH=./internal/bin:./node_modules/.bin:$PATH
 
+# Utilities
+assert ()
+{
+  echo "$1: expected $2, actual $3."
+  if [ "$2" -ne "$3" ]; then
+    exit 1
+  fi
+}
+
 # Run gethnet
 time go get -d github.com/ethereum/go-ethereum
 time go install github.com/ethereum/go-ethereum/cmd/geth
@@ -38,34 +47,18 @@ sleep 2
 
 # Check echo count
 count=`curl -sS localhost:6690/count`
-if [ "$count" -ne "1" ]; then
-  echo "Echo count is $count, not 1."
-  exit 1
-else
-  echo "Echo count is correctly $count"
-fi
+assert "Echo count" 1 $count
 
 # Check CL counts
 cd ../../
 
 ## Check job counts
 jobs=`cldev -j j | jq length`
-echo Retrieved $jobs jobs
-if [ "$jobs" -ne "1" ]; then
-  echo "Jobs count is $jobs, not 1."
-  exit 1
-else
-  echo "Jobs count is correctly $jobs."
-fi
+assert "Jobs count" 1 $jobs
 
 ## Check job runs
 jid=`echo $ethjob | jq .id | tr -d '"'`
 echo Retrieved job id $jid
 runs=`cldev -j s $jid |  jq '.runs | length'`
 echo Retrieved $runs runs
-if [ "$runs" -ne "1" ]; then
-  echo "Runs count is $runs, not 1."
-  exit 1
-else
-  echo "Runs count is correctly $runs."
-fi
+assert "Runs count" 1 $runs
