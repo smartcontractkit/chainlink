@@ -1,6 +1,8 @@
 package web
 
 import (
+	"fmt"
+
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
