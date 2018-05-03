@@ -110,6 +110,7 @@ type HeadTracker struct {
 	trackersMutex    sync.RWMutex
 	startMutex       sync.Mutex
 	started          bool
+	stopped          chan struct{}
 	connected        bool
 	sleeper          utils.Sleeper
 }
@@ -147,6 +148,7 @@ func (ht *HeadTracker) Start() error {
 	}
 
 	ht.headers = make(chan models.BlockHeader)
+	ht.stopped = make(chan struct{})
 	sub, err := ht.subscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
@@ -168,6 +170,7 @@ func (ht *HeadTracker) Stop() error {
 	}
 
 	if ht.headSubscription != nil {
+		close(ht.stopped)
 		ht.headSubscription.Unsubscribe()
 		ht.headSubscription = nil
 	}
@@ -262,11 +265,14 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 		return nil, err
 	}
 	go func() {
-		err := <-sub.Err()
-		if err != nil {
-			logger.Warnw("Error in new head subscription, disconnected", "err", err)
-			ht.Stop()
-			ht.reconnectLoop()
+		select {
+		case <-ht.stopped:
+		case err := <-sub.Err():
+			if err != nil {
+				logger.Warnw("Error in new head subscription, disconnected", "err", err)
+				ht.Stop()
+				ht.reconnectLoop()
+			}
 		}
 	}()
 	return sub, nil
@@ -275,7 +281,7 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 func (ht *HeadTracker) updateBlockHeader() {
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
-		logger.Warnw("Unable to update latest block header", "err", err)
+		logger.Warnw("Unable to update latest block header, no fast forwarding", "err", err)
 		return
 	}
 
@@ -305,7 +311,7 @@ func (ht *HeadTracker) reconnectLoop() {
 	ht.sleeper.Reset()
 	for {
 		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
-		ht.sleeper.Sleep()
+		<-ht.sleeper.Sleep()
 		err := ht.Start()
 		if err != nil {
 			logger.Warnw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
