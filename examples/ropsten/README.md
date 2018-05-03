@@ -39,7 +39,7 @@ Ropsten LINK
 - Change to the Run tab
 - Select the Consumer contract on the right side-bar
 - Copy and paste the line below and enter it into the text field next to the Create button <br>
-    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x4d40982F8408e496F3dEEfE72550F23680013872", "82ca2fc464b24ddab501969bcda34dac"
+    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x4d40982F8408e496F3dEEfE72550F23680013872", "2e7a2bb478374fbd9542cbb7f5f30fa5"
 - Click Create
 - Metamask will prompt you to Confirm the Transaction
 - You will need to choose a Gas Price (use 20 if you don't know what to pick)
@@ -79,9 +79,15 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 ## Verify Data was Written
 
+(You may need to refresh MEW/MyCrypto first)
+
 Back on the Contracts tab of MyEtherWallet or MyCrypto:
 
 - Enter your Consumer contract address and the ABI from Remix
 - Select the `currentPrice` function
-- The value in `bytes32` should be displayed
-- You can go [here](https://www.rapidtables.com/convert/number/ascii-hex-bin-dec-converter.html) to convert that to a readable value
+- The encoded hex value should be displayed
+- You can go [here](https://adibas03.github.io/online-ethereum-abi-encoder-decoder/#/decode) to convert that to a readable value
+  - Select "decode" for the Action
+  - Enter `uint256` for the Argument Type
+  - Paste the hex value into the Encoded data field and click the `DECODE` button
+  - The decoded value will display below
