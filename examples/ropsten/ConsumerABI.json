@@ -4,14 +4,10 @@
 		"inputs": [
 			{
 				"name": "_requestId",
-				"type": "bytes32"
-			},
-			{
-				"name": "_data",
-				"type": "bytes32"
+				"type": "uint256"
 			}
 		],
-		"name": "fulfill",
+		"name": "cancelRequest",
 		"outputs": [],
 		"payable": false,
 		"stateMutability": "nonpayable",
@@ -22,10 +18,14 @@
 		"inputs": [
 			{
 				"name": "_requestId",
+				"type": "bytes32"
+			},
+			{
+				"name": "_data",
 				"type": "uint256"
 			}
 		],
-		"name": "cancelRequest",
+		"name": "fulfill",
 		"outputs": [],
 		"payable": false,
 		"stateMutability": "nonpayable",
@@ -66,7 +66,7 @@
 		"outputs": [
 			{
 				"name": "",
-				"type": "bytes32"
+				"type": "uint256"
 			}
 		],
 		"payable": false,
