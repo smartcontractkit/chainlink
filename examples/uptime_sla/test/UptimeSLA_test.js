@@ -107,8 +107,6 @@ contract('UptimeSLA', () => {
       });
 
       it("does not accept the data provided", async () => {
-        let tx = await sla.updateUptime("0");
-
         await assertActionThrows(async () => {
           await oc.fulfillData(requestId, response, {from: oracleNode})
         });
