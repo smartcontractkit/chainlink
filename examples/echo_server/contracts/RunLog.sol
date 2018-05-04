@@ -6,7 +6,7 @@ contract RunLog is Chainlinked {
   bytes32 private externalId;
   bytes32 private jobId;
 
-  function RunLog(address _link, address _oracle, bytes32 _jobId) public {
+  constructor(address _link, address _oracle, bytes32 _jobId) public {
     setLinkToken(_link);
     setOracle(_oracle);
     jobId = _jobId;
