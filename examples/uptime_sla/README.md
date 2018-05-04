@@ -41,7 +41,7 @@ function updateUptime(string _when) public {
    path[2] = "attributes";
    path[3] = "calculation";
    run.add("path", path);
-   requestId = chainlinkRequest(run, 1 szabo);
+   requestId = chainlinkRequest(run, LINK(1));
 }
 ```
 
