@@ -2,11 +2,16 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/urfave/cli"
 )
+
+func init() {
+	time.LoadLocation("UTC")
+}
 
 func main() {
 	Run(NewProductionClient(), os.Args...)
