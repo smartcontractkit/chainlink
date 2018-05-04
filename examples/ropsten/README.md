@@ -7,7 +7,7 @@ This guide will allow you to create and deploy a consuming contract to fulfill a
 This guide requires the following tools:
 
 - [Metamask](https://metamask.io/)
-- [Remix](https://remix.ethereum.org)
+- [MyCrypto](https://mycrypto.com) or [MyEtherWallet](https://www.myetherwallet.com/)
 
 ## Setup
 
@@ -16,7 +16,7 @@ Add the Ropsten LINK token to Metamask:
 - Switch to the "Ropsten Test Net" network in Metamask
 - Click on the Tokens tab
 - Click Add Token button
-- Paste the contract address 0x20fe562d797a42dcb3399062ae9546cd06f63280
+- Paste the contract address 0x20fE562d797A42Dcb3399062AE9546cd06f63280
 - The rest should fill in, if it doesn't the Token Symbol is LINK and use 18 for Decimals
 
 ![link token](./images/07-20-42.png)
@@ -32,52 +32,45 @@ Ropsten ETH
 Ropsten LINK
 - Let the team know your Ropsten Ethereum address on [Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby) and Ropsten LINK will be sent to you.
 
-## Compile Your Consuming Contract
+## Publish the Consuming Contract
 
 - Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
-- In Remix, import the contracts at `chainlink/examples/ropsten/contracts`
-- Click on the `Consumer.sol` contract in the left side-bar
 
-![contracts](./images/07-22-04.png)
+Optionally, you can skip to the [Advanced](./README.md#advanced) instructions to view the contract source code in Remix.
 
-- On the Compile tab, click on the "Start to compile" button near the top-right
+- In MyEtherWallet or MyCrypto, change the Network to Ropsten
 
-![compile](./images/07-23-12.png)
+![ropsten network](./images/15-26-30.png)
 
-- Change to the Run tab
-- Select Consumer from the dropdown in the right panel
-- Copy and paste the line below and enter it into the text field next to the Create button <br>
-    <mark>"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x4d40982F8408e496F3dEEfE72550F23680013872", "2e7a2bb478374fbd9542cbb7f5f30fa5"</mark>
-- Click Create
+- Navgate to the Contracts tab
+- Click on Deploy Contract
+- Paste the value in the [ConsumerByteCode](./ConsumerByteCode) file into the Byte Code field
+- The Gas Limit should auto-fill for you, if it doesn't, enter 2000000
 
-![create](./images/07-23-47.png)
+![deploy byte code](./images/14-51-25.png)
 
-- Metamask will prompt you to Confirm the Transaction
-- You will need to choose a Gas Price (use 20 if you don't know what to pick)
-- Select Submit
+- Access your wallet with MetaMask
+- Sign Transaction
+- Deploy Contract
+- Submit in Metamask
 
-![deploy contracts](./images/07-24-30.png)
-
-- A link to Etherscan will display at the bottom, you can open that in a new tab to keep track of the transaction
-
-![confirm contract deploy](./images/07-25-22.png)
-
-- Once successful, you should have a new address for the Consumer contract
-
-![contract deploy successful](./images/07-25-49.png)
+![submit byte code](./images/14-59-09.png)
 
 ## Send Ropsten LINK to the Consumer Contract
 
 Now that your Consumer contract is deployed to Ropsten, you need to send some Ropsten LINK to it.
 
 - Open your favorite wallet (MEW, MyCrypto, etc.) and connect to the Ropsten network
+
+![ropsten network2](./images/15-26-30.png)
+
 - Go to the Send tab in MEW or MyCrypto
 - Access your wallet using Metamask
 - You may need to add the Ropsten LINK token to the wallet so that it recognizes it
-  - Contract address: 0x20fe562d797a42dcb3399062ae9546cd06f63280
+  - Contract address: 0x20fE562d797A42Dcb3399062AE9546cd06f63280
   - Token Symbol: LINK
   - Decimals: 18
-- Send LINK to the deployed address of your Consumer contract (1 LINK is enough)
+- Send LINK to the deployed address of your Consumer contract (1 LINK is enough for 1 million requests using this example)
 
 ![send link](./images/07-27-10.png)
 
@@ -118,12 +111,6 @@ Back on the Contracts tab of MyEtherWallet or MyCrypto:
 
 ![get value](./images/07-36-16.png)
 
-- If you come across a hex value, you can go [here](https://adibas03.github.io/online-ethereum-abi-encoder-decoder/#/decode) to convert that to a readable value
-  - Select "decode" for the Action
-  - Enter `uint256` for the Argument Type
-  - Paste the hex value into the Encoded data field and click the `DECODE` button
-  - The decoded value will display below
-
-![decode value](./images/07-41-19.png)
-
 Congratulations! Your contract just received information from the internet using Chainlink!
+
+If you found an issue with this example, please feel free to submit a pull request with a fix! We value contributions of all sizes!
