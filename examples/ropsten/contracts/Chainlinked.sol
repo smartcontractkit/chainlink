@@ -63,6 +63,10 @@ contract Chainlinked {
     return requestId;
   }
 
+  function LINK(uint256 _amount) internal pure returns (uint256) {
+		return _amount * 10**18;
+  }
+
   function setOracle(address _oracle) internal {
     oracle = Oracle(_oracle);
   }
