@@ -8,6 +8,11 @@ contract Consumer is Chainlinked, Ownable {
   bytes32 internal jobId;
   bytes32 public currentPrice;
 
+  event RequestFulfilled(
+    bytes32 indexed requestId,
+    bytes32 indexed price
+  );
+
   constructor(address _link, address _oracle, bytes32 _jobId) public {
     setLinkToken(_link);
     setOracle(_oracle);
@@ -43,12 +48,13 @@ contract Consumer is Chainlinked, Ownable {
     oracle.cancel(_requestId);
   }
 
-  function fulfill(bytes32 _requestId, bytes32 _data)
+  function fulfill(bytes32 _requestId, bytes32 _price)
     public
     onlyOracle
     checkRequestId(_requestId)
   {
-    currentPrice = _data;
+    emit RequestFulfilled(_requestId, _price);
+    currentPrice = _price;
   }
 
   modifier checkRequestId(bytes32 _requestId) {

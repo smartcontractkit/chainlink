@@ -72,10 +72,18 @@ contract('Consumer', () => {
     });
 
     it("records the data given to it by the oracle", async () => {
-      await oc.fulfillData(requestId, response, {from: oracleNode})
+      await oc.fulfillData(requestId, response, {from: oracleNode});
 
       let currentPrice = await cc.currentPrice.call();
       assert.equal(web3.toUtf8(currentPrice), response);
+    });
+
+    it("logs the data given to it by the oracle", async () => {
+      let tx = await oc.fulfillData(requestId, response, {from: oracleNode});
+      assert.equal(1, tx.receipt.logs.length);
+      let log = tx.receipt.logs[0];
+
+      assert.equal(web3.toUtf8(log.topics[2]), response);
     });
 
     context("when the consumer does not recognize the request ID", () => {
@@ -120,7 +128,7 @@ contract('Consumer', () => {
       let event = await getLatestEvent(oc);
       requestId = event.args.id;
     });
-    
+
     context("when called by a non-owner", () => {
       it("cannot cancel a request", async () => {
         await assertActionThrows(async () => {
