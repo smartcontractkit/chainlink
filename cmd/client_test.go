@@ -18,8 +18,8 @@ import (
 func TestClient_RunNode(t *testing.T) {
 	app, _ := cltest.NewApplicationWithKeyStore() // cleanup invoked in client.RunNode
 	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionCount", `0x1`)	
-	
+	eth.Register("eth_getTransactionCount", `0x1`)
+
 	r := &cltest.RendererMock{}
 	var called bool
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) { called = true }}
