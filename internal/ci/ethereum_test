@@ -36,13 +36,13 @@ cd examples/echo_server
 yarn install
 truffle migrate
 node echo.js &
+sleep 1
 
 ########################
-## ethlog
+## runlog
 ########################
 
-ethjob=`./create_ethlog_job`
-./send_ethlog_transaction.js
+./send_runlog_transaction.js
 sleep 2
 
 # Check echo count
@@ -52,13 +52,36 @@ assert "Echo count" 1 $count
 # Check CL counts
 cd ../../
 
-## Check job counts
+## Check job counts using jq to parse json: https://stedolan.github.io/jq/
 jobs=`cldev -j j | jq length`
 assert "Jobs count" 1 $jobs
 
+# Check job runs
+jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
+runs=`cldev -j s $jid |  jq '.runs | length'`
+assert "RunLog Runs count" 1 $runs
+
+########################
+## ethlog
+########################
+
+cd examples/echo_server
+ethjob=`./create_ethlog_job`
+./send_ethlog_transaction.js
+sleep 2
+
+# Check echo count
+count=`curl -sS localhost:6690/count`
+assert "Echo count" 2 $count
+
+# Check CL counts
+cd ../../
+
+## Check job counts
+jobs=`cldev -j j | jq length`
+assert "Jobs count" 2 $jobs
+
 ## Check job runs
 jid=`echo $ethjob | jq .id | tr -d '"'`
-echo Retrieved job id $jid
 runs=`cldev -j s $jid |  jq '.runs | length'`
-echo Retrieved $runs runs
-assert "Runs count" 1 $runs
+assert "EthLog Runs count" 1 $runs
