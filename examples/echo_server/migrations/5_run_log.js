@@ -4,11 +4,10 @@ let Oracle = artifacts.require("../node_modules/smartcontractkit/chainlink/solid
 let RunLog = artifacts.require("./RunLog.sol");
 
 module.exports = function(truffleDeployer) {
-  console.log(`Create Chainlink Job`);
-  chainlinkDeployer.job("only_jobid_logs_job.json", function(error, response, body) {
-    console.log(`Deploying Consumer Contract with JobID ${body.id}`);
-    truffleDeployer.deploy(RunLog, LinkToken.address, Oracle.address, body.id);
-  }, function(error) {
-    console.log("chainlink error:", error);
+  truffleDeployer.then(async () => {
+    await chainlinkDeployer.job("only_jobid_logs_job.json").then(async function(body) {
+      console.log(`Deploying Consumer Contract with JobID ${body.id}`);
+      await truffleDeployer.deploy(RunLog, LinkToken.address, Oracle.address, body.id);
+    }).catch(console.log);
   });
 };
