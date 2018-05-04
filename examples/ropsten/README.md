@@ -70,7 +70,7 @@ Now that your Consumer contract is deployed to Ropsten, you need to send some Ro
   - Contract address: 0x20fE562d797A42Dcb3399062AE9546cd06f63280
   - Token Symbol: LINK
   - Decimals: 18
-- Send LINK to the deployed address of your Consumer contract (1 LINK is enough for 1 million requests using this example)
+- Send LINK to the deployed address of your Consumer contract (1 LINK is enough for 1 request using this example)
 
 ![send link](./images/07-27-10.png)
 
