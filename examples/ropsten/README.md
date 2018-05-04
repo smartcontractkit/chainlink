@@ -28,7 +28,7 @@ Ropsten ETH
 - https://faucet.metamask.io/
 
 Ropsten LINK
-- http...
+- Let the team know your Ropsten Ethereum address on [Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby) and Ropsten LINK will be sent to you.
 
 ## Compile Your Consuming Contract
 
@@ -37,9 +37,9 @@ Ropsten LINK
 - Click on the `Consumer.sol` contract in the left side-bar
 - On the Compile tab, click on the "Start to compile" button near the top-right
 - Change to the Run tab
-- Select the Consumer contract on the right side-bar
+- Select Consumer from the dropdown in the right panel
 - Copy and paste the line below and enter it into the text field next to the Create button <br>
-    "0x20fe562d797a42dcb3399062ae9546cd06f63280", "0x4d40982F8408e496F3dEEfE72550F23680013872", "2e7a2bb478374fbd9542cbb7f5f30fa5"
+    <mark>"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x4d40982F8408e496F3dEEfE72550F23680013872", "2e7a2bb478374fbd9542cbb7f5f30fa5"</mark>
 - Click Create
 - Metamask will prompt you to Confirm the Transaction
 - You will need to choose a Gas Price (use 20 if you don't know what to pick)
@@ -66,7 +66,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 - Go to the Contracts tab
 - Paste your deployed Consumer contract address
-- You can get the API / JSON Interface from the `ConsumerABI.json` file or from Remix:
+- You can get the API / JSON Interface from the [`ConsumerABI.json`](./ConsumerABI.json) file or from Remix:
   - In Remix, go to the Compile tab
   - Select the Consumer contract from the drop-down
   - Click the Details button
