@@ -25,7 +25,7 @@ contract Consumer is Chainlinked, Ownable {
     string[] memory path = new string[](1);
     path[0] = _currency;
     run.addStringArray("path", path);
-    requestId = chainlinkRequest(run, 1 szabo);
+    requestId = chainlinkRequest(run, 1 ether);
   }
 
   function cancelRequest(uint256 _requestId) 
