@@ -25,20 +25,7 @@ contract Consumer is Chainlinked, Ownable {
     string[] memory path = new string[](1);
     path[0] = _currency;
     run.addStringArray("path", path);
-    requestId = chainlinkRequest(run, 1 szabo);
-  }
-
-  function stringToBytes32(string memory source)
-    internal pure
-    returns (bytes32 result) {
-      bytes memory tempEmptyStringTest = bytes(source);
-      if (tempEmptyStringTest.length == 0) {
-          return 0x0;
-    }
-
-    assembly {
-        result := mload(add(source, 32))
-    }
+    requestId = chainlinkRequest(run, LINK(1));
   }
 
   function cancelRequest(uint256 _requestId)
