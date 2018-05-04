@@ -48,7 +48,7 @@ contract('Consumer', () => {
         };
 
         assert.equal(`0x${toHex(rPad(jobId))}`, jId);
-        assert.equal(web3.toWei('1', 'szabo'), hexToInt(wei));
+        assert.equal(web3.toWei('1', 'ether'), hexToInt(wei));
         assert.equal(1, ver);
         assert.deepEqual(expected, params);
       });
@@ -62,24 +62,24 @@ contract('Consumer', () => {
 
   describe("#fulfillData", () => {
     let response = "1,000,000.00";
-    let requestId;
+    let internalId;
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
       await cc.requestEthereumPrice(currency);
       let event = await getLatestEvent(oc);
-      requestId = event.args.id;
+      internalId = event.args.id;
     });
 
     it("records the data given to it by the oracle", async () => {
-      await oc.fulfillData(requestId, response, {from: oracleNode});
+      await oc.fulfillData(internalId, response, {from: oracleNode});
 
       let currentPrice = await cc.currentPrice.call();
       assert.equal(web3.toUtf8(currentPrice), response);
     });
 
     it("logs the data given to it by the oracle", async () => {
-      let tx = await oc.fulfillData(requestId, response, {from: oracleNode});
+      let tx = await oc.fulfillData(internalId, response, {from: oracleNode});
       assert.equal(1, tx.receipt.logs.length);
       let log = tx.receipt.logs[0];
 
@@ -87,19 +87,19 @@ contract('Consumer', () => {
     });
 
     context("when the consumer does not recognize the request ID", () => {
+      let otherId;
+
       beforeEach(async () => {
         let funcSig = functionSelector("fulfill(bytes32,bytes32)");
         let args = requestDataBytes(jobId, cc.address, funcSig, 42, "");
         await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
-        requestId = event.args.id;
+        otherId = event.args.id;
       });
 
       it("does not accept the data provided", async () => {
-        let tx = await cc.requestEthereumPrice(currency);
-
         await assertActionThrows(async () => {
-          await oc.fulfillData(requestId, response, {from: oracleNode})
+          await oc.fulfillData(otherId, response, {from: oracleNode});
         });
 
         let received = await cc.currentPrice.call();
@@ -110,7 +110,7 @@ contract('Consumer', () => {
     context("when called by anyone other than the oracle contract", () => {
       it("does not accept the data provided", async () => {
         await assertActionThrows(async () => {
-          await cc.fulfill(requestId, response, {from: oracleNode})
+          await cc.fulfill(internalId, response, {from: oracleNode})
         });
 
         let received = await cc.currentPrice.call();
