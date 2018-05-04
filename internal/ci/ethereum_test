@@ -11,7 +11,9 @@ PATH=./internal/bin:./node_modules/.bin:$PATH
 time go get -d github.com/ethereum/go-ethereum
 time go install github.com/ethereum/go-ethereum/cmd/geth
 gethnet &
-sleep 3
+while ! curl -s http://127.0.0.1:18545; do
+    sleep 1
+done
 
 # Run CL against ethereum node
 cldev &
