@@ -36,7 +36,7 @@ Ropsten LINK
 
 - Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
 
-Optionally, you can skip to the [Advanced](./README.md#advanced) instructions to view the contract source code in Remix.
+Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to view the contract source code in Remix.
 
 - In MyEtherWallet or MyCrypto, change the Network to Ropsten
 
