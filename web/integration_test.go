@@ -374,6 +374,20 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 }
 
+func TestIntegration_MultiplierInt256(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/int256_job.json")
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"-10221.30"}`)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+
+	val, err := jr.Result.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0674e", val)
+}
+
 func TestIntegration_MultiplierUint256(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
