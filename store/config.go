@@ -78,7 +78,8 @@ func (c Config) String() string {
 		"ETH_GAS_BUMP_THRESHOLD: %d\n" +
 		"ETH_GAS_BUMP_WEI: %s\n" +
 		"ETH_GAS_PRICE_DEFAULT: %s\n" +
-		"LINK_CONTRACT_ADDRESS: %s\n"
+		"LINK_CONTRACT_ADDRESS: %s\n" +
+		"MINIMUM_CONTRACT_PAYMENT: %s\n"
 
 	return fmt.Sprintf(
 		fmtConfig,
@@ -95,6 +96,7 @@ func (c Config) String() string {
 		c.EthGasBumpWei.String(),
 		c.EthGasPriceDefault.String(),
 		c.LinkContractAddress,
+		c.MinimumContractPayment.String(),
 	)
 }
 
