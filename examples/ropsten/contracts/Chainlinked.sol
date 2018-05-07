@@ -1,6 +1,6 @@
 pragma solidity ^0.4.23;
 
-import "github.com/smartcontractkit/chainlink/solidity/contracts/ChainlinkLib.sol";
+import "./ChainlinkLib.sol";
 
 contract LinkToken {
   // ERC20 interface

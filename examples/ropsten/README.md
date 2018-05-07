@@ -2,6 +2,13 @@
 
 This guide will allow you to create and deploy a consuming contract to fulfill a data request using our deployed oracle contract. You do not need to run a node yourself in order to follow these instructions.
 
+## Additional Guides
+
+- [Running your own Chainlink node on Ropsten](./RopstenNode.md)
+- [Deploying your own oracle contract]()
+- [Example with `int256` data]()
+- [Example with `bytes32` data]()
+
 ## Tools
 
 This guide requires the following tools:
@@ -36,7 +43,7 @@ Ropsten LINK
 
 - Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
 
-Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to view the contract source code in Remix.
+Optionally, you can skip to the [Advanced](./AdvancedDeploy.md#consumeruint256-contract) instructions to view the contract source code in Remix.
 
 - In MyEtherWallet or MyCrypto, change the Network to Ropsten
 
