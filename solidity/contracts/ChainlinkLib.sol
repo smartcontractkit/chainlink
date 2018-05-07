@@ -5,6 +5,8 @@ import "./Buffer.sol";
 import "./CBOR.sol";
 
 library ChainlinkLib {
+  bytes4 internal constant oracleFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
+
   using CBOR for Buffer.buffer;
 
   struct Run {
@@ -31,11 +33,10 @@ library ChainlinkLib {
 
   function encodeForOracle(
     Run memory self,
-    bytes4 _oracleFid,
     uint256 _clArgsVersion
   ) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(
-      _oracleFid,
+      oracleFid,
       _clArgsVersion,
       self.jobId,
       self.callbackAddress,
