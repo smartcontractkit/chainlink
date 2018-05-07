@@ -1,7 +1,7 @@
 pragma solidity ^0.4.23;
 
 import "./Chainlinked.sol";
-import "./Ownable.sol";
+import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract Consumer is Chainlinked, Ownable {
   bytes32 internal requestId;
@@ -19,7 +19,10 @@ contract Consumer is Chainlinked, Ownable {
     jobId = _jobId;
   }
 
-  function requestEthereumPrice(string _currency) public {
+  function requestEthereumPrice(string _currency)
+    public
+    onlyOwner
+  {
     ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,uint256)");
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
