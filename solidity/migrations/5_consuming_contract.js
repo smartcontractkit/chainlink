@@ -1,8 +1,7 @@
-let chainlinkDeployer = require("../chainlink_deployer.js");
-let Consumer = artifacts.require("./Consumer.sol");
-let Oracle = artifacts.require("./Oracle.sol");
-let LinkToken = artifacts.require("./LinkToken.sol");
-let fs = require('fs');
+const request = require("request-promise");
+const Consumer = artifacts.require("./Consumer.sol");
+const Oracle = artifacts.require("./Oracle.sol");
+const LinkToken = artifacts.require("./LinkToken.sol");
 
 let url = "http://chainlink:twochains@localhost:6688/v2/specs";
 let job = {
@@ -18,7 +17,7 @@ let job = {
 
 module.exports = function(truffleDeployer) {
   truffleDeployer.then(async () => {
-    let body = await chainlinkDeployer.job(url, job);
+    let body = await request.post(url, {json: job});
     console.log(`Deploying Consumer:`);
     console.log(`\tjob: ${body.id}`);
     await truffleDeployer.deploy(Consumer, LinkToken.address, Oracle.address, body.id);
