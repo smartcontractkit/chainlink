@@ -16,6 +16,22 @@ This guide requires the following tools:
 - [Metamask](https://metamask.io/)
 - [MyCrypto](https://mycrypto.com) or [MyEtherWallet](https://www.myetherwallet.com/)
 
+## General Overview
+
+Interacting with contracts that require data from Chainlink follow a common workflow:
+
+- Deploy a requesting contract
+- Fund the requesting contract with LINK
+- Call the function within the requesting contract to create a Chainlink run
+  - This transfers LINK from the requesting contract to the oracle contract
+- Retrieve the value from the consuming contract
+
+The examples included here have the requesting and consuming contracts as the same contract. If you wanted the answer to be supplied to a different contract, you would change the word `this` and the function signature in the line below to that of the consuming contract:
+
+```
+ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,bytes32)");
+```
+
 ## Setup
 
 Add the Ropsten LINK token to Metamask:
