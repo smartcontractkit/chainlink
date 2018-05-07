@@ -1,3 +1,4 @@
+const clmigration = require("../clmigration.js");
 const request = require("request-promise");
 const LinkToken = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/LinkToken.sol");
 const Oracle = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/Oracle.sol");
@@ -12,10 +13,8 @@ let job = {
   ]
 };
 
-module.exports = function(truffleDeployer) {
-  truffleDeployer.then(async () => {
-    let body = await request.post(url, {json: job});
-    console.log(`Deploying Consumer Contract with JobID ${body.id}`);
-    await truffleDeployer.deploy(RunLog, LinkToken.address, Oracle.address, body.id);
-  }).catch(console.log);
-};
+module.exports = clmigration(async function(truffleDeployer) {
+  let body = await request.post(url, {json: job});
+  console.log(`Deploying Consumer Contract with JobID ${body.id}`);
+  await truffleDeployer.deploy(RunLog, LinkToken.address, Oracle.address, body.id);
+});
