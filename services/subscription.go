@@ -92,34 +92,54 @@ type RPCLogSubscription struct {
 	ethSubscription models.EthSubscription
 }
 
+// RPCLogSubscriber represents the function for processing a received RPCLog and the filter.
+type RPCLogSubscriber struct {
+	Filter   ethereum.FilterQuery
+	Callback func(RPCLogEvent)
+}
+
+// NewRPCLogSubscription returns a new RPCLogSubscriber with initialized filter.
+func NewRPCLogSubscriber(
+	initr models.Initiator,
+	head *models.IndexableBlockNumber,
+	topics [][]common.Hash,
+	callback func(RPCLogEvent)) *RPCLogSubscriber {
+
+	listenFromNumber := head.NextInt()
+	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
+	q.Topics = topics
+
+	return &RPCLogSubscriber{
+		Filter:   q,
+		Callback: callback,
+	}
+}
+
 // NewRPCLogSubscription creates a new RPCLogSubscription that feeds received
 // logs to the callback func parameter.
 func NewRPCLogSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
-	head *models.IndexableBlockNumber,
 	store *store.Store,
-	callback func(RPCLogEvent),
+	subscriber *RPCLogSubscriber,
 ) (RPCLogSubscription, error) {
 	if !initr.IsLogInitiated() {
 		return RPCLogSubscription{}, errors.New("Can only create an RPC log subscription for log initiators")
 	}
 
-	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: callback}
+	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: subscriber.Callback}
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
 
-	listenFromNumber := head.NextInt()
-	loggerLogListening(initr, listenFromNumber)
-	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
-	es, err := store.TxManager.SubscribeToLogs(sub.logs, q)
+	loggerLogListening(initr, subscriber.Filter.FromBlock)
+	es, err := store.TxManager.SubscribeToLogs(sub.logs, subscriber.Filter)
 	if err != nil {
 		return sub, err
 	}
 
 	sub.ethSubscription = es
 	go sub.listenToSubscriptionErrors()
-	go sub.listenToLogs(q)
+	go sub.listenToLogs(subscriber.Filter)
 	return sub, nil
 }
 
@@ -177,12 +197,16 @@ func (sub RPCLogSubscription) dispatchLog(log types.Log) {
 
 // StartRunLogSubscription starts an RPCLogSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	return NewRPCLogSubscription(initr, job, head, store, receiveRunLog)
+	hashJobID := common.BytesToHash([]byte(job.ID))
+	topics := [][]common.Hash{{RunLogTopic}, {}, {hashJobID}}
+	subscriber := NewRPCLogSubscriber(initr, head, topics, receiveRunLog)
+	return NewRPCLogSubscription(initr, job, store, subscriber)
 }
 
 // StartEthLogSubscription starts an RPCLogSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	return NewRPCLogSubscription(initr, job, head, store, receiveEthLog)
+	subscriber := NewRPCLogSubscriber(initr, head, nil, receiveEthLog)
+	return NewRPCLogSubscription(initr, job, store, subscriber)
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -276,16 +300,16 @@ func (le RPCLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
 func (le RPCLogEvent) ValidateRunLog() bool {
 	el := le.Log
 	if !isRunLog(el) {
-		logger.Debugw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
+		logger.Errorw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
 		return false
 	}
 
 	jid, err := jobIDFromLog(el)
 	if err != nil {
-		logger.Warnw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
+		logger.Errorw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
 	} else if jid != le.Job.ID {
-		logger.Debugw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
+		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
 	return true

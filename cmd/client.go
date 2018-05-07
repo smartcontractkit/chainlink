@@ -49,7 +49,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	store := app.GetStore()
 	cli.Auth.Authenticate(store, c.String("password"))
 	if err := app.Start(); err != nil {
-		return cli.errorOut(err)
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
 	defer app.Stop()
 	logNodeBalance(store)
