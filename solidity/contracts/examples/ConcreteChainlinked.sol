@@ -28,11 +28,12 @@ contract ConcreteChainlinked is Chainlinked {
     public
   {
     ChainlinkLib.Run memory run = newRun(_jobId, _address, _fulfillmentSignature);
+    run.close();
     emit Run(
       run.jobId,
       run.callbackAddress,
       run.callbackFunctionId,
-      run.close()
+      run.buf.buf
     );
   }
 
