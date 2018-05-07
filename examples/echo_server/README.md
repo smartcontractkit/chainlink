@@ -17,7 +17,7 @@ a job anytime a log event occurs. It can optionally be filtered by an `address`.
 2. `./create_ethlog_job` to create the Chainlink (CL) job
 3. `yarn install`
 4. `node echo.js`
-5. `./node_modules/.bin/truffle migrate` in another window
+5. `yarn truffle migrate` in another window
 6. `node send_ethlog_transaction.js`
 7. Wait for log to show up in echo server
 
@@ -28,7 +28,7 @@ Uses a `runlog` initiator to echo Chainlink log events with the matching job id.
 1. Complete the [Run Chainlink Development Environment](../README.md#run-chainlink-development-environment) steps.
 2. `yarn install`
 3. `node echo.js`
-4. `./node_modules/.bin/truffle migrate` in another window
+4. `yarn truffle migrate` in another window
 5. `node send_runlog_transaction.js`
 6. Wait for log to show up in echo server
 7. Investigate migrations/5_run_log.js for insight
