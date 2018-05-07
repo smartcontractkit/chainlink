@@ -21,6 +21,7 @@ case "$1" in
       --rpcapi "$RPCAPI" --rpccorsdomain "null" \
       --rpcaddr 127.0.0.1 --rpcport 18545 --wsport 18546 --datadir ../gethnet/datadir \
       --unlock "$ACCOUNT" \
+      --ipcdisable \
       --password ../gethnet/password.txt
     ;;
   topoff)
@@ -28,6 +29,7 @@ case "$1" in
       --unlock "$ACCOUNT" \
       --password ../gethnet/password.txt \
       --datadir ../gethnet/datadir \
+      --ipcdisable \
       --exec 'loadScript("../gethnet/gethload.js"); topOffAccount();'
     ;;
   *)
@@ -39,6 +41,7 @@ case "$1" in
       --rpcaddr 127.0.0.1 --dev.period 2 --rpcport 18545 --wsport 18546 \
       --datadir ../gethnet/datadir \
       --unlock "$ACCOUNT" \
+      --ipcdisable \
       --password ../gethnet/password.txt
     ;;
 esac
