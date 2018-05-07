@@ -12,7 +12,6 @@ contract Chainlinked {
   using CBOR for Buffer.buffer;
 
   uint256 constant clArgsVersion = 1;
-  bytes4 constant oracleFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
 
   LinkToken internal link;
   Oracle internal oracle;
@@ -31,12 +30,13 @@ contract Chainlinked {
     internal
     returns(bytes32)
   {
-    _run.externalId = keccak256(this, requests++);
+    requests += 1;
+    _run.externalId = keccak256(this, requests);
     _run.close();
     require(link.transferAndCall(
       oracle,
       _wei,
-      _run.encodeForOracle(oracleFid, clArgsVersion)));
+      _run.encodeForOracle(clArgsVersion)));
 
     return _run.externalId;
   }
