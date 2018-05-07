@@ -1,3 +1,4 @@
+const clmigration = require("../clmigration.js");
 const request = require("request-promise");
 const Consumer = artifacts.require("./Consumer.sol");
 const Oracle = artifacts.require("./Oracle.sol");
@@ -15,11 +16,9 @@ let job = {
   ]
 }
 
-module.exports = function(truffleDeployer) {
-  truffleDeployer.then(async () => {
-    let body = await request.post(url, {json: job});
-    console.log(`Deploying Consumer:`);
-    console.log(`\tjob: ${body.id}`);
-    await truffleDeployer.deploy(Consumer, LinkToken.address, Oracle.address, body.id);
-  }).catch(console.log);
-};
+module.exports = clmigration(async function(truffleDeployer) {
+  let body = await request.post(url, {json: job});
+  console.log(`Deploying Consumer:`);
+  console.log(`\tjob: ${body.id}`);
+  await truffleDeployer.deploy(Consumer, LinkToken.address, Oracle.address, body.id);
+});
