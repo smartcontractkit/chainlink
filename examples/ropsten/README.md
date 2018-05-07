@@ -5,9 +5,9 @@ This guide will allow you to create and deploy a consuming contract to fulfill a
 ## Additional Guides
 
 - [Running your own Chainlink node on Ropsten](./RopstenNode.md)
-- [Deploying your own oracle contract]()
-- [Example with `int256` data]()
-- [Example with `bytes32` data]()
+- [Deploying your own oracle contract](./OracleContract)
+- [Example with `int256` data](./AdvancedDeploy.md#consumerint256-contract)
+- [Example with `bytes32` data](./AdvancedDeploy.md#consumerbytes32-contract)
 
 ## Tools
 
