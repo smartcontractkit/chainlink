@@ -12,7 +12,6 @@ contract Chainlinked {
   using CBOR for Buffer.buffer;
 
   uint256 constant clArgsVersion = 1;
-  bytes4 constant oracleFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
 
   LinkToken internal link;
   Oracle internal oracle;
@@ -24,31 +23,22 @@ contract Chainlinked {
     string _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
-    Buffer.init(run.buf, 128);
-    run.jobId = _jobId;
-    run.callbackAddress = _callbackAddress;
-    run.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
-    run.buf.startMap();
-
-    return run;
+    return run.initialize(_jobId, _callbackAddress, _callbackFunctionSignature);
   }
 
   function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _wei)
     internal
     returns(bytes32)
   {
-    bytes32 requestId = keccak256(this, requests++);
-    bytes memory requestDataABI = abi.encodeWithSelector(
-      oracleFid,
-      clArgsVersion,
-      _run.jobId,
-      _run.callbackAddress,
-      _run.callbackFunctionId,
-      requestId,
-      _run.close());
-    require(link.transferAndCall(oracle, _wei, requestDataABI));
+    requests += 1;
+    _run.externalId = keccak256(this, requests);
+    _run.close();
+    require(link.transferAndCall(
+      oracle,
+      _wei,
+      _run.encodeForOracle(clArgsVersion)));
 
-    return requestId;
+    return _run.externalId;
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
