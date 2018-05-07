@@ -2,7 +2,6 @@ sudo: required
 services:
   - docker
 
-node_js: lts/carbon
 cache:
   yarn: true
   directories:
