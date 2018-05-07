@@ -25,13 +25,13 @@ $ make ropsten
 ### [Geth](https://github.com/ethereum/go-ethereum)
 
 ```
-$ geth --testnet --ws --wsaddr 127.0.0.1 --wsport 8546 --wsorigins "*"
+$ geth --testnet --ws --wsaddr 127.0.0.1 --wsport 18546 --wsorigins "*"
 ```
 
 ### [Parity](https://github.com/paritytech/parity)
 
 ```
-$ parity --chain=ropsten --ws-interface 127.0.0.1 --ws-port 8546 --ws-origins "all"
+$ parity --chain=ropsten --ws-interface 127.0.0.1 --ws-port 18546 --ws-origins "all"
 ```
 
 ## Environment Variables
@@ -79,6 +79,12 @@ EthUint256:
 
 ```
 $ chainlink c jobs/EthUint256Job.json
+```
+
+EthUint256 with the value multiplied by 100:
+
+```
+$ chainlink c jobs/EthUint256Jobx100.json
 ```
 
 EthInt256

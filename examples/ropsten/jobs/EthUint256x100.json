@@ -13,6 +13,10 @@
             "type": "jsonParse"
         },
         {
+            "type": "multiply",
+            "times": 100
+        },
+        {
             "type": "ethuint256"
         },
         {
