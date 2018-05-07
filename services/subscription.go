@@ -300,16 +300,16 @@ func (le RPCLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
 func (le RPCLogEvent) ValidateRunLog() bool {
 	el := le.Log
 	if !isRunLog(el) {
-		logger.Debugw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
+		logger.Errorw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
 		return false
 	}
 
 	jid, err := jobIDFromLog(el)
 	if err != nil {
-		logger.Warnw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
+		logger.Errorw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
 	} else if jid != le.Job.ID {
-		logger.Debugw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
+		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
 	return true
