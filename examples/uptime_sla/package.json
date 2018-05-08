@@ -7,10 +7,10 @@
     "fs": "^0.0.1-security",
     "linkToken": "github:smartcontractkit/linktoken",
     "moment": "^2.20.1",
-    "request": "^2.83.0",
+    "openzeppelin-solidity": "github:OpenZeppelin/openzeppelin-solidity",
+    "request-promise": "^4.2.2",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
     "truffle": "^4.0.6",
-    "truffle-contract": "^3.0.3",
-    "openzeppelin-solidity": "github:OpenZeppelin/openzeppelin-solidity"
+    "truffle-contract": "^3.0.3"
   }
 }
