@@ -167,5 +167,5 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 		"application/json",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
-	cltest.AssertServerResponse(t, resp, 500)
+	cltest.AssertServerResponse(t, resp, 400)
 }
