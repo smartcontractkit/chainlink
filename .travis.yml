@@ -1,6 +1,4 @@
 sudo: required
-services:
-  - docker
 
 cache:
   yarn: true
