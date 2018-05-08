@@ -8,3 +8,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 libc = "0.2.2"
+reqwest = "0.8.5"
