@@ -97,28 +97,6 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &job)
 }
 
-func (cli *Client) getPageOfJobSpecs(requestURI string, page int, jobs *[]models.JobSpec, links *jsonapi.Links) error {
-	cfg := cli.Config
-
-	uri, err := url.Parse(requestURI)
-	if err != nil {
-		return err
-	}
-	q := uri.Query()
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	uri.RawQuery = q.Encode()
-
-	resp, err := utils.BasicAuthGet(cfg.BasicAuthUsername, cfg.BasicAuthPassword, uri.String())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	return cli.deserializeAPIResponse(resp, jobs, links)
-}
-
 // GetJobSpecs returns all job specs.
 func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	cfg := cli.Config
@@ -131,7 +109,7 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 
 	var links jsonapi.Links
 	var jobs []models.JobSpec
-	err := cli.getPageOfJobSpecs(requestURI, page, &jobs, &links)
+	err := cli.getPage(requestURI, page, &jobs, &links)
 	if err != nil {
 		return err
 	}
@@ -277,14 +255,14 @@ func (cli *Client) GetBridges(c *clipkg.Context) error {
 
 	var links jsonapi.Links
 	var bridges []models.BridgeType
-	err := cli.getPageOfBridges(requestURI, page, &bridges, &links)
+	err := cli.getPage(requestURI, page, &bridges, &links)
 	if err != nil {
 		return err
 	}
 	return cli.errorOut(cli.Render(&bridges))
 }
 
-func (cli *Client) getPageOfBridges(requestURI string, page int, bridges *[]models.BridgeType, links *jsonapi.Links) error {
+func (cli *Client) getPage(requestURI string, page int, model interface{}, links *jsonapi.Links) error {
 	cfg := cli.Config
 
 	uri, err := url.Parse(requestURI)
@@ -303,7 +281,7 @@ func (cli *Client) getPageOfBridges(requestURI string, page int, bridges *[]mode
 	}
 	defer resp.Body.Close()
 
-	return cli.deserializeAPIResponse(resp, bridges, links)
+	return cli.deserializeAPIResponse(resp, model, links)
 }
 
 // ShowBridge returns the info for the given Bridge name.
