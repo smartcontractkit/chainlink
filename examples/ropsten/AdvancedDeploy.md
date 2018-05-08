@@ -22,9 +22,9 @@ You can now skip to the following sections:
 - Change to the Run tab
 - Select ConsumerUint256 from the dropdown in the right panel
 - For a standard Uint256 type, copy and paste the line below and enter it into the text field next to the Create button <br>
-    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "5eadba6f077e4ca8ac88cc370eb66a5f"**
+    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "0x3565616462613666303737653463613861633838636333373065623636613566"**
 - For the value to be multiplied by 100 in the node before writing to the blockchain, copy and paste the line below and enter it into the text field next to the Create button <br>
-    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "d41a0bdf968a43aca8822cf81a2c1fa7"**
+    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "0x6434316130626466393638613433616361383832326366383161326331666137"**
 - Click Create
 
 ![create](./images/10-24-56.png)
@@ -41,7 +41,7 @@ Go to [Remix to Metamask Contract Deployment](#remix-to-metamask-contract-deploy
 - Change to the Run tab
 - Select ConsumerInt256 from the dropdown in the right panel
 - Copy and paste the line below and enter it into the text field next to the Create button <br>
-    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "Does-Not-Exist-Yet-Fill-Me-In"**
+    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "0xDoes-Not-Exist-Yet-Fill-Me-In"**
 - Click Create
 
 ![create](./images/10-39-57.png)
@@ -58,7 +58,7 @@ Go to [Remix to Metamask Contract Deployment](#remix-to-metamask-contract-deploy
 - Change to the Run tab
 - Select ConsumerBytes32 from the dropdown in the right panel
 - Copy and paste the line below and enter it into the text field next to the Create button <br>
-    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "2660763707434f35bb58a9db33ee1803"**
+    **"0x20fE562d797A42Dcb3399062AE9546cd06f63280", "0x5be84B6381d45579Ed04A887B8473F76699E0389", "0x3236363037363337303734333466333562623538613964623333656531383033"**
 - Click Create
 
 ![create](./images/10-42-20.png)
