@@ -13,7 +13,7 @@ contract Consumer is Chainlinked, Ownable {
     bytes32 indexed price
   );
 
-  constructor(address _link, address _oracle, bytes32 _jobId) public {
+  constructor(address _link, address _oracle, bytes32 _jobId) Ownable() public {
     setLinkToken(_link);
     setOracle(_oracle);
     jobId = _jobId;
@@ -28,11 +28,8 @@ contract Consumer is Chainlinked, Ownable {
     requestId = chainlinkRequest(run, LINK(1));
   }
 
-  function cancelRequest(uint256 _requestId)
-    public
-    onlyOwner
-  {
-    oracle.cancel(_requestId);
+  function cancelRequest() public onlyOwner {
+    oracle.cancel(requestId);
   }
 
   function fulfill(bytes32 _requestId, bytes32 _price)

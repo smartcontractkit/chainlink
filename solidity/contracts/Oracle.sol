@@ -18,14 +18,14 @@ contract Oracle is Ownable {
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private oneForConsistentGasCost = 1;
-  uint256 private currentInternalId = oneForConsistentGasCost;
-  uint256 private currentAmount = oneForConsistentGasCost;
   uint256 private withdrawableWei = oneForConsistentGasCost;
+  uint256 private currentAmount = oneForConsistentGasCost;
+  address private currentSender;
 
-  mapping(uint256 => Callback) private callbacks;
+  mapping(bytes32 => Callback) private callbacks;
 
   event RunRequest(
-    uint256 indexed id,
+    bytes32 indexed id,
     bytes32 indexed jobId,
     uint256 indexed amount,
     uint256 version,
@@ -45,6 +45,7 @@ contract Oracle is Ownable {
     onlyLINK
   {
     currentAmount = _wei;
+    currentSender = _sender;
     require(address(this).delegatecall(_data)); // calls requestData
   }
 
@@ -59,17 +60,17 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    currentInternalId += 1;
-    callbacks[currentInternalId] = Callback(
+    bytes32 internalId = keccak256(currentSender, _externalId);
+    callbacks[internalId] = Callback(
       _externalId,
       currentAmount,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(currentInternalId, _jobId, currentAmount, _version, _data);
+    emit RunRequest(internalId, _jobId, currentAmount, _version, _data);
   }
 
   function fulfillData(
-    uint256 _internalId,
+    bytes32 _internalId,
     bytes32 _data
   )
     public
@@ -87,20 +88,17 @@ contract Oracle is Ownable {
     withdrawableWei = oneForConsistentGasCost;
   }
 
-  function cancel(uint256 _internalId) public fromCallback(_internalId) {
-    Callback memory cb = callbacks[_internalId];
+  function cancel(bytes32 _externalId) public {
+    bytes32 internalId = keccak256(msg.sender, _externalId);
+    require(msg.sender == callbacks[internalId].addr);
+    Callback memory cb = callbacks[internalId];
     LINK.transfer(cb.addr, cb.amount);
-    delete callbacks[_internalId];
+    delete callbacks[internalId];
   }
 
   // MODIFIERS
 
-  modifier fromCallback(uint256 _internalId) {
-    require(msg.sender == callbacks[_internalId].addr);
-    _;
-  }
-
-  modifier hasInternalId(uint256 _internalId) {
+  modifier hasInternalId(bytes32 _internalId) {
     require(callbacks[_internalId].addr != address(0));
     _;
   }
