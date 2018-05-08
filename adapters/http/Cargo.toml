@@ -1,0 +1,10 @@
+[package]
+name = "http"
+version = "0.1.0"
+authors = ["John Barker <jebarker@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "0.2.2"

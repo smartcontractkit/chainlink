@@ -7,7 +7,7 @@ LDFLAGS=-ldflags "-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-pa
 dep: ## Ensure chainlink's go dependencies are installed.
 	@dep ensure
 
-build: dep ## Build chainlink.
+build: dep ./adapters/http/target/release/libhttp.dylib ## Build chainlink.
 	@go build $(LDFLAGS) -o chainlink
 
 install: dep ## Install chainlink
@@ -29,3 +29,6 @@ help:
 	@echo "       \/     \/     \/        \/             \/     \/"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+./adapters/http/target/release/libhttp.dylib: adapters/http/Cargo.toml adapters/http/src/*
+	cargo build --release --manifest-path $<

@@ -1,5 +1,11 @@
 package adapters
 
+/*
+#cgo LDFLAGS: -L./http/target/release/ -lhttp
+#include "./http.h"
+*/
+import "C"
+
 import (
 	"bytes"
 	"fmt"
@@ -18,6 +24,8 @@ type HTTPGet struct {
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+	C.hello(C.CString("John Smith"))
+
 	response, err := http.Get(hga.URL.String())
 	if err != nil {
 		return input.WithError(err)
