@@ -67,6 +67,8 @@ func TestValidateAdapter(t *testing.T) {
 			errors.New("adapter validation: adapter solargridreporting exists")},
 		{"existing core adapter", "ethtx",
 			errors.New("adapter validation: adapter ethtx exists")},
+		{"no adapter name", "",
+			errors.New("adapter validation: no name specified")},
 		{"invalid adapter name", "invalid/adapter",
 			errors.New("adapter validation: name invalid/adapter contains invalid characters")},
 		{"new external adapter", "gdaxprice", nil},
