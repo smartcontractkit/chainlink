@@ -47,27 +47,30 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 
 	var bridges []models.BridgeType
 
-	if count, err := btc.App.Store.Count(&models.BridgeType{}); err != nil {
+	count, err := btc.App.Store.Count(&models.BridgeType{})
+	if err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{fmt.Errorf("error getting count of Bridges: %+v", err).Error()},
 		})
-	} else if err := btc.App.Store.AllByIndex("Name", &bridges, skip, limit); err != nil {
+		return
+	}
+	if err := btc.App.Store.AllByIndex("Name", &bridges, skip, limit); err != nil {
 		c.JSON(500, gin.H{
 			"errors": []string{fmt.Errorf("erorr fetching All Bridges: %+v", err).Error()},
 		})
+		return
+	}
+	pbt := make([]presenters.BridgeType, len(bridges))
+	for i, j := range bridges {
+		pbt[i] = presenters.BridgeType{BridgeType: j}
+	}
+	buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pbt)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
+		})
 	} else {
-		pbt := make([]presenters.BridgeType, len(bridges))
-		for i, j := range bridges {
-			pbt[i] = presenters.BridgeType{BridgeType: j}
-		}
-		buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pbt)
-		if err != nil {
-			c.JSON(500, gin.H{
-				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
-			})
-		} else {
-			c.Data(200, MediaType, buffer)
-		}
+		c.Data(200, MediaType, buffer)
 	}
 }
 
