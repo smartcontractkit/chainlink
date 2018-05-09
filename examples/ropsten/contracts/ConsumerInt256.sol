@@ -24,12 +24,12 @@ contract ConsumerInt256 is Chainlinked, Ownable {
     onlyOwner
   {
     ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,int256)");
-    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
-    path[0] = "RAW";
+    path[0] = "DISPLAY";
     path[1] = "ETH";
     path[2] = _currency;
-    path[3] = "CHANGEDAY";
+    path[3] = "CHANGEPCTDAY";
     run.addStringArray("path", path);
     requestId = chainlinkRequest(run, LINK(1));
   }
