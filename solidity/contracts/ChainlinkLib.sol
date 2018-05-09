@@ -13,7 +13,7 @@ library ChainlinkLib {
     bytes32 jobId;
     address callbackAddress;
     bytes4 callbackFunctionId;
-    bytes32 externalId;
+    bytes32 requestId;
     Buffer.buffer buf;
   }
 
@@ -41,7 +41,7 @@ library ChainlinkLib {
       self.jobId,
       self.callbackAddress,
       self.callbackFunctionId,
-      self.externalId,
+      self.requestId,
       self.buf.buf);
   }
 

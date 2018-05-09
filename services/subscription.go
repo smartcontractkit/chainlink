@@ -26,7 +26,7 @@ const (
 	EventTopicAmount
 )
 
-// RunLogTopic is the signature for the Request(uint256,bytes32,string) event
+// RunLogTopic is the signature for the RunRequest(...) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
