@@ -13,6 +13,7 @@
     "openzeppelin-solidity": "^1.8.0",
     "request-promise": "^4.2.2",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
+    "solium": "^1.1.7",
     "truffle": "^4.1.7",
     "web3": "^1.0.0-beta.29",
     "wscat": "^2.1.1"
