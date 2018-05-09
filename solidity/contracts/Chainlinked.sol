@@ -31,14 +31,14 @@ contract Chainlinked {
     returns(bytes32)
   {
     requests += 1;
-    _run.externalId = keccak256(this, requests);
+    _run.requestId = bytes32(requests);
     _run.close();
     require(link.transferAndCall(
       oracle,
       _wei,
       _run.encodeForOracle(clArgsVersion)));
 
-    return _run.externalId;
+    return _run.requestId;
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {

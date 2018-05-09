@@ -111,21 +111,21 @@ contract('Oracle', () => {
   });
 
   describe("#fulfillData", () => {
-    let mock, requestId;
-    let externalId = "XID";
+    let mock, internalId;
+    let requestId = "XID";
 
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");
-      let args = requestDataBytes(jobId, mock.address, fHash, externalId, "");
+      let args = requestDataBytes(jobId, mock.address, fHash, requestId, "");
       let req = await requestDataFrom(oc, link, 0, args);
-      requestId = req.receipt.logs[2].topics[1];
+      internalId = req.receipt.logs[2].topics[1];
     });
 
     context("when called by a non-owner", () => {
       it("raises an error", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData(requestId, "Hello World!", {from: stranger});
+          await oc.fulfillData(internalId, "Hello World!", {from: stranger});
         });
       });
     });
@@ -133,24 +133,24 @@ contract('Oracle', () => {
     context("when called by an owner", () => {
       it("raises an error if the request ID does not exist", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData(requestId + 10000, "Hello World!", {from: oracleNode});
+          await oc.fulfillData(0xdeadbeef, "Hello World!", {from: oracleNode});
         });
       });
 
       it("sets the value on the requested contract", async () => {
-        await oc.fulfillData(requestId, "Hello World!", {from: oracleNode});
+        await oc.fulfillData(internalId, "Hello World!", {from: oracleNode});
 
-        let currentExternalId = await mock.requestId.call();
-        assert.equal(externalId.toString(), web3.toUtf8(currentExternalId));
+        let mockRequestId = await mock.requestId.call();
+        assert.equal(requestId.toString(), web3.toUtf8(mockRequestId));
 
         let currentValue = await mock.getBytes32.call();
         assert.equal("Hello World!", web3.toUtf8(currentValue));
       });
 
       it("does not allow a request to be fulfilled twice", async () => {
-        await oc.fulfillData(requestId, "First message!", {from: oracleNode});
+        await oc.fulfillData(internalId, "First message!", {from: oracleNode});
         await assertActionThrows(async () => {
-          await oc.fulfillData(requestId, "Second message!!", {from: oracleNode});
+          await oc.fulfillData(internalId, "Second message!!", {from: oracleNode});
         });
       });
     });
@@ -218,7 +218,8 @@ contract('Oracle', () => {
     });
 
     context("with a pending request", () => {
-      let log, tx, mock, internalId, requestAmount, startingBalance;
+      let log, tx, mock, requestAmount, startingBalance;
+      let requestId = "requestId";
       beforeEach(async () => {
         startingBalance = 100;
         requestAmount = 20;
@@ -226,12 +227,9 @@ contract('Oracle', () => {
         mock = await GetterSetter.new({from: consumer});
         await link.transfer(consumer, startingBalance);
 
-        let args = requestDataBytes(jobId, consumer, fHash, "id", "");
+        let args = requestDataBytes(jobId, consumer, fHash, requestId, "");
         tx = await link.transferAndCall(oc.address, requestAmount, args, {from: consumer});
         assert.equal(3, tx.receipt.logs.length)
-
-        log = tx.receipt.logs[2];
-        internalId = hexToInt(log.topics[1]);
       });
 
       it("has correct initial balances", async () => {
@@ -245,23 +243,23 @@ contract('Oracle', () => {
       context("from a stranger", () => {
         it("fails", async () => {
           await assertActionThrows(async () => {
-            await oc.cancel(internalId, {from: stranger});
+            await oc.cancel(requestId, {from: stranger});
           });
         });
       });
 
       context("from the requester", () => {
         it("refunds the correct amount", async () => {
-          await oc.cancel(internalId, {from: consumer});
+          await oc.cancel(requestId, {from: consumer});
           let balance = await link.balanceOf(consumer);
           assert.equal(startingBalance, balance); // 100
         });
 
         context("canceling twice", () => {
           it("fails", async () => {
-            await oc.cancel(internalId, {from: consumer});
+            await oc.cancel(requestId, {from: consumer});
             await assertActionThrows(async () => {
-              await oc.cancel(internalId, {from: consumer});
+              await oc.cancel(requestId, {from: consumer});
             });
           });
         });

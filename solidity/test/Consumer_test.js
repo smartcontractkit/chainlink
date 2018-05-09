@@ -13,7 +13,7 @@ contract('Consumer', () => {
   beforeEach(async () => {
     link = await Link.new();
     oc = await Oracle.new(link.address, {from: oracleNode});
-    cc = await Consumer.new(link.address, oc.address, jobId, {from: stranger});
+    cc = await Consumer.new(link.address, oc.address, jobId, {from: consumer});
   });
 
   it("has a predictable gas price", async () => {
@@ -132,8 +132,14 @@ contract('Consumer', () => {
     context("when called by a non-owner", () => {
       it("cannot cancel a request", async () => {
         await assertActionThrows(async () => {
-          await cc.cancelRequest(stranger, {from: stranger});
+          await cc.cancelRequest({from: stranger});
         });
+      });
+    });
+
+    context("when called by the owner", () => {
+      it("can cancel the request", async () => {
+        await cc.cancelRequest({from: consumer});
       });
     });
   });
