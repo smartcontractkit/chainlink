@@ -5,7 +5,8 @@
 # 1. ./internal/bin/gethnet
 # 2. yarn install
 # 3. cd solidity && truffle migrate && cd ..
-# 4. ./internal/bin/cldev
+# 4. cd web/gui && yarn build && cd ../..
+# 5. ./internal/bin/cldev
 
 export LOG_LEVEL=debug
 export ROOT=./internal/clroot
@@ -17,6 +18,7 @@ export MINIMUM_CONTRACT_PAYMENT=1000000000000
 LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
 
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
+  cd web/gui && yarn build && cd ../..
   go run -ldflags "$LDFLAGS" \
     main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
 elif [ "$1" == "clean" ]; then

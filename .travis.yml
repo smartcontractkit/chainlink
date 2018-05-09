@@ -23,6 +23,9 @@ matrix:
     - language: go
       go: "1.10"
       env: COMMAND=./internal/ci/ethereum_test
+    - language: go
+      go: "1.10"
+      env: COMMAND=./internal/ci/gui_test
 
 before_install:
   # Go dependency manager dep
@@ -35,9 +38,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y -qq yarn
 
-install:
-  - dep ensure
-  - yarn install
+install: ./internal/ci/install_dependencies
 
 script:
   - bash $COMMAND

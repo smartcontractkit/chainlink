@@ -27,6 +27,7 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 )
 
 // Client is the shell for the node. It has fields for the Renderer,
@@ -461,6 +462,11 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
-	port := app.GetStore().Config.Port
-	return web.Router(app.(*services.ChainlinkApplication)).Run(":" + port)
+	api, gui := web.Router(app.(*services.ChainlinkApplication))
+	config := app.GetStore().Config
+	var g errgroup.Group
+
+	g.Go(func() error { return api.Run(":" + config.Port) })
+	g.Go(func() error { return gui.Run(":" + config.GuiPort) })
+	return g.Wait()
 }
