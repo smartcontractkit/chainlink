@@ -96,7 +96,7 @@ contract('Oracle', () => {
 
       it("uses the expected event signature", async () => {
         // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
-        let eventSignature = "0xbe58b49b04604f7f176ea542930addd2d647028dbc4227452e06d441ecdcce3b";
+        let eventSignature = "0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d";
         assert.equal(eventSignature, log.topics[0]);
       });
     });
@@ -133,7 +133,7 @@ contract('Oracle', () => {
     context("when called by an owner", () => {
       it("raises an error if the request ID does not exist", async () => {
         await assertActionThrows(async () => {
-          await oc.fulfillData("DOESNOTEXIST", "Hello World!", {from: oracleNode});
+          await oc.fulfillData(0xdeadbeef, "Hello World!", {from: oracleNode});
         });
       });
 

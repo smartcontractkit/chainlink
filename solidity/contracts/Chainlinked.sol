@@ -31,7 +31,7 @@ contract Chainlinked {
     returns(bytes32)
   {
     requests += 1;
-    _run.requestId = keccak256(this, requests);
+    _run.requestId = bytes32(requests);
     _run.close();
     require(link.transferAndCall(
       oracle,

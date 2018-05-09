@@ -22,10 +22,10 @@ contract Oracle is Ownable {
   uint256 private currentAmount = oneForConsistentGasCost;
   address private currentSender;
 
-  mapping(bytes32 => Callback) private callbacks;
+  mapping(uint256 => Callback) private callbacks;
 
   event RunRequest(
-    bytes32 indexed id,
+    uint256 indexed id,
     bytes32 indexed jobId,
     uint256 indexed amount,
     uint256 version,
@@ -60,7 +60,7 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    bytes32 internalId = keccak256(currentSender, _externalId);
+    uint256 internalId = uint256(keccak256(currentSender, _externalId));
     callbacks[internalId] = Callback(
       _externalId,
       currentAmount,
@@ -70,7 +70,7 @@ contract Oracle is Ownable {
   }
 
   function fulfillData(
-    bytes32 _internalId,
+    uint256 _internalId,
     bytes32 _data
   )
     public
@@ -89,7 +89,7 @@ contract Oracle is Ownable {
   }
 
   function cancel(bytes32 _externalId) public {
-    bytes32 internalId = keccak256(msg.sender, _externalId);
+    uint256 internalId = uint256(keccak256(msg.sender, _externalId));
     require(msg.sender == callbacks[internalId].addr);
     Callback memory cb = callbacks[internalId];
     LINK.transfer(cb.addr, cb.amount);
@@ -98,7 +98,7 @@ contract Oracle is Ownable {
 
   // MODIFIERS
 
-  modifier hasInternalId(bytes32 _internalId) {
+  modifier hasInternalId(uint256 _internalId) {
     require(callbacks[_internalId].addr != address(0));
     _;
   }
