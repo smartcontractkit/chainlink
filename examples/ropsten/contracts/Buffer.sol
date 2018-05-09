@@ -6,6 +6,8 @@ library Buffer {
     uint capacity;
   }
 
+  // This code has been vendored in from https://github.com/smartcontractkit/solidity-cborutils/blob/master/contracts/Buffer.sol
+  // so ignore warning.
   // solium-disable-next-line
   function init(buffer memory buf, uint capacity) internal pure {
     if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
