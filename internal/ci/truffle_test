@@ -3,6 +3,7 @@
 set -e
 
 yarn solium --dir solidity/
+yarn solium --dir examples/
 
 cd solidity
 ./node_modules/.bin/truffle test --network test

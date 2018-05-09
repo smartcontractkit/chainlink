@@ -6,17 +6,17 @@ import "./CBOR.sol";
 
 
 contract LinkToken {
-    // ERC20 interface
-    function transfer(address to, uint tokens) public returns (bool success);
-    function approve(address spender, uint tokens) public returns (bool success);
-    function transferFrom(address from, address to, uint tokens) public returns (bool success);
+  // ERC20 interface
+  function transfer(address to, uint tokens) public returns (bool success);
+  function approve(address spender, uint tokens) public returns (bool success);
+  function transferFrom(address from, address to, uint tokens) public returns (bool success);
 
-    // ERC677 interface
-    function transferAndCall(address receiver, uint amount, bytes data) public returns (bool success);
+  // ERC677 interface
+  function transferAndCall(address receiver, uint amount, bytes data) public returns (bool success);
 }
 
 contract Oracle {
-    function cancel(uint256 _internalId) public;
+  function cancel(uint256 _internalId) public;
 }
 
 contract Chainlinked {
@@ -46,8 +46,8 @@ contract Chainlinked {
   }
 
   function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _wei)
-    internal
-    returns(bytes32)
+  internal
+  returns(bytes32)
   {
     bytes32 requestId = keccak256(this, requests++);
     bytes memory requestDataABI = abi.encodeWithSelector(
@@ -64,7 +64,7 @@ contract Chainlinked {
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
-		return _amount * 10**18;
+    return _amount * 10**18;
   }
 
   function setOracle(address _oracle) internal {
