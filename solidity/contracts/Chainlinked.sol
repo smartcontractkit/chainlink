@@ -33,16 +33,18 @@ contract Chainlinked {
     requests += 1;
     _run.requestId = bytes32(requests);
     _run.close();
-    require(link.transferAndCall(
-      oracle,
-      _wei,
-      _run.encodeForOracle(clArgsVersion)));
+    require(
+      link.transferAndCall(
+        oracle,
+        _wei,
+        _run.encodeForOracle(clArgsVersion))
+    );
 
     return _run.requestId;
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
-		return _amount * 10**18;
+    return _amount * 10**18;
   }
 
   function setOracle(address _oracle) internal {

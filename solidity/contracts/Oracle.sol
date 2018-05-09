@@ -46,6 +46,7 @@ contract Oracle is Ownable {
   {
     currentAmount = _wei;
     currentSender = _sender;
+    // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data)); // calls requestData
   }
 
@@ -78,6 +79,7 @@ contract Oracle is Ownable {
     hasInternalId(_internalId)
   {
     Callback memory callback = callbacks[_internalId];
+    // solium-disable-next-line security/no-low-level-calls
     require(callback.addr.call(callback.functionId, callback.externalId, _data));
     withdrawableWei = withdrawableWei.add(callback.amount);
     delete callbacks[_internalId];

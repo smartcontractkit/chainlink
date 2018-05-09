@@ -1,5 +1,4 @@
 pragma solidity ^0.4.23;
-pragma experimental ABIEncoderV2;
 
 import "./Buffer.sol";
 import "./CBOR.sol";
@@ -63,9 +62,7 @@ library ChainlinkLib {
     self.buf.endSequence();
   }
 
-  function close(Run memory self)
-    internal pure
-  {
-     self.buf.endSequence();
+  function close(Run memory self) internal pure {
+    self.buf.endSequence();
   }
 }
