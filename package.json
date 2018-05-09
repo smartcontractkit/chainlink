@@ -2,20 +2,22 @@
   "name": "chainlink",
   "version": "0.2.0",
   "license": "MIT",
-  "dependencies": {
+  "devDependencies": {
     "bignumber.js": "^5.0.0",
     "cbor": "^4.0.0",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "ganache-cli": "^6.1.0",
-    "linkToken": "github:smartcontractkit/linktoken",
     "moment": "^2.20.1",
-    "openzeppelin-solidity": "^1.8.0",
     "request-promise": "^4.2.2",
-    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
     "solium": "^1.1.7",
     "truffle": "^4.1.7",
     "web3": "^1.0.0-beta.29",
     "wscat": "^2.1.1"
+  },
+  "dependencies": {
+    "linkToken": "github:smartcontractkit/linktoken",
+    "openzeppelin-solidity": "^1.8.0",
+    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
   }
 }
