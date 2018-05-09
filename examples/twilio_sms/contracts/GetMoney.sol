@@ -6,6 +6,6 @@ contract GetMoney {
 
   function receive() public payable {
     payees.push(msg.sender);
-    LogMoney(msg.value);
+    emit LogMoney(msg.value);
   }
 }
