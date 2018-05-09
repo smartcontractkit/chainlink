@@ -293,6 +293,22 @@ func MaxUint64(uints ...uint64) uint64 {
 	return max
 }
 
+// EVMSignedHexNumber formats a number as a 32 byte hex string
+// Twos compliment representation if a minus number
+func EVMSignedHexNumber(val *big.Int) (string, error) {
+	var sh string
+	if val.Sign() == -1 {
+		evmUint256Max, ok := (&big.Int{}).SetString(strings.Repeat("f", 64), 16)
+		if !ok {
+			return sh, fmt.Errorf("could not parse evmUint256 max")
+		}
+		sh = EVMHexNumber((&big.Int{}).Add(evmUint256Max, val.Add(val, big.NewInt(1))))
+	} else {
+		sh = EVMHexNumber(val)
+	}
+	return sh, nil
+}
+
 // EVMHexNumber formats a number as a 32 byte hex string.
 func EVMHexNumber(val interface{}) string {
 	return fmt.Sprintf("0x%064x", val)
