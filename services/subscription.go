@@ -30,7 +30,7 @@ const (
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
-var RunLogTopic = common.HexToHash("0xbe58b49b04604f7f176ea542930addd2d647028dbc4227452e06d441ecdcce3b")
+var RunLogTopic = common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d")
 
 // JobSubscription listens to event logs being pushed from the Ethereum Node to a job.
 type JobSubscription struct {
