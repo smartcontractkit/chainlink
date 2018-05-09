@@ -134,7 +134,7 @@ func NewApplication() (*TestApplication, func()) {
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
-	server := newServer(app)
+	server := newApiServer(app)
 	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
 	ethMock := MockEthOnStore(app.Store)
@@ -171,8 +171,9 @@ func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func
 	return app, cleanup
 }
 
-func newServer(app *services.ChainlinkApplication) *httptest.Server {
-	return httptest.NewServer(web.Router(app))
+func newApiServer(app *services.ChainlinkApplication) *httptest.Server {
+	apiEngine, _ := web.Router(app)
+	return httptest.NewServer(apiEngine)
 }
 
 // Stop will stop the test application and perform cleanup
