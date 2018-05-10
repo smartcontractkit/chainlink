@@ -17,7 +17,7 @@ type JobSpecsController struct {
 
 // Index lists JobSpecs, one page at a time.
 // Example:
-//  "<application>/specs"
+//  "<application>/specs?size=1&page=2"
 func (jsc *JobSpecsController) Index(c *gin.Context) {
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
