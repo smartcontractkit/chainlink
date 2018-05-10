@@ -50,6 +50,9 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 	case "jsonparse":
 		ac = &JSONParse{}
 		err = unmarshalParams(task.Params, ac)
+	case "copy":
+		ac = &Copy{}
+		err = unmarshalParams(task.Params, ac)
 	case "ethbytes32":
 		ac = &EthBytes32{}
 		err = unmarshalParams(task.Params, ac)

@@ -331,6 +331,36 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
+func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	eaPrice := "1234"
+	eaQuote := "USD"
+	eaResponse := fmt.Sprintf(`{"data":{"price": "%v", "quote": "%v"}}`, eaPrice, eaQuote)
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	defer cleanup()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/bridge_type_copy_job.json")
+	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, "assetprice", tr.Task.Type)
+	tr = jr.TaskRuns[1]
+	assert.Equal(t, "copy", tr.Task.Type)
+	val, err := tr.Result.Value()
+	assert.NoError(t, err)
+	assert.Equal(t, eaPrice, val)
+	res, err := tr.Result.Get("quote")
+	assert.NoError(t, err)
+	assert.Equal(t, eaQuote, res.String())
+}
+
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
 
