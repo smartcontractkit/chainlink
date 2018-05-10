@@ -2,13 +2,14 @@ package web_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,18 +40,37 @@ func TestJobRunsController_Index(t *testing.T) {
 	defer cleanup()
 
 	j := setupJobRunsControllerIndex(t, app)
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
-
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	var respJSON JobRunsJSON
-	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp), &respJSON))
-
 	jr, err := app.Store.JobRunsFor(j.ID)
 	assert.Nil(t, err)
 
-	assert.Equal(t, 2, len(respJSON.Runs), "expected no runs to be created")
-	assert.Equal(t, jr[0].ID, respJSON.Runs[0].ID, "expected runs ordered by created at(descending)")
-	assert.Equal(t, jr[1].ID, respJSON.Runs[1].ID, "expected runs ordered by created at(descending)")
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=x")
+	cltest.AssertServerResponse(t, resp, 422)
+
+	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=1")
+	cltest.AssertServerResponse(t, resp, 200)
+
+	var links jsonapi.Links
+	var runs []models.JobRun
+
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &runs, &links)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, links["next"].Href)
+	assert.Empty(t, links["prev"].Href)
+
+	assert.Len(t, runs, 1)
+	assert.Equal(t, jr[1].ID, runs[0].ID, "expected runs ordered by created at(descending)")
+
+	resp = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
+	cltest.AssertServerResponse(t, resp, 200)
+
+	runs = []models.JobRun{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &runs, &links)
+	assert.NoError(t, err)
+	assert.Empty(t, links["next"])
+	assert.NotEmpty(t, links["prev"])
+
+	assert.Len(t, runs, 1)
+	assert.Equal(t, jr[0].ID, runs[0].ID, "expected runs ordered by created at(descending)")
 }
 
 func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
