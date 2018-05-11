@@ -107,7 +107,6 @@ func NewRPCLogSubscriber(
 
 	listenFromNumber := head.NextInt()
 	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
-	q.Topics = topics
 
 	return &RPCLogSubscriber{
 		Filter:   q,
