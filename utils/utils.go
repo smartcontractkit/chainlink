@@ -254,7 +254,7 @@ func toBlockNumArg(number *big.Int) string {
 // interval, excluding Cron, like reconnecting.
 type Sleeper interface {
 	Reset()
-	Sleep()
+	Sleep() <-chan (time.Time)
 	Duration() time.Duration
 }
 
@@ -273,8 +273,8 @@ func NewBackoffSleeper() BackoffSleeper {
 }
 
 // Sleep waits for the given duration before reattempting.
-func (bs BackoffSleeper) Sleep() {
-	time.Sleep(bs.Backoff.Duration())
+func (bs BackoffSleeper) Sleep() <-chan (time.Time) {
+	return time.After(bs.Backoff.Duration())
 }
 
 // Duration returns the current duration value.

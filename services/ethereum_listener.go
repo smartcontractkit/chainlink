@@ -108,6 +108,9 @@ type HeadTracker struct {
 	number           *models.IndexableBlockNumber
 	headMutex        sync.RWMutex
 	trackersMutex    sync.RWMutex
+	startMutex       sync.Mutex
+	started          bool
+	stopped          chan struct{}
 	connected        bool
 	sleeper          utils.Sleeper
 }
@@ -129,6 +132,12 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 // subscribes to new heads, and if successful fires Connect on the
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
+	ht.startMutex.Lock()
+	defer ht.startMutex.Unlock()
+	if ht.started {
+		return errors.New("HeadTracker already started")
+	}
+
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
 	if err != nil && err != storm.ErrNotFound {
@@ -139,6 +148,7 @@ func (ht *HeadTracker) Start() error {
 	}
 
 	ht.headers = make(chan models.BlockHeader)
+	ht.stopped = make(chan struct{})
 	sub, err := ht.subscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
@@ -147,12 +157,20 @@ func (ht *HeadTracker) Start() error {
 	ht.connect(ht.number)
 	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
+	ht.started = true
 	return nil
 }
 
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
+	ht.startMutex.Lock()
+	defer ht.startMutex.Unlock()
+	if !ht.started {
+		return nil
+	}
+
 	if ht.headSubscription != nil {
+		close(ht.stopped)
 		ht.headSubscription.Unsubscribe()
 		ht.headSubscription = nil
 	}
@@ -161,6 +179,7 @@ func (ht *HeadTracker) Stop() error {
 		ht.headers = nil
 	}
 	ht.disconnect()
+	ht.started = false
 	return nil
 }
 
@@ -246,11 +265,14 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 		return nil, err
 	}
 	go func() {
-		err := <-sub.Err()
-		if err != nil {
-			logger.Warnw("Error in new head subscription, disconnected", "err", err)
-			ht.Stop()
-			ht.reconnectLoop()
+		select {
+		case <-ht.stopped:
+		case err := <-sub.Err():
+			if err != nil {
+				logger.Warnw("Error in new head subscription, disconnected", "err", err)
+				ht.Stop()
+				ht.reconnectLoop()
+			}
 		}
 	}()
 	return sub, nil
@@ -259,7 +281,7 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 func (ht *HeadTracker) updateBlockHeader() {
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
-		logger.Warnw("Unable to update latest block header", "err", err)
+		logger.Warnw("Unable to update latest block header, no fast forwarding", "err", err)
 		return
 	}
 
@@ -289,7 +311,7 @@ func (ht *HeadTracker) reconnectLoop() {
 	ht.sleeper.Reset()
 	for {
 		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
-		ht.sleeper.Sleep()
+		<-ht.sleeper.Sleep()
 		err := ht.Start()
 		if err != nil {
 			logger.Warnw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
