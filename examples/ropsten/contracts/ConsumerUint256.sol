@@ -13,7 +13,7 @@ contract ConsumerUint256 is Chainlinked, Ownable {
     uint256 indexed price
   );
 
-  function ConsumerUint256(address _link, address _oracle, bytes32 _jobId) Ownable() public {
+  constructor(address _link, address _oracle, bytes32 _jobId) Ownable() public {
     setLinkToken(_link);
     setOracle(_oracle);
     jobId = _jobId;

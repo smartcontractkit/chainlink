@@ -13,7 +13,7 @@ contract ConsumerBytes32 is Chainlinked, Ownable {
     bytes32 indexed marketCap
   );
 
-  function ConsumerBytes32(address _link, address _oracle, bytes32 _jobId) Ownable() public {
+  constructor(address _link, address _oracle, bytes32 _jobId) Ownable() public {
     setLinkToken(_link);
     setOracle(_oracle);
     jobId = _jobId;
