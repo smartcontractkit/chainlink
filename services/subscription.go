@@ -98,7 +98,7 @@ type RPCLogSubscriber struct {
 	Callback func(RPCLogEvent)
 }
 
-// NewRPCLogSubscription returns a new RPCLogSubscriber with initialized filter.
+// NewRPCLogSubscriber returns a new RPCLogSubscriber with initialized filter.
 func NewRPCLogSubscriber(
 	initr models.Initiator,
 	head *models.IndexableBlockNumber,
@@ -195,11 +195,16 @@ func (sub RPCLogSubscription) dispatchLog(log types.Log) {
 	})
 }
 
+func TopicFiltersForRunLog(jobID string) [][]common.Hash {
+	hexJobID := common.BytesToHash([]byte(jobID))
+	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
+	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
+	return [][]common.Hash{{RunLogTopic}, nil, {hexJobID, jobIDZeroPadded}}
+}
+
 // StartRunLogSubscription starts an RPCLogSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	hashJobID := common.BytesToHash([]byte(job.ID))
-	topics := [][]common.Hash{{RunLogTopic}, {}, {hashJobID}}
-	subscriber := NewRPCLogSubscriber(initr, head, topics, receiveRunLog)
+	subscriber := NewRPCLogSubscriber(initr, head, TopicFiltersForRunLog(job.ID), receiveRunLog)
 	return NewRPCLogSubscription(initr, job, store, subscriber)
 }
 
@@ -304,11 +309,11 @@ func (le RPCLogEvent) ValidateRunLog() bool {
 		return false
 	}
 
-	jid, err := jobIDFromLog(el)
+	jid, err := jobIDFromHexEncodedTopic(el)
 	if err != nil {
 		logger.Errorw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
-	} else if jid != le.Job.ID {
+	} else if jid != le.Job.ID && jobIDFromImproperEncodedTopic(el) != le.Job.ID {
 		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
@@ -389,6 +394,10 @@ func isRunLog(log types.Log) bool {
 	return len(log.Topics) == 4 && log.Topics[0] == RunLogTopic
 }
 
-func jobIDFromLog(log types.Log) (string, error) {
+func jobIDFromHexEncodedTopic(log types.Log) (string, error) {
 	return utils.HexToString(log.Topics[EventTopicJobID].Hex())
+}
+
+func jobIDFromImproperEncodedTopic(log types.Log) string {
+	return log.Topics[EventTopicJobID].String()[2:34]
 }
