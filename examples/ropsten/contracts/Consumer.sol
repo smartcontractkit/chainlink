@@ -29,16 +29,16 @@ contract Consumer is Chainlinked, Ownable {
   }
 
   function cancelRequest(uint256 _requestId) 
-    public 
-    onlyOwner
+  public 
+  onlyOwner
   {
     oracle.cancel(_requestId);
   }
 
   function fulfill(bytes32 _requestId, uint256 _price)
-    public
-    onlyOracle
-    checkRequestId(_requestId)
+  public
+  onlyOracle
+  checkRequestId(_requestId)
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;

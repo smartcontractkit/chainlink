@@ -1,5 +1,5 @@
 pragma solidity ^0.4.23;
-pragma experimental ABIEncoderV2;
+pragma experimental ABIEncoderV2; // solium-disable-line
 
 import "./Buffer.sol";
 import "./CBOR.sol";
@@ -16,14 +16,14 @@ library ChainlinkLib {
   }
 
   function add(Run memory self, string _key, string _value)
-    internal
+  internal
   {
     self.buf.encodeString(_key);
     self.buf.encodeString(_value);
   }
 
   function addStringArray(Run memory self, string _key, string[] memory _values)
-    internal
+  internal
   {
     self.buf.encodeString(_key);
     self.buf.startArray();
@@ -34,10 +34,10 @@ library ChainlinkLib {
   }
 
   function close(Run memory self)
-    internal
-    returns (bytes)
+  internal
+  returns (bytes)
   {
-     self.buf.endSequence();
-     return self.buf.buf;
+    self.buf.endSequence();
+    return self.buf.buf;
   }
 }

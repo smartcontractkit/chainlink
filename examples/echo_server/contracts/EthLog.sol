@@ -4,6 +4,6 @@ contract EthLog {
   event LogEvent(bytes32 indexed jobId);
 
   function logEvent() public {
-    LogEvent("hello_chainlink");
+    emit LogEvent("hello_chainlink");
   }
 }
