@@ -7,16 +7,22 @@
 # 3. cd solidity && truffle migrate && cd ..
 # 4. ./internal/bin/cldev
 
+LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
 export LOG_LEVEL=debug
 export ROOT=./internal/clroot
-export ETH_URL=ws://localhost:18546
-export ETH_CHAIN_ID=17
-export TX_MIN_CONFIRMATIONS=2
-export MINIMUM_CONTRACT_PAYMENT=1000000000000
-
-LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
 
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
+  export ETH_URL=ws://localhost:18546
+  export ETH_CHAIN_ID=17
+  export TX_MIN_CONFIRMATIONS=2
+  export MINIMUM_CONTRACT_PAYMENT=1000000000000
+
+  go run -ldflags "$LDFLAGS" \
+    main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+elif [ "$1" == "ropsten" ]; then
+  export ETH_URL=ws://35.231.68.218:8546
+  export ETH_CHAIN_ID=3
+
   go run -ldflags "$LDFLAGS" \
     main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
 elif [ "$1" == "clean" ]; then
