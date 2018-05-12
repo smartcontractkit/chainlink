@@ -111,11 +111,8 @@ func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 		return err
 	}
 
-	if err := rt.renderJobRuns(job); err != nil {
-		return err
-	}
-
-	return nil
+	err := rt.renderJobRuns(job)
+	return err
 }
 
 func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
