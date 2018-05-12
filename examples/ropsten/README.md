@@ -2,12 +2,35 @@
 
 This guide will allow you to create and deploy a consuming contract to fulfill a data request using our deployed oracle contract. You do not need to run a node yourself in order to follow these instructions.
 
+## Additional Guides
+
+- [Running your own Chainlink node on Ropsten](./RopstenNode.md)
+- [Deploying your own oracle contract](./OracleContract)
+- [Example with `int256` data](./AdvancedDeploy.md#consumerint256-contract)
+- [Example with `bytes32` data](./AdvancedDeploy.md#consumerbytes32-contract)
+
 ## Tools
 
 This guide requires the following tools:
 
 - [Metamask](https://metamask.io/)
 - [MyCrypto](https://mycrypto.com) or [MyEtherWallet](https://www.myetherwallet.com/)
+
+## General Overview
+
+Interacting with contracts that require data from Chainlink follow a common workflow:
+
+- Deploy a requesting contract
+- Fund the requesting contract with LINK
+- Call the function within the requesting contract to create a Chainlink run
+  - This transfers LINK from the requesting contract to the oracle contract
+- Retrieve the value from the consuming contract
+
+The examples included here have the requesting and consuming contracts as the same contract. If you wanted the answer to be supplied to a different contract, you would change the word `this` and the function signature in the line below to that of the consuming contract:
+
+```
+ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,bytes32)");
+```
 
 ## Setup
 
@@ -36,7 +59,7 @@ Ropsten LINK
 
 - Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
 
-Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to view the contract source code in Remix.
+Optionally, you can skip to the [Advanced](./AdvancedDeploy.md#consumeruint256-contract) instructions to view the contract source code in Remix.
 
 - In MyEtherWallet or MyCrypto, change the Network to Ropsten
 

@@ -1,0 +1,22 @@
+{
+    "initiators": [
+        {
+            "type": "runlog",
+            "address": "0x5be84B6381d45579Ed04A887B8473F76699E0389"
+        }
+    ],
+    "tasks": [
+        {
+            "type": "httpGet"
+        },
+        {
+            "type": "jsonParse"
+        },
+        {
+            "type": "ethint256"
+        },
+        {
+            "type": "ethtx"
+        }
+    ]
+}

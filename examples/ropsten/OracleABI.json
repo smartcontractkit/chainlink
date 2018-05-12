@@ -1,0 +1,208 @@
+[
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"name": "previousOwner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "OwnershipTransferred",
+		"type": "event"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "_internalId",
+				"type": "uint256"
+			}
+		],
+		"name": "cancel",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "_internalId",
+				"type": "uint256"
+			},
+			{
+				"name": "_data",
+				"type": "bytes32"
+			}
+		],
+		"name": "fulfillData",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"name": "previousOwner",
+				"type": "address"
+			}
+		],
+		"name": "OwnershipRenounced",
+		"type": "event"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "_sender",
+				"type": "address"
+			},
+			{
+				"name": "_wei",
+				"type": "uint256"
+			},
+			{
+				"name": "_data",
+				"type": "bytes"
+			}
+		],
+		"name": "onTokenTransfer",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"name": "jobId",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"name": "amount",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"name": "version",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"name": "data",
+				"type": "bytes"
+			}
+		],
+		"name": "RunRequest",
+		"type": "event"
+	},
+	{
+		"constant": false,
+		"inputs": [],
+		"name": "renounceOwnership",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "_version",
+				"type": "uint256"
+			},
+			{
+				"name": "_jobId",
+				"type": "bytes32"
+			},
+			{
+				"name": "_callbackAddress",
+				"type": "address"
+			},
+			{
+				"name": "_callbackFunctionId",
+				"type": "bytes4"
+			},
+			{
+				"name": "_externalId",
+				"type": "bytes32"
+			},
+			{
+				"name": "_data",
+				"type": "bytes"
+			}
+		],
+		"name": "requestData",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "transferOwnership",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"name": "_link",
+				"type": "address"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"constant": false,
+		"inputs": [],
+		"name": "withdraw",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [],
+		"name": "owner",
+		"outputs": [
+			{
+				"name": "",
+				"type": "address"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	}
+]
