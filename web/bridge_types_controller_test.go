@@ -126,6 +126,9 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
 	assert.Equal(t, respBridge.DefaultConfirmations, bt.DefaultConfirmations, "should have the same DefaultConfirmations")
+
+	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/nosuchbridge")
+	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
