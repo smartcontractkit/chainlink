@@ -38,7 +38,7 @@ func (ks *KeyStore) Unlock(phrase string) error {
 	for _, account := range ks.Accounts() {
 		err := ks.KeyStore.Unlock(account, phrase)
 		if err != nil {
-			return fmt.Errorf("Invalid password for account: %s\n\nPlease try again...\n", account.Address.Hex())
+			return fmt.Errorf("Invalid password for account: %s\n\nPlease try again...\n ", account.Address.Hex())
 		}
 	}
 	return nil

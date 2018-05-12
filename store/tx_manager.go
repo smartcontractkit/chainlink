@@ -113,7 +113,7 @@ func (txm *TxManager) createAttempt(
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("error sending transaction: %v", r))
+			err = fmt.Errorf("error sending transaction: %v", r)
 		}
 	}()
 	err = txm.sendTransaction(etx)
@@ -241,7 +241,7 @@ func (a *ActiveAccount) GetNonce() uint64 {
 	return a.nonce
 }
 
-// Yield the current nonce to a callback function and increment it once the
+// GetAndIncrementNonce will Yield the current nonce to a callback function and increment it once the
 // callback has finished executing
 func (a *ActiveAccount) GetAndIncrementNonce(callback func(uint64) error) error {
 	a.mutex.Lock()
