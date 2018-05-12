@@ -1,8 +1,7 @@
 pragma solidity ^0.4.23;
 pragma experimental ABIEncoderV2; // solium-disable-line
 
-import "./Buffer.sol";
-import "./CBOR.sol";
+import "github.com/smartcontractkit/solidity-cborutils/contracts/CBOR.sol";
 
 library ChainlinkLib {
   using CBOR for Buffer.buffer;

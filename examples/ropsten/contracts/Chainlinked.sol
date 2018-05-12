@@ -1,9 +1,6 @@
 pragma solidity ^0.4.23;
 
 import "./ChainlinkLib.sol";
-import "./Buffer.sol";
-import "./CBOR.sol";
-
 
 contract LinkToken {
   // ERC20 interface
