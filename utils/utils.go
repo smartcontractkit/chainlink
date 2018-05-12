@@ -26,9 +26,12 @@ import (
 )
 
 const (
-	HUMAN_TIME_FORMAT = "2006-01-02 15:04:05 MST"
-	EVMWordByteLen    = 32
-	EVMWordHexLen     = EVMWordByteLen * 2
+	// HumanTimeFormat is the predefined layout for use in Time.Format and time.Parse
+	HumanTimeFormat = "2006-01-02 15:04:05 MST"
+	// EVMWordByteLen the length of an EVM Word Byte
+	EVMWordByteLen = 32
+	// EVMWordHexLen the length of an EVM Word Hex
+	EVMWordHexLen = EVMWordByteLen * 2
 )
 
 var weiPerEth = big.NewInt(1e18)
@@ -229,6 +232,7 @@ func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.F
 	}
 }
 
+// ToFilterArg filters logs with the given FilterQuery
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
 func ToFilterArg(q ethereum.FilterQuery) interface{} {
 	arg := map[string]interface{}{

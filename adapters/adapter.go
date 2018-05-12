@@ -72,11 +72,11 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 		ac = &NoOpPend{}
 		err = unmarshalParams(task.Params, ac)
 	default:
-		if bt, err := store.BridgeTypeFor(task.Type); err != nil {
+		bt, err := store.BridgeTypeFor(task.Type)
+		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
-		} else {
-			return &Bridge{bt}, nil
 		}
+		return &Bridge{bt}, nil
 	}
 	wa := MinConfsWrappedAdapter{
 		Adapter:                 ac,

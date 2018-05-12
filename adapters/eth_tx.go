@@ -22,9 +22,8 @@ type EthTx struct {
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !input.Status.PendingConfirmations() {
 		return createTxRunResult(etx, input, store)
-	} else {
-		return ensureTxRunResult(input, store)
 	}
+	return ensureTxRunResult(input, store)
 }
 
 func createTxRunResult(

@@ -98,7 +98,7 @@ type RPCLogSubscriber struct {
 	Callback func(RPCLogEvent)
 }
 
-// NewRPCLogSubscription returns a new RPCLogSubscriber with initialized filter.
+// NewRPCLogSubscriber returns a new RPCLogSubscriber with initialized filter.
 func NewRPCLogSubscriber(
 	initr models.Initiator,
 	head *models.IndexableBlockNumber,
@@ -289,6 +289,7 @@ func (le RPCLogEvent) ToDebug() {
 	logger.Debugw(msg, le.ForLogger()...)
 }
 
+// ToIndexableBlockNumber returns an IndexableBlockNumber for the given RPCLogEvent Block
 func (le RPCLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
 	num := new(big.Int)
 	num.SetUint64(le.Log.BlockNumber)

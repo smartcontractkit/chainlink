@@ -234,9 +234,8 @@ func (rr RunResult) Error() string {
 func (rr RunResult) GetError() error {
 	if rr.HasError() {
 		return fmt.Errorf("Run Result: %v", rr.Error())
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // Merge returns a copy which is the result of joining the input RunResult

@@ -11,20 +11,26 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+// AssignmentSpec represents a specification of work to be given to an oracle
+// this consists of an Assignment and a Schedule
 type AssignmentSpec struct {
 	Assignment Assignment `json:"assignment"`
 	Schedule   Schedule   `json:"schedule"`
 }
 
+// Assignment contains all the subtasks to perform
 type Assignment struct {
 	Subtasks []Subtask `json:"subtasks"`
 }
 
+// Subtask is a step taken by the oracle to complete an assignment
 type Subtask struct {
 	Type   string `json:"adapterType"`
 	Params JSON   `json:"adapterParams"`
 }
 
+// Schedule defines the frequency to run the Assignment
+// Schedule uses standard cron syntax
 type Schedule struct {
 	EndAt       Time        `json:"endAt"`
 	Hour        null.String `json:"hour"`
@@ -35,6 +41,7 @@ type Schedule struct {
 	RunAt       []Time      `json:"runAt"`
 }
 
+// Snapshot captures the result of an individual subtask
 type Snapshot struct {
 	Details JSON        `json:"details"`
 	ID      string      `json:"xid"`
