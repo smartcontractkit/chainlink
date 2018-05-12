@@ -36,11 +36,16 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+// RootDir the root directory for cltest
 const RootDir = "/tmp/chainlink_test"
+
+// Username the test username
 const Username = "testusername"
+
+// Password the password
 const Password = "password"
 
-var storeCounter uint64 = 0
+var storeCounter uint64
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -48,16 +53,19 @@ func init() {
 	logger.SetLogger(logger.CreateTestLogger())
 }
 
+// TestConfig struct with test store and wsServer
 type TestConfig struct {
 	store.Config
 	wsServer *httptest.Server
 }
 
+// NewConfig returns a new TestConfig
 func NewConfig() (*TestConfig, func()) {
 	wsserver := newWSServer()
 	return NewConfigWithWSServer(wsserver), func() { wsserver.Close() }
 }
 
+// NewConfigWithWSServer return new config with specified wsserver
 func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
@@ -79,6 +87,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	return &config
 }
 
+// SetEthereumServer sets the ethereum server for testconfig with given wsserver
 func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	u, _ := url.Parse(wss.URL)
 	u.Scheme = "ws"
@@ -86,6 +95,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	tc.wsServer = wss
 }
 
+// TestApplication holds the test application and test servers
 type TestApplication struct {
 	*services.ChainlinkApplication
 	Server   *httptest.Server
@@ -96,6 +106,7 @@ func newWSServer() *httptest.Server {
 	return NewWSServer("")
 }
 
+// NewWSServer returns a  new wsserver
 func NewWSServer(msg string) *httptest.Server {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -109,6 +120,7 @@ func NewWSServer(msg string) *httptest.Server {
 	return server
 }
 
+// NewApplication creates a New TestApplication along with a NewConfig
 func NewApplication() (*TestApplication, func()) {
 	c, cfgCleanup := NewConfig()
 	app, cleanup := NewApplicationWithConfig(c)
@@ -118,6 +130,7 @@ func NewApplication() (*TestApplication, func()) {
 	}
 }
 
+// NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
 	server := newServer(app)
@@ -137,6 +150,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	}
 }
 
+// NewApplicationWithKeyStore creates a new TestApplication along with a new config
 func NewApplicationWithKeyStore() (*TestApplication, func()) {
 	config, cfgCleanup := NewConfig()
 	app, cleanup := NewApplicationWithConfigAndKeyStore(config)
@@ -146,6 +160,8 @@ func NewApplicationWithKeyStore() (*TestApplication, func()) {
 	}
 }
 
+// NewApplicationWithConfigAndKeyStore creates a new TestApplication with the given testconfig
+// it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func()) {
 	app, cleanup := NewApplicationWithConfig(tc)
 	_, err := app.Store.KeyStore.NewAccount(Password)
@@ -158,6 +174,7 @@ func newServer(app *services.ChainlinkApplication) *httptest.Server {
 	return httptest.NewServer(web.Router(app))
 }
 
+// Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
 	ta.ChainlinkApplication.Stop()
 	cleanUpStore(ta.Store)
@@ -170,6 +187,7 @@ func (ta *TestApplication) Stop() error {
 	return nil
 }
 
+// NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 	s := store.NewStore(config.Config)
 	return s, func() {
@@ -180,6 +198,7 @@ func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 	}
 }
 
+// NewStore creates a new store
 func NewStore() (*store.Store, func()) {
 	c, _ := NewConfig()
 	return NewStoreWithConfig(c)
@@ -195,6 +214,7 @@ func cleanUpStore(store *store.Store) {
 	}()
 }
 
+// NewEthereumListener creates a new EthereumListener
 func NewEthereumListener() (*services.EthereumListener, func()) {
 	store, cl := NewStore()
 	nl := &services.EthereumListener{Store: store}
@@ -203,11 +223,13 @@ func NewEthereumListener() (*services.EthereumListener, func()) {
 	}
 }
 
+// CommonJSON has an ID, and Name
 type CommonJSON struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
+// ParseCommonJSON will unmarshall given body into CommonJSON
 func ParseCommonJSON(body io.Reader) CommonJSON {
 	b, err := ioutil.ReadAll(body)
 	mustNotErr(err)
@@ -216,6 +238,7 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 	return respJSON
 }
 
+// LoadJSON loads json from file and returns a byte slice
 func LoadJSON(file string) []byte {
 	content, err := ioutil.ReadFile(file)
 	mustNotErr(err)
@@ -235,6 +258,7 @@ func copyFile(src, dst string) {
 	mustNotErr(to.Close())
 }
 
+// AddPrivateKey adds private key from src to config
 func AddPrivateKey(config *TestConfig, src string) {
 	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
 	mustNotErr(err)
@@ -243,6 +267,8 @@ func AddPrivateKey(config *TestConfig, src string) {
 	copyFile(src, dst)
 }
 
+// BasicAuthPost performs a POST request to the given url with specified contentType and body
+// and returns the Response
 func BasicAuthPost(url string, contentType string, body io.Reader) *http.Response {
 	resp, err := utils.BasicAuthPost(
 		Username,
@@ -254,12 +280,15 @@ func BasicAuthPost(url string, contentType string, body io.Reader) *http.Respons
 	return resp
 }
 
+// BasicAuthGet performs a GET request to given url and returns the Response
 func BasicAuthGet(url string) *http.Response {
 	resp, err := utils.BasicAuthGet(Username, Password, url)
 	mustNotErr(err)
 	return resp
 }
 
+// BasicAuthPatch performs a PATCH request to the given url with specified contentType and body
+// and returns the Response
 func BasicAuthPatch(url string, contentType string, body io.Reader) *http.Response {
 	resp, err := utils.BasicAuthPatch(
 		Username,
@@ -271,6 +300,7 @@ func BasicAuthPatch(url string, contentType string, body io.Reader) *http.Respon
 	return resp
 }
 
+// ParseResponseBody will parse the given response into a byte slice
 func ParseResponseBody(resp *http.Response) []byte {
 	b, err := ioutil.ReadAll(resp.Body)
 	mustNotErr(err)
@@ -278,12 +308,14 @@ func ParseResponseBody(resp *http.Response) []byte {
 	return b
 }
 
+// ObserveLogs returns the observed logs
 func ObserveLogs() *observer.ObservedLogs {
 	core, observed := observer.New(zapcore.DebugLevel)
 	logger.SetLogger(zap.New(core))
 	return observed
 }
 
+// FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/specs",
@@ -296,6 +328,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
+// FindJob returns JobSpec for given JobID
 func FindJob(s *store.Store, id string) models.JobSpec {
 	j, err := s.FindJob(id)
 	mustNotErr(err)
@@ -303,6 +336,7 @@ func FindJob(s *store.Store, id string) models.JobSpec {
 	return j
 }
 
+// FindJobRun returns JobRun for given JobRunID
 func FindJobRun(s *store.Store, id string) models.JobRun {
 	j, err := s.FindJobRun(id)
 	mustNotErr(err)
@@ -310,6 +344,7 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 	return j
 }
 
+// FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
 		app.Server.URL+"/v1/assignments",
@@ -321,6 +356,7 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
+// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
 	marshaled, err := json.Marshal(&job)
 	assert.Nil(t, err)
@@ -334,6 +370,7 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
+// CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
@@ -372,6 +409,7 @@ func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) 
 	return CreateJobSpecViaWeb(t, app, j)
 }
 
+// UpdateJobRunViaWeb updates jobrun via web using /v2/runs/ID
 func UpdateJobRunViaWeb(
 	t *testing.T,
 	app *TestApplication,
@@ -389,6 +427,7 @@ func UpdateJobRunViaWeb(
 	return jr
 }
 
+// CreateBridgeTypeViaWeb creates a bridgetype via web using /v2/bridge_types
 func CreateBridgeTypeViaWeb(
 	t *testing.T,
 	app *TestApplication,
@@ -408,6 +447,7 @@ func CreateBridgeTypeViaWeb(
 	return bt
 }
 
+// NewClientAndRenderer creates a new cmd.Client with given config
 func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
@@ -420,6 +460,7 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 	return client, r
 }
 
+// WaitForJobRunToComplete waits for a JobRun to reach Completed Status
 func WaitForJobRunToComplete(
 	t *testing.T,
 	store *store.Store,
@@ -428,6 +469,7 @@ func WaitForJobRunToComplete(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
 }
 
+// WaitForJobRunToPendBridge waits for a JobRun to reach PendingBridge Status
 func WaitForJobRunToPendBridge(
 	t *testing.T,
 	store *store.Store,
@@ -436,6 +478,7 @@ func WaitForJobRunToPendBridge(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
 }
 
+// WaitForJobRunToPendConfirmations waits for a JobRun to reach PendingConfirmations Status
 func WaitForJobRunToPendConfirmations(
 	t *testing.T,
 	store *store.Store,
@@ -444,6 +487,7 @@ func WaitForJobRunToPendConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
+// WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t *testing.T,
 	store *store.Store,
@@ -458,6 +502,7 @@ func WaitForJobRunStatus(
 	return jr
 }
 
+// JobRunStays tests if a JobRun will consistently stay at the specified status
 func JobRunStays(
 	t *testing.T,
 	store *store.Store,
@@ -472,6 +517,7 @@ func JobRunStays(
 	return jr
 }
 
+// JobRunStaysPendingConfirmations tests if a JobRun will stay at the PendingConfirmations Status
 func JobRunStaysPendingConfirmations(
 	t *testing.T,
 	store *store.Store,
@@ -480,6 +526,7 @@ func JobRunStaysPendingConfirmations(
 	return JobRunStays(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
+// WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) []models.JobRun {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
@@ -502,26 +549,31 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) [
 	return jrs
 }
 
+// MustParseWebURL must parse the given url and return it
 func MustParseWebURL(str string) models.WebURL {
 	u, err := url.Parse(str)
 	mustNotErr(err)
 	return models.WebURL{URL: u}
 }
 
+// ParseISO8601 given the time string it Must parse the time and return it
 func ParseISO8601(s string) time.Time {
 	t, err := time.Parse(time.RFC3339Nano, s)
 	mustNotErr(err)
 	return t
 }
 
+// NullableTime will return a valid nullable time given time.Time
 func NullableTime(t time.Time) null.Time {
 	return null.Time{Time: t, Valid: true}
 }
 
+// ParseNullableTime given a time string parse it into a null.Time
 func ParseNullableTime(s string) null.Time {
 	return NullableTime(ParseISO8601(s))
 }
 
+// IndexableBlockNumber given the value convert it into an IndexableBlockNumber
 func IndexableBlockNumber(val interface{}) *models.IndexableBlockNumber {
 	switch val.(type) {
 	case int:
@@ -538,6 +590,7 @@ func IndexableBlockNumber(val interface{}) *models.IndexableBlockNumber {
 	}
 }
 
+// NewBlockHeader return a new BlockHeader with given number
 func NewBlockHeader(number int) *models.BlockHeader {
 	return &models.BlockHeader{Number: BigHexInt(number)}
 }
@@ -548,10 +601,12 @@ func mustNotErr(err error) {
 	}
 }
 
+// UnwrapAdapter unwraps the adapter from given wrapped adapter
 func UnwrapAdapter(wa adapters.AdapterWithMinConfs) adapters.Adapter {
 	return wa.(adapters.MinConfsWrappedAdapter).Adapter
 }
 
+// GetAccountAddress returns Address of the account in the keystore of the passed in store
 func GetAccountAddress(store *store.Store) common.Address {
 	account, err := store.KeyStore.GetAccount()
 	mustNotErr(err)
@@ -559,6 +614,7 @@ func GetAccountAddress(store *store.Store) common.Address {
 	return account.Address
 }
 
+// StringToHash give Keccak256 hash of string
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
 }

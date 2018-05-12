@@ -13,6 +13,7 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// RunStatus is a string that represents the run status
 type RunStatus string
 
 const (

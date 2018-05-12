@@ -36,6 +36,7 @@ func initializeDatabase(path string) *storm.DB {
 	return db
 }
 
+// GetBolt returns BoltDB from the ORM
 func (orm *ORM) GetBolt() *bolt.DB {
 	return orm.DB.Bolt
 }
