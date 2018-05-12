@@ -33,7 +33,6 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 }
 
 // Index lists Bridges, one page at a time.
-
 func (btc *BridgeTypesController) Index(c *gin.Context) {
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
@@ -75,7 +74,6 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 }
 
 // Show returns the details of a specific Bridge.
-
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
