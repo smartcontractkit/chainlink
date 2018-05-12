@@ -255,6 +255,14 @@ func RunResultWithValue(val string) models.RunResult {
 	return models.RunResult{Data: data}
 }
 
+func RunResultWithData(val string) models.RunResult {
+	data, err := models.ParseJSON([]byte(val))
+	if err != nil {
+		return RunResultWithError(err)
+	}
+	return models.RunResult{Data: data}
+}
+
 func RunResultWithError(err error) models.RunResult {
 	return models.RunResult{
 		Status:       models.RunStatusErrored,
