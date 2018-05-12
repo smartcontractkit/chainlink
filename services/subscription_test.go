@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -130,4 +131,57 @@ func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
 
 	eth.EventuallyAllCalled(t)
 	assert.Equal(t, 1, count)
+}
+
+func TestTopicFiltersForRunLog(t *testing.T) {
+	t.Parallel()
+
+	jobID := "4a1eb0e8df314cb894024a38991cff0f"
+	topics := services.TopicFiltersForRunLog(jobID)
+
+	assert.Equal(t, 3, len(topics))
+	assert.Nil(t, topics[1])
+	assert.Equal(
+		t,
+		[]common.Hash{services.RunLogTopic},
+		topics[services.EventTopicSignature])
+
+	assert.Equal(
+		t,
+		[]common.Hash{
+			common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+			common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+		},
+		topics[2])
+}
+
+func TestRPCLogEvent_ValidateRunLog(t *testing.T) {
+	t.Parallel()
+
+	job := cltest.NewJob()
+	job.ID = "4a1eb0e8df314cb894024a38991cff0f"
+	tests := []struct {
+		name          string
+		eventLogTopic common.Hash
+		jobIDTopic    common.Hash
+		want          bool
+	}{
+		{"not runlog", cltest.StringToHash("notrunlog"), common.Hash{}, false},
+		{"runlog wrong jobid", services.RunLogTopic, cltest.StringToHash("wrongjob"), false},
+		{"runlog proper hex jobid", services.RunLogTopic, cltest.StringToHash(job.ID), true},
+		{"runlog incorrect encoded jobid", services.RunLogTopic, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), 1, "{}")
+			log.Topics = []common.Hash{tt.eventLogTopic, common.Hash{}, tt.jobIDTopic, common.Hash{}}
+			le := services.RPCLogEvent{
+				Job: job,
+				Log: log,
+			}
+
+			assert.Equal(t, tt.want, le.ValidateRunLog())
+		})
+	}
 }
