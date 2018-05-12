@@ -29,12 +29,15 @@ func (wrapper rpcSubscriptionWrapper) EthSubscribe(ctx context.Context, channel 
 	return wrapper.Client.EthSubscribe(ctx, channel, args...)
 }
 
+// Dialer implements Dial which is a function that creates a client for that url
 type Dialer interface {
 	Dial(string) (CallerSubscriber, error)
 }
 
+// EthDialer is Dialer which accesses rpc urls
 type EthDialer struct{}
 
+// Dial will dial the given url and return a CallerSubscriber
 func (EthDialer) Dial(url string) (CallerSubscriber, error) {
 	dialed, err := rpc.Dial(url)
 	if err != nil {
@@ -50,6 +53,7 @@ func NewStore(config Config) *Store {
 	return NewStoreWithDialer(config, EthDialer{})
 }
 
+// NewStoreWithDialer creates a new store with the given config and dialer
 func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	err := os.MkdirAll(config.RootDir, os.FileMode(0700))
 	if err != nil {
