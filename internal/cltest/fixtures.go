@@ -22,12 +22,14 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+// NewJob return new NoOp JobSpec
 func NewJob() models.JobSpec {
 	j := models.NewJob()
 	j.Tasks = []models.TaskSpec{NewTask("NoOp")}
 	return j
 }
 
+// NewTask given the tasktype and json params return a TaskSpec
 func NewTask(taskType string, json ...string) models.TaskSpec {
 	if len(json) == 0 {
 		json = append(json, ``)
@@ -42,6 +44,7 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 	}
 }
 
+// NewTaskWithConfirmations create a TaskSpec given the tasktype, json params, and confirmations
 func NewTaskWithConfirmations(taskType string, confs int, params ...string) models.TaskSpec {
 	task := NewTask(taskType, params...)
 	task.Confirmations = uint64(confs)
@@ -51,18 +54,21 @@ func NewTaskWithConfirmations(taskType string, confs int, params ...string) mode
 	return task
 }
 
+// NewJobWithSchedule create new job with the given schedule
 func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}
 	return j, j.Initiators[0]
 }
 
+// NewJobWithWebInitiator create new Job with web inititaor
 func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
 	return j, j.Initiators[0]
 }
 
+// NewJobWithLogInitiator create new Job with ethlog inititaor
 func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -72,6 +78,7 @@ func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	return j, j.Initiators[0]
 }
 
+// NewJobWithRunAtInitiator create new Job with RunAt inititaor
 func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -81,6 +88,7 @@ func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	return j, j.Initiators[0]
 }
 
+// NewTx create a tx given from address and sentat
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return &models.Tx{
 		From:     from,
@@ -91,6 +99,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	}
 }
 
+// CreateTxAndAttempt create tx attempt with given store, from address, and sentat
 func CreateTxAndAttempt(
 	store *store.Store,
 	from common.Address,
@@ -103,18 +112,21 @@ func CreateTxAndAttempt(
 	return tx
 }
 
+// NewHash return random Keccak256
 func NewHash() common.Hash {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return common.BytesToHash(b)
 }
 
+// NewAddress return a random new address
 func NewAddress() common.Address {
 	b := make([]byte, 20)
 	rand.Read(b)
 	return common.BytesToAddress(b)
 }
 
+// NewBridgeType create new bridge type given info slice
 func NewBridgeType(info ...string) models.BridgeType {
 	bt := models.BridgeType{}
 
@@ -133,6 +145,7 @@ func NewBridgeType(info ...string) models.BridgeType {
 	return bt
 }
 
+// NewBridgeTypeWithDefaultConfirmations creates a new bridge type with given default confs and info slice
 func NewBridgeTypeWithDefaultConfirmations(defaultConfirmations uint64, info ...string) models.BridgeType {
 	bt := NewBridgeType(info...)
 	bt.DefaultConfirmations = defaultConfirmations
@@ -140,12 +153,14 @@ func NewBridgeTypeWithDefaultConfirmations(defaultConfirmations uint64, info ...
 	return bt
 }
 
+// WebURL parses a url into a models.WebURL
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	mustNotErr(err)
 	return models.WebURL{URL: parsed}
 }
 
+// NullString creates null.String from given value
 func NullString(val interface{}) null.String {
 	switch val.(type) {
 	case string:
@@ -157,6 +172,7 @@ func NullString(val interface{}) null.String {
 	}
 }
 
+// NullTime creates a null.Time from given value
 func NullTime(val interface{}) null.Time {
 	switch val.(type) {
 	case string:
@@ -168,6 +184,7 @@ func NullTime(val interface{}) null.Time {
 	}
 }
 
+// LogFromFixture create ethtypes.log from file path
 func LogFromFixture(path string) ethtypes.Log {
 	value := gjson.Get(string(LoadJSON(path)), "params.result")
 	var el ethtypes.Log
@@ -176,21 +193,25 @@ func LogFromFixture(path string) ethtypes.Log {
 	return el
 }
 
+// JSONFromFixture create models.JSON from file path
 func JSONFromFixture(path string) models.JSON {
 	return JSONFromString(string(LoadJSON(path)))
 }
 
+// JSONResultFromFixture create model.JSON with params.result found in the given file path
 func JSONResultFromFixture(path string) models.JSON {
 	res := gjson.Get(string(LoadJSON(path)), "params.result")
 	return JSONFromString(res.String())
 }
 
+// JSONFromString create JSON from given body and arguments
 func JSONFromString(body string, args ...interface{}) models.JSON {
 	j, err := models.ParseJSON([]byte(fmt.Sprintf(body, args...)))
 	mustNotErr(err)
 	return j
 }
 
+// NewRunLog create ethtypes.Log for given jobid, address, block, and json
 func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes.Log {
 	return ethtypes.Log{
 		Address:     addr,
@@ -205,6 +226,7 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 	}
 }
 
+// StringToRunLogData extracts runlog data from string
 func StringToRunLogData(str string) hexutil.Bytes {
 	j := JSONFromString(str)
 	cbor, err := j.CBOR()
@@ -226,6 +248,7 @@ func StringToRunLogData(str string) hexutil.Bytes {
 	return hexutil.MustDecode(version + offset + lenHex + data + endPad)
 }
 
+// BigHexInt create hexutil.Big value from given value
 func BigHexInt(val interface{}) hexutil.Big {
 	switch val.(type) {
 	case int:
@@ -240,11 +263,13 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
+// NewBigHexInt creates new BigHexInt from value
 func NewBigHexInt(val interface{}) *hexutil.Big {
 	rval := BigHexInt(val)
 	return &rval
 }
 
+// RunResultWithValue creates a runresult with given value
 func RunResultWithValue(val string) models.RunResult {
 	data := models.JSON{}
 	data, err := data.Add("value", val)
@@ -255,6 +280,7 @@ func RunResultWithValue(val string) models.RunResult {
 	return models.RunResult{Data: data}
 }
 
+// RunResultWithError creates a runresult with given error
 func RunResultWithError(err error) models.RunResult {
 	return models.RunResult{
 		Status:       models.RunStatusErrored,
@@ -262,6 +288,7 @@ func RunResultWithError(err error) models.RunResult {
 	}
 }
 
+// MarkJobRunPendingBridge marks the jobrun as Pending Bridge Status
 func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
 	jr.Status = models.RunStatusPendingBridge
 	jr.Result.Status = models.RunStatusPendingBridge
