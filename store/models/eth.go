@@ -118,6 +118,7 @@ type BlockHeader struct {
 	ParityHash  common.Hash      `json:"hash"`
 }
 
+// Hash will return GethHash if it exists otherwise it returns the ParityHash
 func (h BlockHeader) Hash() common.Hash {
 	if !common.EmptyHash(h.GethHash) {
 		return h.GethHash
@@ -125,16 +126,19 @@ func (h BlockHeader) Hash() common.Hash {
 	return h.ParityHash
 }
 
+// ToIndexableBlockNumber converts a given BlockHeader to an IndexableBlockNumber
 func (h BlockHeader) ToIndexableBlockNumber() *IndexableBlockNumber {
 	return NewIndexableBlockNumber(h.Number.ToInt(), h.Hash())
 }
 
+// IndexableBlockNumber represents a BlockNumber, BlockHash and the number of Digits in the BlockNumber
 type IndexableBlockNumber struct {
 	Number hexutil.Big `json:"number" storm:"id,unique"`
 	Digits int         `json:"digits" storm:"index"`
 	Hash   common.Hash `json:"hash"`
 }
 
+// NewIndexableBlockNumber creates an IndexableBlockNumber given a BlockNumber and BlockHash
 func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockNumber {
 	if bigint == nil {
 		return nil
@@ -147,15 +151,17 @@ func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockN
 	}
 }
 
-// Coerces the value into *big.Int. Also handles nil *IndexableBlockNumber values to
+// ToInt Coerces the value into *big.Int. Also handles nil *IndexableBlockNumber values to
 // nil *big.Int.
-func (n *IndexableBlockNumber) ToInt() *big.Int {
-	if n == nil {
+func (l *IndexableBlockNumber) ToInt() *big.Int {
+	if l == nil {
 		return nil
 	}
-	return n.Number.ToInt()
+	return l.Number.ToInt()
 }
 
+// GreaterThan compares BlockNumbers and returns true if the reciever BlockNumber is greater than
+// the supplied BlockNumber
 func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
 	if l == nil {
 		return false
@@ -166,6 +172,7 @@ func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
 	return l.ToInt().Cmp(r.ToInt()) > 0
 }
 
+// NextInt returns the next BlockNumber as big.int
 func (l *IndexableBlockNumber) NextInt() *big.Int {
 	if l == nil {
 		return big.NewInt(0)
@@ -173,6 +180,7 @@ func (l *IndexableBlockNumber) NextInt() *big.Int {
 	return new(big.Int).Add(l.ToInt(), big.NewInt(1))
 }
 
+// EthSubscription should implement Err() <-chan error and Unsubscribe()
 type EthSubscription interface {
 	Err() <-chan error
 	Unsubscribe()
