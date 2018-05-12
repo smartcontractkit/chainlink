@@ -195,6 +195,8 @@ func (sub RPCLogSubscription) dispatchLog(log types.Log) {
 	})
 }
 
+// TopicFiltersForRunLog generates the two variations of RunLog IDs that could
+// possibly be entered. There is the ID, hex encoded and the ID zero padded.
 func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 	hexJobID := common.BytesToHash([]byte(jobID))
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
