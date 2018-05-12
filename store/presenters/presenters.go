@@ -18,6 +18,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// LogListeningAddress returns the LogListeningAddress
 func LogListeningAddress(address common.Address) string {
 	if address == utils.ZeroAddress {
 		return "[all]"
@@ -25,6 +26,7 @@ func LogListeningAddress(address common.Address) string {
 	return address.String()
 }
 
+// ShowEthBalance returns the current Eth Balance for current Account
 func ShowEthBalance(store *store.Store) (string, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
@@ -45,6 +47,7 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	return result, nil
 }
 
+// ShowLinkBalance returns the current Link Balance for current Account
 func ShowLinkBalance(store *store.Store) (string, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
@@ -72,10 +75,10 @@ type JobSpec struct {
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
-func (j JobSpec) MarshalJSON() ([]byte, error) {
+func (job JobSpec) MarshalJSON() ([]byte, error) {
 	type Alias JobSpec
-	pis := make([]Initiator, len(j.Initiators))
-	for i, modelInitr := range j.Initiators {
+	pis := make([]Initiator, len(job.Initiators))
+	for i, modelInitr := range job.Initiators {
 		pis[i] = Initiator{modelInitr}
 	}
 	return json.Marshal(&struct {
@@ -83,7 +86,7 @@ func (j JobSpec) MarshalJSON() ([]byte, error) {
 		Alias
 	}{
 		pis,
-		Alias(j),
+		Alias(job),
 	})
 }
 
@@ -194,7 +197,7 @@ func (i Initiator) FriendlyRunAt() string {
 	return ""
 }
 
-var empty_address = common.Address{}.String()
+var emptyAddress = common.Address{}.String()
 
 // FriendlyAddress returns the Ethereum address if present, and a blank
 // string if not.
