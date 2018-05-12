@@ -21,10 +21,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// MockEthClient create new EthMock Client
 func (ta *TestApplication) MockEthClient() *EthMock {
 	return MockEthOnStore(ta.Store)
 }
 
+// MockEthOnStore given store return new EthMock Client
 func MockEthOnStore(s *store.Store) *EthMock {
 	mock := &EthMock{}
 	eth := &store.EthClient{CallerSubscriber: mock}
@@ -32,16 +34,19 @@ func MockEthOnStore(s *store.Store) *EthMock {
 	return mock
 }
 
+// EthMock is a mock etheruem client
 type EthMock struct {
 	Responses      []MockResponse
 	Subscriptions  []MockSubscription
 	newHeadsCalled bool
 }
 
+// Dial mock dial
 func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
 	return mock, nil
 }
 
+// Register register mock responses and append to Ethmock
 func (mock *EthMock) Register(
 	method string,
 	response interface{},
@@ -57,6 +62,7 @@ func (mock *EthMock) Register(
 	mock.Responses = append(mock.Responses, res)
 }
 
+// RegisterError register mock errors to EthMock
 func (mock *EthMock) RegisterError(method, errMsg string) {
 	res := MockResponse{
 		methodName: method,
@@ -66,37 +72,40 @@ func (mock *EthMock) RegisterError(method, errMsg string) {
 	mock.Responses = append(mock.Responses, res)
 }
 
+// AllCalled return true if all mocks have been mocked
 func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
+// EventuallyAllCalled eventually will return after all the mock subscriptions and responses are called
 func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
 }
 
+// Call will call given method and set the result
 func (mock *EthMock) Call(result interface{}, method string, args ...interface{}) error {
 	for i, resp := range mock.Responses {
 		if resp.methodName == method {
 			mock.Responses = append(mock.Responses[:i], mock.Responses[i+1:]...)
 			if resp.hasError {
 				return fmt.Errorf(resp.errMsg)
-			} else {
-				ref := reflect.ValueOf(result)
-				reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
-				if resp.callback != nil {
-					if err := resp.callback(result, args); err != nil {
-						return fmt.Errorf("ethMock Error: %v", err)
-					}
-				}
-				return nil
 			}
+			ref := reflect.ValueOf(result)
+			reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
+			if resp.callback != nil {
+				if err := resp.callback(result, args); err != nil {
+					return fmt.Errorf("ethMock Error: %v", err)
+				}
+			}
+			return nil
 		}
 	}
 	return fmt.Errorf("EthMock: Method %v not registered", method)
 }
 
+// RegisterSubscription register a mock subscription to the given name and channels
 func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) MockSubscription {
 	var channel interface{}
 	if len(channels) > 0 {
@@ -125,6 +134,7 @@ func channelFromSubscriptionName(name string) interface{} {
 	}
 }
 
+// EthSubscribe registers a subscription to the channel
 func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
@@ -148,17 +158,19 @@ func (mock *EthMock) EthSubscribe(
 		mock.newHeadsCalled = true
 		return EmptyMockSubscription(), nil
 	} else if args[0] == "newHeads" {
-		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed.")
+		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 	}
 	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
 }
 
+// RegisterNewHeads registers a newheads subscription
 func (mock *EthMock) RegisterNewHeads() chan models.BlockHeader {
 	newHeads := make(chan models.BlockHeader, 10)
 	mock.RegisterSubscription("newHeads", newHeads)
 	return newHeads
 }
 
+// RegisterNewHead register new head at given blocknumber
 func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader {
 	newHeads := mock.RegisterNewHeads()
 	newHeads <- models.BlockHeader{Number: BigHexInt(blockNumber)}
@@ -185,17 +197,22 @@ func fwdHeaders(actual, mock interface{}) {
 	}()
 }
 
+// MockSubscription a mock subscription
 type MockSubscription struct {
 	name    string
 	channel interface{}
 	Errors  chan error
 }
 
+// EmptyMockSubscription return empty MockSubscription
 func EmptyMockSubscription() MockSubscription {
 	return MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
 }
 
+// Err returns error channel from mes
 func (mes MockSubscription) Err() <-chan error { return mes.Errors }
+
+// Unsubscribe closes the subscription
 func (mes MockSubscription) Unsubscribe() {
 	switch mes.channel.(type) {
 	case chan struct{}:
@@ -210,6 +227,7 @@ func (mes MockSubscription) Unsubscribe() {
 	close(mes.Errors)
 }
 
+// MockResponse a mock response
 type MockResponse struct {
 	methodName string
 	response   interface{}
@@ -218,22 +236,26 @@ type MockResponse struct {
 	callback   func(interface{}, ...interface{}) error
 }
 
+// InstantClock create InstantClock
 func (ta *TestApplication) InstantClock() InstantClock {
 	clock := InstantClock{}
 	ta.Scheduler.OneTime.Clock = clock
 	return clock
 }
 
+// UseSettableClock creates a SettableClock on the store
 func UseSettableClock(s *store.Store) *SettableClock {
 	clock := &SettableClock{}
 	s.Clock = clock
 	return clock
 }
 
+// SettableClock a settable clock
 type SettableClock struct {
 	time time.Time
 }
 
+// Now get the current time
 func (clock *SettableClock) Now() time.Time {
 	if clock.time.IsZero() {
 		return time.Now()
@@ -241,100 +263,125 @@ func (clock *SettableClock) Now() time.Time {
 	return clock.time
 }
 
+// SetTime set the current time
 func (clock *SettableClock) SetTime(t time.Time) {
 	clock.time = t
 }
 
+// After return channel of time
 func (*SettableClock) After(_ time.Duration) <-chan time.Time {
 	channel := make(chan time.Time, 1)
 	channel <- time.Now()
 	return channel
 }
 
+// InstantClock an InstantClock
 type InstantClock struct{}
 
+// Now current local time
 func (InstantClock) Now() time.Time {
 	return time.Now()
 }
 
+// After return channel of time
 func (InstantClock) After(_ time.Duration) <-chan time.Time {
 	c := make(chan time.Time, 100)
 	c <- time.Now()
 	return c
 }
 
+// NeverClock a never clock
 type NeverClock struct{}
 
+// After return channel of time
 func (NeverClock) After(_ time.Duration) <-chan time.Time {
 	return make(chan time.Time)
 }
 
+// Now returns current local time
 func (NeverClock) Now() time.Time {
 	return time.Now()
 }
 
+// RendererMock a mock renderer
 type RendererMock struct {
 	Renders []interface{}
 }
 
+// Render appends values to renderer mock
 func (rm *RendererMock) Render(v interface{}) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
 }
 
+// InstanceAppFactory is an InstanceAppFactory
 type InstanceAppFactory struct {
 	App services.Application
 }
 
+// NewApplication creates a new application with specified config
 func (f InstanceAppFactory) NewApplication(config store.Config) services.Application {
 	return f.App
 }
 
+// EmptyAppFactory an empty application factory
 type EmptyAppFactory struct{}
 
+// NewApplication creates a new empty application with specified config
 func (f EmptyAppFactory) NewApplication(config store.Config) services.Application {
 	return &EmptyApplication{}
 }
 
+// EmptyApplication an empty application
 type EmptyApplication struct{}
 
+// Start starts the empty application
 func (a *EmptyApplication) Start() error {
 	return nil
 }
 
+// Stop stopts the empty application
 func (a *EmptyApplication) Stop() error {
 	return nil
 }
 
+// GetStore retrieves the store of the empty application
 func (a *EmptyApplication) GetStore() *store.Store {
 	return nil
 }
 
+// CallbackAuthenticator contains a call back authenticator method
 type CallbackAuthenticator struct {
 	Callback func(*store.Store, string)
 }
 
+// Authenticate authenticates store and pwd with the callback authenticator
 func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) {
 	a.Callback(store, pwd)
 }
 
+// EmptyRunner is an EmptyRunner
 type EmptyRunner struct{}
 
+// Run runs the empty runner
 func (r EmptyRunner) Run(app services.Application) error {
 	return nil
 }
 
+// MockCountingPrompt is a mock counting prompt
 type MockCountingPrompt struct {
 	EnteredStrings []string
 	Count          int
 }
 
+// Prompt returns an entered string
 func (p *MockCountingPrompt) Prompt(string) string {
 	i := p.Count
 	p.Count++
 	return p.EnteredStrings[i]
 }
 
+// NewHTTPMockServer create http test server with passed in parameters
 func NewHTTPMockServer(
 	t *testing.T,
 	status int,
@@ -363,17 +410,23 @@ func NewHTTPMockServer(
 	}
 }
 
+// MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
 }
 
+// NewMockCron returns a new mock cron
 func NewMockCron() *MockCron {
 	return &MockCron{}
 }
 
+// Start starts the mockcron
 func (*MockCron) Start() {}
-func (*MockCron) Stop()  {}
 
+// Stop stops the mockcron
+func (*MockCron) Stop() {}
+
+// AddFunc appends a schedule to mockcron entries
 func (mc *MockCron) AddFunc(schd string, fn func()) error {
 	mc.Entries = append(mc.Entries, MockCronEntry{
 		Schedule: schd,
@@ -382,33 +435,46 @@ func (mc *MockCron) AddFunc(schd string, fn func()) error {
 	return nil
 }
 
+// RunEntries run every function for each mockcron entry
 func (mc *MockCron) RunEntries() {
 	for _, entry := range mc.Entries {
 		entry.Function()
 	}
 }
 
+// MockCronEntry a cron schedule and function
 type MockCronEntry struct {
 	Schedule string
 	Function func()
 }
 
+// MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
 	ConnectedCount    int
 	DisconnectedCount int
 	OnNewHeadCount    int
 }
 
+// Connect increases the connected count by one
 func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
-	m.ConnectedCount += 1
+	m.ConnectedCount++
 	return nil
 }
 
-func (m *MockHeadTrackable) Disconnect()                   { m.DisconnectedCount += 1 }
-func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount += 1 }
+// Disconnect increases the disconnected count by one
+func (m *MockHeadTrackable) Disconnect() { m.DisconnectedCount++ }
 
+// OnNewHead increases the OnNewHeadCount count by one
+func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount++ }
+
+// NeverSleeper is a struct that never sleeps
 type NeverSleeper struct{}
 
-func (ns NeverSleeper) Reset()                  {}
-func (ns NeverSleeper) Sleep()                  {}
+// Reset resets the never sleeper
+func (ns NeverSleeper) Reset() {}
+
+// Sleep puts the never sleeper to sleep
+func (ns NeverSleeper) Sleep() {}
+
+// Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
