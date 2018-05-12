@@ -55,7 +55,7 @@ func TestValidateAdapter(t *testing.T) {
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
 	assert.Nil(t, err)
-	tt.URL = models.WebURL{u}
+	tt.URL = models.WebURL{URL: u}
 	assert.Nil(t, store.Save(&tt))
 
 	tests := []struct {
