@@ -30,7 +30,7 @@ case "$1" in
       --password ../gethnet/password.txt \
       --datadir ../gethnet/datadir \
       --ipcdisable \
-      --exec 'loadScript("../gethnet/gethload.js"); topOffAccount();'
+      --exec 'loadScript("../gethnet/gethload.js"); confirm(topOffAccount());'
     ;;
   *)
     ./print_account

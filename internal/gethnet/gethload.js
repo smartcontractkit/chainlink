@@ -23,6 +23,15 @@ function topOffAccount() {
   var acctBal = web3.fromWei(eth.getBalance(acct), "ether");
   var diff = 10000 - acctBal;
   if (diff > 0) {
-    fundAccount(diff);
+    return fundAccount(diff);
   }
 };
+
+function confirm(txHash) {
+  var count = 0;
+  do {
+    receipt = eth.getTransactionReceipt(txHash);
+    count += 1;
+  } while (receipt == null && count < 50);
+  return receipt;
+}
