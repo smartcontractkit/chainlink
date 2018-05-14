@@ -16,14 +16,25 @@ assert ()
   fi
 }
 
+waitForResponse ()
+{
+  sleepCount=0
+  while ! curl -s "$1" && [ "$sleepCount" -le "10" ]; do
+      sleep 1
+      sleepCount=$((sleepCount+1))
+  done
+
+  if [ "$sleepCount" -gt "10" ]; then
+    exit 1
+  fi
+}
+
 # Run gethnet
 time go get -d github.com/ethereum/go-ethereum
 cd $GOPATH/src/github.com/ethereum/go-ethereum && git checkout v1.8.8 && cd -
 time go install github.com/ethereum/go-ethereum/cmd/geth
 gethnet &
-while ! curl -s http://127.0.0.1:18545; do
-    sleep 1
-done
+waitForResponse http://127.0.0.1:18545
 
 # Run CL against ethereum node
 cldev &
