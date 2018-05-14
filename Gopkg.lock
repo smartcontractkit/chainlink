@@ -5,13 +5,13 @@
   branch = "master"
   name = "github.com/araddon/dateparse"
   packages = ["."]
-  revision = "4b079c6fdd8d7d3e224357566f278da3c159f441"
+  revision = "1e64c9214ab00f5ed65d81b8d4db2f6496aa2065"
 
 [[projects]]
   branch = "master"
   name = "github.com/aristanetworks/goarista"
   packages = ["monotime"]
-  revision = "7744847ed4e70ed5e50090f9094ed621b4f305d6"
+  revision = "70dca2f27708bcf7323c078bad4af7e71eb0fc24"
 
 [[projects]]
   name = "github.com/asdine/storm"
@@ -23,8 +23,8 @@
     "internal",
     "q"
   ]
-  revision = "a86fa5e09c9c50a06416b08fd9acd4839fb2d62e"
-  version = "v2.1.0"
+  revision = "bda68dab90fc908ee5dbccb36400edf4f54972d6"
+  version = "v2.1.1"
 
 [[projects]]
   name = "github.com/bitly/go-simplejson"
@@ -39,10 +39,10 @@
   revision = "675abc5df3c5531bc741b56a765e35623459da6d"
 
 [[projects]]
-  branch = "master"
   name = "github.com/caarlos0/env"
   packages = ["."]
-  revision = "9b2b3076ca0cbc3cf9587a990befcd1306a8ae34"
+  revision = "1cddc31c48c56ecd700d873edb9fd5b6f5df922a"
+  version = "v3.3.0"
 
 [[projects]]
   name = "github.com/coreos/bbolt"
@@ -111,7 +111,7 @@
     "json",
     "render"
   ]
-  revision = "3455d7f38877a931d0b97bc7c800e6963351ed2f"
+  revision = "bf7803815b0baa22ff7a10457932882dfbf09925"
 
 [[projects]]
   name = "github.com/go-stack/stack"
@@ -122,8 +122,8 @@
 [[projects]]
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -201,7 +201,7 @@
   branch = "master"
   name = "github.com/olekukonko/tablewriter"
   packages = ["."]
-  revision = "d5dd8a50526aadb3d5f2c9b5233277bc2db90e88"
+  revision = "d4647c9c7a84d847478d890b816b7d8b62b0b279"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -275,7 +275,7 @@
     "leveldb/table",
     "leveldb/util"
   ]
-  revision = "714f901b98fdb3aa954b4193d8cbd64a28d80cad"
+  revision = "9637fa0b2f0db13c99d899b91007edb7df4610b7"
 
 [[projects]]
   name = "github.com/tidwall/gjson"
@@ -304,8 +304,8 @@
 [[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
-  revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
-  version = "v1.3.1"
+  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
+  version = "v1.3.2"
 
 [[projects]]
   name = "go.uber.org/multierr"
@@ -336,7 +336,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
+  revision = "034e5325b6ab92faa14d15c30e86919e911cf8e0"
 
 [[projects]]
   branch = "master"
@@ -347,7 +347,7 @@
     "html/charset",
     "websocket"
   ]
-  revision = "d41e8174641f662c5a2d1c7a5f9e828788eb8706"
+  revision = "2491c5de3490fced2f6cff376127c667efeed857"
 
 [[projects]]
   branch = "master"
@@ -356,7 +356,7 @@
     "unix",
     "windows"
   ]
-  revision = "3ccc7e5779793fd54564baf60c51bf017955e0ba"
+  revision = "d0faeb539838e250bd0a9db4182d48d4a1915181"
 
 [[projects]]
   name = "golang.org/x/text"
