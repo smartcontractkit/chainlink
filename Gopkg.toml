@@ -71,7 +71,7 @@
 
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
-  version = "1.8.1"
+  version = "1.8.8"
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
