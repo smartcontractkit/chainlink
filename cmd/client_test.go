@@ -177,6 +177,7 @@ func TestClient_AddBridge(t *testing.T) {
 		{"EmptyString", "", true},
 		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
 		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
+		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true},
 		{"ValidPath", "../internal/fixtures/web/create_random_number_bridge_type.json", false},
 		{"InvalidPath", "bad/filepath/", true},
 	}
@@ -195,6 +196,45 @@ func TestClient_AddBridge(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_GetBridges(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	bt1 := &models.BridgeType{Name: "testingbridges1",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	app.AddAdapter(bt1)
+
+	bt2 := &models.BridgeType{Name: "testingbridges2",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	app.AddAdapter(bt2)
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	assert.Nil(t, client.GetBridges(nil))
+	bridges := *r.Renders[0].(*[]models.BridgeType)
+	assert.Equal(t, 2, len(bridges))
+	assert.Equal(t, bt1.Name, bridges[0].Name)
+}
+
+func TestClient_ShowBridge(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	bt := &models.BridgeType{Name: "testingbridges1",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	app.AddAdapter(bt)
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{bt.Name})
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.ShowBridge(c))
+	assert.Equal(t, 1, len(r.Renders))
+	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
 func TestClient_BackupDatabase(t *testing.T) {

@@ -209,6 +209,22 @@ type BridgeType struct {
 	DefaultConfirmations uint64 `json:"defaultConfirmations"`
 }
 
+// GetID returns the ID of this structure for jsonapi serialization.
+func (bt BridgeType) GetID() string {
+	return bt.Name
+}
+
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (bt BridgeType) GetName() string {
+	return "bridges"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (bt *BridgeType) SetID(value string) error {
+	bt.Name = value
+	return nil
+}
+
 // UnmarshalJSON parses the given input and updates the BridgeType
 // Name and URL.
 func (bt *BridgeType) UnmarshalJSON(input []byte) error {

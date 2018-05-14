@@ -97,6 +97,22 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:  "Add a new bridge to the node",
 			Action: client.AddBridge,
 		},
+		{
+			Name:   "getbridges",
+			Usage:  "List all bridges added to the node",
+			Action: client.GetBridges,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "page",
+					Usage: "page of results to display",
+				},
+			},
+		},
+		{
+			Name:   "showbridge",
+			Usage:  "Show a specific bridge",
+			Action: client.ShowBridge,
+		},
 	}
 	app.Run(args)
 }

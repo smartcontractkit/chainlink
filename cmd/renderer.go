@@ -48,6 +48,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderJob(*typed)
 	case *models.BridgeType:
 		rt.renderBridge(*typed)
+	case *[]models.BridgeType:
+		rt.renderBridges(*typed)
 	default:
 		return fmt.Errorf("Unable to render object: %v", typed)
 	}
@@ -84,6 +86,25 @@ func jobRowToStrings(job models.JobSpec) []string {
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
 	}
+}
+
+func bridgeRowToStrings(bridge models.BridgeType) []string {
+	return []string{
+		bridge.Name,
+		bridge.URL.String(),
+		strconv.FormatUint(bridge.DefaultConfirmations, 10),
+	}
+}
+
+func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
+	table := tablewriter.NewWriter(rt)
+	table.SetHeader([]string{"Name", "URL", "DefaultConfirmations"})
+	for _, v := range bridges {
+		table.Append(bridgeRowToStrings(v))
+	}
+
+	render("Bridges", table)
+	return nil
 }
 
 func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
