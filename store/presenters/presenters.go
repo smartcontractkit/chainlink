@@ -68,6 +68,21 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 	return result, nil
 }
 
+// BridgeType holds a bridge.
+type BridgeType struct {
+	models.BridgeType
+}
+
+// MarshalJSON returns the JSON data of the Bridge.
+func (bt BridgeType) MarshalJSON() ([]byte, error) {
+	type Alias BridgeType
+	return json.Marshal(&struct {
+		Alias
+	}{
+		Alias(bt),
+	})
+}
+
 // JobSpec holds the JobSpec definition and each run associated with that Job.
 type JobSpec struct {
 	models.JobSpec
