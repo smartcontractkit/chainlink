@@ -81,8 +81,8 @@
     "rpc",
     "trie"
   ]
-  revision = "12683feca7483f0b0bf425c3c520e2724f69f2aa"
-  version = "v1.8.6"
+  revision = "2688dab48c9b8ae71b8d95c7678817eaa17f2b53"
+  version = "v1.8.8"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -421,6 +421,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0b98768e1213306d11824936c455c7ac502fe8cba28873825578256ce29fb3c8"
+  inputs-digest = "5e1fd1259b5d2becd48de9626d3b9daa7b37530015c37e54c672fdbb65c88214"
   solver-name = "gps-cdcl"
   solver-version = 1
