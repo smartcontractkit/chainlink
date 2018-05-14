@@ -18,6 +18,7 @@ assert ()
 
 # Run gethnet
 time go get -d github.com/ethereum/go-ethereum
+cd $GOPATH/src/github.com/ethereum/go-ethereum && git checkout v1.8.8 && cd -
 time go install github.com/ethereum/go-ethereum/cmd/geth
 gethnet &
 while ! curl -s http://127.0.0.1:18545; do
