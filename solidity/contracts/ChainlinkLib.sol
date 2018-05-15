@@ -1,7 +1,6 @@
 pragma solidity ^0.4.23;
 
-import "./Buffer.sol";
-import "./CBOR.sol";
+import "solidity-cborutils/contracts/CBOR.sol";
 
 library ChainlinkLib {
   bytes4 internal constant oracleFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));

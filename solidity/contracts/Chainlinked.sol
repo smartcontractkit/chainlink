@@ -1,11 +1,9 @@
 pragma solidity ^0.4.23;
 
 import "./ChainlinkLib.sol";
-import "./LinkToken.sol";
 import "./Oracle.sol";
-import "./Buffer.sol";
-import "./CBOR.sol";
-
+import "linkToken/contracts/LinkToken.sol";
+import "solidity-cborutils/contracts/CBOR.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
@@ -33,13 +31,7 @@ contract Chainlinked {
     requests += 1;
     _run.requestId = bytes32(requests);
     _run.close();
-    require(
-      link.transferAndCall(
-        oracle,
-        _wei,
-        _run.encodeForOracle(clArgsVersion))
-    );
-
+    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)));
     return _run.requestId;
   }
 
