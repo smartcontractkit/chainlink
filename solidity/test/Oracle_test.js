@@ -23,6 +23,7 @@ contract('Oracle', () => {
       "onTokenTransfer",
       "owner",
       "requestData",
+      "specAndRun",
       "transferOwnership",
       "withdraw",
     ]);

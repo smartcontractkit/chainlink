@@ -18,7 +18,7 @@ contract('Consumer', () => {
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 1500000);
+    assert.isBelow(rec.gasUsed, 1600000);
   });
 
   describe("#requestEthereumPrice", () => {
@@ -68,7 +68,7 @@ contract('Consumer', () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
       await cc.requestEthereumPrice(currency);
       let event = await getLatestEvent(oc);
-      internalId = event.args.id;
+      internalId = event.args.internalId;
     });
 
     it("records the data given to it by the oracle", async () => {
@@ -94,7 +94,7 @@ contract('Consumer', () => {
         let args = requestDataBytes(jobId, cc.address, funcSig, 42, "");
         await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
-        otherId = event.args.id;
+        otherId = event.args.internalId;
       });
 
       it("does not accept the data provided", async () => {
@@ -126,7 +126,7 @@ contract('Consumer', () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
       await cc.requestEthereumPrice(currency);
       let event = await getLatestEvent(oc);
-      requestId = event.args.id;
+      requestId = event.args.internalId;
     });
 
     context("when called by a non-owner", () => {
