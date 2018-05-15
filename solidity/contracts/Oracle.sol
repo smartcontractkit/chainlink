@@ -25,8 +25,15 @@ contract Oracle is Ownable {
   mapping(uint256 => Callback) private callbacks;
 
   event RunRequest(
-    uint256 indexed id,
+    uint256 indexed internalId,
     bytes32 indexed jobId,
+    uint256 indexed amount,
+    uint256 version,
+    bytes data
+  );
+
+  event SpecAndRunRequest(
+    uint256 indexed internalId,
     uint256 indexed amount,
     uint256 version,
     bytes data
@@ -47,7 +54,7 @@ contract Oracle is Ownable {
     currentAmount = _wei;
     currentSender = _sender;
     // solium-disable-next-line security/no-low-level-calls
-    require(address(this).delegatecall(_data)); // calls requestData
+    require(address(this).delegatecall(_data)); // calls requestData or specAndRun
   }
 
   function requestData(
@@ -68,6 +75,25 @@ contract Oracle is Ownable {
       _callbackAddress,
       _callbackFunctionId);
     emit RunRequest(internalId, _jobId, currentAmount, _version, _data);
+  }
+
+  function specAndRun(
+    uint256 _version,
+    address _callbackAddress,
+    bytes4 _callbackFunctionId,
+    bytes32 _externalId,
+    bytes _data
+  )
+    public
+    onlyLINK
+  {
+    uint256 internalId = uint256(keccak256(currentSender, _externalId));
+    callbacks[internalId] = Callback(
+      _externalId,
+      currentAmount,
+      _callbackAddress,
+      _callbackFunctionId);
+    emit SpecAndRunRequest(internalId, currentAmount, _version, _data);
   }
 
   function fulfillData(

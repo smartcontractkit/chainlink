@@ -247,6 +247,13 @@ cbor = require("cbor");
     return [log.topics[1], log.topics[2], log.topics[3], version, data];
   };
 
+  decodeSpecAndRunRequest = function(log) {
+    let runABI = util.toBuffer(log.data);
+    let types = ["uint256", "bytes"];
+    let [version, data] = abi.rawDecode(types, runABI);
+    return [log.topics[1], log.topics[2], version, data];
+  }
+
   requestDataBytes = function requestDataBytes(jobId, to, fHash, runId, data) {
     let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
     let values = [1, jobId, to, fHash, runId, data];
