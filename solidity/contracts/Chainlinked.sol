@@ -3,11 +3,9 @@ pragma solidity ^0.4.23;
 import "./ChainlinkLib.sol";
 import "./Oracle.sol";
 import "linkToken/contracts/LinkToken.sol";
-import "solidity-cborutils/contracts/CBOR.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
-  using CBOR for Buffer.buffer;
 
   uint256 constant clArgsVersion = 1;
 
