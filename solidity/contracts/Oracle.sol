@@ -26,7 +26,7 @@ contract Oracle is Ownable {
 
   event RunRequest(
     uint256 indexed internalId,
-    bytes32 indexed jobId,
+    bytes32 indexed specId,
     uint256 indexed amount,
     uint256 version,
     bytes data
@@ -59,7 +59,7 @@ contract Oracle is Ownable {
 
   function requestData(
     uint256 _version,
-    bytes32 _jobId,
+    bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
     bytes32 _externalId,
@@ -74,7 +74,7 @@ contract Oracle is Ownable {
       currentAmount,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(internalId, _jobId, currentAmount, _version, _data);
+    emit RunRequest(internalId, _specId, currentAmount, _version, _data);
   }
 
   function specAndRun(

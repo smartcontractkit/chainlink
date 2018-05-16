@@ -254,9 +254,9 @@ cbor = require("cbor");
     return [log.topics[1], log.topics[2], version, data];
   }
 
-  requestDataBytes = function requestDataBytes(jobId, to, fHash, runId, data) {
+  requestDataBytes = function requestDataBytes(specId, to, fHash, runId, data) {
     let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
-    let values = [1, jobId, to, fHash, runId, data];
+    let values = [1, specId, to, fHash, runId, data];
     let encoded = abi.rawEncode(types, values);
     let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
     return funcSelector + encoded.toString("hex");

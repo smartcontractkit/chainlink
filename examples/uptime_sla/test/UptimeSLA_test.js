@@ -6,7 +6,7 @@ contract('UptimeSLA', () => {
   let Link = artifacts.require("../../../solidity/contracts/LinkToken.sol");
   let Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
   let SLA = artifacts.require("UptimeSLA.sol");
-  let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
+  let specId = "4c7b7ffb66b344fbaa64995af81e355a";
   let deposit = 1000000000;
   let link, oc, sla, client, serviceProvider, startAt;
 
@@ -15,7 +15,7 @@ contract('UptimeSLA', () => {
     serviceProvider = newAddress();
     link = await Link.new();
     oc = await Oracle.new(link.address, {from: oracleNode});
-    sla = await SLA.new(client, serviceProvider, link.address, oc.address, jobId, {
+    sla = await SLA.new(client, serviceProvider, link.address, oc.address, specId, {
       value: deposit
     });
     link.transfer(sla.address, web3.toWei(1, 'ether'));
@@ -38,7 +38,7 @@ contract('UptimeSLA', () => {
       assert.equal(1, events.length)
 
       let event = events[0]
-      assert.equal(web3.toUtf8(event.args.jobId), jobId);
+      assert.equal(web3.toUtf8(event.args.specId), specId);
 
       let decoded = cbor.decodeFirstSync(util.toBuffer(event.args.data));
       assert.deepEqual(
@@ -100,7 +100,7 @@ contract('UptimeSLA', () => {
       beforeEach(async () => {
 
         let fid = functionSelector("fulfill(uint256,bytes32)");
-        let args = requestDataBytes(jobId, sla.address, fid, "xid", "");
+        let args = requestDataBytes(specId, sla.address, fid, "xid", "");
         await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
         requestId = event.args.internalId;
