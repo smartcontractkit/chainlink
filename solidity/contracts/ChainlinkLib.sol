@@ -9,7 +9,7 @@ library ChainlinkLib {
   using CBOR for Buffer.buffer;
 
   struct Run {
-    bytes32 jobId;
+    bytes32 specId;
     address callbackAddress;
     bytes4 callbackFunctionId;
     bytes32 requestId;
@@ -18,12 +18,12 @@ library ChainlinkLib {
 
   function initialize(
     Run memory self,
-    bytes32 _jobId,
+    bytes32 _specId,
     address _callbackAddress,
     string _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     Buffer.init(self.buf, 128);
-    self.jobId = _jobId;
+    self.specId = _specId;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
     self.buf.startMap();
@@ -37,7 +37,7 @@ library ChainlinkLib {
     return abi.encodeWithSelector(
       oracleRequestDataFid,
       _clArgsVersion,
-      self.jobId,
+      self.specId,
       self.callbackAddress,
       self.callbackFunctionId,
       self.requestId,
@@ -66,7 +66,7 @@ library ChainlinkLib {
     self.buf.endSequence();
   }
 
-  struct Job {
+  struct Spec {
     address callbackAddress;
     bytes4 callbackFunctionId;
     bytes32 requestId;
@@ -74,11 +74,11 @@ library ChainlinkLib {
   }
 
   function initialize(
-    Job memory self,
+    Spec memory self,
     string[] _tasks,
     address _callbackAddress,
     string _callbackFunctionSignature
-  ) internal pure returns (ChainlinkLib.Job memory) {
+  ) internal pure returns (ChainlinkLib.Spec memory) {
     Buffer.init(self.buf, 128);
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
@@ -96,7 +96,7 @@ library ChainlinkLib {
   }
 
   function encodeForOracle(
-    Job memory self,
+    Spec memory self,
     uint256 _clArgsVersion
   ) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(
@@ -108,14 +108,14 @@ library ChainlinkLib {
       self.buf.buf);
   }
 
-  function add(Job memory self, string _key, string _value)
+  function add(Spec memory self, string _key, string _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeString(_value);
   }
 
-  function addStringArray(Job memory self, string _key, string[] memory _values)
+  function addStringArray(Spec memory self, string _key, string[] memory _values)
     internal pure
   {
     self.buf.encodeString(_key);
@@ -126,7 +126,7 @@ library ChainlinkLib {
     self.buf.endSequence();
   }
 
-  function close(Job memory self) internal pure {
+  function close(Spec memory self) internal pure {
     self.buf.endSequence();
     self.buf.endSequence();
   }

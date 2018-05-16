@@ -24,12 +24,12 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
     tasks[2] = "ethint256";
     tasks[3] = "ethtx";
 
-    ChainlinkLib.Job memory job = newJob(tasks, this, "fulfill(bytes32,bytes32)");
-    job.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)");
+    spec.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
-    job.addStringArray("path", path);
-    requestId = chainlinkRequest(job, LINK(1));
+    spec.addStringArray("path", path);
+    requestId = chainlinkRequest(spec, LINK(1));
   }
 
   function cancelRequest() public onlyOwner {

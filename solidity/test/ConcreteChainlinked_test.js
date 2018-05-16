@@ -7,7 +7,7 @@ contract('ConcreteChainlinked', () => {
   let Oracle = artifacts.require("Oracle.sol");
   let Chainlinked = artifacts.require("examples/ConcreteChainlinked.sol");
   let GetterSetter = artifacts.require("examples/GetterSetter.sol");
-  let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
+  let specId = "4c7b7ffb66b344fbaa64995af81e355a";
   let cc, gs, oc, link;
 
   beforeEach(async () => {
@@ -20,7 +20,7 @@ contract('ConcreteChainlinked', () => {
   describe("#newRun", () => {
     it("forwards the information to the oracle contract through the link token", async () => {
       let tx = await cc.publicNewRun(
-        jobId,
+        specId,
         gs.address,
         "requestedBytes32(uint256,bytes32)");
 
@@ -28,7 +28,7 @@ contract('ConcreteChainlinked', () => {
       let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0]);
       let params = await cbor.decodeFirst(cborData);
 
-      assert.equal(jobId, jId);
+      assert.equal(specId, jId);
       assert.equal(gs.address, `0x${cbAddr}`);
       assert.equal("d67ce1e1", toHex(cbFId));
       assert.deepEqual({}, params);

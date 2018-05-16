@@ -6,14 +6,14 @@ contract('Consumer', () => {
   let Link = artifacts.require("LinkToken.sol");
   let Oracle = artifacts.require("Oracle.sol");
   let Consumer = artifacts.require("examples/Consumer.sol");
-  let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
+  let specId = "4c7b7ffb66b344fbaa64995af81e355a";
   let currency = "USD";
   let link, oc, cc;
 
   beforeEach(async () => {
     link = await Link.new();
     oc = await Oracle.new(link.address, {from: oracleNode});
-    cc = await Consumer.new(link.address, oc.address, jobId, {from: consumer});
+    cc = await Consumer.new(link.address, oc.address, specId, {from: consumer});
   });
 
   it("has a predictable gas price", async () => {
@@ -47,7 +47,7 @@ contract('Consumer', () => {
           "url":"https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
         };
 
-        assert.equal(`0x${toHex(rPad(jobId))}`, jId);
+        assert.equal(`0x${toHex(rPad(specId))}`, jId);
         assert.equal(web3.toWei('1', 'ether'), hexToInt(wei));
         assert.equal(1, ver);
         assert.deepEqual(expected, params);
@@ -91,7 +91,7 @@ contract('Consumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector("fulfill(bytes32,bytes32)");
-        let args = requestDataBytes(jobId, cc.address, funcSig, 42, "");
+        let args = requestDataBytes(specId, cc.address, funcSig, 42, "");
         await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
         otherId = event.args.internalId;

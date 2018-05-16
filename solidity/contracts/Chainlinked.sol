@@ -6,7 +6,7 @@ import "linkToken/contracts/LinkToken.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
-  using ChainlinkLib for ChainlinkLib.Job;
+  using ChainlinkLib for ChainlinkLib.Spec;
 
   uint256 constant clArgsVersion = 1;
 
@@ -15,21 +15,21 @@ contract Chainlinked {
   uint256 internal requests = 1;
 
   function newRun(
-    bytes32 _jobId,
+    bytes32 _specId,
     address _callbackAddress,
     string _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
-    return run.initialize(_jobId, _callbackAddress, _callbackFunctionSignature);
+    return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function newJob(
+  function newSpec(
     string[] _tasks,
     address _callbackAddress,
     string _callbackFunctionSignature
-  ) internal pure returns (ChainlinkLib.Job memory) {
-    ChainlinkLib.Job memory job;
-    return job.initialize(_tasks, _callbackAddress, _callbackFunctionSignature);
+  ) internal pure returns (ChainlinkLib.Spec memory) {
+    ChainlinkLib.Spec memory spec;
+    return spec.initialize(_tasks, _callbackAddress, _callbackFunctionSignature);
   }
 
   function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _wei)
@@ -43,15 +43,15 @@ contract Chainlinked {
     return _run.requestId;
   }
 
-  function chainlinkRequest(ChainlinkLib.Job memory _job, uint256 _wei)
+  function chainlinkRequest(ChainlinkLib.Spec memory _spec, uint256 _wei)
     internal
     returns(bytes32)
   {
     requests += 1;
-    _job.requestId = bytes32(requests);
-    _job.close();
-    require(link.transferAndCall(oracle, _wei, _job.encodeForOracle(clArgsVersion)));
-    return _job.requestId;
+    _spec.requestId = bytes32(requests);
+    _spec.close();
+    require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)));
+    return _spec.requestId;
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {

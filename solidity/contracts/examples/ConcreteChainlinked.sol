@@ -14,23 +14,23 @@ contract ConcreteChainlinked is Chainlinked {
   }
 
   event Run(
-    bytes32 jobId,
+    bytes32 specId,
     address callbackAddress,
     bytes4 callbackfunctionSelector,
     bytes data
   );
 
   function publicNewRun(
-    bytes32 _jobId,
+    bytes32 _specId,
     address _address,
     string _fulfillmentSignature
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(_jobId, _address, _fulfillmentSignature);
+    ChainlinkLib.Run memory run = newRun(_specId, _address, _fulfillmentSignature);
     run.close();
     emit Run(
-      run.jobId,
+      run.specId,
       run.callbackAddress,
       run.callbackFunctionId,
       run.buf.buf
