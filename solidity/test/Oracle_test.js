@@ -7,7 +7,7 @@ contract('Oracle', () => {
   let LinkToken = artifacts.require("LinkToken.sol");
   let GetterSetter = artifacts.require("examples/GetterSetter.sol");
   let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");;
-  let jobId = "4c7b7ffb66b344fbaa64995af81e355a";
+  let specId = "4c7b7ffb66b344fbaa64995af81e355a";
   let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
   let link, oc;
 
@@ -23,6 +23,7 @@ contract('Oracle', () => {
       "onTokenTransfer",
       "owner",
       "requestData",
+      "specAndRun",
       "transferOwnership",
       "withdraw",
     ]);
@@ -53,7 +54,7 @@ contract('Oracle', () => {
   describe("#onTokenTransfer", () => {
     context("when called from the LINK token", () => {
       it("triggers the intended method", async () => {
-        let callData = requestDataBytes(jobId, to, fHash, "id", "");
+        let callData = requestDataBytes(specId, to, fHash, "id", "");
 
         let tx = await link.transferAndCall(oc.address, 0, callData);
         assert.equal(3, tx.receipt.logs.length)
@@ -70,7 +71,7 @@ contract('Oracle', () => {
 
     context("when called from any address but the LINK token", () => {
       it("triggers the intended method", async () => {
-        let callData = requestDataBytes(jobId, to, fHash, "id", "");
+        let callData = requestDataBytes(specId, to, fHash, "id", "");
 
         await assertActionThrows(async () => {
           let tx = await oc.onTokenTransfer(oracleNode, 0, callData);
@@ -83,7 +84,7 @@ contract('Oracle', () => {
     context("when called through the LINK token", () => {
       let log, tx;
       beforeEach(async () => {
-        let args = requestDataBytes(jobId, to, fHash, "id", "");
+        let args = requestDataBytes(specId, to, fHash, "id", "");
         tx = await requestDataFrom(oc, link, 0, args);
         assert.equal(3, tx.receipt.logs.length)
 
@@ -91,20 +92,52 @@ contract('Oracle', () => {
       });
 
       it("logs an event", async () => {
-        assert.equal(jobId, web3.toUtf8(log.topics[2]));
+        assert.equal(specId, web3.toUtf8(log.topics[2]));
       });
 
       it("uses the expected event signature", async () => {
-        // If updating this test, be sure to update TestServices_RunLogTopic_ExpectedEventSignature.
+        // If updating this test, be sure to update services.RunLogTopic.
         let eventSignature = "0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d";
         assert.equal(eventSignature, log.topics[0]);
       });
     });
 
     context("when not called through the LINK token", () => {
-      it("logs an event", async () => {
+      it("reverts", async () => {
         await assertActionThrows(async () => {
-          let tx = await oc.requestData(1, jobId, to, fHash, "id", "", {from: oracleNode});
+          await oc.requestData(1, specId, to, fHash, "id", "", {from: oracleNode});
+        });
+      });
+    });
+  });
+
+  describe("#specAndRun", () => {
+    context("when called through the LINK token", () => {
+      let log, tx, amount;
+      beforeEach(async () => {
+        amount = 1337;
+        let args = specAndRunBytes(to, fHash, "requestId", "");
+        tx = await link.transferAndCall(oc.address, amount, args);
+        assert.equal(3, tx.receipt.logs.length)
+
+        log = tx.receipt.logs[2];
+      });
+
+      it("logs an event", async () => {
+        assert.equal(amount, web3.toBigNumber(log.topics[2]));
+      });
+
+      it("uses the expected event signature", () => {
+        // If updating this test, be sure to update services.SpecAndRunTopic.
+        let eventSignature = "0x40a86f3bd301164dcd67d63d081ecb2db540ac73bafb27eea27d65b3a2694f39";
+        assert.equal(eventSignature, log.topics[0]);
+      });
+    });
+
+    context("when not called through the LINK token", () => {
+      it("reverts", async () => {
+        await assertActionThrows(async () => {
+          await oc.specAndRun(1, to, fHash, "id", "", {from: oracleNode});
         });
       });
     });
@@ -117,7 +150,7 @@ contract('Oracle', () => {
     beforeEach(async () => {
       mock = await GetterSetter.new();
       let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");
-      let args = requestDataBytes(jobId, mock.address, fHash, requestId, "");
+      let args = requestDataBytes(specId, mock.address, fHash, requestId, "");
       let req = await requestDataFrom(oc, link, 0, args);
       internalId = req.receipt.logs[2].topics[1];
     });
@@ -172,7 +205,7 @@ contract('Oracle', () => {
       beforeEach(async () => {
         amount = 15;
         mock = await GetterSetter.new();
-        let args = requestDataBytes(jobId, mock.address, fHash, "id", "");
+        let args = requestDataBytes(specId, mock.address, fHash, "id", "");
         tx = await requestDataFrom(oc, link, amount, args);
         assert.equal(3, tx.receipt.logs.length)
 
@@ -227,7 +260,7 @@ contract('Oracle', () => {
         mock = await GetterSetter.new({from: consumer});
         await link.transfer(consumer, startingBalance);
 
-        let args = requestDataBytes(jobId, consumer, fHash, requestId, "");
+        let args = requestDataBytes(specId, consumer, fHash, requestId, "");
         tx = await link.transferAndCall(oc.address, requestAmount, args, {from: consumer});
         assert.equal(3, tx.receipt.logs.length)
       });
