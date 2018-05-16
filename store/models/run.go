@@ -25,6 +25,22 @@ type JobRun struct {
 	CreationHeight *hexutil.Big `json:"creationHeight"`
 }
 
+// GetID returns the ID of this structure for jsonapi serialization.
+func (jr JobRun) GetID() string {
+	return jr.ID
+}
+
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (jr JobRun) GetName() string {
+	return "runs"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (jr *JobRun) SetID(value string) error {
+	jr.ID = value
+	return nil
+}
+
 // ForLogger formats the JobRun for a common formatting in the log.
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
