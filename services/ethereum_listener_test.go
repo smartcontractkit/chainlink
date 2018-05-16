@@ -1,14 +1,12 @@
 package services_test
 
 import (
-	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -181,145 +179,4 @@ func TestEthereumListener_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 			assert.Equal(t, test.wantStatus, refreshed.Status)
 		})
 	}
-}
-
-func TestHeadTracker_New(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	cltest.MockEthOnStore(store)
-	assert.Nil(t, store.Save(cltest.IndexableBlockNumber(1)))
-	last := cltest.IndexableBlockNumber(16)
-	assert.Nil(t, store.Save(last))
-	assert.Nil(t, store.Save(cltest.IndexableBlockNumber(10)))
-
-	ht := services.NewHeadTracker(store)
-	assert.Nil(t, ht.Start())
-	assert.Equal(t, last.Number, ht.LastRecord().Number)
-}
-
-func TestHeadTracker_Get(t *testing.T) {
-	t.Parallel()
-
-	start := cltest.IndexableBlockNumber(5)
-
-	tests := []struct {
-		name      string
-		initial   *models.IndexableBlockNumber
-		toSave    *models.IndexableBlockNumber
-		want      *big.Int
-		wantError bool
-	}{
-		{"greater", start, cltest.IndexableBlockNumber(6), big.NewInt(6), false},
-		{"less than", start, cltest.IndexableBlockNumber(1), big.NewInt(5), false},
-		{"zero", start, cltest.IndexableBlockNumber(0), big.NewInt(5), true},
-		{"nil", start, nil, big.NewInt(5), true},
-		{"nil no initial", nil, nil, nil, true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
-			defer cleanup()
-			cltest.MockEthOnStore(store)
-			if test.initial != nil {
-				assert.Nil(t, store.Save(test.initial))
-			}
-
-			ht := services.NewHeadTracker(store)
-			ht.Start()
-			defer ht.Stop()
-
-			err := ht.Save(test.toSave)
-			if test.wantError {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-			}
-
-			assert.Equal(t, test.want, ht.LastRecord().ToInt())
-		})
-	}
-}
-
-func TestHeadTracker_Start_NewHeads(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store)
-	defer ht.Stop()
-
-	eth.RegisterSubscription("newHeads")
-
-	assert.Nil(t, ht.Start())
-	eth.EventuallyAllCalled(t)
-}
-
-func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
-	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
-
-	checker := &cltest.MockHeadTrackable{}
-	ht.Attach(checker)
-
-	headers := make(chan models.BlockHeader)
-	eth.RegisterSubscription("newHeads", headers)
-
-	assert.Nil(t, ht.Start())
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 0, checker.DisconnectedCount)
-	assert.Equal(t, 0, checker.OnNewHeadCount)
-
-	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
-	g.Eventually(func() int { return checker.OnNewHeadCount }).Should(gomega.Equal(1))
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 0, checker.DisconnectedCount)
-
-	ht.Stop()
-	assert.Equal(t, 1, checker.DisconnectedCount)
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 1, checker.OnNewHeadCount)
-}
-
-func TestHeadTracker_ReconnectOnError(t *testing.T) {
-	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
-
-	firstSub := eth.RegisterSubscription("newHeads")
-	headers := make(chan models.BlockHeader)
-	eth.RegisterSubscription("newHeads", headers)
-
-	checker := &cltest.MockHeadTrackable{}
-	ht.Attach(checker)
-
-	// connect
-	assert.Nil(t, ht.Start())
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 0, checker.DisconnectedCount)
-	assert.Equal(t, 0, checker.OnNewHeadCount)
-
-	// disconnect
-	firstSub.Errors <- errors.New("Test error to force reconnect")
-	g.Eventually(func() int { return checker.ConnectedCount }).Should(gomega.Equal(2))
-	assert.Equal(t, 1, checker.DisconnectedCount)
-	assert.Equal(t, 0, checker.OnNewHeadCount)
-
-	// new head
-	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
-	g.Eventually(func() int { return checker.OnNewHeadCount }).Should(gomega.Equal(1))
-	assert.Equal(t, 2, checker.ConnectedCount)
-	assert.Equal(t, 1, checker.DisconnectedCount)
 }
