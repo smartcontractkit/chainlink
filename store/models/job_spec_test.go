@@ -18,11 +18,11 @@ func TestJobSpec_Save(t *testing.T) {
 	defer cleanup()
 
 	j1, initr := cltest.NewJobWithSchedule("* * * * 7")
-	assert.Nil(t, store.SaveJob(&j1))
+	assert.NoError(t, store.SaveJob(&j1))
 
 	store.Save(j1)
 	j2, err := store.FindJob(j1.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)
 }
 
@@ -122,15 +122,15 @@ func TestTask_UnmarshalJSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var task models.TaskSpec
 			err := json.Unmarshal([]byte(test.json), &task)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.confirmations, task.Confirmations)
 
 			assert.Equal(t, test.taskType, task.Type)
 			_, err = adapters.For(task, store)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			s, err := json.Marshal(task)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.json, string(s))
 		})
 	}

@@ -19,7 +19,7 @@ func TestCreatingAdapterWithConfig(t *testing.T) {
 	task := models.TaskSpec{Type: "NoOp"}
 	adapter, err := adapters.For(task, store)
 	adapter.Perform(models.RunResult{}, nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestAdapterFor(t *testing.T) {
@@ -47,9 +47,9 @@ func TestAdapterFor(t *testing.T) {
 			task := models.TaskSpec{Type: test.bridgeName}
 			adapter, err := adapters.For(task, store)
 			if test.errored {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 				wa, ok := adapter.(adapters.MinConfsWrappedAdapter)
 				if ok {
 					assert.Equal(t, test.want, reflect.TypeOf(wa.Adapter).String())

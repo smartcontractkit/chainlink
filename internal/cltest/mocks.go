@@ -397,7 +397,7 @@ func NewHTTPMockServer(
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, wantMethod, r.Method)
 		if len(callback) > 0 {
 			callback[0](string(b))

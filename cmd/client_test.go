@@ -80,7 +80,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})
 	c := cli.NewContext(nil, set, nil)
-	assert.NotNil(t, client.ShowJobSpec(c))
+	assert.Error(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
 }
 
@@ -108,7 +108,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		set.Parse([]string{test.input})
 		c := cli.NewContext(nil, set, nil)
 		if test.errored {
-			assert.NotNil(t, client.CreateJobSpec(c))
+			assert.Error(t, client.CreateJobSpec(c))
 		} else {
 			assert.Nil(t, client.CreateJobSpec(c))
 		}
@@ -155,7 +155,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 			set.Parse(args)
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
-				assert.NotNil(t, client.CreateJobRun(c))
+				assert.Error(t, client.CreateJobRun(c))
 			} else {
 				assert.Nil(t, client.CreateJobRun(c))
 			}
@@ -190,7 +190,7 @@ func TestClient_AddBridge(t *testing.T) {
 			set.Parse([]string{test.param})
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
-				assert.NotNil(t, client.AddBridge(c))
+				assert.Error(t, client.AddBridge(c))
 			} else {
 				assert.Nil(t, client.AddBridge(c))
 			}
@@ -253,14 +253,14 @@ func TestClient_BackupDatabase(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	err := client.BackupDatabase(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	restored := models.NewORM(path)
 	restoredJob, err := restored.FindJob(job.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	reloaded, err := app.Store.FindJob(job.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, reloaded, restoredJob)
 }
 
@@ -277,7 +277,7 @@ func TestClient_ImportKey(t *testing.T) {
 	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.ImportKey(c))
-	assert.NotNil(t, client.ImportKey(c))
+	assert.Error(t, client.ImportKey(c))
 }
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {

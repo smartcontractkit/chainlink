@@ -16,7 +16,7 @@ func TestCreateEthereumAccount(t *testing.T) {
 	defer cleanup()
 
 	_, err := store.KeyStore.NewAccount(passphrase)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	files, _ := ioutil.ReadDir(store.Config.KeysDir())
 	assert.Equal(t, 1, len(files))
@@ -29,6 +29,6 @@ func TestUnlockKey(t *testing.T) {
 
 	store.KeyStore.NewAccount(passphrase)
 
-	assert.NotNil(t, store.KeyStore.Unlock("wrong phrase"))
-	assert.Nil(t, store.KeyStore.Unlock(passphrase))
+	assert.Error(t, store.KeyStore.Unlock("wrong phrase"))
+	assert.NoError(t, store.KeyStore.Unlock(passphrase))
 }

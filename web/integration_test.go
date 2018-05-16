@@ -59,7 +59,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 
 	err := app.Start()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer cleanup()
 
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
@@ -88,17 +88,17 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.TaskRuns[0].Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, tickerResponse, val)
 	val, err = jr.TaskRuns[1].Result.Value()
 	assert.Equal(t, "10583.75", val)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	val, err = jr.TaskRuns[3].Result.Value()
 	assert.Equal(t, hash.String(), val)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	val, err = jr.Result.Value()
 	assert.Equal(t, hash.String(), val)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 
 	eth.EventuallyAllCalled(t)
@@ -169,7 +169,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	cltest.WaitForRuns(t, j, app.Store, 1)
 
 	runs, err := app.Store.JobRunsFor(j.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	jr := runs[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -204,7 +204,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	assert.Equal(t, 500, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
 		jobRuns, err := app.Store.JobRunsFor(j.ID)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		return jobRuns
 	}).Should(gomega.HaveLen(1))
 }
@@ -268,10 +268,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
 	val, err := tr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
 	res, err := tr.Result.Get("extra")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, eaExtra, res.String())
 }
 
@@ -296,10 +296,10 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type)
 	val, err := tr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
 	res, err := tr.Result.Get("extra")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, eaExtra, res.String())
 }
 
@@ -328,7 +328,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
 	val, err := tr.Result.Value()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Equal(t, "", val)
 
 	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
@@ -336,7 +336,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
 	val, err = tr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
 
@@ -355,7 +355,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(body string) {
 			marshaledLog, err := json.Marshal(&log)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.JSONEq(t, string(marshaledLog), body)
 		})
 	defer cleanup()
@@ -384,7 +384,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0674e", val)
 }
 
@@ -398,7 +398,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
 }
 
@@ -431,13 +431,13 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 
 		txHashString, err := jr.Result.Value()
 		txHash := common.HexToHash(txHashString)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		attempt := &models.TxAttempt{}
 		err = app.Store.One("Hash", txHash, attempt)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		var tx models.Tx
 		err = app.Store.One("ID", attempt.TxID, &tx)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, expectedNonce, tx.Nonce)
 	}
 

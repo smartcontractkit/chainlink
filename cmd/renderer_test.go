@@ -60,5 +60,5 @@ func TestRendererTableRenderBridge(t *testing.T) {
 func TestRendererTableRenderUnknown(t *testing.T) {
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	anon := struct{ Name string }{"Romeo"}
-	assert.NotNil(t, r.Render(&anon))
+	assert.Error(t, r.Render(&anon))
 }

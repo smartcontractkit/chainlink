@@ -48,16 +48,16 @@ func TestMultiply_Perform(t *testing.T) {
 			result := adapter.Perform(input, nil)
 
 			if test.jsonError {
-				assert.NotNil(t, jsonErr)
+				assert.Error(t, jsonErr)
 			} else if test.errored {
-				assert.NotNil(t, result.GetError())
-				assert.Nil(t, jsonErr)
+				assert.Error(t, result.GetError())
+				assert.NoError(t, jsonErr)
 			} else {
 				val, err := result.Value()
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, test.want, val)
-				assert.Nil(t, result.GetError())
-				assert.Nil(t, jsonErr)
+				assert.NoError(t, result.GetError())
+				assert.NoError(t, jsonErr)
 			}
 		})
 	}

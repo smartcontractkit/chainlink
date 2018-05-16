@@ -39,7 +39,7 @@ func Test_ParseCBOR(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			b, err := utils.HexToBytes(test.in)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			json, err := models.ParseCBOR(b)
 			assert.Equal(t, test.want, json)
@@ -175,11 +175,11 @@ func TestJSON_CBOR(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			encoded, err := test.in.CBOR()
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			var decoded interface{}
 			cbor := codec.NewDecoderBytes(encoded, new(codec.CborHandle))
-			assert.Nil(t, cbor.Decode(&decoded))
+			assert.NoError(t, cbor.Decode(&decoded))
 
 			decoded = coerceInterfaceMapToStringMap(decoded)
 
@@ -212,7 +212,7 @@ func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	j := []byte(`"NotAUrl"`)
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestWebURL_UnmarshalJSON(t *testing.T) {
@@ -220,7 +220,7 @@ func TestWebURL_UnmarshalJSON(t *testing.T) {
 	j := []byte(`"http://www.duckduckgo.com"`)
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestWebURL_MarshalJSON(t *testing.T) {
@@ -228,10 +228,10 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	wurl := &models.WebURL{URL: parsed}
 	b, err := json.Marshal(wurl)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, `"`+str+`"`, string(b))
 }
 
