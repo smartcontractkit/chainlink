@@ -20,10 +20,10 @@ import (
 
 // Descriptive indices of a RunLog's Topic array
 const (
-	EventTopicSignature = iota
-	EventTopicInternalID
-	EventTopicJobID
-	EventTopicAmount
+	RunLogTopicSignature = iota
+	RunLogTopicInternalID
+	RunLogTopicJobID
+	RunLogTopicAmount
 )
 
 // RunLogTopic is the signature for the RunRequest(...) event
@@ -352,7 +352,7 @@ func fulfillmentToJSON(le RPCLogEvent) (models.JSON, error) {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", el.Topics[EventTopicInternalID].String())
+	js, err = js.Add("dataPrefix", el.Topics[RunLogTopicInternalID].String())
 	if err != nil {
 		return js, err
 	}
@@ -376,7 +376,7 @@ func (le RPCLogEvent) ContractPayment() (*big.Int, error) {
 	if !isRunLog(le.Log) {
 		return nil, nil
 	}
-	encodedAmount := le.Log.Topics[EventTopicAmount].Hex()
+	encodedAmount := le.Log.Topics[RunLogTopicAmount].Hex()
 	payment, ok := new(big.Int).SetString(encodedAmount, 0)
 	if !ok {
 		return payment, fmt.Errorf("unable to decoded amount from RunLog: %s", encodedAmount)
@@ -398,9 +398,9 @@ func isRunLog(log types.Log) bool {
 }
 
 func jobIDFromHexEncodedTopic(log types.Log) (string, error) {
-	return utils.HexToString(log.Topics[EventTopicJobID].Hex())
+	return utils.HexToString(log.Topics[RunLogTopicJobID].Hex())
 }
 
 func jobIDFromImproperEncodedTopic(log types.Log) string {
-	return log.Topics[EventTopicJobID].String()[2:34]
+	return log.Topics[RunLogTopicJobID].String()[2:34]
 }
