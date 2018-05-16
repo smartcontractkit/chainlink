@@ -27,6 +27,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		c.JSON(422, gin.H{
 			"errors": []string{err.Error()},
 		})
+		return
 	}
 	var jrs []models.JobRun
 	if count, err := jrc.App.Store.Count(&models.JobRun{}); err != nil {
@@ -37,15 +38,12 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		c.JSON(500, gin.H{
 			"errors": []string{fmt.Errorf("error getting JobRuns: %+v", err).Error()},
 		})
+	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, jrs); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
+		})
 	} else {
-		buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, jrs)
-		if err != nil {
-			c.JSON(500, gin.H{
-				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
-			})
-		} else {
-			c.Data(200, MediaType, buffer)
-		}
+		c.Data(200, MediaType, buffer)
 	}
 }
 
