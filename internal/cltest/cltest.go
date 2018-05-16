@@ -113,7 +113,8 @@ func NewWSServer(msg string) *httptest.Server {
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, _ := upgrader.Upgrade(w, r, nil)
+		conn, err := upgrader.Upgrade(w, r, nil)
+		logger.PanicIf(err)
 		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	})
 	server := httptest.NewServer(handler)
