@@ -3,9 +3,8 @@ pragma solidity ^0.4.23;
 import "../Chainlinked.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract Consumer is Chainlinked, Ownable {
+contract SpecAndRunRequester is Chainlinked, Ownable {
   bytes32 internal requestId;
-  bytes32 internal specId;
   bytes32 public currentPrice;
 
   event RequestFulfilled(
@@ -13,19 +12,24 @@ contract Consumer is Chainlinked, Ownable {
     bytes32 indexed price
   );
 
-  constructor(address _link, address _oracle, bytes32 _specId) Ownable() public {
+  constructor(address _link, address _oracle) Ownable() public {
     setLinkToken(_link);
     setOracle(_oracle);
-    specId = _specId;
   }
 
   function requestEthereumPrice(string _currency) public {
-    ChainlinkLib.Run memory run = newRun(specId, this, "fulfill(bytes32,bytes32)");
-    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    string[] memory tasks = new string[](4);
+    tasks[0] = "httpget";
+    tasks[1] = "jsonparse";
+    tasks[2] = "ethint256";
+    tasks[3] = "ethtx";
+
+    ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)");
+    spec.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
-    run.addStringArray("path", path);
-    requestId = chainlinkRequest(run, LINK(1));
+    spec.addStringArray("path", path);
+    requestId = chainlinkRequest(spec, LINK(1));
   }
 
   function cancelRequest() public onlyOwner {
@@ -47,3 +51,4 @@ contract Consumer is Chainlinked, Ownable {
   }
 
 }
+
