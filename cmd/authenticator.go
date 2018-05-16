@@ -31,8 +31,10 @@ type TerminalAuthenticator struct {
 func (auth TerminalAuthenticator) Authenticate(store *store.Store, pwd string) {
 	if len(pwd) != 0 {
 		auth.authenticateWithPwd(store, pwd)
-	} else {
+	} else if auth.Prompter.IsTerminal() {
 		auth.authenticationPrompt(store)
+	} else {
+		logger.Fatal("No password provided")
 	}
 }
 
@@ -96,6 +98,7 @@ func createAccount(store *store.Store, password string) {
 // the console.
 type Prompter interface {
 	Prompt(string) string
+	IsTerminal() bool
 }
 
 // PasswordPrompter is used to display and read input from the user.
@@ -115,6 +118,12 @@ func (pp PasswordPrompter) Prompt(prompt string) string {
 		rval = string(bytePwd)
 	})
 	return rval
+}
+
+// IsTerminal checks if the current process is executing in a terminal, this
+// should be used to decide when to use the PasswordPrompter.
+func (pp PasswordPrompter) IsTerminal() bool {
+	return terminal.IsTerminal(int(os.Stdout.Fd()))
 }
 
 // Explicitly reset terminal state in the event of a signal (CTRL+C)
