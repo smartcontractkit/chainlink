@@ -113,7 +113,8 @@ func NewWSServer(msg string) *httptest.Server {
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, _ := upgrader.Upgrade(w, r, nil)
+		conn, err := upgrader.Upgrade(w, r, nil)
+		logger.PanicIf(err)
 		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	})
 	server := httptest.NewServer(handler)
@@ -359,7 +360,7 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
 	marshaled, err := json.Marshal(&job)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	resp := BasicAuthPost(
 		app.Server.URL+"/v2/specs",
 		"application/json",
@@ -536,13 +537,13 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) [
 	if want == 0 {
 		g.Consistently(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			return jrs
 		}).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			return jrs
 		}).Should(gomega.HaveLen(want))
 	}

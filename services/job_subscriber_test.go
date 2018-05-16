@@ -175,7 +175,7 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 			el.OnNewHead(cltest.NewBlockHeader(10))
 
 			refreshed, err := store.FindJobRun(run.ID)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.wantStatus, refreshed.Status)
 		})
 	}

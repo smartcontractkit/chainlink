@@ -24,7 +24,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 			t.Parallel()
 			result := test.adapter.Perform(models.RunResult{}, nil)
 			assert.Equal(t, models.JSON{}, result.Data)
-			assert.NotNil(t, result.Error)
+			assert.True(t, result.HasError())
 		})
 	}
 }
@@ -57,7 +57,7 @@ func TestHttpGet_Perform(t *testing.T) {
 			result := hga.Perform(input, nil)
 
 			val, err := result.Value()
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, false, result.Status.PendingBridge())
@@ -94,7 +94,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			result := hpa.Perform(input, nil)
 
 			val, err := result.Get("value")
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, true, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
