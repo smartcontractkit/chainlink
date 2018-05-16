@@ -214,10 +214,10 @@ func cleanUpStore(store *store.Store) {
 	}()
 }
 
-// NewEthereumListener creates a new EthereumListener
-func NewEthereumListener() (*services.EthereumListener, func()) {
+// NewJobSubscriber creates a new JobSubscriber
+func NewJobSubscriber() (*services.JobSubscriber, func()) {
 	store, cl := NewStore()
-	nl := &services.EthereumListener{Store: store}
+	nl := &services.JobSubscriber{Store: store}
 	return nl, func() {
 		cl()
 	}

@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEthereumListener_Connect_WithJobs(t *testing.T) {
+func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 	t.Parallel()
 
-	el, cleanup := cltest.NewEthereumListener()
+	el, cleanup := cltest.NewJobSubscriber()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(el.Store)
 
@@ -36,7 +36,7 @@ func newAddr() common.Address {
 	return cltest.NewAddress()
 }
 
-func TestEthereumListener_reconnectLoop_Resubscribing(t *testing.T) {
+func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -50,7 +50,7 @@ func TestEthereumListener_reconnectLoop_Resubscribing(t *testing.T) {
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	el := services.EthereumListener{Store: store}
+	el := services.JobSubscriber{Store: store}
 	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(1)))
 	assert.Equal(t, 2, len(el.Jobs()))
 	el.Disconnect()
@@ -65,10 +65,10 @@ func TestEthereumListener_reconnectLoop_Resubscribing(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 }
 
-func TestEthereumListener_AttachedToHeadTracker(t *testing.T) {
+func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	t.Parallel()
 
-	el, cleanup := cltest.NewEthereumListener()
+	el, cleanup := cltest.NewJobSubscriber()
 	store := el.Store
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
@@ -90,7 +90,7 @@ func TestEthereumListener_AttachedToHeadTracker(t *testing.T) {
 	assert.Equal(t, 0, len(el.Jobs()))
 }
 
-func TestEthereumListener_AddJob_Listening(t *testing.T) {
+func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	t.Parallel()
 	sharedAddr := newAddr()
 	noAddr := common.Address{}
@@ -111,7 +111,7 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			el, cleanup := cltest.NewEthereumListener()
+			el, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
 			store := el.Store
 
@@ -149,7 +149,7 @@ func TestEthereumListener_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestEthereumListener_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
+func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -162,7 +162,7 @@ func TestEthereumListener_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.status), func(t *testing.T) {
-			el, cleanup := cltest.NewEthereumListener()
+			el, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
 			store := el.Store
 
