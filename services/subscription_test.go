@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
+func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
 	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"76005c26"}`)
@@ -29,7 +29,7 @@ func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			le := services.RPCLogEvent{Log: test.el}
+			le := services.InitiatorSubscriptionLogEvent{Log: test.el}
 			output, err := le.RunLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Nil(t, err)
@@ -38,7 +38,7 @@ func TestServices_RpcLogEvent_RunLogJSON(t *testing.T) {
 	}
 }
 
-func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
+func TestInitiatorSubscriptionLogEvent_EthLogJSON(t *testing.T) {
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
@@ -54,7 +54,7 @@ func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			le := services.RPCLogEvent{Log: test.el}
+			le := services.InitiatorSubscriptionLogEvent{Log: test.el}
 			output, err := le.EthLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -62,7 +62,7 @@ func TestServices_RpcLogEvent_EthLogJSON(t *testing.T) {
 	}
 }
 
-func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
+func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -75,10 +75,10 @@ func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	count := 0
-	callback := func(services.RPCLogEvent) { count += 1 }
+	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	head := cltest.IndexableBlockNumber(0)
 	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
-	sub, err := services.NewRPCLogSubscription(initr, job, store, subscriber)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
@@ -86,7 +86,7 @@ func TestServices_NewRPCLogSubscription_BackfillLogs(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestServices_NewRPCLogSubscription_BackfillLogs_WithNoHead(t *testing.T) {
+func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -97,9 +97,9 @@ func TestServices_NewRPCLogSubscription_BackfillLogs_WithNoHead(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	count := 0
-	callback := func(services.RPCLogEvent) { count += 1 }
+	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	subscriber := services.NewRPCLogSubscriber(initr, nil, nil, callback)
-	sub, err := services.NewRPCLogSubscription(initr, job, store, subscriber)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
@@ -107,7 +107,7 @@ func TestServices_NewRPCLogSubscription_BackfillLogs_WithNoHead(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
-func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
+func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -122,10 +122,10 @@ func TestServices_NewRPCLogSubscription_PreventsDoubleDispatch(t *testing.T) {
 	logsChan <- log // received in real time
 
 	count := 0
-	callback := func(services.RPCLogEvent) { count += 1 }
+	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	head := cltest.IndexableBlockNumber(0)
 	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
-	sub, err := services.NewRPCLogSubscription(initr, job, store, subscriber)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
@@ -144,7 +144,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	assert.Equal(
 		t,
 		[]common.Hash{services.RunLogTopic},
-		topics[services.EventTopicSignature])
+		topics[services.RunLogTopicSignature])
 
 	assert.Equal(
 		t,
@@ -155,7 +155,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 		topics[2])
 }
 
-func TestRPCLogEvent_ValidateRunLog(t *testing.T) {
+func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJob()
@@ -176,7 +176,7 @@ func TestRPCLogEvent_ValidateRunLog(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), 1, "{}")
 			log.Topics = []common.Hash{tt.eventLogTopic, common.Hash{}, tt.jobIDTopic, common.Hash{}}
-			le := services.RPCLogEvent{
+			le := services.InitiatorSubscriptionLogEvent{
 				Job: job,
 				Log: log,
 			}

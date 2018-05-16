@@ -19,17 +19,17 @@ type Application interface {
 	GetStore() *store.Store
 }
 
-// ChainlinkApplication contains fields for the EthereumListener, Scheduler,
-// and Store. The EthereumListener and Scheduler are also available
+// ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
+// and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	HeadTracker      *HeadTracker
-	EthereumListener *EthereumListener
-	Scheduler        *Scheduler
-	Store            *store.Store
-	Exiter           func(int)
-	attachmentID     string
-	bridgeTypeMutex  sync.Mutex
+	HeadTracker     *HeadTracker
+	JobSubscriber   *JobSubscriber
+	Scheduler       *Scheduler
+	Store           *store.Store
+	Exiter          func(int)
+	attachmentID    string
+	bridgeTypeMutex sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
@@ -40,15 +40,15 @@ func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:      ht,
-		EthereumListener: &EthereumListener{Store: store},
-		Scheduler:        NewScheduler(store),
-		Store:            store,
-		Exiter:           os.Exit,
+		HeadTracker:   ht,
+		JobSubscriber: &JobSubscriber{Store: store},
+		Scheduler:     NewScheduler(store),
+		Store:         store,
+		Exiter:        os.Exit,
 	}
 }
 
-// Start runs the EthereumListener and Scheduler. If successful,
+// Start runs the JobSubscriber and Scheduler. If successful,
 // nil will be returned.
 // Also listens for interrupt signals from the operating system so
 // that the application can be properly closed before the application
@@ -62,7 +62,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	app.attachmentID = app.HeadTracker.Attach(app.EthereumListener)
+	app.attachmentID = app.HeadTracker.Attach(app.JobSubscriber)
 	return multierr.Combine(app.Store.Start(), app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
@@ -92,7 +92,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.EthereumListener.AddJob(job, app.HeadTracker.LastRecord())
+	return app.JobSubscriber.AddJob(job, app.HeadTracker.LastRecord())
 }
 
 // AddAdapter adds an adapter to the store. If another
