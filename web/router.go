@@ -32,6 +32,9 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 
 	v2 := engine.Group("/v2")
 	{
+		ab := AccountBalanceController{app}
+		v2.GET("/account_balance", ab.Show)
+
 		j := JobSpecsController{app}
 		v2.GET("/specs", j.Index)
 		v2.POST("/specs", j.Create)

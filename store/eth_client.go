@@ -56,6 +56,16 @@ func (eth *EthClient) GetEthBalance(address common.Address) (*big.Rat, error) {
 	return utils.WeiToEth(numWei), nil
 }
 
+// GetLinkBalance returns the balance of LINK at the given address
+func (txm *TxManager) GetLinkBalance(address common.Address, linkContractAddress common.Address) (*big.Rat, error) {
+	balance, err := txm.GetERC20Balance(address, linkContractAddress)
+	if err != nil {
+		return new(big.Rat).SetInt64(0), err
+	}
+	// Because Eth and Link both use 1e18 precision, we can correct using the same facility
+	return utils.WeiToEth(balance), nil
+}
+
 // GetERC20Balance returns the balance of the given address for the token contract address.
 func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	type callArgs struct {

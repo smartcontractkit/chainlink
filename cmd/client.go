@@ -78,9 +78,26 @@ func logConfigVariables(config strpkg.Config) {
 	logger.Debug("Environment variables\n", config)
 }
 
-// DisplayAccountBalance returns the address, plus it's ETH & LINK balance
+// DisplayAccountBalance renders a table containing the active account address
+// with it's ETH & LINK balance
 func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
-	return nil
+	cfg := cli.Config
+	resp, err := utils.BasicAuthGet(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/account_balance",
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var links jsonapi.Links
+	a := presenters.AccountBalance{}
+	if err = cli.deserializeAPIResponse(resp, &a, &links); err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&a))
 }
 
 // ShowJobSpec returns the status of the given JobID.

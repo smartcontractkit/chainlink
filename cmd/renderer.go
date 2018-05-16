@@ -50,6 +50,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderBridge(*typed)
 	case *[]models.BridgeType:
 		rt.renderBridges(*typed)
+	case *presenters.AccountBalance:
+		rt.renderAccountBalance(*typed)
 	default:
 		return fmt.Errorf("Unable to render object: %v", typed)
 	}
@@ -194,5 +196,17 @@ func (rt RendererTable) renderJobRuns(j presenters.JobSpec) error {
 	}
 
 	render("Runs", table)
+	return nil
+}
+
+func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error {
+	table := tablewriter.NewWriter(rt)
+	table.SetHeader([]string{"Address", "ETH", "LINK"})
+	table.Append([]string{
+		ab.Address,
+		ab.EthBalance.FloatString(18),
+		ab.LinkBalance.FloatString(18),
+	})
+	render("Account Balance", table)
 	return nil
 }

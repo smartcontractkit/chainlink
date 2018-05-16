@@ -239,6 +239,20 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 	return respJSON
 }
 
+// ErrorsJson has an errors attribute
+type ErrorsJSON struct {
+	Errors []string `json:"errors"`
+}
+
+// ParseErrorsJSON will unmarshall given body into ErrorsJSON
+func ParseErrorsJSON(body io.Reader) ErrorsJSON {
+	b, err := ioutil.ReadAll(body)
+	mustNotErr(err)
+	var respJSON ErrorsJSON
+	json.Unmarshal(b, &respJSON)
+	return respJSON
+}
+
 // LoadJSON loads json from file and returns a byte slice
 func LoadJSON(file string) []byte {
 	content, err := ioutil.ReadFile(file)

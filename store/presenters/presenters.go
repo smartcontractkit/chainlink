@@ -56,14 +56,14 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	address := account.Address
 	linkContractAddress := common.HexToAddress(store.Config.LinkContractAddress)
-	balance, err := store.TxManager.GetERC20Balance(address, linkContractAddress)
+	linkBalance, err := store.TxManager.GetLinkBalance(address, linkContractAddress)
 	if err != nil {
 		return "", err
 	}
-	// Because Eth and Link both use 1e18 precision, we can correct using the same facility
-	linkBalance := utils.WeiToEth(balance)
+
 	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.FloatString(18))
 	return result, nil
 }
@@ -80,6 +80,34 @@ func (bt BridgeType) MarshalJSON() ([]byte, error) {
 		Alias
 	}{
 		Alias(bt),
+	})
+}
+
+// AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
+type AccountBalance struct {
+	Address     string   `json:"address"`
+	EthBalance  *big.Rat `json:"eth_balance"`
+	LinkBalance *big.Rat `json:"link_balance"`
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (a AccountBalance) GetID() string {
+	return a.Address
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (a *AccountBalance) SetID(value string) error {
+	a.Address = value
+	return nil
+}
+
+// MarshalJSON returns the JSON byte encoding of the AccountBalance
+func (a AccountBalance) MarshalJSON() ([]byte, error) {
+	type Alias AccountBalance
+	return json.Marshal(&struct {
+		Alias
+	}{
+		Alias(a),
 	})
 }
 
