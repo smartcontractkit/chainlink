@@ -144,7 +144,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	assert.Equal(
 		t,
 		[]common.Hash{services.RunLogTopic},
-		topics[services.EventTopicSignature])
+		topics[services.RunLogTopicSignature])
 
 	assert.Equal(
 		t,
