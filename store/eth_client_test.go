@@ -11,7 +11,6 @@ import (
 )
 
 func TestEthClient_GetTxReceipt(t *testing.T) {
-	t.Parallel()
 	response := cltest.LoadJSON("../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer := cltest.NewWSServer(string(response))
 	defer mockServer.Close()
