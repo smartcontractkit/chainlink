@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"github.com/asdine/storm"
@@ -16,18 +17,33 @@ type JobRunsController struct {
 	App *services.ChainlinkApplication
 }
 
-// Index lists all of the Runs of a JobSpec.
+// Index returns paginated JobRuns for a given JobSpec
 // Example:
-//  "<application>/specs/:SpecID/runs"
+//  "<application>/specs/:SpecID/runs?size=1&page=2"
 func (jrc *JobRunsController) Index(c *gin.Context) {
 	id := c.Param("SpecID")
-
-	if jobRuns, err := jrc.App.Store.JobRunsFor(id); err != nil {
-		c.JSON(500, gin.H{
+	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
+	if err != nil {
+		c.JSON(422, gin.H{
 			"errors": []string{err.Error()},
 		})
+		return
+	}
+	var jrs []models.JobRun
+	if count, err := jrc.App.Store.Count(&models.JobRun{}); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("error getting count of JobRuns: %+v", err).Error()},
+		})
+	} else if err := jrc.App.Store.Find("JobID", id, &jrs, storm.Limit(size), storm.Skip(offset), storm.Reverse()); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("error getting JobRuns: %+v", err).Error()},
+		})
+	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, jrs); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
+		})
 	} else {
-		c.JSON(200, gin.H{"runs": jobRuns})
+		c.Data(200, MediaType, buffer)
 	}
 }
 
