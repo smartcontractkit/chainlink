@@ -3,10 +3,10 @@
 require('./support/helpers.js')
 
 contract('SpecAndRunRequester', () => {
-  let Link = artifacts.require("LinkToken.sol");
-  let Oracle = artifacts.require("Oracle.sol");
-  let SpecAndRunRequester = artifacts.require("examples/SpecAndRunRequester.sol");
-  let currency = "USD";
+  const Link = artifacts.require("LinkToken.sol");
+  const Oracle = artifacts.require("Oracle.sol");
+  const SpecAndRunRequester = artifacts.require("examples/SpecAndRunRequester.sol");
+  const currency = "USD";
   let link, oc, cc;
 
   beforeEach(async () => {
@@ -42,7 +42,7 @@ contract('SpecAndRunRequester', () => {
         let [id, wei, ver, cborData] = decodeSpecAndRunRequest(log);
         let params = await cbor.decodeFirst(cborData);
         let expected = {
-          "tasks": ["httpGet", "jsonParse", "ethint256", "ethtx"],
+          "tasks": ["httpget", "jsonparse", "ethint256", "ethtx"],
           "params": {
             "path":["USD"],
             "url":"https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
