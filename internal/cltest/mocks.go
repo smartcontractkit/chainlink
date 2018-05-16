@@ -381,6 +381,11 @@ func (p *MockCountingPrompt) Prompt(string) string {
 	return p.EnteredStrings[i]
 }
 
+// IsTerminal always returns true in tests
+func (p *MockCountingPrompt) IsTerminal() bool {
+	return true
+}
+
 // NewHTTPMockServer create http test server with passed in parameters
 func NewHTTPMockServer(
 	t *testing.T,
