@@ -91,7 +91,7 @@ func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.L
 	// as is api2go will discard the links
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal Data record: %+v", err)
+		return fmt.Errorf("web: unable to unmarshal Data record, %+v", err)
 	}
 
 	// Unmarshal using the stdlib Unmarshal to extract the Links part of the document

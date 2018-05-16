@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
@@ -64,7 +65,7 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 		return "", err
 	}
 
-	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.FloatString(18))
+	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String())
 	return result, nil
 }
 
@@ -85,9 +86,9 @@ func (bt BridgeType) MarshalJSON() ([]byte, error) {
 
 // AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
 type AccountBalance struct {
-	Address     string   `json:"address"`
-	EthBalance  *big.Rat `json:"eth_balance"`
-	LinkBalance *big.Rat `json:"link_balance"`
+	Address     string      `json:"address"`
+	EthBalance  *big.Rat    `json:"eth_balance"`
+	LinkBalance assets.Link `json:"link_balance"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

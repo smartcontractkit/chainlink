@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
@@ -23,8 +24,6 @@ func TestAccountBalanceController_Index(t *testing.T) {
 
 	appWithAccount, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	account, err := appWithAccount.Store.KeyStore.GetAccount()
-	assert.NoError(t, err)
 
 	ethMock := appWithAccount.MockEthClient()
 	ethMock.Register("eth_getBalance", "0x0100")
@@ -33,10 +32,14 @@ func TestAccountBalanceController_Index(t *testing.T) {
 	resp = cltest.BasicAuthGet(appWithAccount.Server.URL + "/v2/account_balance")
 	assert.Equal(t, 200, resp.StatusCode)
 
+	account, err := appWithAccount.Store.KeyStore.GetAccount()
+	assert.NoError(t, err)
+
 	ab := presenters.AccountBalance{}
 	err = web.ParseResponse(cltest.ParseResponseBody(resp), &ab)
 	assert.NoError(t, err)
+
 	assert.Equal(t, account.Address.Hex(), ab.Address)
 	assert.Equal(t, big.NewRat(1, 3906250000000000), ab.EthBalance)
-	assert.Equal(t, big.NewRat(1, 3906250000000000), ab.LinkBalance)
+	assert.Equal(t, assets.NewLink(big.NewInt(256)), ab.LinkBalance)
 }
