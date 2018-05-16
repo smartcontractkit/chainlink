@@ -266,4 +266,12 @@ cbor = require("cbor");
     return link.transferAndCall(oc.address, amount, args);
   };
 
+  specAndRunBytes = function(to, fHash, requestId, data) {
+    let types = ["uint256", "address", "bytes4", "bytes32", "bytes"];
+    let values = [1, to, fHash, requestId, data];
+    let encoded = abi.rawEncode(types, values);
+    let funcSelector = functionSelector("specAndRun(uint256,address,bytes4,bytes32,bytes)");
+    return funcSelector + encoded.toString("hex");
+  };
+
 })();
