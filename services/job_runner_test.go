@@ -60,7 +60,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			run = job.NewRun(initr)
 			input := models.RunResult{Data: cltest.JSONFromString(test.input)}
 			run, err := services.ExecuteRun(run, store, input)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
@@ -173,18 +173,18 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 			assert.Nil(t, store.Save(&bt))
 
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
 			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, models.RunStatusCompleted, run.Status)
 		})
 	}
@@ -200,7 +200,7 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 
 	run := job.NewRun(initr)
 	run, err := services.ExecuteRun(run, store, models.RunResult{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	store.One("ID", run.ID, &run)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
@@ -215,7 +215,7 @@ func TestJobRunner_ExecuteRun_ErrorsWithNoRuns(t *testing.T) {
 	job.Tasks = []models.TaskSpec{}
 	run := job.NewRun(initr)
 	run, err := services.ExecuteRun(run, store, models.RunResult{})
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestJobRunner_BeginRunWithAmount(t *testing.T) {
@@ -284,12 +284,12 @@ func TestJobRunner_BeginRun(t *testing.T) {
 			_, err := services.BeginRun(job, initr, models.RunResult{}, store)
 
 			if test.errored {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 			jrs, err := store.JobRunsFor(job.ID)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.runCount, len(jrs))
 		})
 	}
@@ -328,9 +328,9 @@ func TestJobRunner_BuildRun(t *testing.T) {
 			_, err := services.BuildRun(job, initr, store)
 
 			if test.errored {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 		})
 	}

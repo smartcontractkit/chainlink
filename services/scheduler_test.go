@@ -65,7 +65,7 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 
 	gomega.NewGomegaWithT(t).Consistently(func() int {
 		runs, err := store.JobRunsFor(j.ID)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		return len(runs)
 	}, (2 * time.Second)).Should(gomega.Equal(0))
 
@@ -252,7 +252,7 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 
 	ot.RunJobAt(initrs[0], j)
 	j2, err := ot.Store.FindJob(j.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	var initrs2 []models.Initiator
 	store.Where("JobID", j.ID, &initrs2)

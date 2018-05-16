@@ -23,7 +23,7 @@ func TestWhereNotFound(t *testing.T) {
 	jobs := []models.JobSpec{j1}
 
 	err := store.Where("ID", "bogus", &jobs)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
@@ -34,7 +34,7 @@ func TestAllNotFound(t *testing.T) {
 
 	var jobs []models.JobSpec
 	err := store.All(&jobs)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
@@ -51,7 +51,7 @@ func TestORMSaveJob(t *testing.T) {
 	assert.NotEqual(t, 0, j2.Initiators[0])
 	assert.Equal(t, j2.Initiators[0].ID, j1.Initiators[0].ID)
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
-	assert.Nil(t, store.One("JobID", j1.ID, &initr))
+	assert.NoError(t, store.One("JobID", j1.ID, &initr))
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
 }
 
@@ -61,9 +61,9 @@ func TestJobRunsWithStatus(t *testing.T) {
 	defer cleanup()
 
 	j, i := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, store.SaveJob(&j))
+	assert.NoError(t, store.SaveJob(&j))
 	npr := j.NewRun(i)
-	assert.Nil(t, store.Save(&npr))
+	assert.NoError(t, store.Save(&npr))
 
 	statuses := []models.RunStatus{
 		models.RunStatusPendingBridge,
@@ -73,7 +73,7 @@ func TestJobRunsWithStatus(t *testing.T) {
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
-		assert.Nil(t, store.Save(&run))
+		assert.NoError(t, store.Save(&run))
 		seedIds = append(seedIds, run.ID)
 	}
 
@@ -99,7 +99,7 @@ func TestJobRunsWithStatus(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			pending, err := store.JobRunsWithStatus(test.statuses...)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			pendingIDs := []string{}
 			for _, jr := range pending {
@@ -121,13 +121,13 @@ func TestCreatingTx(t *testing.T) {
 	nonce := uint64(1232421)
 	gasLimit := uint64(50000)
 	data, err := hex.DecodeString("0987612345abcdef")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	_, err = store.CreateTx(from, nonce, to, data, value, gasLimit)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	txs := []models.Tx{}
-	assert.Nil(t, store.Where("Nonce", nonce, &txs))
+	assert.NoError(t, store.Where("Nonce", nonce, &txs))
 	assert.Equal(t, 1, len(txs))
 	tx := txs[0]
 
@@ -149,9 +149,9 @@ func TestBridgeTypeFor(t *testing.T) {
 	tt := models.BridgeType{}
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	tt.URL = models.WebURL{URL: u}
-	assert.Nil(t, store.Save(&tt))
+	assert.NoError(t, store.Save(&tt))
 
 	cases := []struct {
 		description string
@@ -197,14 +197,14 @@ func TestORM_SaveCreationHeight(t *testing.T) {
 				ch := hexutil.Big(*test.creationHeight)
 				jr.CreationHeight = &ch
 			}
-			assert.Nil(t, store.Save(&jr))
+			assert.NoError(t, store.Save(&jr))
 
 			bn := cltest.IndexableBlockNumber(test.parameterHeight)
 			result, err := store.SaveCreationHeight(jr, bn)
 
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.wantHeight, result.CreationHeight.ToInt())
-			assert.Nil(t, store.One("ID", jr.ID, &jr))
+			assert.NoError(t, store.One("ID", jr.ID, &jr))
 			assert.Equal(t, test.wantHeight, jr.CreationHeight.ToInt())
 		})
 	}
@@ -217,10 +217,10 @@ func TestMarkRan(t *testing.T) {
 	defer cleanup()
 
 	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
-	assert.Nil(t, store.Save(&initr))
+	assert.NoError(t, store.Save(&initr))
 
-	assert.Nil(t, store.MarkRan(&initr))
+	assert.NoError(t, store.MarkRan(&initr))
 	var ir models.Initiator
-	assert.Nil(t, store.One("ID", initr.ID, &ir))
+	assert.NoError(t, store.One("ID", initr.ID, &ir))
 	assert.True(t, ir.Ran)
 }

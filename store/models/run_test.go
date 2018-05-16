@@ -25,11 +25,11 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	jr := job.NewRun(initr)
 	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
 	err := store.Save(&jr)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	run := &models.JobRun{}
 	err = store.One("ID", jr.ID, run)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, run.Result.HasError())
 	assert.Equal(t, "bad idea", run.Result.Error())
 }
@@ -45,12 +45,12 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 		{Type: "NoOpPend"},
 		{Type: "NoOp"},
 	}
-	assert.Nil(t, store.SaveJob(&j))
+	assert.NoError(t, store.SaveJob(&j))
 	jr := j.NewRun(i)
 	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
 
 	jr, err := services.ExecuteRun(jr, store, models.RunResult{})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
 }
 
@@ -142,7 +142,7 @@ func TestRunResult_Value(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var data models.JSON
-			assert.Nil(t, json.Unmarshal([]byte(test.json), &data))
+			assert.NoError(t, json.Unmarshal([]byte(test.json), &data))
 			rr := models.RunResult{Data: data}
 
 			val, err := rr.Value()

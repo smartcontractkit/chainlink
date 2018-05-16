@@ -38,7 +38,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
 			tx, err := utils.DecodeEthereumTx(rlp)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
 			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
@@ -86,7 +86,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.Save(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
@@ -120,7 +120,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.Save(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
 	input := sentResult.MarkPendingConfirmations()

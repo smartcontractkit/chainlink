@@ -62,9 +62,9 @@ func TestHeadTracker_Get(t *testing.T) {
 
 			err := ht.Save(test.toSave)
 			if test.wantError {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 
 			assert.Equal(t, test.want, ht.LastRecord().ToInt())

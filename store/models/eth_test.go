@@ -30,7 +30,7 @@ func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 	bytes := []byte(`"0xb3f98adc"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
@@ -39,7 +39,7 @@ func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 	bytes := []byte(`"0xb3f98adc123456"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestModels_Header_UnmarshalJSON(t *testing.T) {
@@ -70,7 +70,7 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 
 			data := cltest.LoadJSON(test.path)
 			value := gjson.Get(string(data), "params.result")
-			assert.Nil(t, json.Unmarshal([]byte(value.String()), &header))
+			assert.NoError(t, json.Unmarshal([]byte(value.String()), &header))
 
 			assert.Equal(t, test.wantNumber, header.Number)
 			assert.Equal(t, test.wantHash, header.Hash().String())
