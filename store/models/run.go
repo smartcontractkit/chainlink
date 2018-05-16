@@ -80,7 +80,7 @@ func (jr JobRun) NextTaskRun() TaskRun {
 
 // Runnable checks that the number of confirmations have passed since the
 // job's creation height to determine if the JobRun can be started. Returns
-// true for non-EthereumListener (runlog & ethlog) initiators.
+// true for non-JobSubscriber (runlog & ethlog) initiators.
 func (jr JobRun) Runnable(currentHeight *IndexableBlockNumber, minConfs uint64) bool {
 	if jr.CreationHeight == nil || currentHeight == nil {
 		return true
