@@ -37,11 +37,11 @@ func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.i.Type, func(t *testing.T) {
 			j, err := json.Marshal(presenters.Initiator{Initiator: test.i})
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			var value map[string]interface{}
 			err = json.Unmarshal(j, &value)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			keys := utils.GetStringKeys(value)
 			sort.Strings(keys)
@@ -68,7 +68,7 @@ func TestPresenterShowEthBalance_WithEmptyAccount(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	_, err := presenters.ShowEthBalance(app.Store)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
@@ -82,7 +82,7 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 
 	output, err := presenters.ShowEthBalance(app.Store)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
@@ -111,7 +111,7 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 
 	output, err := presenters.ShowLinkBalance(app.Store)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("Link Balance for %v: 0.000000000000000256", addr)
@@ -145,6 +145,6 @@ func TestBridgeTypeMarshalJSON(t *testing.T) {
 	expected := []byte("{\"name\":\"hapax\",\"url\":\"http://hap.ax\",\"defaultConfirmations\":0}")
 	bt := presenters.BridgeType{BridgeType: input}
 	output, err := bt.MarshalJSON()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, output, expected)
 }

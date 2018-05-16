@@ -53,16 +53,16 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var a models.AssignmentSpec
-			assert.Nil(t, json.Unmarshal([]byte(test.input), &a))
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &a))
 
 			j1, err := a.ConvertToJobSpec()
-			assert.Nil(t, err)
-			assert.Nil(t, store.SaveJob(&j1))
+			assert.NoError(t, err)
+			assert.NoError(t, store.SaveJob(&j1))
 			j2 := cltest.FindJob(store, j1.ID)
 
 			assert.NotEqual(t, "", j2.ID)
 			var want models.JobSpec
-			assert.Nil(t, json.Unmarshal([]byte(test.want), &want))
+			assert.NoError(t, json.Unmarshal([]byte(test.want), &want))
 			assert.Equal(t, want.EndAt, j2.EndAt)
 
 			for i, wantTask := range want.Tasks {
@@ -126,13 +126,13 @@ func TestAssignmentSpec_ConvertToAssignment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var js1 models.JobSpec
-			assert.Nil(t, json.Unmarshal([]byte(test.input), &js1))
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &js1))
 
 			a1, err := models.ConvertToAssignment(js1)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			a2 := models.AssignmentSpec{}
-			assert.Nil(t, json.Unmarshal([]byte(test.want), &a2))
+			assert.NoError(t, json.Unmarshal([]byte(test.want), &a2))
 
 			for i, wantTask := range a2.Assignment.Subtasks {
 				actualTask := a1.Assignment.Subtasks[i]
@@ -175,12 +175,12 @@ func TestAssignmentSpec_ConvertToSnapshot(t *testing.T) {
 
 	for _, test := range tests {
 		var rr models.RunResult
-		assert.Nil(t, json.Unmarshal([]byte(test.input), &rr))
+		assert.NoError(t, json.Unmarshal([]byte(test.input), &rr))
 
 		ss1 := models.ConvertToSnapshot(rr)
 
 		var ss2 models.Snapshot
-		assert.Nil(t, json.Unmarshal([]byte(test.want), &ss2))
+		assert.NoError(t, json.Unmarshal([]byte(test.want), &ss2))
 
 		assert.Equal(t, ss2.Details, ss1.Details)
 		assert.Equal(t, ss2.ID, ss1.ID)

@@ -32,7 +32,7 @@ func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 			le := services.InitiatorSubscriptionLogEvent{Log: test.el}
 			output, err := le.RunLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
@@ -79,7 +79,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	head := cltest.IndexableBlockNumber(0)
 	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)
@@ -100,7 +100,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	subscriber := services.NewRPCLogSubscriber(initr, nil, nil, callback)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)
@@ -126,7 +126,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	head := cltest.IndexableBlockNumber(0)
 	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)

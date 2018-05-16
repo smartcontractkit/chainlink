@@ -38,7 +38,7 @@ func TestValidateJob(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var j models.JobSpec
-			assert.Nil(t, json.Unmarshal(test.input, &j))
+			assert.NoError(t, json.Unmarshal(test.input, &j))
 			result := services.ValidateJob(j, store)
 			assert.Equal(t, test.want, result)
 		})
@@ -54,9 +54,9 @@ func TestValidateAdapter(t *testing.T) {
 	tt := models.BridgeType{}
 	tt.Name = "solargridreporting"
 	u, err := url.Parse("https://denergy.eth")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	tt.URL = models.WebURL{URL: u}
-	assert.Nil(t, store.Save(&tt))
+	assert.NoError(t, store.Save(&tt))
 
 	tests := []struct {
 		description string
@@ -110,12 +110,12 @@ func TestValidateInitiator(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var initr models.Initiator
-			assert.Nil(t, json.Unmarshal([]byte(test.input), &initr))
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &initr))
 			result := services.ValidateInitiator(initr, job)
 			if test.wantError {
-				assert.NotNil(t, result)
+				assert.Error(t, result)
 			} else {
-				assert.Nil(t, result)
+				assert.NoError(t, result)
 			}
 		})
 	}

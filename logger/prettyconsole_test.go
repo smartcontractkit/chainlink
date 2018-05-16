@@ -44,7 +44,7 @@ func TestPrettyConsole_Write(t *testing.T) {
 			_, err := pc.Write([]byte(tt.input))
 
 			if tt.wantError {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
 				assert.Equal(t, tt.want, tr.Written)
 			}

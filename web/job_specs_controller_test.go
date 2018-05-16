@@ -244,7 +244,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 	j := setupJobSpecsControllerShow(t, app)
 
 	jr, err := app.Store.JobRunsFor(j.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -286,6 +286,6 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	defer cleanup()
 
 	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
 }

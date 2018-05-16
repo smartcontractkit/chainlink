@@ -39,9 +39,9 @@ func TestJsonParse_Perform(t *testing.T) {
 			assert.Equal(t, test.want, result.Data.String())
 
 			if test.wantResultError {
-				assert.NotNil(t, result.GetError())
+				assert.Error(t, result.GetError())
 			} else {
-				assert.Nil(t, result.GetError())
+				assert.NoError(t, result.GetError())
 			}
 		})
 	}

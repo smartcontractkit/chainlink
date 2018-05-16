@@ -131,6 +131,13 @@ func WarnIf(err error) {
 	}
 }
 
+//PanicIf logs the error if present.
+func PanicIf(err error) {
+	if err != nil {
+		logger.Panic(err)
+	}
+}
+
 // Fatal logs a fatal message then exits the application using Sprint.
 func Fatal(args ...interface{}) {
 	logger.Fatal(args...)

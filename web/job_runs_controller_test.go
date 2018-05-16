@@ -41,7 +41,7 @@ func TestJobRunsController_Index(t *testing.T) {
 
 	j := setupJobRunsControllerIndex(t, app)
 	jr, err := app.Store.JobRunsFor(j.ID)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=x")
 	cltest.AssertServerResponse(t, resp, 422)
@@ -98,7 +98,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	val, err := jr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
 
@@ -173,7 +173,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	val, err := jr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
 
@@ -218,7 +218,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
 	val, err := jr.Result.Value()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "0", val)
 }
 

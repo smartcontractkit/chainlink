@@ -20,21 +20,21 @@ func TestAssignmentsController_Create_V1_Format(t *testing.T) {
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
 
 	adapter1, err := adapters.For(j.Tasks[0], app.Store)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	httpGet := cltest.UnwrapAdapter(adapter1).(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.URL.String(), "https://bitstamp.net/api/ticker/")
 
 	adapter2, err := adapters.For(j.Tasks[1], app.Store)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	jsonParse := cltest.UnwrapAdapter(adapter2).(*adapters.JSONParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
 	adapter3, err := adapters.For(j.Tasks[2], app.Store)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "*adapters.EthBytes32", reflect.TypeOf(cltest.UnwrapAdapter(adapter3)).String())
 
 	adapter4, err := adapters.For(j.Tasks[3], app.Store)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	ethTx := cltest.UnwrapAdapter(adapter4).(*adapters.EthTx)
 	assert.Equal(t, ethTx.Address, common.HexToAddress("0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"))
 }
@@ -46,7 +46,7 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job_with_schedule.json")
 	a1, err := models.ConvertToAssignment(j)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v1/assignments/" + j.ID)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
