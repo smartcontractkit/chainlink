@@ -127,7 +127,7 @@ contract('Oracle', () => {
         assert.equal(amount, web3.toBigNumber(log.topics[2]));
       });
 
-      it("uses the expected event signature", async () => {
+      it("uses the expected event signature", () => {
         // If updating this test, be sure to update services.SpecAndRunTopic.
         let eventSignature = "0x40a86f3bd301164dcd67d63d081ecb2db540ac73bafb27eea27d65b3a2694f39";
         assert.equal(eventSignature, log.topics[0]);

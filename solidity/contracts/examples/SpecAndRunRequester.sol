@@ -19,8 +19,8 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
 
   function requestEthereumPrice(string _currency) public {
     string[] memory tasks = new string[](4);
-    tasks[0] = "httpGet";
-    tasks[1] = "jsonParse";
+    tasks[0] = "httpget";
+    tasks[1] = "jsonparse";
     tasks[2] = "ethint256";
     tasks[3] = "ethtx";
 
