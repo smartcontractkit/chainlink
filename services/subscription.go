@@ -79,13 +79,13 @@ type Unsubscriber interface {
 	Unsubscribe()
 }
 
-// RPCLogSubscription encapsulates all functionality needed to wrap an ethereum subscription
+// InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the ReceiveLog callback using a strategy pattern.
-type RPCLogSubscription struct {
+type InitiatorSubscription struct {
 	Job             models.JobSpec
 	Initiator       models.Initiator
-	ReceiveLog      func(RPCLogEvent)
+	ReceiveLog      func(InitiatorSubscriptionLogEvent)
 	store           *store.Store
 	logs            chan types.Log
 	errors          chan error
@@ -95,7 +95,7 @@ type RPCLogSubscription struct {
 // RPCLogSubscriber represents the function for processing a received RPCLog and the filter.
 type RPCLogSubscriber struct {
 	Filter   ethereum.FilterQuery
-	Callback func(RPCLogEvent)
+	Callback func(InitiatorSubscriptionLogEvent)
 }
 
 // NewRPCLogSubscriber returns a new RPCLogSubscriber with initialized filter.
@@ -103,7 +103,7 @@ func NewRPCLogSubscriber(
 	initr models.Initiator,
 	head *models.IndexableBlockNumber,
 	topics [][]common.Hash,
-	callback func(RPCLogEvent)) *RPCLogSubscriber {
+	callback func(InitiatorSubscriptionLogEvent)) *RPCLogSubscriber {
 
 	listenFromNumber := head.NextInt()
 	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
@@ -115,19 +115,19 @@ func NewRPCLogSubscriber(
 	}
 }
 
-// NewRPCLogSubscription creates a new RPCLogSubscription that feeds received
+// NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
 // logs to the callback func parameter.
-func NewRPCLogSubscription(
+func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *store.Store,
 	subscriber *RPCLogSubscriber,
-) (RPCLogSubscription, error) {
+) (InitiatorSubscription, error) {
 	if !initr.IsLogInitiated() {
-		return RPCLogSubscription{}, errors.New("Can only create an RPC log subscription for log initiators")
+		return InitiatorSubscription{}, errors.New("Can only create an RPC log subscription for log initiators")
 	}
 
-	sub := RPCLogSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: subscriber.Callback}
+	sub := InitiatorSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: subscriber.Callback}
 	sub.errors = make(chan error)
 	sub.logs = make(chan types.Log)
 
@@ -144,7 +144,7 @@ func NewRPCLogSubscription(
 }
 
 // Unsubscribe closes channels and clean up resources.
-func (sub RPCLogSubscription) Unsubscribe() {
+func (sub InitiatorSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
 		sub.ethSubscription.Unsubscribe()
 	}
@@ -152,13 +152,13 @@ func (sub RPCLogSubscription) Unsubscribe() {
 	close(sub.errors)
 }
 
-func (sub RPCLogSubscription) listenToSubscriptionErrors() {
+func (sub InitiatorSubscription) listenToSubscriptionErrors() {
 	for err := range sub.errors {
 		logger.Errorw(fmt.Sprintf("Error in log subscription for job %v", sub.Job.ID), "err", err, "initr", sub.Initiator)
 	}
 }
 
-func (sub RPCLogSubscription) listenToLogs(q ethereum.FilterQuery) {
+func (sub InitiatorSubscription) listenToLogs(q ethereum.FilterQuery) {
 	backfilledSet := sub.backfillLogs(q)
 	for el := range sub.logs {
 		if _, present := backfilledSet[el.BlockHash.String()]; !present {
@@ -167,7 +167,7 @@ func (sub RPCLogSubscription) listenToLogs(q ethereum.FilterQuery) {
 	}
 }
 
-func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
+func (sub InitiatorSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
 	backfilledSet := map[string]bool{}
 	if q.FromBlock.Cmp(big.NewInt(0)) <= 0 {
 		return backfilledSet
@@ -186,8 +186,8 @@ func (sub RPCLogSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bo
 	return backfilledSet
 }
 
-func (sub RPCLogSubscription) dispatchLog(log types.Log) {
-	sub.ReceiveLog(RPCLogEvent{
+func (sub InitiatorSubscription) dispatchLog(log types.Log) {
+	sub.ReceiveLog(InitiatorSubscriptionLogEvent{
 		Job:       sub.Job,
 		Initiator: sub.Initiator,
 		Log:       log,
@@ -204,16 +204,16 @@ func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 	return [][]common.Hash{{RunLogTopic}, nil, {hexJobID, jobIDZeroPadded}}
 }
 
-// StartRunLogSubscription starts an RPCLogSubscription tailored for use with RunLogs.
+// StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
 	subscriber := NewRPCLogSubscriber(initr, head, TopicFiltersForRunLog(job.ID), receiveRunLog)
-	return NewRPCLogSubscription(initr, job, store, subscriber)
+	return NewInitiatorSubscription(initr, job, store, subscriber)
 }
 
-// StartEthLogSubscription starts an RPCLogSubscription tailored for use with EthLogs.
+// StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
 	subscriber := NewRPCLogSubscriber(initr, head, nil, receiveEthLog)
-	return NewRPCLogSubscription(initr, job, store, subscriber)
+	return NewInitiatorSubscription(initr, job, store, subscriber)
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -227,7 +227,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 }
 
 // Parse the log and run the job specific to this initiator log event.
-func receiveRunLog(le RPCLogEvent) {
+func receiveRunLog(le InitiatorSubscriptionLogEvent) {
 	if !le.ValidateRunLog() {
 		return
 	}
@@ -243,7 +243,7 @@ func receiveRunLog(le RPCLogEvent) {
 }
 
 // Parse the log and run the job specific to this initiator log event.
-func receiveEthLog(le RPCLogEvent) {
+func receiveEthLog(le InitiatorSubscriptionLogEvent) {
 	le.ToDebug()
 	data, err := le.EthLogJSON()
 	if err != nil {
@@ -254,7 +254,7 @@ func receiveEthLog(le RPCLogEvent) {
 	runJob(le, data, le.Initiator)
 }
 
-func runJob(le RPCLogEvent, data models.JSON, initr models.Initiator) {
+func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Initiator) {
 	payment, err := le.ContractPayment()
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
@@ -269,17 +269,17 @@ func runJob(le RPCLogEvent, data models.JSON, initr models.Initiator) {
 	}
 }
 
-// RPCLogEvent encapsulates all information as a result of a received log from an
-// RPCLogSubscription.
-type RPCLogEvent struct {
+// InitiatorSubscriptionLogEvent encapsulates all information as a result of a received log from an
+// InitiatorSubscription.
+type InitiatorSubscriptionLogEvent struct {
 	Log       types.Log
 	Job       models.JobSpec
 	Initiator models.Initiator
 	store     *store.Store
 }
 
-// ForLogger formats the RPCLogEvent for easy common formatting in logs (trace statements, not ethereum events).
-func (le RPCLogEvent) ForLogger(kvs ...interface{}) []interface{} {
+// ForLogger formats the InitiatorSubscriptionLogEvent for easy common formatting in logs (trace statements, not ethereum events).
+func (le InitiatorSubscriptionLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Job,
 		"log", le.Log,
@@ -290,14 +290,14 @@ func (le RPCLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 }
 
 // ToDebug prints this event via logger.Debug.
-func (le RPCLogEvent) ToDebug() {
+func (le InitiatorSubscriptionLogEvent) ToDebug() {
 	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
 	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.Job.ID)
 	logger.Debugw(msg, le.ForLogger()...)
 }
 
-// ToIndexableBlockNumber returns an IndexableBlockNumber for the given RPCLogEvent Block
-func (le RPCLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
+// ToIndexableBlockNumber returns an IndexableBlockNumber for the given InitiatorSubscriptionLogEvent Block
+func (le InitiatorSubscriptionLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
 	num := new(big.Int)
 	num.SetUint64(le.Log.BlockNumber)
 	return models.NewIndexableBlockNumber(num, le.Log.BlockHash)
@@ -305,7 +305,7 @@ func (le RPCLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
 
 // ValidateRunLog returns whether or not the contained log is a RunLog,
 // a specific Chainlink event trigger from smart contracts.
-func (le RPCLogEvent) ValidateRunLog() bool {
+func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 	el := le.Log
 	if !isRunLog(el) {
 		logger.Errorw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
@@ -330,7 +330,7 @@ var fulfillDataFunctionID = "76005c26"
 
 // RunLogJSON extracts data from the log's topics and data specific to the format defined
 // by RunLogs.
-func (le RPCLogEvent) RunLogJSON() (models.JSON, error) {
+func (le InitiatorSubscriptionLogEvent) RunLogJSON() (models.JSON, error) {
 	el := le.Log
 	js, err := decodeABIToJSON(el.Data)
 	if err != nil {
@@ -344,7 +344,7 @@ func (le RPCLogEvent) RunLogJSON() (models.JSON, error) {
 	return js.Merge(fullfillmentJSON)
 }
 
-func fulfillmentToJSON(le RPCLogEvent) (models.JSON, error) {
+func fulfillmentToJSON(le InitiatorSubscriptionLogEvent) (models.JSON, error) {
 	el := le.Log
 	var js models.JSON
 	js, err := js.Add("address", el.Address.String())
@@ -361,7 +361,7 @@ func fulfillmentToJSON(le RPCLogEvent) (models.JSON, error) {
 }
 
 // EthLogJSON reformats the log as JSON.
-func (le RPCLogEvent) EthLogJSON() (models.JSON, error) {
+func (le InitiatorSubscriptionLogEvent) EthLogJSON() (models.JSON, error) {
 	el := le.Log
 	var out models.JSON
 	b, err := json.Marshal(el)
@@ -372,7 +372,7 @@ func (le RPCLogEvent) EthLogJSON() (models.JSON, error) {
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le RPCLogEvent) ContractPayment() (*big.Int, error) {
+func (le InitiatorSubscriptionLogEvent) ContractPayment() (*big.Int, error) {
 	if !isRunLog(le.Log) {
 		return nil, nil
 	}
