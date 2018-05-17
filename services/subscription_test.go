@@ -77,7 +77,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	head := cltest.IndexableBlockNumber(0)
-	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
+	subscriber := services.NewInitiatorSubscriber(initr, head, nil, callback)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
@@ -98,7 +98,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
-	subscriber := services.NewRPCLogSubscriber(initr, nil, nil, callback)
+	subscriber := services.NewInitiatorSubscriber(initr, nil, nil, callback)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
@@ -124,7 +124,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	head := cltest.IndexableBlockNumber(0)
-	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
+	subscriber := services.NewInitiatorSubscriber(initr, head, nil, callback)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()

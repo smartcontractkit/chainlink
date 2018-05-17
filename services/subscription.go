@@ -32,6 +32,11 @@ const (
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
 var RunLogTopic = common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d")
 
+// Unsubscriber is the interface for all subscriptions, allowing one to unsubscribe.
+type Unsubscriber interface {
+	Unsubscribe()
+}
+
 // JobSubscription listens to event logs being pushed from the Ethereum Node to a job.
 type JobSubscription struct {
 	Job           models.JobSpec
@@ -74,9 +79,27 @@ func (js JobSubscription) Unsubscribe() {
 	}
 }
 
-// Unsubscriber is the interface for all subscriptions, allowing one to unsubscribe.
-type Unsubscriber interface {
-	Unsubscribe()
+// InitiatorSubscriber encapsulates the filtering and processing of log events.
+type InitiatorSubscriber struct {
+	Filter   ethereum.FilterQuery
+	Callback func(InitiatorSubscriptionLogEvent)
+}
+
+// NewInitiatorSubscriber returns a new InitiatorSubscriber with initialized filter.
+func NewInitiatorSubscriber(
+	initr models.Initiator,
+	head *models.IndexableBlockNumber,
+	topics [][]common.Hash,
+	callback func(InitiatorSubscriptionLogEvent)) *InitiatorSubscriber {
+
+	listenFromNumber := head.NextInt()
+	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
+	q.Topics = topics
+
+	return &InitiatorSubscriber{
+		Filter:   q,
+		Callback: callback,
+	}
 }
 
 // InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription
@@ -92,39 +115,16 @@ type InitiatorSubscription struct {
 	ethSubscription models.EthSubscription
 }
 
-// RPCLogSubscriber represents the function for processing a received RPCLog and the filter.
-type RPCLogSubscriber struct {
-	Filter   ethereum.FilterQuery
-	Callback func(InitiatorSubscriptionLogEvent)
-}
-
-// NewRPCLogSubscriber returns a new RPCLogSubscriber with initialized filter.
-func NewRPCLogSubscriber(
-	initr models.Initiator,
-	head *models.IndexableBlockNumber,
-	topics [][]common.Hash,
-	callback func(InitiatorSubscriptionLogEvent)) *RPCLogSubscriber {
-
-	listenFromNumber := head.NextInt()
-	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
-	q.Topics = topics
-
-	return &RPCLogSubscriber{
-		Filter:   q,
-		Callback: callback,
-	}
-}
-
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
 // logs to the callback func parameter.
 func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *store.Store,
-	subscriber *RPCLogSubscriber,
+	subscriber *InitiatorSubscriber,
 ) (InitiatorSubscription, error) {
 	if !initr.IsLogInitiated() {
-		return InitiatorSubscription{}, errors.New("Can only create an RPC log subscription for log initiators")
+		return InitiatorSubscription{}, errors.New("Can only create an initiator subscription for log initiators")
 	}
 
 	sub := InitiatorSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: subscriber.Callback}
@@ -206,13 +206,13 @@ func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	subscriber := NewRPCLogSubscriber(initr, head, TopicFiltersForRunLog(job.ID), receiveRunLog)
+	subscriber := NewInitiatorSubscriber(initr, head, TopicFiltersForRunLog(job.ID), receiveRunLog)
 	return NewInitiatorSubscription(initr, job, store, subscriber)
 }
 
 // StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	subscriber := NewRPCLogSubscriber(initr, head, nil, receiveEthLog)
+	subscriber := NewInitiatorSubscriber(initr, head, nil, receiveEthLog)
 	return NewInitiatorSubscription(initr, job, store, subscriber)
 }
 
