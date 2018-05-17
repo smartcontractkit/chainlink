@@ -5,7 +5,7 @@ Here you'll find the Chainlink Golang node, currently in alpha.
 This initial implementation is intended for use and review by developers,
 and will go on to form the basis for Chainlink's [decentralized oracle network](https://link.smartcontract.com/whitepaper).
 Further development of the Chainlink Node and Chainlink Network will happen here,
-if you are interested in contributing please see our [contribution guidelines](https://github.com/smartcontractkit/chainlink/blob/master/CONTRIBUTING.md).
+if you are interested in contributing please see our [contribution guidelines](./.github/CONTRIBUTING.md).
 The current node supports:
 - easy connectivity of on-chain contracts to any off-chain computation or API
 - multiple methods for scheduling both on-chain and off-chain computation for a user's smart contract
@@ -61,7 +61,8 @@ You can configure your node's behavior by setting environment variables which ca
 
     LOG_LEVEL                Default: info
     ROOT                     Default: ~/.chainlink
-    PORT                     Default: 6688
+    CHAINLINK_PORT           Default: 6688
+    GUI_PORT                 Default: 6689
     USERNAME                 Default: chainlink
     PASSWORD                 Default: twochains
     ETH_URL                  Default: ws://localhost:8546
@@ -156,6 +157,6 @@ For more tips on how to build and test Chainlink, see our [development tips page
 
 Chainlink's source code is [licensed under the MIT License](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE), and contributions are welcome.
 
-Please check out our [contributing guidelines](https://github.com/smartcontractkit/chainlink/blob/master/CONTRIBUTING.md) for more details.
+Please check out our [contributing guidelines](./.github/CONTRIBUTING.md) for more details.
 
 Thank you!

@@ -1,10 +1,9 @@
 package utils_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
-
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -16,22 +15,6 @@ func TestUtils_NewBytes32ID(t *testing.T) {
 	t.Parallel()
 	id := utils.NewBytes32ID()
 	assert.NotContains(t, id, "-")
-}
-
-func TestUtils_WeiToEth(t *testing.T) {
-	t.Parallel()
-	numWei := new(big.Int).SetInt64(1)
-
-	actualNumEth := utils.WeiToEth(numWei)
-	assert.Equal(t, big.NewRat(1, 1e18), actualNumEth)
-}
-
-func TestUtils_EthToWei(t *testing.T) {
-	t.Parallel()
-	var numEth float64 = 1.0
-	var expectedNumWei *big.Int = new(big.Int).SetInt64(1e18)
-	actualNumWei := utils.EthToWei(numEth)
-	assert.Equal(t, actualNumWei, expectedNumWei)
 }
 
 func TestUtils_IsEmptyAddress(t *testing.T) {
@@ -106,4 +89,64 @@ func TestUtils_BackoffSleeper(t *testing.T) {
 	bs.Sleep()
 	d2 := 2 * time.Nanosecond
 	assert.Equal(t, d2, bs.Duration())
+}
+
+func TestCoerceInterfaceMapToStringMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     interface{}
+		want      interface{}
+		wantError bool
+	}{
+		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}, false},
+		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}, false},
+		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}, false},
+		{"error map", map[interface{}]interface{}{1: "value"}, map[int]interface{}{}, true},
+		{
+			"nested string map map",
+			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+			false,
+		},
+		{
+			"nested map map",
+			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+			false,
+		},
+		{
+			"nested map array",
+			map[interface{}]interface{}{"key": []interface{}{1, "value"}},
+			map[string]interface{}{"key": []interface{}{1, "value"}},
+			false,
+		},
+		{"empty array", []interface{}{}, []interface{}{}, false},
+		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}, false},
+		{
+			"error array",
+			[]interface{}{map[interface{}]interface{}{1: "value"}},
+			[]interface{}{},
+			true,
+		},
+		{
+			"nested array map",
+			[]interface{}{map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}}},
+			[]interface{}{map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}}},
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			decoded, err := utils.CoerceInterfaceMapToStringMap(test.input)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.True(t, reflect.DeepEqual(test.want, decoded))
+			}
+		})
+	}
 }

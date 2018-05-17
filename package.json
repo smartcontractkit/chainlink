@@ -2,22 +2,70 @@
   "name": "chainlink",
   "version": "0.2.0",
   "license": "MIT",
-  "devDependencies": {
-    "bignumber.js": "^5.0.0",
-    "cbor": "^4.0.0",
-    "ethereumjs-abi": "^0.6.5",
-    "ethereumjs-util": "^5.1.5",
-    "ganache-cli": "^6.1.0",
-    "moment": "^2.20.1",
-    "request-promise": "^4.2.2",
-    "solium": "^1.1.7",
-    "truffle": "^4.1.7",
-    "web3": "^1.0.0-beta.29",
-    "wscat": "^2.1.1"
+  "scripts": {
+    "start": "cd gui && react-static start",
+    "build": "cd gui && react-static build",
+    "serve": "cd gui && serve dist -p 3000",
+    "lint": "standard --fix --verbose | snazzy",
+    "test": "NODE_ENV=test jest",
+    "test-ci": "NODE_ENV=test yarn jest -i --reporters jest-silent-reporter",
+    "watch": "NODE_ENV=test jest --watchAll --notify"
   },
   "dependencies": {
     "linkToken": "github:smartcontractkit/linktoken",
     "openzeppelin-solidity": "^1.8.0",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
+  },
+  "devDependencies": {
+    "@material-ui/core": "^1.0.0",
+    "@material-ui/icons": "^1.0.0",
+    "babel-plugin-transform-es3-member-expression-literals": "^6.22.0",
+    "babel-plugin-transform-es3-property-literals": "^6.22.0",
+    "bignumber.js": "^7.2.1",
+    "cbor": "^4.0.0",
+    "enzyme": "^3.3.0",
+    "enzyme-adapter-react-16": "^1.1.1",
+    "enzyme-matchers": "^6.0.0",
+    "eslint-config-react-tools": "1.x.x",
+    "ethereumjs-abi": "^0.6.5",
+    "ethereumjs-util": "^5.1.5",
+    "fetch-mock": "^6.4.2",
+    "ganache-cli": "^6.1.0",
+    "humps": "^2.0.1",
+    "isomorphic-unfetch": "^2.0.0",
+    "jest": "^23.1",
+    "jest-environment-enzyme": "^6.0.0",
+    "jest-silent-reporter": "^0.0.4",
+    "moment": "^2.20.1",
+    "numeral": "^2.0.6",
+    "query-string": "^6.1.0",
+    "react": "^16.0.0",
+    "react-dom": "^16.0.0",
+    "react-redux": "^5.0.7",
+    "react-router": "^4.2.0",
+    "react-static": "^5.9.3",
+    "redux": "^4.0.0",
+    "redux-thunk": "^2.3.0",
+    "request-promise": "^4.2.2",
+    "serve": "^6.5.0",
+    "snazzy": "^7.1.1",
+    "solium": "^1.1.7",
+    "standard": "^11.0.1",
+    "truffle": "^4.1.7",
+    "url": "^0.11.0",
+    "uuid": "^3.2.1",
+    "web3": "^1.0.0-beta.29",
+    "wscat": "^2.1.1"
+  },
+  "standard": {
+    "env": [
+      "jest"
+    ],
+    "ignore": [
+      "**/gui/dist/",
+      "**/internal/",
+      "**/examples/",
+      "**/solidity/"
+    ]
   }
 }

@@ -141,43 +141,6 @@ func TestCreatingTx(t *testing.T) {
 	assert.Equal(t, gasLimit, tx.GasLimit)
 }
 
-func TestORM_BuildQuery(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	type test_interface struct {
-		Key1 string
-		Key2 []int
-	}
-
-	type wrong_interface struct {
-		key1 string
-		key2 []int
-	}
-
-	test := &test_interface{"^test+", []int{0, 1, 2, 3}}
-	expected_len := 2
-
-	result, err := store.BuildQuery(test)
-	assert.Nil(t, err)
-	assert.Equal(t, expected_len, len(result))
-	assert.Equal(t, result[0], q.Re("Key1", test.Key1))
-	assert.Equal(t, result[1], q.Eq("Key2", test.Key2))
-
-	test = &test_interface{}
-	expected_len = 0
-	result, err = store.BuildQuery(test)
-	assert.Nil(t, err)
-	assert.Equal(t, expected_len, len(result))
-
-	test2 := &wrong_interface{}
-	result, err = store.BuildQuery(test2)
-	assert.NotNil(t, err)
-
-}
-
 func TestBridgeTypeFor(t *testing.T) {
 	t.Parallel()
 

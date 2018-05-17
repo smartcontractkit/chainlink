@@ -51,6 +51,20 @@ library ChainlinkLib {
     self.buf.encodeString(_value);
   }
 
+  function addInt(Run memory self, string _key, int256 _value)
+    internal pure
+  {
+    self.buf.encodeString(_key);
+    self.buf.encodeInt(_value);
+  }
+  
+  function addUint(Run memory self, string _key, uint256 _value)
+    internal pure
+  {
+    self.buf.encodeString(_key);
+    self.buf.encodeUInt(_value);
+  }
+
   function addStringArray(Run memory self, string _key, string[] memory _values)
     internal pure
   {
@@ -113,6 +127,20 @@ library ChainlinkLib {
   {
     self.buf.encodeString(_key);
     self.buf.encodeString(_value);
+  }
+
+  function addInt(Spec memory self, string _key, int256 _value)
+    internal pure
+  {
+    self.buf.encodeString(_key);
+    self.buf.encodeInt(_value);
+  }
+  
+  function addUint(Spec memory self, string _key, uint256 _value)
+    internal pure
+  {
+    self.buf.encodeString(_key);
+    self.buf.encodeUInt(_value);
   }
 
   function addStringArray(Spec memory self, string _key, string[] memory _values)

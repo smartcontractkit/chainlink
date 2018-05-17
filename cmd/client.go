@@ -27,6 +27,7 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 )
 
 // Client is the shell for the node. It has fields for the Renderer,
@@ -76,6 +77,28 @@ func logNodeBalance(store *strpkg.Store) {
 
 func logConfigVariables(config strpkg.Config) {
 	logger.Debug("Environment variables\n", config)
+}
+
+// DisplayAccountBalance renders a table containing the active account address
+// with it's ETH & LINK balance
+func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
+	cfg := cli.Config
+	resp, err := utils.BasicAuthGet(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/account_balance",
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var links jsonapi.Links
+	a := presenters.AccountBalance{}
+	if err = cli.deserializeAPIResponse(resp, &a, &links); err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&a))
 }
 
 // ShowJobSpec returns the status of the given JobID.
@@ -324,34 +347,6 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &bridge)
 }
 
-// RemoveBridges removes several bridges based on JSON specifications
-func (cli *Client) RemoveBridges(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in parameters for bridge removal [JSON blob | JSON filepath]"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := utils.BasicAuthDelete(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/bridge_types",
-		"application/json",
-		buf,
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	var bridges []models.BridgeType
-	return cli.renderResponse(resp, &bridges)
-}
-
 func isDirEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {
@@ -488,6 +483,11 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
-	port := app.GetStore().Config.Port
-	return web.Router(app.(*services.ChainlinkApplication)).Run(":" + port)
+	api, gui := web.Router(app.(*services.ChainlinkApplication))
+	config := app.GetStore().Config
+	var g errgroup.Group
+
+	g.Go(func() error { return api.Run(":" + config.Port) })
+	g.Go(func() error { return gui.Run(":" + config.GuiPort) })
+	return g.Wait()
 }

@@ -134,7 +134,7 @@ func NewApplication() (*TestApplication, func()) {
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
-	server := newServer(app)
+	server := newApiServer(app)
 	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
 	ethMock := MockEthOnStore(app.Store)
@@ -171,8 +171,9 @@ func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func
 	return app, cleanup
 }
 
-func newServer(app *services.ChainlinkApplication) *httptest.Server {
-	return httptest.NewServer(web.Router(app))
+func newApiServer(app *services.ChainlinkApplication) *httptest.Server {
+	apiEngine, _ := web.Router(app)
+	return httptest.NewServer(apiEngine)
 }
 
 // Stop will stop the test application and perform cleanup
@@ -235,6 +236,20 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 	b, err := ioutil.ReadAll(body)
 	mustNotErr(err)
 	var respJSON CommonJSON
+	json.Unmarshal(b, &respJSON)
+	return respJSON
+}
+
+// ErrorsJson has an errors attribute
+type ErrorsJSON struct {
+	Errors []string `json:"errors"`
+}
+
+// ParseErrorsJSON will unmarshall given body into ErrorsJSON
+func ParseErrorsJSON(body io.Reader) ErrorsJSON {
+	b, err := ioutil.ReadAll(body)
+	mustNotErr(err)
+	var respJSON ErrorsJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
 }
@@ -320,6 +335,33 @@ func ParseResponseBody(resp *http.Response) []byte {
 	mustNotErr(err)
 	mustNotErr(resp.Body.Close())
 	return b
+}
+
+// ParseJSONAPIResponseMeta parses the bytes of the root document and returns a
+// map of *json.RawMessage's within the 'meta' key.
+func ParseJSONAPIResponseMeta(input []byte) (map[string]*json.RawMessage, error) {
+	var root map[string]*json.RawMessage
+	err := json.Unmarshal(input, &root)
+	if err != nil {
+		return root, err
+	}
+
+	var meta map[string]*json.RawMessage
+	err = json.Unmarshal(*root["meta"], &meta)
+	return meta, err
+}
+
+// ParseJSONAPIResponseMetaCount parses the bytes of the root document and
+// returns the value of the 'count' key from the 'meta' section.
+func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
+	meta, err := ParseJSONAPIResponseMeta(input)
+	if err != nil {
+		return -1, err
+	}
+
+	var metaCount int
+	err = json.Unmarshal(*meta["count"], &metaCount)
+	return metaCount, err
 }
 
 // ObserveLogs returns the observed logs
@@ -561,6 +603,29 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) [
 		}).Should(gomega.HaveLen(want))
 	}
 	return jrs
+}
+
+// WaitForJobs waits for the wanted number of jobs.
+func WaitForJobs(t *testing.T, store *store.Store, want int) []models.JobSpec {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var jobs []models.JobSpec
+	var err error
+	if want == 0 {
+		g.Consistently(func() []models.JobSpec {
+			jobs, err = store.Jobs()
+			assert.NoError(t, err)
+			return jobs
+		}).Should(gomega.HaveLen(want))
+	} else {
+		g.Eventually(func() []models.JobSpec {
+			jobs, err = store.Jobs()
+			assert.NoError(t, err)
+			return jobs
+		}).Should(gomega.HaveLen(want))
+	}
+	return jobs
 }
 
 // MustParseWebURL must parse the given url and return it

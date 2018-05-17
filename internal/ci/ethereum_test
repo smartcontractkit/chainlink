@@ -19,12 +19,12 @@ assert ()
 waitForResponse ()
 {
   sleepCount=0
-  while [ "$sleepCount" -le "10" ] && ! curl -s "$1"; do
+  while [ "$sleepCount" -le "120" ] && ! curl -s "$1"; do
       sleep 1
       sleepCount=$((sleepCount+1))
   done
 
-  if [ "$sleepCount" -gt "10" ]; then
+  if [ "$sleepCount" -gt "120" ]; then
     exit 1
   fi
 }
@@ -38,7 +38,7 @@ waitForResponse http://127.0.0.1:18545
 
 # Run CL against ethereum node
 cldev &
-sleep 4
+waitForResponse http://127.0.0.1:6688
 
 ########################
 ## Run echo_server sample
@@ -74,6 +74,30 @@ runs=`cldev -j s $jid |  jq '.runs | length'`
 assert "RunLog Runs count" 1 $runs
 
 ########################
+## specAndRunLog
+########################
+
+cd examples/echo_server
+./send_specandrunlog_transaction.js
+sleep 2
+
+# Check echo count
+count=`curl -sS localhost:6690/count`
+assert "Echo count" 2 $count
+
+# Check CL counts
+cd ../../
+
+## Check job counts using jq to parse json: https://stedolan.github.io/jq/
+jobs=`cldev -j j | jq length`
+assert "Jobs count" 2 $jobs
+
+# Check job runs
+jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
+runs=`cldev -j s $jid |  jq '.runs | length'`
+assert "SpecAndRuns count" 1 $runs
+
+########################
 ## ethlog
 ########################
 
@@ -84,14 +108,14 @@ sleep 2
 
 # Check echo count
 count=`curl -sS localhost:6690/count`
-assert "Echo count" 2 $count
+assert "Echo count" 3 $count
 
 # Check CL counts
 cd ../../
 
 ## Check job counts
 jobs=`cldev -j j | jq length`
-assert "Jobs count" 2 $jobs
+assert "Jobs count" 3 $jobs
 
 ## Check job runs
 jid=`echo $ethjob | jq .id | tr -d '"'`

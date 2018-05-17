@@ -196,21 +196,6 @@ func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	return tx, rlp.DecodeBytes(b, &tx)
 }
 
-// WeiToEth converts wei amounts to ether.
-func WeiToEth(numWei *big.Int) *big.Rat {
-	return new(big.Rat).SetFrac(numWei, weiPerEth)
-}
-
-// EthToWei converts ether amounts to wei.
-func EthToWei(numEth float64) *big.Int {
-	numEthBigFloat := new(big.Float).SetFloat64(numEth)
-	weiPerEthBigFloat := new(big.Float).SetInt(weiPerEth)
-	numWeiBigFloat := new(big.Float)
-	numWeiBigFloat.Mul(weiPerEthBigFloat, numEthBigFloat)
-	numWeiBigInt, _ := numWeiBigFloat.Int(nil)
-	return numWeiBigInt
-}
-
 // IsEmptyAddress checks that the address is empty, synonymous with the zero
 // account/address. No logs can come from this address, as there is no contract
 // present there.
@@ -335,20 +320,45 @@ func EVMHexNumber(val interface{}) string {
 	return fmt.Sprintf("0x%064x", val)
 }
 
-// BigRatIsZero checks if a big.Rat is equal to 0.
-func BigRatIsZero(val *big.Rat) bool {
-	zero := new(big.Rat).SetInt64(0)
-	if val.Cmp(zero) == 0 {
-		return true
+// CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
+// map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
+// Relevant when serializing between CBOR and JSON.
+func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
+	switch typed := in.(type) {
+	case map[string]interface{}:
+		for k, v := range typed {
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			typed[k] = coerced
+		}
+		return typed, nil
+	case map[interface{}]interface{}:
+		m := map[string]interface{}{}
+		for k, v := range typed {
+			coercedKey, ok := k.(string)
+			if !ok {
+				return nil, fmt.Errorf("Unable to coerce key %T %v to a string", k, k)
+			}
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			m[coercedKey] = coerced
+		}
+		return m, nil
+	case []interface{}:
+		r := make([]interface{}, len(typed))
+		for i, v := range typed {
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			r[i] = coerced
+		}
+		return r, nil
+	default:
+		return in, nil
 	}
-	return false
-}
-
-// BigIntIsZero checks if a big.Int is equal to 0.
-func BigIntIsZero(val *big.Int) bool {
-	zero := new(big.Int).SetInt64(0)
-	if val.Cmp(zero) == 0 {
-		return true
-	}
-	return false
 }

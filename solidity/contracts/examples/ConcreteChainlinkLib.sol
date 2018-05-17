@@ -31,6 +31,18 @@ contract ConcreteChainlinkLib {
     run = r2;
   }
 
+  function addInt(string _key, int256 _value) public {
+    ChainlinkLib.Run memory r2 = run;
+    r2.addInt(_key, _value);
+    run = r2;
+  }
+
+  function addUint(string _key, uint256 _value) public {
+    ChainlinkLib.Run memory r2 = run;
+    r2.addUint(_key, _value);
+    run = r2;
+  }
+
   // Temporarily have method receive bytes32[] memory until experimental
   // string[] memory can be invoked from truffle tests.
   function addStringArray(string _key, bytes32[] memory _values) public {

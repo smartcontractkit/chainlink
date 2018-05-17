@@ -44,6 +44,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
@@ -128,6 +129,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
+
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
@@ -152,6 +155,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	newHeads := eth.RegisterNewHeads()
@@ -181,6 +185,29 @@ func TestIntegration_RunLog(t *testing.T) {
 	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+}
+
+func TestIntegration_SpecAndRunLog(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
+	config.TaskMinConfirmations = 3
+	app, cleanup := cltest.NewApplicationWithConfig(config)
+	defer cleanup()
+
+	eth := app.MockEthClient()
+	newHeads := eth.RegisterNewHeads()
+	logs := make(chan types.Log, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
+
+	payload := `{"tasks": ["noop"]}`
+	logs <- cltest.NewSpecAndRunLog(cltest.NewAddress(), 1, payload)
+	jobs := cltest.WaitForJobs(t, app.Store, 1)
+	runs := cltest.WaitForRuns(t, jobs[0], app.Store, 1)
+	cltest.WaitForJobRunToPendConfirmations(t, app.Store, runs[0])
+
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(3)}
+	cltest.WaitForJobRunToComplete(t, app.Store, runs[0])
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -238,6 +265,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	newHeads := make(chan models.BlockHeader, 10)
@@ -301,6 +329,36 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 	res, err := tr.Result.Get("extra")
 	assert.NoError(t, err)
 	assert.Equal(t, eaExtra, res.String())
+}
+
+func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	eaPrice := "1234"
+	eaQuote := "USD"
+	eaResponse := fmt.Sprintf(`{"data":{"price": "%v", "quote": "%v"}}`, eaPrice, eaQuote)
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	defer cleanup()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, mockServer.URL)
+	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/bridge_type_copy_job.json")
+	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
+
+	tr := jr.TaskRuns[0]
+	assert.Equal(t, "assetprice", tr.Task.Type)
+	tr = jr.TaskRuns[1]
+	assert.Equal(t, "copy", tr.Task.Type)
+	val, err := tr.Result.Value()
+	assert.NoError(t, err)
+	assert.Equal(t, eaPrice, val)
+	res, err := tr.Result.Get("quote")
+	assert.NoError(t, err)
+	assert.Equal(t, eaQuote, res.String())
 }
 
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {

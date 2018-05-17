@@ -15,7 +15,7 @@ import (
 func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
-	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"76005c26"}`)
+	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"0x76005c26"}`)
 
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
@@ -77,8 +77,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	head := cltest.IndexableBlockNumber(0)
-	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
+	filter := services.NewInitiatorFilterQuery(initr, head, nil)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -98,8 +98,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
-	subscriber := services.NewRPCLogSubscriber(initr, nil, nil, callback)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
+	filter := services.NewInitiatorFilterQuery(initr, nil, nil)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -124,8 +124,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
 	head := cltest.IndexableBlockNumber(0)
-	subscriber := services.NewRPCLogSubscriber(initr, head, nil, callback)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, subscriber)
+	filter := services.NewInitiatorFilterQuery(initr, head, nil)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 

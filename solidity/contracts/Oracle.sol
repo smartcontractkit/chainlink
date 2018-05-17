@@ -113,16 +113,18 @@ contract Oracle is Ownable {
     delete callbacks[_internalId];
   }
 
-  function withdraw() public onlyOwner {
-    LINK.transfer(owner, withdrawableWei.sub(oneForConsistentGasCost));
+  function withdraw(address _recipient) public onlyOwner {
+    LINK.transfer(_recipient, withdrawableWei.sub(oneForConsistentGasCost));
     withdrawableWei = oneForConsistentGasCost;
   }
 
-  function cancel(bytes32 _externalId) public {
+  function cancel(bytes32 _externalId)
+    public
+  {
     uint256 internalId = uint256(keccak256(msg.sender, _externalId));
     require(msg.sender == callbacks[internalId].addr);
     Callback memory cb = callbacks[internalId];
-    LINK.transfer(cb.addr, cb.amount);
+    require(LINK.transfer(cb.addr, cb.amount));
     delete callbacks[internalId];
   }
 

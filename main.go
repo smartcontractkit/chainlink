@@ -9,6 +9,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+//go:generate sh -c "CGO_ENABLED=0 go run .packr/main.go $PWD"
+
 func init() {
 	time.LoadLocation("UTC")
 }
@@ -50,6 +52,12 @@ func Run(client *cmd.Client, args ...string) {
 			},
 			Usage:  "Run the chainlink node",
 			Action: client.RunNode,
+		},
+		{
+			Name:    "account",
+			Aliases: []string{"a"},
+			Usage:   "Display the account address with its ETH & LINK balances",
+			Action:  client.DisplayAccountBalance,
 		},
 		{
 			Name:    "jobspecs",
@@ -117,11 +125,6 @@ func Run(client *cmd.Client, args ...string) {
 			Name:   "removebridge",
 			Usage:  "Removes a specific bridge",
 			Action: client.RemoveBridge,
-		},
-		{
-			Name:   "removebridges",
-			Usage:  "Remove several bridges based on filter",
-			Action: client.RemoveBridges,
 		},
 	}
 	app.Run(args)

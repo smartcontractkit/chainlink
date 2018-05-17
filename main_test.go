@@ -34,6 +34,7 @@ func ExampleRun() {
 	//
 	// COMMANDS:
 	//      node, n                   Run the chainlink node
+	//      account, a                Display the account address with its ETH & LINK balances
 	//      jobspecs, jobs, j, specs  Get all jobs
 	//      show, s                   Show a specific job
 	//      create, c                 Create job spec from JSON
@@ -44,7 +45,6 @@ func ExampleRun() {
 	//      getbridges                List all bridges added to the node
 	//      showbridge                Show a specific bridge
 	//      removebridge              Removes a specific bridge
-	//      removebridges             Remove several bridges based on filter
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:

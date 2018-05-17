@@ -32,6 +32,7 @@ func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 		{MI{Type: models.InitiatorCron, Schedule: models.Cron("* * * * *")}, []string{"type", "schedule"}},
 		{MI{Type: models.InitiatorRunAt, Time: models.Time{Time: now}}, []string{"type", "time", "ran"}},
 		{MI{Type: models.InitiatorEthLog, Address: address}, []string{"type", "address"}},
+		{MI{Type: models.InitiatorSpecAndRun}, []string{"type"}},
 	}
 
 	for _, test := range tests {

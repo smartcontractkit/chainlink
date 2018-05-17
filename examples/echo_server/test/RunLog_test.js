@@ -15,6 +15,6 @@ contract('RunLog', () => {
 
   it("has a limited public interface", async () => {
     let tx = await logger.request();
-    assert.equal(3, tx.receipt.logs.length);
+    assert.equal(4, tx.receipt.logs.length);
   });
 });

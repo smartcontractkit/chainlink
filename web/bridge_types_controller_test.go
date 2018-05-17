@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -132,7 +131,7 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 }
 
-func TestBridgeController_RemoveOne(t *testing.T) {
+func TestBridgeController_Destroy(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -154,127 +153,6 @@ func TestBridgeController_RemoveOne(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/testingbridges2")
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
-}
-
-func TestBridgeController_RemoveMany(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-
-	var bridges []models.BridgeType
-
-	for i := 0; i < 8; i++ {
-		bt := models.BridgeType{Name: fmt.Sprintf("testbridge%v", i),
-			URL:                  cltest.WebURL(fmt.Sprintf("https://testing.com/bridges%v", i%2)),
-			DefaultConfirmations: uint64(i % 5)}
-		bridges = append(bridges, bt)
-		err := app.AddAdapter(&bt)
-		assert.NoError(t, err)
-	}
-
-	cases := []struct {
-		name        string
-		jsonInput   string
-		searchCheck models.BridgeTypeCleaner
-		resp        int
-		nilAssert   bool
-		expectedLen int
-	}{
-		{"value not found, no removals",
-			`{"defaultConfirmations":8}`,
-			models.BridgeTypeCleaner{bridges[3], ""},
-			500,
-			false,
-			1,
-		},
-		{"single value removal",
-			`{"defaultConfirmations":3}`,
-			models.BridgeTypeCleaner{bridges[3], ""},
-			200,
-			true,
-			0,
-		},
-		{"multiple value removal",
-			`{"url":"https://testing.com/bridges1"}`,
-			models.BridgeTypeCleaner{bridges[1], ""},
-			200,
-			true,
-			0,
-		},
-		{"regex based multiple value removal",
-			`{"name":"^test.+[0]"}`,
-			models.BridgeTypeCleaner{bridges[0], ""},
-			200,
-			true,
-			0,
-		},
-		{"empty input, remove all values",
-			`{}`,
-			models.BridgeTypeCleaner{bridges[5], ""},
-			200,
-			true,
-			0,
-		},
-	}
-
-	for _, test := range cases {
-		resp := cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types",
-			"application/json",
-			bytes.NewBufferString(test.jsonInput))
-		assert.Equal(t, test.resp, resp.StatusCode, "Response should be successful")
-		query, err := app.Store.AdvancedBridgeSearch(test.searchCheck)
-		assert.Equal(t, test.nilAssert, err != nil)
-		assert.Equal(t, test.expectedLen, len(query))
-	}
-}
-
-func TestBridgeController_AdvancedSearch(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-
-	bt := &models.BridgeType{Name: "testingbridges1",
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
-	err := app.AddAdapter(bt)
-	assert.NoError(t, err)
-
-	bt = &models.BridgeType{Name: "testingbridges2",
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
-	err = app.AddAdapter(bt)
-	assert.NoError(t, err)
-
-	cases := []struct {
-		name        string
-		search      models.BridgeTypeCleaner
-		expectedLen int
-		nilAssert   bool
-	}{
-		{"Search by URL",
-			models.BridgeTypeCleaner{models.BridgeType{URL: cltest.WebURL("https://testing.com/bridges")}, ""},
-			2,
-			false,
-		},
-		{"Search by Name",
-			models.BridgeTypeCleaner{models.BridgeType{Name: "^test"}, ""},
-			2,
-			false,
-		},
-		{"Not found",
-			models.BridgeTypeCleaner{models.BridgeType{Name: "notabridge"}, ""},
-			0,
-			true,
-		},
-	}
-
-	for _, test := range cases {
-		query, err := app.Store.AdvancedBridgeSearch(test.search)
-		assert.Equal(t, test.nilAssert, err != nil)
-		assert.Equal(t, test.expectedLen, len(query))
-	}
-
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
