@@ -216,7 +216,7 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 	return ethtypes.Log{
 		Address:     addr,
 		BlockNumber: uint64(blk),
-		Data:        StringToRunLogData(json),
+		Data:        StringToVersionedLogData(json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
 			StringToHash("internalID"),
@@ -226,8 +226,8 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 	}
 }
 
-// StringToRunLogData extracts runlog data from string
-func StringToRunLogData(str string) hexutil.Bytes {
+// StringToVersionedLogData encodes a string to the log data field.
+func StringToVersionedLogData(str string) hexutil.Bytes {
 	j := JSONFromString(str)
 	cbor, err := j.CBOR()
 	mustNotErr(err)
