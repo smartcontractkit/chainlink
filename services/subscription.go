@@ -79,40 +79,27 @@ func (js JobSubscription) Unsubscribe() {
 	}
 }
 
-// InitiatorSubscriber encapsulates the filtering and processing of log events.
-type InitiatorSubscriber struct {
-	Filter   ethereum.FilterQuery
-	Callback func(InitiatorSubscriptionLogEvent)
-}
-
-// NewInitiatorSubscriber returns a new InitiatorSubscriber with initialized filter.
-func NewInitiatorSubscriber(
+// NewInitiatorFilterQuery returns a new InitiatorSubscriber with initialized filter.
+func NewInitiatorFilterQuery(
 	initr models.Initiator,
 	head *models.IndexableBlockNumber,
 	topics [][]common.Hash,
-	callback func(InitiatorSubscriptionLogEvent)) *InitiatorSubscriber {
-
+) ethereum.FilterQuery {
 	listenFromNumber := head.NextInt()
 	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
 	q.Topics = topics
-
-	return &InitiatorSubscriber{
-		Filter:   q,
-		Callback: callback,
-	}
+	return q
 }
 
 // InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
-// to the ReceiveLog callback using a strategy pattern.
+// to the callback.
 type InitiatorSubscription struct {
-	Job             models.JobSpec
-	Initiator       models.Initiator
-	ReceiveLog      func(InitiatorSubscriptionLogEvent)
-	store           *store.Store
-	logs            chan types.Log
-	errors          chan error
-	ethSubscription models.EthSubscription
+	*ManagedSubscription
+	Job       models.JobSpec
+	Initiator models.Initiator
+	store     *store.Store
+	callback  func(InitiatorSubscriptionLogEvent)
 }
 
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
@@ -121,73 +108,32 @@ func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *store.Store,
-	subscriber *InitiatorSubscriber,
+	filter ethereum.FilterQuery,
+	callback func(InitiatorSubscriptionLogEvent),
 ) (InitiatorSubscription, error) {
 	if !initr.IsLogInitiated() {
 		return InitiatorSubscription{}, errors.New("Can only create an initiator subscription for log initiators")
 	}
 
-	sub := InitiatorSubscription{Job: job, Initiator: initr, store: store, ReceiveLog: subscriber.Callback}
-	sub.errors = make(chan error)
-	sub.logs = make(chan types.Log)
+	sub := InitiatorSubscription{
+		Job:       job,
+		Initiator: initr,
+		store:     store,
+		callback:  callback,
+	}
 
-	loggerLogListening(initr, subscriber.Filter.FromBlock)
-	es, err := store.TxManager.SubscribeToLogs(sub.logs, subscriber.Filter)
+	managedSub, err := NewManagedSubscription(store, filter, sub.dispatchLog)
 	if err != nil {
 		return sub, err
 	}
 
-	sub.ethSubscription = es
-	go sub.listenToSubscriptionErrors()
-	go sub.listenToLogs(subscriber.Filter)
+	sub.ManagedSubscription = managedSub
+	loggerLogListening(initr, filter.FromBlock)
 	return sub, nil
 }
 
-// Unsubscribe closes channels and clean up resources.
-func (sub InitiatorSubscription) Unsubscribe() {
-	if sub.ethSubscription != nil {
-		sub.ethSubscription.Unsubscribe()
-	}
-	close(sub.logs)
-	close(sub.errors)
-}
-
-func (sub InitiatorSubscription) listenToSubscriptionErrors() {
-	for err := range sub.errors {
-		logger.Errorw(fmt.Sprintf("Error in log subscription for job %v", sub.Job.ID), "err", err, "initr", sub.Initiator)
-	}
-}
-
-func (sub InitiatorSubscription) listenToLogs(q ethereum.FilterQuery) {
-	backfilledSet := sub.backfillLogs(q)
-	for el := range sub.logs {
-		if _, present := backfilledSet[el.BlockHash.String()]; !present {
-			sub.dispatchLog(el)
-		}
-	}
-}
-
-func (sub InitiatorSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
-	backfilledSet := map[string]bool{}
-	if q.FromBlock.Cmp(big.NewInt(0)) <= 0 {
-		return backfilledSet
-	}
-
-	logs, err := sub.store.TxManager.GetLogs(q)
-	if err != nil {
-		logger.Errorw("Unable to backfill logs", "err", err)
-		return backfilledSet
-	}
-
-	for _, log := range logs {
-		sub.dispatchLog(log)
-		backfilledSet[log.BlockHash.String()] = true
-	}
-	return backfilledSet
-}
-
 func (sub InitiatorSubscription) dispatchLog(log types.Log) {
-	sub.ReceiveLog(InitiatorSubscriptionLogEvent{
+	sub.callback(InitiatorSubscriptionLogEvent{
 		Job:       sub.Job,
 		Initiator: sub.Initiator,
 		Log:       log,
@@ -206,14 +152,14 @@ func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	subscriber := NewInitiatorSubscriber(initr, head, TopicFiltersForRunLog(job.ID), receiveRunLog)
-	return NewInitiatorSubscription(initr, job, store, subscriber)
+	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(job.ID))
+	return NewInitiatorSubscription(initr, job, store, filter, receiveRunLog)
 }
 
 // StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
-	subscriber := NewInitiatorSubscriber(initr, head, nil, receiveEthLog)
-	return NewInitiatorSubscription(initr, job, store, subscriber)
+	filter := NewInitiatorFilterQuery(initr, head, nil)
+	return NewInitiatorSubscription(initr, job, store, filter, receiveEthLog)
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -267,6 +213,84 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 	if _, err := BeginRunAtBlock(le.Job, initr, input, le.store, le.ToIndexableBlockNumber()); err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
+}
+
+// ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
+// ethereum node subscription.
+type ManagedSubscription struct {
+	store           *store.Store
+	logs            chan types.Log
+	errors          chan error
+	ethSubscription models.EthSubscription
+	callback        func(types.Log)
+}
+
+// NewManagedSubscription subscribes to the ethereum node with the passed filter
+// and delegates incoming logs to callback.
+func NewManagedSubscription(
+	store *store.Store,
+	filter ethereum.FilterQuery,
+	callback func(types.Log),
+) (*ManagedSubscription, error) {
+	logs := make(chan types.Log)
+	es, err := store.TxManager.SubscribeToLogs(logs, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	sub := &ManagedSubscription{
+		store:           store,
+		callback:        callback,
+		logs:            logs,
+		ethSubscription: es,
+		errors:          make(chan error),
+	}
+	go sub.listenToSubscriptionErrors()
+	go sub.listenToLogs(filter)
+	return sub, nil
+}
+
+// Unsubscribe closes channels and cleans up resources.
+func (sub ManagedSubscription) Unsubscribe() {
+	if sub.ethSubscription != nil {
+		sub.ethSubscription.Unsubscribe()
+	}
+	close(sub.logs)
+	close(sub.errors)
+}
+
+func (sub ManagedSubscription) listenToSubscriptionErrors() {
+	for err := range sub.errors {
+		logger.Errorw(fmt.Sprintf("Error in log subscription: %s", err.Error()), "err", err)
+	}
+}
+
+func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
+	backfilledSet := sub.backfillLogs(q)
+	for log := range sub.logs {
+		if _, present := backfilledSet[log.BlockHash.String()]; !present {
+			sub.callback(log)
+		}
+	}
+}
+
+func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
+	backfilledSet := map[string]bool{}
+	if q.FromBlock.Cmp(big.NewInt(0)) <= 0 {
+		return backfilledSet
+	}
+
+	logs, err := sub.store.TxManager.GetLogs(q)
+	if err != nil {
+		logger.Errorw("Unable to backfill logs", "err", err)
+		return backfilledSet
+	}
+
+	for _, log := range logs {
+		backfilledSet[log.BlockHash.String()] = true
+		sub.callback(log)
+	}
+	return backfilledSet
 }
 
 // InitiatorSubscriptionLogEvent encapsulates all information as a result of a received log from an
