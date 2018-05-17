@@ -102,16 +102,6 @@ func (a *AccountBalance) SetID(value string) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON byte encoding of the AccountBalance
-func (a AccountBalance) MarshalJSON() ([]byte, error) {
-	type Alias AccountBalance
-	return json.Marshal(&struct {
-		Alias
-	}{
-		Alias(a),
-	})
-}
-
 // JobSpec holds the JobSpec definition and each run associated with that Job.
 type JobSpec struct {
 	models.JobSpec
