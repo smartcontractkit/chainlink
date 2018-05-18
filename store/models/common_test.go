@@ -181,29 +181,10 @@ func TestJSON_CBOR(t *testing.T) {
 			cbor := codec.NewDecoderBytes(encoded, new(codec.CborHandle))
 			assert.NoError(t, cbor.Decode(&decoded))
 
-			decoded = coerceInterfaceMapToStringMap(decoded)
-
+			decoded, err = utils.CoerceInterfaceMapToStringMap(decoded)
+			assert.NoError(t, err)
 			assert.True(t, reflect.DeepEqual(test.in.Value(), decoded))
 		})
-	}
-}
-
-func coerceInterfaceMapToStringMap(in interface{}) interface{} {
-	switch typed := in.(type) {
-	case map[interface{}]interface{}:
-		m := map[string]interface{}{}
-		for k, v := range typed {
-			m[k.(string)] = coerceInterfaceMapToStringMap(v)
-		}
-		return m
-	case []interface{}:
-		r := make([]interface{}, len(typed))
-		for i, v := range typed {
-			r[i] = coerceInterfaceMapToStringMap(v)
-		}
-		return r
-	default:
-		return in
 	}
 }
 
