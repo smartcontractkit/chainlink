@@ -88,3 +88,24 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 		c.JSON(200, presenters.BridgeType{BridgeType: bt})
 	}
 }
+
+// RemoveOne removes a specific Bridge.
+func (btc *BridgeTypesController) RemoveOne(c *gin.Context) {
+	name := c.Param("BridgeName")
+	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
+		c.JSON(404, gin.H{
+			"errors": []string{"Bridge Name not found."},
+		})
+	} else if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else if err = btc.App.RemoveAdapter(&bt); err != nil {
+		fmt.Println([]string{err.Error()})
+		c.JSON(StatusCodeForError(err), gin.H{
+			"errors": []string{err.Error()},
+		})
+	} else {
+		c.JSON(200, presenters.BridgeType{BridgeType: bt})
+	}
+}
