@@ -114,3 +114,17 @@ func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
 
 	return nil
 }
+
+// RemoveAdapter removes an adapter from the store.
+func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
+	store := app.GetStore()
+
+	app.bridgeTypeMutex.Lock()
+	defer app.bridgeTypeMutex.Unlock()
+
+	if err := store.DeleteStruct(bt); err != nil {
+		return models.NewDatabaseAccessError(err.Error())
+	}
+
+	return nil
+}
