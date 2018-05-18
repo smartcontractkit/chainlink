@@ -550,6 +550,29 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *store.Store, want int) [
 	return jrs
 }
 
+// WaitForJobs waits for the wanted number of jobs.
+func WaitForJobs(t *testing.T, store *store.Store, want int) []models.JobSpec {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var jobs []models.JobSpec
+	var err error
+	if want == 0 {
+		g.Consistently(func() []models.JobSpec {
+			jobs, err = store.Jobs()
+			assert.NoError(t, err)
+			return jobs
+		}).Should(gomega.HaveLen(want))
+	} else {
+		g.Eventually(func() []models.JobSpec {
+			jobs, err = store.Jobs()
+			assert.NoError(t, err)
+			return jobs
+		}).Should(gomega.HaveLen(want))
+	}
+	return jobs
+}
+
 // MustParseWebURL must parse the given url and return it
 func MustParseWebURL(str string) models.WebURL {
 	u, err := url.Parse(str)

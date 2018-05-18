@@ -44,6 +44,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.RegisterSubscription("newHeads", newHeads)
@@ -128,6 +129,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
+
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
@@ -152,6 +155,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	newHeads := eth.RegisterNewHeads()
@@ -181,6 +185,22 @@ func TestIntegration_RunLog(t *testing.T) {
 	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+}
+
+func TestIntegration_SpecAndRunLog(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	eth := app.MockEthClient()
+	logs := make(chan types.Log, 1)
+	eth.RegisterSubscription("logs", logs)
+	app.Start()
+
+	payload := `{"tasks": ["noop"]}`
+	logs <- cltest.NewSpecAndRunLog(cltest.NewAddress(), 1, payload)
+	jobs := cltest.WaitForJobs(t, app.Store, 1)
+	runs := cltest.WaitForRuns(t, jobs[0], app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, runs[0])
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -238,6 +258,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	newHeads := make(chan models.BlockHeader, 10)
