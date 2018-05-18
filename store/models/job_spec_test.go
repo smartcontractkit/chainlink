@@ -112,10 +112,23 @@ func TestTask_UnmarshalJSON(t *testing.T) {
 		taskType      string
 		confirmations uint64
 		json          string
+		output        string
 	}{
-		{"noop", "noop", 0, `{"type":"NoOp"}`},
-		{"httpget", "httpget", 0, `{"type":"httpget","url":"http://www.no.com"}`},
-		{"with confirmations", "noop", 10, `{"type":"noOp","confirmations":10}`},
+		{"noop", "noop", 0, `{"type":"noOp"}`, `{"type":"noop","confirmations":0}`},
+		{
+			"httpget",
+			"httpget",
+			0,
+			`{"type":"httpget","url":"http://www.no.com"}`,
+			`{"type":"httpget","url":"http://www.no.com","confirmations":0}`,
+		},
+		{
+			"with confirmations",
+			"noop",
+			10,
+			`{"type":"noop","confirmations":10}`,
+			`{"type":"noop","confirmations":10}`,
+		},
 	}
 
 	for _, test := range tests {
@@ -131,7 +144,7 @@ func TestTask_UnmarshalJSON(t *testing.T) {
 
 			s, err := json.Marshal(task)
 			assert.NoError(t, err)
-			assert.Equal(t, test.json, string(s))
+			assert.JSONEq(t, test.output, string(s))
 		})
 	}
 }
