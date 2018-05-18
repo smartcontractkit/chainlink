@@ -335,3 +335,37 @@ func BigIntIsZero(val *big.Int) bool {
 	}
 	return false
 }
+
+// CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
+// map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
+// Relevant when serializing between CBOR and JSON.
+func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
+	switch typed := in.(type) {
+	case map[interface{}]interface{}:
+		m := map[string]interface{}{}
+		for k, v := range typed {
+			coercedKey, ok := k.(string)
+			if !ok {
+				return nil, fmt.Errorf("Unable to coerce key %T %v to a string", k, k)
+			}
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			m[coercedKey] = coerced
+		}
+		return m, nil
+	case []interface{}:
+		r := make([]interface{}, len(typed))
+		for i, v := range typed {
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			r[i] = coerced
+		}
+		return r, nil
+	default:
+		return in, nil
+	}
+}
