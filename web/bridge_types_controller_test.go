@@ -131,6 +131,30 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 }
 
+func TestBridgeController_RemoveOne(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	resp := cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types/testingbridges1",
+		"application/json",
+		nil)
+	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
+
+	bt := &models.BridgeType{Name: "testingbridges2",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	err := app.AddAdapter(bt)
+	assert.NoError(t, err)
+
+	resp = cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types/"+bt.Name,
+		"application/json",
+		nil)
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/testingbridges2")
+	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
+}
+
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 

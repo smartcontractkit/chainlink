@@ -326,6 +326,27 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &bridge)
 }
 
+// RemoveBridge removes a specific Bridge by name.
+func (cli *Client) RemoveBridge(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
+	}
+	resp, err := utils.BasicAuthDelete(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/bridge_types/"+c.Args().First(),
+		"application/json",
+		nil,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var bridge models.BridgeType
+	return cli.renderResponse(resp, &bridge)
+}
+
 func isDirEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {

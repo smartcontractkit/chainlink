@@ -256,6 +256,24 @@ func TestClient_ShowBridge(t *testing.T) {
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
+func TestClient_RemoveBridge(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	bt := &models.BridgeType{Name: "testingbridges1",
+		URL:                  cltest.WebURL("https://testing.com/bridges"),
+		DefaultConfirmations: 0}
+	app.AddAdapter(bt)
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{bt.Name})
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.RemoveBridge(c))
+	assert.Equal(t, 1, len(r.Renders))
+	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
+}
+
 func TestClient_BackupDatabase(t *testing.T) {
 	t.Parallel()
 
