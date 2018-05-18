@@ -116,6 +116,17 @@ func BasicAuthPatch(username, password, url string, contentType string, body io.
 	return resp, err
 }
 
+// BasicAuthDelete sends a DELETE request to the HTTP client with the given username
+// and password to authenticate at the url with contentType and returns a response.
+func BasicAuthDelete(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	request, _ := http.NewRequest("DELETE", url, body)
+	request.Header.Set("Content-Type", contentType)
+	request.SetBasicAuth(username, password)
+	resp, err := client.Do(request)
+	return resp, err
+}
+
 // FormatJSON applies indent to format a JSON response.
 func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")

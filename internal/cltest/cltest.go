@@ -301,6 +301,19 @@ func BasicAuthPatch(url string, contentType string, body io.Reader) *http.Respon
 	return resp
 }
 
+// BasicAuthDelete performs a DELETE request to the given url with specified contentType and body
+// and returns the Response
+func BasicAuthDelete(url string, contentType string, body io.Reader) *http.Response {
+	resp, err := utils.BasicAuthDelete(
+		Username,
+		Password,
+		url,
+		contentType,
+		body)
+	mustNotErr(err)
+	return resp
+}
+
 // ParseResponseBody will parse the given response into a byte slice
 func ParseResponseBody(resp *http.Response) []byte {
 	b, err := ioutil.ReadAll(resp.Body)
