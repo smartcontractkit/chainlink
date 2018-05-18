@@ -25,7 +25,7 @@ import (
 // NewJob return new NoOp JobSpec
 func NewJob() models.JobSpec {
 	j := models.NewJob()
-	j.Tasks = []models.TaskSpec{NewTask("NoOp")}
+	j.Tasks = []models.TaskSpec{{Type: "NoOp"}}
 	return j
 }
 
@@ -42,16 +42,6 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 		Type:   taskType,
 		Params: params,
 	}
-}
-
-// NewTaskWithConfirmations create a TaskSpec given the tasktype, json params, and confirmations
-func NewTaskWithConfirmations(taskType string, confs int, params ...string) models.TaskSpec {
-	task := NewTask(taskType, params...)
-	task.Confirmations = uint64(confs)
-	var err error
-	task.Params, err = task.Params.Add("confirmations", task.Confirmations)
-	mustNotErr(err)
-	return task
 }
 
 // NewJobWithSchedule create new job with the given schedule
