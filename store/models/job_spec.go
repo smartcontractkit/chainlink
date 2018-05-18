@@ -133,6 +133,8 @@ const (
 	InitiatorRunAt = "runat"
 	// InitiatorWeb for tasks in a job making a web request.
 	InitiatorWeb = "web"
+	// InitiatorSpecAndRun for jobs created and run as defined on chain.
+	InitiatorSpecAndRun = "specandrun"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be

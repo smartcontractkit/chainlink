@@ -23,13 +23,15 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	HeadTracker     *HeadTracker
-	JobSubscriber   *JobSubscriber
-	Scheduler       *Scheduler
-	Store           *store.Store
-	Exiter          func(int)
-	attachmentID    string
-	bridgeTypeMutex sync.Mutex
+	HeadTracker          *HeadTracker
+	JobSubscriber        *JobSubscriber
+	Scheduler            *Scheduler
+	Store                *store.Store
+	Exiter               func(int)
+	jobSubscriberID      string
+	specAndRunSubscriber *SpecAndRunSubscriber
+	specSubscriberID     string
+	bridgeTypeMutex      sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
@@ -40,11 +42,12 @@ func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:   ht,
-		JobSubscriber: &JobSubscriber{Store: store},
-		Scheduler:     NewScheduler(store),
-		Store:         store,
-		Exiter:        os.Exit,
+		HeadTracker:          ht,
+		JobSubscriber:        &JobSubscriber{Store: store},
+		Scheduler:            NewScheduler(store),
+		Store:                store,
+		Exiter:               os.Exit,
+		specAndRunSubscriber: NewSpecAndRunSubscriber(store),
 	}
 }
 
@@ -62,7 +65,8 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	app.attachmentID = app.HeadTracker.Attach(app.JobSubscriber)
+	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
+	app.specSubscriberID = app.HeadTracker.Attach(app.specAndRunSubscriber)
 	return multierr.Combine(app.Store.Start(), app.HeadTracker.Start(), app.Scheduler.Start())
 }
 
@@ -73,7 +77,8 @@ func (app *ChainlinkApplication) Stop() error {
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
 	app.HeadTracker.Stop()
-	app.HeadTracker.Detach(app.attachmentID)
+	app.HeadTracker.Detach(app.jobSubscriberID)
+	app.HeadTracker.Detach(app.specSubscriberID)
 	return app.Store.Close()
 }
 
