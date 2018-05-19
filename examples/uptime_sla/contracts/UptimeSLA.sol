@@ -9,7 +9,6 @@ contract UptimeSLA is Chainlinked {
   uint256 private endAt;
   address private client;
   address private serviceProvider;
-  bytes32 public externalId;
   uint256 public uptime;
 
   constructor(
@@ -37,7 +36,7 @@ contract UptimeSLA is Chainlinked {
     path[2] = "attributes";
     path[3] = "calculation";
     run.addStringArray("path", path);
-    externalId = chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, LINK(1));
   }
 
   function report(bytes32 _externalId, uint256 _uptime)

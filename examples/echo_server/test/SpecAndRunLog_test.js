@@ -19,7 +19,7 @@ contract('SpecAndRunLog', () => {
   });
 
   it("emits the correct number of event logs", async () => {
-    assert.equal(3, tx.receipt.logs.length);
+    assert.equal(4, tx.receipt.logs.length);
   });
 
   it("uses the expected event signature from the oracle", () => {

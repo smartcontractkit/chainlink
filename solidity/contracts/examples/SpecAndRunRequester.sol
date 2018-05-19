@@ -43,10 +43,5 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
     currentPrice = _price;
   }
 
-  modifier checkRequestId(bytes32 _requestId) {
-    require(_requestId == _requestId);
-    _;
-  }
-
 }
 
