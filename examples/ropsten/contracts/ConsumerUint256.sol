@@ -4,7 +4,6 @@ import "./Chainlinked.sol";
 import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract ConsumerUint256 is Chainlinked, Ownable {
-  bytes32 internal requestId;
   bytes32 internal jobId;
   uint256 public currentPrice;
 
@@ -28,7 +27,7 @@ contract ConsumerUint256 is Chainlinked, Ownable {
     string[] memory path = new string[](1);
     path[0] = _currency;
     run.addStringArray("path", path);
-    requestId = chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, LINK(1));
   }
 
   function cancelRequest(uint256 _requestId) 
