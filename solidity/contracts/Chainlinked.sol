@@ -14,6 +14,8 @@ contract Chainlinked {
   Oracle internal oracle;
   uint256 internal requests = 1;
 
+  event ChainlinkRequest(bytes32 id);
+
   function newRun(
     bytes32 _specId,
     address _callbackAddress,
@@ -40,6 +42,7 @@ contract Chainlinked {
     _run.requestId = bytes32(requests);
     _run.close();
     require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)));
+    emit ChainlinkRequest(_run.requestId);
     return _run.requestId;
   }
 
@@ -51,6 +54,7 @@ contract Chainlinked {
     _spec.requestId = bytes32(requests);
     _spec.close();
     require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)));
+    emit ChainlinkRequest(_spec.requestId);
     return _spec.requestId;
   }
 

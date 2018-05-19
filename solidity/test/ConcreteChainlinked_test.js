@@ -34,4 +34,26 @@ contract('ConcreteChainlinked', () => {
       assert.deepEqual({}, params);
     });
   });
+
+  describe("#chainlinkRequest(Run)", () => {
+    it("emits an event from the contract showing the run ID", async () => {
+      let tx = await cc.publicCLRequestRun(specId, gs.address, "requestedBytes32(uint256,bytes32)", 0);
+
+      let events = await getEvents(cc);
+      assert.equal(1, events.length);
+      let event = events[0];
+      assert.equal(event.event, "ChainlinkRequest");
+    });
+  });
+
+  describe("#chainlinkRequest(SpecAndRun)", () => {
+    it("emits an event from the contract showing the run ID", async () => {
+      let tx = await cc.publicCLRequestSpecAndRun([], gs.address, "requestedBytes32(uint256,bytes32)", 0);
+
+      let events = await getEvents(cc);
+      assert.equal(1, events.length);
+      let event = events[0];
+      assert.equal(event.event, "ChainlinkRequest");
+    });
+  });
 });
