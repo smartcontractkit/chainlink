@@ -43,16 +43,10 @@ contract ConsumerInt256 is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, int256 _change)
     public
-    onlyOracle
-    checkRequestId(_requestId)
+    checkChainlinkRequest(_requestId)
   {
     emit RequestFulfilled(_requestId, _change);
     changeDay = _change;
-  }
-
-  modifier checkRequestId(bytes32 _requestId) {
-    require(requestId == _requestId);
-    _;
   }
 
 }

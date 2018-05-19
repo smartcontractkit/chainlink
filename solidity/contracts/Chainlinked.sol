@@ -13,6 +13,11 @@ contract Chainlinked {
   LinkToken internal link;
   Oracle internal oracle;
   uint256 internal requests = 1;
+  mapping(bytes32 => bool) internal unfulfilledRequests;
+
+  event ChainlinkRequested(bytes32 id);
+  event ChainlinkFulfilled(bytes32 id);
+  event ChainlinkCancelled(bytes32 id);
 
   event ChainlinkRequest(bytes32 id);
 
@@ -43,6 +48,7 @@ contract Chainlinked {
     _run.close();
     require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)));
     emit ChainlinkRequest(_run.requestId);
+    unfulfilledRequests[_run.requestId] = true;
     return _run.requestId;
   }
 
@@ -55,7 +61,16 @@ contract Chainlinked {
     _spec.close();
     require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)));
     emit ChainlinkRequest(_spec.requestId);
+    unfulfilledRequests[_spec.requestId] = true;
     return _spec.requestId;
+  }
+
+  function cancelChainlinkRequest(bytes32 _requestId)
+    internal
+  {
+    oracle.cancel(_requestId);
+    unfulfilledRequests[_requestId] = false;
+    emit ChainlinkCancelled(_requestId);
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
@@ -70,8 +85,10 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
-  modifier onlyOracle() {
-    require(msg.sender == address(oracle));
+  modifier checkChainlinkRequest(bytes32 _requestId) {
+    require(msg.sender == address(oracle) && unfulfilledRequests[_requestId]);
     _;
+    unfulfilledRequests[_requestId] = false;
+    emit ChainlinkFulfilled(_requestId);
   }
 }

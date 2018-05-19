@@ -4,7 +4,6 @@ import "../Chainlinked.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract Consumer is Chainlinked, Ownable {
-  bytes32 internal requestId;
   bytes32 internal specId;
   bytes32 public currentPrice;
 
@@ -25,25 +24,19 @@ contract Consumer is Chainlinked, Ownable {
     string[] memory path = new string[](1);
     path[0] = _currency;
     run.addStringArray("path", path);
-    requestId = chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, LINK(1));
   }
 
-  function cancelRequest() public onlyOwner {
-    oracle.cancel(requestId);
+  function cancelRequest(bytes32 _requestId) public onlyOwner {
+    cancelChainlinkRequest(_requestId);
   }
 
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
-    onlyOracle
-    checkRequestId(_requestId)
+    checkChainlinkRequest(_requestId)
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
-  }
-
-  modifier checkRequestId(bytes32 _requestId) {
-    require(requestId == _requestId);
-    _;
   }
 
 }

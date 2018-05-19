@@ -43,16 +43,10 @@ contract ConsumerBytes32 is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, bytes32 _marketCap)
     public
-    onlyOracle
-    checkRequestId(_requestId)
+    checkChainlinkRequest(_requestId)
   {
     emit RequestFulfilled(_requestId, _marketCap);
     currentMarketCap = _marketCap;
-  }
-
-  modifier checkRequestId(bytes32 _requestId) {
-    require(requestId == _requestId);
-    _;
   }
 
 }

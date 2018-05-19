@@ -80,7 +80,7 @@ contract('Consumer', () => {
 
     it("logs the data given to it by the oracle", async () => {
       let tx = await oc.fulfillData(internalId, response, {from: oracleNode});
-      assert.equal(1, tx.receipt.logs.length);
+      assert.equal(2, tx.receipt.logs.length);
       let log = tx.receipt.logs[0];
 
       assert.equal(web3.toUtf8(log.topics[2]), response);
@@ -125,21 +125,20 @@ contract('Consumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'));
       await cc.requestEthereumPrice(currency);
-      let event = await getLatestEvent(oc);
-      requestId = event.args.internalId;
+      requestId = (await getLatestEvent(cc)).args.id;
     });
 
     context("when called by a non-owner", () => {
       it("cannot cancel a request", async () => {
         await assertActionThrows(async () => {
-          await cc.cancelRequest({from: stranger});
+          await cc.cancelRequest(requestId, {from: stranger});
         });
       });
     });
 
     context("when called by the owner", () => {
       it("can cancel the request", async () => {
-        await cc.cancelRequest({from: consumer});
+        await cc.cancelRequest(requestId, {from: consumer});
       });
     });
   });

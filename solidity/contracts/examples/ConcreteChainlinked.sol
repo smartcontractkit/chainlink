@@ -38,7 +38,7 @@ contract ConcreteChainlinked is Chainlinked {
     );
   }
 
-  function publicCLRequestRun(
+  function publicRequestRun(
     bytes32 _specId,
     address _address,
     string _fulfillmentSignature,
@@ -50,7 +50,7 @@ contract ConcreteChainlinked is Chainlinked {
     chainlinkRequest(run, _wei);
   }
 
-  function publicCLRequestSpecAndRun(
+  function publicRequestSpecAndRun(
     string[] memory _tasks,
     address _address,
     string _fulfillmentSignature,
@@ -60,6 +60,16 @@ contract ConcreteChainlinked is Chainlinked {
   {
     ChainlinkLib.Spec memory spec = newSpec(_tasks, _address, _fulfillmentSignature);
     chainlinkRequest(spec, _wei);
+  }
+
+  function publicCancelRequest(bytes32 _requestId) public {
+    cancelChainlinkRequest(_requestId);
+  }
+
+  function fulfillRequest(bytes32 _requestId, bytes32 data)
+    public
+    checkChainlinkRequest(_requestId)
+  {
   }
 
 }

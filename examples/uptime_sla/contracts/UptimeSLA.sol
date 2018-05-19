@@ -42,8 +42,7 @@ contract UptimeSLA is Chainlinked {
 
   function report(bytes32 _externalId, uint256 _uptime)
     public
-    onlyOracle
-    checkRequestId(_externalId)
+    checkChainlinkRequest(_externalId)
   {
     uptime = _uptime;
     if (_uptime < uptimeThreshold) {
@@ -51,11 +50,6 @@ contract UptimeSLA is Chainlinked {
     } else if (block.timestamp >= endAt) {
       serviceProvider.transfer(this.balance);
     }
-  }
-
-  modifier checkRequestId(bytes32 _externalId) {
-    require(externalId == _externalId);
-    _;
   }
 
 }
