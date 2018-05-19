@@ -39,17 +39,11 @@ contract ConsumerUint256 is Chainlinked, Ownable {
   }
 
   function fulfill(bytes32 _requestId, uint256 _price)
-  public
-  onlyOracle
-  checkRequestId(_requestId)
+    public
+    checkChainlinkRequest(_requestId)
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
-  }
-
-  modifier checkRequestId(bytes32 _requestId) {
-    require(requestId == _requestId);
-    _;
   }
 
 }

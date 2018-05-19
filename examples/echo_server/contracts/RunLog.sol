@@ -20,13 +20,7 @@ contract RunLog is Chainlinked {
 
   function fulfill(bytes32 _externalId, bytes32 _data)
     public
-    onlyOracle
-    checkRequestId(_externalId)
+    checkChainlinkRequest(_externalId)
   {
-  }
-
-  modifier checkRequestId(bytes32 _externalId) {
-    require(externalId == _externalId);
-    _;
   }
 }
