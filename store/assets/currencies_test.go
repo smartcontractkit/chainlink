@@ -2,7 +2,6 @@ package assets_test
 
 import (
 	"encoding/json"
-	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/store/assets"
@@ -12,29 +11,27 @@ import (
 func TestAssets_NewLinkAndString(t *testing.T) {
 	t.Parallel()
 
-	wei := big.NewInt(0)
-	link := assets.NewLink(wei)
+	link := assets.NewLink(0)
 
 	assert.Equal(t, "0.000000000000000000", link.String())
 
-	wei.SetInt64(1)
+	link.SetInt64(1)
 	assert.Equal(t, "0.000000000000000001", link.String())
 
-	wei.SetString("900000000000000000", 10)
+	link.SetString("900000000000000000", 10)
 	assert.Equal(t, "0.900000000000000000", link.String())
 
-	wei.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	link.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
 	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457.584007913129639935", link.String())
 
-	wei.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639936", 10)
+	link.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639936", 10)
 	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457.584007913129639936", link.String())
 }
 
 func TestAssets_Link_MarshalJson(t *testing.T) {
 	t.Parallel()
 
-	wei := big.NewInt(1)
-	link := assets.NewLink(wei)
+	link := assets.NewLink(1)
 
 	b, err := json.Marshal(link)
 	assert.NoError(t, err)

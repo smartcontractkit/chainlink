@@ -41,5 +41,5 @@ func TestAccountBalanceController_Index(t *testing.T) {
 
 	assert.Equal(t, account.Address.Hex(), ab.Address)
 	assert.Equal(t, big.NewRat(1, 3906250000000000), ab.EthBalance)
-	assert.Equal(t, assets.NewLink(big.NewInt(256)), ab.LinkBalance)
+	assert.Equal(t, assets.NewLink(256), ab.LinkBalance)
 }
