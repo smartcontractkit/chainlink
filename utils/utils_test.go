@@ -123,6 +123,12 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}, false},
 		{"error map", map[interface{}]interface{}{1: "value"}, map[int]interface{}{}, true},
 		{
+			"nested string map map",
+			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+			false,
+		},
+		{
 			"nested map map",
 			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
 			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},

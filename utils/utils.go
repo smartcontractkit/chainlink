@@ -341,6 +341,15 @@ func BigIntIsZero(val *big.Int) bool {
 // Relevant when serializing between CBOR and JSON.
 func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 	switch typed := in.(type) {
+	case map[string]interface{}:
+		for k, v := range typed {
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			typed[k] = coerced
+		}
+		return typed, nil
 	case map[interface{}]interface{}:
 		m := map[string]interface{}{}
 		for k, v := range typed {
