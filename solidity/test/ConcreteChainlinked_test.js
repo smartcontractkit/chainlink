@@ -42,7 +42,7 @@ contract('ConcreteChainlinked', () => {
       let events = await getEvents(cc);
       assert.equal(1, events.length);
       let event = events[0];
-      assert.equal(event.event, "ChainlinkRequest");
+      assert.equal(event.event, "ChainlinkRequested");
     });
   });
 
@@ -53,7 +53,7 @@ contract('ConcreteChainlinked', () => {
       let events = await getEvents(cc);
       assert.equal(1, events.length);
       let event = events[0];
-      assert.equal(event.event, "ChainlinkRequest");
+      assert.equal(event.event, "ChainlinkRequested");
     });
   });
 
