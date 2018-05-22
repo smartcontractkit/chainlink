@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -82,6 +83,11 @@ func NullISO8601UTC(t null.Time) string {
 		return ISO8601UTC(t.Time)
 	}
 	return ""
+}
+
+// Checks if the variable is the zero value of its type
+func IsZero(v reflect.Value) bool {
+	return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
 }
 
 // BasicAuthPost sends a POST request to the HTTP client with the given username

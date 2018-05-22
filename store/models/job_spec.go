@@ -209,6 +209,13 @@ type BridgeType struct {
 	DefaultConfirmations uint64 `json:"defaultConfirmations"`
 }
 
+// BridgeTypeCleaner is used for selecting bridges from the database
+// in order to batch delete them.
+type BridgeTypeCleaner struct {
+	BridgeType
+	Options string `json:"options"`
+}
+
 // GetID returns the ID of this structure for jsonapi serialization.
 func (bt BridgeType) GetID() string {
 	return bt.Name
