@@ -113,8 +113,8 @@ contract Oracle is Ownable {
     delete callbacks[_internalId];
   }
 
-  function withdraw() public onlyOwner {
-    LINK.transfer(owner, withdrawableWei.sub(oneForConsistentGasCost));
+  function withdraw(address _recipient) public onlyOwner {
+    LINK.transfer(_recipient, withdrawableWei.sub(oneForConsistentGasCost));
     withdrawableWei = oneForConsistentGasCost;
   }
 
