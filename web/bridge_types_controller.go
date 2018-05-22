@@ -55,7 +55,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 	}
 	if err := btc.App.Store.AllByIndex("Name", &bridges, skip, limit); err != nil {
 		c.JSON(500, gin.H{
-			"errors": []string{fmt.Errorf("erorr fetching All Bridges: %+v", err).Error()},
+			"errors": []string{fmt.Errorf("error fetching All Bridges: %+v", err).Error()},
 		})
 		return
 	}
@@ -108,4 +108,35 @@ func (btc *BridgeTypesController) RemoveOne(c *gin.Context) {
 	} else {
 		c.JSON(200, presenters.BridgeType{BridgeType: bt})
 	}
+}
+
+// Removes several bridges based on the content of the JSON passed with the request.
+func (btc *BridgeTypesController) RemoveMany(c *gin.Context) {
+	bt := &models.BridgeTypeCleaner{}
+	var respBridges []models.BridgeType
+
+	if err := c.ShouldBindJSON(bt); err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+		return
+	}
+	respBridges, err := btc.App.Store.AdvancedBridgeSearch(*bt)
+
+	if err != nil {
+		c.JSON(500, gin.H{
+			"errors": []string{err.Error()},
+		})
+		return
+	}
+	for _, rmBridge := range respBridges {
+		if err = btc.App.RemoveAdapter(&rmBridge); err != nil {
+			fmt.Println([]string{err.Error()})
+			c.JSON(StatusCodeForError(err), gin.H{
+				"errors": []string{err.Error()},
+			})
+			return
+		}
+	}
+	c.JSON(200, respBridges)
 }

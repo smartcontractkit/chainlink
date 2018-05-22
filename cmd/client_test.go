@@ -255,6 +255,53 @@ func TestClient_RemoveBridge(t *testing.T) {
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
+func TestClient_RemoveManyBridges(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	for i := 0; i < 3; i++ {
+		bt := &models.BridgeType{Name: fmt.Sprintf("testbridge%v", i),
+			URL:                  cltest.WebURL("https://testing.com/bridges"),
+			DefaultConfirmations: 0}
+		app.AddAdapter(bt)
+	}
+
+	tests := []struct {
+		name    string
+		param   string
+		errored bool
+		explen  int
+	}{
+		{"EmptyString", "", true, 0},
+		{"ValidStringName", `{ "name": "testbridge1"}`, false, 1},
+		{"ValidURLName", `{ "url": "https://testing.com/bridges"}`, false, 2},
+		{"InvalidString", `{ "noname": "", "nourl": "" }`, true, 0},
+		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true, 0},
+		{"ValidPathNoEntry", "../internal/fixtures/web/create_random_number_bridge_type.json", true, 0},
+		{"InvalidPath", "bad/filepath/", true, 0},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			set := flag.NewFlagSet("removebridges", 0)
+			set.Parse([]string{test.param})
+			c := cli.NewContext(nil, set, nil)
+			if test.errored {
+				assert.Error(t, client.RemoveBridges(c))
+			} else {
+				assert.Nil(t, client.RemoveBridges(c))
+				bridges := *r.Renders[0].(*[]models.BridgeType)
+				assert.Equal(t, test.explen, len(r.Renders))
+				assert.Equal(t, "https://testing.com/bridges", bridges[0].URL.String())
+			}
+
+		})
+	}
+}
+
 func TestClient_BackupDatabase(t *testing.T) {
 	t.Parallel()
 

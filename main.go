@@ -118,6 +118,11 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:  "Removes a specific bridge",
 			Action: client.RemoveBridge,
 		},
+		{
+			Name:   "removebridges",
+			Usage:  "Remove several bridges based on filter",
+			Action: client.RemoveBridges,
+		},
 	}
 	app.Run(args)
 }

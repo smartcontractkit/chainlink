@@ -324,6 +324,34 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &bridge)
 }
 
+// RemoveBridges removes several bridges based on JSON specifications
+func (cli *Client) RemoveBridges(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in parameters for bridge removal [JSON blob | JSON filepath]"))
+	}
+
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := utils.BasicAuthDelete(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/bridge_types",
+		"application/json",
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var bridges []models.BridgeType
+	return cli.renderResponse(resp, &bridges)
+}
+
 func isDirEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {
