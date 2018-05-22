@@ -120,7 +120,6 @@ contract Oracle is Ownable {
 
   function cancel(bytes32 _externalId)
     public
-    returns (bool)
   {
     uint256 internalId = uint256(keccak256(msg.sender, _externalId));
     require(msg.sender == callbacks[internalId].addr);
