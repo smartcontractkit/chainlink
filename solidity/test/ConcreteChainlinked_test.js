@@ -88,7 +88,7 @@ contract('ConcreteChainlinked', () => {
     });
   });
 
-  describe("#checkChainlinkRequest(modifier)", () => {
+  describe("#checkChainlinkFulfillment(modifier)", () => {
     let internalId, requestId;
 
     beforeEach(async () => {

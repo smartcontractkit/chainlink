@@ -68,7 +68,7 @@ contract ConcreteChainlinked is Chainlinked {
 
   function fulfillRequest(bytes32 _requestId, bytes32 data)
     public
-    checkChainlinkRequest(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
   }
 

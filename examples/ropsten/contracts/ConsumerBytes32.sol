@@ -42,7 +42,7 @@ contract ConsumerBytes32 is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, bytes32 _marketCap)
     public
-    checkChainlinkRequest(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
     emit RequestFulfilled(_requestId, _marketCap);
     currentMarketCap = _marketCap;
