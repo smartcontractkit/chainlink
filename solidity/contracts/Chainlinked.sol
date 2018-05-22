@@ -19,8 +19,6 @@ contract Chainlinked {
   event ChainlinkFulfilled(bytes32 id);
   event ChainlinkCancelled(bytes32 id);
 
-  event ChainlinkRequest(bytes32 id);
-
   function newRun(
     bytes32 _specId,
     address _callbackAddress,
@@ -47,7 +45,7 @@ contract Chainlinked {
     _run.requestId = bytes32(requests);
     _run.close();
     require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)));
-    emit ChainlinkRequest(_run.requestId);
+    emit ChainlinkRequested(_run.requestId);
     unfulfilledRequests[_run.requestId] = true;
     return _run.requestId;
   }
@@ -60,7 +58,7 @@ contract Chainlinked {
     _spec.requestId = bytes32(requests);
     _spec.close();
     require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)));
-    emit ChainlinkRequest(_spec.requestId);
+    emit ChainlinkRequested(_spec.requestId);
     unfulfilledRequests[_spec.requestId] = true;
     return _spec.requestId;
   }
