@@ -347,11 +347,6 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 	return true
 }
 
-// fulfillDataFunctionID is the signature for the fulfillData(uint256,bytes32) function located in Oracle.sol
-// fulfillDataFunctionID is calculated in the following way: bytes4(keccak256("fulfillData(uint256,bytes32)"))
-// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-var fulfillDataFunctionID = "76005c26"
-
 // RunLogJSON extracts data from the log's topics and data specific to the format defined
 // by RunLogs.
 func (le InitiatorSubscriptionLogEvent) RunLogJSON() (models.JSON, error) {
@@ -381,7 +376,7 @@ func fulfillmentToJSON(le InitiatorSubscriptionLogEvent) (models.JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionSelector", fulfillDataFunctionID)
+	return js.Add("functionSelector", OracleFulfillmentFunctionID)
 }
 
 // EthLogJSON reformats the log as JSON.

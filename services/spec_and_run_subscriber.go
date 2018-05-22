@@ -1,7 +1,9 @@
 package services
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -10,7 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/tidwall/gjson"
 )
+
+// OracleFulfillmentFunctionID is the function id of the oracle fulfillment
+// method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
+// Kept in sync with solidity/contracts/Oracle.sol
+const OracleFulfillmentFunctionID = "0x76005c26"
 
 // Descriptive indices of a SpecAndRun's Topic array
 const (
@@ -108,7 +116,10 @@ func NewSpecAndRunLogEvent(log types.Log) (SpecAndRunLogEvent, error) {
 	jsTasks := js.Get("tasks").Array()
 	tasks := make([]models.TaskSpec, len(jsTasks))
 	for i, tt := range jsTasks {
-		tasks[i] = models.TaskSpec{Type: tt.String()}
+		tasks[i] = models.TaskSpec{
+			Type:   tt.String(),
+			Params: defaultParamsFor(tt.String(), log),
+		}
 	}
 	job.Tasks = tasks
 
@@ -117,6 +128,20 @@ func NewSpecAndRunLogEvent(log types.Log) (SpecAndRunLogEvent, error) {
 		Job:    job,
 		Params: models.JSON{js.Get("params")},
 	}, nil
+}
+
+func defaultParamsFor(task string, log types.Log) models.JSON {
+	switch strings.ToLower(task) {
+	case "ethtx":
+		js := fmt.Sprintf(
+			`{"address":"%s", "functionSelector":"%s"}`,
+			log.Address.String(),
+			OracleFulfillmentFunctionID,
+		)
+		return models.JSON{gjson.Parse(js)}
+	default:
+		return models.JSON{}
+	}
 }
 
 // ToIndexableBlockNumber returns the IndexableBlockNumber associated with this
