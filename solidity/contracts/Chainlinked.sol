@@ -85,7 +85,7 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
-  modifier checkChainlinkRequest(bytes32 _requestId) {
+  modifier checkChainlinkFulfillment(bytes32 _requestId) {
     require(msg.sender == address(oracle) && unfulfilledRequests[_requestId]);
     _;
     unfulfilledRequests[_requestId] = false;

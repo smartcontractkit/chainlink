@@ -9,7 +9,7 @@ After the contract is created anyone can request updates from the oracle for the
 ```solidity
 function report(uint256 _requestId, uint256 _rate)
     public
-    checkChainlinkRequest(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
     if (_rate < uptimeThreshold) {
       client.send(this.balance);

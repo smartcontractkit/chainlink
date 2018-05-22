@@ -42,7 +42,7 @@ contract ConsumerInt256 is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, int256 _change)
     public
-    checkChainlinkRequest(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
     emit RequestFulfilled(_requestId, _change);
     changeDay = _change;

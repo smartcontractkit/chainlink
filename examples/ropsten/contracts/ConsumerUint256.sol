@@ -39,7 +39,7 @@ contract ConsumerUint256 is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, uint256 _price)
     public
-    checkChainlinkRequest(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;

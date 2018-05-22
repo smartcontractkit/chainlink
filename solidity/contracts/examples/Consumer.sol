@@ -33,7 +33,7 @@ contract Consumer is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
-    checkChainlinkRequest(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
