@@ -107,7 +107,7 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			job, initr := cltest.NewJobWithLogInitiator()
 			job.Tasks = []models.TaskSpec{
-				cltest.NewTaskWithConfirmations("NoOp", test.confirmations),
+				{Type: "NoOp", Confirmations: uint64(test.confirmations)},
 			}
 
 			run := job.NewRun(initr)
@@ -160,7 +160,7 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 		t.Run(test.name, func(t *testing.T) {
 			job, initr := cltest.NewJobWithLogInitiator()
 			job.Tasks = []models.TaskSpec{
-				cltest.NewTaskWithConfirmations("randomNumber", test.taskSpecConfirmations),
+				{Type: "randomNumber", Confirmations: uint64(test.taskSpecConfirmations)},
 			}
 
 			run := job.NewRun(initr)

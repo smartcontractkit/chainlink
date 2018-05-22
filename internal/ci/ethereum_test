@@ -74,6 +74,30 @@ runs=`cldev -j s $jid |  jq '.runs | length'`
 assert "RunLog Runs count" 1 $runs
 
 ########################
+## specAndRunLog
+########################
+
+cd examples/echo_server
+./send_specandrunlog_transaction.js
+sleep 2
+
+# Check echo count
+count=`curl -sS localhost:6690/count`
+assert "Echo count" 2 $count
+
+# Check CL counts
+cd ../../
+
+## Check job counts using jq to parse json: https://stedolan.github.io/jq/
+jobs=`cldev -j j | jq length`
+assert "Jobs count" 2 $jobs
+
+# Check job runs
+jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
+runs=`cldev -j s $jid |  jq '.runs | length'`
+assert "SpecAndRuns count" 1 $runs
+
+########################
 ## ethlog
 ########################
 
@@ -84,14 +108,14 @@ sleep 2
 
 # Check echo count
 count=`curl -sS localhost:6690/count`
-assert "Echo count" 2 $count
+assert "Echo count" 3 $count
 
 # Check CL counts
 cd ../../
 
 ## Check job counts
 jobs=`cldev -j j | jq length`
-assert "Jobs count" 2 $jobs
+assert "Jobs count" 3 $jobs
 
 ## Check job runs
 jid=`echo $ethjob | jq .id | tr -d '"'`
