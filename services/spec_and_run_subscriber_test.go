@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/stretchr/testify/assert"
@@ -40,4 +41,24 @@ func TestSpecAndRunSubscriber_AttachedToHeadTracker(t *testing.T) {
 
 	ht.Detach(id)
 	eth.EventuallyAllCalled(t)
+}
+
+func TestNewSpecAndRunLogEvent_SetsDefaultEthTxParams(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	oracleAddress := cltest.NewAddress()
+	payload := `{"tasks":["httpget", "EthTx"]}`
+	log := cltest.NewSpecAndRunLog(oracleAddress, 1, payload)
+	le, err := services.NewSpecAndRunLogEvent(log)
+	assert.NoError(t, err)
+
+	otherTask := le.Job.Tasks[0]
+	assert.Equal(t, "", otherTask.Params.Get("address").String())
+
+	ethTxAdapter, err := adapters.For(le.Job.Tasks[1], store)
+	assert.NoError(t, err)
+	ethTx := cltest.UnwrapAdapter(ethTxAdapter).(*adapters.EthTx)
+	assert.Equal(t, oracleAddress, ethTx.Address)
+	assert.Equal(t, services.OracleFulfillmentFunctionID, ethTx.FunctionSelector.String())
 }
