@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -54,6 +55,15 @@ func (eth *EthClient) GetEthBalance(address common.Address) (*big.Rat, error) {
 		return new(big.Rat).SetInt64(0), err
 	}
 	return utils.WeiToEth(numWei), nil
+}
+
+// GetLinkBalance returns the balance of LINK at the given address
+func (txm *TxManager) GetLinkBalance(address common.Address, linkContractAddress common.Address) (*assets.Link, error) {
+	balance, err := txm.GetERC20Balance(address, linkContractAddress)
+	if err != nil {
+		return assets.NewLink(0), err
+	}
+	return (*assets.Link)(balance), nil
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
