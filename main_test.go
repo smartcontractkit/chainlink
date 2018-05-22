@@ -34,6 +34,7 @@ func ExampleRun() {
 	//
 	// COMMANDS:
 	//      node, n                   Run the chainlink node
+	//      account, a                Display the account address with its ETH & LINK balances
 	//      jobspecs, jobs, j, specs  Get all jobs
 	//      show, s                   Show a specific job
 	//      create, c                 Create job spec from JSON

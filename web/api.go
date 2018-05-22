@@ -85,13 +85,13 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 	return json.Marshal(document)
 }
 
-// ParsePaginatedResponse parse a JSONAPI response
+// ParsePaginatedResponse parse a JSONAPI response for a document with links
 func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
 	// First unmarshal using the jsonAPI into the Resource, whatever it may be,
 	// as is api2go will discard the links
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal Data record: %+v", err)
+		return fmt.Errorf("web: unable to unmarshal Data record, %+v", err)
 	}
 
 	// Unmarshal using the stdlib Unmarshal to extract the Links part of the document
@@ -103,4 +103,10 @@ func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.L
 	*links = document.Links
 
 	return nil
+}
+
+// ParseResponse parse a JSONAPI response for a document without links
+func ParseResponse(input []byte, resource interface{}) error {
+	var links jsonapi.Links
+	return ParsePaginatedResponse(input, resource, &links)
 }

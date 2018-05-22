@@ -38,6 +38,25 @@ func TestClient_RunNode(t *testing.T) {
 	assert.True(t, called)
 }
 
+func TestClient_DisplayAccountBalance(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	account, err := app.Store.KeyStore.GetAccount()
+	assert.NoError(t, err)
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getBalance", "0x0100")
+	ethMock.Register("eth_call", "0x0100")
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.DisplayAccountBalance(c))
+	assert.Equal(t, 1, len(r.Renders))
+	assert.Equal(t, account.Address.Hex(), r.Renders[0].(*presenters.AccountBalance).Address)
+}
+
 func TestClient_GetJobSpecs(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -55,7 +74,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 	assert.Equal(t, j1.ID, jobs[0].ID)
 }
 
-func TestClient_ShowJobSpec(t *testing.T) {
+func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	job := cltest.NewJob()
