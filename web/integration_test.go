@@ -188,10 +188,14 @@ func TestIntegration_RunLog(t *testing.T) {
 }
 
 func TestIntegration_SpecAndRunLog(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	config, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
+	config.TaskMinConfirmations = 3
+	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	newHeads := eth.RegisterNewHeads()
 	logs := make(chan types.Log, 1)
 	eth.RegisterSubscription("logs", logs)
 	app.Start()
@@ -200,6 +204,9 @@ func TestIntegration_SpecAndRunLog(t *testing.T) {
 	logs <- cltest.NewSpecAndRunLog(cltest.NewAddress(), 1, payload)
 	jobs := cltest.WaitForJobs(t, app.Store, 1)
 	runs := cltest.WaitForRuns(t, jobs[0], app.Store, 1)
+	cltest.WaitForJobRunToPendConfirmations(t, app.Store, runs[0])
+
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(3)}
 	cltest.WaitForJobRunToComplete(t, app.Store, runs[0])
 }
 

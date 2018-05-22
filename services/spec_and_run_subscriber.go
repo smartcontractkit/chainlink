@@ -1,6 +1,7 @@
 package services
 
 import (
+	"math/big"
 	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -118,6 +119,14 @@ func NewSpecAndRunLogEvent(log types.Log) (SpecAndRunLogEvent, error) {
 	}, nil
 }
 
+// ToIndexableBlockNumber returns the IndexableBlockNumber associated with this
+// log event.
+func (le SpecAndRunLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
+	num := new(big.Int)
+	num.SetUint64(le.Log.BlockNumber)
+	return models.NewIndexableBlockNumber(num, le.Log.BlockHash)
+}
+
 // StartJob runs the job associated with the SpecAndRunLogEvent in job runner.
 func (le SpecAndRunLogEvent) StartJob(store *store.Store) {
 	jr, err := BuildRun(le.Job, le.Job.Initiators[0], store)
@@ -126,7 +135,7 @@ func (le SpecAndRunLogEvent) StartJob(store *store.Store) {
 	}
 
 	rr := models.RunResult{Data: le.Params}
-	if _, err := ExecuteRun(jr, store, rr); err != nil {
+	if _, err := ExecuteRunAtBlock(jr, store, rr, le.ToIndexableBlockNumber()); err != nil {
 		logger.Error("SpecAndRunInitiator: unable to start job", err.Error())
 	}
 }
