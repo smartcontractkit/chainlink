@@ -47,6 +47,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		v2.POST("/bridge_types", tt.Create)
 		v2.GET("/bridge_types/:BridgeName", tt.Show)
 		v2.DELETE("/bridge_types/:BridgeName", tt.RemoveOne)
+		v2.DELETE("/bridge_types", tt.RemoveMany)
 
 		backup := BackupController{app}
 		v2.GET("/backup", backup.Show)
