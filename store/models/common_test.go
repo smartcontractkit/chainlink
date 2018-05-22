@@ -23,14 +23,24 @@ func Test_ParseCBOR(t *testing.T) {
 		want        models.JSON
 		wantErrored bool
 	}{
-		{"hello world",
+		{
+			"hello world",
 			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff`,
 			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-			false},
-		{"trailing empty bytes",
+			false,
+		},
+		{
+			"trailing empty bytes",
 			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`,
 			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-			false},
+			false,
+		},
+		{
+			"nested maps",
+			`0xbf657461736b739f6868747470706f7374ff66706172616d73bf636d73676f68656c6c6f5f636861696e6c696e6b6375726c75687474703a2f2f6c6f63616c686f73743a36363930ffff`,
+			cltest.JSONFromString(`{"params":{"msg":"hello_chainlink","url":"http://localhost:6690"},"tasks":["httppost"]}`),
+			false,
+		},
 		{"empty object", `a0`, cltest.JSONFromString(`{}`), false},
 		{"empty string", ``, models.JSON{}, true},
 		{"invalid CBOR", `ff`, models.JSON{}, true},
@@ -42,8 +52,12 @@ func Test_ParseCBOR(t *testing.T) {
 			assert.NoError(t, err)
 
 			json, err := models.ParseCBOR(b)
-			assert.Equal(t, test.want, json)
-			assert.Equal(t, test.wantErrored, (err != nil))
+			if test.wantErrored {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.want, json)
+			}
 		})
 	}
 }
@@ -181,29 +195,10 @@ func TestJSON_CBOR(t *testing.T) {
 			cbor := codec.NewDecoderBytes(encoded, new(codec.CborHandle))
 			assert.NoError(t, cbor.Decode(&decoded))
 
-			decoded = coerceInterfaceMapToStringMap(decoded)
-
+			decoded, err = utils.CoerceInterfaceMapToStringMap(decoded)
+			assert.NoError(t, err)
 			assert.True(t, reflect.DeepEqual(test.in.Value(), decoded))
 		})
-	}
-}
-
-func coerceInterfaceMapToStringMap(in interface{}) interface{} {
-	switch typed := in.(type) {
-	case map[interface{}]interface{}:
-		m := map[string]interface{}{}
-		for k, v := range typed {
-			m[k.(string)] = coerceInterfaceMapToStringMap(v)
-		}
-		return m
-	case []interface{}:
-		r := make([]interface{}, len(typed))
-		for i, v := range typed {
-			r[i] = coerceInterfaceMapToStringMap(v)
-		}
-		return r
-	default:
-		return in
 	}
 }
 

@@ -133,6 +133,8 @@ const (
 	InitiatorRunAt = "runat"
 	// InitiatorWeb for tasks in a job making a web request.
 	InitiatorWeb = "web"
+	// InitiatorSpecAndRun for jobs created and run as defined on chain.
+	InitiatorSpecAndRun = "specandrun"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -174,7 +176,7 @@ func (i Initiator) IsLogInitiated() bool {
 type TaskSpec struct {
 	Type          string `json:"type" storm:"index"`
 	Confirmations uint64 `json:"confirmations"`
-	Params        JSON
+	Params        JSON   `json:"-"`
 }
 
 // UnmarshalJSON parses the given input and updates the TaskSpec.
@@ -198,7 +200,20 @@ func (t *TaskSpec) UnmarshalJSON(input []byte) error {
 
 // MarshalJSON returns the JSON-encoded TaskSpec Params.
 func (t TaskSpec) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.Params)
+	type Alias TaskSpec
+	var aux Alias
+	aux = Alias(t)
+	b, err := json.Marshal(aux)
+	if err != nil {
+		return b, err
+	}
+
+	js := gjson.ParseBytes(b)
+	merged, err := t.Params.Merge(JSON{js})
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(merged)
 }
 
 // BridgeType is used for external adapters and has fields for
