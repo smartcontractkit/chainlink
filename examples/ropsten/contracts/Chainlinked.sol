@@ -46,9 +46,4 @@ contract Chainlinked {
   function setLinkToken(address _link) internal {
     link = LinkToken(_link);
   }
-
-  modifier onlyOracle() {
-    require(msg.sender == address(oracle));
-    _;
-  }
 }

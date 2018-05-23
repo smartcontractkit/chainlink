@@ -33,13 +33,7 @@ contract SpecAndRunLog is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
-    onlyOracle
-    checkRequestId(_requestId)
+    checkChainlinkFulfillment(_requestId)
   {
-  }
-
-  modifier checkRequestId(bytes32 _requestId) {
-    require(requestId == _requestId);
-    _;
   }
 }

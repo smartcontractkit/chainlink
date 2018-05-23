@@ -17,7 +17,7 @@ contract('SpecAndRunRequester', () => {
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 1600000);
+    assert.isBelow(rec.gasUsed, 1650000);
   });
 
   describe("#requestEthereumPrice", () => {
