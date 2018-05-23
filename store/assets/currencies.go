@@ -3,7 +3,18 @@ package assets
 import (
 	"fmt"
 	"math/big"
+
+	"github.com/willf/pad"
 )
+
+func format(i *big.Int, precision int) string {
+	v := "1" + pad.Right("", precision, "0")
+	d := &big.Int{}
+	d.SetString(v, 10)
+	r := &big.Rat{}
+	r.SetFrac(i, d)
+	return fmt.Sprintf("%v", r.FloatString(precision))
+}
 
 // Link contains a field to represent the smallest units of LINK
 type Link big.Int
@@ -14,11 +25,7 @@ func NewLink(w int64) *Link {
 }
 
 func (l *Link) String() string {
-	b := &big.Int{}
-	b.SetString("1000000000000000000", 10)
-	r := &big.Rat{}
-	r.SetFrac((*big.Int)(l), b)
-	return fmt.Sprintf("%v", r.FloatString(18))
+	return format((*big.Int)(l), 18)
 }
 
 // SetInt64 delegates to *big.Int.SetInt64
@@ -54,11 +61,7 @@ func NewEth(w int64) *Eth {
 }
 
 func (e *Eth) String() string {
-	b := &big.Int{}
-	b.SetString("1000000000000000000", 10)
-	r := &big.Rat{}
-	r.SetFrac((*big.Int)(e), b)
-	return fmt.Sprintf("%v", r.FloatString(18))
+	return format((*big.Int)(e), 18)
 }
 
 // SetInt64 delegates to *big.Int.SetInt64

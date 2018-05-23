@@ -39,10 +39,10 @@
   revision = "675abc5df3c5531bc741b56a765e35623459da6d"
 
 [[projects]]
+  branch = "master"
   name = "github.com/caarlos0/env"
   packages = ["."]
-  revision = "1cddc31c48c56ecd700d873edb9fd5b6f5df922a"
-  version = "v3.3.0"
+  revision = "3e0f30cbf50bb82273cf60e7bb70869f4852e9b8"
 
 [[projects]]
   name = "github.com/coreos/bbolt"
@@ -302,6 +302,12 @@
   version = "v1.20.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/willf/pad"
+  packages = ["."]
+  revision = "b3d7806010228b1a954b4d9c4ee4cf6cb476b063"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
@@ -421,6 +427,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5e1fd1259b5d2becd48de9626d3b9daa7b37530015c37e54c672fdbb65c88214"
+  inputs-digest = "181bc102b51b9c55c9898ab950c418e74b29a529e1e8d017568ab68abbe26230"
   solver-name = "gps-cdcl"
   solver-version = 1
