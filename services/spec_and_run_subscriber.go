@@ -134,9 +134,10 @@ func defaultParamsFor(task string, log types.Log) models.JSON {
 	switch strings.ToLower(task) {
 	case "ethtx":
 		js := fmt.Sprintf(
-			`{"address":"%s", "functionSelector":"%s"}`,
+			`{"address":"%s", "functionSelector":"%s", "dataPrefix":"%s"}`,
 			log.Address.String(),
 			OracleFulfillmentFunctionID,
+			log.Topics[SpecAndRunTopicInternalID].String(),
 		)
 		return models.JSON{gjson.Parse(js)}
 	default:

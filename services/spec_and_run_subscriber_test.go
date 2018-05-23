@@ -61,4 +61,5 @@ func TestNewSpecAndRunLogEvent_SetsDefaultEthTxParams(t *testing.T) {
 	ethTx := cltest.UnwrapAdapter(ethTxAdapter).(*adapters.EthTx)
 	assert.Equal(t, oracleAddress, ethTx.Address)
 	assert.Equal(t, services.OracleFulfillmentFunctionID, ethTx.FunctionSelector.String())
+	assert.Equal(t, log.Topics[services.SpecAndRunTopicInternalID].String(), ethTx.DataPrefix.String())
 }
