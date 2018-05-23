@@ -90,7 +90,7 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 
 // ParsePaginatedResponse parse a JSONAPI response for a document with links
 func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
-	err := ParseResponse(input, resource)
+	err := ParseJSONAPIResponse(input, resource)
 	if err != nil {
 		return err
 	}
@@ -106,9 +106,9 @@ func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.L
 	return nil
 }
 
-// ParseResponse parse a JSONAPI response for a document without links
-func ParseResponse(input []byte, resource interface{}) error {
-	// unmarshal using jsonapi into the resource, whatever it may be,
+// ParseJSONAPIResponse parses the bytes of the root document and unmarshals it
+// into the given resource.
+func ParseJSONAPIResponse(input []byte, resource interface{}) error {
 	// as is api2go will discard the links
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
