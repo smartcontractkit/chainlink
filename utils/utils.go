@@ -179,21 +179,6 @@ func DecodeEthereumTx(hex string) (types.Transaction, error) {
 	return tx, rlp.DecodeBytes(b, &tx)
 }
 
-// WeiToEth converts wei amounts to ether.
-func WeiToEth(numWei *big.Int) *big.Rat {
-	return new(big.Rat).SetFrac(numWei, weiPerEth)
-}
-
-// EthToWei converts ether amounts to wei.
-func EthToWei(numEth float64) *big.Int {
-	numEthBigFloat := new(big.Float).SetFloat64(numEth)
-	weiPerEthBigFloat := new(big.Float).SetInt(weiPerEth)
-	numWeiBigFloat := new(big.Float)
-	numWeiBigFloat.Mul(weiPerEthBigFloat, numEthBigFloat)
-	numWeiBigInt, _ := numWeiBigFloat.Int(nil)
-	return numWeiBigInt
-}
-
 // IsEmptyAddress checks that the address is empty, synonymous with the zero
 // account/address. No logs can come from this address, as there is no contract
 // present there.
@@ -316,24 +301,6 @@ func EVMSignedHexNumber(val *big.Int) (string, error) {
 // EVMHexNumber formats a number as a 32 byte hex string.
 func EVMHexNumber(val interface{}) string {
 	return fmt.Sprintf("0x%064x", val)
-}
-
-// BigRatIsZero checks if a big.Rat is equal to 0.
-func BigRatIsZero(val *big.Rat) bool {
-	zero := new(big.Rat).SetInt64(0)
-	if val.Cmp(zero) == 0 {
-		return true
-	}
-	return false
-}
-
-// BigIntIsZero checks if a big.Int is equal to 0.
-func BigIntIsZero(val *big.Int) bool {
-	zero := new(big.Int).SetInt64(0)
-	if val.Cmp(zero) == 0 {
-		return true
-	}
-	return false
 }
 
 // CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to

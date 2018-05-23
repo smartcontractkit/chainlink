@@ -65,14 +65,6 @@ func TestEthClient_SendRawTx(t *testing.T) {
 	assert.Equal(t, result, common.Hash{1})
 }
 
-func bigRat(s string) *big.Rat {
-	n, ok := new(big.Rat).SetString(s)
-	if !ok {
-		panic("big rational number could not be parsed")
-	}
-	return n
-}
-
 func TestEthClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -81,10 +73,10 @@ func TestEthClient_GetEthBalance(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected *big.Rat
+		expected string
 	}{
-		{"basic", "0x0100", bigRat("256/1000000000000000000")},
-		{"larger than signed 64 bit integer", "0x4b3b4ca85a86c47a098a224000000000", bigRat("100000000000000000000/1")},
+		{"basic", "0x0100", "0.000000000000000256"},
+		{"larger than signed 64 bit integer", "0x4b3b4ca85a86c47a098a224000000000", "100000000000000000000.000000000000000000"},
 	}
 
 	for _, test := range tests {
@@ -95,7 +87,7 @@ func TestEthClient_GetEthBalance(t *testing.T) {
 			ethMock.Register("eth_getBalance", test.input)
 			result, err := ethClientObject.GetEthBalance(cltest.NewAddress())
 			assert.NoError(t, err)
-			assert.Equal(t, test.expected, result)
+			assert.Equal(t, test.expected, result.String())
 		})
 	}
 }
