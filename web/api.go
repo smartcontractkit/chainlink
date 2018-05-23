@@ -72,6 +72,9 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
 	}
 
+	document.Meta = make(jsonapi.Meta)
+	document.Meta["count"] = count
+
 	document.Links = make(jsonapi.Links)
 	if count > size {
 		if page*size < count {
@@ -109,4 +112,31 @@ func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.L
 func ParseResponse(input []byte, resource interface{}) error {
 	var links jsonapi.Links
 	return ParsePaginatedResponse(input, resource, &links)
+}
+
+// ParseJSONAPIResponseMeta parses the bytes of the root document and returns a
+// map of *json.RawMessage's within the 'meta' key.
+func ParseJSONAPIResponseMeta(input []byte) (map[string]*json.RawMessage, error) {
+	var root map[string]*json.RawMessage
+	err := json.Unmarshal(input, &root)
+	if err != nil {
+		return root, err
+	}
+
+	var meta map[string]*json.RawMessage
+	err = json.Unmarshal(*root["meta"], &meta)
+	return meta, err
+}
+
+// ParseJSONAPIResponseMetaCount parses the bytes of the root document and
+// returns the value of the 'count' key from the 'meta' section.
+func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
+	meta, err := ParseJSONAPIResponseMeta(input)
+	if err != nil {
+		return -1, err
+	}
+
+	var metaCount int
+	err = json.Unmarshal(*meta["count"], &metaCount)
+	return metaCount, err
 }

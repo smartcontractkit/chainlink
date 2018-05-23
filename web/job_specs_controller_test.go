@@ -42,11 +42,15 @@ func TestJobSpecsController_Index(t *testing.T) {
 
 	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=1")
 	cltest.AssertServerResponse(t, resp, 200)
+	body := cltest.ParseResponseBody(resp)
+
+	metaCount, err := web.ParseJSONAPIResponseMetaCount(body)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
 	jobs := []models.JobSpec{}
-
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &jobs, &links)
+	err = web.ParsePaginatedResponse(body, &jobs, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
