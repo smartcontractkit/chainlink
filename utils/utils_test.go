@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -17,22 +15,6 @@ func TestUtils_NewBytes32ID(t *testing.T) {
 	t.Parallel()
 	id := utils.NewBytes32ID()
 	assert.NotContains(t, id, "-")
-}
-
-func TestUtils_WeiToEth(t *testing.T) {
-	t.Parallel()
-	numWei := new(big.Int).SetInt64(1)
-
-	actualNumEth := utils.WeiToEth(numWei)
-	assert.Equal(t, big.NewRat(1, 1e18), actualNumEth)
-}
-
-func TestUtils_EthToWei(t *testing.T) {
-	t.Parallel()
-	var numEth float64 = 1.0
-	var expectedNumWei *big.Int = new(big.Int).SetInt64(1e18)
-	actualNumWei := utils.EthToWei(numEth)
-	assert.Equal(t, actualNumWei, expectedNumWei)
 }
 
 func TestUtils_IsEmptyAddress(t *testing.T) {

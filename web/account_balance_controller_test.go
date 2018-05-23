@@ -1,11 +1,9 @@
 package web_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
@@ -40,6 +38,6 @@ func TestAccountBalanceController_Index(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, account.Address.Hex(), ab.Address)
-	assert.Equal(t, big.NewRat(1, 3906250000000000), ab.EthBalance)
-	assert.Equal(t, assets.NewLink(256), ab.LinkBalance)
+	assert.Equal(t, "0.000000000000000256", ab.EthBalance.String())
+	assert.Equal(t, "0.000000000000000256", ab.LinkBalance.String())
 }
