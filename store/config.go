@@ -21,7 +21,7 @@ import (
 type Config struct {
 	LogLevel               LogLevel `env:"LOG_LEVEL" envDefault:"info"`
 	RootDir                string   `env:"ROOT" envDefault:"~/.chainlink"`
-	Port                   string   `env:"PORT" envDefault:"6688"`
+	Port                   string   `env:"CHAINLINK_PORT" envDefault:"6688"`
 	BasicAuthUsername      string   `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword      string   `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL            string   `env:"ETH_URL" envDefault:"ws://localhost:8546"`
@@ -68,7 +68,7 @@ func (c Config) CreateProductionLogger() *zap.Logger {
 func (c Config) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
-		"PORT: %s\n" +
+		"CHAINLINK_PORT: %s\n" +
 		"USERNAME: %s\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
