@@ -323,6 +323,33 @@ func ParseResponseBody(resp *http.Response) []byte {
 	return b
 }
 
+// ParseJSONAPIResponseMeta parses the bytes of the root document and returns a
+// map of *json.RawMessage's within the 'meta' key.
+func ParseJSONAPIResponseMeta(input []byte) (map[string]*json.RawMessage, error) {
+	var root map[string]*json.RawMessage
+	err := json.Unmarshal(input, &root)
+	if err != nil {
+		return root, err
+	}
+
+	var meta map[string]*json.RawMessage
+	err = json.Unmarshal(*root["meta"], &meta)
+	return meta, err
+}
+
+// ParseJSONAPIResponseMetaCount parses the bytes of the root document and
+// returns the value of the 'count' key from the 'meta' section.
+func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
+	meta, err := ParseJSONAPIResponseMeta(input)
+	if err != nil {
+		return -1, err
+	}
+
+	var metaCount int
+	err = json.Unmarshal(*meta["count"], &metaCount)
+	return metaCount, err
+}
+
 // ObserveLogs returns the observed logs
 func ObserveLogs() *observer.ObservedLogs {
 	core, observed := observer.New(zapcore.DebugLevel)
