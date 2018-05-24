@@ -72,6 +72,9 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
 	}
 
+	document.Meta = make(jsonapi.Meta)
+	document.Meta["count"] = count
+
 	document.Links = make(jsonapi.Links)
 	if count > size {
 		if page*size < count {
@@ -87,26 +90,30 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 
 // ParsePaginatedResponse parse a JSONAPI response for a document with links
 func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
-	// First unmarshal using the jsonAPI into the Resource, whatever it may be,
-	// as is api2go will discard the links
-	err := jsonapi.Unmarshal(input, resource)
+	err := ParseJSONAPIResponse(input, resource)
 	if err != nil {
-		return fmt.Errorf("web: unable to unmarshal Data record, %+v", err)
+		return err
 	}
 
-	// Unmarshal using the stdlib Unmarshal to extract the Links part of the document
+	// Unmarshal using the stdlib Unmarshal to extract the links part of the document
 	document := jsonapi.Document{}
 	err = json.Unmarshal(input, &document)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal Links: %+v", err)
+		return fmt.Errorf("unable to unmarshal links: %+v", err)
 	}
-	*links = document.Links
 
+	*links = document.Links
 	return nil
 }
 
-// ParseResponse parse a JSONAPI response for a document without links
-func ParseResponse(input []byte, resource interface{}) error {
-	var links jsonapi.Links
-	return ParsePaginatedResponse(input, resource, &links)
+// ParseJSONAPIResponse parses the bytes of the root document and unmarshals it
+// into the given resource.
+func ParseJSONAPIResponse(input []byte, resource interface{}) error {
+	// as is api2go will discard the links
+	err := jsonapi.Unmarshal(input, resource)
+	if err != nil {
+		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
+	}
+
+	return nil
 }

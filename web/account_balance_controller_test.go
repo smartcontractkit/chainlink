@@ -34,7 +34,7 @@ func TestAccountBalanceController_Index(t *testing.T) {
 	assert.NoError(t, err)
 
 	ab := presenters.AccountBalance{}
-	err = web.ParseResponse(cltest.ParseResponseBody(resp), &ab)
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(resp), &ab)
 	assert.NoError(t, err)
 
 	assert.Equal(t, account.Address.Hex(), ab.Address)
