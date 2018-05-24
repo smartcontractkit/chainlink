@@ -84,7 +84,7 @@ func guiEngine(app *services.ChainlinkApplication) *gin.Engine {
 		basicAuth,
 	)
 
-	box := packr.NewBox("./gui/dist/")
+	box := packr.NewBox("../gui/dist/")
 	engine.StaticFS("/", box)
 
 	return engine
