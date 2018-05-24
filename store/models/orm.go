@@ -57,28 +57,28 @@ func emptySlice(to interface{}) {
 	reflect.Indirect(ref).Set(results)
 }
 
-// Build Query returns a series of query based on an interface's keys and values
+// BuildQuery returns a series of query based on an interface's keys and values
 func (orm *ORM) BuildQuery(value interface{}) ([]q.Matcher, error) {
 	var dbselect []q.Matcher
 	var query q.Matcher
 	s := reflect.ValueOf(value).Elem()
 	typeOfValue := s.Type()
 	for i := 0; i < s.NumField(); i++ {
-		field_key := typeOfValue.Field(i).Name
+		fieldKey := typeOfValue.Field(i).Name
 		field := s.Field(i)
 		if !(field.CanInterface()) {
 			return dbselect, fmt.Errorf("Invalid parameters")
 		}
-		field_value := field.Interface()
-		if utils.IsZero(reflect.ValueOf(field_value)) {
+		fieldValue := field.Interface()
+		if utils.IsZero(reflect.ValueOf(fieldValue)) {
 			continue
 		}
-		switch field_value.(type) {
+		switch fieldValue.(type) {
 		// Allows Regex search on string fields
 		case string:
-			query = q.Re(field_key, field_value.(string))
+			query = q.Re(fieldKey, fieldValue.(string))
 		default:
-			query = q.Eq(field_key, field_value)
+			query = q.Eq(fieldKey, fieldValue)
 
 		}
 		dbselect = append(dbselect, query)
@@ -91,7 +91,7 @@ func (orm *ORM) AdvancedBridgeSearch(btc BridgeTypeCleaner) ([]BridgeType, error
 	var results []BridgeType
 	query, err := orm.BuildQuery(&btc.BridgeType)
 	if err != nil {
-		return results, fmt.Errorf("Error building query", err)
+		return results, fmt.Errorf("Error building query %v", err)
 	}
 	err = orm.Select(query...).Find(&results)
 	return results, err

@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path"
 	"testing"

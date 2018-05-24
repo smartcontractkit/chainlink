@@ -110,7 +110,7 @@ func (btc *BridgeTypesController) RemoveOne(c *gin.Context) {
 	}
 }
 
-// Removes several bridges based on the content of the JSON passed with the request.
+// RemoveMany removes several bridges based on the content of the JSON passed with the request.
 func (btc *BridgeTypesController) RemoveMany(c *gin.Context) {
 	bt := &models.BridgeTypeCleaner{}
 	var respBridges []models.BridgeType

@@ -85,7 +85,7 @@ func NullISO8601UTC(t null.Time) string {
 	return ""
 }
 
-// Checks if the variable is the zero value of its type
+// IsZero checks if the variable is the zero value of its type
 func IsZero(v reflect.Value) bool {
 	return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
 }
