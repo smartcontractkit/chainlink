@@ -204,7 +204,7 @@ func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error
 	table.SetHeader([]string{"Address", "ETH", "LINK"})
 	table.Append([]string{
 		ab.Address,
-		ab.EthBalance.FloatString(18),
+		ab.EthBalance.String(),
 		ab.LinkBalance.String(),
 	})
 	render("Account Balance", table)

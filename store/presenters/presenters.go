@@ -41,8 +41,8 @@ func ShowEthBalance(store *store.Store) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance.FloatString(18))
-	if utils.BigRatIsZero(balance) {
+	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
+	if balance.IsZero() {
 		return result, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return result, nil
@@ -87,7 +87,7 @@ func (bt BridgeType) MarshalJSON() ([]byte, error) {
 // AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
 type AccountBalance struct {
 	Address     string       `json:"address"`
-	EthBalance  *big.Rat     `json:"eth_balance"`
+	EthBalance  *assets.Eth  `json:"eth_balance"`
 	LinkBalance *assets.Link `json:"link_balance"`
 }
 
