@@ -44,7 +44,7 @@ func TestJobSpecsController_Index(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 	body := cltest.ParseResponseBody(resp)
 
-	metaCount, err := web.ParseJSONAPIResponseMetaCount(body)
+	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, metaCount)
 
