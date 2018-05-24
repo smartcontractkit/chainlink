@@ -2,5 +2,5 @@
 
 set -e
 
-cd web/gui
+cd gui
 yarn test-ci
