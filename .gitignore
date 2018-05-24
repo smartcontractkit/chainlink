@@ -1,15 +1,23 @@
+# dependencies
+node_modules/
 vendor/
 tmp/
+
+# chainlink tmp
 internal/clroot/db.bolt
 internal/clroot/log.jsonl
 internal/gethnet/datadir/geth/
 internal/gethnet/datadir/geth.ipc
 internal/gethnet/datadir/history
 /chainlink
-.envrc
-node_modules/
 
 # GUI
-web/gui/yarn-error.log
-web/gui/dist
-web/gui/node_modules
+gui/dist
+
+# node tools
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# misc
+.envrc

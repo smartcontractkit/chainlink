@@ -2,4 +2,3 @@
 
 dep ensure
 yarn install
-cd web/gui && yarn install

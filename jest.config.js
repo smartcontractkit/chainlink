@@ -1,13 +1,13 @@
 module.exports = {
   moduleDirectories: [
     'node_modules',
-    '<rootDir>/src/',
-    '<rootDir>/support/'
+    '<rootDir>/gui/src/',
+    '<rootDir>/gui/support/'
   ],
   setupFiles: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: [
-    '<rootDir>/dist/',
-    '<rootDir>/tmp/',
+    '<rootDir>/gui/dist/',
+    '<rootDir>/gui/tmp/',
     '<rootDir>/node_modules/'
   ]
 }
