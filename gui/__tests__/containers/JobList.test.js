@@ -1,24 +1,22 @@
 /* eslint-env jest */
 import React from 'react'
 import { mount } from 'enzyme'
-import { Jobs } from 'containers/Jobs.js'
+import { JobList } from 'containers/JobList.js'
 import jobSpecFactory from 'factories/jobSpec'
 import syncFetch from 'test-helpers/syncFetch'
 
-describe('containers/Jobs', () => {
+describe('containers/JobList', () => {
   it('renders the list of jobs', async () => {
     expect.assertions(3)
 
-    const response = jobSpecFactory({
+    const response = jobSpecFactory([{
       id: 'c60b9927eeae43168ddbe92584937b1b',
       initiators: [{'type': 'web'}],
       createdAt: '2018-05-10T00:41:54.531043837Z'
-    })
+    }])
     global.fetch.getOnce('/v2/specs', response)
 
-    const classes = {}
-    const location = {}
-    const wrapper = mount(<Jobs classes={classes} location={location} />)
+    const wrapper = mount(<JobList />)
 
     await syncFetch(wrapper).then(() => {
       expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
@@ -27,15 +25,17 @@ describe('containers/Jobs', () => {
     })
   })
 
-  it('displays an error message when the network requst fails', async () => {
+  it('displays an error message when the jobs network request fails', async () => {
+    expect.assertions(1)
+
     global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
 
-    const classes = {}
-    const location = {}
-    const wrapper = mount(<Jobs classes={classes} location={location} />)
+    const wrapper = mount(<JobList />)
 
     await syncFetch(wrapper).then(() => {
-      expect(wrapper.text()).toContain('There was an error fetching the jobs. Please reload the page.')
+      expect(wrapper.text()).toContain(
+        'There was an error fetching the jobs. Please reload the page.'
+      )
     })
   })
 })
