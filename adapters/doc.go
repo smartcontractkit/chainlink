@@ -21,6 +21,12 @@
 // the Ethereum blockhain.
 //  { "type": "EthBytes32" }
 //
+// EthInt256
+//
+// The EthInt256 adapter will take a given signed 256 bit integer and format
+// it to hex for the Ethereum blockchain.
+//   { "type": "EthInt256" }
+//
 // EthUint256
 //
 // The EthUint256 adapter will take a given 256 bit integer and format it

@@ -1,25 +1,43 @@
 // Package web handles receiving and supplying information
 // within the node.
 //
-// Router
+// AccountBalanceController
 //
-// Router defines the valid paths for the node and responds
-// to requests.
+// AccountBalanceController allows for the display of the active
+// accounts ETH and LINK balances.
 //
-// JobSpecsController
+// API
 //
-// JobSpecsController allows for the creation of Jobs to be added
-// to the node, and shows the current jobs which have already
-// been added.
+// API contains logic for the web interface to display items.
 //
-// JobRunsController
+// BackupController
 //
-// JobRunsController allows for the creation of JobRuns within
-// a given Job on the node.
+// BackupController allows for backups to be initialized over GET.
 //
 // BridgeTypesController
 //
 // BridgeTypesController allows for the creation of BridgeTypes
 // on the node. BridgeTypes are the external adapters which add
 // functionality not available in the core, from outside the node.
+//
+// JobRunsController
+//
+// JobRunsController allows for the creation of JobRuns within
+// a given Job on the node.
+//
+// JobSpecsController
+//
+// JobSpecsController allows for the creation of specs to be added
+// to the node, and shows the current specs which have already
+// been added.
+//
+// Router
+//
+// Router defines the valid paths for the node and responds
+// to requests.
+//
+// SnapshotsController
+//
+// SnapshotsController allows for the creation and showing of
+// V1 snapshots in the node.
 package web
