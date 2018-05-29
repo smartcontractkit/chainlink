@@ -3,7 +3,9 @@
 set -ex
 
 # Kill all background processes when this shell script finishes
-trap "kill -- -$$ || true" SIGINT SIGTERM EXIT
+if [ -n "$CI" ]; then
+  trap "kill -- -$$ || true" SIGINT SIGTERM EXIT
+fi
 
 PATH=./internal/bin:./node_modules/.bin:$PATH
 
