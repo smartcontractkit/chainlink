@@ -131,7 +131,7 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 }
 
-func TestBridgeController_RemoveOne(t *testing.T) {
+func TestBridgeController_Destroy(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
