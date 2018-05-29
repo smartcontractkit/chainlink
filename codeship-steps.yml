@@ -1,0 +1,8 @@
+- type: parallel
+  steps:
+  - service: app
+    command: ./internal/ci/go_test
+  - service: app
+    command: ./internal/ci/truffle_test
+  - service: app
+    command: ./internal/ci/ethereum_test

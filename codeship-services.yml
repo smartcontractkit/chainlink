@@ -1,0 +1,5 @@
+app:
+  build:
+    dockerfile: internal/ci/Dockerfile
+  ENV:
+    - GO_VERSION="1.10.1"
