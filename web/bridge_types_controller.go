@@ -89,8 +89,8 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 	}
 }
 
-// RemoveOne removes a specific Bridge.
-func (btc *BridgeTypesController) RemoveOne(c *gin.Context) {
+// Destroy removes a specific Bridge.
+func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
 		c.JSON(404, gin.H{
@@ -98,12 +98,12 @@ func (btc *BridgeTypesController) RemoveOne(c *gin.Context) {
 		})
 	} else if err != nil {
 		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
+			"errors": []string{fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err).Error()},
 		})
 	} else if err = btc.App.RemoveAdapter(&bt); err != nil {
 		fmt.Println([]string{err.Error()})
 		c.JSON(StatusCodeForError(err), gin.H{
-			"errors": []string{err.Error()},
+			"errors": []string{fmt.Errorf("failed to initialise BTC Destroy: %+v", err).Error()},
 		})
 	} else {
 		c.JSON(200, presenters.BridgeType{BridgeType: bt})
