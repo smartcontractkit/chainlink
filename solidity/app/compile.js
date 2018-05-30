@@ -25,7 +25,7 @@ function solCompile (filename) {
     settings: {
       outputSelection: {
         [inputBasename]: {
-          '*': [ 'evm.bytecode' ]
+          '*': [ 'abi', 'evm.bytecode' ]
         }
       }
     }
@@ -52,11 +52,11 @@ function checkCompilerErrors (errors) {
   }
 }
 
-function getBytecode (output, contractName) {
+function getContract (output, contractName) {
   for (const [key, module] of Object.entries(output.contracts)) {
     if (key === contractName) {
       for (const [_, contract] of Object.entries(module)) {
-        return contract.evm.bytecode.object.toString()
+        return contract
       }
     }
   }
@@ -66,5 +66,5 @@ module.exports = function compile (filename) {
   let contractName = path.basename(filename).toString()
   let compiled = solCompile(filename)
   checkCompilerErrors(compiled.errors)
-  return getBytecode(compiled, contractName)
+  return getContract(compiled, contractName)
 }
