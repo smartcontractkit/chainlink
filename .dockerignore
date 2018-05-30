@@ -10,10 +10,7 @@
 tmp/
 vendor/
 
-internal/bin/
-internal/ci/
 internal/clroot/
-internal/gethnet/
 
 node_modules/
 **/node_modules/
@@ -21,3 +18,5 @@ node_modules/
 solidity/node_modules/
 solidity/build/
 solidity/.python-version
+
+codeship-*.yml

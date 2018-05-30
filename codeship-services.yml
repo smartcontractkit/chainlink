@@ -1,0 +1,14 @@
+builder:
+  build:
+    dockerfile: ./internal/ci/Dockerfile
+    context: ./
+
+app:
+  build: ./
+
+googleclouddeployment:
+  image: j16r/chainlink
+  encrypted_env_file: google-credentials.encrypted
+  add_docker: true
+  volumes:
+    - ./:/deploy
