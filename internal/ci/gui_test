@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+cd gui
+yarn test-ci

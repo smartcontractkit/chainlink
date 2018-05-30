@@ -22,6 +22,7 @@ type Config struct {
 	LogLevel               LogLevel `env:"LOG_LEVEL" envDefault:"info"`
 	RootDir                string   `env:"ROOT" envDefault:"~/.chainlink"`
 	Port                   string   `env:"CHAINLINK_PORT" envDefault:"6688"`
+	GuiPort                string   `env:"GUI_PORT" envDefault:"6689"`
 	BasicAuthUsername      string   `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword      string   `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL            string   `env:"ETH_URL" envDefault:"ws://localhost:8546"`
@@ -69,6 +70,7 @@ func (c Config) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
 		"CHAINLINK_PORT: %s\n" +
+		"GUI_PORT: %s\n" +
 		"USERNAME: %s\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
@@ -86,6 +88,7 @@ func (c Config) String() string {
 		c.LogLevel,
 		c.RootDir,
 		c.Port,
+		c.GuiPort,
 		c.BasicAuthUsername,
 		c.EthereumURL,
 		c.ChainID,
