@@ -1,9 +1,8 @@
 import React from 'react'
-import PropType from 'prop-types'
-import Typography from '@material-ui/core/Typography'
-import Card from '@material-ui/core/Card'
-import { BigNumber } from 'bignumber.js'
+import PropTypes from 'prop-types'
+import MetaInfo from 'components/MetaInfo'
 import numeral from 'numeral'
+import { BigNumber } from 'bignumber.js'
 
 const WEI_PER_TOKEN = new BigNumber(10 ** 18)
 
@@ -14,21 +13,31 @@ const formatBalance = (val) => {
   return numeral(tokenBalance).format('0.20a')
 }
 
-const TokenBalance = ({title, value, className}) => (
-  <Card className={className}>
-    <Typography gutterBottom variant='headline' component='h2'>
-      {title}
-    </Typography>
-    <Typography variant='display2' color='inherit'>
-      {formatBalance(value)}
-    </Typography>
-  </Card>
-)
+const TokenBalance = ({title, value, className, fetching, error}) => {
+  let val
+  if (fetching) {
+    val = '...'
+  } else if (error) {
+    val = error
+  } else {
+    val = formatBalance(value)
+  }
+
+  return (
+    <MetaInfo
+      title={title}
+      value={val}
+      className={className}
+    />
+  )
+}
 
 TokenBalance.propTypes = {
-  title: PropType.string,
-  value: PropType.string,
-  className: PropType.string
+  title: PropTypes.string.isRequired,
+  value: PropTypes.string,
+  className: PropTypes.string,
+  fetching: PropTypes.bool,
+  error: PropTypes.string
 }
 
 export default TokenBalance
