@@ -1,3 +1,4 @@
+require('./app/cl_utils.js')
 let deploy = require('./app/deploy.js')
 
 if (process.argv.length != 3) {

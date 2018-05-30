@@ -53,9 +53,9 @@ function checkCompilerErrors (errors) {
 }
 
 function getContract (output, contractName) {
-  for (const [key, module] of Object.entries(output.contracts)) {
+  for (let [key, module] of Object.entries(output.contracts)) {
     if (key === contractName) {
-      for (const [_, contract] of Object.entries(module)) {
+      for (let [_, contract] of Object.entries(module)) {
         return contract
       }
     }
