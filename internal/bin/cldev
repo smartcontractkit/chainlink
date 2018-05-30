@@ -17,6 +17,8 @@ export MINIMUM_CONTRACT_PAYMENT=1000000000000
 LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
 
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
+  cd gui && yarn install && cd ..
+  yarn build
   go run -ldflags "$LDFLAGS" \
     main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
 elif [ "$1" == "clean" ]; then

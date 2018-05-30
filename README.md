@@ -62,6 +62,7 @@ You can configure your node's behavior by setting environment variables which ca
     LOG_LEVEL                Default: info
     ROOT                     Default: ~/.chainlink
     CHAINLINK_PORT           Default: 6688
+    GUI_PORT                 Default: 6689
     USERNAME                 Default: chainlink
     PASSWORD                 Default: twochains
     ETH_URL                  Default: ws://localhost:8546
