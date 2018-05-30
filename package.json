@@ -45,6 +45,8 @@
     "react-router": "^4.2.0",
     "react-static": "^5.9.3",
     "redux": "^4.0.0",
+    "redux-logger": "^3.0.6",
+    "redux-thunk": "^2.3.0",
     "request-promise": "^4.2.2",
     "serve": "^6.5.0",
     "snazzy": "^7.1.1",

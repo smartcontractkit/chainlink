@@ -1,8 +1,12 @@
 import uuid from 'uuid/v4'
+import { decamelizeKeys } from 'humps'
 
 export default (jobs) => {
-  return {
-    data: (jobs || []).map((c) => {
+  const j = jobs || []
+
+  return decamelizeKeys({
+    meta: { count: j.length },
+    data: j.map((c) => {
       const config = c || {}
       const id = config.id || uuid().replace(/-/g, '')
       const initiators = config.initiators || [{'type': 'web'}]
@@ -20,5 +24,5 @@ export default (jobs) => {
         }
       }
     })
-  }
+  })
 }
