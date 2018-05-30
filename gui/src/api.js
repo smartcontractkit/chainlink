@@ -5,7 +5,7 @@ import 'isomorphic-unfetch'
 
 const DEFAULT_CHAINLINK_PORT = 6688
 
-const formatUrl = (path) => {
+const formatUrl = path => {
   const port = parseQueryString(global.location.search).port || process.env.CHAINLINK_PORT || DEFAULT_CHAINLINK_PORT
 
   return url.format({
@@ -15,18 +15,15 @@ const formatUrl = (path) => {
   })
 }
 
-export const getJobs = () => {
-  const requestUrl = formatUrl('/v2/specs')
-
-  return global.fetch(requestUrl, {credentials: 'include'})
+const request = path => (
+  global.fetch(
+    formatUrl(path),
+    {credentials: 'include'}
+  )
     .then(response => response.json())
     .then((data) => camelizeKeys(data))
-}
+)
 
-export const getAccountBalance = () => {
-  const requestUrl = formatUrl('/v2/account_balance')
+export const getJobs = () => request('/v2/specs')
 
-  return global.fetch(requestUrl, {credentials: 'include'})
-    .then(response => response.json())
-    .then((data) => camelizeKeys(data))
-}
+export const getAccountBalance = () => request('/v2/account_balance')
