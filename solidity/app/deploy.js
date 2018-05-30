@@ -1,25 +1,24 @@
-const Web3 = require('web3')
+const Eth = require('ethjs')
+const TruffleContract = require('truffle-contract')
 
 let compile = require('./compile.js')
 let personal = require('./personal.js')
-let utils = require('./utils.js')
 let wallet = require('./wallet.js')
-let web3 = new Web3('http://localhost:18545')
 
 function getBytecode (contract) {
   return contract.evm.bytecode.object.toString()
 }
 
-function objectify (compiled, address) {
-  let contract = new web3.eth.Contract(compiled.abi, address)
-  contract.address = address
-  return contract
+async function contractify (compiled, address) {
+  let contract = TruffleContract({abi: compiled.abi, address: address})
+  contract.setProvider(clUtils.provider)
+  return contract.at(address)
 }
 
 module.exports = async function deploy (filename) {
   let compiled = compile(filename)
 
-  await personal.send({to: wallet.address, value: utils.toWei(1)})
+  await personal.send({to: wallet.address, value: clUtils.toWei(1)})
   let data = '0x' +
     getBytecode(compiled) +
     '0000000000000000000000004b274dfcd56656742A55ad54549b3770c392aA87'
@@ -27,6 +26,6 @@ module.exports = async function deploy (filename) {
     gas: 2000000,
     data: data
   })
-  let receipt = await utils.getTxReceipt(txHash)
-  return objectify(compiled, receipt.contractAddress)
+  let receipt = await clUtils.getTxReceipt(txHash)
+  return contractify(compiled, receipt.contractAddress)
 }
