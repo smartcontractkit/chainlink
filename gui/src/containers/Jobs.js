@@ -18,6 +18,44 @@ const styles = theme => ({
   }
 })
 
+const renderJobsList = ({jobs, jobsFetching, jobsError}) => (
+  <JobList
+    jobs={jobs}
+    fetching={jobsFetching}
+    error={jobsError}
+  />
+)
+
+const renderSidebar = ({
+  ethBalance,
+  linkBalance,
+  jobCount,
+  accountBalanceFetching,
+  accountBalanceError
+}) => (
+  <Grid container spacing={24}>
+    <Grid item xs={12}>
+      <TokenBalance
+        title='Ethereum'
+        fetching={accountBalanceFetching}
+        value={ethBalance}
+        error={accountBalanceError}
+      />
+    </Grid>
+    <Grid item xs={12}>
+      <TokenBalance
+        title='Link'
+        fetching={accountBalanceFetching}
+        value={linkBalance}
+        error={accountBalanceError}
+      />
+    </Grid>
+    <Grid item xs={12}>
+      <MetaInfo title='Jobs' value={jobCount} />
+    </Grid>
+  </Grid>
+)
+
 export class Jobs extends Component {
   componentDidMount () {
     this.props.fetchJobs()
@@ -25,17 +63,7 @@ export class Jobs extends Component {
   }
 
   render () {
-    const {
-      classes,
-      ethBalance,
-      linkBalance,
-      accountBalanceFetching,
-      accountBalanceError,
-      jobCount,
-      jobs,
-      jobsFetching,
-      jobsError
-    } = this.props
+    const { classes } = this.props
 
     return (
       <div>
@@ -45,34 +73,10 @@ export class Jobs extends Component {
 
         <Grid container spacing={40}>
           <Grid item xs={9}>
-            <JobList
-              jobs={jobs}
-              fetching={jobsFetching}
-              error={jobsError}
-            />
+            {renderJobsList(this.props)}
           </Grid>
           <Grid item xs={3}>
-            <Grid container spacing={24}>
-              <Grid item xs={12}>
-                <TokenBalance
-                  title='Ethereum'
-                  fetching={accountBalanceFetching}
-                  value={ethBalance}
-                  error={accountBalanceError}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TokenBalance
-                  title='Link'
-                  fetching={accountBalanceFetching}
-                  value={linkBalance}
-                  error={accountBalanceError}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <MetaInfo title='Jobs' value={jobCount} />
-              </Grid>
-            </Grid>
+            {renderSidebar(this.props)}
           </Grid>
         </Grid>
       </div>
