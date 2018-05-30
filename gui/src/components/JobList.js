@@ -7,37 +7,42 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 
-const formatInitiators = (initiators) => (initiators.map(i => i.type).join(', '))
+const renderFetching = () => (
+  <TableRow>
+    <TableCell component='th' scope='row' colSpan={3}>...</TableCell>
+  </TableRow>
+)
 
-const renderJobs = (jobs, fetching, error) => {
+const renderError = error => (
+  <TableRow>
+    <TableCell component='th' scope='row' colSpan={3}>
+      {error}
+    </TableCell>
+  </TableRow>
+)
+
+const formatInitiators = (initiators) => (initiators.map(i => i.type).join(', '))
+const renderJobs = jobs => (
+  jobs.map(j => (
+    <TableRow key={j.id}>
+      <TableCell component='th' scope='row'>
+        {j.id}
+      </TableCell>
+      <TableCell>{j.createdAt}</TableCell>
+      <TableCell>
+        {formatInitiators(j.initiators)}
+      </TableCell>
+    </TableRow>
+  ))
+)
+
+const renderBody = (jobs, fetching, error) => {
   if (fetching) {
-    return (
-      <TableRow>
-        <TableCell component='th' scope='row' colSpan={3}>
-          ...
-        </TableCell>
-      </TableRow>
-    )
+    return renderFetching()
   } else if (error) {
-    return (
-      <TableRow>
-        <TableCell component='th' scope='row' colSpan={3}>
-          {error}
-        </TableCell>
-      </TableRow>
-    )
+    return renderError(error)
   } else {
-    return jobs.map(j => (
-      <TableRow key={j.id}>
-        <TableCell component='th' scope='row'>
-          {j.id}
-        </TableCell>
-        <TableCell>{j.createdAt}</TableCell>
-        <TableCell>
-          {formatInitiators(j.initiators)}
-        </TableCell>
-      </TableRow>
-    ))
+    return renderJobs(jobs)
   }
 }
 
@@ -52,7 +57,7 @@ export const JobList = ({jobs, fetching, error}) => (
         </TableRow>
       </TableHead>
       <TableBody>
-        {renderJobs(jobs, fetching, error)}
+        {renderBody(jobs, fetching, error)}
       </TableBody>
     </Table>
   </Card>
