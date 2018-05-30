@@ -1,5 +1,14 @@
-app:
+builder:
   build:
-    dockerfile: internal/ci/Dockerfile
-  ENV:
-    - GO_VERSION="1.10.1"
+    dockerfile: ./internal/ci/Dockerfile
+    context: ./
+
+app:
+  build: ./
+
+googleclouddeployment:
+  image: j16r/chainlink
+  encrypted_env_file: google-credentials.encrypted
+  add_docker: true
+  volumes:
+    - ./:/deploy

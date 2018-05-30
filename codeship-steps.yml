@@ -1,8 +1,18 @@
 - type: parallel
   steps:
-  - service: app
-    command: ./internal/ci/go_test
-  - service: app
-    command: ./internal/ci/truffle_test
-  - service: app
-    command: ./internal/ci/ethereum_test
+  #- service: builder
+    #command: ./internal/ci/go_test
+  #- service: builder
+    #command: ./internal/ci/truffle_test
+  #- service: builder
+    #command: ./internal/ci/ethereum_test
+  - name: No-op for deployment testing
+    service: builder
+    command: ./no-op
+    
+- type: push
+  service: app
+  name: push to docker hub
+  image_name: j16r/chainlink
+  registry: https://index.docker.io/v1/
+  encrypted_dockercfg_path: dockercfg.encrypted
