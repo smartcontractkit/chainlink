@@ -1,22 +1,32 @@
 const Eth = require('ethjs')
 
+
 clUtils = {
+  personalAccount: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
   toWei: function toWei (eth) {
     return (parseInt(eth.toString()) * 10 ** 18).toString()
   },
   getTxReceipt: function getTxReceipt (txHash) {
     return new Promise(async (resolve, reject) => {
-      while (true) {
+      for (let i = 0; i < 100; i++) {
         let receipt = await clUtils.eth.getTransactionReceipt(txHash)
         if (receipt != null) {
           return resolve(receipt)
         }
       }
+      reject(txHash, "unconfirmed!")
     })
   },
   setProvider: function setProvider (provider) {
     clUtils.provider = provider
     clUtils.eth = new Eth(provider)
+  },
+  send: async function send (params) {
+    let defaults = {
+      data: '',
+      from: clUtils.personalAccount
+    }
+    return clUtils.eth.sendTransaction(Object.assign(defaults, params))
   }
 }
 

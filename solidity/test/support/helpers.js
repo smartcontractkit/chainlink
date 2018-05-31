@@ -1,3 +1,6 @@
+require('../../app/cl_utils.js');
+deploy = require('../../app/deploy.js');
+
 BigNumber = require('bignumber.js');
 moment = require('moment');
 abi = require('ethereumjs-abi');
@@ -6,6 +9,7 @@ cbor = require("cbor");
 
 (() => {
   eth = web3.eth;
+	clUtils.setProvider(web3.currentProvider)
 
   before(async function () {
     accounts = await eth.accounts;
@@ -13,6 +17,8 @@ cbor = require("cbor");
     oracleNode = accounts[1];
     stranger = accounts[2];
     consumer = accounts[3];
+
+    clUtils.personalAccount = defaultAccount;
   });
 
   Eth = function sendEth(method, params) {
