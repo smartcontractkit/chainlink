@@ -8,13 +8,13 @@ clUtils = {
   },
   getTxReceipt: function getTxReceipt (txHash) {
     return new Promise(async (resolve, reject) => {
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 1000; i++) {
         let receipt = await clUtils.eth.getTransactionReceipt(txHash)
         if (receipt != null) {
           return resolve(receipt)
         }
       }
-      reject(txHash, "unconfirmed!")
+      reject(`${txHash} unconfirmed!`)
     })
   },
   setProvider: function setProvider (provider) {
