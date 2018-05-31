@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -82,6 +83,7 @@ func guiEngine(app *services.ChainlinkApplication) *gin.Engine {
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
+		gzip.Gzip(gzip.DefaultCompression),
 		basicAuth,
 	)
 
