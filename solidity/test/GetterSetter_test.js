@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 
 require('./support/helpers.js')
 
@@ -10,7 +10,7 @@ contract('GetterSetter', () => {
   let gs;
 
   beforeEach(async () => {
-    gs = await GetterSetter.new();
+    gs = await deploy('contracts/examples/GetterSetter.sol')
   });
 
   describe("#setBytes32Val", () => {
