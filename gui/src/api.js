@@ -27,4 +27,6 @@ const request = (path, query) => (
 
 export const getJobs = (page, size) => request('/v2/specs', {page: page, size: size})
 
+export const getJobSpec = (id) => request(`/v2/specs/${id}`)
+
 export const getAccountBalance = () => request('/v2/account_balance')
