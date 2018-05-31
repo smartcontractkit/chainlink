@@ -13,6 +13,8 @@ contract('ConcreteChainlinkLib', () => {
   it("has a limited public interface", () => {
     checkPublicABI(CCL, [
       "add",
+      "addInt",
+      "addUint",
       "addStringArray",
       "closeEvent"
     ]);
@@ -51,6 +53,52 @@ contract('ConcreteChainlinkLib', () => {
       assert.deepEqual(decoded, {
         "first": "uno",
         "second": "dos"
+      });
+    });
+  });
+
+  describe("#addInt", () => {
+    it("stores and logs keys and values", async () => {
+      await ccl.addInt("first", 1);
+      let tx = await ccl.closeEvent();
+      let [payload] = parseCCLEvent(tx);
+      var decoded = await cbor.decodeFirst(payload);
+      assert.deepEqual(decoded, { "first": 1 });
+    });
+
+    it("handles two entries", async () => {
+      await ccl.addInt("first", 1);
+      await ccl.addInt("second", 2);
+      let tx = await ccl.closeEvent();
+      let [payload] = parseCCLEvent(tx);
+      var decoded = await cbor.decodeFirst(payload);
+
+      assert.deepEqual(decoded, {
+        "first": 1,
+        "second": 2
+      });
+    });
+  });
+
+  describe("#addUint", () => {
+    it("stores and logs keys and values", async () => {
+      await ccl.addUint("first", 1);
+      let tx = await ccl.closeEvent();
+      let [payload] = parseCCLEvent(tx);
+      var decoded = await cbor.decodeFirst(payload);
+      assert.deepEqual(decoded, { "first": 1 });
+    });
+
+    it("handles two entries", async () => {
+      await ccl.addUint("first", 1);
+      await ccl.addUint("second", 2);
+      let tx = await ccl.closeEvent();
+      let [payload] = parseCCLEvent(tx);
+      var decoded = await cbor.decodeFirst(payload);
+
+      assert.deepEqual(decoded, {
+        "first": 1,
+        "second": 2
       });
     });
   });
