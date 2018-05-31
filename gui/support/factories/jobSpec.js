@@ -1,15 +1,19 @@
 import uuid from 'uuid/v4'
+import { decamelizeKeys } from 'humps'
 
-export default (o) => {
-  const opts = o || {}
-  const id = opts.id || uuid().replace(/-/g, '')
-  const initiators = opts.initiators || [{'type': 'web'}]
-  const tasks = opts.tasks || [{confirmations: 0, type: 'httpget', url: 'https://bitstamp.net/api/ticker/'}]
-  const createdAt = opts.createdAt || (new Date()).toISOString()
+export default (jobs) => {
+  const j = jobs || []
 
-  return {
-    data: [
-      {
+  return decamelizeKeys({
+    meta: { count: j.length },
+    data: j.map((c) => {
+      const config = c || {}
+      const id = config.id || uuid().replace(/-/g, '')
+      const initiators = config.initiators || [{'type': 'web'}]
+      const tasks = config.tasks || [{confirmations: 0, type: 'httpget', url: 'https://bitstamp.net/api/ticker/'}]
+      const createdAt = config.createdAt || (new Date()).toISOString()
+
+      return {
         type: 'specs',
         id: id,
         attributes: {
@@ -19,6 +23,6 @@ export default (o) => {
           createdAt: createdAt
         }
       }
-    ]
-  }
+    })
+  })
 }

@@ -1,83 +1,69 @@
-import React from 'react'
+import React, { Component } from 'react'
 import PropType from 'prop-types'
-import { withSiteData } from 'react-static'
+import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import Card from '@material-ui/core/Card'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableHead from '@material-ui/core/TableHead'
-import TableRow from '@material-ui/core/TableRow'
+import JobList from 'components/JobList'
+import TokenBalance from 'components/TokenBalance'
+import MetaInfo from 'components/MetaInfo'
+import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
-import url from 'url'
-import 'isomorphic-unfetch'
-import { parse as parseQueryString } from 'query-string'
-
-const DEFAULT_CHAINLINK_PORT = 6688
+import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import { fetchJobs, fetchAccountBalance } from 'actions'
 
 const styles = theme => ({
   title: {
-    marginTop: theme.spacing.unit * 5
-  },
-  card: {
-    marginTop: theme.spacing.unit * 6
+    marginTop: theme.spacing.unit * 5,
+    marginBottom: theme.spacing.unit * 5
   }
 })
 
-const formatInitiators = (initiators) => (initiators.map(i => i.type).join(', '))
+const renderJobsList = ({jobs, jobsFetching, jobsError}) => (
+  <JobList
+    jobs={jobs}
+    fetching={jobsFetching}
+    error={jobsError}
+  />
+)
 
-export class Jobs extends React.Component {
-  constructor (props) {
-    super(props)
-    this.state = {
-      jobs: [],
-      fetchError: false
-    }
-  }
+const renderSidebar = ({
+  ethBalance,
+  linkBalance,
+  jobCount,
+  accountBalanceFetching,
+  accountBalanceError
+}) => (
+  <Grid container spacing={24}>
+    <Grid item xs={12}>
+      <TokenBalance
+        title='Ethereum'
+        fetching={accountBalanceFetching}
+        value={ethBalance}
+        error={accountBalanceError}
+      />
+    </Grid>
+    <Grid item xs={12}>
+      <TokenBalance
+        title='Link'
+        fetching={accountBalanceFetching}
+        value={linkBalance}
+        error={accountBalanceError}
+      />
+    </Grid>
+    <Grid item xs={12}>
+      <MetaInfo title='Jobs' value={jobCount} />
+    </Grid>
+  </Grid>
+)
 
+export class Jobs extends Component {
   componentDidMount () {
-    const query = parseQueryString(this.props.location.search)
-    const port = query.port || process.env.CHAINLINK_PORT || DEFAULT_CHAINLINK_PORT
-    const jobsUrl = url.format({
-      hostname: global.location.hostname,
-      port: port,
-      pathname: '/v2/specs'
-    })
-
-    global.fetch(jobsUrl, {credentials: 'include'})
-      .then(response => response.json())
-      .then(({data: jobs}) => this.setState({jobs: jobs}))
-      .catch(_ => { this.setState({fetchError: true}) })
-  }
-
-  renderJobs () {
-    if (this.state.fetchError) {
-      return (
-        <TableRow>
-          <TableCell component='th' scope='row' colSpan={3}>
-              There was an error fetching the jobs. Please reload the page.
-          </TableCell>
-        </TableRow>
-      )
-    } else {
-      return this.state.jobs.map(j => {
-        return (
-          <TableRow key={j.id}>
-            <TableCell component='th' scope='row'>
-              {j.id}
-            </TableCell>
-            <TableCell>{j.attributes.createdAt}</TableCell>
-            <TableCell>
-              {formatInitiators(j.attributes.initiators)}
-            </TableCell>
-          </TableRow>
-        )
-      })
-    }
+    this.props.fetchJobs()
+    this.props.fetchAccountBalance()
   }
 
   render () {
-    const {classes} = this.props
+    const { classes } = this.props
 
     return (
       <div>
@@ -85,20 +71,14 @@ export class Jobs extends React.Component {
           Jobs
         </Typography>
 
-        <Card className={classes.card}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Initiator</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {this.renderJobs()}
-            </TableBody>
-          </Table>
-        </Card>
+        <Grid container spacing={40}>
+          <Grid item xs={9}>
+            {renderJobsList(this.props)}
+          </Grid>
+          <Grid item xs={3}>
+            {renderSidebar(this.props)}
+          </Grid>
+        </Grid>
       </div>
     )
   }
@@ -106,7 +86,49 @@ export class Jobs extends React.Component {
 
 Jobs.propTypes = {
   classes: PropType.object.isRequired,
-  location: PropType.object.isRequired
+  ethBalance: PropType.string.isRequired,
+  linkBalance: PropType.string.isRequired,
+  accountBalanceFetching: PropType.bool.isRequired,
+  accountBalanceError: PropType.string,
+  jobCount: PropType.number.isRequired,
+  jobs: PropType.array.isRequired,
+  jobsFetching: PropType.bool.isRequired,
+  jobsError: PropType.string
 }
 
-export default withSiteData(withStyles(styles)(Jobs))
+const jobsSelector = (state) => state.jobs.currentPage.map(id => state.jobs.items[id])
+
+const mapStateToProps = state => {
+  let accountBalanceError
+  if (state.accountBalance.networkError) {
+    accountBalanceError = 'error fetching balance'
+  }
+  let jobsError
+  if (state.jobs.networkError) {
+    jobsError = 'There was an error fetching the jobs. Please reload the page.'
+  }
+
+  return {
+    ethBalance: state.accountBalance.eth,
+    linkBalance: state.accountBalance.link,
+    accountBalanceFetching: state.accountBalance.fetching,
+    accountBalanceError: accountBalanceError,
+    jobCount: state.jobs.count,
+    jobs: jobsSelector(state),
+    jobsFetching: state.jobs.fetching,
+    jobsError: jobsError
+  }
+}
+
+const mapDispatchToProps = (dispatch) => {
+  return bindActionCreators({
+    fetchAccountBalance,
+    fetchJobs
+  }, dispatch)
+}
+
+export const ConnectedJobs = connect(mapStateToProps, mapDispatchToProps)(Jobs)
+
+export default withSiteData(
+  withStyles(styles)(ConnectedJobs)
+)
