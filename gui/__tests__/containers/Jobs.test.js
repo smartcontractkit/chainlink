@@ -1,12 +1,13 @@
 /* eslint-env jest */
 import React from 'react'
-import jobSpecFactory from 'factories/jobSpec'
+import jsonApiJobSpecsFactory from 'factories/jsonApiJobSpecs'
 import accountBalanceFactory from 'factories/accountBalance'
 import syncFetch from 'test-helpers/syncFetch'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
 import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
+import { Router } from 'react-static'
 import { Provider } from 'react-redux'
 import { ConnectedJobs as Jobs } from 'containers/Jobs'
 
@@ -14,7 +15,9 @@ const classes = {}
 const mountJobs = (opts = {}) => (
   mount(
     <Provider store={createStore()}>
-      <Jobs classes={classes} pageSize={opts.pageSize} />
+      <Router>
+        <Jobs classes={classes} pageSize={opts.pageSize} />
+      </Router>
     </Provider>
   )
 )
@@ -23,7 +26,7 @@ describe('containers/Job', () => {
   it('renders the list of jobs and account balance', async () => {
     expect.assertions(6)
 
-    const jobSpecsResponse = jobSpecFactory([{
+    const jobSpecsResponse = jsonApiJobSpecsFactory([{
       id: 'c60b9927eeae43168ddbe92584937b1b',
       initiators: [{'type': 'web'}],
       createdAt: '2018-05-10T00:41:54.531043837Z'
@@ -53,7 +56,7 @@ describe('containers/Job', () => {
     const accountBalanceResponse = accountBalanceFactory('0', '0')
     global.fetch.getOnce('/v2/account_balance', accountBalanceResponse)
 
-    const pageOneResponse = jobSpecFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
+    const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
 
     const wrapper = mountJobs({pageSize: 1})
@@ -63,7 +66,7 @@ describe('containers/Job', () => {
       expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
     })
 
-    const pageTwoResponse = jobSpecFactory([{ id: 'ID-ON-SECOND-PAGE' }], 2)
+    const pageTwoResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-SECOND-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=2&size=1', pageTwoResponse)
     clickNextPage(wrapper)
 
