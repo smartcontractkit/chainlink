@@ -3,16 +3,18 @@ import React from 'react'
 import jobSpecFactory from 'factories/jobSpec'
 import accountBalanceFactory from 'factories/accountBalance'
 import syncFetch from 'test-helpers/syncFetch'
+import clickNextPage from 'test-helpers/clickNextPage'
+import clickPreviousPage from 'test-helpers/clickPreviousPage'
 import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
-import { ConnectedJobs as Jobs } from 'containers/Jobs.js'
+import { ConnectedJobs as Jobs } from 'containers/Jobs'
 
 const classes = {}
-const mountJobs = () => (
+const mountJobs = (opts = {}) => (
   mount(
     <Provider store={createStore()}>
-      <Jobs classes={classes} />
+      <Jobs classes={classes} pageSize={opts.pageSize} />
     </Provider>
   )
 )
@@ -26,7 +28,7 @@ describe('containers/Job', () => {
       initiators: [{'type': 'web'}],
       createdAt: '2018-05-10T00:41:54.531043837Z'
     }])
-    global.fetch.getOnce('/v2/specs', jobSpecsResponse)
+    global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
     const accountBalanceResponse = accountBalanceFactory(
       '10120000000000000000000',
       '7460000000000000000000'
@@ -44,6 +46,38 @@ describe('containers/Job', () => {
       expect(wrapper.text()).toContain('Link7.46k')
 
       expect(wrapper.text()).toContain('Jobs1')
+    })
+  })
+
+  it('can page through the list of jobs', async () => {
+    const accountBalanceResponse = accountBalanceFactory('0', '0')
+    global.fetch.getOnce('/v2/account_balance', accountBalanceResponse)
+
+    const pageOneResponse = jobSpecFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
+    global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
+
+    const wrapper = mountJobs({pageSize: 1})
+
+    await syncFetch(wrapper).then(() => {
+      expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
+      expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+    })
+
+    const pageTwoResponse = jobSpecFactory([{ id: 'ID-ON-SECOND-PAGE' }], 2)
+    global.fetch.getOnce('/v2/specs?page=2&size=1', pageTwoResponse)
+    clickNextPage(wrapper)
+
+    await syncFetch(wrapper).then(() => {
+      expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
+      expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
+    })
+
+    global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
+    clickPreviousPage(wrapper)
+
+    await syncFetch(wrapper).then(() => {
+      expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
+      expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
     })
   })
 

@@ -28,10 +28,10 @@ const receiveJobsNetworkError = () => {
   }
 }
 
-export const fetchJobs = () => {
+export const fetchJobs = (page, size) => {
   return dispatch => {
     dispatch(requestJobs())
-    return getJobs()
+    return getJobs(page, size)
       .then(json => dispatch(receiveJobsSuccess(json)))
       .catch(_ => dispatch(receiveJobsNetworkError()))
   }

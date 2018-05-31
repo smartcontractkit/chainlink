@@ -1,11 +1,12 @@
 import uuid from 'uuid/v4'
 import { decamelizeKeys } from 'humps'
 
-export default (jobs) => {
+export default (jobs, count) => {
   const j = jobs || []
+  const jc = count || j.length
 
   return decamelizeKeys({
-    meta: { count: j.length },
+    meta: { count: jc },
     data: j.map((c) => {
       const config = c || {}
       const id = config.id || uuid().replace(/-/g, '')
