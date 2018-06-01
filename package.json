@@ -33,7 +33,7 @@
     "ganache-cli": "^6.1.0",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^2.0.0",
-    "jest": "^22.4.4",
+    "jest": "^23.1",
     "jest-environment-enzyme": "^6.0.0",
     "jest-silent-reporter": "^0.0.4",
     "moment": "^2.20.1",
