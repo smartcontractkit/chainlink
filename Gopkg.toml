@@ -116,3 +116,7 @@
 [[constraint]]
   name = "github.com/gin-contrib/cors"
   version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/gin-contrib/gzip"
