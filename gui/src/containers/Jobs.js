@@ -18,11 +18,14 @@ const styles = theme => ({
   }
 })
 
-const renderJobsList = ({jobs, jobsFetching, jobsError}) => (
+const renderJobsList = ({jobs, jobCount, pageSize, jobsFetching, jobsError, fetchJobs}) => (
   <JobList
     jobs={jobs}
+    jobCount={jobCount}
+    pageSize={pageSize}
     fetching={jobsFetching}
     error={jobsError}
+    fetchJobs={fetchJobs}
   />
 )
 
@@ -58,7 +61,7 @@ const renderSidebar = ({
 
 export class Jobs extends Component {
   componentDidMount () {
-    this.props.fetchJobs()
+    this.props.fetchJobs(1, this.props.pageSize)
     this.props.fetchAccountBalance()
   }
 
@@ -93,7 +96,12 @@ Jobs.propTypes = {
   jobCount: PropType.number.isRequired,
   jobs: PropType.array.isRequired,
   jobsFetching: PropType.bool.isRequired,
-  jobsError: PropType.string
+  jobsError: PropType.string,
+  pageSize: PropType.number
+}
+
+Jobs.defaultProps = {
+  pageSize: 10
 }
 
 const jobsSelector = (state) => state.jobs.currentPage.map(id => state.jobs.items[id])
