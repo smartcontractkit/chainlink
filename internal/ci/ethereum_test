@@ -19,12 +19,12 @@ assert ()
 waitForResponse ()
 {
   sleepCount=0
-  while [ "$sleepCount" -le "10" ] && ! curl -s "$1"; do
+  while [ "$sleepCount" -le "120" ] && ! curl -s "$1"; do
       sleep 1
       sleepCount=$((sleepCount+1))
   done
 
-  if [ "$sleepCount" -gt "10" ]; then
+  if [ "$sleepCount" -gt "120" ]; then
     exit 1
   fi
 }
@@ -38,7 +38,7 @@ waitForResponse http://127.0.0.1:18545
 
 # Run CL against ethereum node
 cldev &
-sleep 4
+waitForResponse http://127.0.0.1:6688
 
 ########################
 ## Run echo_server sample
