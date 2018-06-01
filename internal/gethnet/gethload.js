@@ -10,7 +10,9 @@ function checkAllBalances() {
 };
 
 function fundAccount(amount) {
-  amount = amount || 1000;
+  // XXX: Strip off anything after the 18th LSD to prevent web3.toWei from
+  // returning a value with a decimal place which sendTransaction will barf on
+  amount = (amount || 1000).toFixed(18).replace(/0+$/, "");
   return eth.sendTransaction({
     from:eth.accounts[0],
     to:eth.accounts[1],
@@ -21,13 +23,20 @@ function fundAccount(amount) {
 function topOffAccount() {
   var acct = "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f";
   var acctBal = web3.fromWei(eth.getBalance(acct), "ether");
+  var fundAmount = 10000;
+
   var diff = 10000 - acctBal;
   if (diff > 0) {
     return fundAccount(diff);
+  } else {
+    console.log("Not performing top off, account has sufficient funds:", acctBal);
   }
 };
 
 function confirm(txHash) {
+  if(!txHash) {
+    return null;
+  }
   var count = 0;
   do {
     receipt = eth.getTransactionReceipt(txHash);
