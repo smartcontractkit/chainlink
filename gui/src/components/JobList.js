@@ -47,10 +47,6 @@ const renderBody = (jobs, fetching, error) => {
   }
 }
 
-const handleChangeRowsPerPage = () => {
-  console.log('handleChangeRowsPerPage')
-}
-
 export class JobList extends Component {
   constructor (props) {
     super(props)
@@ -93,7 +89,7 @@ export class JobList extends Component {
           backIconButtonProps={{'aria-label': 'Previous Page'}}
           nextIconButtonProps={{'aria-label': 'Next Page'}}
           onChangePage={this.handleChangePage}
-          onChangeRowsPerPage={handleChangeRowsPerPage}
+          onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
         />
       </Card>
     )
