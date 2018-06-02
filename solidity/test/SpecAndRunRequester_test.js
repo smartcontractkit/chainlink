@@ -1,19 +1,19 @@
-'use strict';
+'use strict'
 
 require('./support/helpers.js')
 
 contract('SpecAndRunRequester', () => {
-  const Link = artifacts.require("LinkToken.sol");
-  const Oracle = artifacts.require("Oracle.sol");
-  const SpecAndRunRequester = artifacts.require("examples/SpecAndRunRequester.sol");
-  const currency = "USD";
-  let link, oc, cc;
+  const sourcePath = 'examples/SpecAndRunRequester.sol'
+  const currency = 'USD'
+  let link, oc, cc
 
   beforeEach(async () => {
-    link = await Link.new();
-    oc = await Oracle.new(link.address, {from: oracleNode});
-    cc = await SpecAndRunRequester.new(link.address, oc.address, {from: consumer});
-  });
+    link = await deploy('linkToken/contracts/LinkToken.sol')
+    oc = await deploy('Oracle.sol', link.address)
+    await oc.transferOwnership(oracleNode, {from: defaultAccount})
+    cc = await deploy(sourcePath, link.address, oc.address, {from: consumer});
+    await cc.transferOwnership(oracleNode, {from: defaultAccount})
+  })
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
