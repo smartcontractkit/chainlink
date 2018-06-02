@@ -313,4 +313,8 @@ cbor = require("cbor");
     return funcSelector + encoded.toString("hex");
   };
 
+  _0x = (val) => {
+    return `0x${toHex(val)}`
+  }
+
 })();

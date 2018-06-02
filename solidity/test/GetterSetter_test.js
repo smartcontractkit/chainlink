@@ -3,15 +3,15 @@
 require('./support/helpers.js')
 
 contract('GetterSetter', () => {
-  let GetterSetter = artifacts.require("examples/GetterSetter.sol");
-  let requestId = "0x" + toHex(rPad("5432"));
-  let bytes32 = "Hi Mom!";
-  let uint256 = 645746535432;
-  let gs;
+  const sourcePath = 'examples/GetterSetter.sol'
+  const requestId = _0x(rPad('5432'))
+  const bytes32 = 'Hi Mom!'
+  const uint256 = 645746535432
+  let gs
 
   beforeEach(async () => {
-    gs = await deploy('examples/GetterSetter.sol')
-  });
+    gs = await deploy(sourcePath)
+  })
 
   describe("#setBytes32Val", () => {
     it("updates the bytes32 value", async () => {

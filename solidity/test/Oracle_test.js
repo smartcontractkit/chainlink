@@ -1,33 +1,32 @@
-'use strict';
+'use strict'
 
 require('./support/helpers.js')
 
 contract('Oracle', () => {
-  let Oracle = artifacts.require("Oracle.sol");
-  let LinkToken = artifacts.require("LinkToken.sol");
-  let GetterSetter = artifacts.require("examples/GetterSetter.sol");
-  let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");;
-  let specId = "4c7b7ffb66b344fbaa64995af81e355a";
-  let to = "0x80e29acb842498fe6591f020bd82766dce619d43";
+  const sourcePath = 'Oracle.sol'
+  const fHash = functionSelector("requestedBytes32(bytes32,bytes32)")
+  const specId = "4c7b7ffb66b344fbaa64995af81e355a"
+  const to = "0x80e29acb842498fe6591f020bd82766dce619d43"
   let link, oc;
 
   beforeEach(async () => {
-    link = await LinkToken.new();
-    oc = await Oracle.new(link.address, {from: oracleNode});
-  });
+    link = await deploy('linkToken/contracts/LinkToken.sol')
+    oc = await deploy(sourcePath, link.address)
+    await oc.transferOwnership(oracleNode, {from: defaultAccount})
+  })
 
-  it("has a limited public interface", () => {
-    checkPublicABI(Oracle, [
-      "cancel",
-      "fulfillData",
-      "onTokenTransfer",
-      "owner",
-      "requestData",
-      "specAndRun",
-      "transferOwnership",
-      "withdraw",
-    ]);
-  });
+  it('has a limited public interface', () => {
+    checkPublicABI(artifacts.require(sourcePath), [
+      'cancel',
+      'fulfillData',
+      'onTokenTransfer',
+      'owner',
+      'requestData',
+      'specAndRun',
+      'transferOwnership',
+      'withdraw',
+    ])
+  })
 
   describe("#transferOwnership", () => {
     context("when called by the owner", () => {
@@ -148,7 +147,7 @@ contract('Oracle', () => {
     let requestId = "XID";
 
     beforeEach(async () => {
-      mock = await GetterSetter.new();
+      mock = await deploy('examples/GetterSetter.sol')
       let fHash = functionSelector("requestedBytes32(bytes32,bytes32)");
       let args = requestDataBytes(specId, mock.address, fHash, requestId, "");
       let req = await requestDataFrom(oc, link, 0, args);
@@ -204,7 +203,7 @@ contract('Oracle', () => {
       let log, tx, mock, internalId, amount;
       beforeEach(async () => {
         amount = 15;
-        mock = await GetterSetter.new();
+        mock = await deploy('examples/GetterSetter.sol')
         let args = requestDataBytes(specId, mock.address, fHash, "id", "");
         tx = await requestDataFrom(oc, link, amount, args);
         assert.equal(3, tx.receipt.logs.length)
@@ -259,7 +258,7 @@ contract('Oracle', () => {
         startingBalance = 100;
         requestAmount = 20;
 
-        mock = await GetterSetter.new({from: consumer});
+        mock = await deploy('examples/GetterSetter.sol')
         await link.transfer(consumer, startingBalance);
 
         let args = requestDataBytes(specId, consumer, fHash, requestId, "");
