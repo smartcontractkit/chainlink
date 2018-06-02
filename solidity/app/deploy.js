@@ -11,7 +11,10 @@ function getBytecode (contract) {
 }
 
 function contractify (abi, address) {
-  let contract = TruffleContract({abi: abi, address: address})
+  let contract = TruffleContract({
+    abi: abi,
+    address: address
+  })
   contract.setProvider(clUtils.provider)
   contract.defaults({
     from: clWallet.address,
@@ -21,13 +24,13 @@ function contractify (abi, address) {
   return contract.at(address)
 }
 
-function findConstructor(abi) {
+function findConstructor (abi) {
   for (let method of abi) {
     if (method.type === 'constructor') return method
   }
 }
 
-function constructorInputTypes(abi) {
+function constructorInputTypes (abi) {
   let types = []
   for (let input of findConstructor(abi).inputs) {
     types.push(input.type)
@@ -54,9 +57,11 @@ module.exports = async function deploy (filename) {
   })
   await clUtils.getTxReceipt(fundingTx)
   let txHash = await clWallet.send({
-    gas: 2000000,
+    gas: 2500000,
     data: `0x${getBytecode(compiled)}${encodedArgs}`
   })
-  let receipt = await clUtils.getTxReceipt(txHash)
-  return contractify(compiled.abi, receipt.contractAddress)
+  const receipt = await clUtils.getTxReceipt(txHash)
+  let contract = await contractify(compiled.abi, receipt.contractAddress)
+  contract.transactionHash = txHash
+  return contract
 }

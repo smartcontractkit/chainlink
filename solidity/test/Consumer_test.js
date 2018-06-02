@@ -3,23 +3,23 @@
 require('./support/helpers.js')
 
 contract('Consumer', () => {
-  let Link = artifacts.require("LinkToken.sol");
-  let Oracle = artifacts.require("Oracle.sol");
-  let Consumer = artifacts.require("examples/Consumer.sol");
-  let specId = "4c7b7ffb66b344fbaa64995af81e355a";
-  let currency = "USD";
-  let link, oc, cc;
+  const sourcePath = 'examples/Consumer.sol'
+  let specId = '4c7b7ffb66b344fbaa64995af81e355a'
+  let currency = 'USD'
+  let link, oc, cc
 
   beforeEach(async () => {
-    link = await Link.new();
-    oc = await Oracle.new(link.address, {from: oracleNode});
-    cc = await Consumer.new(link.address, oc.address, specId, {from: consumer});
-  });
+    link = await deploy('LinkToken.sol')
+    oc = await deploy('Oracle.sol', link.address)
+    await oc.transferOwnership(oracleNode, {from: defaultAccount})
+    cc = await deploy(sourcePath, link.address, oc.address, specId)
+    await cc.transferOwnership(consumer, {from: defaultAccount})
+  })
 
-  it("has a predictable gas price", async () => {
-    let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 1600000);
-  });
+  it('has a predictable gas price', async () => {
+    const rec = await eth.getTransactionReceipt(cc.transactionHash)
+    assert.isBelow(rec.gasUsed, 1600000)
+  })
 
   describe("#requestEthereumPrice", () => {
     context("without LINK", () => {

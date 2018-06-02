@@ -1,24 +1,24 @@
-'use strict';
+'use strict'
 
 require('./support/helpers.js')
 
 contract('ConcreteChainlinkLib', () => {
-  const sourcePath = "examples/ConcreteChainlinkLib.sol"
+  const sourcePath = 'examples/ConcreteChainlinkLib.sol'
   let ccl
 
   beforeEach(async () => {
-    ccl = await deploy('examples/ConcreteChainlinkLib.sol')
-  });
+    ccl = await deploy(sourcePath)
+  })
 
-  it("has a limited public interface", () => {
+  it('has a limited public interface', () => {
     checkPublicABI(artifacts.require(sourcePath), [
-      "add",
-      "addInt",
-      "addUint",
-      "addStringArray",
-      "closeEvent"
-    ]);
-  });
+      'add',
+      'addStringArray',
+      'addInt',
+      'addUint',
+      'closeEvent'
+    ])
+  })
 
   function parseCCLEvent(tx) {
     let data = util.toBuffer(tx.receipt.logs[0].data);
