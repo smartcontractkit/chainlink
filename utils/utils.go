@@ -282,6 +282,29 @@ func (bs BackoffSleeper) Duration() time.Duration {
 	return bs.ForAttempt(bs.Attempt())
 }
 
+// ConstantSleeper is to assist with reattempts with
+// the same sleep duration.
+type ConstantSleeper struct {
+	Sleeper
+	interval time.Duration
+}
+
+// NewConstantSleeper returns a ConstantSleeper that is configured to
+// sleep for a constant duration based on the input.
+func NewConstantSleeper(d time.Duration) ConstantSleeper {
+	return ConstantSleeper{interval: d}
+}
+
+// Sleep waits for the given duration before reattempting.
+func (cs ConstantSleeper) Sleep() {
+	time.Sleep(cs.interval)
+}
+
+// Duration returns the duration value.
+func (cs ConstantSleeper) Duration() time.Duration {
+	return cs.interval
+}
+
 // MaxUint64 finds the maximum value of a list of uint64s.
 func MaxUint64(uints ...uint64) uint64 {
 	var max uint64

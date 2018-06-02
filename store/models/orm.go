@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 	"reflect"
 	"strings"
@@ -21,19 +20,22 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured path.
-func NewORM(path string) *ORM {
-	orm := &ORM{initializeDatabase(path)}
+func NewORM(path string) (*ORM, error) {
+	db, err := initializeDatabase(path)
+	if err != nil {
+		return nil, err
+	}
+	orm := &ORM{db}
 	orm.migrate()
-	return orm
+	return orm, nil
 }
 
-func initializeDatabase(path string) *storm.DB {
+func initializeDatabase(path string) (*storm.DB, error) {
 	db, err := storm.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-
-	return db
+	return db, nil
 }
 
 // GetBolt returns BoltDB from the ORM
