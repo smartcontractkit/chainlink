@@ -292,7 +292,8 @@ func TestClient_BackupDatabase(t *testing.T) {
 	err := client.BackupDatabase(c)
 	assert.NoError(t, err)
 
-	restored := models.NewORM(path)
+	restored, err := models.NewORM(path)
+	assert.NoError(t, err)
 	restoredJob, err := restored.FindJob(job.ID)
 	assert.NoError(t, err)
 

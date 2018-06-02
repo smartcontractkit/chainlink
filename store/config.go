@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"time"
 
 	"github.com/caarlos0/env"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,6 +38,7 @@ type Config struct {
 	LinkContractAddress    string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	MinimumContractPayment big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
 	OracleContractAddress  *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
+	DatabasePollInterval   Duration        `env:"DATABASE_POLL_INTERNAL" envDefault:"500ms"`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -84,7 +86,8 @@ func (c Config) String() string {
 		"ETH_GAS_PRICE_DEFAULT: %s\n" +
 		"LINK_CONTRACT_ADDRESS: %s\n" +
 		"MINIMUM_CONTRACT_PAYMENT: %s\n" +
-		"ORACLE_CONTRACT_ADDRESS: %s\n"
+		"ORACLE_CONTRACT_ADDRESS: %s\n" +
+		"DATABASE_POLL_INTERVAL: %s\n"
 
 	oracleContractAddress := ""
 	if c.OracleContractAddress != nil {
@@ -109,6 +112,7 @@ func (c Config) String() string {
 		c.LinkContractAddress,
 		c.MinimumContractPayment.String(),
 		oracleContractAddress,
+		c.DatabasePollInterval,
 	)
 }
 
@@ -117,6 +121,7 @@ func parseEnv(cfg interface{}) error {
 		reflect.TypeOf(&common.Address{}): addressParser,
 		reflect.TypeOf(big.Int{}):         bigIntParser,
 		reflect.TypeOf(LogLevel{}):        levelParser,
+		reflect.TypeOf(Duration{}):        durationParser,
 	})
 }
 
@@ -147,9 +152,20 @@ func levelParser(str string) (interface{}, error) {
 	return lvl, err
 }
 
+func durationParser(str string) (interface{}, error) {
+	d, err := time.ParseDuration(str)
+	return Duration{Duration: d}, err
+}
+
 // LogLevel determines the verbosity of the events to be logged.
 type LogLevel struct {
 	zapcore.Level
+}
+
+// Duration returns a time duration with the supported
+// units of "ns", "us", "ms", "s", "m", "h".
+type Duration struct {
+	time.Duration
 }
 
 // ForGin keeps Gin's mode at the appropriate level with the LogLevel.

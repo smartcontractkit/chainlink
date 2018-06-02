@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -59,7 +60,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	orm := models.NewORM(path.Join(config.RootDir, "db.bolt"))
+	orm := initialiseORM(config)
 	ethrpc, err := dialer.Dial(config.EthereumURL)
 	if err != nil {
 		logger.Fatal(err)
@@ -108,4 +109,20 @@ func (Clock) Now() time.Time {
 // After returns the current time if the given duration has elapsed.
 func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
+}
+
+func initialiseORM(config Config) *models.ORM {
+	var orm *models.ORM
+	var err error
+	sleeper := utils.NewConstantSleeper(config.DatabasePollInterval.Duration)
+	for {
+		orm, err = models.NewORM(path.Join(config.RootDir, "db.bolt"))
+		if err != nil {
+			logger.Debugw("BoltDB is locked, sleeping", "sleepDuration", sleeper.Duration())
+			sleeper.Sleep()
+		} else {
+			break
+		}
+	}
+	return orm
 }
