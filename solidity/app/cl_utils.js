@@ -1,7 +1,8 @@
+require('./cl_wallet.js')
+
 const Eth = require('ethjs')
 
-
-clUtils = {
+global.clUtils = global.clUtils || {
   personalAccount: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
   toWei: function toWei (eth) {
     return (parseInt(eth.toString()) * 10 ** 18).toString()
@@ -29,5 +30,4 @@ clUtils = {
     return clUtils.eth.sendTransaction(Object.assign(defaults, params))
   }
 }
-
 clUtils.setProvider(new Eth.HttpProvider('http://localhost:18545'))

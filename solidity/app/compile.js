@@ -2,12 +2,17 @@ const solc = require('solc')
 const fs = require('fs')
 const path = require('path')
 
-let lookupPaths = ['./', './node_modules/']
+let lookupPaths = [
+  './',
+  './contracts/',
+  './node_modules/',
+  './node_modules/linkToken/contracts/'
+]
 
 function solCompile (filename) {
   function lookupIncludeFile (filename) {
     for (let path of lookupPaths) {
-      let fullPath = path + filename
+      const fullPath = path + filename
       if (fs.existsSync(fullPath)) {
         return {contents: fs.readFileSync(fullPath).toString()}
       }
@@ -16,12 +21,10 @@ function solCompile (filename) {
     return null
   }
 
-  let inputBasename = path.basename(filename).toString()
-  let input = {[inputBasename]: {'urls': [filename]}}
-
-  let solInput = {
+  const inputBasename = path.basename(filename).toString()
+  const solInput = {
     language: 'Solidity',
-    sources: input,
+    sources: {[inputBasename]: {'urls': [filename]}},
     settings: {
       outputSelection: {
         [inputBasename]: {
@@ -30,7 +33,7 @@ function solCompile (filename) {
       }
     }
   }
-  let output = solc.compileStandardWrapper(JSON.stringify(solInput), lookupIncludeFile)
+  const output = solc.compileStandardWrapper(JSON.stringify(solInput), lookupIncludeFile)
   return JSON.parse(output)
 }
 

@@ -2,8 +2,9 @@ const Eth = require('ethjs')
 const TruffleContract = require('truffle-contract')
 const ABI = require('ethereumjs-abi')
 
-let compile = require('./compile.js')
-let wallet = require('./wallet.js')
+require('./cl_utils.js')
+require('./cl_wallet.js')
+const compile = require('./compile.js')
 
 function getBytecode (contract) {
   return contract.evm.bytecode.object.toString()
@@ -12,6 +13,11 @@ function getBytecode (contract) {
 function contractify (abi, address) {
   let contract = TruffleContract({abi: abi, address: address})
   contract.setProvider(clUtils.provider)
+  contract.defaults({
+    from: clWallet.address,
+    gas: 6721975, // Truffle default
+    gasPrice: 100000000000 // Truffle default
+  })
   return contract.at(address)
 }
 
@@ -43,11 +49,11 @@ module.exports = async function deploy (filename) {
   const encodedArgs = encodeArgs(unencodedArgs, compiled.abi)
 
   const fundingTx = await clUtils.send({
-    to: wallet.address,
+    to: clWallet.address,
     value: clUtils.toWei(1)
   })
   await clUtils.getTxReceipt(fundingTx)
-  let txHash = await wallet.send({
+  let txHash = await clWallet.send({
     gas: 2000000,
     data: `0x${getBytecode(compiled)}${encodedArgs}`
   })

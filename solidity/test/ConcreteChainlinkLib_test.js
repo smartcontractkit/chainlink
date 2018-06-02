@@ -3,15 +3,15 @@
 require('./support/helpers.js')
 
 contract('ConcreteChainlinkLib', () => {
-  let CCL = artifacts.require("examples/ConcreteChainlinkLib.sol");
-  let ccl;
+  const sourcePath = "examples/ConcreteChainlinkLib.sol"
+  let ccl
 
   beforeEach(async () => {
-    ccl = await CCL.new({});
+    ccl = await deploy('examples/ConcreteChainlinkLib.sol')
   });
 
   it("has a limited public interface", () => {
-    checkPublicABI(CCL, [
+    checkPublicABI(artifacts.require(sourcePath), [
       "add",
       "addInt",
       "addUint",

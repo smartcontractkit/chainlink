@@ -10,7 +10,7 @@ contract('GetterSetter', () => {
   let gs;
 
   beforeEach(async () => {
-    gs = await deploy('contracts/examples/GetterSetter.sol')
+    gs = await deploy('examples/GetterSetter.sol')
   });
 
   describe("#setBytes32Val", () => {
