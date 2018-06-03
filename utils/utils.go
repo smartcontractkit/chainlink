@@ -90,6 +90,21 @@ func IsZero(v reflect.Value) bool {
 	return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
 }
 
+// SliceIndex returns an item's index in a slice or -1 if the item is not found
+func SliceIndex(slice interface{}, item interface{}) int {
+	s := reflect.ValueOf(slice)
+
+	if s.Kind() != reflect.Slice {
+		panic("SliceIndex: Non-slice argument given")
+	}
+	for i := 0; i < s.Len(); i++ {
+		if s.Index(i).Interface() == item {
+			return i
+		}
+	}
+	return -1
+}
+
 // BasicAuthPost sends a POST request to the HTTP client with the given username
 // and password to authenticate at the url with contentType and returns a response.
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {

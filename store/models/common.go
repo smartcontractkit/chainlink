@@ -291,3 +291,24 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 func (c Cron) String() string {
 	return string(c)
 }
+
+// DeleteQueryParams holds the parameters that will be used to
+// mass delete from the database.
+type DeleteQueryParams struct {
+	Collection string      `json:"collection"`
+	Options    string      `json:"options"`
+	Query      QueryObject `json:"query"`
+}
+
+// QueryObject holds information used to perform an advanced
+// search in the database.
+type QueryObject struct {
+	Eq       json.RawMessage `json:"eq"`
+	Gt       json.RawMessage `json:"gt"`
+	Gte      json.RawMessage `json:"gte"`
+	In       json.RawMessage `json:"in"`
+	Lt       json.RawMessage `json:"lt"`
+	Lte      json.RawMessage `json:"lte"`
+	Re       json.RawMessage `json:"re"`
+	StrictEq json.RawMessage `json:"stricteq"`
+}

@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"net/url"
 	"testing"
@@ -224,4 +225,78 @@ func TestMarkRan(t *testing.T) {
 	var ir models.Initiator
 	assert.NoError(t, store.One("ID", initr.ID, &ir))
 	assert.True(t, ir.Ran)
+}
+
+func TestORM_ParseQuery(t *testing.T) {
+	tests := []struct {
+		jsonFile string
+		model    interface{}
+		expLen   int
+	}{
+		{"../../internal/fixtures/web/create_random_number_bridge_type.json", &models.BridgeType{},
+			3},
+		{"../../internal/fixtures/web/end_at_job.json",
+			&models.JobSpec{},
+			3},
+	}
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	for _, test := range tests {
+		params := json.RawMessage(cltest.LoadJSON(test.jsonFile))
+		query, err := store.ParseQuery(params, test.model, "Re")
+		assert.Error(t, err)
+		assert.Equal(t, len(query), 0)
+		query, err = store.ParseQuery(params, test.model, "Lte")
+		assert.NoError(t, err)
+		assert.Equal(t, len(query), test.expLen)
+		query, err = store.ParseQuery(params, test.model, "Eq")
+		assert.NoError(t, err)
+		assert.Equal(t, len(query), test.expLen)
+		query, err = store.ParseQuery(params, test.model, "Xx")
+		assert.Error(t, err)
+
+	}
+
+	t.Parallel()
+}
+
+func TestORM_BuildQuery(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	var params models.QueryObject
+	params.Eq = json.RawMessage(`{"url" : "http://www.example.com" }`)
+	params.Gte = json.RawMessage(`{ "defaultConfirmations" : 0 }`)
+	params.Re = json.RawMessage(`{ "name" : "^test" }`)
+	expected_len := 3
+
+	result, err := store.BuildQuery(params, &models.BridgeType{})
+	assert.Nil(t, err)
+	assert.Equal(t, expected_len, len(result))
+	u, err := url.Parse("http://www.example.com")
+	assert.Nil(t, err)
+	assert.Equal(t, result[0], q.Eq("URL", models.WebURL{URL: u}))
+	assert.Equal(t, result[1], q.Gte("DefaultConfirmations", uint64(0)))
+	assert.Equal(t, result[2], q.Re("Name", "^test"))
+
+	expected_len = 0
+	params = models.QueryObject{Eq: json.RawMessage(`{ "url" : 000 }`)}
+	result, err = store.BuildQuery(params, &models.BridgeType{})
+	assert.Error(t, err)
+	assert.Equal(t, expected_len, len(result))
+
+	params = models.QueryObject{Re: json.RawMessage(`{ "wrongField" : "test" }`)}
+	result, err = store.BuildQuery(params, &models.BridgeType{})
+	assert.Error(t, err)
+	assert.Equal(t, expected_len, len(result))
+
+	params = models.QueryObject{Eq: json.RawMessage(`{ "invalidJSON" : "test" `)}
+	result, err = store.BuildQuery(params, &models.BridgeType{})
+	assert.Error(t, err)
+	assert.Equal(t, expected_len, len(result))
+
 }
