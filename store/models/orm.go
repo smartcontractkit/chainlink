@@ -351,3 +351,27 @@ func (orm *ORM) BuildQuery(value interface{}, model interface{}) ([]q.Matcher, e
 	}
 	return dbSelect, nil
 }
+
+// AdvancedBridgeSearch looks up Bridges according to JSON params.
+func (orm *ORM) AdvancedBridgeSearch(params interface{}) ([]BridgeType, error) {
+	var results []BridgeType
+	var model BridgeType
+	query, err := orm.BuildQuery(params, &model)
+	if err != nil {
+		return results, fmt.Errorf("Error building Advanced Bridge query %v", err)
+	}
+	err = orm.Select(query...).Find(&results)
+	return results, err
+}
+
+// AdvancedJobRunSearch looks up JobRuns according to JSON params.
+func (orm *ORM) AdvancedJobRunSearch(params interface{}) ([]JobRun, error) {
+	var results []JobRun
+	var model JobRun
+	query, err := orm.BuildQuery(params, &model)
+	if err != nil {
+		return results, fmt.Errorf("Error building Advanced JobRun query %v", err)
+	}
+	err = orm.Select(query...).Find(&results)
+	return results, err
+}
