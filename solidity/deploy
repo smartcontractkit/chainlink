@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 require('./app/cl_utils.js')
 const deploy = require('./app/deploy.js')
 
