@@ -133,3 +133,14 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 
 	return nil
 }
+
+// RemoveJobRun removes a JobRun from the store.
+func (app *ChainlinkApplication) RemoveJobRun(jr *models.JobRun) error {
+	store := app.GetStore()
+
+	if err := store.DeleteStruct(jr); err != nil {
+		return models.NewDatabaseAccessError(err.Error())
+	}
+
+	return nil
+}

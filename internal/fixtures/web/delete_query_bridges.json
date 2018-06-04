@@ -1,0 +1,4 @@
+{
+  "collection": "bridges",
+  "query": { "re": { "name" : "^testbridge[0-9]+" }, "eq": {"url" : "http://www.example.com" , "defaultConfirmations" : 0 } }
+}
