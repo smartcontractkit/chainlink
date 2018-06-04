@@ -10769,7 +10769,7 @@ sol-explore@1.6.1:
   version "1.6.1"
   resolved "https://registry.yarnpkg.com/sol-explore/-/sol-explore-1.6.1.tgz#b59f073c69fe332560d5a10c32ba8ca7f2986cfb"
 
-solc@0.4.24, solc@^0.4.11, solc@^0.4.23:
+solc@0.4.24, solc@^0.4.11, solc@^0.4.24:
   version "0.4.24"
   resolved "https://registry.yarnpkg.com/solc/-/solc-0.4.24.tgz#354f14b269b38cbaa82a47d1ff151723502b954e"
   dependencies:
@@ -11547,7 +11547,7 @@ truffle-provider@^0.0.4:
     truffle-error "^0.0.2"
     web3 "^0.20.1"
 
-truffle@^4.0.4, truffle@^4.1.7:
+truffle@^4.0.4, truffle@^4.1.11:
   version "4.1.11"
   resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.11.tgz#a4df812ebf4a564892900c4a1dac1131104a0799"
   dependencies:
