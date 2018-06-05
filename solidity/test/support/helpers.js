@@ -1,12 +1,12 @@
-require('../../app/cl_utils.js');
-require('../../app/cl_wallet.js');
+const clWallet = require('../../app/cl_wallet.js');
+const clUtils = require('../../app/cl_utils.js');
 deploy = require('../../app/deploy.js');
 
 BigNumber = require('bignumber.js');
 moment = require('moment');
 abi = require('ethereumjs-abi');
 util = require('ethereumjs-util');
-cbor = require("cbor");
+cbor = require('cbor');
 
 (() => {
   eth = web3.eth;

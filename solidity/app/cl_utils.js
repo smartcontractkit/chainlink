@@ -1,11 +1,11 @@
-require('./cl_wallet.js')
+const clWallet = require('./cl_wallet.js')
 
 const Eth = require('ethjs')
 
 global.clUtils = global.clUtils || {
   personalAccount: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
   toWei: function toWei (eth) {
-    return (parseInt(eth.toString()) * 10 ** 18).toString()
+    return (parseInt(eth.toString(), 10) * 10 ** 18).toString()
   },
   getTxReceipt: function getTxReceipt (txHash) {
     return new Promise(async (resolve, reject) => {
@@ -31,3 +31,5 @@ global.clUtils = global.clUtils || {
   }
 }
 clUtils.setProvider(new Eth.HttpProvider('http://localhost:18545'))
+
+module.exports = global.clUtils

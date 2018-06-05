@@ -1,4 +1,4 @@
-require('./cl_utils.js')
+const clUtils = require('./cl_utils.js')
 
 const Tx = require('ethereumjs-tx')
 const Wallet = require('ethereumjs-wallet')
@@ -22,3 +22,5 @@ global.clWallet = global.clWallet || {
   }
 }
 clWallet.setDefaultKey('4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb')
+
+module.exports = global.clWallet
