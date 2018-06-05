@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
@@ -55,8 +57,30 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	defer app.Stop()
 	logNodeBalance(store)
 	logConfigVariables(config)
+	logIfNonceOutOfSync(store)
 
 	return cli.errorOut(cli.Runner.Run(app))
+}
+
+func logIfNonceOutOfSync(store *strpkg.Store) {
+	add := store.TxManager.GetActiveAccount().Address
+
+	var transactions []models.Tx
+	query := store.Select(q.Eq("From", add))
+	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == storm.ErrNotFound {
+		return
+	}
+	if localNonceIsNotCurrent(transactions, store.TxManager.GetActiveAccount().GetNonce()) {
+		logger.Warn("The account is being used by another wallet and is not safe to use with chainlink")
+	}
+}
+
+func localNonceIsNotCurrent(transactions []models.Tx, nonce uint64) bool {
+	if len(transactions) > 0 && transactions[0].Nonce+1 < nonce {
+		return true
+	}
+
+	return false
 }
 
 func updateConfig(config strpkg.Config, debug bool) strpkg.Config {
