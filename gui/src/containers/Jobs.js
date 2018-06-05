@@ -10,6 +10,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { fetchJobs, fetchAccountBalance } from 'actions'
+import { jobsSelector } from 'selectors'
 
 const styles = theme => ({
   title: {
@@ -103,8 +104,6 @@ Jobs.propTypes = {
 Jobs.defaultProps = {
   pageSize: 10
 }
-
-const jobsSelector = state => state.jobs.currentPage.map(id => state.jobs.items[id])
 
 const mapStateToProps = state => {
   let accountBalanceError

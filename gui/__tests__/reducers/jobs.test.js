@@ -2,7 +2,8 @@ import reducer from 'connectors/redux/reducers'
 import {
   REQUEST_JOBS,
   RECEIVE_JOBS_SUCCESS,
-  RECEIVE_JOBS_ERROR
+  RECEIVE_JOBS_ERROR,
+  RECEIVE_JOB_SPEC_SUCCESS
 } from 'actions'
 
 describe('jobs reducer', () => {
@@ -54,5 +55,28 @@ describe('jobs reducer', () => {
 
     expect(state.jobs.fetching).toEqual(false)
     expect(state.jobs.networkError).toEqual(true)
+  })
+
+  it('RECEIVE_JOB_SPEC_SUCCESS assigns the job and denormalizes the runs to their ids', () => {
+    const previousState = {
+      jobs: {
+        items: {
+          '50208cd6b3034594b8e999c380066b67': {
+            id: '50208cd6b3034594b8e999c380066b67',
+            runs: []
+          }
+        }
+      }
+    }
+    const action = {
+      type: RECEIVE_JOB_SPEC_SUCCESS,
+      item: {
+        id: '50208cd6b3034594b8e999c380066b67',
+        runs: [{id: 'a'}, {id: 'b'}]
+      }
+    }
+    const state = reducer(previousState, action)
+
+    expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runs).toEqual(['a', 'b'])
   })
 })
