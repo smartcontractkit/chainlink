@@ -2,7 +2,7 @@ const solc = require('solc')
 const fs = require('fs')
 const path = require('path')
 
-let lookupPaths = [
+const lookupPaths = [
   './',
   './contracts/',
   './node_modules/',
@@ -56,18 +56,16 @@ function checkCompilerErrors (errors) {
 }
 
 function getContract (output, contractName) {
-  for (let [key, module] of Object.entries(output.contracts)) {
+  for (let [key, contract] of Object.entries(output.contracts)) {
     if (key === contractName) {
-      for (let [_, contract] of Object.entries(module)) {
-        return contract
-      }
+      return Object.values(contract)[0]
     }
   }
 }
 
 module.exports = function compile (filename) {
-  let contractName = path.basename(filename).toString()
-  let compiled = solCompile(filename)
+  const contractName = path.basename(filename).toString()
+  const compiled = solCompile(filename)
   checkCompilerErrors(compiled.errors)
   return getContract(compiled, contractName)
 }
