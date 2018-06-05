@@ -1,10 +1,5 @@
 sudo: required
 
-cache:
-  yarn: true
-  directories:
-    - vendor
-
 env:
   global:
     - DEP_VERSION="0.4.1"
