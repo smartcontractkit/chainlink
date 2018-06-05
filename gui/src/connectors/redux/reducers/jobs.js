@@ -25,11 +25,18 @@ export default (state = initialState, action = {}) => {
         }
       )
     case RECEIVE_JOB_SPEC_SUCCESS: {
+      const runs = (action.item.runs || [])
+      const jobSpec = Object.assign(
+        {},
+        action.item,
+        {runs: runs.map(r => r.id)}
+      )
+
       return Object.assign(
         {},
         state,
         {
-          items: Object.assign({}, state.items, {[action.item.id]: action.item})
+          items: Object.assign({}, state.items, {[jobSpec.id]: jobSpec})
         }
       )
     }
