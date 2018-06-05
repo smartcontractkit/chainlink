@@ -2,24 +2,29 @@ const Eth = require('ethjs')
 const TruffleContract = require('truffle-contract')
 const ABI = require('ethereumjs-abi')
 
-require('./cl_utils.js')
-require('./cl_wallet.js')
+const clUtils = require('./cl_utils.js')
+const clWallet = require('./cl_wallet.js')
 const compile = require('./compile.js')
+
+const TruffleDefaults = {
+  gas: 6721975,
+  gasPrice: 100000000000
+}
 
 function getBytecode (contract) {
   return contract.evm.bytecode.object.toString()
 }
 
 function contractify (abi, address) {
-  let contract = TruffleContract({
+  const contract = TruffleContract({
     abi: abi,
     address: address
   })
   contract.setProvider(clUtils.provider)
   contract.defaults({
     from: clWallet.address,
-    gas: 6721975, // Truffle default
-    gasPrice: 100000000000 // Truffle default
+    gas: TruffleDefaults.gas,
+    gasPrice: TruffleDefaults.gasPrice
   })
   return contract.at(address)
 }
@@ -31,7 +36,7 @@ function findConstructor (abi) {
 }
 
 function constructorInputTypes (abi) {
-  let types = []
+  const types = []
   for (let input of findConstructor(abi).inputs) {
     types.push(input.type)
   }
@@ -46,22 +51,21 @@ function encodeArgs (unencoded, abi) {
   return buf.toString('hex')
 }
 
-module.exports = async function deploy (filename) {
-  const unencodedArgs = Array.prototype.slice.call(arguments).slice(1)
+module.exports = async function deploy (filename, ...contractArgs) {
   const compiled = compile(filename)
-  const encodedArgs = encodeArgs(unencodedArgs, compiled.abi)
+  const encodedArgs = encodeArgs(contractArgs, compiled.abi)
 
   const fundingTx = await clUtils.send({
     to: clWallet.address,
     value: clUtils.toWei(1)
   })
   await clUtils.getTxReceipt(fundingTx)
-  let txHash = await clWallet.send({
+  const txHash = await clWallet.send({
     gas: 2500000,
     data: `0x${getBytecode(compiled)}${encodedArgs}`
   })
   const receipt = await clUtils.getTxReceipt(txHash)
-  let contract = await contractify(compiled.abi, receipt.contractAddress)
+  const contract = await contractify(compiled.abi, receipt.contractAddress)
   contract.transactionHash = txHash
   return contract
 }
