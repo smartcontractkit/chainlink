@@ -1,16 +1,23 @@
-const clWallet = require('./cl_wallet.js')
-
 const Eth = require('ethjs')
+
+const retries = process.env['DEPLOY_TX_CONFIRMATION_RETRIES'] || 1000
+const retrySleep = process.env['DEPLOY_TX_CONFIRMATION_WAIT'] || 100
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 global.clUtils = global.clUtils || {
   personalAccount: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
-  toWei: function toWei (eth) {
+  toWei: function (eth) {
     return (parseInt(eth.toString(), 10) * 10 ** 18).toString()
   },
-  getTxReceipt: function getTxReceipt (txHash) {
+  getTxReceipt: function (txHash) {
     return new Promise(async (resolve, reject) => {
-      for (let i = 0; i < 1000; i++) {
-        let receipt = await clUtils.eth.getTransactionReceipt(txHash)
+      for (let i = 0; i < retries; i++) {
+        await sleep(retrySleep)
+
+        const receipt = await clUtils.eth.getTransactionReceipt(txHash)
         if (receipt != null) {
           return resolve(receipt)
         }
@@ -18,16 +25,16 @@ global.clUtils = global.clUtils || {
       reject(`${txHash} unconfirmed!`)
     })
   },
-  setProvider: function setProvider (provider) {
-    clUtils.provider = provider
-    clUtils.eth = new Eth(provider)
+  setProvider: function (provider) {
+    this.provider = provider
+    this.eth = new Eth(provider)
   },
-  send: async function send (params) {
-    let defaults = {
+  send: async function (params) {
+    const defaults = {
       data: '',
-      from: clUtils.personalAccount
+      from: this.personalAccount
     }
-    return clUtils.eth.sendTransaction(Object.assign(defaults, params))
+    return this.eth.sendTransaction(Object.assign(defaults, params))
   }
 }
 clUtils.setProvider(new Eth.HttpProvider('http://localhost:18545'))
