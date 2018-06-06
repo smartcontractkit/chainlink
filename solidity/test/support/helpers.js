@@ -1,5 +1,5 @@
 const clWallet = require('../../app/cl_wallet.js');
-const clUtils = require('../../app/cl_utils.js');
+let clUtils = require('../../app/cl_utils.js');
 deploy = require('../../app/deploy.js');
 
 BigNumber = require('bignumber.js');
@@ -43,7 +43,7 @@ cbor = require('cbor');
     // ==================
     // Mnemonic:      candy maple cake sugar pudding cream honey rich smooth crumble sweet treat
     // Base HD Path:  m/44'/60'/0'/0/{account_index}
-    accounts = await eth.accounts
+    accounts = eth.accounts
 
     defaultAccount = accounts[0]
     oracleNode = accounts[1]
