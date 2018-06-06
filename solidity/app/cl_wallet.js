@@ -4,7 +4,7 @@ const Tx = require('ethereumjs-tx')
 const Wallet = require('ethereumjs-wallet')
 
 global.clWallet = global.clWallet || {
-  send: async function send (params) {
+  send: async function (params) {
     let eth = clUtils.eth
     let defaults = {
       nonce: await eth.getTransactionCount(this.address),
@@ -15,7 +15,7 @@ global.clWallet = global.clWallet || {
     let txHex = tx.serialize().toString('hex')
     return eth.sendRawTransaction(txHex)
   },
-  setDefaultKey: function setDefaultKey(key) {
+  setDefaultKey: function (key) {
     this.privateKey = Buffer.from(key, 'hex')
     const wallet = Wallet.fromPrivateKey(this.privateKey)
     this.address = wallet.getAddress().toString('hex')
