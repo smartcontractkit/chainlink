@@ -33,10 +33,9 @@ describe('containers/JobSpec', () => {
     const props = {match: {params: {jobSpecId: jobSpecId}}}
     const wrapper = mountJobSpec(props)
 
-    await syncFetch(wrapper).then(() => {
-      expect(wrapper.text()).toContain('IDc60b9927eeae43168ddbe92584937b1b')
-      expect(wrapper.text()).toContain('Initiatorweb')
-      expect(wrapper.text()).toContain('Created2018-05-10T00:41:54.531043837Z')
-    })
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('IDc60b9927eeae43168ddbe92584937b1b')
+    expect(wrapper.text()).toContain('Initiatorweb')
+    expect(wrapper.text()).toContain('Created2018-05-10T00:41:54.531043837Z')
   })
 })
