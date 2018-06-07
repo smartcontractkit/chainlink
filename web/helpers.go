@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 )
 
@@ -12,4 +13,11 @@ func StatusCodeForError(err interface{}) int {
 	default:
 		return 500
 	}
+}
+
+// PublicError adds an error to the gin context and sets
+// the JSON value of errors.
+func PublicError(c *gin.Context, statusCode int, err error) {
+	c.Error(err).SetType(gin.ErrorTypePublic)
+	c.JSON(statusCode, gin.H{"errors": []string{err.Error()}})
 }

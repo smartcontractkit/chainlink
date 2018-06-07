@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/asdine/storm"
@@ -21,9 +22,7 @@ type JobSpecsController struct {
 func (jsc *JobSpecsController) Index(c *gin.Context) {
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
-		c.JSON(422, gin.H{
-			"errors": []string{err.Error()},
-		})
+		PublicError(c, 422, err)
 	}
 
 	skip := storm.Skip(offset)
@@ -31,13 +30,9 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 
 	var jobs []models.JobSpec
 	if count, err := jsc.App.Store.Count(&models.JobSpec{}); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{fmt.Errorf("error getting count of JobSpec: %+v", err).Error()},
-		})
+		c.AbortWithError(500, fmt.Errorf("error getting count of JobSpec: %+v", err))
 	} else if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs, skip, limit); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{fmt.Errorf("erorr fetching All JobSpecs: %+v", err).Error()},
-		})
+		c.AbortWithError(500, fmt.Errorf("erorr fetching All JobSpecs: %+v", err))
 	} else {
 		pjs := make([]presenters.JobSpec, len(jobs))
 		for i, j := range jobs {
@@ -46,9 +41,7 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 
 		buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pjs)
 		if err != nil {
-			c.JSON(500, gin.H{
-				"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
-			})
+			c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 		} else {
 			c.Data(200, MediaType, buffer)
 		}
@@ -62,17 +55,11 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
-		c.JSON(400, gin.H{
-			"errors": []string{err.Error()},
-		})
+		PublicError(c, 400, err)
 	} else if err = services.ValidateJob(j, jsc.App.Store); err != nil {
-		c.JSON(400, gin.H{
-			"errors": []string{err.Error()},
-		})
+		PublicError(c, 400, err)
 	} else if err = jsc.App.AddJob(j); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, presenters.JobSpec{JobSpec: j})
 	}
@@ -84,17 +71,11 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 func (jsc *JobSpecsController) Show(c *gin.Context) {
 	id := c.Param("SpecID")
 	if j, err := jsc.App.Store.FindJob(id); err == storm.ErrNotFound {
-		c.JSON(404, gin.H{
-			"errors": []string{"JobSpec not found."},
-		})
+		PublicError(c, 404, errors.New("JobSpec not found"))
 	} else if err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if runs, err := jsc.App.Store.JobRunsFor(j.ID); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, presenters.JobSpec{JobSpec: j, Runs: runs})
 	}
