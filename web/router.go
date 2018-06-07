@@ -116,7 +116,7 @@ func loggerFunc() gin.HandlerFunc {
 			"query", c.Request.URL.RawQuery,
 			"body", readBody(rdr),
 			"clientIP", c.ClientIP(),
-			"comment", c.Errors.ByType(gin.ErrorTypePrivate).String(),
+			"errors", c.Errors.String(),
 			"servedAt", end.Format("2006/01/02 - 15:04:05"),
 			"latency", fmt.Sprintf("%v", end.Sub(start)),
 		)
