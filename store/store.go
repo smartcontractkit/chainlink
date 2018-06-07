@@ -60,7 +60,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	orm := initialiseORM(config)
+	orm := initializeORM(config)
 	ethrpc, err := dialer.Dial(config.EthereumURL)
 	if err != nil {
 		logger.Fatal(err)
@@ -111,14 +111,14 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func initialiseORM(config Config) *models.ORM {
+func initializeORM(config Config) *models.ORM {
 	var orm *models.ORM
 	var err error
 	sleeper := utils.NewConstantSleeper(config.DatabasePollInterval.Duration)
 	for {
 		orm, err = models.NewORM(path.Join(config.RootDir, "db.bolt"))
-		if err != nil {
-			logger.Debugw("BoltDB is locked, sleeping", "sleepDuration", sleeper.Duration())
+		if err != nil && err.Error() == "timeout" {
+			logger.Info("BoltDB is locked, sleeping", "sleepDuration", sleeper.Duration())
 			sleeper.Sleep()
 		} else {
 			break
