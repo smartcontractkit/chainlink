@@ -79,4 +79,21 @@ describe('jobs reducer', () => {
 
     expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runs).toEqual(['a', 'b'])
   })
+
+  it('RECEIVE_JOB_SPEC_SUCCESS assigns an empty array of runs when the attribute is not in the response', () => {
+    const previousState = {
+      jobs: {
+        items: {}
+      }
+    }
+    const action = {
+      type: RECEIVE_JOB_SPEC_SUCCESS,
+      item: {
+        id: '50208cd6b3034594b8e999c380066b67'
+      }
+    }
+    const state = reducer(previousState, action)
+
+    expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runs).toEqual([])
+  })
 })
