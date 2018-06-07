@@ -1,6 +1,7 @@
 import {
   getAccountBalance,
-  getJobs
+  getJobs,
+  getJobSpec
 } from 'api'
 
 export const REQUEST_JOBS = 'REQUEST_JOBS'
@@ -62,5 +63,32 @@ export const fetchAccountBalance = () => {
     return getAccountBalance()
       .then(json => dispatch(receiveAccountBalance(json)))
       .catch(_ => dispatch(receiveAccountBalanceNetworkError()))
+  }
+}
+
+export const REQUEST_JOB_SPEC = 'REQUEST_JOB_SPEC'
+export const RECEIVE_JOB_SPEC_SUCCESS = 'RECEIVE_JOB_SPEC_SUCCESS'
+export const RECEIVE_JOB_SPEC_ERROR = 'RECEIVE_JOB_SPEC_ERROR'
+
+const requestJobSpec = () => ({ type: REQUEST_JOB_SPEC })
+const receiveJobSpecSuccess = (json) => {
+  return {
+    type: RECEIVE_JOB_SPEC_SUCCESS,
+    item: json
+  }
+}
+const receiveJobSpecNetworkError = () => {
+  return {
+    type: RECEIVE_JOB_SPEC_ERROR,
+    networkError: true
+  }
+}
+
+export const fetchJobSpec = (id) => {
+  return dispatch => {
+    dispatch(requestJobSpec())
+    return getJobSpec(id)
+      .then(json => dispatch(receiveJobSpecSuccess(json)))
+      .catch(_ => dispatch(receiveJobSpecNetworkError()))
   }
 }

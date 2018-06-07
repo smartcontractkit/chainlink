@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import PropType from 'prop-types'
+import PropTypes from 'prop-types'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import JobList from 'components/JobList'
@@ -88,23 +88,23 @@ export class Jobs extends Component {
 }
 
 Jobs.propTypes = {
-  classes: PropType.object.isRequired,
-  ethBalance: PropType.string.isRequired,
-  linkBalance: PropType.string.isRequired,
-  accountBalanceFetching: PropType.bool.isRequired,
-  accountBalanceError: PropType.string,
-  jobCount: PropType.number.isRequired,
-  jobs: PropType.array.isRequired,
-  jobsFetching: PropType.bool.isRequired,
-  jobsError: PropType.string,
-  pageSize: PropType.number
+  classes: PropTypes.object.isRequired,
+  ethBalance: PropTypes.string.isRequired,
+  linkBalance: PropTypes.string.isRequired,
+  accountBalanceFetching: PropTypes.bool.isRequired,
+  accountBalanceError: PropTypes.string,
+  jobCount: PropTypes.number.isRequired,
+  jobs: PropTypes.array.isRequired,
+  jobsFetching: PropTypes.bool.isRequired,
+  jobsError: PropTypes.string,
+  pageSize: PropTypes.number
 }
 
 Jobs.defaultProps = {
   pageSize: 10
 }
 
-const jobsSelector = (state) => state.jobs.currentPage.map(id => state.jobs.items[id])
+const jobsSelector = state => state.jobs.currentPage.map(id => state.jobs.items[id])
 
 const mapStateToProps = state => {
   let accountBalanceError
