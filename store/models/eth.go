@@ -13,11 +13,11 @@ import (
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
-	ID       uint64 `storm:"id,increment,index"`
-	From     common.Address
+	ID       uint64         `storm:"id,increment,index"`
+	From     common.Address `storm:"index"`
 	To       common.Address
 	Data     []byte
-	Nonce    uint64
+	Nonce    uint64 `storm:"index"`
 	Value    *big.Int
 	GasLimit uint64
 	TxAttempt
