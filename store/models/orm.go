@@ -237,6 +237,16 @@ func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
 	return tt, err
 }
 
+// GetLastNonce retrieves the last known nonce in the database for an account
+func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
+	var transactions []Tx
+	query := orm.Select(q.Eq("From", address))
+	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err != nil {
+		return 0, err
+	}
+	return transactions[0].Nonce, nil
+}
+
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i *Initiator) error {
 	dbtx, err := orm.Begin(true)
