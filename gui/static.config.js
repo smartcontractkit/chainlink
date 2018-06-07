@@ -53,6 +53,11 @@ export default {
               href='https://fonts.googleapis.com/css?family=Roboto:300,400,500'
               rel='stylesheet'
             />
+            <link
+              rel='shortcut icon'
+              type='image/x-icon'
+              href='/favicon.ico'
+            />
           </Head>
           <Body>
             {children}
