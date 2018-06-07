@@ -45,6 +45,7 @@ func ExampleRun() {
 	//      getbridges                List all bridges added to the node
 	//      showbridge                Show a specific bridge
 	//      removebridge              Removes a specific bridge
+	//      delete                    Delete multiple entries from JSON
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:

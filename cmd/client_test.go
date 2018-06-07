@@ -317,6 +317,26 @@ func TestClient_ImportKey(t *testing.T) {
 	assert.Error(t, client.ImportKey(c))
 }
 
+func TestClient_DeleteQuery(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+
+	for i := 0; i < 3; i++ {
+		bt := &models.BridgeType{Name: fmt.Sprintf("testbridge%v", i),
+			URL:                  cltest.WebURL("http://www.example.com"),
+			DefaultConfirmations: 0}
+		app.AddAdapter(bt)
+	}
+
+	set := flag.NewFlagSet("delete", 0)
+	set.Parse([]string{"../internal/fixtures/web/delete_query_bridges.json"})
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.DeleteQuery(c))
+
+}
+
 func first(a models.JobSpec, b interface{}) models.JobSpec {
 	return a
 }

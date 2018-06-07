@@ -126,6 +126,11 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:  "Removes a specific bridge",
 			Action: client.RemoveBridge,
 		},
+		{
+			Name:   "delete",
+			Usage:  "Delete multiple entries from JSON",
+			Action: client.DeleteQuery,
+		},
 	}
 	app.Run(args)
 }
