@@ -3,12 +3,16 @@ import Routes from 'react-static-routes'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
 import AppBar from '@material-ui/core/AppBar'
-import { Router } from 'react-static'
+import universal from 'react-universal-component'
+import createStore from 'connectors/redux'
+import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import { Provider } from 'react-redux'
-import createStore from 'connectors/redux'
 import logoImg from './logo.svg'
+
+// Use universal-react-component for code-splitting non-static routes
+const JobSpec = universal(import('./containers/JobSpec'))
 
 // Custom styles
 const styles = theme => {
@@ -51,11 +55,16 @@ class App extends PureComponent {
                 color='default'
                 position='static'
               >
-                <img src={logoImg} alt='Chainlink' width={121} height={44} />
+                <Link to='/'>
+                  <img src={logoImg} alt='Chainlink' width={121} height={44} />
+                </Link>
               </AppBar>
 
               <div className={classes.content}>
-                <Routes />
+                <Switch>
+                  <Route path='/job_specs/:jobSpecId' component={JobSpec} />
+                  <Routes />
+                </Switch>
               </div>
             </Grid>
           </Grid>

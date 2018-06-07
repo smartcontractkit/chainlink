@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import Link from 'components/Link'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -7,6 +8,8 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
+import Typography from '@material-ui/core/Typography'
+import formatInitiators from 'utils/formatInitiators'
 
 const renderFetching = () => (
   <TableRow>
@@ -22,16 +25,17 @@ const renderError = error => (
   </TableRow>
 )
 
-const formatInitiators = (initiators) => (initiators.map(i => i.type).join(', '))
 const renderJobs = jobs => (
   jobs.map(j => (
     <TableRow key={j.id}>
       <TableCell component='th' scope='row'>
-        {j.id}
+        <Link to={`/job_specs/${j.id}`}>{j.id}</Link>
       </TableCell>
-      <TableCell>{j.createdAt}</TableCell>
       <TableCell>
-        {formatInitiators(j.initiators)}
+        <Typography variant='body1'>{j.createdAt}</Typography>
+      </TableCell>
+      <TableCell>
+        <Typography variant='body1'>{formatInitiators(j.initiators)}</Typography>
       </TableCell>
     </TableRow>
   ))
@@ -71,9 +75,15 @@ export class JobList extends Component {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Initiator</TableCell>
+              <TableCell>
+                <Typography variant='body1' color='textSecondary'>ID</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant='body1' color='textSecondary'>Created</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant='body1' color='textSecondary'>Initiator</Typography>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

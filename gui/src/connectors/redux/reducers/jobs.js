@@ -1,7 +1,8 @@
 import {
   REQUEST_JOBS,
   RECEIVE_JOBS_SUCCESS,
-  RECEIVE_JOBS_ERROR
+  RECEIVE_JOBS_ERROR,
+  RECEIVE_JOB_SPEC_SUCCESS
 } from 'actions'
 
 const initialState = {
@@ -23,6 +24,15 @@ export default (state = initialState, action = {}) => {
           networkError: false
         }
       )
+    case RECEIVE_JOB_SPEC_SUCCESS: {
+      return Object.assign(
+        {},
+        state,
+        {
+          items: Object.assign({}, state.items, {[action.item.id]: action.item})
+        }
+      )
+    }
     case RECEIVE_JOBS_SUCCESS: {
       const newJobs = action.items.reduce(
         (acc, job) => { acc[job.id] = job; return acc },
