@@ -63,7 +63,7 @@ function getContract (output, contractName) {
   }
 }
 
-module.exports = function compile (filename) {
+module.exports = (filename) => {
   const contractName = path.basename(filename).toString()
   const compiled = solCompile(filename)
   checkCompilerErrors(compiled.errors)

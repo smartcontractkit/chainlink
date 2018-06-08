@@ -1,15 +1,23 @@
 #!/usr/bin/env node
 
-require('./app/cl_utils.js')
-const deploy = require('./app/deploy.js')
+const Eth = require('ethjs')
+const Deployer = require('./app/deployer.js')
+const Wallet = require('./app/wallet.js')
+const Utils = require('./app/utils.js')
 
 if (process.argv.length < 3) {
-  console.error('Usage: node deployer.js <solidity contract> <constructor args...>')
+  console.error('Usage: ./deployer <solidity contract> <constructor args...>')
   process.exit(1)
 }
 
 const filePath = process.argv[2]
 const args = process.argv.slice(3)
-deploy(filePath, ...args).then(contract => {
+
+const utils = new Utils(new Eth.HttpProvider('http://localhost:18545'))
+const privateKey = '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
+const wallet = new Wallet(privateKey, utils)
+
+const deployer = new Deployer(wallet, utils)
+deployer.perform(filePath, ...args).then(contract => {
   console.log(`${filePath} successfully deployed: ${contract.address}`)
 })
