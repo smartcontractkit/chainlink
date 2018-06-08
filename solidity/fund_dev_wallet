@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+
+const Eth = require('ethjs')
+const Wallet = require('./app/wallet.js')
+const Utils = require('./app/utils.js')
+
+if (process.argv.length > 2) {
+  console.error('Usage: ./fund_dev_wallet')
+  process.exit(1)
+}
+
+const utils = new Utils(new Eth.HttpProvider('http://localhost:18545'))
+const privateKey = '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
+const wallet = new Wallet(privateKey, utils)
+const devnetMiner = "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
+
+utils.send({
+  to: wallet.address,
+  from: devnetMiner,
+  value: utils.toWei(1)
+}).then(txHash => {
+  return utils.getTxReceipt(txHash)
+}).then(console.log)
