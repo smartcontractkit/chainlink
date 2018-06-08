@@ -22,7 +22,7 @@ type JobSpecsController struct {
 func (jsc *JobSpecsController) Index(c *gin.Context) {
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
-		PublicError(c, 422, err)
+		publicError(c, 422, err)
 	}
 
 	skip := storm.Skip(offset)
@@ -55,9 +55,9 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	j := models.NewJob()
 
 	if err := c.ShouldBindJSON(&j); err != nil {
-		PublicError(c, 400, err)
+		publicError(c, 400, err)
 	} else if err = services.ValidateJob(j, jsc.App.Store); err != nil {
-		PublicError(c, 400, err)
+		publicError(c, 400, err)
 	} else if err = jsc.App.AddJob(j); err != nil {
 		c.AbortWithError(500, err)
 	} else {
@@ -71,7 +71,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 func (jsc *JobSpecsController) Show(c *gin.Context) {
 	id := c.Param("SpecID")
 	if j, err := jsc.App.Store.FindJob(id); err == storm.ErrNotFound {
-		PublicError(c, 404, errors.New("JobSpec not found"))
+		publicError(c, 404, errors.New("JobSpec not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else if runs, err := jsc.App.Store.JobRunsFor(j.ID); err != nil {

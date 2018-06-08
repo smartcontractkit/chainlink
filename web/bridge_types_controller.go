@@ -23,7 +23,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(bt); err != nil {
 		c.AbortWithError(500, err)
 	} else if err = btc.App.AddAdapter(bt); err != nil {
-		PublicError(c, StatusCodeForError(err), err)
+		publicError(c, StatusCodeForError(err), err)
 	} else {
 		c.JSON(200, bt)
 	}
@@ -33,7 +33,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 func (btc *BridgeTypesController) Index(c *gin.Context) {
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
-		PublicError(c, 422, err)
+		publicError(c, 422, err)
 	}
 
 	skip := storm.Skip(offset)
@@ -66,7 +66,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
-		PublicError(c, 404, errors.New("bridge name not found"))
+		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else {
@@ -78,7 +78,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
-		PublicError(c, 404, errors.New("bridge name not found"))
+		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
 	} else if err = btc.App.RemoveAdapter(&bt); err != nil {

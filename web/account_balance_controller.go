@@ -23,7 +23,7 @@ func (jsc *AccountBalanceController) Show(c *gin.Context) {
 	txm := store.TxManager
 
 	if account, err := store.KeyStore.GetAccount(); err != nil {
-		PublicError(c, 400, err)
+		publicError(c, 400, err)
 	} else if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
 		c.AbortWithError(500, err)
 	} else if linkBalance, err := txm.GetLinkBalance(account.Address, common.HexToAddress(store.Config.LinkContractAddress)); err != nil {
