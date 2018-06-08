@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := build
-.PHONY: dep build install docker dockerpush
+.PHONY: dep build install gui docker dockerpush
 
 REPO=smartcontract/chainlink
 LDFLAGS=-ldflags "-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
@@ -12,6 +12,12 @@ build: dep ## Build chainlink.
 
 install: dep ## Install chainlink
 	@go install $(LDFLAGS)
+
+gui: ## Install GUI 
+	@cd gui
+	@yarn install
+	@cd ..
+	@yarn build
 
 docker: ## Build the docker image.
 	@docker build . -t $(REPO)
