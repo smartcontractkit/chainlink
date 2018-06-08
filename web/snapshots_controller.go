@@ -21,7 +21,7 @@ func (sc *SnapshotsController) CreateSnapshot(c *gin.Context) {
 	id := c.Param("AID")
 
 	if j, err := sc.App.Store.FindJob(id); err == storm.ErrNotFound {
-		PublicError(c, 404, errors.New("Job not found"))
+		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else if jr, err := startJob(j, sc.App.Store, models.JSON{}); err != nil {
@@ -38,7 +38,7 @@ func (sc *SnapshotsController) ShowSnapshot(c *gin.Context) {
 	id := c.Param("ID")
 
 	if jr, err := sc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
-		PublicError(c, 404, errors.New("Job not found"))
+		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else {

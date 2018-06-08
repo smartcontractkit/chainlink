@@ -23,7 +23,7 @@ func (ac *AssignmentsController) Create(c *gin.Context) {
 	var a models.AssignmentSpec
 
 	if err := c.ShouldBindJSON(&a); err != nil {
-		PublicError(c, 400, err)
+		publicError(c, 400, err)
 	} else if j, err := a.ConvertToJobSpec(); err != nil {
 		c.AbortWithError(500, err)
 	} else if err = ac.App.AddJob(j); err != nil {
@@ -41,7 +41,7 @@ func (ac *AssignmentsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 
 	if j, err := ac.App.Store.FindJob(id); err == storm.ErrNotFound {
-		PublicError(c, 404, errors.New("ID not found"))
+		publicError(c, 404, errors.New("ID not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else if as, err := models.ConvertToAssignment(j); err != nil {

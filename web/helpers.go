@@ -15,9 +15,9 @@ func StatusCodeForError(err interface{}) int {
 	}
 }
 
-// PublicError adds an error to the gin context and sets
+// publicError adds an error to the gin context and sets
 // the JSON value of errors.
-func PublicError(c *gin.Context, statusCode int, err error) {
+func publicError(c *gin.Context, statusCode int, err error) {
 	c.Error(err).SetType(gin.ErrorTypePublic)
 	c.JSON(statusCode, gin.H{"errors": []string{err.Error()}})
 }
