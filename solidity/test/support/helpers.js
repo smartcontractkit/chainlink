@@ -1,6 +1,6 @@
-const clWallet = require('../../app/cl_wallet.js');
-let clUtils = require('../../app/cl_utils.js');
-deploy = require('../../app/deploy.js');
+const Wallet = require('../../app/wallet.js');
+const Utils = require('../../app/utils.js');
+const Deployer = require('../../app/deployer.js');
 
 BigNumber = require('bignumber.js');
 moment = require('moment');
@@ -9,10 +9,10 @@ util = require('ethereumjs-util');
 cbor = require('cbor');
 
 (() => {
+  let utils, wallet, deployer
   eth = web3.eth;
 
   before(async function () {
-    clUtils.setProvider(web3.currentProvider)
     // Default hard coded truffle accounts:
     // ==================
     // (0) 0x627306090abab3a6e1400e9345bc60c78a8bef57
@@ -50,12 +50,18 @@ cbor = require('cbor');
     stranger = accounts[2]
     consumer = accounts[3]
 
-    clUtils.personalAccount = defaultAccount;
-    clWallet.setDefaultKey('c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3')
+    const privateKey = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
+    utils = new Utils(web3.currentProvider)
+    wallet = new Wallet(privateKey, utils)
+    deployer = new Deployer(wallet, utils)
   });
 
+  deploy = (filePath, ...args) => {
+    return deployer.perform(filePath, ...args)
+  }
+
   Eth = function sendEth(method, params) {
-    params = params || [];
+    params = params || []
 
     return new Promise((resolve, reject) => {
       web3.currentProvider.sendAsync({
