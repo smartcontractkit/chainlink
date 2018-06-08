@@ -311,4 +311,6 @@ type QueryObject struct {
 	Lte      json.RawMessage `json:"lte"`
 	Re       json.RawMessage `json:"re"`
 	StrictEq json.RawMessage `json:"stricteq"`
+	Not      json.RawMessage `json:"not"`
+	Or       json.RawMessage `json:"or"`
 }

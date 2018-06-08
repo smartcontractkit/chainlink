@@ -343,6 +343,22 @@ func (orm *ORM) BuildQuery(value interface{}, model interface{}) ([]q.Matcher, e
 		if utils.IsZero(reflect.ValueOf(fieldValue)) {
 			continue
 		}
+
+		if (fieldKey == "Not") || (fieldKey == "Or") {
+			operatorQuery := QueryObject{}
+			json.Unmarshal(fieldValue.(json.RawMessage), &operatorQuery)
+			operatorSelect, err := orm.BuildQuery(operatorQuery, model)
+			if err != nil {
+				return nil, fmt.Errorf("BuildQuery: Parsing error in field %v : %v", fieldKey, err)
+			}
+			switch fieldKey {
+			case "Not":
+				dbSelect = append(dbSelect, q.Not(operatorSelect...))
+			case "Or":
+				dbSelect = []q.Matcher{q.Or(append([]q.Matcher{q.And(dbSelect...)}, q.And(operatorSelect...))...)}
+			}
+			continue
+		}
 		query, err := orm.ParseQuery(fieldValue.(json.RawMessage), model, fieldKey)
 		if err != nil {
 			return nil, fmt.Errorf("BuildQuery: Parsing error in field %v : %v", fieldKey, err)

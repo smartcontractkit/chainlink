@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -357,6 +356,13 @@ func TestORM_AdvancedBridgeSearch(t *testing.T) {
 			false,
 			2,
 		},
+		{"nested operators",
+			models.QueryObject{Re: json.RawMessage(`{"name":"^testbridge[0-3]"}`),
+				Or: json.RawMessage(`{"not" : {"re" : {"name":"^testbridge[0-1|6-7]"}}}`),
+			},
+			false,
+			6,
+		},
 	}
 
 	for _, test := range cases {
@@ -371,14 +377,15 @@ func TestORM_AdvancedJobRunSearch(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-
-	job, initr := cltest.NewJobWithWebInitiator()
-	job.StartAt = cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
-	job.EndAt = cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
-	_, err := services.BeginRun(job, initr, models.RunResult{}, store)
-	assert.NoError(t, err)
-	_, err = services.BeginRun(job, initr, models.RunResult{}, store)
-	assert.NoError(t, err)
+	status := []models.RunStatus{models.RunStatusCompleted,
+		models.RunStatusInProgress,
+		models.RunStatusErrored}
+	for i := 0; i < 6; i++ {
+		job, initr := cltest.NewJobWithWebInitiator()
+		run := job.NewRun(initr)
+		run.Status = status[i%3]
+		assert.NoError(t, store.Save(&run))
+	}
 
 	cases := []struct {
 		name         string
@@ -394,12 +401,23 @@ func TestORM_AdvancedJobRunSearch(t *testing.T) {
 		{"less than query on date field",
 			models.QueryObject{Lt: json.RawMessage(`{"createdAt":"3000-01-01T00:00:00.000Z"}`)},
 			false,
-			2,
+			6,
 		},
 		{"find completed runs",
 			models.QueryObject{Eq: json.RawMessage(`{"status":"completed"}`)},
 			false,
 			2,
+		},
+		{"find uncompleted runs",
+			models.QueryObject{Not: json.RawMessage(`{"Eq" : {"status":"completed"}}`)},
+			false,
+			4,
+		},
+		{"find in progress or errored",
+			models.QueryObject{Eq: json.RawMessage(`{"status":"in_progress"}`),
+				Or: json.RawMessage(`{"eq" : {"status":"errored"}}`)},
+			false,
+			4,
 		},
 	}
 
