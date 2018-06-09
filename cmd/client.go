@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -389,6 +390,46 @@ func (cli *Client) DeleteQuery(c *clipkg.Context) error {
 	default:
 		return cli.errorOut(errors.New("Invalid collection"))
 	}
+}
+
+// Prune removes JobRun db entries based on JSON specifications
+func (cli *Client) Prune(c *clipkg.Context) error {
+
+	var subquery bytes.Buffer
+	subquery.WriteString(`{"collection" : "jobruns", "query" : { `)
+	cfg := cli.Config
+
+	if c == nil {
+		return cli.errorOut(errors.New("Must pass in at least one argument"))
+	}
+
+	if c.Int("days") > 0 {
+		days := c.Int("days")
+		backDate := utils.ISO8601UTC(time.Now().AddDate(0, 0, -1*days))
+		dayJSON := fmt.Sprintf(`"lte" : { "createdAt": "%s" }, "eq" : { "status": "errored" }, "or" : {"lte" : { "createdAt": "%s" },  "eq" : { "status": "completed" }}`, backDate, backDate)
+		subquery.WriteString(dayJSON)
+	} else if c.Bool("errored") {
+		subquery.WriteString(` "eq" : { "status" : "errored" } `)
+	} else if c.Bool("completed") {
+		subquery.WriteString(` "eq" : { "status" : "completed" } `)
+	}
+	subquery.WriteString("}}")
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/delete_query",
+		"application/json",
+		&subquery,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var runs []models.JobRun
+	return cli.renderResponse(resp, &runs)
+
 }
 
 func isDirEmpty(dir string) (bool, error) {

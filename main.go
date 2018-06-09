@@ -131,6 +131,25 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:  "Delete multiple entries from JSON",
 			Action: client.DeleteQuery,
 		},
+		{
+			Name:   "prune",
+			Usage:  "Clean old JobRun database entries",
+			Action: client.Prune,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "days",
+					Usage: "clean JobRuns older than x days",
+				},
+				cli.BoolFlag{
+					Name:  "onlyerrored",
+					Usage: "clean JobRuns with errored status",
+				},
+				cli.BoolFlag{
+					Name:  "onlycompleted",
+					Usage: "clean JobRuns with completed status",
+				},
+			},
+		},
 	}
 	app.Run(args)
 }

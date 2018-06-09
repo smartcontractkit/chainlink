@@ -2,9 +2,11 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -13,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func TestClient_RunNode(t *testing.T) {
@@ -335,6 +338,76 @@ func TestClient_DeleteQuery(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.DeleteQuery(c))
 
+}
+
+func TestClient_Prune(t *testing.T) {
+
+	entries := []struct {
+		name        string
+		status      models.RunStatus
+		completedAt null.Time
+	}{
+		{
+			"OldCompleted",
+			models.RunStatusCompleted,
+			cltest.ParseNullableTime("2000-01-01T00:00:00.000Z"),
+		},
+		{
+			"OldPendingConfirmation",
+			models.RunStatusPendingConfirmations,
+			cltest.ParseNullableTime("2000-01-01T00:00:00.000Z"),
+		},
+		{
+			"OldErrored",
+			models.RunStatusErrored,
+			cltest.ParseNullableTime("2000-01-01T00:00:00.000Z"),
+		},
+		{
+			"NewCompleted",
+			models.RunStatusCompleted,
+			cltest.ParseNullableTime("2018-06-01T00:00:00.000Z"),
+		},
+		{
+			"NewErrored",
+			models.RunStatusErrored,
+			cltest.ParseNullableTime("2018-06-01T00:00:00.000Z"),
+		},
+		{
+			"NewPendingBridge",
+			models.RunStatusPendingBridge,
+			cltest.ParseNullableTime("2018-06-01T00:00:00.000Z"),
+		},
+	}
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	for i, entry := range entries {
+		job, initr := cltest.NewJobWithWebInitiator()
+		run := job.NewRun(initr)
+		run.Status = entry.status
+		run.CompletedAt = entry.completedAt
+		run.CreatedAt = time.Now().AddDate(-1*i, 0, 0)
+		assert.NoError(t, app.Store.Save(&run))
+	}
+
+	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+
+	set := flag.NewFlagSet("days", 0)
+	set.Int("days", 30, "")
+	c := cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.Prune(c))
+	runs := *r.Renders[0].(*[]models.JobRun)
+	assert.Equal(t, 3, len(runs))
+
+	client, r = cltest.NewClientAndRenderer(app.Store.Config)
+
+	set = flag.NewFlagSet("prune", 0)
+	set.Bool("completed", true, "")
+	c = cli.NewContext(nil, set, nil)
+	assert.Nil(t, client.Prune(c))
+	runs = *r.Renders[0].(*[]models.JobRun)
+	assert.Equal(t, 1, len(runs))
 }
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {
