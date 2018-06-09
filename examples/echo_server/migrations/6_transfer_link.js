@@ -1,5 +1,5 @@
 const clmigration = require("../clmigration.js");
-const LinkToken = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/LinkToken.sol");
+const LinkToken = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
 const RunLog = artifacts.require("./RunLog.sol");
 const devnetAddress = "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f";
 

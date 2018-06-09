@@ -1,7 +1,7 @@
 pragma solidity ^0.4.23;
 
 import "../../../solidity/contracts/Chainlinked.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "../../../solidity/contracts/lib/Ownable.sol";
 
 contract SpecAndRunLog is Chainlinked, Ownable {
   bytes32 internal requestId;

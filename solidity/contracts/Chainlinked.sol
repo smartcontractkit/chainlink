@@ -2,7 +2,7 @@ pragma solidity ^0.4.23;
 
 import "./ChainlinkLib.sol";
 import "./Oracle.sol";
-import "linkToken/contracts/LinkToken.sol";
+import "./lib/LinkToken.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
