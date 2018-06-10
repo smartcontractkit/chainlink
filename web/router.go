@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -83,11 +84,22 @@ func guiEngine(app *services.ChainlinkApplication) *gin.Engine {
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
-		gzip.Gzip(gzip.DefaultCompression),
 		basicAuth,
 	)
 
 	box := packr.NewBox("../gui/dist/")
+	engine.NoRoute(func(c *gin.Context) {
+		if filepath.Ext(c.Request.URL.Path) == "" {
+			index, err := box.Open("index.html")
+			if err != nil {
+				logger.Warn(err)
+			}
+
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(index)
+			c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
+		}
+	})
 	engine.StaticFS("/", box)
 
 	return engine

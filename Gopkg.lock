@@ -123,7 +123,8 @@
     "json",
     "render"
   ]
-  revision = "bf7803815b0baa22ff7a10457932882dfbf09925"
+  revision = "c4a2f1006ca6f9414597d42e695e6a3234f2dc8e"
+  source = "github.com/smartcontractkit/gin"
 
 [[projects]]
   name = "github.com/go-stack/stack"
@@ -458,6 +459,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c9f9a69f2a250dc9dd5c0d8a5460774077332ef36f57e988c8676f1d51ec85f5"
+  inputs-digest = "f8c4c3a32681319cc463485deb24ee651f0918b1715d6a1dbd936cf7134d4029"
   solver-name = "gps-cdcl"
   solver-version = 1
