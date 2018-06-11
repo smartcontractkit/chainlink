@@ -16,7 +16,7 @@ type BackupController struct {
 func (bc *BackupController) Show(c *gin.Context) {
 	tx, err := bc.App.GetStore().GetBolt().Begin(false)
 	if err != nil {
-		c.JSON(500, gin.H{"errors": []string{err.Error()}})
+		c.AbortWithError(500, err)
 		return
 	}
 	defer tx.Rollback()
@@ -28,6 +28,6 @@ func (bc *BackupController) Show(c *gin.Context) {
 
 	_, err = tx.WriteTo(c.Writer)
 	if err != nil {
-		c.JSON(500, gin.H{"errors": []string{err.Error()}})
+		c.AbortWithError(500, err)
 	}
 }

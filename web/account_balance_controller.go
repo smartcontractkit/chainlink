@@ -23,17 +23,11 @@ func (jsc *AccountBalanceController) Show(c *gin.Context) {
 	txm := store.TxManager
 
 	if account, err := store.KeyStore.GetAccount(); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		publicError(c, 400, err)
 	} else if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if linkBalance, err := txm.GetLinkBalance(account.Address, common.HexToAddress(store.Config.LinkContractAddress)); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		ab := presenters.AccountBalance{
 			Address:     account.Address.Hex(),
@@ -41,9 +35,7 @@ func (jsc *AccountBalanceController) Show(c *gin.Context) {
 			LinkBalance: linkBalance,
 		}
 		if json, err := jsonapi.Marshal(ab); err != nil {
-			c.JSON(500, gin.H{
-				"errors": []string{fmt.Errorf("failed to marshal account using jsonapi: %+v", err).Error()},
-			})
+			c.AbortWithError(500, fmt.Errorf("failed to marshal account using jsonapi: %+v", err))
 		} else {
 			c.Data(200, MediaType, json)
 		}

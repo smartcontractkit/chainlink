@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -24,24 +25,16 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	id := c.Param("SpecID")
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
-		c.JSON(422, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(422, err)
 		return
 	}
 	var jrs []models.JobRun
 	if count, err := jrc.App.Store.Count(&models.JobRun{}); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{fmt.Errorf("error getting count of JobRuns: %+v", err).Error()},
-		})
+		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
 	} else if err := jrc.App.Store.Find("JobID", id, &jrs, storm.Limit(size), storm.Skip(offset), storm.Reverse()); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{fmt.Errorf("error getting JobRuns: %+v", err).Error()},
-		})
+		c.AbortWithError(500, fmt.Errorf("error getting JobRuns: %+v", err))
 	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, jrs); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{fmt.Errorf("failed to marshal document: %+v", err).Error()},
-		})
+		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
 		c.Data(200, MediaType, buffer)
 	}
@@ -54,25 +47,15 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("SpecID")
 
 	if j, err := jrc.App.Store.FindJob(id); err == storm.ErrNotFound {
-		c.JSON(404, gin.H{
-			"errors": []string{"Job not found"},
-		})
+		c.AbortWithError(404, errors.New("Job not found"))
 	} else if err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if !j.WebAuthorized() {
-		c.JSON(403, gin.H{
-			"errors": []string{"Job not available on web API. Recreate with web initiator."},
-		})
+		c.AbortWithError(403, errors.New("Job not available on web API, recreate with web initiator"))
 	} else if data, err := getRunData(c); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if jr, err := startJob(j, jrc.App.Store, data); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, gin.H{"id": jr.ID})
 	}
@@ -94,21 +77,13 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
 	var brr models.BridgeRunResult
 	if jr, err := jrc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
-		c.JSON(404, gin.H{
-			"errors": []string{"Job Run not found"},
-		})
+		c.AbortWithError(404, errors.New("Job Run not found"))
 	} else if err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if !jr.Result.Status.PendingBridge() {
-		c.JSON(405, gin.H{
-			"errors": []string{"Cannot resume a job run that isn't pending"},
-		})
+		c.AbortWithError(405, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		executeRun(jr, jrc.App.Store, brr.RunResult)
 		c.JSON(200, gin.H{"id": jr.ID})

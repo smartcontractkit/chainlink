@@ -1,6 +1,8 @@
 package web
 
 import (
+	"errors"
+
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
@@ -21,17 +23,11 @@ func (ac *AssignmentsController) Create(c *gin.Context) {
 	var a models.AssignmentSpec
 
 	if err := c.ShouldBindJSON(&a); err != nil {
-		c.JSON(400, gin.H{
-			"errors": []string{err.Error()},
-		})
+		publicError(c, 400, err)
 	} else if j, err := a.ConvertToJobSpec(); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if err = ac.App.AddJob(j); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, presenters.JobSpec{JobSpec: j})
 	}
@@ -45,17 +41,11 @@ func (ac *AssignmentsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 
 	if j, err := ac.App.Store.FindJob(id); err == storm.ErrNotFound {
-		c.JSON(404, gin.H{
-			"errors": []string{"ID not found."},
-		})
+		publicError(c, 404, errors.New("ID not found"))
 	} else if err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else if as, err := models.ConvertToAssignment(j); err != nil {
-		c.JSON(500, gin.H{
-			"errors": []string{err.Error()},
-		})
+		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, as)
 	}
