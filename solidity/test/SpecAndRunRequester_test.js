@@ -17,10 +17,12 @@ contract('SpecAndRunRequester', () => {
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 1650000);
+    assert.isBelow(rec.gasUsed, 1700000);
   });
 
   describe("#requestEthereumPrice", () => {
+    let tx, log, requestId;
+
     context("without LINK", () => {
       it("reverts", async () => {
         await assertActionThrows(async () => {
@@ -32,19 +34,22 @@ contract('SpecAndRunRequester', () => {
     context("with LINK", () => {
       beforeEach(async () => {
         await link.transfer(cc.address, web3.toWei('1', 'ether'));
+        tx = await cc.requestEthereumPrice(currency);
+        log = tx.receipt.logs[2];
+        let event = await getLatestEvent(oc);
+        requestId = event.args.internalId;
       });
 
       it("triggers a log event in the Oracle contract", async () => {
-        let tx = await cc.requestEthereumPrice(currency);
-        let log = tx.receipt.logs[2];
         assert.equal(log.address, oc.address);
 
         let [id, wei, ver, cborData] = decodeSpecAndRunRequest(log);
         let params = await cbor.decodeFirst(cborData);
         let expected = {
-          "tasks": ["httpget", "jsonparse", "ethint256", "ethtx"],
+          "tasks": ["httpget", "jsonparse", "multiply", "ethuint256", "ethtx"],
           "params": {
             "path":["USD"],
+            "times": 100,
             "url":"https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
           }
         };
@@ -55,8 +60,17 @@ contract('SpecAndRunRequester', () => {
       });
 
       it("has a reasonable gas cost", async () => {
-        let tx = await cc.requestEthereumPrice(currency);
         assert.isBelow(tx.receipt.gasUsed, 200000);
+      });
+
+      it("records the data given to it by the oracle", async () => {
+        let expected = 60729;
+        let response = "0x" + encodeUint256(expected);
+        await oc.fulfillData(requestId, response, {from: oracleNode});
+  
+        let currentPrice = await cc.currentPrice();
+        let decoded = await abi.rawDecode(["uint256"], new Buffer(intToHexNoPrefix(currentPrice), "hex"));
+        assert.equal(decoded.toString(), expected);
       });
     });
   });
