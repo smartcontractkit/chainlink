@@ -45,5 +45,9 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
     currentPrice = _price;
   }
 
+  function withdrawLink() onlyOwner public {
+    require(link.transfer(owner, link.balanceOf(address(this))));
+  }
+
 }
 
