@@ -1,6 +1,6 @@
 const SpecAndRunLog = artifacts.require("./SpecAndRunLog.sol");
-const LinkToken = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/LinkToken.sol");
-const Oracle = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/Oracle.sol");
+const LinkToken = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
+const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 
 module.exports = function(deployer) {
   deployer.deploy(SpecAndRunLog, LinkToken.address, Oracle.address).then(async function() {

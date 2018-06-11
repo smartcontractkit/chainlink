@@ -2,7 +2,7 @@ const clmigration = require("../clmigration.js");
 const request = require("request-promise");
 const UptimeSLA = artifacts.require("./UptimeSLA.sol");
 const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
-const LINK = artifacts.require("../../../solidity/contracts/LinkToken.sol");
+const LINK = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
 
 let url = "http://chainlink:twochains@localhost:6688/v2/specs";
 let job = {
