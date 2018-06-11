@@ -12,12 +12,12 @@ contract('SpecAndRunRequester', () => {
     oc = await deploy('Oracle.sol', link.address)
     await oc.transferOwnership(oracleNode, {from: defaultAccount})
     cc = await deploy(sourcePath, link.address, oc.address, {from: consumer});
-    await cc.transferOwnership(oracleNode, {from: defaultAccount})
+    await cc.transferOwnership(consumer, {from: defaultAccount})
   })
 
   it("has a predictable gas price", async () => {
     let rec = await eth.getTransactionReceipt(cc.transactionHash);
-    assert.isBelow(rec.gasUsed, 1700000);
+    assert.isBelow(rec.gasUsed, 1900000);
   });
 
   describe("#requestEthereumPrice", () => {
@@ -71,6 +71,44 @@ contract('SpecAndRunRequester', () => {
         let currentPrice = await cc.currentPrice();
         let decoded = await abi.rawDecode(["uint256"], new Buffer(intToHexNoPrefix(currentPrice), "hex"));
         assert.equal(decoded.toString(), expected);
+      });
+    });
+  });
+
+  describe("#withdrawLink", () => {
+    beforeEach(async () => {
+      await link.transfer(cc.address, web3.toWei('1', 'ether'));
+    });
+
+    context("as a non-owner", () => {
+      it("reverts", async () => {
+        let startingBalance = await link.balanceOf(cc.address);
+        assert.equal(startingBalance, web3.toWei('1', 'ether'));
+
+        await assertActionThrows(async () => {
+          await cc.withdrawLink({from: stranger});
+        });
+
+        let endingBalance = await link.balanceOf(cc.address);
+        assert.equal(endingBalance.toString(), startingBalance.toString());
+
+        let strangerBalance = await link.balanceOf(stranger);
+        assert.equal(strangerBalance, 0);
+      });
+    });
+    
+    context("as the owner", () => {
+      it("returns contract LINK to the owner", async () => {
+        let startingBalance = await link.balanceOf(cc.address);
+        assert.equal(startingBalance, web3.toWei('1', 'ether'));
+
+        await cc.withdrawLink({from: consumer});
+
+        let endingBalance = await link.balanceOf(cc.address);
+        assert.equal(endingBalance, 0);
+
+        let ownerBalance = await link.balanceOf(consumer);
+        assert.equal(ownerBalance.toString(), startingBalance.toString());
       });
     });
   });
