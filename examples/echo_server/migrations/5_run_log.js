@@ -1,7 +1,7 @@
 const clmigration = require("../clmigration.js");
 const request = require("request-promise");
-const LinkToken = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/LinkToken.sol");
-const Oracle = artifacts.require("../node_modules/smartcontractkit/chainlink/solidity/contracts/Oracle.sol");
+const LinkToken = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
+const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 const RunLog = artifacts.require("./RunLog.sol");
 
 let url = "http://chainlink:twochains@localhost:6688/v2/specs";

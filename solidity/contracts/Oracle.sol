@@ -1,7 +1,7 @@
 pragma solidity ^0.4.23;
 
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "linkToken/contracts/LinkToken.sol";
+import "./lib/Ownable.sol";
+import "./lib/LinkToken.sol";
 
 contract Oracle is Ownable {
   using SafeMath for uint256;

@@ -1,7 +1,6 @@
 pragma solidity ^0.4.23;
 
-import "./Chainlinked.sol";
-import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "github.com/smartcontractkit/chainlink/solidity/contracts/Chainlinked.sol";
 
 contract ConsumerBytes32 is Chainlinked, Ownable {
   bytes32 internal jobId;
