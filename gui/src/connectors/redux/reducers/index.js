@@ -1,10 +1,12 @@
 import { combineReducers } from 'redux'
-import jobs from './jobs'
 import accountBalance from './accountBalance'
+import jobs from './jobs'
+import jobRuns from './jobRuns'
 
 const reducer = combineReducers({
   accountBalance,
-  jobs
+  jobs,
+  jobRuns
 })
 
 export default reducer

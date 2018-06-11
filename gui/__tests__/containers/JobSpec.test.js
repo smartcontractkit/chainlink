@@ -19,14 +19,15 @@ const mountJobSpec = (props) => (
 )
 
 describe('containers/JobSpec', () => {
-  it('renders the definition and details of the job spec', async () => {
-    expect.assertions(3)
+  it('renders the details of the job spec and its latest runs', async () => {
+    expect.assertions(5)
 
     const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
     const jobSpecResponse = jobSpecFactory({
       id: jobSpecId,
       initiators: [{'type': 'web'}],
-      createdAt: '2018-05-10T00:41:54.531043837Z'
+      createdAt: '2018-05-10T00:41:54.531043837Z',
+      runs: [{id: 'runA', result: {data: {value: '8400.00'}}}]
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
@@ -37,5 +38,7 @@ describe('containers/JobSpec', () => {
     expect(wrapper.text()).toContain('IDc60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
     expect(wrapper.text()).toContain('Created2018-05-10T00:41:54.531043837Z')
+    expect(wrapper.text()).toContain('Run Count1')
+    expect(wrapper.text()).toContain('{"value":"8400.00"}')
   })
 })
