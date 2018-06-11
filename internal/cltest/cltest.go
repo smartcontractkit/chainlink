@@ -240,7 +240,7 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 	return respJSON
 }
 
-// ErrorsJson has an errors attribute
+// ErrorsJSON has an errors attribute
 type ErrorsJSON struct {
 	Errors []string `json:"errors"`
 }
