@@ -14,10 +14,11 @@ internal/gethnet/datadir/history
 # GUI
 gui/dist
 
-# node tools
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Log files
+*.log
+
+# Truffle migrations
+build/
 
 # misc
 .envrc

@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "cbor": "^4.0.0",
+    "ethereumjs-abi": "^0.6.5",
+    "ethereumjs-util": "^5.1.5",
+    "express": "^4.16.2",
+    "linkToken": "github:smartcontractkit/linktoken",
+    "openzeppelin-solidity": "^1.6.0",
+    "request-promise": "^4.2.2",
+    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
+    "truffle": "^4.1.6",
+    "truffle-contract": "^3.0.3"
+  }
+}
