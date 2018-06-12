@@ -357,6 +357,7 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 	}
 }
 
+// ParseUintHex parses an unsigned integer out of a hex string.
 func ParseUintHex(hex string) (*big.Int, error) {
 	amount, ok := new(big.Int).SetString(hex, 0)
 	if !ok {
