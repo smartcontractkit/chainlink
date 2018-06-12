@@ -356,3 +356,11 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 		return in, nil
 	}
 }
+
+func ParseUintHex(hex string) (*big.Int, error) {
+	amount, ok := new(big.Int).SetString(hex, 0)
+	if !ok {
+		return amount, fmt.Errorf("unable to decode hex to integer: %s", hex)
+	}
+	return amount, nil
+}

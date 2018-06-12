@@ -201,7 +201,8 @@ func TestIntegration_SpecAndRunLog(t *testing.T) {
 	app.Start()
 
 	payload := `{"tasks": ["noop"]}`
-	logs <- cltest.NewSpecAndRunLog(cltest.NewAddress(), 1, payload)
+	payment := &config.MinimumContractPayment
+	logs <- cltest.NewSpecAndRunLog(cltest.NewAddress(), 1, payload, payment)
 	jobs := cltest.WaitForJobs(t, app.Store, 1)
 	runs := cltest.WaitForRuns(t, jobs[0], app.Store, 1)
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, runs[0])
