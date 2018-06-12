@@ -33,10 +33,6 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
     chainlinkRequest(spec, LINK(1));
   }
 
-  function cancelRequest(bytes32 _requestId) public onlyOwner {
-    cancelChainlinkRequest(_requestId);
-  }
-
   function fulfill(bytes32 _requestId, uint256 _price)
     public
     checkChainlinkFulfillment(_requestId)
