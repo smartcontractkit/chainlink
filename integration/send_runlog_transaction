@@ -5,6 +5,8 @@ const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
 const {LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
 const web3 = require('web3')
 
+process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+
 const main = async () => {
   const url = 'http://chainlink:twochains@localhost:6688/v2/specs'
   const job = {

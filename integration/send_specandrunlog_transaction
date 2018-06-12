@@ -4,6 +4,8 @@ const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
 const {LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
 const web3 = require('web3')
 
+process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+
 const main = async () => {
   let SpecAndRunLog = await deployer.perform('contracts/SpecAndRunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS)
     .catch(abort('Error deploying SpecAndRunLog.sol'))
