@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 )
 
@@ -126,7 +127,7 @@ func NewSpecAndRunLogEvent(log types.Log) (SpecAndRunLogEvent, error) {
 	return SpecAndRunLogEvent{
 		Log:    log,
 		Job:    job,
-		Params: models.JSON{js.Get("params")},
+		Params: models.JSON{Result: js.Get("params")},
 	}, nil
 }
 
@@ -139,7 +140,7 @@ func defaultParamsFor(task string, log types.Log) models.JSON {
 			OracleFulfillmentFunctionID,
 			log.Topics[SpecAndRunTopicInternalID].String(),
 		)
-		return models.JSON{gjson.Parse(js)}
+		return models.JSON{Result: gjson.Parse(js)}
 	default:
 		return models.JSON{}
 	}
@@ -155,18 +156,22 @@ func (le SpecAndRunLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumb
 
 // StartJob runs the job associated with the SpecAndRunLogEvent in job runner.
 func (le SpecAndRunLogEvent) StartJob(store *store.Store) {
-	jr, err := BuildRun(le.Job, le.Job.Initiators[0], store)
+	payment, err := utils.ParseUintHex(le.Log.Topics[SpecAndRunTopicAmount].Hex())
 	if err != nil {
-		logger.Error("SpecAndRunInitiator: unable to start job", err.Error())
+		logger.Errorw(err.Error(), le.forLogger()...)
+		return
 	}
 
-	rr := models.RunResult{Data: le.Params}
-	if _, err := ExecuteRunAtBlock(jr, store, rr, le.ToIndexableBlockNumber()); err != nil {
+	rr := models.RunResult{
+		Data:   le.Params,
+		Amount: payment,
+	}
+	if _, err := BeginRunAtBlock(le.Job, le.Job.Initiators[0], rr, store, le.ToIndexableBlockNumber()); err != nil {
 		logger.Error("SpecAndRunInitiator: unable to start job", err.Error())
 	}
 }
 
-// ForLogger formats the SpecAndRunLogEvent for easy formatting in logs.
+// forLogger formats the SpecAndRunLogEvent for easy formatting in logs.
 func (le SpecAndRunLogEvent) forLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Job,
