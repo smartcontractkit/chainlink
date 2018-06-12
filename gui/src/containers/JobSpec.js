@@ -13,7 +13,11 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { fetchJobSpec } from 'actions'
-import { jobSpecSelector, latestJobRunsSelector } from 'selectors'
+import {
+  jobSpecSelector,
+  latestJobRunsSelector,
+  jobRunsCountSelector
+} from 'selectors'
 
 const styles = theme => ({
   title: {
@@ -33,7 +37,7 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({classes, jobSpec, latestJobRuns}) => (
+const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
@@ -69,7 +73,7 @@ const renderJobSpec = ({classes, jobSpec, latestJobRuns}) => (
               <Grid item xs={6}>
                 <Typography variant='subheading' color='textSecondary'>Run Count</Typography>
                 <Typography variant='body1' color='inherit'>
-                  {latestJobRuns.length}
+                  {jobRunsCount}
                 </Typography>
               </Grid>
             </Grid>
@@ -134,7 +138,8 @@ export class JobSpec extends Component {
 JobSpec.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
-  jobSpec: PropTypes.object
+  jobSpec: PropTypes.object,
+  jobRunsCount: PropTypes.number.isRequired
 }
 
 JobSpec.defaultProps = {
@@ -144,12 +149,14 @@ JobSpec.defaultProps = {
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const jobSpec = jobSpecSelector(state, jobSpecId)
+  const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
   const latestJobRuns = latestJobRunsSelector(state, jobSpecId)
 
   return {
     jobSpecId,
     jobSpec,
-    latestJobRuns
+    latestJobRuns,
+    jobRunsCount
   }
 }
 

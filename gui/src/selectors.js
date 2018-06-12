@@ -19,6 +19,11 @@ export const jobRunsSelector = (state, jobSpecId) => {
     .filter(r => r)
 }
 
+export const jobRunsCountSelector = (state, jobSpecId) => {
+  const jobRuns = jobRunsSelector(state, jobSpecId)
+  return jobRuns.length
+}
+
 export const latestJobRunsSelector = (state, jobSpecId) => {
   const jobRuns = jobRunsSelector(state, jobSpecId)
 
