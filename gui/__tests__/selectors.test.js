@@ -2,6 +2,7 @@ import {
   jobsSelector,
   jobSpecSelector,
   jobRunsSelector,
+  jobRunsCountSelector,
   latestJobRunsSelector
 } from 'selectors'
 
@@ -122,6 +123,30 @@ describe('selectors', () => {
       expect(runs).toEqual([
         {id: 'runA'}
       ])
+    })
+  })
+
+  describe('jobRunsCountSelector', () => {
+    it('returns the number of runs for the job', () => {
+      const state = {
+        jobs: {
+          items: {
+            jobA: {id: 'jobA', runs: ['runA', 'runB', 'runC', 'runD', 'runE', 'runF']}
+          }
+        },
+        jobRuns: {
+          items: {
+            'runA': {id: 'runA'},
+            'runB': {id: 'runB'},
+            'runC': {id: 'runC'},
+            'runD': {id: 'runD'},
+            'runE': {id: 'runE'},
+            'runF': {id: 'runF'}
+          }
+        }
+      }
+
+      expect(jobRunsCountSelector(state, 'jobA')).toEqual(6)
     })
   })
 
