@@ -15,6 +15,7 @@ This guide requires the following tools:
 
 - [Metamask](https://metamask.io/)
 - [MyCrypto](https://mycrypto.com) or [MyEtherWallet](https://www.myetherwallet.com/)
+- [Remix](http://remix.ethereum.org)
 
 ## General Overview
 
@@ -29,7 +30,7 @@ Interacting with contracts that require data from Chainlink follow a common work
 The examples included here have the requesting and consuming contracts as the same contract. If you wanted the answer to be supplied to a different contract, you would change the word `this` and the function signature in the line below to that of the consuming contract:
 
 ```
-ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,bytes32)");
+ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)");
 ```
 
 ## Setup
@@ -53,13 +54,13 @@ Ropsten ETH
 - https://faucet.metamask.io/
 
 Ropsten LINK
-- Let the team know your Ropsten Ethereum address on [Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby) and Ropsten LINK will be sent to you.
+- https://developers.smartcontract.com/faucet
 
 ## Publish the Consuming Contract
 
 - Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
 
-Optionally, you can skip to the [Advanced](./AdvancedDeploy.md#consumeruint256-contract) instructions to view the contract source code in Remix.
+Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to view the contract source code in Remix.
 
 - In MyEtherWallet or MyCrypto, change the Network to Ropsten
 
