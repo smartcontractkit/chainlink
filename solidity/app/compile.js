@@ -45,7 +45,7 @@ function checkCompilerErrors (errors) {
   let failure = false
   for (let error of errors) {
     if (error.type !== 'Warning') {
-      console.log(error.sourceLocation.file + ':' + error.sourceLocation.start + ' - ' + error.message)
+      console.log(error.formattedMessage)
       failure = true
     }
   }
