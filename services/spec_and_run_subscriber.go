@@ -9,6 +9,7 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -34,14 +35,15 @@ var SpecAndRunTopic = common.HexToHash("0x40a86f3bd301164dcd67d63d081ecb2db540ac
 // SpecAndRunSubscriber listens to push notifications from the ethereum node
 // for JobSpec and Run requests originating on chain.
 type SpecAndRunSubscriber struct {
-	store        *store.Store
-	subscription *ManagedSubscription
-	mutex        sync.Mutex
+	store         *store.Store
+	subscription  *ManagedSubscription
+	mutex         sync.Mutex
+	listenAddress *common.Address
 }
 
 // NewSpecAndRunSubscriber creates a new instance of SpecAndRunSubscriber.
-func NewSpecAndRunSubscriber(store *store.Store) *SpecAndRunSubscriber {
-	return &SpecAndRunSubscriber{store: store}
+func NewSpecAndRunSubscriber(store *store.Store, listenAddress *common.Address) *SpecAndRunSubscriber {
+	return &SpecAndRunSubscriber{store: store, listenAddress: listenAddress}
 }
 
 // Connect creates a subscription to SpecAndRunTopic to listen for new jobs.
@@ -50,7 +52,14 @@ func (scl *SpecAndRunSubscriber) Connect(head *models.IndexableBlockNumber) erro
 	defer scl.mutex.Unlock()
 
 	topics := [][]common.Hash{{SpecAndRunTopic}}
-	filter := ethereum.FilterQuery{FromBlock: head.NextInt(), Topics: topics}
+	filter := ethereum.FilterQuery{
+		FromBlock: head.NextInt(),
+		Topics:    topics,
+	}
+	if scl.listenAddress != nil {
+		log.Info("Only accepting SpecAndRun requests from contract at: %s", scl.listenAddress.String())
+		filter.Addresses = []common.Address{*scl.listenAddress}
+	}
 	sub, err := NewManagedSubscription(scl.store, filter, scl.dispatchLog)
 	scl.subscription = sub
 	return err
