@@ -119,10 +119,10 @@ printf -- "\033[34mChainlink is running.\033[0m\n"
 ########################
 
 printf -- "\033[34mStarting echo server...\033[0m\n"
-pushd integration/echo_server >/dev/null
+pushd integration >/dev/null
 
 yarn --no-progress install &>$ROOT/integration/yarn2.log
-node echo.js &>$ROOT/integration/echo-server.log &
+./echo_server &>$ROOT/integration/echo-server.log &
 waitForResponse http://127.0.0.1:6690/count
 
 popd >/dev/null
