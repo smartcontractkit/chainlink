@@ -33,7 +33,7 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({classes, jobSpec, jobRuns}) => (
+const renderJobSpec = ({classes, jobSpec, latestJobRuns}) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
@@ -69,7 +69,7 @@ const renderJobSpec = ({classes, jobSpec, jobRuns}) => (
               <Grid item xs={6}>
                 <Typography variant='subheading' color='textSecondary'>Run Count</Typography>
                 <Typography variant='body1' color='inherit'>
-                  {jobRuns.length}
+                  {latestJobRuns.length}
                 </Typography>
               </Grid>
             </Grid>
@@ -80,13 +80,13 @@ const renderJobSpec = ({classes, jobSpec, jobRuns}) => (
   </Grid>
 )
 
-const renderLatestRuns = ({classes, jobRuns}) => (
+const renderLatestRuns = ({classes, latestJobRuns}) => (
   <React.Fragment>
     <Typography variant='title' className={classes.lastRun}>
       Last Run
     </Typography>
 
-    <JobRunsList runs={jobRuns} />
+    <JobRunsList runs={latestJobRuns} />
   </React.Fragment>
 )
 
@@ -133,23 +133,23 @@ export class JobSpec extends Component {
 
 JobSpec.propTypes = {
   classes: PropTypes.object.isRequired,
-  jobRuns: PropTypes.array.isRequired,
+  latestJobRuns: PropTypes.array.isRequired,
   jobSpec: PropTypes.object
 }
 
 JobSpec.defaultProps = {
-  jobRuns: []
+  latestJobRuns: []
 }
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const jobSpec = jobSpecSelector(state, jobSpecId)
-  const jobRuns = latestJobRunsSelector(state, jobSpecId)
+  const latestJobRuns = latestJobRunsSelector(state, jobSpecId)
 
   return {
     jobSpecId,
     jobSpec,
-    jobRuns
+    latestJobRuns
   }
 }
 
