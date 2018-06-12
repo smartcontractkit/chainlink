@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
@@ -64,7 +63,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 func logIfNonceOutOfSync(store *strpkg.Store) {
 	account := store.TxManager.GetActiveAccount()
 	lastNonce, err := store.GetLastNonce(account.Address)
-	if err == storm.ErrNotFound {
+	if err != nil {
+		logger.Warn("database error when checking nonce: ", err)
 		return
 	}
 

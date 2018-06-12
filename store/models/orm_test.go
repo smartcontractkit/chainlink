@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -171,6 +172,45 @@ func TestBridgeTypeFor(t *testing.T) {
 			assert.Equal(t, test.errored, err != nil)
 		})
 	}
+}
+
+func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+
+	account := cltest.GetAccountAddress(store)
+	nonce, err := store.GetLastNonce(account)
+
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0), nonce)
+}
+
+func TestORM_GetLastNonce_Valid(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+	ethMock := app.MockEthClient()
+	one := uint64(1)
+
+	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(one))
+	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+
+	assert.NoError(t, app.Start())
+
+	to := cltest.NewAddress()
+	_, err := manager.CreateTx(to, []byte{})
+	assert.NoError(t, err)
+
+	account := cltest.GetAccountAddress(store)
+	nonce, err := store.GetLastNonce(account)
+
+	assert.NoError(t, err)
+	assert.Equal(t, one, nonce)
 }
 
 func TestORM_SaveCreationHeight(t *testing.T) {

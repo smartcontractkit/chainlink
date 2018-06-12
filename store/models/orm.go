@@ -241,9 +241,12 @@ func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	var transactions []Tx
 	query := orm.Select(q.Eq("From", address))
-	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err != nil {
+	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == storm.ErrNotFound {
+		return 0, nil
+	} else if err != nil {
 		return 0, err
 	}
+
 	return transactions[0].Nonce, nil
 }
 
