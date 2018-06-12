@@ -7,23 +7,28 @@
 # 3. cd solidity && truffle migrate && cd ..
 # 4. ./internal/bin/cldev
 
+GIT_ROOT=`git rev-parse --show-toplevel`
+PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
+LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
+PASSWORD="T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+
 export LOG_LEVEL=debug
-export ROOT=./internal/clroot
 export ETH_URL=ws://localhost:18546
 export ETH_CHAIN_ID=17
 export TX_MIN_CONFIRMATIONS=2
 export MINIMUM_CONTRACT_PAYMENT=1000000000000
+export ROOT=$PROJECT_ROOT/internal/clroot
 
-LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
-
+pushd $PROJECT_ROOT >/dev/null
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
-  cd gui && yarn install && cd ..
-  yarn build
-  go run -ldflags "$LDFLAGS" \
-    main.go node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+  pushd gui >/dev/null
+  yarn install --no-progress | cat
+  yarn build | cat
+  popd >/dev/null
+  go run -ldflags "$LDFLAGS" main.go node -d -p "$PASSWORD"
 elif [ "$1" == "clean" ]; then
-  rm $ROOT/db.bolt
-  rm $ROOT/log.jsonl
+  rm -f $ROOT/db.bolt $ROOT/log.jsonl
 else
   go run -ldflags "$LDFLAGS" main.go $@
 fi
+popd >/dev/null

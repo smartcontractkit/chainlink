@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+
+const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
+
+const main = async () => {
+  let EthLog = await deployer.perform('contracts/EthLog.sol')
+    .catch(abort('Error deploying EthLog.sol'))
+  console.log(`Deployed EthLog at: ${EthLog.address}`)
+
+  await EthLog.logEvent({from: DEVNET_ADDRESS, gas: 200000})
+    .catch(abort('Error making EthLog entry'))
+  console.log(`Made EthLog entry`)
+}
+
+main()

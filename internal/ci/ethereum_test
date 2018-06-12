@@ -1,123 +1,203 @@
 #!/bin/bash
 
-set -ex
+#------------------------------------------------------------------------------
+# SETUP
+#------------------------------------------------------------------------------
 
-# Kill all background processes when this shell script finishes
-trap "kill -- -$$ || true" SIGINT SIGTERM EXIT
-
-PATH=./internal/bin:./node_modules/.bin:$PATH
+set -e
 
 # Utilities
 assert ()
 {
-  echo "$1: expected $2, actual $3."
-  if [ "$2" -ne "$3" ]; then
-    exit 1
-  fi
+  sleepCount=0
+  while [ "$sleepCount" -le "10" ] && output=`eval $2`; do
+    if [ "$output" == "$3" ]; then
+      printf -- "\033[32mTest passed!\033[0m $1: got expected value $3.\n"
+      return
+    fi
+    sleepCount=$((sleepCount+1))
+    sleep 1
+  done
+  printf -- "\033[31mTEST FAILED!\033[0m $1: expected $3, actual $output.\n"
+  exit 1
 }
 
 waitForResponse ()
 {
+  printf -- "\033[34mWaiting for $1.\033[0m\n"
   sleepCount=0
-  while [ "$sleepCount" -le "120" ] && ! curl -s "$1"; do
+  while [ "$sleepCount" -le "120" ] && ! curl -s "$1" >/dev/null; do
       sleep 1
       sleepCount=$((sleepCount+1))
   done
 
   if [ "$sleepCount" -gt "120" ]; then
+    printf -- "\033[31mTimed out waiting for $1 (waited 120s).\033[0m\n"
     exit 1
   fi
+  printf -- "\033[34mService on $1 is ready.\033[0m\n"
 }
 
+GIT_ROOT=`git rev-parse --show-toplevel`
+ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
+PATH=$ROOT/internal/bin:./node_modules/.bin:$PATH
+
+# Script cleanup and failure diagnosis helpers
+exit_handler() {
+  errno=$?
+  # Print all the logs if the test fails
+  if [ $errno -ne 0 ]; then
+    printf -- "\033[31mABORTING TEST!\033[0m\n"
+    printf -- "Exited with code $errno\n"
+    for log in $(find "$ROOT/integration" -maxdepth 1 -type f -iname '*.log'); do
+      printf -- "\n--------------------------------------------------------------------------------\n"
+      printf -- "\033[31m$log\033[0m\n"
+      printf -- "--------------------------------------------------------------------------------\n\n"
+      cat $log
+    done
+  fi
+  # Clear all signal handlers to prevent handler loop
+  trap - 1 2 3 15
+  # Kill all child subprocesses
+  kill -- -$$ || true
+}
+trap "exit_handler" EXIT SIGTERM SIGINT
+
+pushd $ROOT >/dev/null
+
+# Install gethnet 1.8.8
+#set -x
+ethpkg=github.com/ethereum/go-ethereum
+ethpath=$GOPATH/src/$ethpkg
+if [ -d "$ethpath" ]; then
+  pushd "$ethpath" >/dev/null
+  git checkout master &>/dev/null
+  go get -d -u $ethpkg
+else
+  go get -d $ethpkg
+  pushd "$ethpath" >/dev/null
+fi
+git checkout v1.8.8 2>/dev/null
+popd >/dev/null
+go install $ethpkg/cmd/geth
+
+########################
 # Run gethnet
-time go get -d github.com/ethereum/go-ethereum
-cd $GOPATH/src/github.com/ethereum/go-ethereum && git checkout v1.8.8 && cd -
-time go install github.com/ethereum/go-ethereum/cmd/geth
-gethnet &
+########################
+
+printf -- "\033[34mStarting geth...\033[0m\n"
+gethnet &>$ROOT/integration/gethnet.log &
 waitForResponse http://127.0.0.1:18545
+printf -- "\033[34mGeth is running.\033[0m\n"
 
-# Run CL against ethereum node
-cldev &
+########################
+## Deploy Oracle and LinkToken contracts
+########################
+
+printf -- "\033[34mMigrating core contracts...\033[0m\n"
+pushd integration >/dev/null
+
+yarn --no-progress install &>$ROOT/integration/yarn.log
+./deploy_contracts &>$ROOT/integration/deploy.log
+export ORACLE_CONTRACT_ADDRESS=`cat $ROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
+export LINK_TOKEN_ADDRESS=`cat $ROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
+
+popd >/dev/null
+printf -- "\033[34mMigration complete.\033[0m\n"
+
+########################
+## Run ChainLink
+########################
+
+printf -- "\033[34mStarting chainlink...\033[0m\n"
+cldev &>$ROOT/integration/cldev.log &
 waitForResponse http://127.0.0.1:6688
+printf -- "\033[34mChainlink is running.\033[0m\n"
 
 ########################
-## Run echo_server sample
+## Run echo_server
 ########################
 
-cd examples/echo_server
-yarn install
-truffle migrate
-node echo.js &
-sleep 1
+printf -- "\033[34mStarting echo server...\033[0m\n"
+pushd integration/echo_server >/dev/null
 
-########################
-## runlog
-########################
+yarn --no-progress install &>$ROOT/integration/yarn2.log
+node echo.js &>$ROOT/integration/echo-server.log &
+waitForResponse http://127.0.0.1:6690/count
 
-./send_runlog_transaction.js
-sleep 2
+popd >/dev/null
+printf -- "\033[34mEcho server is running.\033[0m\n\n"
+
+#------------------------------------------------------------------------------
+# TESTS
+#------------------------------------------------------------------------------
+
+printf -- "\n\033[34mRunning tests...\033[0m\n"
+pushd integration >/dev/null
+
+#########################
+### runlog
+#########################
+
+printf -- "\n--------------------------------------------------------------------------------\n"
+printf -- "\033[34mRunlog test.\033[0m\n"
+printf -- "--------------------------------------------------------------------------------\n\n"
+
+./send_runlog_transaction
 
 # Check echo count
-count=`curl -sS localhost:6690/count`
-assert "Echo count" 1 $count
-
-# Check CL counts
-cd ../../
+assert "Echo count" "curl -sS localhost:6690/count" 1
 
 ## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-jobs=`cldev -j j | jq length`
-assert "Jobs count" 1 $jobs
+assert "Jobs count" "cldev -j j | jq length" 1
 
 # Check job runs
 jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
-runs=`cldev -j s $jid |  jq '.runs | length'`
-assert "RunLog Runs count" 1 $runs
+assert "RunLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
 
 ########################
 ## specAndRunLog
 ########################
 
-cd examples/echo_server
-./send_specandrunlog_transaction.js
-sleep 2
+printf -- "\n--------------------------------------------------------------------------------\n"
+printf -- "\033[34mspecAndRunLog test.\033[0m\n"
+printf -- "--------------------------------------------------------------------------------\n\n"
+
+./send_specandrunlog_transaction
 
 # Check echo count
-count=`curl -sS localhost:6690/count`
-assert "Echo count" 2 $count
-
-# Check CL counts
-cd ../../
+assert "Echo count" "curl -sS localhost:6690/count" 2
 
 ## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-jobs=`cldev -j j | jq length`
-assert "Jobs count" 2 $jobs
+assert "Jobs count" "cldev -j j | jq length" 2
 
 # Check job runs
 jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
-runs=`cldev -j s $jid |  jq '.runs | length'`
-assert "SpecAndRuns count" 1 $runs
+assert "SpecAndRuns count" "cldev -j s $jid |  jq '.runs | length'" 1
 
 ########################
 ## ethlog
 ########################
 
-cd examples/echo_server
+printf -- "\n--------------------------------------------------------------------------------\n"
+printf -- "\033[34methlog test.\033[0m\n"
+printf -- "--------------------------------------------------------------------------------\n\n"
+
 ethjob=`./create_ethlog_job`
-./send_ethlog_transaction.js
-sleep 2
+./send_ethlog_transaction
 
 # Check echo count
-count=`curl -sS localhost:6690/count`
-assert "Echo count" 3 $count
-
-# Check CL counts
-cd ../../
+assert "Echo count" "curl -sS localhost:6690/count" 3
 
 ## Check job counts
-jobs=`cldev -j j | jq length`
-assert "Jobs count" 3 $jobs
+assert "Jobs count" "cldev -j j | jq length" 3
 
 ## Check job runs
 jid=`echo $ethjob | jq .id | tr -d '"'`
-runs=`cldev -j s $jid |  jq '.runs | length'`
-assert "EthLog Runs count" 1 $runs
+assert "EthLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
+
+printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
+
+# Return to caller's PWD
+popd >/dev/null
+popd >/dev/null
