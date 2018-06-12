@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -146,6 +147,35 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.True(t, reflect.DeepEqual(test.want, decoded))
+			}
+		})
+	}
+}
+
+func TestParseUintHex(t *testing.T) {
+	t.Parallel()
+
+	evmUint256Max, ok := (&big.Int{}).SetString("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0)
+	assert.True(t, ok)
+	tests := []struct {
+		name      string
+		input     string
+		want      *big.Int
+		wantError bool
+	}{
+		{"basic", "0x09", big.NewInt(9), false},
+		{"large number", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", evmUint256Max, false},
+		{"error", "!!!!", nil, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := utils.ParseUintHex(test.input)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.want, result)
 			}
 		})
 	}

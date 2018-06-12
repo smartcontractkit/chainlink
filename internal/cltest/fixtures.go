@@ -216,7 +216,7 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 	}
 }
 
-func NewSpecAndRunLog(addr common.Address, blk int, json string) ethtypes.Log {
+func NewSpecAndRunLog(addr common.Address, blk int, json string, link *big.Int) ethtypes.Log {
 	return ethtypes.Log{
 		Address:     addr,
 		BlockNumber: uint64(blk),
@@ -224,7 +224,7 @@ func NewSpecAndRunLog(addr common.Address, blk int, json string) ethtypes.Log {
 		Topics: []common.Hash{
 			services.SpecAndRunTopic,
 			StringToHash("internalID"),
-			common.BigToHash(big.NewInt(0)),
+			common.BigToHash(link),
 		},
 	}
 }
