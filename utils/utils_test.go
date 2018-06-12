@@ -155,7 +155,9 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 func TestParseUintHex(t *testing.T) {
 	t.Parallel()
 
-	evmUint256Max, ok := (&big.Int{}).SetString("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0)
+	evmUint256Max, ok := (&big.Int{}).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 0)
+	assert.True(t, ok)
+	biggerThanUint256Max, ok := (&big.Int{}).SetString("121416805764108066932466369176469931665150427440758720078238275608681517825325531135", 0)
 	assert.True(t, ok)
 	tests := []struct {
 		name      string
@@ -164,7 +166,11 @@ func TestParseUintHex(t *testing.T) {
 		wantError bool
 	}{
 		{"basic", "0x09", big.NewInt(9), false},
-		{"large number", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", evmUint256Max, false},
+		{"large number", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			evmUint256Max, false},
+		{"bigger than EVM word", "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			biggerThanUint256Max, false},
+		{"negative", "-0xffffff", big.NewInt(-16777215), false},
 		{"error", "!!!!", nil, true},
 	}
 
