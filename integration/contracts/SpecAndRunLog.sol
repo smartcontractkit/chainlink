@@ -18,12 +18,14 @@ contract SpecAndRunLog is Chainlinked, Ownable {
   }
 
   function request() public {
-    string[] memory tasks = new string[](1);
-    tasks[0] = "httppost";
+    string[] memory tasks = new string[](2);
+    tasks[0] = "sleep";
+    tasks[1] = "httppost";
 
     ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)");
     spec.add("msg", "hello_chainlink");
     spec.add("url", "http://localhost:6690");
+    spec.add("seconds", 3);
     requestId = chainlinkRequest(spec, LINK(1));
   }
 
@@ -33,7 +35,6 @@ contract SpecAndRunLog is Chainlinked, Ownable {
 
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
-    checkChainlinkFulfillment(_requestId)
-  {
+    checkChainlinkFulfillment(_requestId) {
   }
 }

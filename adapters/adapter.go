@@ -41,15 +41,6 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 	var ac Adapter
 	var err error
 	switch strings.ToLower(task.Type) {
-	case "httpget":
-		ac = &HTTPGet{}
-		err = unmarshalParams(task.Params, ac)
-	case "httppost":
-		ac = &HTTPPost{}
-		err = unmarshalParams(task.Params, ac)
-	case "jsonparse":
-		ac = &JSONParse{}
-		err = unmarshalParams(task.Params, ac)
 	case "copy":
 		ac = &Copy{}
 		err = unmarshalParams(task.Params, ac)
@@ -65,6 +56,15 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 	case "ethtx":
 		ac = &EthTx{}
 		err = unmarshalParams(task.Params, ac)
+	case "httpget":
+		ac = &HTTPGet{}
+		err = unmarshalParams(task.Params, ac)
+	case "httppost":
+		ac = &HTTPPost{}
+		err = unmarshalParams(task.Params, ac)
+	case "jsonparse":
+		ac = &JSONParse{}
+		err = unmarshalParams(task.Params, ac)
 	case "multiply":
 		ac = &Multiply{}
 		err = unmarshalParams(task.Params, ac)
@@ -73,6 +73,9 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 		err = unmarshalParams(task.Params, ac)
 	case "nooppend":
 		ac = &NoOpPend{}
+		err = unmarshalParams(task.Params, ac)
+	case "sleep":
+		ac = &Sleep{}
 		err = unmarshalParams(task.Params, ac)
 	default:
 		bt, err := store.BridgeTypeFor(task.Type)
