@@ -21,7 +21,7 @@ In Remix, import the `RopstenConsumer.sol` contract at `chainlink/examples/ropst
 - You will need to choose a Gas Price (use 20 if you don't know what to pick)
 - Select Submit
 
-![deploy contracts](./images/07-24-30.png)
+![deploy contracts](./images/11-03-14.png)
 
 - A link to Etherscan will display at the bottom, you can open that in a new tab to keep track of the transaction
 
@@ -39,7 +39,7 @@ In Remix, import the `RopstenConsumer.sol` contract at `chainlink/examples/ropst
 
 - For example, clicking the `requestEthereumPrice` button after filling in the input field with "USD" will prompt Metamask to confirm the transaction.
 
-![confirm tx](./images/07-32-45.png)
+![confirm tx](./images/11-00-32.png)
 
 - And after a few blocks, the updated value retrieved by Chainlink will be visible for each of the `requestEthereum*` methods that were requested
 

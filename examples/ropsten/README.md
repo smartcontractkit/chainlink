@@ -76,7 +76,7 @@ Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to 
 - Deploy Contract
 - Submit in Metamask
 
-![submit byte code](./images/14-59-09.png)
+![submit byte code](./images/11-03-14.png)
 
 ## Send Ropsten LINK to the Consumer Contract
 
@@ -117,7 +117,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 ![confirm tx](./images/07-32-22.png)
 
-![submit tx](./images/07-32-45.png)
+![submit tx](./images/11-00-32.png)
 
 - Follow the link to Etherscan and wait until the transaction successfully completes
 
