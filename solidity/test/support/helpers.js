@@ -12,6 +12,8 @@ cbor = require('cbor');
   let utils, wallet, deployer
   eth = web3.eth;
 
+  process.env.SOLIDITY_INCLUDE = '../../contracts/:../../contracts/lib/:../../node_modules/'
+
   before(async function () {
     // Default hard coded truffle accounts:
     // ==================

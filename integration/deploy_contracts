@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+
+const {deployer, abort} = require('./common.js')
+
+const main = async () => {
+  const LinkToken = await deployer.perform('../node_modules/linkToken/contracts/LinkToken.sol')
+    .catch(abort('Error deploying LinkToken.sol'))
+  console.log(`Deployed LinkToken at: ${LinkToken.address}`)
+
+  const Oracle = await deployer.perform('../solidity/contracts/Oracle.sol', LinkToken.address)
+    .catch(abort('Error deploying Oracle.sol'))
+  console.log(`Deployed Oracle at: ${Oracle.address}`)
+}
+
+main()

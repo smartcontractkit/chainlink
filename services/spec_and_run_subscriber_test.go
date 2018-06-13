@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -23,7 +24,8 @@ func TestSpecAndRunSubscriber_AttachedToHeadTracker(t *testing.T) {
 	eth.RegisterSubscription("logs", logs)
 
 	ht := services.NewHeadTracker(store)
-	sub := services.NewSpecAndRunSubscriber(store)
+	oracleAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
+	sub := services.NewSpecAndRunSubscriber(store, &oracleAddress)
 	id := ht.Attach(sub)
 	assert.NoError(t, ht.Start())
 
