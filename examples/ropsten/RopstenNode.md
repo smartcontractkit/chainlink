@@ -93,7 +93,7 @@ Visit the faucet [here](http://faucet.ropsten.be:3001/) and paste your node's ad
 - You will need to choose a Gas Price (use 20 if you don't know what to pick)
 - Select Submit
 
-![deploy contracts](./images/07-24-30.png)
+![deploy contracts](./images/11-03-14.png)
 
 - A link to Etherscan will display at the bottom, you can open that in a new tab to keep track of the transaction
 
