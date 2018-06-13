@@ -36,3 +36,11 @@ In Remix, import the `RopstenConsumer.sol` contract at `chainlink/examples/ropst
 - In Remix, you can interact with and call the requesting functions directly, by supplying a string for the methods that begin with "request".
 
 ![contract functions](./images/12-50-55.png)
+
+- For example, clicking the `requestEthereumPrice` button after filling in the input field with "USD" will prompt Metamask to confirm the transaction.
+
+![confirm tx](./images/07-32-45.png)
+
+- And after a few blocks, the updated value retrieved by Chainlink will be visible for each of the `requestEthereum*` methods that were requested
+
+![fulfilled](./images/07-13-22.png)

@@ -4,10 +4,8 @@ This guide will allow you to create and deploy a consuming contract to fulfill a
 
 ## Additional Guides
 
+- [Advanced contract deployment with Remix](./AdvancedDeploy.md)
 - [Running your own Chainlink node on Ropsten](./RopstenNode.md)
-- [Deploying your own oracle contract](./OracleContract.md)
-- [Example with `int256` data](./AdvancedDeploy.md#consumerint256-contract)
-- [Example with `bytes32` data](./AdvancedDeploy.md#consumerbytes32-contract)
 
 ## Tools
 
@@ -129,7 +127,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 Back on the Contracts tab of MyEtherWallet or MyCrypto:
 
-- Enter your Consumer contract address and the ABI from Remix
+- Enter your Consumer contract address and the ABI from [`ConsumerABI.json`](./ConsumerABI.json)
 - Select the `currentPrice` function
 - The newly-written value should be displayed
 
