@@ -42,6 +42,7 @@ case "$1" in
       --datadir ../gethnet/datadir \
       --unlock "$ACCOUNT" \
       --ipcdisable \
-      --password ../gethnet/password.txt
+      --password ../gethnet/password.txt \
+      --verbosity 1
     ;;
 esac

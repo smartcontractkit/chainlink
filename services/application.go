@@ -47,7 +47,7 @@ func NewApplication(config store.Config) Application {
 		Scheduler:            NewScheduler(store),
 		Store:                store,
 		Exiter:               os.Exit,
-		specAndRunSubscriber: NewSpecAndRunSubscriber(store),
+		specAndRunSubscriber: NewSpecAndRunSubscriber(store, config.OracleContractAddress),
 	}
 }
 

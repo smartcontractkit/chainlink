@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+
+const request = require('request-promise')
+const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
+const {LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
+const web3 = require('web3')
+
+process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+
+const main = async () => {
+  const url = 'http://chainlink:twochains@localhost:6688/v2/specs'
+  const job = {
+    '_comment': 'A runlog has a jobid baked into the contract so chainlink knows which job to run.',
+    'initiators': [{ 'type': 'runlog' }],
+    'tasks': [
+      { 'type': 'HttpPost', 'url': 'http://localhost:6690' }
+    ]
+  }
+  let Job = await request.post(url, {json: job})
+    .catch(abort('Error creating Job'))
+
+  let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS, Job.id)
+    .catch(abort('Error deploying RunLog.sol'))
+  console.log(`Deployed RunLog at: ${RunLog.address}`)
+
+  const LinkToken = await deployer.load('../node_modules/linkToken/contracts/LinkToken.sol', LINK_TOKEN_ADDRESS)
+    .catch(abort(`Error loading LinkToken at address ${LINK_TOKEN_ADDRESS}`))
+
+  const amount = web3.utils.toWei('1000')
+  await LinkToken.transfer(RunLog.address, amount, {gas: 100000})
+    .catch(abort('Error transferring link to RunLog'))
+  console.log(`Transferred ${amount} to RunLog at: ${RunLog.address}`)
+
+  await RunLog.request({from: DEVNET_ADDRESS, gas: 2000000})
+    .catch(abort('Error making RunLog request'))
+  console.log(`Made RunLog request`)
+}
+
+main()

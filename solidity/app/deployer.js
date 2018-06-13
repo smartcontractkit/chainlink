@@ -23,6 +23,12 @@ module.exports = function Deployer (wallet, utils) {
     return contract
   }
 
+  this.load = async function load (filename, address) {
+    const compiled = compile(filename)
+    const contract = await contractify(compiled.abi, address)
+    return contract
+  }
+
   function contractify (abi, address) {
     const contract = TruffleContract({
       abi: abi,

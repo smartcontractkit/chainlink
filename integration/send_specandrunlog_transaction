@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+
+const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
+const {LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
+const web3 = require('web3')
+
+process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+
+const main = async () => {
+  let SpecAndRunLog = await deployer.perform('contracts/SpecAndRunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS)
+    .catch(abort('Error deploying SpecAndRunLog.sol'))
+  console.log(`Deployed SpecAndRunLog at: ${SpecAndRunLog.address}`)
+
+  const LinkToken = await deployer.load('../node_modules/linkToken/contracts/LinkToken.sol', LINK_TOKEN_ADDRESS)
+    .catch(abort(`Error loading LinkToken at address ${LINK_TOKEN_ADDRESS}`))
+
+  const amount = web3.utils.toWei('1000')
+  await LinkToken.transfer(SpecAndRunLog.address, amount, {gas: 100000})
+    .catch(abort('Error transferring link to SpecAndRunLog'))
+  console.log(`Transferred ${amount} to SpecAndRunLog at: ${SpecAndRunLog.address}`)
+
+  await SpecAndRunLog.request({from: DEVNET_ADDRESS, gas: 2000000})
+    .catch(abort('Error making SpecAndRunLog request'))
+  console.log(`Made SpecAndRunLog request`)
+}
+
+main()

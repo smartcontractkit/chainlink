@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/caarlos0/env"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -19,22 +20,23 @@ import (
 // Config holds parameters used by the application which can be overridden
 // by setting environment variables.
 type Config struct {
-	LogLevel               LogLevel `env:"LOG_LEVEL" envDefault:"info"`
-	RootDir                string   `env:"ROOT" envDefault:"~/.chainlink"`
-	Port                   string   `env:"CHAINLINK_PORT" envDefault:"6688"`
-	GuiPort                string   `env:"GUI_PORT" envDefault:"6689"`
-	BasicAuthUsername      string   `env:"USERNAME" envDefault:"chainlink"`
-	BasicAuthPassword      string   `env:"PASSWORD" envDefault:"twochains"`
-	EthereumURL            string   `env:"ETH_URL" envDefault:"ws://localhost:8546"`
-	ChainID                uint64   `env:"ETH_CHAIN_ID" envDefault:"0"`
-	ClientNodeURL          string   `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
-	TxMinConfirmations     uint64   `env:"TX_MIN_CONFIRMATIONS" envDefault:"12"`
-	TaskMinConfirmations   uint64   `env:"TASK_MIN_CONFIRMATIONS" envDefault:"0"`
-	EthGasBumpThreshold    uint64   `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
-	EthGasBumpWei          big.Int  `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
-	EthGasPriceDefault     big.Int  `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
-	LinkContractAddress    string   `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
-	MinimumContractPayment big.Int  `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
+	LogLevel               LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
+	RootDir                string          `env:"ROOT" envDefault:"~/.chainlink"`
+	Port                   string          `env:"CHAINLINK_PORT" envDefault:"6688"`
+	GuiPort                string          `env:"GUI_PORT" envDefault:"6689"`
+	BasicAuthUsername      string          `env:"USERNAME" envDefault:"chainlink"`
+	BasicAuthPassword      string          `env:"PASSWORD" envDefault:"twochains"`
+	EthereumURL            string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
+	ChainID                uint64          `env:"ETH_CHAIN_ID" envDefault:"0"`
+	ClientNodeURL          string          `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
+	TxMinConfirmations     uint64          `env:"TX_MIN_CONFIRMATIONS" envDefault:"12"`
+	TaskMinConfirmations   uint64          `env:"TASK_MIN_CONFIRMATIONS" envDefault:"0"`
+	EthGasBumpThreshold    uint64          `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
+	EthGasBumpWei          big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
+	EthGasPriceDefault     big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
+	LinkContractAddress    string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	MinimumContractPayment big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
+	OracleContractAddress  *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -81,7 +83,13 @@ func (c Config) String() string {
 		"ETH_GAS_BUMP_WEI: %s\n" +
 		"ETH_GAS_PRICE_DEFAULT: %s\n" +
 		"LINK_CONTRACT_ADDRESS: %s\n" +
-		"MINIMUM_CONTRACT_PAYMENT: %s\n"
+		"MINIMUM_CONTRACT_PAYMENT: %s\n" +
+		"ORACLE_CONTRACT_ADDRESS: %s\n"
+
+	oracleContractAddress := ""
+	if c.OracleContractAddress != nil {
+		oracleContractAddress = c.OracleContractAddress.String()
+	}
 
 	return fmt.Sprintf(
 		fmtConfig,
@@ -100,14 +108,29 @@ func (c Config) String() string {
 		c.EthGasPriceDefault.String(),
 		c.LinkContractAddress,
 		c.MinimumContractPayment.String(),
+		oracleContractAddress,
 	)
 }
 
 func parseEnv(cfg interface{}) error {
 	return env.ParseWithFuncs(cfg, env.CustomParsers{
-		reflect.TypeOf(big.Int{}):  bigIntParser,
-		reflect.TypeOf(LogLevel{}): levelParser,
+		reflect.TypeOf(&common.Address{}): addressParser,
+		reflect.TypeOf(big.Int{}):         bigIntParser,
+		reflect.TypeOf(LogLevel{}):        levelParser,
 	})
+}
+
+func addressParser(str string) (interface{}, error) {
+	if str == "" {
+		return nil, nil
+	} else if common.IsHexAddress(str) {
+		val := common.HexToAddress(str)
+		return &val, nil
+	} else if i, ok := new(big.Int).SetString(str, 10); ok {
+		val := common.BigToAddress(i)
+		return &val, nil
+	}
+	return nil, fmt.Errorf("Unable to parse '%s' into EIP55-compliant address", str)
 }
 
 func bigIntParser(str string) (interface{}, error) {
