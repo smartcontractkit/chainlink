@@ -1,6 +1,5 @@
-var LinkToken = artifacts.require("./LinkToken.sol");
+var LinkToken = artifacts.require('./LinkToken.sol')
 
-module.exports = function(deployer) {
-  deployer.deploy(LinkToken);
-};
-
+module.exports = function (deployer) {
+  deployer.deploy(LinkToken)
+}
