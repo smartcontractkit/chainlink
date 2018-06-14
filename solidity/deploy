@@ -14,11 +14,11 @@ const filePath = process.argv[2]
 const args = process.argv.slice(3)
 
 const providerUrl = process.env['ETH_URL'] || 'http://localhost:18545'
-const utils = new Utils(new Eth.HttpProvider(providerUrl))
+const utils = Utils(new Eth.HttpProvider(providerUrl))
 const privateKey = process.env['PRIVATE_KEY'] || '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
-const wallet = new Wallet(privateKey, utils)
+const wallet = Wallet(privateKey, utils)
 
-const deployer = new Deployer(wallet, utils)
+const deployer = Deployer(wallet, utils)
 deployer.perform(filePath, ...args).then(contract => {
   console.log(`${filePath} successfully deployed: ${contract.address}`)
 })
