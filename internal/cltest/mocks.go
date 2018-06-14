@@ -270,11 +270,14 @@ func UseSettableClock(s *store.Store) *SettableClock {
 
 // SettableClock a settable clock
 type SettableClock struct {
-	time time.Time
+	mutex sync.Mutex
+	time  time.Time
 }
 
 // Now get the current time
 func (clock *SettableClock) Now() time.Time {
+	clock.mutex.Lock()
+	defer clock.mutex.Unlock()
 	if clock.time.IsZero() {
 		return time.Now()
 	}
@@ -283,6 +286,8 @@ func (clock *SettableClock) Now() time.Time {
 
 // SetTime set the current time
 func (clock *SettableClock) SetTime(t time.Time) {
+	clock.mutex.Lock()
+	defer clock.mutex.Unlock()
 	clock.time = t
 }
 
