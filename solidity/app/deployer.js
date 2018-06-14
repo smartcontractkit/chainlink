@@ -2,11 +2,6 @@ const TruffleContract = require('truffle-contract')
 const ABI = require('ethereumjs-abi')
 const compile = require('./compile.js')
 
-const TruffleDefaults = {
-  gas: 6721975,
-  gasPrice: 100000000000
-}
-
 module.exports = function Deployer (wallet, utils) {
   this.perform = async function perform (filename, ...contractArgs) {
     const compiled = compile(filename)
@@ -14,7 +9,9 @@ module.exports = function Deployer (wallet, utils) {
 
     const txHash = await wallet.send({
       gas: 2500000,
+      gasPrice: 10000000000,
       from: wallet.address,
+      nonce: await wallet.nextNonce(),
       data: `0x${getBytecode(compiled)}${encodedArgs}`
     })
     const receipt = await utils.getTxReceipt(txHash)
@@ -37,8 +34,8 @@ module.exports = function Deployer (wallet, utils) {
     contract.setProvider(utils.provider)
     contract.defaults({
       from: wallet.address,
-      gas: TruffleDefaults.gas,
-      gasPrice: TruffleDefaults.gasPrice
+      gas: 2500000,
+      gasPrice: 10000000000
     })
     return contract.at(address)
   }
