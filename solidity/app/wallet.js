@@ -2,19 +2,23 @@ const Tx = require('ethereumjs-tx')
 const EthWallet = require('ethereumjs-wallet')
 
 module.exports = function Wallet (key, utils) {
-  this.privateKey = Buffer.from(key, 'hex')
-  const wallet = EthWallet.fromPrivateKey(this.privateKey)
-  this.address = wallet.getAddress().toString('hex')
+  const privateKey = Buffer.from(key, 'hex')
+  const wallet = EthWallet.fromPrivateKey(privateKey)
+  const address = wallet.getAddress().toString('hex')
+  const eth = utils.eth
 
-  this.send = async function (params) {
-    let eth = utils.eth
-    let defaults = {
-      nonce: await eth.getTransactionCount(this.address),
+  this.address = address
+  this.send = async (params) => {
+    const defaults = {
+      nonce: await this.nextNonce(),
       chainId: 0
     }
     let tx = new Tx(Object.assign(defaults, params))
-    tx.sign(this.privateKey)
+    tx.sign(privateKey)
     let txHex = tx.serialize().toString('hex')
     return eth.sendRawTransaction(txHex)
+  }
+  this.nextNonce = () => {
+    return eth.getTransactionCount(address)
   }
 }
