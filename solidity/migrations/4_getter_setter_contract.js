@@ -1,5 +1,5 @@
-var GetterSetter = artifacts.require("./GetterSetter.sol");
+var GetterSetter = artifacts.require('./GetterSetter.sol')
 
-module.exports = function(deployer) {
-  deployer.deploy(GetterSetter);
-};
+module.exports = function (deployer) {
+  deployer.deploy(GetterSetter)
+}

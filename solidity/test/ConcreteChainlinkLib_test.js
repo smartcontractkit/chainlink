@@ -20,97 +20,97 @@ contract('ConcreteChainlinkLib', () => {
     ])
   })
 
-  function parseCCLEvent(tx) {
-    let data = util.toBuffer(tx.receipt.logs[0].data);
-    return abi.rawDecode(["bytes"], data);
+  function parseCCLEvent (tx) {
+    let data = util.toBuffer(tx.receipt.logs[0].data)
+    return abi.rawDecode(['bytes'], data)
   }
 
-  describe("#close", () => {
-    it("handles empty payloads", async () => {
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
-      assert.deepEqual(decoded, {});
-    });
-  });
+  describe('#close', () => {
+    it('handles empty payloads', async () => {
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+      assert.deepEqual(decoded, {})
+    })
+  })
 
-  describe("#add", () => {
-    it("stores and logs keys and values", async () => {
-      await ccl.add("first", "word!!");
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
-      assert.deepEqual(decoded, { "first": "word!!" });
-    });
+  describe('#add', () => {
+    it('stores and logs keys and values', async () => {
+      await ccl.add('first', 'word!!')
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+      assert.deepEqual(decoded, { 'first': 'word!!' })
+    })
 
-    it("handles two entries", async () => {
-      await ccl.add("first", "uno");
-      await ccl.add("second", "dos");
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
-
-      assert.deepEqual(decoded, {
-        "first": "uno",
-        "second": "dos"
-      });
-    });
-  });
-
-  describe("#addInt", () => {
-    it("stores and logs keys and values", async () => {
-      await ccl.addInt("first", 1);
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
-      assert.deepEqual(decoded, { "first": 1 });
-    });
-
-    it("handles two entries", async () => {
-      await ccl.addInt("first", 1);
-      await ccl.addInt("second", 2);
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
+    it('handles two entries', async () => {
+      await ccl.add('first', 'uno')
+      await ccl.add('second', 'dos')
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
 
       assert.deepEqual(decoded, {
-        "first": 1,
-        "second": 2
-      });
-    });
-  });
+        'first': 'uno',
+        'second': 'dos'
+      })
+    })
+  })
 
-  describe("#addUint", () => {
-    it("stores and logs keys and values", async () => {
-      await ccl.addUint("first", 1);
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
-      assert.deepEqual(decoded, { "first": 1 });
-    });
+  describe('#addInt', () => {
+    it('stores and logs keys and values', async () => {
+      await ccl.addInt('first', 1)
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+      assert.deepEqual(decoded, { 'first': 1 })
+    })
 
-    it("handles two entries", async () => {
-      await ccl.addUint("first", 1);
-      await ccl.addUint("second", 2);
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
+    it('handles two entries', async () => {
+      await ccl.addInt('first', 1)
+      await ccl.addInt('second', 2)
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
 
       assert.deepEqual(decoded, {
-        "first": 1,
-        "second": 2
-      });
-    });
-  });
+        'first': 1,
+        'second': 2
+      })
+    })
+  })
 
-  describe("#addStringArray", () => {
-    it("stores and logs keys and values", async () => {
-      await ccl.addStringArray("word", ["seinfeld", '"4"', "LIFE"]);
-      let tx = await ccl.closeEvent();
-      let [payload] = parseCCLEvent(tx);
-      var decoded = await cbor.decodeFirst(payload);
+  describe('#addUint', () => {
+    it('stores and logs keys and values', async () => {
+      await ccl.addUint('first', 1)
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+      assert.deepEqual(decoded, { 'first': 1 })
+    })
 
-      assert.deepEqual(decoded, { "word": ["seinfeld", '"4"', "LIFE"] });
-    });
-  });
-});
+    it('handles two entries', async () => {
+      await ccl.addUint('first', 1)
+      await ccl.addUint('second', 2)
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+
+      assert.deepEqual(decoded, {
+        'first': 1,
+        'second': 2
+      })
+    })
+  })
+
+  describe('#addStringArray', () => {
+    it('stores and logs keys and values', async () => {
+      await ccl.addStringArray('word', ['seinfeld', '"4"', 'LIFE'])
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+
+      assert.deepEqual(decoded, { 'word': ['seinfeld', '"4"', 'LIFE'] })
+    })
+  })
+})
