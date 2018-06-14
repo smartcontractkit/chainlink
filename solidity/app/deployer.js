@@ -3,29 +3,6 @@ const ABI = require('ethereumjs-abi')
 const compile = require('./compile.js')
 
 module.exports = function Deployer (wallet, utils) {
-  this.perform = async function perform (filename, ...contractArgs) {
-    const compiled = compile(filename)
-    const encodedArgs = encodeArgs(contractArgs, compiled.abi)
-
-    const txHash = await wallet.send({
-      gas: 2500000,
-      gasPrice: 10000000000,
-      from: wallet.address,
-      nonce: await wallet.nextNonce(),
-      data: `0x${getBytecode(compiled)}${encodedArgs}`
-    })
-    const receipt = await utils.getTxReceipt(txHash)
-    const contract = await contractify(compiled.abi, receipt.contractAddress)
-    contract.transactionHash = txHash
-    return contract
-  }
-
-  this.load = async function load (filename, address) {
-    const compiled = compile(filename)
-    const contract = await contractify(compiled.abi, address)
-    return contract
-  }
-
   function contractify (abi, address) {
     const contract = TruffleContract({
       abi: abi,
@@ -39,30 +16,54 @@ module.exports = function Deployer (wallet, utils) {
     })
     return contract.at(address)
   }
-}
 
-function getBytecode (contract) {
-  return contract.evm.bytecode.object.toString()
-}
-
-function findConstructor (abi) {
-  for (let method of abi) {
-    if (method.type === 'constructor') return method
+  function getBytecode (contract) {
+    return contract.evm.bytecode.object.toString()
   }
-}
 
-function constructorInputTypes (abi) {
-  const types = []
-  for (let input of findConstructor(abi).inputs) {
-    types.push(input.type)
+  function findConstructor (abi) {
+    for (let method of abi) {
+      if (method.type === 'constructor') return method
+    }
   }
-  return types
-}
 
-function encodeArgs (unencoded, abi) {
-  if (unencoded.length === 0) {
-    return ''
+  function constructorInputTypes (abi) {
+    const types = []
+    for (let input of findConstructor(abi).inputs) {
+      types.push(input.type)
+    }
+    return types
   }
-  const buf = ABI.rawEncode(constructorInputTypes(abi), unencoded)
-  return buf.toString('hex')
+
+  function encodeArgs (unencoded, abi) {
+    if (unencoded.length === 0) {
+      return ''
+    }
+    const buf = ABI.rawEncode(constructorInputTypes(abi), unencoded)
+    return buf.toString('hex')
+  }
+
+  return {
+    perform: async function perform (filename, ...contractArgs) {
+      const compiled = compile(filename)
+      const encodedArgs = encodeArgs(contractArgs, compiled.abi)
+
+      const txHash = await wallet.send({
+        gas: 2500000,
+        gasPrice: 10000000000,
+        from: wallet.address,
+        nonce: await wallet.nextNonce(),
+        data: `0x${getBytecode(compiled)}${encodedArgs}`
+      })
+      const receipt = await utils.getTxReceipt(txHash)
+      const contract = await contractify(compiled.abi, receipt.contractAddress)
+      contract.transactionHash = txHash
+      return contract
+    },
+    load: async (filename, address) => {
+      const compiled = compile(filename)
+      const contract = await contractify(compiled.abi, address)
+      return contract
+    }
+  }
 }
