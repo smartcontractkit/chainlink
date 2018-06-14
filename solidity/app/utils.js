@@ -8,29 +8,30 @@ const sleep = (ms) => {
 }
 
 module.exports = function Utils (provider) {
-  this.provider = provider
-  this.eth = new Eth(provider)
+  const eth = new Eth(provider)
 
-  this.toWei = function (eth) {
-    return (parseInt(eth.toString(), 10) * 10 ** 18).toString()
-  }
+  return {
+    eth: eth,
+    provider: provider,
+    toWei: (eth) => {
+      return (parseInt(eth.toString(), 10) * 10 ** 18).toString()
+    },
+    getTxReceipt: (txHash) => {
+      return new Promise(async (resolve, reject) => {
+        for (let i = 0; i < retries; i++) {
+          await sleep(retrySleep)
 
-  this.getTxReceipt = function (txHash) {
-    return new Promise(async (resolve, reject) => {
-      for (let i = 0; i < retries; i++) {
-        await sleep(retrySleep)
-
-        const receipt = await this.eth.getTransactionReceipt(txHash)
-        if (receipt != null) {
-          return resolve(receipt)
+          const receipt = await eth.getTransactionReceipt(txHash)
+          if (receipt != null) {
+            return resolve(receipt)
+          }
         }
-      }
-      reject(`${txHash} unconfirmed!`)
-    })
-  }
-
-  const txDefaults = { data: '' }
-  this.send = async function (params) {
-    return this.eth.sendTransaction(Object.assign(txDefaults, params))
+        reject(`${txHash} unconfirmed!`)
+      })
+    },
+    send: async (params) => {
+      const txDefaults = { data: '' }
+      return eth.sendTransaction(Object.assign(txDefaults, params))
+    }
   }
 }
