@@ -111,6 +111,10 @@ cbor = require('cbor');
     return '0x' + bigNum(number).toString(16);
   }
 
+  intToHexNoPrefix = function intToHex(number) {
+    return bigNum(number).toString(16);
+  }
+
   hexToInt = function hexToInt(string) {
     return web3.toBigNumber(string);
   }
