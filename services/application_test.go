@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/tevino/abool"
 )
 
 func TestServices_ApplicationSignalShutdown(t *testing.T) {
@@ -15,15 +16,15 @@ func TestServices_ApplicationSignalShutdown(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	var completed bool
+	completed := abool.New()
 	app.Exiter = func(code int) {
-		completed = true
+		completed.Set()
 	}
 
 	app.Start()
 	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 
 	Eventually(func() bool {
-		return completed
+		return completed.IsSet()
 	}).Should(BeTrue())
 }
