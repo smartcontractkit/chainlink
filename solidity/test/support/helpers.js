@@ -96,7 +96,7 @@ cbor = require('cbor');
   }
 
   bigNum = function bigNum(number) {
-    return new BigNumber(number);
+    return web3.toBigNumber(number);
   }
 
   toWei = function toWei(number) {
