@@ -13,8 +13,9 @@ if (process.argv.length < 3) {
 const filePath = process.argv[2]
 const args = process.argv.slice(3)
 
-const utils = new Utils(new Eth.HttpProvider('http://localhost:18545'))
-const privateKey = '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
+const providerUrl = process.env['ETH_URL'] || 'http://localhost:18545'
+const utils = new Utils(new Eth.HttpProvider(providerUrl))
+const privateKey = process.env['PRIVATE_KEY'] || '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
 const wallet = new Wallet(privateKey, utils)
 
 const deployer = new Deployer(wallet, utils)
