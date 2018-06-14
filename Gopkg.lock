@@ -297,6 +297,12 @@
   revision = "9637fa0b2f0db13c99d899b91007edb7df4610b7"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/tevino/abool"
+  packages = ["."]
+  revision = "9b9efcf221b50905aab9bbabd3daed56dc10f339"
+
+[[projects]]
   name = "github.com/tidwall/gjson"
   packages = ["."]
   revision = "01f00f129617a6fe98941fb920d6c760241b54d2"
@@ -453,6 +459,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ee62ef81996e5ffb21669a3a6dde69fad76f21bb1a591af32d20c27877f2bef5"
+  inputs-digest = "6a53c807ad9c94ee4203324f09b2586d79036cc2b588d56139dbe3a01b73b2e4"
   solver-name = "gps-cdcl"
   solver-version = 1
