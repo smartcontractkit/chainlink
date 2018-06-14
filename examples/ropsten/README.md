@@ -4,10 +4,8 @@ This guide will allow you to create and deploy a consuming contract to fulfill a
 
 ## Additional Guides
 
+- [Advanced contract deployment with Remix](./AdvancedDeploy.md)
 - [Running your own Chainlink node on Ropsten](./RopstenNode.md)
-- [Deploying your own oracle contract](./OracleContract.md)
-- [Example with `int256` data](./AdvancedDeploy.md#consumerint256-contract)
-- [Example with `bytes32` data](./AdvancedDeploy.md#consumerbytes32-contract)
 
 ## Tools
 
@@ -15,6 +13,7 @@ This guide requires the following tools:
 
 - [Metamask](https://metamask.io/)
 - [MyCrypto](https://mycrypto.com) or [MyEtherWallet](https://www.myetherwallet.com/)
+- [Remix](http://remix.ethereum.org)
 
 ## General Overview
 
@@ -29,7 +28,7 @@ Interacting with contracts that require data from Chainlink follow a common work
 The examples included here have the requesting and consuming contracts as the same contract. If you wanted the answer to be supplied to a different contract, you would change the word `this` and the function signature in the line below to that of the consuming contract:
 
 ```
-ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,bytes32)");
+ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)");
 ```
 
 ## Setup
@@ -53,13 +52,13 @@ Ropsten ETH
 - https://faucet.metamask.io/
 
 Ropsten LINK
-- Let the team know your Ropsten Ethereum address on [Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby) and Ropsten LINK will be sent to you.
+- https://developers.smartcontract.com/faucet
 
 ## Publish the Consuming Contract
 
 - Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
 
-Optionally, you can skip to the [Advanced](./AdvancedDeploy.md#consumeruint256-contract) instructions to view the contract source code in Remix.
+Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to view the contract source code in Remix.
 
 - In MyEtherWallet or MyCrypto, change the Network to Ropsten
 
@@ -77,7 +76,7 @@ Optionally, you can skip to the [Advanced](./AdvancedDeploy.md#consumeruint256-c
 - Deploy Contract
 - Submit in Metamask
 
-![submit byte code](./images/14-59-09.png)
+![submit byte code](./images/11-03-14.png)
 
 ## Send Ropsten LINK to the Consumer Contract
 
@@ -118,7 +117,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 ![confirm tx](./images/07-32-22.png)
 
-![submit tx](./images/07-32-45.png)
+![submit tx](./images/11-00-32.png)
 
 - Follow the link to Etherscan and wait until the transaction successfully completes
 
@@ -128,7 +127,7 @@ The Consumer contract should now have some Ropsten LINK on it. Now you can call 
 
 Back on the Contracts tab of MyEtherWallet or MyCrypto:
 
-- Enter your Consumer contract address and the ABI from Remix
+- Enter your Consumer contract address and the ABI from [`ConsumerABI.json`](./ConsumerABI.json)
 - Select the `currentPrice` function
 - The newly-written value should be displayed
 
