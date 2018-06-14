@@ -7,6 +7,7 @@ import "./lib/LinkToken.sol";
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using ChainlinkLib for ChainlinkLib.Spec;
+  using SafeMath for uint256;
 
   uint256 constant clArgsVersion = 1;
 
@@ -71,8 +72,8 @@ contract Chainlinked {
     emit ChainlinkCancelled(_requestId);
   }
 
-  function LINK(uint256 _amount) internal pure returns (uint256) {
-    return _amount * 10**18;
+  function LINK(uint256 _amount) internal view returns (uint256) {
+    return _amount.mul(10**18);
   }
 
   function setOracle(address _oracle) internal {

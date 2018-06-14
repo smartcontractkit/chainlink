@@ -104,4 +104,21 @@ contract('ConcreteChainlinked', () => {
       assert.equal(requestId, event.args.id)
     })
   })
+
+  describe('#LINK', () => {
+    it('multiplies the value by a trillion', async () => {
+      await cc.publicLINK(1)
+      const event = await getLatestEvent(cc)
+      assert.isTrue(event.args.amount.equals(toWei(1)))
+    })
+
+    it('throws an error if overflowing', async () => {
+      let overflowAmount = bigNum('1157920892373161954235709850086879078532699846656405640394575')
+      await assertActionThrows(async () => {
+        await cc.publicLINK(overflowAmount)
+      })
+      const events = await getEvents(cc)
+      assert.equal(0, events.length)
+    })
+  })
 })
