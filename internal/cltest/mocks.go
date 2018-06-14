@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -472,22 +473,37 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	ConnectedCount    int
-	DisconnectedCount int
-	OnNewHeadCount    int
+	connectedCount    int32
+	disconnectedCount int32
+	onNewHeadCount    int32
 }
 
 // Connect increases the connected count by one
 func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
-	m.ConnectedCount++
+	atomic.AddInt32(&m.connectedCount, 1)
 	return nil
 }
 
+// ConnectedCount returns the count of connections made, safely.
+func (m *MockHeadTrackable) ConnectedCount() int32 {
+	return atomic.LoadInt32(&m.connectedCount)
+}
+
 // Disconnect increases the disconnected count by one
-func (m *MockHeadTrackable) Disconnect() { m.DisconnectedCount++ }
+func (m *MockHeadTrackable) Disconnect() { atomic.AddInt32(&m.disconnectedCount, 1) }
+
+// DisconnectedCount returns the count of disconnections made, safely.
+func (m *MockHeadTrackable) DisconnectedCount() int32 {
+	return atomic.LoadInt32(&m.disconnectedCount)
+}
 
 // OnNewHead increases the OnNewHeadCount count by one
-func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount++ }
+func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { atomic.AddInt32(&m.onNewHeadCount, 1) }
+
+// OnNewHeadCount returns the count of new heads, safely.
+func (m *MockHeadTrackable) OnNewHeadCount() int32 {
+	return atomic.LoadInt32(&m.onNewHeadCount)
+}
 
 // NeverSleeper is a struct that never sleeps
 type NeverSleeper struct{}
