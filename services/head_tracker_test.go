@@ -103,19 +103,19 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	eth.RegisterSubscription("newHeads", headers)
 
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 0, checker.DisconnectedCount)
-	assert.Equal(t, 0, checker.OnNewHeadCount)
+	assert.Equal(t, int32(1), checker.ConnectedCount())
+	assert.Equal(t, int32(0), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
 	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
-	g.Eventually(func() int { return checker.OnNewHeadCount }).Should(gomega.Equal(1))
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 0, checker.DisconnectedCount)
+	g.Eventually(func() int32 { return checker.OnNewHeadCount() }).Should(gomega.Equal(int32(1)))
+	assert.Equal(t, int32(1), checker.ConnectedCount())
+	assert.Equal(t, int32(0), checker.DisconnectedCount())
 
 	ht.Stop()
-	assert.Equal(t, 1, checker.DisconnectedCount)
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 1, checker.OnNewHeadCount)
+	assert.Equal(t, int32(1), checker.DisconnectedCount())
+	assert.Equal(t, int32(1), checker.ConnectedCount())
+	assert.Equal(t, int32(1), checker.OnNewHeadCount())
 }
 
 func TestHeadTracker_ReconnectOnError(t *testing.T) {
@@ -136,19 +136,19 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	// connect
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, 1, checker.ConnectedCount)
-	assert.Equal(t, 0, checker.DisconnectedCount)
-	assert.Equal(t, 0, checker.OnNewHeadCount)
+	assert.Equal(t, int32(1), checker.ConnectedCount())
+	assert.Equal(t, int32(0), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
 	// disconnect
 	firstSub.Errors <- errors.New("Test error to force reconnect")
-	g.Eventually(func() int { return checker.ConnectedCount }).Should(gomega.Equal(2))
-	assert.Equal(t, 1, checker.DisconnectedCount)
-	assert.Equal(t, 0, checker.OnNewHeadCount)
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
+	assert.Equal(t, int32(1), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
 	// new head
 	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
-	g.Eventually(func() int { return checker.OnNewHeadCount }).Should(gomega.Equal(1))
-	assert.Equal(t, 2, checker.ConnectedCount)
-	assert.Equal(t, 1, checker.DisconnectedCount)
+	g.Eventually(func() int32 { return checker.OnNewHeadCount() }).Should(gomega.Equal(int32(1)))
+	assert.Equal(t, int32(2), checker.ConnectedCount())
+	assert.Equal(t, int32(1), checker.DisconnectedCount())
 }
