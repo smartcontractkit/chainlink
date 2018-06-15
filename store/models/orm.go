@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
@@ -284,4 +285,122 @@ func (e *DatabaseAccessError) Error() string { return e.msg }
 // NewDatabaseAccessError returns a database access error.
 func NewDatabaseAccessError(msg string) error {
 	return &DatabaseAccessError{msg}
+}
+
+// ParseQuery parses the JSON parameters stored in a QueryObject's fields,
+// creates the appropriate queries and returns them in an array
+func (orm *ORM) ParseQuery(fieldValue json.RawMessage, model interface{}, lookup string) ([]q.Matcher, error) {
+	var m interface{}
+	var query []q.Matcher
+	queryMap := map[string]func(string, interface{}) q.Matcher{
+		"Eq": q.Eq, "Gt": q.Gt, "Gte": q.Gte, "In": q.In,
+		"Lt": q.Lt, "Lte": q.Lte, "StrictEq": q.StrictEq,
+	}
+
+	json.Unmarshal(fieldValue, &m)
+	mapKeys, ok := m.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("ParseQuery: Invalid params for %v query", lookup)
+	}
+	nonEmptyKeys := utils.GetStringKeys(mapKeys)
+
+	json.Unmarshal(fieldValue, &model)
+
+	s := reflect.Indirect(reflect.ValueOf(model))
+	typeOfValue := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		fieldKey := typeOfValue.Field(i).Name
+		fieldTag := typeOfValue.Field(i).Tag.Get("json")
+		if utils.SliceIndex(nonEmptyKeys, fieldTag) == -1 {
+			continue
+		}
+		field := s.Field(i)
+		if !(field.CanInterface()) {
+			return nil, fmt.Errorf("ParseQuery: Field %v can't interface", field)
+		}
+		curFieldValue := field.Interface()
+		switch lookup {
+		case "Re":
+			s, ok := field.Interface().(string)
+			if !ok {
+				return nil, fmt.Errorf("ParseQuery: Type string required for regex query on : %v", fieldKey)
+			}
+			query = append(query, q.Re(fieldKey, s))
+
+		default:
+			queryFunction, ok := queryMap[lookup]
+			if !ok {
+				return nil, fmt.Errorf("ParseQuery: Invalid query operation %v for field %v", lookup, field)
+			}
+			query = append(query, queryFunction(fieldKey, curFieldValue))
+		}
+	}
+	if len(query) != len(nonEmptyKeys) {
+		return nil, fmt.Errorf("ParseQuery: Unknown field(s) for this model")
+	}
+	return query, nil
+}
+
+// BuildQuery builds a multi-field query based on the parameters of a QueryObject
+func (orm *ORM) BuildQuery(value interface{}, model interface{}) ([]q.Matcher, error) {
+	var dbSelect []q.Matcher
+	s := reflect.Indirect(reflect.ValueOf(value))
+	typeOfValue := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		fieldKey := typeOfValue.Field(i).Name
+		field := s.Field(i)
+		if !(field.CanInterface()) {
+			return nil, fmt.Errorf("BuildQuery: Field %v can't interface", field)
+		}
+		fieldValue := field.Interface()
+		if utils.IsZero(reflect.ValueOf(fieldValue)) {
+			continue
+		}
+
+		if (fieldKey == "Not") || (fieldKey == "Or") {
+			operatorQuery := QueryObject{}
+			json.Unmarshal(fieldValue.(json.RawMessage), &operatorQuery)
+			operatorSelect, err := orm.BuildQuery(operatorQuery, model)
+			if err != nil {
+				return nil, fmt.Errorf("BuildQuery: Parsing error in field %v : %v", fieldKey, err)
+			}
+			switch fieldKey {
+			case "Not":
+				dbSelect = append(dbSelect, q.Not(operatorSelect...))
+			case "Or":
+				dbSelect = []q.Matcher{q.Or(append([]q.Matcher{q.And(dbSelect...)}, q.And(operatorSelect...))...)}
+			}
+			continue
+		}
+		query, err := orm.ParseQuery(fieldValue.(json.RawMessage), model, fieldKey)
+		if err != nil {
+			return nil, fmt.Errorf("BuildQuery: Parsing error in field %v : %v", fieldKey, err)
+		}
+		dbSelect = append(dbSelect, query...)
+	}
+	return dbSelect, nil
+}
+
+// AdvancedBridgeSearch looks up Bridges according to JSON params.
+func (orm *ORM) AdvancedBridgeSearch(params interface{}) ([]BridgeType, error) {
+	var results []BridgeType
+	var model BridgeType
+	query, err := orm.BuildQuery(params, &model)
+	if err != nil {
+		return results, fmt.Errorf("Error building Advanced Bridge query %v", err)
+	}
+	err = orm.Select(query...).Find(&results)
+	return results, err
+}
+
+// AdvancedJobRunSearch looks up JobRuns according to JSON params.
+func (orm *ORM) AdvancedJobRunSearch(params interface{}) ([]JobRun, error) {
+	var results []JobRun
+	var model JobRun
+	query, err := orm.BuildQuery(params, &model)
+	if err != nil {
+		return results, fmt.Errorf("Error building Advanced JobRun query %v", err)
+	}
+	err = orm.Select(query...).Find(&results)
+	return results, err
 }

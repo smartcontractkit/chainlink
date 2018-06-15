@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -82,6 +83,26 @@ func NullISO8601UTC(t null.Time) string {
 		return ISO8601UTC(t.Time)
 	}
 	return ""
+}
+
+// IsZero checks if the variable is the zero value of its type
+func IsZero(v reflect.Value) bool {
+	return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
+}
+
+// SliceIndex returns an item's index in a slice or -1 if the item is not found
+func SliceIndex(slice interface{}, item interface{}) int {
+	s := reflect.ValueOf(slice)
+
+	if s.Kind() != reflect.Slice {
+		panic("SliceIndex: Non-slice argument given")
+	}
+	for i := 0; i < s.Len(); i++ {
+		if s.Index(i).Interface() == item {
+			return i
+		}
+	}
+	return -1
 }
 
 // BasicAuthPost sends a POST request to the HTTP client with the given username

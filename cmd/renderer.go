@@ -50,6 +50,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderBridge(*typed)
 	case *[]models.BridgeType:
 		rt.renderBridges(*typed)
+	case *[]models.JobRun:
+		rt.renderJobRunsSingles(*typed)
 	case *presenters.AccountBalance:
 		rt.renderAccountBalance(*typed)
 	default:
@@ -208,5 +210,24 @@ func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error
 		ab.LinkBalance.String(),
 	})
 	render("Account Balance", table)
+	return nil
+}
+
+func (rt RendererTable) renderJobRunsSingles(j []models.JobRun) error {
+	table := tablewriter.NewWriter(rt)
+	table.SetHeader([]string{"Job ID", "ID", "Status", "Created", "Completed", "Result", "Error"})
+	for _, jr := range j {
+		table.Append([]string{
+			jr.JobID,
+			jr.ID,
+			string(jr.Status),
+			utils.ISO8601UTC(jr.CreatedAt),
+			utils.NullISO8601UTC(jr.CompletedAt),
+			jr.Result.Data.String(),
+			jr.Result.ErrorMessage.String,
+		})
+	}
+
+	render("Runs", table)
 	return nil
 }

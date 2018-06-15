@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -367,6 +368,90 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	defer resp.Body.Close()
 	var bridge models.BridgeType
 	return cli.renderResponse(resp, &bridge)
+}
+
+// DeleteQuery removes several db entries based on JSON specifications
+func (cli *Client) DeleteQuery(c *clipkg.Context) error {
+	cfg := cli.Config
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in parameters for bridge removal [JSON blob | JSON filepath]"))
+	}
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	var queryParams models.DeleteQueryParams
+	err = json.Unmarshal(buf.Bytes(), &queryParams)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/delete_query",
+		"application/json",
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	switch queryParams.Collection {
+	case "bridges":
+		var bridges []models.BridgeType
+		return cli.renderResponse(resp, &bridges)
+	case "jobspecs":
+		var jobs []presenters.JobSpec
+		return cli.renderResponse(resp, &jobs)
+	case "jobruns":
+		var runs []models.JobRun
+		return cli.renderResponse(resp, &runs)
+	default:
+		return cli.errorOut(errors.New("Invalid collection"))
+	}
+}
+
+// Prune removes JobRun db entries based on JSON specifications
+func (cli *Client) Prune(c *clipkg.Context) error {
+
+	var subquery bytes.Buffer
+	subquery.WriteString(`{"collection" : "jobruns", "query" : { `)
+	cfg := cli.Config
+
+	if c == nil {
+		return cli.errorOut(errors.New("Must pass in at least one argument"))
+	}
+
+	if c.Int("days") > 0 {
+		days := c.Int("days")
+		backDate := utils.ISO8601UTC(time.Now().AddDate(0, 0, -1*days))
+		dayJSON := fmt.Sprintf(`"lte" : { "createdAt": "%s" }, "eq" : { "status": "errored" }, "or" : {"lte" : { "createdAt": "%s" },  "eq" : { "status": "completed" }}`, backDate, backDate)
+		subquery.WriteString(dayJSON)
+	} else if c.Bool("errored") {
+		subquery.WriteString(` "eq" : { "status" : "errored" } `)
+	} else if c.Bool("completed") {
+		subquery.WriteString(` "eq" : { "status" : "completed" } `)
+	}
+	subquery.WriteString("}}")
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/delete_query",
+		"application/json",
+		&subquery,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var runs []models.JobRun
+	return cli.renderResponse(resp, &runs)
+
 }
 
 func isDirEmpty(dir string) (bool, error) {
