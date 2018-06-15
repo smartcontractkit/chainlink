@@ -98,7 +98,7 @@ contract('UptimeSLA', () => {
 
     context("when the consumer does not recognize the request ID", () => {
       beforeEach(async () => {
-        let fid = functionSelector("fulfill(uint256,bytes32)");
+        let fid = functionSelector("report(uint256,bytes32)");
         let args = requestDataBytes(specId, sla.address, fid, "xid", "");
         await requestDataFrom(oc, link, 0, args);
         let event = await getLatestEvent(oc);
@@ -106,11 +106,11 @@ contract('UptimeSLA', () => {
       });
 
       it("does not accept the data provided", async () => {
-        let originalBalance = await eth.getBalance(sla.address)
+        let originalUptime = await sla.uptime()
         await oc.fulfillData(requestId, response, {from: oracleNode})
-        let newBalance = await eth.getBalance(sla.address)
+        let newUptime = await sla.uptime()
 
-        assert.isTrue(originalBalance.equals(newBalance))
+        assert.isTrue(originalUptime.equals(newUptime))
       });
     });
 
