@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -117,9 +118,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	job, initr := cltest.NewJobWithLogInitiator()
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	eth.Register("eth_getLogs", []types.Log{log}) // backfill
-	logsChan := make(chan types.Log, 1)
+	logsChan := make(chan types.Log)
 	eth.RegisterSubscription("logs", logsChan)
-	logsChan <- log // received in real time
 
 	count := 0
 	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
@@ -129,8 +129,15 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
+	// Add the same original log
+	logsChan <- log
+	// Add a log after the repeated log to make sure it gets processed
+	log2 := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	logsChan <- log2
+
 	eth.EventuallyAllCalled(t)
-	assert.Equal(t, 1, count)
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() int { return count }).Should(gomega.Equal(2))
 }
 
 func TestTopicFiltersForRunLog(t *testing.T) {
