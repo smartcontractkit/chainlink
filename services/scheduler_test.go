@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/tevino/abool"
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -188,16 +189,16 @@ func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
 	j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour))
 	assert.Nil(t, store.SaveJob(&j))
 
-	var finished bool
+	finished := abool.New()
 	go func() {
 		ot.RunJobAt(initr, j)
-		finished = true
+		finished.Set()
 	}()
 
 	ot.Stop()
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		return finished
+		return finished.IsSet()
 	}).Should(gomega.Equal(true))
 	jobRuns := []models.JobRun{}
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
@@ -219,14 +220,14 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 	initr.ID = j.Initiators[0].ID
 	initr.JobID = j.ID
 
-	var finished bool
+	finished := abool.New()
 	go func() {
 		ot.RunJobAt(initr, j)
-		finished = true
+		finished.Set()
 	}()
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		return finished
+		return finished.IsSet()
 	}).Should(gomega.Equal(true))
 	jobRuns := []models.JobRun{}
 	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))

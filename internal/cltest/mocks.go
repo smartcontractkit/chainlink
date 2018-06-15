@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -39,6 +41,7 @@ type EthMock struct {
 	Responses      []MockResponse
 	Subscriptions  []MockSubscription
 	newHeadsCalled bool
+	mutex          sync.RWMutex
 }
 
 // Dial mock dial
@@ -59,6 +62,9 @@ func (mock *EthMock) Register(
 	if len(callback) > 0 {
 		res.callback = callback[0]
 	}
+
+	mock.mutex.Lock()
+	defer mock.mutex.Unlock()
 	mock.Responses = append(mock.Responses, res)
 }
 
@@ -69,11 +75,16 @@ func (mock *EthMock) RegisterError(method, errMsg string) {
 		errMsg:     errMsg,
 		hasError:   true,
 	}
+
+	mock.mutex.Lock()
+	defer mock.mutex.Unlock()
 	mock.Responses = append(mock.Responses, res)
 }
 
 // AllCalled return true if all mocks have been mocked
 func (mock *EthMock) AllCalled() bool {
+	mock.mutex.RLock()
+	defer mock.mutex.RUnlock()
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
@@ -86,6 +97,9 @@ func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 
 // Call will call given method and set the result
 func (mock *EthMock) Call(result interface{}, method string, args ...interface{}) error {
+	mock.mutex.Lock()
+	defer mock.mutex.Unlock()
+
 	for i, resp := range mock.Responses {
 		if resp.methodName == method {
 			mock.Responses = append(mock.Responses[:i], mock.Responses[i+1:]...)
@@ -119,6 +133,8 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 		channel: channel,
 		Errors:  make(chan error, 1),
 	}
+	mock.mutex.Lock()
+	defer mock.mutex.Unlock()
 	mock.Subscriptions = append(mock.Subscriptions, sub)
 	return sub
 }
@@ -140,6 +156,8 @@ func (mock *EthMock) EthSubscribe(
 	channel interface{},
 	args ...interface{},
 ) (models.EthSubscription, error) {
+	mock.mutex.Lock()
+	defer mock.mutex.Unlock()
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
@@ -252,11 +270,14 @@ func UseSettableClock(s *store.Store) *SettableClock {
 
 // SettableClock a settable clock
 type SettableClock struct {
-	time time.Time
+	mutex sync.Mutex
+	time  time.Time
 }
 
 // Now get the current time
 func (clock *SettableClock) Now() time.Time {
+	clock.mutex.Lock()
+	defer clock.mutex.Unlock()
 	if clock.time.IsZero() {
 		return time.Now()
 	}
@@ -265,6 +286,8 @@ func (clock *SettableClock) Now() time.Time {
 
 // SetTime set the current time
 func (clock *SettableClock) SetTime(t time.Time) {
+	clock.mutex.Lock()
+	defer clock.mutex.Unlock()
 	clock.time = t
 }
 
@@ -455,22 +478,37 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	ConnectedCount    int
-	DisconnectedCount int
-	OnNewHeadCount    int
+	connectedCount    int32
+	disconnectedCount int32
+	onNewHeadCount    int32
 }
 
 // Connect increases the connected count by one
 func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
-	m.ConnectedCount++
+	atomic.AddInt32(&m.connectedCount, 1)
 	return nil
 }
 
+// ConnectedCount returns the count of connections made, safely.
+func (m *MockHeadTrackable) ConnectedCount() int32 {
+	return atomic.LoadInt32(&m.connectedCount)
+}
+
 // Disconnect increases the disconnected count by one
-func (m *MockHeadTrackable) Disconnect() { m.DisconnectedCount++ }
+func (m *MockHeadTrackable) Disconnect() { atomic.AddInt32(&m.disconnectedCount, 1) }
+
+// DisconnectedCount returns the count of disconnections made, safely.
+func (m *MockHeadTrackable) DisconnectedCount() int32 {
+	return atomic.LoadInt32(&m.disconnectedCount)
+}
 
 // OnNewHead increases the OnNewHeadCount count by one
-func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { m.OnNewHeadCount++ }
+func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { atomic.AddInt32(&m.onNewHeadCount, 1) }
+
+// OnNewHeadCount returns the count of new heads, safely.
+func (m *MockHeadTrackable) OnNewHeadCount() int32 {
+	return atomic.LoadInt32(&m.onNewHeadCount)
+}
 
 // NeverSleeper is a struct that never sleeps
 type NeverSleeper struct{}

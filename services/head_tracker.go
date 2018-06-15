@@ -26,15 +26,17 @@ type HeadTrackable interface {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	trackers         map[string]HeadTrackable
-	headers          chan models.BlockHeader
-	headSubscription models.EthSubscription
-	store            *store.Store
-	number           *models.IndexableBlockNumber
-	headMutex        sync.RWMutex
-	trackersMutex    sync.RWMutex
-	connected        bool
-	sleeper          utils.Sleeper
+	trackers               map[string]HeadTrackable
+	headers                chan models.BlockHeader
+	headSubscription       models.EthSubscription
+	store                  *store.Store
+	number                 *models.IndexableBlockNumber
+	headMutex              sync.RWMutex
+	trackersMutex          sync.RWMutex
+	connected              bool
+	sleeper                utils.Sleeper
+	listenToNewHeadsCloser chan struct{}
+	listenToNewHeadsWaiter sync.WaitGroup
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -47,7 +49,12 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 	} else {
 		sleeper = utils.NewBackoffSleeper()
 	}
-	return &HeadTracker{store: store, trackers: map[string]HeadTrackable{}, sleeper: sleeper}
+	return &HeadTracker{
+		store:                  store,
+		trackers:               map[string]HeadTrackable{},
+		sleeper:                sleeper,
+		listenToNewHeadsCloser: make(chan struct{}),
+	}
 }
 
 // Start retrieves the last persisted block number from the HeadTracker,
@@ -77,14 +84,17 @@ func (ht *HeadTracker) Start() error {
 
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
-	if ht.headSubscription != nil {
-		ht.headSubscription.Unsubscribe()
-		ht.headSubscription = nil
+	if ht.headSubscription == nil {
+		return nil
 	}
-	if ht.headers != nil {
-		close(ht.headers)
-		ht.headers = nil
-	}
+	ht.headSubscription.Unsubscribe()
+	ht.headSubscription = nil
+
+	ht.listenToNewHeadsCloser <- struct{}{}
+
+	ht.listenToNewHeadsWaiter.Wait()
+
+	close(ht.headers)
 	ht.disconnect()
 	return nil
 }
@@ -174,7 +184,6 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 		err := <-sub.Err()
 		if err != nil {
 			logger.Warnw("Error in new head subscription, disconnected", "err", err)
-			ht.Stop()
 			ht.reconnectLoop()
 		}
 	}()
@@ -196,16 +205,27 @@ func (ht *HeadTracker) updateBlockHeader() {
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
+	ht.listenToNewHeadsWaiter.Add(1)
+	defer ht.listenToNewHeadsWaiter.Done()
+
+	ht.headMutex.RLock()
 	if ht.number != nil {
 		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(ht.number.ToInt()), " with hash ", ht.number.Hash.String())
 	}
-	for header := range ht.headers {
-		number := header.ToIndexableBlockNumber()
-		logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
-		if err := ht.Save(number); err != nil {
-			logger.Error(err.Error())
-		} else {
-			ht.onNewHead(&header)
+	ht.headMutex.RUnlock()
+
+	for {
+		select {
+		case header := <-ht.headers:
+			number := header.ToIndexableBlockNumber()
+			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
+			if err := ht.Save(number); err != nil {
+				logger.Error(err.Error())
+			} else {
+				ht.onNewHead(&header)
+			}
+		case <-ht.listenToNewHeadsCloser:
+			return
 		}
 	}
 }
@@ -213,12 +233,12 @@ func (ht *HeadTracker) listenToNewHeads() {
 func (ht *HeadTracker) reconnectLoop() {
 	ht.sleeper.Reset()
 	for {
+		ht.Stop()
 		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
 		ht.sleeper.Sleep()
 		err := ht.Start()
 		if err != nil {
 			logger.Warnw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
-			ht.Stop()
 		} else {
 			logger.Info("Reconnected to node ", ht.store.Config.EthereumURL)
 			break
