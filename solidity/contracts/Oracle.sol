@@ -106,11 +106,11 @@ contract Oracle is Ownable {
   {
     Callback memory callback = callbacks[_internalId];
 
-    // Invoke requester defined callback on the requester's (callback.addr) contract.
-    // solium-disable-next-line security/no-low-level-calls
-    require(callback.addr.call(callback.functionId, callback.externalId, _data));
     withdrawableWei = withdrawableWei.add(callback.amount);
     delete callbacks[_internalId];
+    // Invoke requester defined callback on the requester's (callback.addr) contract.
+    // solium-disable-next-line security/no-low-level-calls
+    callback.addr.call(callback.functionId, callback.externalId, _data);
   }
 
   function withdraw(address _recipient) public onlyOwner {

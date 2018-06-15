@@ -146,43 +146,111 @@ contract('Oracle', () => {
     let mock, internalId
     let requestId = 'XID'
 
-    beforeEach(async () => {
-      mock = await deploy('examples/GetterSetter.sol')
-      let fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
-      let args = requestDataBytes(specId, mock.address, fHash, requestId, '')
-      let req = await requestDataFrom(oc, link, 0, args)
-      internalId = req.receipt.logs[2].topics[1]
-    })
+    context('successful consumer', () => {
+      beforeEach(async () => {
+        mock = await deploy('examples/GetterSetter.sol')
+        let fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
+        let args = requestDataBytes(specId, mock.address, fHash, requestId, '')
+        let req = await requestDataFrom(oc, link, 0, args)
+        internalId = req.receipt.logs[2].topics[1]
+      })
 
-    context('when called by a non-owner', () => {
-      it('raises an error', async () => {
-        await assertActionThrows(async () => {
-          await oc.fulfillData(internalId, 'Hello World!', {from: stranger})
+      context('when called by a non-owner', () => {
+        it('raises an error', async () => {
+          await assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'Hello World!', {from: stranger})
+          })
+        })
+      })
+
+      context('when called by an owner', () => {
+        it('raises an error if the request ID does not exist', async () => {
+          await assertActionThrows(async () => {
+            await oc.fulfillData(0xdeadbeef, 'Hello World!', {from: oracleNode})
+          })
+        })
+
+        it('sets the value on the requested contract', async () => {
+          await oc.fulfillData(internalId, 'Hello World!', {from: oracleNode})
+
+          let mockRequestId = await mock.requestId.call()
+          assert.equal(requestId.toString(), web3.toUtf8(mockRequestId))
+
+          let currentValue = await mock.getBytes32.call()
+          assert.equal('Hello World!', web3.toUtf8(currentValue))
+        })
+
+        it('does not allow a request to be fulfilled twice', async () => {
+          await oc.fulfillData(internalId, 'First message!', {from: oracleNode})
+          await assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'Second message!!', {from: oracleNode})
+          })
         })
       })
     })
 
-    context('when called by an owner', () => {
-      it('raises an error if the request ID does not exist', async () => {
-        await assertActionThrows(async () => {
-          await oc.fulfillData(0xdeadbeef, 'Hello World!', {from: oracleNode})
+    context('malicious consumer', () => {
+      const paymentAmount = toWei(1)
+
+      context('fails during fulfillment', () => {
+        beforeEach(async () => {
+          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          let fHash = functionSelector('assertFail(bytes32,bytes32)')
+          let args = requestDataBytes(specId, mock.address, fHash, requestId, '')
+          let req = await requestDataFrom(oc, link, paymentAmount, args)
+          internalId = req.receipt.logs[2].topics[1]
+        })
+
+        it('allows the oracle node to receive their payment', async () => {
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await oc.withdraw(oracleNode, {from: oracleNode})
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
+        })
+
+        it("can't fulfill the data again", async () => {
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+          await assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'hack the planet 102', {from: oracleNode})
+          })
         })
       })
 
-      it('sets the value on the requested contract', async () => {
-        await oc.fulfillData(internalId, 'Hello World!', {from: oracleNode})
+      context('request is canceled during fulfillment', () => {
+        beforeEach(async () => {
+          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          await link.transfer(mock.address, paymentAmount)
 
-        let mockRequestId = await mock.requestId.call()
-        assert.equal(requestId.toString(), web3.toUtf8(mockRequestId))
+          const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
+          internalId = req.receipt.logs[2].topics[1]
 
-        let currentValue = await mock.getBytes32.call()
-        assert.equal('Hello World!', web3.toUtf8(currentValue))
-      })
+          const mockBalance = await link.balanceOf.call(mock.address)
+          assert.isTrue(mockBalance.equals(0))
+        })
 
-      it('does not allow a request to be fulfilled twice', async () => {
-        await oc.fulfillData(internalId, 'First message!', {from: oracleNode})
-        await assertActionThrows(async () => {
-          await oc.fulfillData(internalId, 'Second message!!', {from: oracleNode})
+        it('allows the oracle node to receive their payment', async () => {
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+
+          const mockBalance = await link.balanceOf.call(mock.address)
+          assert.isTrue(mockBalance.equals(0))
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await oc.withdraw(oracleNode, {from: oracleNode})
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
+        })
+
+        it("can't fulfill the data again", async () => {
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+          await assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'hack the planet 102', {from: oracleNode})
+          })
         })
       })
     })
