@@ -105,12 +105,12 @@ contract Oracle is Ownable {
     hasInternalId(_internalId)
   {
     Callback memory callback = callbacks[_internalId];
-
     withdrawableWei = withdrawableWei.add(callback.amount);
     delete callbacks[_internalId];
-    // Invoke requester defined callback on the requester's (callback.addr) contract.
-    // solium-disable-next-line security/no-low-level-calls
-    callback.addr.call(callback.functionId, callback.externalId, _data);
+    // All updates to the oracle's fulfillment should come before calling the
+    // callback(addr+functionId) as it is untrusted.
+    // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
+    callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function withdraw(address _recipient) public onlyOwner {
