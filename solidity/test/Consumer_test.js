@@ -98,9 +98,7 @@ contract('Consumer', () => {
       })
 
       it('does not accept the data provided', async () => {
-        await assertActionThrows(async () => {
-          await oc.fulfillData(otherId, response, {from: oracleNode})
-        })
+        await oc.fulfillData(otherId, response, {from: oracleNode})
 
         let received = await cc.currentPrice.call()
         assert.equal(web3.toUtf8(received), '')
