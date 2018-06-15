@@ -195,9 +195,9 @@ contract('Oracle', () => {
       context('fails during fulfillment', () => {
         beforeEach(async () => {
           mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
-          let fHash = functionSelector('assertFail(bytes32,bytes32)')
-          let args = requestDataBytes(specId, mock.address, fHash, requestId, '')
-          let req = await requestDataFrom(oc, link, paymentAmount, args)
+          await link.transfer(mock.address, paymentAmount)
+
+          const req = await mock.requestData('assertFail(bytes32,bytes32)')
           internalId = req.receipt.logs[2].topics[1]
         })
 
