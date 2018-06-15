@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -75,8 +76,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	eth.Register("eth_getLogs", []types.Log{log})
 	eth.RegisterSubscription("logs")
 
-	count := 0
-	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
+	var count int32
+	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
 	head := cltest.IndexableBlockNumber(0)
 	filter := services.NewInitiatorFilterQuery(initr, head, nil)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
@@ -84,7 +85,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)
-	assert.Equal(t, 1, count)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&count))
 }
 
 func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T) {
@@ -97,15 +98,15 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	job, initr := cltest.NewJobWithLogInitiator()
 	eth.RegisterSubscription("logs")
 
-	count := 0
-	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
+	var count int32
+	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
 	filter := services.NewInitiatorFilterQuery(initr, nil, nil)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)
-	assert.Equal(t, 0, count)
+	assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 }
 
 func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) {
@@ -121,8 +122,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	logsChan := make(chan types.Log)
 	eth.RegisterSubscription("logs", logsChan)
 
-	count := 0
-	callback := func(services.InitiatorSubscriptionLogEvent) { count += 1 }
+	var count int32
+	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
 	head := cltest.IndexableBlockNumber(0)
 	filter := services.NewInitiatorFilterQuery(initr, head, nil)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
@@ -137,7 +138,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 
 	eth.EventuallyAllCalled(t)
 	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() int { return count }).Should(gomega.Equal(2))
+	g.Eventually(func() int32 { return atomic.LoadInt32(&count) }).Should(gomega.Equal(int32(2)))
 }
 
 func TestTopicFiltersForRunLog(t *testing.T) {
