@@ -6,6 +6,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -117,7 +118,7 @@ func initializeORM(config Config) *models.ORM {
 	sleeper := utils.NewConstantSleeper(config.DatabasePollInterval.Duration)
 	for {
 		orm, err = models.NewORM(path.Join(config.RootDir, "db.bolt"))
-		if err != nil && err.Error() == "timeout" {
+		if err != nil && err == bolt.ErrTimeout {
 			logger.Info("BoltDB is locked, sleeping", "sleepDuration", sleeper.Duration())
 			sleeper.Sleep()
 		} else {
