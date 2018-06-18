@@ -8,6 +8,7 @@ describe('jobRuns reducer', () => {
     const state = reducer(undefined, {})
 
     expect(state.jobRuns).toEqual({
+      currentPage: [],
       items: {}
     })
   })
@@ -23,6 +24,7 @@ describe('jobRuns reducer', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns).toEqual({
+      currentPage: ['a', 'b'],
       items: {
         'a': {id: 'a'},
         'b': {id: 'b'}

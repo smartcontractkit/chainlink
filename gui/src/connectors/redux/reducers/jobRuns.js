@@ -3,13 +3,17 @@ import {
 } from 'actions'
 
 const initialState = {
+  currentPage: [],
   items: {}
 }
+
+const LATEST_JOB_RUNS_COUNT = 5
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
     case RECEIVE_JOB_SPEC_SUCCESS:
-      const newJobRuns = (action.item.runs || []).reduce(
+      const runs = action.item.runs || []
+      const runsMap = runs.reduce(
         (acc, r) => { acc[r.id] = r; return acc },
         {}
       )
@@ -17,7 +21,10 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {items: Object.assign({}, state.items, newJobRuns)}
+        {
+          currentPage: runs.map(jr => jr.id).slice(0, LATEST_JOB_RUNS_COUNT),
+          items: Object.assign({}, state.items, runsMap)
+        }
       )
     default:
       return state

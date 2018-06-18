@@ -29,7 +29,7 @@ export default (state = initialState, action = {}) => {
       const jobSpec = Object.assign(
         {},
         action.item,
-        {runs: runs.map(r => r.id)}
+        {runsCount: runs.length}
       )
 
       return Object.assign(
