@@ -19,6 +19,8 @@ import {
   jobRunsCountSelector
 } from 'selectors'
 
+const LATEST_JOB_RUNS_COUNT = 5
+
 const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
@@ -150,7 +152,7 @@ const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const jobSpec = jobSpecSelector(state, jobSpecId)
   const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
-  const latestJobRuns = latestJobRunsSelector(state, jobSpecId)
+  const latestJobRuns = latestJobRunsSelector(state, jobSpecId, LATEST_JOB_RUNS_COUNT)
 
   return {
     jobSpecId,
