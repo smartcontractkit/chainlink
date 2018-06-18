@@ -24,7 +24,7 @@ export const jobRunsCountSelector = (state, jobSpecId) => {
   return jobRuns.length
 }
 
-export const latestJobRunsSelector = (state, jobSpecId) => {
+export const latestJobRunsSelector = (state, jobSpecId, take) => {
   const jobRuns = jobRunsSelector(state, jobSpecId)
 
   return jobRuns
@@ -34,5 +34,5 @@ export const latestJobRunsSelector = (state, jobSpecId) => {
 
       return dateA < dateB ? 1 : -1
     })
-    .slice(0, 5)
+    .slice(0, take)
 }
