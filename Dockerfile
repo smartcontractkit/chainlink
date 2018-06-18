@@ -12,7 +12,8 @@ FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /go/src/github.com/smartcontractkit/chainlink/chainlink /usr/local/bin/
-COPY --from=builder /go/src/github.com/smartcontractkit/chainlink /go/src/github.com/smartcontractkit/chainlink
+COPY --from=builder /go/src/github.com/smartcontractkit/chainlink/gui/dist /go/src/github.com/smartcontractkit/chainlink/gui/dist
+
 
 EXPOSE 6688
 EXPOSE 6689
