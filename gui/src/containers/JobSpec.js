@@ -15,11 +15,9 @@ import { bindActionCreators } from 'redux'
 import { fetchJobSpec } from 'actions'
 import {
   jobSpecSelector,
-  latestJobRunsSelector,
+  jobRunsSelector,
   jobRunsCountSelector
 } from 'selectors'
-
-const LATEST_JOB_RUNS_COUNT = 5
 
 const styles = theme => ({
   title: {
@@ -152,7 +150,7 @@ const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const jobSpec = jobSpecSelector(state, jobSpecId)
   const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
-  const latestJobRuns = latestJobRunsSelector(state, jobSpecId, LATEST_JOB_RUNS_COUNT)
+  const latestJobRuns = jobRunsSelector(state)
 
   return {
     jobSpecId,
