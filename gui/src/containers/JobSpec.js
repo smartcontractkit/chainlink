@@ -13,7 +13,13 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { fetchJobSpec } from 'actions'
-import { jobSpecSelector, latestJobRunsSelector } from 'selectors'
+import {
+  jobSpecSelector,
+  latestJobRunsSelector,
+  jobRunsCountSelector
+} from 'selectors'
+
+const LATEST_JOB_RUNS_COUNT = 5
 
 const styles = theme => ({
   title: {
@@ -33,7 +39,7 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({classes, jobSpec, jobRuns}) => (
+const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
@@ -69,7 +75,7 @@ const renderJobSpec = ({classes, jobSpec, jobRuns}) => (
               <Grid item xs={6}>
                 <Typography variant='subheading' color='textSecondary'>Run Count</Typography>
                 <Typography variant='body1' color='inherit'>
-                  {jobRuns.length}
+                  {jobRunsCount}
                 </Typography>
               </Grid>
             </Grid>
@@ -80,13 +86,13 @@ const renderJobSpec = ({classes, jobSpec, jobRuns}) => (
   </Grid>
 )
 
-const renderLatestRuns = ({classes, jobRuns}) => (
+const renderLatestRuns = ({classes, latestJobRuns}) => (
   <React.Fragment>
     <Typography variant='title' className={classes.lastRun}>
       Last Run
     </Typography>
 
-    <JobRunsList runs={jobRuns} />
+    <JobRunsList runs={latestJobRuns} />
   </React.Fragment>
 )
 
@@ -133,23 +139,26 @@ export class JobSpec extends Component {
 
 JobSpec.propTypes = {
   classes: PropTypes.object.isRequired,
-  jobRuns: PropTypes.array.isRequired,
-  jobSpec: PropTypes.object
+  latestJobRuns: PropTypes.array.isRequired,
+  jobSpec: PropTypes.object,
+  jobRunsCount: PropTypes.number.isRequired
 }
 
 JobSpec.defaultProps = {
-  jobRuns: []
+  latestJobRuns: []
 }
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const jobSpec = jobSpecSelector(state, jobSpecId)
-  const jobRuns = latestJobRunsSelector(state, jobSpecId)
+  const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
+  const latestJobRuns = latestJobRunsSelector(state, jobSpecId, LATEST_JOB_RUNS_COUNT)
 
   return {
     jobSpecId,
     jobSpec,
-    jobRuns
+    latestJobRuns,
+    jobRunsCount
   }
 }
 
