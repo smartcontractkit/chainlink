@@ -2,6 +2,7 @@ import {
   jobsSelector,
   jobSpecSelector,
   jobRunsSelector,
+  jobRunsCountSelector,
   latestJobRunsSelector
 } from 'selectors'
 
@@ -125,8 +126,8 @@ describe('selectors', () => {
     })
   })
 
-  describe('latestJobRunsSelector', () => {
-    it('returns the 5 latest runs by creation date', () => {
+  describe('jobRunsCountSelector', () => {
+    it('returns the number of runs for the job', () => {
       const state = {
         jobs: {
           items: {
@@ -135,21 +136,40 @@ describe('selectors', () => {
         },
         jobRuns: {
           items: {
-            'runA': {id: 'runA', createdAt: '2018-05-01T16:54:16.255900955-07:00'},
-            'runB': {id: 'runB', createdAt: '2018-05-02T16:54:16.255900955-07:00'},
-            'runC': {id: 'runC', createdAt: '2018-05-03T16:54:16.255900955-07:00'},
-            'runD': {id: 'runD', createdAt: '2018-05-04T16:54:16.255900955-07:00'},
-            'runE': {id: 'runE', createdAt: '2018-05-05T16:54:16.255900955-07:00'},
-            'runF': {id: 'runF', createdAt: '2018-05-06T16:54:16.255900955-07:00'}
+            'runA': {id: 'runA'},
+            'runB': {id: 'runB'},
+            'runC': {id: 'runC'},
+            'runD': {id: 'runD'},
+            'runE': {id: 'runE'},
+            'runF': {id: 'runF'}
           }
         }
       }
-      const runs = latestJobRunsSelector(state, 'jobA')
+
+      expect(jobRunsCountSelector(state, 'jobA')).toEqual(6)
+    })
+  })
+
+  describe('latestJobRunsSelector', () => {
+    it('returns the 5 latest runs by creation date', () => {
+      const state = {
+        jobs: {
+          items: {
+            jobA: {id: 'jobA', runs: ['runA', 'runB', 'runC']}
+          }
+        },
+        jobRuns: {
+          items: {
+            'runA': {id: 'runA', createdAt: '2018-05-01T16:54:16.255900955-07:00'},
+            'runB': {id: 'runB', createdAt: '2018-05-02T16:54:16.255900955-07:00'},
+            'runC': {id: 'runC', createdAt: '2018-05-03T16:54:16.255900955-07:00'}
+          }
+        }
+      }
+      const take = 2
+      const runs = latestJobRunsSelector(state, 'jobA', take)
 
       expect(runs).toEqual([
-        {id: 'runF', createdAt: '2018-05-06T16:54:16.255900955-07:00'},
-        {id: 'runE', createdAt: '2018-05-05T16:54:16.255900955-07:00'},
-        {id: 'runD', createdAt: '2018-05-04T16:54:16.255900955-07:00'},
         {id: 'runC', createdAt: '2018-05-03T16:54:16.255900955-07:00'},
         {id: 'runB', createdAt: '2018-05-02T16:54:16.255900955-07:00'}
       ])
