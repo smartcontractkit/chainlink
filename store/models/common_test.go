@@ -249,7 +249,34 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 	assert.Equal(t, "", w.String())
 }
 
-func TestTimeDurationFromNow(t *testing.T) {
+func TestTime_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Time
+		errored bool
+	}{
+		{"unix string", `"1529445491"`, time.Unix(1529445491, 0).UTC(), false},
+		{"unix int", `1529445491`, time.Unix(1529445491, 0).UTC(), false},
+		{"iso8601", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC(), false},
+		{"invalid string", `"1000h"`, time.Now(), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual models.Time
+			err := json.Unmarshal([]byte(test.input), &actual)
+			if test.errored {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.want, actual.Time)
+			}
+		})
+	}
+}
+
+func TestTime_DurationFromNow(t *testing.T) {
 	t.Parallel()
 	future := models.Time{Time: time.Now().Add(time.Second)}
 	duration := future.DurationFromNow()
