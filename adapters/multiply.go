@@ -39,11 +39,7 @@ type Multiply struct {
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
 func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val, err := input.Get("value")
-	if err != nil {
-		return input.WithError(err)
-	}
-
+	val := input.Get("value")
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
 		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))

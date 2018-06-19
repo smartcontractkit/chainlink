@@ -299,8 +299,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
-	res, err := tr.Result.Get("extra")
-	assert.NoError(t, err)
+	res := tr.Result.Get("extra")
 	assert.Equal(t, eaExtra, res.String())
 }
 
@@ -327,8 +326,7 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
-	res, err := tr.Result.Get("extra")
-	assert.NoError(t, err)
+	res := tr.Result.Get("extra")
 	assert.Equal(t, eaExtra, res.String())
 }
 
@@ -357,8 +355,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaPrice, val)
-	res, err := tr.Result.Get("quote")
-	assert.NoError(t, err)
+	res := tr.Result.Get("quote")
 	assert.Equal(t, eaQuote, res.String())
 }
 
