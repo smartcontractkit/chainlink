@@ -4,6 +4,8 @@ import JobRunsList from 'components/JobRunsList'
 import PropTypes from 'prop-types'
 import React, { Component } from 'react'
 import Typography from '@material-ui/core/Typography'
+import TablePagination from '@material-ui/core/TablePagination'
+import Card from '@material-ui/core/Card'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
@@ -24,9 +26,27 @@ const styles = theme => ({
   }
 })
 
+const START_PAGE = 1
+
 export class JobSpecRuns extends Component {
+  constructor (props) {
+    super(props)
+    this.state = {
+      page: 0
+    }
+    this.handleChangePage = this.handleChangePage.bind(this)
+  }
+
   componentDidMount () {
-    this.props.fetchJobSpecRuns(this.props.jobSpecId)
+    const {jobSpecId, pageSize, fetchJobSpecRuns} = this.props
+    fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
+  }
+
+  handleChangePage (e, page) {
+    const {fetchJobSpecRuns, jobSpecId, pageSize} = this.props
+
+    fetchJobSpecRuns(jobSpecId, page + 1, pageSize)
+    this.setState({page})
   }
 
   render () {
@@ -43,23 +63,36 @@ export class JobSpecRuns extends Component {
           Runs
         </Typography>
 
-        {renderDetails(this.props)}
+        {renderDetails(this.props, this.state, this.handleChangePage)}
       </div>
     )
   }
 }
 
-const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount}) => (
-  <JobRunsList runs={latestJobRuns} />
+const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount, pageSize}, state, handleChangePage) => (
+  <Card>
+    <JobRunsList runs={latestJobRuns} />
+    <TablePagination
+      component='div'
+      count={jobRunsCount}
+      rowsPerPage={pageSize}
+      rowsPerPageOptions={[pageSize]}
+      page={state.page}
+      backIconButtonProps={{'aria-label': 'Previous Page'}}
+      nextIconButtonProps={{'aria-label': 'Next Page'}}
+      onChangePage={handleChangePage}
+      onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+    />
+  </Card>
 )
 
 const renderFetching = () => (
   <div>Fetching...</div>
 )
 
-const renderDetails = (props) => {
+const renderDetails = (props, state, handleChangePage) => {
   if (props.latestJobRuns && props.latestJobRuns.length > 0) {
-    return renderLatestRuns(props)
+    return renderLatestRuns(props, state, handleChangePage)
   } else {
     return renderFetching()
   }
@@ -68,11 +101,13 @@ const renderDetails = (props) => {
 JobSpecRuns.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
-  jobRunsCount: PropTypes.number.isRequired
+  jobRunsCount: PropTypes.number.isRequired,
+  pageSize: PropTypes.number.isRequired
 }
 
 JobSpecRuns.defaultProps = {
-  latestJobRuns: []
+  latestJobRuns: [],
+  pageSize: 10
 }
 
 const mapStateToProps = (state, ownProps) => {

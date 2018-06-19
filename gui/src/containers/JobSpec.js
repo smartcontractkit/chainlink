@@ -6,6 +6,7 @@ import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
+import Card from '@material-ui/core/Card'
 import JobRunsList from 'components/JobRunsList'
 import formatInitiators from 'utils/formatInitiators'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
@@ -97,7 +98,9 @@ const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount}) => 
       Last Run
     </Typography>
 
-    <JobRunsList runs={latestJobRuns} />
+    <Card>
+      <JobRunsList runs={latestJobRuns} />
+    </Card>
     {jobRunsCount > LATEST_JOB_RUNS_COUNT &&
       <Link to={`/job_specs/${jobSpecId}/runs`} className={classes.showMore}>
         Show More
@@ -151,7 +154,7 @@ JobSpec.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
   jobSpec: PropTypes.object,
-  jobRunsCount: PropTypes.number.isRequired
+  jobRunsCount: PropTypes.number
 }
 
 JobSpec.defaultProps = {
