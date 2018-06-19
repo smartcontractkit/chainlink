@@ -103,6 +103,7 @@ func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	return runs, err
 }
 
+// JobRunsCountFor returns the current number of runs for the job
 func (orm *ORM) JobRunsCountFor(jobID string) (int, error) {
 	query := orm.Select(q.Eq("JobID", jobID))
 	return query.Count(&JobRun{})
