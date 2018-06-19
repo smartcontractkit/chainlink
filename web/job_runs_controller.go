@@ -29,7 +29,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		return
 	}
 	var jrs []models.JobRun
-	if count, err := jrc.App.Store.Count(&models.JobRun{}); err != nil {
+	if count, err := jrc.App.Store.JobRunsCountFor(id); err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
 	} else if err := jrc.App.Store.Find("JobID", id, &jrs, storm.Limit(size), storm.Skip(offset), storm.Reverse()); err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting JobRuns: %+v", err))

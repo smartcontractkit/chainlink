@@ -103,6 +103,11 @@ func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	return runs, err
 }
 
+func (orm *ORM) JobRunsCountFor(jobID string) (int, error) {
+	query := orm.Select(q.Eq("JobID", jobID))
+	return query.Count(&JobRun{})
+}
+
 // SaveJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) SaveJob(job *JobSpec) error {
 	tx, err := orm.Begin(true)
