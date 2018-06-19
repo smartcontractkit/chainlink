@@ -111,6 +111,35 @@ func TestJobRunsWithStatus(t *testing.T) {
 	}
 }
 
+func TestJobRunsCountFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	job, initr := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.SaveJob(&job))
+	job2, initr := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.SaveJob(&job2))
+
+	assert.NotEqual(t, job.ID, job2.ID)
+
+	run1 := job.NewRun(initr)
+	run2 := job.NewRun(initr)
+	run3 := job2.NewRun(initr)
+
+	assert.NoError(t, store.Save(&run1))
+	assert.NoError(t, store.Save(&run2))
+	assert.NoError(t, store.Save(&run3))
+
+	count, err := store.JobRunsCountFor(job.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	count, err = store.JobRunsCountFor(job2.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
 func TestCreatingTx(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()

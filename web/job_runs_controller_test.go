@@ -77,12 +77,18 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 	j, initr := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 	jr1 := j.NewRun(initr)
-	jr1.ID = "2"
+	jr1.ID = "runB"
 	assert.Nil(t, app.Store.Save(&jr1))
 	jr2 := j.NewRun(initr)
-	jr2.ID = "1"
+	jr2.ID = "runA"
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.Save(&jr2))
+
+	j2, initr := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(&j2))
+	jr3 := j2.NewRun(initr)
+	jr3.ID = "runC"
+	assert.Nil(t, app.Store.Save(&jr3))
 
 	return &j
 }
