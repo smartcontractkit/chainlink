@@ -13,6 +13,7 @@ import logoImg from './logo.svg'
 
 // Use universal-react-component for code-splitting non-static routes
 const JobSpec = universal(import('./containers/JobSpec'))
+const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
 
 // Custom styles
 const styles = theme => {
@@ -62,7 +63,8 @@ class App extends PureComponent {
 
               <div className={classes.content}>
                 <Switch>
-                  <Route path='/job_specs/:jobSpecId' component={JobSpec} />
+                  <Route path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
+                  <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
                   <Routes />
                 </Switch>
               </div>

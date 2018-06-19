@@ -4,6 +4,7 @@ import Typography from '@material-ui/core/Typography'
 import { Link as ReactStaticLink } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { blue } from '@material-ui/core/colors'
+import classNames from 'classnames'
 
 const styles = theme => ({
   link: {
@@ -15,8 +16,8 @@ const styles = theme => ({
   }
 })
 
-const Link = ({children, classes, to}) => (
-  <ReactStaticLink to={to} className={classes.link}>
+const Link = ({children, classes, className, to}) => (
+  <ReactStaticLink to={to} className={classNames(classes.link, className)}>
     <Typography
       variant='body1'
       color='inherit'

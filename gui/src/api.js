@@ -29,4 +29,6 @@ export const getJobs = (page, size) => request('/v2/specs', {page: page, size: s
 
 export const getJobSpec = (id) => request(`/v2/specs/${id}`)
 
+export const getJobSpecRuns = (id) => request(`/v2/specs/${id}/runs`)
+
 export const getAccountBalance = () => request('/v2/account_balance')
