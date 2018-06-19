@@ -10,9 +10,8 @@ export const jobSpecSelector = (state, jobSpecId) => (
   state.jobs.items[jobSpecId]
 )
 
-export const jobRunsSelector = (state, jobSpecId) => {
-  const jobSpec = jobSpecSelector(state, jobSpecId)
-  const runs = (jobSpec && jobSpec.runs) || []
+export const jobRunsSelector = (state) => {
+  const runs = state.jobRuns.currentPage
 
   return runs
     .map(jobRunId => state.jobRuns.items[jobRunId])
@@ -20,19 +19,6 @@ export const jobRunsSelector = (state, jobSpecId) => {
 }
 
 export const jobRunsCountSelector = (state, jobSpecId) => {
-  const jobRuns = jobRunsSelector(state, jobSpecId)
-  return jobRuns.length
-}
-
-export const latestJobRunsSelector = (state, jobSpecId, take) => {
-  const jobRuns = jobRunsSelector(state, jobSpecId)
-
-  return jobRuns
-    .sort((a, b) => {
-      const dateA = new Date(a.createdAt)
-      const dateB = new Date(b.createdAt)
-
-      return dateA < dateB ? 1 : -1
-    })
-    .slice(0, take)
+  const spec = jobSpecSelector(state, jobSpecId)
+  return spec ? spec.runsCount : 0
 }

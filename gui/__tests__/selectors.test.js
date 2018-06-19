@@ -58,22 +58,19 @@ describe('selectors', () => {
     })
   })
 
-  describe('jobRunsSelectors', () => {
+  describe('jobRunsSelector', () => {
     it('returns the job runs for the given job spec id', () => {
       const state = {
-        jobs: {
-          items: {
-            jobA: {id: 'jobA', runs: ['runA', 'runB']}
-          }
-        },
         jobRuns: {
+          currentPage: ['runA', 'runB'],
           items: {
             'runA': {id: 'runA'},
-            'runB': {id: 'runB'}
+            'runB': {id: 'runB'},
+            'runC': {id: 'runC'}
           }
         }
       }
-      const runs = jobRunsSelector(state, 'jobA')
+      const runs = jobRunsSelector(state)
 
       expect(runs).toEqual([
         {id: 'runA'},
@@ -81,44 +78,30 @@ describe('selectors', () => {
       ])
     })
 
-    it('returns an empty array when the job does not exist', () => {
+    it('returns an empty array when the currentPage is empty', () => {
       const state = {
-        jobs: {
-          items: {}
-        }
-      }
-      const runs = jobRunsSelector(state, 'jobA')
-
-      expect(runs).toEqual([])
-    })
-
-    it('returns an empty array when the job does not have the runs attribute', () => {
-      const state = {
-        jobs: {
+        jobRuns: {
+          currentPage: [],
           items: {
-            'jobA': {id: 'jobA'}
+            'runA': {id: 'runA'}
           }
         }
       }
-      const runs = jobRunsSelector(state, 'jobA')
+      const runs = jobRunsSelector(state)
 
       expect(runs).toEqual([])
     })
 
     it('excludes job runs that do not have items', () => {
       const state = {
-        jobs: {
-          items: {
-            jobA: {id: 'jobA', runs: ['runA', 'runB']}
-          }
-        },
         jobRuns: {
+          currentPage: ['runA', 'runB'],
           items: {
             'runA': {id: 'runA'}
           }
         }
       }
-      const runs = jobRunsSelector(state, 'jobA')
+      const runs = jobRunsSelector(state)
 
       expect(runs).toEqual([
         {id: 'runA'}
@@ -131,48 +114,22 @@ describe('selectors', () => {
       const state = {
         jobs: {
           items: {
-            jobA: {id: 'jobA', runs: ['runA', 'runB', 'runC', 'runD', 'runE', 'runF']}
-          }
-        },
-        jobRuns: {
-          items: {
-            'runA': {id: 'runA'},
-            'runB': {id: 'runB'},
-            'runC': {id: 'runC'},
-            'runD': {id: 'runD'},
-            'runE': {id: 'runE'},
-            'runF': {id: 'runF'}
+            jobA: {id: 'jobA', runsCount: 6}
           }
         }
       }
 
       expect(jobRunsCountSelector(state, 'jobA')).toEqual(6)
     })
-  })
 
-  describe('latestJobRunsSelector', () => {
-    it('returns the 5 latest runs by creation date', () => {
+    it('returns the number 0 when the job doesn\'t exist', () => {
       const state = {
         jobs: {
-          items: {
-            jobA: {id: 'jobA', runs: ['runA', 'runB', 'runC']}
-          }
-        },
-        jobRuns: {
-          items: {
-            'runA': {id: 'runA', createdAt: '2018-05-01T16:54:16.255900955-07:00'},
-            'runB': {id: 'runB', createdAt: '2018-05-02T16:54:16.255900955-07:00'},
-            'runC': {id: 'runC', createdAt: '2018-05-03T16:54:16.255900955-07:00'}
-          }
+          items: {}
         }
       }
-      const take = 2
-      const runs = latestJobRunsSelector(state, 'jobA', take)
 
-      expect(runs).toEqual([
-        {id: 'runC', createdAt: '2018-05-03T16:54:16.255900955-07:00'},
-        {id: 'runB', createdAt: '2018-05-02T16:54:16.255900955-07:00'}
-      ])
+      expect(jobRunsCountSelector(state, 'jobA')).toEqual(0)
     })
   })
 })
