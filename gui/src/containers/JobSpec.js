@@ -9,6 +9,7 @@ import BreadcrumbItem from 'components/BreadcrumbItem'
 import JobRunsList from 'components/JobRunsList'
 import formatInitiators from 'utils/formatInitiators'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
+import Link from 'components/Link'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -18,6 +19,7 @@ import {
   jobRunsSelector,
   jobRunsCountSelector
 } from 'selectors'
+import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
 
 const styles = theme => ({
   title: {
@@ -34,6 +36,11 @@ const styles = theme => ({
   lastRun: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
+  },
+  showMore: {
+    marginTop: theme.spacing.unit * 3,
+    marginLeft: theme.spacing.unit * 3,
+    display: 'block'
   }
 })
 
@@ -84,13 +91,18 @@ const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
   </Grid>
 )
 
-const renderLatestRuns = ({classes, latestJobRuns}) => (
+const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount}) => (
   <React.Fragment>
     <Typography variant='title' className={classes.lastRun}>
       Last Run
     </Typography>
 
     <JobRunsList runs={latestJobRuns} />
+    {jobRunsCount > LATEST_JOB_RUNS_COUNT &&
+      <Link to={`/job_specs/${jobSpecId}/runs`} className={classes.showMore}>
+        Show More
+      </Link>
+    }
   </React.Fragment>
 )
 

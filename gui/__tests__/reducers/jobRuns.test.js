@@ -1,6 +1,7 @@
 import reducer from 'connectors/redux/reducers'
 import {
-  RECEIVE_JOB_SPEC_SUCCESS
+  RECEIVE_JOB_SPEC_SUCCESS,
+  RECEIVE_JOB_SPEC_RUNS_SUCCESS
 } from 'actions'
 
 describe('jobRuns reducer', () => {
@@ -23,6 +24,24 @@ describe('jobRuns reducer', () => {
     }
     const state = reducer(undefined, action)
 
+    expect(state.jobRuns).toEqual({
+      currentPage: ['a', 'b'],
+      items: {
+        'a': {id: 'a'},
+        'b': {id: 'b'}
+      }
+    })
+  })
+
+  it('RECEIVE_JOB_SPEC_RUNS_SUCCESS stores the runs by id', () => {
+    const action = {
+      type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
+      items: [
+        { id: 'a' },
+        { id: 'b' }
+      ]
+    }
+    const state = reducer(undefined, action)
     expect(state.jobRuns).toEqual({
       currentPage: ['a', 'b'],
       items: {
