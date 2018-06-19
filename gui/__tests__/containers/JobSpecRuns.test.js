@@ -1,4 +1,6 @@
 import React from 'react'
+import clickNextPage from 'test-helpers/clickNextPage'
+import clickPreviousPage from 'test-helpers/clickPreviousPage'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
@@ -26,8 +28,8 @@ describe('containers/JobSpecRuns', () => {
 
     const runsResponse = jsonApiJobSpecRunFactory([{
       jobId: jobSpecId
-    }])
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs`, runsResponse)
+    }], jobSpecId)
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=10`, runsResponse)
 
     const props = {match: {params: {jobSpecId: jobSpecId}}}
     const wrapper = mountJobSpecRuns(props)
@@ -37,5 +39,42 @@ describe('containers/JobSpecRuns', () => {
     expect(wrapper.text()).toContain(runsResponse.data[0].id)
     expect(wrapper.text()).toContain('completed')
     expect(wrapper.text()).toContain('{"result":"value"}')
+  })
+
+  it('can page through the list of runs', async () => {
+    expect.assertions(6)
+
+    const pageOneResponse = jsonApiJobSpecRunFactory(
+      [{id: 'ID-ON-FIRST-PAGE'}],
+      jobSpecId,
+      2
+    )
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
+
+    const props = {match: {params: {jobSpecId: jobSpecId}}, pageSize: 1}
+    const wrapper = mountJobSpecRuns(props)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
+    expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+
+    const pageTwoResponse = jsonApiJobSpecRunFactory(
+      [{id: 'ID-ON-SECOND-PAGE'}],
+      jobSpecId,
+      2
+    )
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=2&size=1`, pageTwoResponse)
+    clickNextPage(wrapper)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
+    expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
+
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
+    clickPreviousPage(wrapper)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
+    expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
   })
 })

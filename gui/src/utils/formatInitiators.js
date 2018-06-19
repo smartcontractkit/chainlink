@@ -1,1 +1,3 @@
-export default (initiators) => (initiators.map(i => i.type).join(', '))
+export default (initiators) => (
+  (initiators || []).map(i => i.type).join(', ')
+)

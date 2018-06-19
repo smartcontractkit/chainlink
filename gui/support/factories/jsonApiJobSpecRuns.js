@@ -1,7 +1,7 @@
 import uuid from 'uuid/v4'
 import { decamelizeKeys } from 'humps'
 
-export default (jobs, count) => {
+export default (jobs, jobSpecId, count) => {
   const j = jobs || []
   const jc = count || j.length
 
@@ -16,7 +16,7 @@ export default (jobs, count) => {
         type: 'runs',
         attributes: {
           id: id,
-          jobId: 'c7a346b4858544f7bbd719ffa99ee628',
+          jobId: jobSpecId,
           result: {
             jobRunId: id,
             data: {

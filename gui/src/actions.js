@@ -100,7 +100,8 @@ export const RECEIVE_JOB_SPEC_RUNS_ERROR = 'RECEIVE_JOB_SPEC_RUNS_ERROR'
 const receiveJobSpecRunsSuccess = (json) => {
   return {
     type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
-    items: json.data.map(j => j.attributes)
+    items: json.data.map(j => j.attributes),
+    runsCount: json.meta.count
   }
 }
 const receiveJobSpecRunsNetworkError = () => {
@@ -110,9 +111,9 @@ const receiveJobSpecRunsNetworkError = () => {
   }
 }
 
-export const fetchJobSpecRuns = (id) => {
+export const fetchJobSpecRuns = (id, page, size) => {
   return dispatch => {
-    return getJobSpecRuns(id)
+    return getJobSpecRuns(id, page, size)
       .then(json => dispatch(receiveJobSpecRunsSuccess(json)))
       .catch(_ => dispatch(receiveJobSpecRunsNetworkError()))
   }
