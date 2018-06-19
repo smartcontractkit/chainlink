@@ -216,20 +216,17 @@ func (rr RunResult) MarkPendingConfirmations() RunResult {
 }
 
 // Get searches for and returns the JSON at the given path.
-func (rr RunResult) Get(path string) (gjson.Result, error) {
-	return rr.Data.Get(path), nil
+func (rr RunResult) Get(path string) gjson.Result {
+	return rr.Data.Get(path)
 }
 
-func (rr RunResult) value() (gjson.Result, error) {
+func (rr RunResult) value() gjson.Result {
 	return rr.Get("value")
 }
 
 // Value returns the string value of the Data JSON field.
 func (rr RunResult) Value() (string, error) {
-	val, err := rr.value()
-	if err != nil {
-		return "", err
-	}
+	val := rr.value()
 	if val.Type != gjson.String {
 		return "", fmt.Errorf("non string value")
 	}

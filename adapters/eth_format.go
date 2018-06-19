@@ -41,11 +41,7 @@ type EthBytes32 struct{}
 // the blockchain, it would be:
 // "0x000000000000000000000000000000000000000000000000000000000000007b"
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	result, err := input.Get("value")
-	if err != nil {
-		return input.WithError(err)
-	}
-
+	result := input.Get("value")
 	value := common.RightPadBytes([]byte(result.String()), utils.EVMWordByteLen)
 	hex := utils.RemoveHexPrefix(common.ToHex(value))
 
@@ -105,11 +101,7 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 }
 
 func parseBigInt(input models.RunResult) (*big.Int, error) {
-	val, err := input.Get("value")
-	if err != nil {
-		return nil, input.WithError(err)
-	}
-
+	val := input.Get("value")
 	parts := strings.Split(val.String(), ".")
 	i, ok := (&big.Int{}).SetString(parts[0], 10)
 	if !ok {

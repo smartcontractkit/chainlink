@@ -88,7 +88,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			input.JobRunID = runID
 
 			result := eb.Perform(input, store)
-			val, _ := result.Get("value")
+			val := result.Get("value")
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, test.wantPending, result.Status.PendingBridge())

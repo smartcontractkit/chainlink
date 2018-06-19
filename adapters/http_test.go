@@ -93,8 +93,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			hpa := adapters.HTTPPost{URL: cltest.MustParseWebURL(mock.URL)}
 			result := hpa.Perform(input, nil)
 
-			val, err := result.Get("value")
-			assert.NoError(t, err)
+			val := result.Get("value")
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, true, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
