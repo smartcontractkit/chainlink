@@ -1,0 +1,15 @@
+[package]
+name = "enclave"
+version = "0.1.0"
+authors = ["John Barker <john@smartcontract.com>"]
+
+[lib]
+name = "enclave"
+crate-type = ["staticlib"]
+
+[features]
+default = []
+
+[target.'cfg(not(target_env = "sgx"))'.dependencies]
+sgx_tstd = "=0.9.8"
+sgx_types = "=0.9.8"

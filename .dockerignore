@@ -8,7 +8,6 @@
 .DS_Store
 .envrc
 tmp/
-vendor/
 
 internal/bin/
 internal/ci/
@@ -21,3 +20,8 @@ node_modules/
 solidity/node_modules/
 solidity/build/
 solidity/.python-version
+
+sgx/target/
+
+Dockerfile
+chainlink
