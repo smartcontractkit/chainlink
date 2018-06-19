@@ -57,13 +57,13 @@ describe('jobs reducer', () => {
     expect(state.jobs.networkError).toEqual(true)
   })
 
-  it('RECEIVE_JOB_SPEC_SUCCESS assigns the job and denormalizes the runs to their ids', () => {
+  it('RECEIVE_JOB_SPEC_SUCCESS assigns runsCount', () => {
     const previousState = {
       jobs: {
         items: {
           '50208cd6b3034594b8e999c380066b67': {
             id: '50208cd6b3034594b8e999c380066b67',
-            runs: []
+            runsCount: 2
           }
         }
       }
@@ -77,10 +77,10 @@ describe('jobs reducer', () => {
     }
     const state = reducer(previousState, action)
 
-    expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runs).toEqual(['a', 'b'])
+    expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runsCount).toEqual(2)
   })
 
-  it('RECEIVE_JOB_SPEC_SUCCESS assigns an empty array of runs when the attribute is not in the response', () => {
+  it('RECEIVE_JOB_SPEC_SUCCESS assigns runsCount to 0 when the job doesn\'t have runs', () => {
     const previousState = {
       jobs: {
         items: {}
@@ -94,6 +94,6 @@ describe('jobs reducer', () => {
     }
     const state = reducer(previousState, action)
 
-    expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runs).toEqual([])
+    expect(state.jobs.items['50208cd6b3034594b8e999c380066b67'].runsCount).toEqual(0)
   })
 })
