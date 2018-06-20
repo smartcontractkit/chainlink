@@ -2,8 +2,7 @@ import {
   jobsSelector,
   jobSpecSelector,
   jobRunsSelector,
-  jobRunsCountSelector,
-  latestJobRunsSelector
+  jobRunsCountSelector
 } from 'selectors'
 
 describe('selectors', () => {

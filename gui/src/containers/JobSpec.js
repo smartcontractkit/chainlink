@@ -6,9 +6,11 @@ import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
+import Card from '@material-ui/core/Card'
 import JobRunsList from 'components/JobRunsList'
 import formatInitiators from 'utils/formatInitiators'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
+import Link from 'components/Link'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -18,6 +20,7 @@ import {
   jobRunsSelector,
   jobRunsCountSelector
 } from 'selectors'
+import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
 
 const styles = theme => ({
   title: {
@@ -34,6 +37,11 @@ const styles = theme => ({
   lastRun: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
+  },
+  showMore: {
+    marginTop: theme.spacing.unit * 3,
+    marginLeft: theme.spacing.unit * 3,
+    display: 'block'
   }
 })
 
@@ -84,13 +92,20 @@ const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
   </Grid>
 )
 
-const renderLatestRuns = ({classes, latestJobRuns}) => (
+const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount}) => (
   <React.Fragment>
     <Typography variant='title' className={classes.lastRun}>
       Last Run
     </Typography>
 
-    <JobRunsList runs={latestJobRuns} />
+    <Card>
+      <JobRunsList runs={latestJobRuns} />
+    </Card>
+    {jobRunsCount > LATEST_JOB_RUNS_COUNT &&
+      <Link to={`/job_specs/${jobSpecId}/runs`} className={classes.showMore}>
+        Show More
+      </Link>
+    }
   </React.Fragment>
 )
 
@@ -123,6 +138,7 @@ export class JobSpec extends Component {
       <div>
         <Breadcrumb className={classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Job ID: {jobSpecId}</BreadcrumbItem>
         </Breadcrumb>
         <Typography variant='display2' color='inherit' className={classes.title}>
@@ -139,7 +155,7 @@ JobSpec.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
   jobSpec: PropTypes.object,
-  jobRunsCount: PropTypes.number.isRequired
+  jobRunsCount: PropTypes.number
 }
 
 JobSpec.defaultProps = {

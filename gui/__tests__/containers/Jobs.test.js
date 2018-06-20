@@ -52,6 +52,8 @@ describe('containers/Job', () => {
   })
 
   it('can page through the list of jobs', async () => {
+    expect.assertions(6)
+
     const accountBalanceResponse = accountBalanceFactory('0', '0')
     global.fetch.getOnce('/v2/account_balance', accountBalanceResponse)
 
