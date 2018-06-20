@@ -25,7 +25,7 @@ contract SpecAndRunLog is Chainlinked, Ownable {
     ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)");
     spec.add("msg", "hello_chainlink");
     spec.add("url", "http://localhost:6690");
-    spec.add("seconds", 3);
+    spec.addUint("until", block.timestamp + 3);
     requestId = chainlinkRequest(spec, LINK(1));
   }
 
