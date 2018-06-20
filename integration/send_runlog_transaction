@@ -7,13 +7,17 @@ const web3 = require('web3')
 
 process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
 
+function futureOffset(seconds) {
+  return parseInt((new Date).getTime() / 1000) + seconds
+}
+
 const main = async () => {
   const url = 'http://chainlink:twochains@localhost:6688/v2/specs'
   const job = {
     '_comment': 'A runlog has a jobid baked into the contract so chainlink knows which job to run.',
     'initiators': [{ 'type': 'runlog' }],
     'tasks': [
-      { 'type': 'Sleep', 'seconds': 3 },
+      { 'type': 'Sleep', 'until': futureOffset(3) },
       { 'type': 'HttpPost', 'url': 'http://localhost:6690' }
     ]
   }

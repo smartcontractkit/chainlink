@@ -24,7 +24,7 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	HeadTracker          *HeadTracker
-	JobSubscriber        *JobSubscriber
+	JobSubscriber        JobSubscriber
 	Scheduler            *Scheduler
 	Store                *store.Store
 	Exiter               func(int)
@@ -43,7 +43,7 @@ func NewApplication(config store.Config) Application {
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
 		HeadTracker:          ht,
-		JobSubscriber:        &JobSubscriber{Store: store},
+		JobSubscriber:        NewJobSubscriber(store),
 		Scheduler:            NewScheduler(store),
 		Store:                store,
 		Exiter:               os.Exit,
@@ -75,6 +75,7 @@ func (app *ChainlinkApplication) Start() error {
 func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
+	app.JobSubscriber.Stop()
 	app.Scheduler.Stop()
 	app.HeadTracker.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)

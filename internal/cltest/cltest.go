@@ -218,10 +218,10 @@ func cleanUpStore(store *store.Store) {
 }
 
 // NewJobSubscriber creates a new JobSubscriber
-func NewJobSubscriber() (*services.JobSubscriber, func()) {
+func NewJobSubscriber() (*store.Store, services.JobSubscriber, func()) {
 	store, cl := NewStore()
-	nl := &services.JobSubscriber{Store: store}
-	return nl, func() {
+	nl := services.NewJobSubscriber(store)
+	return store, nl, func() {
 		cl()
 	}
 }
