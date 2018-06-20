@@ -2,7 +2,8 @@ import {
   REQUEST_JOBS,
   RECEIVE_JOBS_SUCCESS,
   RECEIVE_JOBS_ERROR,
-  RECEIVE_JOB_SPEC_SUCCESS
+  RECEIVE_JOB_SPEC_SUCCESS,
+  RECEIVE_JOB_SPEC_RUNS_SUCCESS
 } from 'actions'
 
 const initialState = {
@@ -24,6 +25,24 @@ export default (state = initialState, action = {}) => {
           networkError: false
         }
       )
+    case RECEIVE_JOB_SPEC_RUNS_SUCCESS: {
+      const runs = (action.items || [])
+      if (runs.length <= 0) {
+        return state
+      }
+      const jobId = runs[0].jobId
+      const items = Object.assign(
+        {},
+        state.items,
+        {[jobId]: { runsCount: action.runsCount }}
+      )
+
+      return Object.assign(
+        {},
+        state,
+        {items: items}
+      )
+    }
     case RECEIVE_JOB_SPEC_SUCCESS: {
       const runs = (action.item.runs || [])
       const jobSpec = Object.assign(
@@ -35,9 +54,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          items: Object.assign({}, state.items, {[jobSpec.id]: jobSpec})
-        }
+        {items: Object.assign({}, state.items, {[jobSpec.id]: jobSpec})}
       )
     }
     case RECEIVE_JOBS_SUCCESS: {
