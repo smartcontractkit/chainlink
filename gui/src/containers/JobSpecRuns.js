@@ -56,7 +56,11 @@ export class JobSpecRuns extends Component {
       <div>
         <Breadcrumb className={classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-          <BreadcrumbItem>Job ID: {jobSpecId}</BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
+          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>
+            Job ID: {jobSpecId}
+          </BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Runs</BreadcrumbItem>
         </Breadcrumb>
         <Typography variant='display2' color='inherit' className={classes.title}>
