@@ -17,14 +17,14 @@ import (
 func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 	t.Parallel()
 
-	el, cleanup := cltest.NewJobSubscriber()
+	store, el, cleanup := cltest.NewJobSubscriber()
 	defer cleanup()
-	eth := cltest.MockEthOnStore(el.Store)
+	eth := cltest.MockEthOnStore(store)
 
 	j1, _ := cltest.NewJobWithLogInitiator()
 	j2, _ := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, el.Store.SaveJob(&j1))
-	assert.Nil(t, el.Store.SaveJob(&j2))
+	assert.Nil(t, store.SaveJob(&j1))
+	assert.Nil(t, store.SaveJob(&j2))
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
@@ -50,7 +50,7 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	el := services.JobSubscriber{Store: store}
+	el := services.NewJobSubscriber(store)
 	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(1)))
 	assert.Equal(t, 2, len(el.Jobs()))
 	el.Disconnect()
@@ -68,8 +68,7 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	t.Parallel()
 
-	el, cleanup := cltest.NewJobSubscriber()
-	store := el.Store
+	store, el, cleanup := cltest.NewJobSubscriber()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 	j1, _ := cltest.NewJobWithLogInitiator()
@@ -111,9 +110,8 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			el, cleanup := cltest.NewJobSubscriber()
+			store, el, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
-			store := el.Store
 
 			eth := cltest.MockEthOnStore(store)
 			logChan := make(chan types.Log, 1)
@@ -162,9 +160,8 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.status), func(t *testing.T) {
-			el, cleanup := cltest.NewJobSubscriber()
+			store, el, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
-			store := el.Store
 
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
@@ -173,10 +170,9 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 			assert.Nil(t, store.SaveJob(&job))
 			assert.Nil(t, store.Save(&run))
 			el.OnNewHead(cltest.NewBlockHeader(10))
+			el.Stop()
 
-			refreshed, err := store.FindJobRun(run.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, test.wantStatus, refreshed.Status)
+			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
 		})
 	}
 }
