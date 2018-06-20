@@ -23,10 +23,10 @@ endif
 dep: ## Ensure chainlink's go dependencies are installed.
 	dep ensure
 
-build: dep $(SGX_BUILD_ENCLAVE) ## Build chainlink.
+build: dep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
 	ENVIRONMENT=$(ENVIRONMENT) go build $(LDFLAGS) -o chainlink
 
-install: dep ## Install chainlink
+install: dep gui ## Install chainlink
 	@go install $(LDFLAGS)
 
 gui: ## Install GUI
