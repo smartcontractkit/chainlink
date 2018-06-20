@@ -1,0 +1,43 @@
+version: '3'
+
+services:
+
+  geth:
+    image: ethereum/client-go
+    restart: on-failure
+    command: --dev --mine --networkid 17 --wsorigins "*" --ws --dev.period 2 --wsaddr 172.16.1.100 --wsport 18546 --datadir /root/gethnet/datadir --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" --ipcdisable --password /root/gethnet/password.txt
+    volumes:
+      - ./internal/gethnet/:/root/gethnet
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.100
+    ports: []
+
+  chainlink:
+    image: smartcontract/chainlink
+    command: node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+    restart: on-failure
+    volumes:
+      - ./internal/clroot/:/root/clroot
+    environment:
+      - LOG_LEVEL=debug
+      - ROOT=/root/clroot
+      - ETH_URL=ws://172.16.1.100:18546
+      - ETH_CHAIN_ID=17
+      - TX_MIN_CONFIRMATIONS=2
+      - MINIMUM_CONTRACT_PAYMENT=1000000000000
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.101
+    depends_on:
+      - geth
+    ports:
+      - 6688:6688
+
+networks:
+  gethnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.1.0/24

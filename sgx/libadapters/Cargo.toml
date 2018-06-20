@@ -1,0 +1,24 @@
+[package]
+name = "adapters"
+version = "0.1.0"
+authors = ["John Barker <john@smartcontract.com>"]
+build = "build.rs"
+
+[lib]
+crate-type = ["cdylib"]
+# FIXME: Want to link statically but need static versions of the sgx libraries
+#crate-type = ["staticlib"]
+#lto = false
+
+[features]
+default = []
+global_init = []
+global_exit = []
+
+[dependencies]
+errno = "0.2.3"
+lazy_static = "1.0.0"
+libc = "*"
+sgx_trts = "=0.9.8"
+sgx_types = "=0.9.8"
+sgx_urts = "=0.9.8"
