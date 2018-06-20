@@ -258,7 +258,9 @@ func TestTime_UnmarshalJSON(t *testing.T) {
 	}{
 		{"unix string", `"1529445491"`, time.Unix(1529445491, 0).UTC(), false},
 		{"unix int", `1529445491`, time.Unix(1529445491, 0).UTC(), false},
-		{"iso8601", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC(), false},
+		{"iso8601 time", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC(), false},
+		{"iso8601 date", `"2018-06-19"`, time.Unix(1529366400, 0).UTC(), false},
+		{"iso8601 year", `"2018"`, time.Unix(1514764800, 0).UTC(), false},
 		{"invalid string", `"1000h"`, time.Now(), true},
 	}
 
