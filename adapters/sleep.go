@@ -10,19 +10,19 @@ import (
 
 // Sleep adapter allows a job to do nothing for some amount of wall time.
 type Sleep struct {
-	Seconds int `json:"seconds"`
+	EndAt models.Time `json:"until"`
 }
 
-const maxDuration = 72 * time.Hour
+const maxDuration = 30 * 24 * time.Hour
 
-// Perform returns the empty RunResult
-func (adaptor *Sleep) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	duration := time.Duration(adaptor.Seconds) * time.Second
+// Perform returns the input RunResult after waiting for the specified EndAt time.
+func (adapter *Sleep) Perform(input models.RunResult, store *store.Store) models.RunResult {
+	duration := adapter.EndAt.DurationFromNow()
 	if duration > maxDuration {
-		return input.WithError(fmt.Errorf("Duration %s exceeds maximum of %s", duration, maxDuration))
+		return input.WithError(fmt.Errorf("Sleep Adapter: %v is greater than max duration %v", duration, maxDuration))
 	}
 
-	time.Sleep(duration)
+	<-store.Clock.After(duration)
 	input.Status = models.RunStatusCompleted
 	return input
 }
