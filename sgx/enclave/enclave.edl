@@ -1,0 +1,11 @@
+enclave {
+  from "sgx_tstd.edl" import *;
+  from "sgx_stdio.edl" import *;
+  from "sgx_backtrace.edl" import *;
+  from "sgx_tstdc.edl" import *;
+
+  trusted {
+    public sgx_status_t sgx_http_get([in, size=url_len] const uint8_t* url, size_t url_len);
+    public sgx_status_t sgx_http_post([in, size=url_len] const uint8_t* url, size_t url_len, [in, size=body_len] const uint8_t* body, size_t body_len);
+  };
+};

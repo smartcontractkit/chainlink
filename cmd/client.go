@@ -15,7 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -45,6 +45,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	config := updateConfig(cli.Config, c.Bool("debug"))
 	logger.SetLogger(config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
+
+	err := InitEnclave()
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
+	}
 
 	app := cli.AppFactory.NewApplication(config)
 	store := app.GetStore()
