@@ -1,5 +1,11 @@
 #!/bin/bash -e
 
+command=`echo $1 | tr A-Z a-z`
+if [ "$command" != "n" ] && [ "$command" != "node" ]; then
+  ./chainlink "$@"
+  exit 0
+fi
+
 trap "kill -- -$$ 2>/dev/null || true" SIGINT SIGTERM EXIT
 
 if [ "$SGX_SIMULATION" != yes ]; then
@@ -7,7 +13,7 @@ if [ "$SGX_SIMULATION" != yes ]; then
   aesm_pid=$!
 fi
 
-./chainlink $@ &
+./chainlink "$@" &
 chainlink_pid=$!
 
 while sleep 10; do
