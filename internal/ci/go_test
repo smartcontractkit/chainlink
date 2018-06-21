@@ -3,6 +3,6 @@
 set -e
 
 cc-test-reporter before-build
-goverage -v -coverprofile=c.out ./...
+go test -v --tags=test -coverprofile=c.out ./...
 cc-test-reporter after-build -t gocov --exit-code $?
 bash <(curl -s https://codecov.io/bash)

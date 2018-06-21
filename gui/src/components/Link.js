@@ -17,7 +17,10 @@ const styles = theme => ({
 })
 
 const Link = ({children, classes, className, to}) => (
-  <ReactStaticLink to={to} className={classNames(classes.link, className)}>
+  <ReactStaticLink
+    to={to}
+    className={classNames(classes.link, className)}
+  >
     <Typography
       variant='body1'
       color='inherit'
