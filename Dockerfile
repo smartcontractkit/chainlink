@@ -53,7 +53,6 @@ RUN mv /tmp/chainlink /root/ && \
   mv /tmp/enclave.signed.so /root/ 2>/dev/null || true && \
   mv /tmp/libadapters.so /usr/lib/ 2>/dev/null || true && \
   rm -f /tmp/*.so
-COPY --from=builder /go/src/github.com/smartcontractkit/chainlink/gui/dist /go/src/github.com/smartcontractkit/chainlink/gui/dist
 
 # Launch chainlink via a small script that watches AESM + Chainlink
 ARG SGX_SIMULATION

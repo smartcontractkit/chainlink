@@ -33,7 +33,8 @@ gui: ## Install GUI
 	@cd gui
 	@yarn install
 	@cd ..
-	@yarn build
+	yarn build
+	go generate ./...
 
 docker: ## Build the docker image.
 	docker build \
