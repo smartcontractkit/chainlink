@@ -22,7 +22,7 @@ func TestClient_RunNode(t *testing.T) {
 
 	r := &cltest.RendererMock{}
 	var called bool
-	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) { called = true }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { called = true; return nil }}
 	client := cmd.Client{
 		Renderer:   r,
 		Config:     app.Store.Config,
@@ -34,7 +34,7 @@ func TestClient_RunNode(t *testing.T) {
 	set.Bool("debug", true, "")
 	c := cli.NewContext(nil, set, nil)
 
-	assert.Nil(t, client.RunNode(c))
+	assert.NoError(t, client.RunNode(c))
 	assert.True(t, called)
 }
 
@@ -58,9 +58,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			eth := app.MockEthClient()
 
 			var unlocked bool
-			callback := func(store *store.Store, phrase string) {
+			callback := func(store *store.Store, phrase string) error {
 				err := store.KeyStore.Unlock(phrase)
 				unlocked = err == nil
+				return err
 			}
 
 			auth := cltest.CallbackAuthenticator{Callback: callback}
@@ -80,7 +81,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 				assert.NoError(t, client.RunNode(c))
 				assert.True(t, unlocked)
 			} else {
-				client.RunNode(c)
+				assert.Error(t, client.RunNode(c))
 				assert.False(t, unlocked)
 			}
 		})

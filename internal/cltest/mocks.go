@@ -375,12 +375,12 @@ func (a *EmptyApplication) GetStore() *store.Store {
 
 // CallbackAuthenticator contains a call back authenticator method
 type CallbackAuthenticator struct {
-	Callback func(*store.Store, string)
+	Callback func(*store.Store, string) error
 }
 
 // Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) {
-	a.Callback(store, pwd)
+func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) error {
+	return a.Callback(store, pwd)
 }
 
 // EmptyRunner is an EmptyRunner

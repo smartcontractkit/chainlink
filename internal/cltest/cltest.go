@@ -511,7 +511,7 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 		Renderer:   r,
 		Config:     config,
 		AppFactory: EmptyAppFactory{},
-		Auth:       CallbackAuthenticator{func(*store.Store, string) {}},
+		Auth:       CallbackAuthenticator{func(*store.Store, string) error { return nil }},
 		Runner:     EmptyRunner{},
 	}
 	return client, r

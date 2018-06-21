@@ -137,7 +137,7 @@ func NewProductionClient() *cmd.Client {
 		Renderer:   cmd.RendererTable{Writer: os.Stdout},
 		Config:     store.NewConfig(),
 		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}, Exiter: os.Exit},
+		Auth:       cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}},
 		Runner:     cmd.ChainlinkRunner{},
 	}
 }

@@ -57,7 +57,10 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
-	cli.Auth.Authenticate(store, pwd)
+	err = cli.Auth.Authenticate(store, pwd)
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	}
 	if err := app.Start(); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
