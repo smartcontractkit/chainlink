@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -32,28 +32,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 
 	v1Routes(app, engine)
 	v2Routes(app, engine)
-
-	box := packr.NewBox("../gui/dist/")
-	engine.NoRoute(func(c *gin.Context) {
-		path := "index.html"
-		if filepath.Ext(c.Request.URL.Path) != "" {
-			path = c.Request.URL.Path
-		}
-
-		file, err := box.Open(path)
-		if err != nil {
-			if err == os.ErrNotExist {
-				c.AbortWithStatus(http.StatusNotFound)
-			} else {
-				err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
-				logger.Error(err.Error())
-				c.AbortWithError(http.StatusInternalServerError, err)
-			}
-			return
-		}
-
-		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
-	})
+	guiAssetRoutes(engine)
 
 	return engine
 }
@@ -102,6 +81,95 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 	cc := ConfigController{app}
 	v2.GET("/config", cc.Show)
+}
+
+func guiAssetRoutes(engine *gin.Engine) {
+	box := NewBox()
+	boxList := box.List()
+
+	engine.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		matchedBoxPath := matchPath(boxList, path)
+
+		if matchedBoxPath == "" {
+			if filepath.Ext(path) == "" {
+				matchedBoxPath = wildcardMatchPath(
+					boxList,
+					path,
+					"index.html",
+				)
+			} else if filepath.Ext(path) == ".json" {
+				matchedBoxPath = wildcardMatchPath(
+					boxList,
+					filepath.Dir(path),
+					filepath.Base(path),
+				)
+			}
+		}
+
+		if matchedBoxPath != "" {
+			file, err := box.Open(matchedBoxPath)
+			if err != nil {
+				if err == os.ErrNotExist {
+					c.AbortWithStatus(http.StatusNotFound)
+				} else {
+					err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
+					logger.Error(err.Error())
+					c.AbortWithError(http.StatusInternalServerError, err)
+				}
+				return
+			}
+
+			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
+		}
+	})
+}
+
+func wildcardMatchPath(boxList []string, path string, file string) (matchedPath string) {
+	idPattern := regexp.MustCompile(`(_[a-zA-Z0-9]+_)`)
+	pathSeparator := (string)(os.PathSeparator)
+	escapedPathSeparator := pathSeparator
+	if pathSeparator == `\` {
+		escapedPathSeparator = `\\`
+	}
+	pathAndFile := filepath.Clean(strings.Join(
+		[]string{path, file},
+		pathSeparator,
+	))
+	normalizedPathAndFile := strings.Replace(
+		strings.TrimPrefix(pathAndFile, `/`),
+		`/`,
+		pathSeparator,
+		-1,
+	)
+
+	for i := 0; i < len(boxList) && matchedPath == ""; i++ {
+		boxPathWithIDPattern := idPattern.ReplaceAllString(boxList[i], `[a-zA-Z0-9]+`)
+		pathPattern := fmt.Sprintf(
+			`^%s$`,
+			strings.Replace(boxPathWithIDPattern, `\`, escapedPathSeparator, -1),
+		)
+		match, _ := regexp.MatchString(pathPattern, normalizedPathAndFile)
+
+		if match {
+			matchedPath = boxList[i]
+		}
+	}
+
+	return matchedPath
+}
+
+func matchPath(boxList []string, path string) (matchedPath string) {
+	pathWithoutPrefix := strings.TrimPrefix(path, "/")
+
+	for i := 0; i < len(boxList) && matchedPath == ""; i++ {
+		boxPath := boxList[i]
+		if boxPath == pathWithoutPrefix {
+			matchedPath = boxPath
+		}
+	}
+
+	return matchedPath
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
