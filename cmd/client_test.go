@@ -38,6 +38,55 @@ func TestClient_RunNode(t *testing.T) {
 	assert.True(t, called)
 }
 
+func TestClient_RunNodeWithPasswords(t *testing.T) {
+	tests := []struct {
+		name         string
+		pwdfile      string
+		wantUnlocked bool
+	}{
+		{"correct", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect", "../internal/fixtures/incorrect_password.txt", false},
+		{"wrongfile", "doesntexist.txt", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, _ := cltest.NewApplication() // cleanup invoked in client.RunNode
+			_, err := app.Store.KeyStore.NewAccount("password")
+			assert.NoError(t, err)
+			r := &cltest.RendererMock{}
+			eth := app.MockEthClient()
+
+			var unlocked bool
+			callback := func(store *store.Store, phrase string) {
+				err := store.KeyStore.Unlock(phrase)
+				unlocked = err == nil
+			}
+
+			auth := cltest.CallbackAuthenticator{Callback: callback}
+			client := cmd.Client{
+				Renderer:   r,
+				Config:     app.Store.Config,
+				AppFactory: cltest.InstanceAppFactory{App: app},
+				Auth:       auth,
+				Runner:     cltest.EmptyRunner{}}
+
+			set := flag.NewFlagSet("test", 0)
+			set.String("password", test.pwdfile, "")
+			c := cli.NewContext(nil, set, nil)
+
+			eth.Register("eth_getTransactionCount", `0x1`)
+			if test.wantUnlocked {
+				assert.NoError(t, client.RunNode(c))
+				assert.True(t, unlocked)
+			} else {
+				client.RunNode(c)
+				assert.False(t, unlocked)
+			}
+		})
+	}
+}
+
 func TestClient_DisplayAccountBalance(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
