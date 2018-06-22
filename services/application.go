@@ -139,6 +139,7 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	return nil
 }
 
+// ResumeSleptRuns restarts the timer for all of the slept runs.
 func (app *ChainlinkApplication) ResumeSleptRuns() error {
 	pendingRuns, err := app.Store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
