@@ -19,19 +19,26 @@ func sleepFor(n int) string {
 
 func TestSleep_Perform(t *testing.T) {
 	t.Parallel()
+	standardInput := models.RunResult{}
+	sleptInput := models.RunResult{
+		Status: models.RunStatusPendingSleep,
+	}
 
 	tests := []struct {
 		name         string
 		params       string
+		input        models.RunResult
+		wantStatus   models.RunStatus
 		parseErrored bool
 		errored      bool
 	}{
-		{"excessive duration", sleepFor(2592010), false, true},
-		{"valid duration", sleepFor(1), false, false},
-		{"past time", sleepFor(-1), false, false},
-		{"json with iso8601", `{"until":"2018-06-19T12:54:49.000Z"}`, false, false},
-		{"max duration", sleepFor(2592000), false, false},
-		{"invalid json", `{"until":"1000h"}`, true, false},
+		{"excessive duration", sleepFor(2592010), standardInput, models.RunStatusErrored, false, true},
+		{"valid duration", sleepFor(1), standardInput, models.RunStatusPendingSleep, false, false},
+		{"past time", sleepFor(-1), standardInput, models.RunStatusCompleted, false, false},
+		{"json with iso8601", `{"until":"2018-07-20T12:54:49.000Z"}`, standardInput, models.RunStatusPendingSleep, false, false},
+		{"max duration", sleepFor(2592000), standardInput, models.RunStatusPendingSleep, false, false},
+		{"invalid json", `{"until":"1000h"}`, standardInput, models.RunStatusPendingSleep, true, false},
+		{"already slept", sleepFor(1000), sleptInput, models.RunStatusPendingSleep, false, false},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -43,7 +50,6 @@ func TestSleep_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			input := models.RunResult{}
 			adapter := adapters.Sleep{}
 			err := json.Unmarshal([]byte(test.params), &adapter)
 			if test.parseErrored {
@@ -52,7 +58,8 @@ func TestSleep_Perform(t *testing.T) {
 			}
 			assert.NoError(t, err)
 
-			result := adapter.Perform(input, store)
+			result := adapter.Perform(test.input, store)
+			assert.Equal(t, test.wantStatus, result.Status)
 			if test.errored {
 				assert.Error(t, result.GetError())
 			} else {
