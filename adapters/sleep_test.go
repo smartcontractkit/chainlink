@@ -32,7 +32,7 @@ func TestSleep_Perform(t *testing.T) {
 		parseErrored bool
 		errored      bool
 	}{
-		{"valid duration", sleepFor(10), standardInput, models.RunStatusPendingSleep, false, false},
+		{"valid duration", sleepFor(60), standardInput, models.RunStatusPendingSleep, false, false},
 		{"past time", sleepFor(-1), standardInput, models.RunStatusCompleted, false, false},
 		{"json with iso8601", `{"until":"2018-07-20T12:54:49.000Z"}`, standardInput, models.RunStatusPendingSleep, false, false},
 		{"long duration", sleepFor(12592000), standardInput, models.RunStatusPendingSleep, false, false},

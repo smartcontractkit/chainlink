@@ -17,7 +17,9 @@ import (
 )
 
 func TestServices_ApplicationSignalShutdown(t *testing.T) {
-	app, _ := cltest.NewApplication()
+	config, cleanup := cltest.NewConfig()
+	defer cleanup()
+	app, _ := cltest.NewApplicationWithConfig(config)
 
 	completed := abool.New()
 	app.Exiter = func(code int) {
