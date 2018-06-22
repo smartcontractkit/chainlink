@@ -17,10 +17,11 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*models.ORM
-	Config    Config
-	Clock     AfterNower
-	KeyStore  *KeyStore
-	TxManager *TxManager
+	Config     Config
+	Clock      AfterNower
+	KeyStore   *KeyStore
+	TxManager  *TxManager
+	RunChannel chan models.RunResult
 }
 
 type rpcSubscriptionWrapper struct {
@@ -69,10 +70,11 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
-		ORM:      orm,
-		Config:   config,
-		KeyStore: keyStore,
-		Clock:    Clock{},
+		Clock:      Clock{},
+		Config:     config,
+		KeyStore:   keyStore,
+		ORM:        orm,
+		RunChannel: make(chan models.RunResult),
 		TxManager: &TxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
@@ -90,6 +92,12 @@ func (s *Store) Start() error {
 		return err
 	}
 	return s.TxManager.ActivateAccount(acc)
+}
+
+// Stop shuts down all of the working parts of the store.
+func (s *Store) Stop() error {
+	close(s.RunChannel)
+	return s.Close()
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`

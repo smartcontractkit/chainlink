@@ -26,6 +26,8 @@ const (
 	// RunStatusPendingBridge is used for when a run is waiting on the completion
 	// of another event.
 	RunStatusPendingBridge = RunStatus("pending_bridge")
+	// RunStatusPendingSleep is used for when a run is waiting on a sleep function to finish.
+	RunStatusPendingSleep = RunStatus("pending_sleep")
 	// RunStatusErrored is used for when a run has errored and will not complete.
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
