@@ -23,7 +23,7 @@ else
 endif
 
 dep: ## Ensure chainlink's go dependencies are installed.
-	dep ensure
+	dep ensure -vendor-only
 
 build: dep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
 	ENVIRONMENT=$(ENVIRONMENT) go build $(GOFLAGS) -o chainlink
