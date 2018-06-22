@@ -16,9 +16,11 @@ fi
 ./chainlink "$@" &
 chainlink_pid=$!
 
-while sleep 10; do
-  if [ "$SGX_SIMULATION" != yes ]; then
+if [ "$SGX_SIMULATION" != yes ]; then
+  while sleep 10; do
     kill -0 $aesm_pid 2>/dev/null
-  fi
-  kill -0 $chainlink_pid 2>/dev/null
-done
+    kill -0 $chainlink_pid 2>/dev/null
+  done
+fi
+wait $chainlink_pid
+exit $?
