@@ -64,10 +64,14 @@ func (app *ChainlinkApplication) Start() error {
 		app.Stop()
 		app.Exiter(0)
 	}()
+	go app.listenToRunChannel()
 
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
 	app.specSubscriberID = app.HeadTracker.Attach(app.specAndRunSubscriber)
-	return multierr.Combine(app.Store.Start(), app.HeadTracker.Start(), app.Scheduler.Start())
+	return multierr.Combine(app.Store.Start(),
+		app.HeadTracker.Start(),
+		app.Scheduler.Start(),
+		app.ResumeSleptRuns())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -80,7 +84,7 @@ func (app *ChainlinkApplication) Stop() error {
 	app.HeadTracker.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	app.HeadTracker.Detach(app.specSubscriberID)
-	return app.Store.Close()
+	return app.Store.Stop()
 }
 
 // GetStore returns the pointer to the store for the ChainlinkApplication.
@@ -133,4 +137,28 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	}
 
 	return nil
+}
+
+func (app *ChainlinkApplication) ResumeSleptRuns() error {
+	pendingRuns, err := app.Store.JobRunsWithStatus(models.RunStatusPendingSleep)
+	if err != nil {
+		return err
+	}
+	for _, run := range pendingRuns {
+		go func() {
+			ExecuteRun(run, app.Store, models.RunResult{})
+		}()
+	}
+	return nil
+}
+
+func (app *ChainlinkApplication) listenToRunChannel() {
+	for input := range app.Store.RunChannel {
+		run, err := app.Store.FindJobRun(input.JobRunID)
+		if err != nil {
+			logger.Warn("Application Run Channel Executor: error finding run", "ID", input.JobRunID)
+			continue
+		}
+		ExecuteRun(run, app.Store, input)
+	}
 }
