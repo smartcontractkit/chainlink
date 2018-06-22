@@ -10,7 +10,6 @@
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
 LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
-PASSWORD="T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
 
 export LOG_LEVEL=debug
 export ETH_URL=ws://localhost:18546
@@ -25,7 +24,7 @@ if [ "$#" == 0 ] || [ "$1" == "node" ]; then
   yarn install --no-progress | cat
   yarn build | cat
   popd >/dev/null
-  go run -ldflags "$LDFLAGS" main.go node -d -p "$PASSWORD"
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
 elif [ "$1" == "clean" ]; then
   rm -f $ROOT/db.bolt $ROOT/log.jsonl
 else

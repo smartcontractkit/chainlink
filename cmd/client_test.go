@@ -22,7 +22,7 @@ func TestClient_RunNode(t *testing.T) {
 
 	r := &cltest.RendererMock{}
 	var called bool
-	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) { called = true }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { called = true; return nil }}
 	client := cmd.Client{
 		Renderer:   r,
 		Config:     app.Store.Config,
@@ -34,8 +34,58 @@ func TestClient_RunNode(t *testing.T) {
 	set.Bool("debug", true, "")
 	c := cli.NewContext(nil, set, nil)
 
-	assert.Nil(t, client.RunNode(c))
+	assert.NoError(t, client.RunNode(c))
 	assert.True(t, called)
+}
+
+func TestClient_RunNodeWithPasswords(t *testing.T) {
+	tests := []struct {
+		name         string
+		pwdfile      string
+		wantUnlocked bool
+	}{
+		{"correct", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect", "../internal/fixtures/incorrect_password.txt", false},
+		{"wrongfile", "doesntexist.txt", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, _ := cltest.NewApplication() // cleanup invoked in client.RunNode
+			_, err := app.Store.KeyStore.NewAccount("password")
+			assert.NoError(t, err)
+			r := &cltest.RendererMock{}
+			eth := app.MockEthClient()
+
+			var unlocked bool
+			callback := func(store *store.Store, phrase string) error {
+				err := store.KeyStore.Unlock(phrase)
+				unlocked = err == nil
+				return err
+			}
+
+			auth := cltest.CallbackAuthenticator{Callback: callback}
+			client := cmd.Client{
+				Renderer:   r,
+				Config:     app.Store.Config,
+				AppFactory: cltest.InstanceAppFactory{App: app},
+				Auth:       auth,
+				Runner:     cltest.EmptyRunner{}}
+
+			set := flag.NewFlagSet("test", 0)
+			set.String("password", test.pwdfile, "")
+			c := cli.NewContext(nil, set, nil)
+
+			eth.Register("eth_getTransactionCount", `0x1`)
+			if test.wantUnlocked {
+				assert.NoError(t, client.RunNode(c))
+				assert.True(t, unlocked)
+			} else {
+				assert.Error(t, client.RunNode(c))
+				assert.False(t, unlocked)
+			}
+		})
+	}
 }
 
 func TestClient_DisplayAccountBalance(t *testing.T) {

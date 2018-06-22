@@ -4,7 +4,6 @@ package main
 
 import (
 	"io/ioutil"
-	"os"
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -17,7 +16,7 @@ func ExampleRun() {
 		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
 		Config:     tc.Config,
 		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}, Exiter: os.Exit},
+		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
 		Runner:     cmd.ChainlinkRunner{},
 	}
 

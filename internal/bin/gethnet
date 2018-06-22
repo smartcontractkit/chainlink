@@ -22,12 +22,12 @@ case "$1" in
       --rpcaddr 127.0.0.1 --rpcport 18545 --wsport 18546 --datadir ../gethnet/datadir \
       --unlock "$ACCOUNT" \
       --ipcdisable \
-      --password ../gethnet/password.txt
+      --password ../clroot/password.txt
     ;;
   topoff)
     geth console --dev \
       --unlock "$ACCOUNT" \
-      --password ../gethnet/password.txt \
+      --password ../clroot/password.txt \
       --datadir ../gethnet/datadir \
       --ipcdisable \
       --exec 'loadScript("../gethnet/gethload.js"); confirm(topOffAccount());'
@@ -42,7 +42,7 @@ case "$1" in
       --datadir ../gethnet/datadir \
       --unlock "$ACCOUNT" \
       --ipcdisable \
-      --password ../gethnet/password.txt \
+      --password ../clroot/password.txt \
       --verbosity 1
     ;;
 esac
