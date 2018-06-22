@@ -71,7 +71,7 @@ func (app *ChainlinkApplication) Start() error {
 	return multierr.Combine(app.Store.Start(),
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
-		app.ResumeSleptRuns())
+		app.ResumeSleepingRuns())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -139,15 +139,17 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	return nil
 }
 
-// ResumeSleptRuns restarts the timer for all of the slept runs.
-func (app *ChainlinkApplication) ResumeSleptRuns() error {
+// ResumeSleepingRuns restarts the timer for all of the slept runs.
+func (app *ChainlinkApplication) ResumeSleepingRuns() error {
 	pendingRuns, err := app.Store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
 		return err
 	}
 	for _, run := range pendingRuns {
 		go func() {
-			ExecuteRun(run, app.Store, models.RunResult{})
+			if jr, err := ExecuteRun(run, app.Store, models.RunResult{}); err != nil {
+				logger.Warnw("Sleeping Run Resumer: error executing run", jr.ForLogger()...)
+			}
 		}()
 	}
 	return nil
@@ -160,6 +162,10 @@ func (app *ChainlinkApplication) listenToRunChannel() {
 			logger.Warn("Application Run Channel Executor: error finding run", "ID", input.JobRunID)
 			continue
 		}
-		ExecuteRun(run, app.Store, input)
+		go func() {
+			if jr, err := ExecuteRun(run, app.Store, input); err != nil {
+				logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger()...)
+			}
+		}()
 	}
 }

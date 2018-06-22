@@ -34,7 +34,7 @@ func TestServices_ApplicationSignalShutdown(t *testing.T) {
 	}).Should(gomega.BeTrue())
 }
 
-func TestApplication_ResumeSleptRuns(t *testing.T) {
+func TestApplication_ResumeSleepingRuns(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
@@ -51,7 +51,7 @@ func TestApplication_ResumeSleptRuns(t *testing.T) {
 	jr.Status = models.RunStatusPendingSleep
 	assert.NoError(t, app.Store.Save(&jr))
 
-	assert.NoError(t, app.ResumeSleptRuns())
+	assert.NoError(t, app.ResumeSleepingRuns())
 	input := <-app.Store.RunChannel
 	assert.Equal(t, jr.ID, input.JobRunID)
 }
