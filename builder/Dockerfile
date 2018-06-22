@@ -1,5 +1,5 @@
 # Start from the sgx-rust base image
-FROM baiduxlab/sgx-rust:0.9.8
+FROM baiduxlab/sgx-rust:1.0.0
 
 # Add all the things we need to build chainlink
 RUN apt-get update && apt-get install -y curl git gcc libssl1.0.0 build-essential
