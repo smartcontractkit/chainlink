@@ -53,7 +53,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	app := cli.AppFactory.NewApplication(config)
 	store := app.GetStore()
-	cli.Auth.Authenticate(store, c.String("password"))
+	pwd, err := passwordFromFile(c.String("password"))
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	}
+	err = cli.Auth.Authenticate(store, pwd)
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	}
 	if err := app.Start(); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
@@ -63,6 +70,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	logIfNonceOutOfSync(store)
 
 	return cli.errorOut(cli.Runner.Run(app))
+}
+
+func passwordFromFile(pwdFile string) (string, error) {
+	if len(pwdFile) == 0 {
+		return "", nil
+	}
+	dat, err := ioutil.ReadFile(pwdFile)
+	return strings.TrimSpace(string(dat)), err
 }
 
 func logIfNonceOutOfSync(store *strpkg.Store) {
