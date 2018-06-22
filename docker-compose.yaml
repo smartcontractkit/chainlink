@@ -1,21 +1,23 @@
-version: '3'
+version: '3.1'
 
 services:
 
   geth:
     image: ethereum/client-go
     restart: on-failure
-    command: --dev --mine --networkid 17 --wsorigins "*" --ws --dev.period 2 --wsaddr 172.16.1.100 --wsport 18546 --datadir /root/gethnet/datadir --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" --ipcdisable --password /root/gethnet/password.txt
+    command: --dev --mine --networkid 17 --wsorigins "*" --ws --dev.period 2 --wsaddr 172.16.1.100 --wsport 18546 --datadir /root/gethnet/datadir --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" --ipcdisable --password /run/secrets/node_password
     volumes:
       - ./internal/gethnet/:/root/gethnet
     networks:
       gethnet:
         ipv4_address: 172.16.1.100
     ports: []
+    secrets:
+      - node_password
 
   chainlink:
     image: smartcontract/chainlink
-    command: node -d -p "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+    command: node -d -p /run/secrets/node_password
     restart: on-failure
     volumes:
       - ./internal/clroot/:/root/clroot
@@ -33,6 +35,9 @@ services:
       - geth
     ports:
       - 6688:6688
+      - 6689:6689
+    secrets:
+      - node_password
 
 networks:
   gethnet:
@@ -41,3 +46,7 @@ networks:
       driver: default
       config:
       - subnet: 172.16.1.0/24
+
+secrets:
+  node_password:
+    file: ./internal/clroot/password.txt
