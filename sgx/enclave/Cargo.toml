@@ -11,5 +11,5 @@ crate-type = ["staticlib"]
 default = []
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-sgx_tstd = "=0.9.8"
-sgx_types = "=0.9.8"
+sgx_tstd = "=1.0.0"
+sgx_types = "=1.0.0"

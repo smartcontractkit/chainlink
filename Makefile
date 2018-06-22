@@ -5,7 +5,8 @@ ENVIRONMENT ?= release
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 REPO=smartcontract/chainlink
-LDFLAGS=-ldflags "-X github.com/smartcontractkit/chainlink/store.Sha=$(COMMIT_SHA)"
+LDFLAGS=-X github.com/smartcontractkit/chainlink/store.Sha=$(COMMIT_SHA)
+GOFLAGS=-ldflags "$(LDFLAGS)"
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
@@ -14,20 +15,21 @@ SGX_TARGET := ./sgx/target/$(ENVIRONMENT)/
 SGX_ENCLAVE := enclave.signed.so
 
 ifeq ($(SGX_ENABLED),yes)
-	LDFLAGS += -ldflags "-L $(SGX_TARGET)" -tags=sgx_enclave
+	LDFLAGS += -L $(SGX_TARGET)
+	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
 else
 	SGX_BUILD_ENCLAVE :=
 endif
 
 dep: ## Ensure chainlink's go dependencies are installed.
-	dep ensure
+	dep ensure -vendor-only
 
 build: dep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
-	ENVIRONMENT=$(ENVIRONMENT) go build $(LDFLAGS) -o chainlink
+	ENVIRONMENT=$(ENVIRONMENT) go build $(GOFLAGS) -o chainlink
 
 install: dep gui ## Install chainlink
-	@go install $(LDFLAGS)
+	@go install $(GOFLAGS)
 
 gui: ## Install GUI
 	@cd gui
