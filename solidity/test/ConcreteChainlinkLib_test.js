@@ -13,6 +13,7 @@ contract('ConcreteChainlinkLib', () => {
   it('has a limited public interface', () => {
     checkPublicABI(artifacts.require(sourcePath), [
       'add',
+      'addBytes',
       'addStringArray',
       'addInt',
       'addUint',
@@ -53,6 +54,32 @@ contract('ConcreteChainlinkLib', () => {
       assert.deepEqual(decoded, {
         'first': 'uno',
         'second': 'dos'
+      })
+    })
+  })
+
+  describe('#addBytes', () => {
+    it('stores and logs keys and values', async () => {
+      await ccl.addBytes('first', '0xaabbccddeeff')
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+      let expected = util.toBuffer('0xaabbccddeeff')
+      assert.deepEqual(decoded, { 'first': expected })
+    })
+
+    it('handles two entries', async () => {
+      await ccl.addBytes('first', '0x756E6F')
+      await ccl.addBytes('second', '0x646F73')
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+
+      let expectedFirst = util.toBuffer('0x756E6F')
+      let expectedSecond = util.toBuffer('0x646F73')
+      assert.deepEqual(decoded, {
+        'first': expectedFirst,
+        'second': expectedSecond
       })
     })
   })
