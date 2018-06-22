@@ -32,11 +32,10 @@ func TestSleep_Perform(t *testing.T) {
 		parseErrored bool
 		errored      bool
 	}{
-		{"excessive duration", sleepFor(2592010), standardInput, models.RunStatusErrored, false, true},
 		{"valid duration", sleepFor(1), standardInput, models.RunStatusPendingSleep, false, false},
 		{"past time", sleepFor(-1), standardInput, models.RunStatusCompleted, false, false},
 		{"json with iso8601", `{"until":"2018-07-20T12:54:49.000Z"}`, standardInput, models.RunStatusPendingSleep, false, false},
-		{"max duration", sleepFor(2592000), standardInput, models.RunStatusPendingSleep, false, false},
+		{"long duration", sleepFor(12592000), standardInput, models.RunStatusPendingSleep, false, false},
 		{"invalid json", `{"until":"1000h"}`, standardInput, models.RunStatusPendingSleep, true, false},
 		{"already slept", sleepFor(1000), sleptInput, models.RunStatusPendingSleep, false, false},
 	}
