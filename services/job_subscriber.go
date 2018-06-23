@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -149,32 +150,13 @@ func (js *jobSubscriber) createWorkerChannelFor(jr models.JobRun) chan *models.I
 	return workerChannel
 }
 
-// waitTimeout waits for a waitGroup to be finished, but abandons it after a
-// specified timeout.
-//
-// This is used to allow the chainlink node to finish within a reasoble time
-// interval, even if a worker thread is procesing a Sleep adaptor with a long
-// duration.
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	completion := make(chan struct{})
-	go func() {
-		defer close(completion)
-		wg.Wait()
-	}()
-	select {
-	case <-completion:
-		return false
-	case <-time.After(timeout):
-		return true
-	}
-}
-
-// Stop closes all workers that have been started to process Job Runs on new heads and waits for them to finish.
+// Stop closes all workers that have been started to process Job Runs on new
+// heads and waits for them to finish.
 func (js *jobSubscriber) Stop() {
 	js.workerMutex.Lock()
 	for _, workerChannel := range js.workers {
 		workerChannel <- nil
 	}
 	js.workerMutex.Unlock()
-	waitTimeout(&js.workerWaiter, 10*time.Second)
+	utils.WaitTimeout(&js.workerWaiter, 10*time.Second)
 }
