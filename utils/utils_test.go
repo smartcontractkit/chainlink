@@ -3,6 +3,7 @@ package utils_test
 import (
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -183,6 +184,31 @@ func TestParseUintHex(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, test.want, result)
 			}
+		})
+	}
+}
+
+func Test_WaitTimeout(t *testing.T) {
+	t.Parallel()
+
+	var wg sync.WaitGroup
+
+	tests := []struct {
+		name  string
+		want  bool
+		setup func()
+	}{
+		{"wait finishes", false, func() { wg.Done() }},
+		{"wait doesn't finish", true, func() {}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wg.Add(1)
+
+			go test.setup()
+			actual := utils.WaitTimeout(&wg, time.Second)
+			assert.Equal(t, test.want, actual)
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/coreos/bbolt"
@@ -22,6 +23,7 @@ type Store struct {
 	KeyStore   *KeyStore
 	TxManager  *TxManager
 	RunChannel chan models.RunResult
+	RunsWaiter sync.WaitGroup
 }
 
 type rpcSubscriptionWrapper struct {
@@ -96,7 +98,9 @@ func (s *Store) Start() error {
 
 // Stop shuts down all of the working parts of the store.
 func (s *Store) Stop() error {
-	close(s.RunChannel)
+	if !utils.WaitTimeout(&s.RunsWaiter, 10*time.Second) {
+		close(s.RunChannel)
+	}
 	return s.Close()
 }
 
