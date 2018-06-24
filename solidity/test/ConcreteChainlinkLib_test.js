@@ -82,6 +82,15 @@ contract('ConcreteChainlinkLib', () => {
         'second': expectedSecond
       })
     })
+
+    it('handles strings', async () => {
+      await ccl.addBytes('first', 'apple')
+      let tx = await ccl.closeEvent()
+      let [payload] = parseCCLEvent(tx)
+      var decoded = await cbor.decodeFirst(payload)
+      let expected = util.toBuffer('apple')
+      assert.deepEqual(decoded, { 'first': expected })
+    })
   })
 
   describe('#addInt', () => {
