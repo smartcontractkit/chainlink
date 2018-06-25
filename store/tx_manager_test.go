@@ -179,7 +179,7 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 
 	sentAt := uint64(1)
 	receiptAt := uint64(2)
-	config.TxMinConfirmations = 2
+	config.MinOutgoingConfirmations = 2
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()

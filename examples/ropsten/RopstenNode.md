@@ -42,7 +42,7 @@ Use the following environment variables as an example to configure your node for
     ROOT=~/.ropsten
     ETH_URL="ws://localhost:18546"
     ETH_CHAIN_ID=3
-    TX_MIN_CONFIRMATIONS=2
+    MIN_OUTGOING_CONFIRMATIONS=2
     TASK_MIN_CONFIRMATIONS=2
     USERNAME=chainlink
     PASSWORD=twochains
