@@ -3,16 +3,11 @@
 package services_test
 
 import (
-	"fmt"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/tevino/abool"
 )
 
@@ -32,26 +27,4 @@ func TestServices_ApplicationSignalShutdown(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return completed.IsSet()
 	}).Should(gomega.BeTrue())
-}
-
-func TestApplication_ResumeSleepingRuns(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(0))
-
-	j := models.NewJob()
-	i := models.Initiator{Type: models.InitiatorWeb}
-	j.Initiators = []models.Initiator{i}
-	json := fmt.Sprintf(`{"until":"%v"}`, utils.ISO8601UTC(time.Now().Add(time.Second)))
-	j.Tasks = []models.TaskSpec{cltest.NewTask("sleep", json)}
-	assert.NoError(t, app.Store.Save(&j))
-
-	jr := j.NewRun(i)
-	jr.Status = models.RunStatusPendingSleep
-	assert.NoError(t, app.Store.Save(&jr))
-
-	assert.NoError(t, app.ResumeSleepingRuns())
-	input := <-app.Store.RunManager.Queue
-	assert.Equal(t, jr.ID, input.JobRunID)
 }
