@@ -22,8 +22,7 @@ type Store struct {
 	Clock      AfterNower
 	KeyStore   *KeyStore
 	TxManager  *TxManager
-	RunChannel chan models.RunResult
-	RunsWaiter sync.WaitGroup
+	RunManager *RunManager
 }
 
 type rpcSubscriptionWrapper struct {
@@ -76,7 +75,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		Config:     config,
 		KeyStore:   keyStore,
 		ORM:        orm,
-		RunChannel: make(chan models.RunResult),
+		RunManager: NewRunManager(),
 		TxManager: &TxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
@@ -98,10 +97,28 @@ func (s *Store) Start() error {
 
 // Stop shuts down all of the working parts of the store.
 func (s *Store) Stop() error {
-	if !utils.WaitTimeout(&s.RunsWaiter, 10*time.Second) {
-		close(s.RunChannel)
-	}
+	s.RunManager.Stop()
 	return s.Close()
+}
+
+// RunManager handles safely coordinating job runs.
+type RunManager struct {
+	Queue  chan models.RunResult
+	Waiter sync.WaitGroup
+}
+
+// NewRunManager initializes a RunManager.
+func NewRunManager() *RunManager {
+	return &RunManager{
+		Queue: make(chan models.RunResult),
+	}
+}
+
+// Stop waits for the open runs to stop before forcing the queue to close.
+func (r *RunManager) Stop() {
+	if !utils.WaitTimeout(&r.Waiter, 10*time.Second) {
+		close(r.Queue)
+	}
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`

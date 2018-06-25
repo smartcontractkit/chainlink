@@ -77,8 +77,8 @@ func ExecuteRunAtBlock(
 	overrides models.RunResult,
 	bn *models.IndexableBlockNumber,
 ) (models.JobRun, error) {
-	store.RunsWaiter.Add(1)
-	defer store.RunsWaiter.Done()
+	store.RunManager.Waiter.Add(1)
+	defer store.RunManager.Waiter.Done()
 
 	if jr.Status.CanStart() {
 		jr.Status = models.RunStatusInProgress

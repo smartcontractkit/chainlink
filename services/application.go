@@ -156,7 +156,7 @@ func (app *ChainlinkApplication) ResumeSleepingRuns() error {
 }
 
 func (app *ChainlinkApplication) listenToRunChannel() {
-	for input := range app.Store.RunChannel {
+	for input := range app.Store.RunManager.Queue {
 		run, err := app.Store.FindJobRun(input.JobRunID)
 		if err != nil {
 			logger.Warn("Application Run Channel Executor: error finding run", "ID", input.JobRunID)
