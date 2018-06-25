@@ -21,7 +21,7 @@ func (adapter *Sleep) Perform(input models.RunResult, store *store.Store) models
 	input.Status = models.RunStatusPendingSleep
 	go func() {
 		<-store.Clock.After(duration)
-		store.RunChannel <- input
+		store.RunManager.Queue <- input
 	}()
 
 	return input
