@@ -70,8 +70,7 @@ func (app *ChainlinkApplication) Start() error {
 	app.specSubscriberID = app.HeadTracker.Attach(app.specAndRunSubscriber)
 	return multierr.Combine(app.Store.Start(),
 		app.HeadTracker.Start(),
-		app.Scheduler.Start(),
-		app.ResumeSleepingRuns())
+		app.Scheduler.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -136,22 +135,6 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 		return models.NewDatabaseAccessError(err.Error())
 	}
 
-	return nil
-}
-
-// ResumeSleepingRuns restarts the timer for all of the slept runs.
-func (app *ChainlinkApplication) ResumeSleepingRuns() error {
-	pendingRuns, err := app.Store.JobRunsWithStatus(models.RunStatusPendingSleep)
-	if err != nil {
-		return err
-	}
-	for _, run := range pendingRuns {
-		go func() {
-			if jr, err := ExecuteRun(run, app.Store, models.RunResult{}); err != nil {
-				logger.Warnw("Sleeping Run Resumer: error executing run", jr.ForLogger()...)
-			}
-		}()
-	}
 	return nil
 }
 
