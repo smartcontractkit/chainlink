@@ -9551,7 +9551,7 @@ react-helmet@^5.2.0:
     prop-types "^15.5.4"
     react-side-effect "^1.1.0"
 
-react-hot-loader@^4:
+react-hot-loader@^4, react-hot-loader@^4.3.3:
   version "4.3.3"
   resolved "https://registry.yarnpkg.com/react-hot-loader/-/react-hot-loader-4.3.3.tgz#37409a3341c7787563d0972007ba02521f82f5d5"
   dependencies:
@@ -9646,7 +9646,7 @@ react-side-effect@^1.1.0:
     exenv "^1.2.1"
     shallowequal "^1.0.1"
 
-react-static@^5.9.3:
+react-static@^5.9.7:
   version "5.9.7"
   resolved "https://registry.yarnpkg.com/react-static/-/react-static-5.9.7.tgz#86a420c4ef267bedb1603db5d7b1d6ebe5ffdaab"
   dependencies:
