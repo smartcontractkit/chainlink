@@ -85,12 +85,12 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.TaskMinConfirmations = 10
+	config.MinIncomingConfirmations = 10
 
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	creationHeight := 1000
-	configMin := int(store.Config.TaskMinConfirmations)
+	configMin := int(store.Config.MinIncomingConfirmations)
 
 	tests := []struct {
 		name           string
@@ -138,11 +138,11 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.TaskMinConfirmations = 10
+	config.MinIncomingConfirmations = 10
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	creationHeight := 1000
-	configMin := int(store.Config.TaskMinConfirmations)
+	configMin := int(store.Config.MinIncomingConfirmations)
 
 	tests := []struct {
 		name                    string

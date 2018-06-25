@@ -21,24 +21,24 @@ import (
 // Config holds parameters used by the application which can be overridden
 // by setting environment variables.
 type Config struct {
-	LogLevel               LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
-	RootDir                string          `env:"ROOT" envDefault:"~/.chainlink"`
-	Port                   string          `env:"CHAINLINK_PORT" envDefault:"6688"`
-	GuiPort                string          `env:"GUI_PORT" envDefault:"6689"`
-	BasicAuthUsername      string          `env:"USERNAME" envDefault:"chainlink"`
-	BasicAuthPassword      string          `env:"PASSWORD" envDefault:"twochains"`
-	EthereumURL            string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
-	ChainID                uint64          `env:"ETH_CHAIN_ID" envDefault:"0"`
-	ClientNodeURL          string          `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
-	TxMinConfirmations     uint64          `env:"TX_MIN_CONFIRMATIONS" envDefault:"12"`
-	TaskMinConfirmations   uint64          `env:"TASK_MIN_CONFIRMATIONS" envDefault:"0"`
-	EthGasBumpThreshold    uint64          `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
-	EthGasBumpWei          big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
-	EthGasPriceDefault     big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
-	LinkContractAddress    string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
-	MinimumContractPayment big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
-	OracleContractAddress  *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
-	DatabasePollInterval   Duration        `env:"DATABASE_POLL_INTERVAL" envDefault:"500ms"`
+	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
+	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
+	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
+	GuiPort                  string          `env:"GUI_PORT" envDefault:"6689"`
+	BasicAuthUsername        string          `env:"USERNAME" envDefault:"chainlink"`
+	BasicAuthPassword        string          `env:"PASSWORD" envDefault:"twochains"`
+	EthereumURL              string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
+	ChainID                  uint64          `env:"ETH_CHAIN_ID" envDefault:"0"`
+	ClientNodeURL            string          `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
+	MinIncomingConfirmations uint64          `env:"MIN_INCOMING_CONFIRMATIONS" envDefault:"0"`
+	MinOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" envDefault:"12"`
+	EthGasBumpThreshold      uint64          `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
+	EthGasBumpWei            big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
+	EthGasPriceDefault       big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
+	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	MinimumContractPayment   big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
+	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
+	DatabasePollInterval     Duration        `env:"DATABASE_POLL_INTERVAL" envDefault:"500ms"`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -104,8 +104,8 @@ func (c Config) String() string {
 		c.EthereumURL,
 		c.ChainID,
 		c.ClientNodeURL,
-		c.TxMinConfirmations,
-		c.TaskMinConfirmations,
+		c.MinOutgoingConfirmations,
+		c.MinIncomingConfirmations,
 		c.EthGasBumpThreshold,
 		c.EthGasBumpWei.String(),
 		c.EthGasPriceDefault.String(),

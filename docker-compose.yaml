@@ -24,7 +24,7 @@ services:
       - ROOT=/root/clroot
       - ETH_URL=ws://172.16.1.100:18546
       - ETH_CHAIN_ID=17
-      - TX_MIN_CONFIRMATIONS=2
+      - MIN_OUTGOING_CONFIRMATIONS=2
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
     networks:
       gethnet:
