@@ -59,19 +59,19 @@ Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages
 
 You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found:
 
-    LOG_LEVEL                Default: info
-    ROOT                     Default: ~/.chainlink
-    CHAINLINK_PORT           Default: 6688
-    GUI_PORT                 Default: 6689
-    USERNAME                 Default: chainlink
-    PASSWORD                 Default: twochains
-    ETH_URL                  Default: ws://localhost:8546
-    ETH_CHAIN_ID             Default: 0
-    ETH_GAS_BUMP_THRESHOLD   Default: 12
-    TX_MIN_CONFIRMATIONS     Default: 12
-    TASK_MIN_CONFIRMATIONS   Default: 6
-    ETH_GAS_BUMP_WEI         Default: 5000000000  (5 gwei)
-    ETH_GAS_PRICE_DEFAULT    Default: 20000000000 (20 gwei)
+    LOG_LEVEL                      Default: info
+    ROOT                           Default: ~/.chainlink
+    CHAINLINK_PORT                 Default: 6688
+    GUI_PORT                       Default: 6689
+    USERNAME                       Default: chainlink
+    PASSWORD                       Default: twochains
+    ETH_URL                        Default: ws://localhost:8546
+    ETH_CHAIN_ID                   Default: 0
+    ETH_GAS_BUMP_THRESHOLD         Default: 12
+    MIN_OUTGOING_CONFIRMATIONS     Default: 12
+    MIN_INCOMING_CONFIRMATIONS     Default: 6
+    ETH_GAS_BUMP_WEI               Default: 5000000000  (5 gwei)
+    ETH_GAS_PRICE_DEFAULT          Default: 20000000000 (20 gwei)
 
 When running the CLI to talk to a Chainlink node on another machine, you can change the following environment variables:
 

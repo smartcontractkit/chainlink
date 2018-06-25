@@ -52,7 +52,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
-	safe := confirmed + config.TxMinConfirmations - 1
+	safe := confirmed + config.MinOutgoingConfirmations - 1
 
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_sendRawTransaction", hash)
@@ -150,7 +150,7 @@ func TestIntegration_EthLog(t *testing.T) {
 func TestIntegration_RunLog(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.TaskMinConfirmations = 6
+	config.MinIncomingConfirmations = 6
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
@@ -177,7 +177,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	jr := runs[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	minConfigHeight := logBlockNumber + int(app.Store.Config.TaskMinConfirmations)
+	minConfigHeight := logBlockNumber + int(app.Store.Config.MinIncomingConfirmations)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minConfigHeight)}
 	<-time.After(time.Second)
 	cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
@@ -190,7 +190,7 @@ func TestIntegration_RunLog(t *testing.T) {
 func TestIntegration_SpecAndRunLog(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.TaskMinConfirmations = 3
+	config.MinIncomingConfirmations = 3
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
@@ -479,7 +479,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 			Hash:        hash,
 			BlockNumber: cltest.BigHexInt(blockNumber),
 		})
-		confirmedBlockNumber := blockNumber + app.Store.Config.TxMinConfirmations
+		confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))
 
 		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"0x11"}`)

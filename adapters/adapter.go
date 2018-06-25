@@ -83,7 +83,7 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 	}
 	wa := MinConfsWrappedAdapter{
 		Adapter:                 ac,
-		ConfiguredConfirmations: store.Config.TaskMinConfirmations,
+		ConfiguredConfirmations: store.Config.MinIncomingConfirmations,
 	}
 	return wa, err
 }
