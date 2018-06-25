@@ -9,7 +9,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-//go:generate sh -c "CGO_ENABLED=0 go run .packr/main.go $PWD"
+//go:generate sh -c "CGO_ENABLED=0 go run gui/main.go $PWD"
 
 func init() {
 	time.LoadLocation("UTC")
