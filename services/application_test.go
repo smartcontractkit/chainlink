@@ -52,6 +52,6 @@ func TestApplication_ResumeSleepingRuns(t *testing.T) {
 	assert.NoError(t, app.Store.Save(&jr))
 
 	assert.NoError(t, app.ResumeSleepingRuns())
-	input := <-app.Store.RunChannel
+	input := <-app.Store.RunManager.Queue
 	assert.Equal(t, jr.ID, input.JobRunID)
 }
