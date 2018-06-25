@@ -6,6 +6,7 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -77,6 +78,12 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 	} else if runs, err := jsc.App.Store.JobRunsFor(j.ID); err != nil {
 		c.AbortWithError(500, err)
 	} else {
-		c.JSON(200, presenters.JobSpec{JobSpec: j, Runs: runs})
+		p := presenters.JobSpec{JobSpec: j, Runs: runs}
+		doc, err := jsonapi.MarshalToStruct(p, nil)
+		if err != nil {
+			c.AbortWithError(500, err)
+		} else {
+			c.JSON(200, doc)
+		}
 	}
 }
