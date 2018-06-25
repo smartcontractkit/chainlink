@@ -52,6 +52,9 @@ func (s *Scheduler) Start() error {
 	if err := s.Recurring.Start(); err != nil {
 		return err
 	}
+	if err := s.resumeSleepingRuns(); err != nil {
+		return fmt.Errorf("Scheduler: %v", err)
+	}
 	s.started = true
 
 	jobs, err := s.store.Jobs()
@@ -92,6 +95,21 @@ func (s *Scheduler) AddJob(job models.JobSpec) {
 		return
 	}
 	s.addJob(job)
+}
+
+func (s *Scheduler) resumeSleepingRuns() error {
+	pendingRuns, err := s.store.JobRunsWithStatus(models.RunStatusPendingSleep)
+	if err != nil {
+		return err
+	}
+	for _, run := range pendingRuns {
+		go func(run models.JobRun) {
+			if jr, err := ExecuteRun(run, s.store, models.RunResult{}); err != nil {
+				logger.Warnw("Rescheduling sleeping runs: error executing run", jr.ForLogger()...)
+			}
+		}(run)
+	}
+	return nil
 }
 
 // Recurring is used for runs that need to execute on a schedule,
