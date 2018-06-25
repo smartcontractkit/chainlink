@@ -73,6 +73,9 @@ func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
 		v2.GET("/backup", backup.Show)
 	}
 
+	cc := ConfigController{app}
+	engine.GET("/config", cc.Show)
+
 	return engine
 }
 

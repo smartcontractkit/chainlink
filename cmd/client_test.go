@@ -16,7 +16,15 @@ import (
 )
 
 func TestClient_RunNode(t *testing.T) {
-	app, _ := cltest.NewApplicationWithKeyStore() // cleanup invoked in client.RunNode
+	config, configCleanup := cltest.NewConfig()
+	defer configCleanup()
+	config.LinkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+	config.Port = "6688"
+	config.GuiPort = "6689"
+
+	// cleanup invoked in client.RunNode
+	app, _ := cltest.NewApplicationWithConfigAndKeyStore(config)
+
 	eth := app.MockEthClient()
 	eth.Register("eth_getTransactionCount", `0x1`)
 
@@ -36,6 +44,27 @@ func TestClient_RunNode(t *testing.T) {
 
 	assert.NoError(t, client.RunNode(c))
 	assert.True(t, called)
+
+	logs, err := cltest.ReadLogs(app)
+	assert.NoError(t, err)
+
+	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
+	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
+	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
+	assert.Contains(t, logs, "GUI_PORT: 6689\\n")
+	assert.Contains(t, logs, "USERNAME: testusername\\n")
+	assert.Contains(t, logs, "ETH_URL: ws://")
+	assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")
+	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
+	assert.Contains(t, logs, "TX_MIN_CONFIRMATIONS: 6\\n")
+	assert.Contains(t, logs, "TASK_MIN_CONFIRMATIONS: 0\\n")
+	assert.Contains(t, logs, "ETH_GAS_BUMP_THRESHOLD: 3\\n")
+	assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
+	assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
+	assert.Contains(t, logs, "LINK_CONTRACT_ADDRESS: 0x514910771AF9Ca656af840dff83E8264EcF986CA\\n")
+	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0\\n")
+	assert.Contains(t, logs, "ORACLE_CONTRACT_ADDRESS: \\n")
+	assert.Contains(t, logs, "DATABASE_POLL_INTERVAL: 500ms\\n")
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {

@@ -102,6 +102,108 @@ func (a *AccountBalance) SetID(value string) error {
 	return nil
 }
 
+// ConfigWhitelist are the non-secret values of the node
+type ConfigWhitelist struct {
+	LogLevel                 store.LogLevel  `json:"logLevel"`
+	RootDir                  string          `json:"root"`
+	Port                     string          `json:"chainlinkPort"`
+	GuiPort                  string          `json:"guiPort"`
+	BasicAuthUsername        string          `json:"username"`
+	EthereumURL              string          `json:"ethUrl"`
+	ChainID                  uint64          `json:"ethChainId"`
+	ClientNodeURL            string          `json:"clientNodeUrl"`
+	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
+	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
+	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
+	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
+	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
+	LinkContractAddress      string          `json:"linkContractAddress"`
+	MinimumContractPayment   *big.Int        `json:"minimumContractPayment"`
+	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
+	DatabasePollInterval     store.Duration  `json:"databasePollInterval"`
+}
+
+// NewConfigWhitelist creates an instance of ConfigWhitelist
+func NewConfigWhitelist(config store.Config) ConfigWhitelist {
+	return ConfigWhitelist{
+		LogLevel:                 config.LogLevel,
+		RootDir:                  config.RootDir,
+		Port:                     config.Port,
+		GuiPort:                  config.GuiPort,
+		BasicAuthUsername:        config.BasicAuthUsername,
+		EthereumURL:              config.EthereumURL,
+		ChainID:                  config.ChainID,
+		ClientNodeURL:            config.ClientNodeURL,
+		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
+		MinIncomingConfirmations: config.MinIncomingConfirmations,
+		EthGasBumpThreshold:      config.EthGasBumpThreshold,
+		EthGasBumpWei:            &config.EthGasBumpWei,
+		EthGasPriceDefault:       &config.EthGasPriceDefault,
+		LinkContractAddress:      config.LinkContractAddress,
+		MinimumContractPayment:   &config.MinimumContractPayment,
+		OracleContractAddress:    config.OracleContractAddress,
+		DatabasePollInterval:     config.DatabasePollInterval,
+	}
+}
+
+// String returns the values as a newline delimited string
+func (c ConfigWhitelist) String() string {
+	fmtConfig := "LOG_LEVEL: %v\n" +
+		"ROOT: %s\n" +
+		"CHAINLINK_PORT: %s\n" +
+		"GUI_PORT: %s\n" +
+		"USERNAME: %s\n" +
+		"ETH_URL: %s\n" +
+		"ETH_CHAIN_ID: %d\n" +
+		"CLIENT_NODE_URL: %s\n" +
+		"TX_MIN_CONFIRMATIONS: %d\n" +
+		"TASK_MIN_CONFIRMATIONS: %d\n" +
+		"ETH_GAS_BUMP_THRESHOLD: %d\n" +
+		"ETH_GAS_BUMP_WEI: %s\n" +
+		"ETH_GAS_PRICE_DEFAULT: %s\n" +
+		"LINK_CONTRACT_ADDRESS: %s\n" +
+		"MINIMUM_CONTRACT_PAYMENT: %s\n" +
+		"ORACLE_CONTRACT_ADDRESS: %s\n" +
+		"DATABASE_POLL_INTERVAL: %s\n"
+
+	oracleContractAddress := ""
+	if c.OracleContractAddress != nil {
+		oracleContractAddress = c.OracleContractAddress.String()
+	}
+
+	return fmt.Sprintf(
+		fmtConfig,
+		c.LogLevel,
+		c.RootDir,
+		c.Port,
+		c.GuiPort,
+		c.BasicAuthUsername,
+		c.EthereumURL,
+		c.ChainID,
+		c.ClientNodeURL,
+		c.MinOutgoingConfirmations,
+		c.MinIncomingConfirmations,
+		c.EthGasBumpThreshold,
+		c.EthGasBumpWei.String(),
+		c.EthGasPriceDefault.String(),
+		c.LinkContractAddress,
+		c.MinimumContractPayment.String(),
+		oracleContractAddress,
+		c.DatabasePollInterval,
+	)
+}
+
+// GetID generates a new ID for jsonapi serialization.
+func (c ConfigWhitelist) GetID() string {
+	return utils.NewBytes32ID()
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (c *ConfigWhitelist) SetID(value string) error {
+	return nil
+}
+
 // JobSpec holds the JobSpec definition and each run associated with that Job.
 type JobSpec struct {
 	models.JobSpec
