@@ -21,7 +21,8 @@ export default (jobs, count) => {
           initiators: initiators,
           id: id,
           tasks: tasks,
-          createdAt: createdAt
+          createdAt: createdAt,
+          runs: c.runs
         }
       }
     })

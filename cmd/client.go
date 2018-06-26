@@ -159,7 +159,7 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	var job presenters.JobSpec
-	return cli.renderResponse(resp, &job)
+	return cli.renderAPIResponse(resp, &job)
 }
 
 // GetJobSpecs returns all job specs.
@@ -454,10 +454,7 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 
 // deserializeAPIResponse is distinct from deserializeResponse in that it supports JSONAPI responses with Links
 func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
-	if resp.StatusCode >= 400 {
-		return cli.errorOut(errors.New(resp.Status))
-	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := parseResponse(resp)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -468,14 +465,7 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 }
 
 func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
-	if resp.StatusCode >= 400 {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return cli.errorOut(errors.New(resp.Status))
-		}
-		return cli.errorOut(errors.New(string(b)))
-	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := parseResponse(resp)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -485,9 +475,28 @@ func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) err
 	return nil
 }
 
+func parseResponse(resp *http.Response) ([]byte, error) {
+	b, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		if err != nil {
+			return b, errors.New(resp.Status)
+		}
+		return b, errors.New(string(b))
+	}
+	return b, err
+}
+
 func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
 	err := cli.deserializeResponse(resp, dst)
 	if err != nil {
+		return cli.errorOut(err)
+	}
+	return cli.errorOut(cli.Render(dst))
+}
+
+func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error {
+	var links jsonapi.Links
+	if err := cli.deserializeAPIResponse(resp, dst, &links); err != nil {
 		return cli.errorOut(err)
 	}
 	return cli.errorOut(cli.Render(dst))

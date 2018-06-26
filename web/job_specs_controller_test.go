@@ -2,7 +2,7 @@ package web_test
 
 import (
 	"bytes"
-	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -251,10 +251,13 @@ func TestJobSpecsController_Show(t *testing.T) {
 	assert.NoError(t, err)
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
+	defer resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respJob presenters.JobSpec
-	json.Unmarshal(cltest.ParseResponseBody(resp), &respJob)
+	b, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.NoError(t, web.ParseJSONAPIResponse(b, &respJob))
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, respJob.Runs[0].ID, jr[0].ID, "should have job runs ordered by created at(descending)")
 	assert.Equal(t, respJob.Runs[1].ID, jr[1].ID, "should have job runs ordered by created at(descending)")

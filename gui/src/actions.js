@@ -75,7 +75,7 @@ const requestJobSpec = () => ({ type: REQUEST_JOB_SPEC })
 const receiveJobSpecSuccess = (json) => {
   return {
     type: RECEIVE_JOB_SPEC_SUCCESS,
-    item: json
+    item: json.data.attributes
   }
 }
 const receiveJobSpecNetworkError = () => {
