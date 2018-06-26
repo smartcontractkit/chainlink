@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
 import "./lib/Ownable.sol";
 import "./lib/LinkToken.sol";
