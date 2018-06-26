@@ -44,9 +44,9 @@ contract UptimeSLA is Chainlinked {
   {
     uptime = _uptime;
     if (_uptime < uptimeThreshold) {
-      client.transfer(this.balance);
+      client.transfer(address(this).balance);
     } else if (block.timestamp >= endAt) {
-      serviceProvider.transfer(this.balance);
+      serviceProvider.transfer(address(this).balance);
     }
   }
 

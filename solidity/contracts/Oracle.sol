@@ -68,7 +68,7 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    uint256 internalId = uint256(keccak256(currentSender, _externalId));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(currentSender, _externalId)));
     callbacks[internalId] = Callback(
       _externalId,
       currentAmount,
@@ -87,7 +87,7 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    uint256 internalId = uint256(keccak256(currentSender, _externalId));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(currentSender, _externalId)));
     callbacks[internalId] = Callback(
       _externalId,
       currentAmount,
@@ -121,7 +121,7 @@ contract Oracle is Ownable {
   function cancel(bytes32 _externalId)
     public
   {
-    uint256 internalId = uint256(keccak256(msg.sender, _externalId));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(msg.sender, _externalId)));
     require(msg.sender == callbacks[internalId].addr);
     Callback memory cb = callbacks[internalId];
     require(LINK.transfer(cb.addr, cb.amount));
