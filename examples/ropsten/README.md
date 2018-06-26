@@ -4,7 +4,6 @@ This guide will allow you to create and deploy a consuming contract to fulfill a
 
 ## Additional Guides
 
-- [Advanced contract deployment with Remix](./AdvancedDeploy.md)
 - [Running your own Chainlink node on Ropsten](./RopstenNode.md)
 
 ## Tools
@@ -12,7 +11,6 @@ This guide will allow you to create and deploy a consuming contract to fulfill a
 This guide requires the following tools:
 
 - [Metamask](https://metamask.io/)
-- [MyCrypto](https://mycrypto.com) or [MyEtherWallet](https://www.myetherwallet.com/)
 - [Remix](http://remix.ethereum.org)
 
 ## General Overview
@@ -33,19 +31,27 @@ ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfill(bytes32,bytes32)")
 
 ## Setup
 
+It is recommended to use the Beta version of Metamask for this guide. Accessing the beta can be accomplished by clicking on the (☰) icon, then "Try Beta!" The interface should reload, and you will see the new look.
+
 Add the Ropsten LINK token to Metamask:
 
 - Switch to the "Ropsten Test Net" network in Metamask
-- Click on the Tokens tab
+- Click on the (☰) icon
 - Click Add Token button
+- Click the Custom Token tab
 - Paste the contract address 0x20fE562d797A42Dcb3399062AE9546cd06f63280
 - The rest should fill in, if it doesn't the Token Symbol is LINK and use 18 for Decimals
 
-![link token](./images/07-20-42.png)
+![link token](./images/14-44-32.png)
 
-You should now see your Ropsten LINK
+- Click Next
+
+You should now see LINK listed on the Ropsten Test Network, finish by clicking the last "Add Tokens" button.
+
 
 ### Faucets
+
+With your Metamask wallet set up, you'll need some Ropsten ETH and LINK to work with.
 
 Ropsten ETH
 - http://faucet.ropsten.be:3001/
@@ -54,85 +60,69 @@ Ropsten ETH
 Ropsten LINK
 - https://developers.smartcontract.com/faucet
 
-## Publish the Consuming Contract
+## Contract Deployment
 
-- Update your local repository from [Chainlink](https://github.com/smartcontractkit/chainlink) or [download](https://github.com/smartcontractkit/chainlink/archive/master.zip) a zip.
+This section of the guide uses [Remix](https://remix.ethereum.org) in order to compile and deploy an example contract from the `examples/ropsten/contracts` directory.
 
-Optionally, you can skip to the [Advanced](./AdvancedDeploy.md) instructions to view the contract source code in Remix.
+In Remix, import the `RopstenConsumer.sol` contract at `chainlink/examples/ropsten/contracts`
 
-- In MyEtherWallet or MyCrypto, change the Network to Ropsten
+![contracts](./images/12-29-32.png)
 
-![ropsten network](./images/15-26-30.png)
+- Click on the `RopstenConsumer.sol` contract in the left side-bar
+- On the Compile tab, click on the "Start to compile" button near the top-right
 
-- Navgate to the Contracts tab
-- Click on Deploy Contract
-- Paste the value in the [ConsumerByteCode](./ConsumerByteCode) file into the Byte Code field
-- The Gas Limit should auto-fill for you, if it doesn't, enter 2000000
+![compile](./images/12-36-11.png)
 
-![deploy byte code](./images/14-51-25.png)
+- Change to the Run tab
+- RopstenConsumer should already be selected
+- Click Deploy
 
-- Access your wallet with MetaMask
-- Sign Transaction
-- Deploy Contract
-- Submit in Metamask
+![deploy1](./images/12-37-18.png)
 
-![submit byte code](./images/11-03-14.png)
+- Metamask will prompt you to Confirm the Transaction
+- You will need to choose a Gas Price (use 20 if you don't know what to pick)
+- Select Submit
 
-## Send Ropsten LINK to the Consumer Contract
+![deploy contracts](./images/14-54-06.png)
 
-Now that your Consumer contract is deployed to Ropsten, you need to send some Ropsten LINK to it.
+- A link to Etherscan will display at the bottom, you can open that in a new tab to keep track of the transaction
 
-- Open your favorite wallet (MEW, MyCrypto, etc.) and connect to the Ropsten network
+![confirm contract deploy](./images/14-55-03.png)
 
-![ropsten network2](./images/15-26-30.png)
+- Once successful, you should have a new address for the deployed contract
 
-- Go to the Send tab in MEW or MyCrypto
-- Access your wallet using Metamask
-- You may need to add the Ropsten LINK token to the wallet so that it recognizes it
-  - Contract address: 0x20fE562d797A42Dcb3399062AE9546cd06f63280
-  - Token Symbol: LINK
-  - Decimals: 18
-- Send LINK to the deployed address of your Consumer contract (1 LINK is enough for 1 request using this example)
+![contract deploy successful](./images/07-25-49.png)
 
-![send link](./images/07-27-10.png)
+### Funding the contract
 
-## Call the Consumer Contract to Request Data from Chainlink
+With the contract deployed, you will need to send some Ropsten LINK to it in order to create a request.
 
-The Consumer contract should now have some Ropsten LINK on it. Now you can call it to make a request on the network. The examples below use functionallity from MyEtherWallet & MyCrypto.
+- Click the icon with the red box around it in the Remix interface to copy the address.
 
-- Go to the Contracts tab
-- Paste your deployed Consumer contract address
-- You can get the API / JSON Interface from the [`ConsumerABI.json`](./ConsumerABI.json) file
-- Paste the ABI and click the Access button
-- A new section appears labeled Read / Write Contract
+![contract address](./images/14-57-07.png)
 
-![access contract](./images/07-30-30.png)
+- Then in Metamask, click the (☰) icon, then the LINK token
+- Click the Send button
+- Paste the address into the "To:" line
 
-- Click the Select a function drop-down and choose `requestEthereumPrice`
-- The values accepted for the `_currency` field are `USD`, `EUR`, and `JPY`.
+![send link](./images/15-02-57.png)
 
-![request eth price](./images/07-30-57.png)
+Metamask will update the status to confirmed when the transaction is complete.
 
-- Access your wallet using Metamask again, and send the transaction leaving the Amount to Send as 0, and Gas Limit as the default.
+![sent link](./images/15-07-37.png)
 
-![confirm tx](./images/07-32-22.png)
+### Calling the contract
 
-![submit tx](./images/11-00-32.png)
+In Remix, you can interact with and call the requesting functions directly, by supplying a string for the methods that begin with "request".
 
-- Follow the link to Etherscan and wait until the transaction successfully completes
+- Type "USD" in the `requestEthereumPrice` text input, and click on its button.
 
-![success tx](./images/07-35-07.png)
+![contract functions](./images/12-50-55.png)
 
-## Verify Data was Written
+- Scroll down if required and click the Confirm button
 
-Back on the Contracts tab of MyEtherWallet or MyCrypto:
+![confirm tx](./images/15-11-45.png)
 
-- Enter your Consumer contract address and the ABI from [`ConsumerABI.json`](./ConsumerABI.json)
-- Select the `currentPrice` function
-- The newly-written value should be displayed
+- And after a few blocks, the updated value retrieved by Chainlink will be visible for each of the `requestEthereum*` methods that were requested
 
-![get value](./images/07-36-16.png)
-
-Congratulations! Your contract just received information from the internet using Chainlink!
-
-If you found an issue with this example, please feel free to submit a pull request with a fix! We value contributions of all sizes!
+![fulfilled](./images/07-13-22.png)
