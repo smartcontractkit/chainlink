@@ -1,7 +1,7 @@
 import React from 'react'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
-import jobSpecFactory from 'factories/jobSpec'
+import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
@@ -24,7 +24,7 @@ describe('containers/JobSpec', () => {
   it('renders the details of the job spec and its latest runs', async () => {
     expect.assertions(6)
 
-    const jobSpecResponse = jobSpecFactory({
+    const jobSpecResponse = jsonApiJobSpecFactory({
       id: jobSpecId,
       initiators: [{'type': 'web'}],
       createdAt: '2018-05-10T00:41:54.531043837Z',
@@ -54,7 +54,7 @@ describe('containers/JobSpec', () => {
       {id: 'runE', result: {data: {value: '8400.00'}}}
     ]
 
-    const jobSpecResponse = jobSpecFactory({
+    const jobSpecResponse = jsonApiJobSpecFactory({
       id: jobSpecId,
       runs: runs
     })
