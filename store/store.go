@@ -146,7 +146,7 @@ type RunQueue struct {
 // NewRunQueue initializes a RunQueue.
 func NewRunQueue() *RunQueue {
 	return &RunQueue{
-		channel: make(chan models.RunResult),
+		channel: make(chan models.RunResult, 1000),
 	}
 }
 
