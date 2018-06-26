@@ -176,3 +176,21 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 		})
 	}
 }
+
+func TestJobSubscriber_WorkerChannelFor(t *testing.T) {
+	t.Parallel()
+
+	_, el, cleanup := cltest.NewJobSubscriber()
+	defer cleanup()
+	job, initr := cltest.NewJobWithWebInitiator()
+	run1 := job.NewRun(initr)
+	run2 := job.NewRun(initr)
+
+	chan1a := el.WorkerChannelFor(run1)
+	chan2 := el.WorkerChannelFor(run2)
+	chan1b := el.WorkerChannelFor(run1)
+
+	assert.NotEqual(t, chan1a, chan2)
+	assert.Equal(t, chan1a, chan1a)
+	assert.NotEqual(t, chan2, chan1b)
+}
