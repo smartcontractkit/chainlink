@@ -66,14 +66,14 @@ func (app *ChainlinkApplication) Start() error {
 		app.Stop()
 		app.Exiter(0)
 	}()
-	go app.RunManager.Start()
 
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
 	app.specSubscriberID = app.HeadTracker.Attach(app.specAndRunSubscriber)
 
 	return multierr.Combine(app.Store.Start(),
 		app.HeadTracker.Start(),
-		app.Scheduler.Start())
+		app.Scheduler.Start(),
+		app.RunManager.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -155,10 +155,10 @@ func NewRunManager(store *store.Store) *RunManager {
 }
 
 func (rm *RunManager) Start() error {
+	go rm.executeRunQueue()
 	if err := rm.ResumeSleepingRuns(); err != nil {
 		return err
 	}
-	rm.executeRunQueue()
 
 	return nil
 }
@@ -169,11 +169,9 @@ func (rm *RunManager) ResumeSleepingRuns() error {
 		return err
 	}
 	for _, run := range pendingRuns {
-		go func(run models.JobRun) {
-			if jr, err := ExecuteRun(run, rm.store, models.RunResult{}); err != nil {
-				logger.Warnw("Rescheduling sleeping runs: error executing run", jr.ForLogger()...)
-			}
-		}(run)
+		rm.store.RunQueue.Push(models.RunResult{
+			JobRunID: run.ID,
+		})
 	}
 	return nil
 }
