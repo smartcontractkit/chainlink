@@ -145,10 +145,11 @@ func (app *ChainlinkApplication) listenToRunChannel() {
 			logger.Warn("Application Run Channel Executor: error finding run", "ID", input.JobRunID)
 			continue
 		}
-		go func() {
+
+		go func(run models.JobRun, input models.RunResult) {
 			if jr, err := ExecuteRun(run, app.Store, input); err != nil {
 				logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger()...)
 			}
-		}()
+		}(run, input)
 	}
 }

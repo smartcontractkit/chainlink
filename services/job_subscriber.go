@@ -28,15 +28,13 @@ type jobSubscriber struct {
 	jobSubscriptions []JobSubscription
 	jobsMutex        sync.Mutex
 	workerMutex      sync.Mutex
-	workers          map[string]chan *models.IndexableBlockNumber
 	workerWaiter     sync.WaitGroup
 }
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store) JobSubscriber {
 	return &jobSubscriber{
-		Store:   store,
-		workers: make(map[string]chan *models.IndexableBlockNumber),
+		Store: store,
 	}
 }
 
@@ -107,54 +105,41 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 	for _, jr := range pendingRuns {
 		activeJobRunIDs[jr.ID] = struct{}{}
 
-		workerChannel, ok := js.workers[jr.ID]
-		if !ok {
-			workerChannel = js.createWorkerChannelFor(jr)
-		}
+		workerChannel := js.Store.RunManager.WorkerChannelFor(jr.ID)
+		go func() {
+			js.workerWaiter.Add(1)
+			defer js.workerWaiter.Done()
 
+			for blockNumber := range workerChannel {
+				if blockNumber == nil {
+					logger.Debug("Stopped worker for", jr.ID)
+					break
+				}
+
+				logger.Debug("Woke up", jr.ID, "worker to process", blockNumber.ToInt())
+				if _, err := ExecuteRunAtBlock(jr, js.Store, jr.Result, blockNumber); err != nil {
+					logger.Error(err.Error())
+				}
+			}
+		}()
 		blockNumber := head.ToIndexableBlockNumber()
 		workerChannel <- blockNumber
 	}
 
 	//Stop any workers that didn't have corresponding pending confirmations
-	for id, workerChannel := range js.workers {
+	for id, workerChannel := range js.Store.RunManager.Workers {
 		if _, ok := activeJobRunIDs[id]; !ok {
 			close(workerChannel)
-			delete(js.workers, id)
+			delete(js.Store.RunManager.Workers, id)
 		}
 	}
-}
-
-func (js *jobSubscriber) createWorkerChannelFor(jr models.JobRun) chan *models.IndexableBlockNumber {
-	workerChannel := make(chan *models.IndexableBlockNumber, 100)
-	js.workers[jr.ID] = workerChannel
-
-	go func() {
-		js.workerWaiter.Add(1)
-
-		for blockNumber := range workerChannel {
-			if blockNumber == nil {
-				logger.Debug("Stopped worker for", jr.ID)
-				break
-			}
-
-			logger.Debug("Woke up", jr.ID, "worker to process", blockNumber.ToInt())
-			if _, err := ExecuteRunAtBlock(jr, js.Store, jr.Result, blockNumber); err != nil {
-				logger.Error(err.Error())
-			}
-		}
-
-		js.workerWaiter.Done()
-	}()
-
-	return workerChannel
 }
 
 // Stop closes all workers that have been started to process Job Runs on new
 // heads and waits for them to finish.
 func (js *jobSubscriber) Stop() {
 	js.workerMutex.Lock()
-	for _, workerChannel := range js.workers {
+	for _, workerChannel := range js.Store.RunManager.Workers {
 		workerChannel <- nil
 	}
 	js.workerMutex.Unlock()

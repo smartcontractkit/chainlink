@@ -101,26 +101,6 @@ func (s *Store) Stop() error {
 	return s.Close()
 }
 
-// RunManager handles safely coordinating job runs.
-type RunManager struct {
-	Queue  chan models.RunResult
-	Waiter sync.WaitGroup
-}
-
-// NewRunManager initializes a RunManager.
-func NewRunManager() *RunManager {
-	return &RunManager{
-		Queue: make(chan models.RunResult),
-	}
-}
-
-// Stop waits for the open runs to stop before forcing the queue to close.
-func (r *RunManager) Stop() {
-	if !utils.WaitTimeout(&r.Waiter, 10*time.Second) {
-		close(r.Queue)
-	}
-}
-
 // AfterNower is an interface that fulfills the `After()` and `Now()`
 // methods.
 type AfterNower interface {
@@ -155,4 +135,40 @@ func initializeORM(config Config) *models.ORM {
 		}
 	}
 	return orm
+}
+
+// RunManager handles safely coordinating job runs.
+type RunManager struct {
+	Queue      chan models.RunResult
+	Waiter     sync.WaitGroup
+	Workers    map[string]chan *models.IndexableBlockNumber
+	activeRuns map[string]struct{}
+}
+
+// NewRunManager initializes a RunManager.
+func NewRunManager() *RunManager {
+	return &RunManager{
+		Queue:      make(chan models.RunResult),
+		Workers:    make(map[string]chan *models.IndexableBlockNumber),
+		activeRuns: make(map[string]struct{}),
+	}
+}
+
+// Stop waits for the open runs to stop before forcing the queue to close.
+func (rm *RunManager) Stop() {
+	if !utils.WaitTimeout(&rm.Waiter, 10*time.Second) {
+		close(rm.Queue)
+	}
+}
+
+// WorkerChannelFor accepts a JobRun ID and returns a worker channel dedicated
+// to that JobRun. The channel accepts new block heights for triggering runs,
+// and ensures that the block height confirmations are run syncronously.
+func (rm *RunManager) WorkerChannelFor(runID string) chan *models.IndexableBlockNumber {
+	workerChannel, ok := rm.Workers[runID]
+	if !ok {
+		workerChannel = make(chan *models.IndexableBlockNumber, 100)
+		rm.Workers[runID] = workerChannel
+	}
+	return workerChannel
 }
