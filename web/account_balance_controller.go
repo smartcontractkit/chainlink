@@ -17,7 +17,7 @@ type AccountBalanceController struct {
 
 // Show returns the address, plus it's ETH & LINK balance
 // Example:
-//  "<application>/account"
+//  "<application>/account_balance"
 func (jsc *AccountBalanceController) Show(c *gin.Context) {
 	store := jsc.App.Store
 	txm := store.TxManager

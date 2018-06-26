@@ -70,52 +70,6 @@ func (c Config) CreateProductionLogger() *zap.Logger {
 	return logger.CreateProductionLogger(c.RootDir, c.LogLevel.Level)
 }
 
-func (c Config) String() string {
-	fmtConfig := "LOG_LEVEL: %v\n" +
-		"ROOT: %s\n" +
-		"CHAINLINK_PORT: %s\n" +
-		"GUI_PORT: %s\n" +
-		"USERNAME: %s\n" +
-		"ETH_URL: %s\n" +
-		"ETH_CHAIN_ID: %d\n" +
-		"CLIENT_NODE_URL: %s\n" +
-		"TX_MIN_CONFIRMATIONS: %d\n" +
-		"TASK_MIN_CONFIRMATIONS: %d\n" +
-		"ETH_GAS_BUMP_THRESHOLD: %d\n" +
-		"ETH_GAS_BUMP_WEI: %s\n" +
-		"ETH_GAS_PRICE_DEFAULT: %s\n" +
-		"LINK_CONTRACT_ADDRESS: %s\n" +
-		"MINIMUM_CONTRACT_PAYMENT: %s\n" +
-		"ORACLE_CONTRACT_ADDRESS: %s\n" +
-		"DATABASE_POLL_INTERVAL: %s\n"
-
-	oracleContractAddress := ""
-	if c.OracleContractAddress != nil {
-		oracleContractAddress = c.OracleContractAddress.String()
-	}
-
-	return fmt.Sprintf(
-		fmtConfig,
-		c.LogLevel,
-		c.RootDir,
-		c.Port,
-		c.GuiPort,
-		c.BasicAuthUsername,
-		c.EthereumURL,
-		c.ChainID,
-		c.ClientNodeURL,
-		c.MinOutgoingConfirmations,
-		c.MinIncomingConfirmations,
-		c.EthGasBumpThreshold,
-		c.EthGasBumpWei.String(),
-		c.EthGasPriceDefault.String(),
-		c.LinkContractAddress,
-		c.MinimumContractPayment.String(),
-		oracleContractAddress,
-		c.DatabasePollInterval,
-	)
-}
-
 func parseEnv(cfg interface{}) error {
 	return env.ParseWithFuncs(cfg, env.CustomParsers{
 		reflect.TypeOf(&common.Address{}): addressParser,
@@ -166,6 +120,19 @@ type LogLevel struct {
 // units of "ns", "us", "ms", "s", "m", "h".
 type Duration struct {
 	time.Duration
+}
+
+// MarshalText returns the byte slice of the formatted duration e.g. "500ms"
+func (d Duration) MarshalText() ([]byte, error) {
+	b := []byte(d.Duration.String())
+	return b, nil
+}
+
+// UnmarshalText parses the time.Duration and assigns it
+func (d *Duration) UnmarshalText(text []byte) error {
+	td, err := time.ParseDuration((string)(text))
+	d.Duration = td
+	return err
 }
 
 // ForGin keeps Gin's mode at the appropriate level with the LogLevel.
