@@ -14,11 +14,9 @@ import (
 // JobSubscriber listens for push notifications from the ethereum node's
 // websocket for specific jobs.
 type JobSubscriber interface {
+	HeadTrackable
 	AddJob(job models.JobSpec, bn *models.IndexableBlockNumber) error
-	Connect(bn *models.IndexableBlockNumber) error
-	Disconnect()
 	Jobs() []models.JobSpec
-	OnNewHead(head *models.BlockHeader)
 	Stop()
 	WorkerChannelFor(jr models.JobRun) chan *models.IndexableBlockNumber
 }
