@@ -42,7 +42,7 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
   }
 
   function withdrawLink() onlyOwner public {
-    require(link.transfer(owner, link.balanceOf(address(this))));
+    require(link.transfer(owner, link.balanceOf(address(this))), "Unable to transfer");
   }
 
 }
