@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/tevino/abool"
 	"go.uber.org/zap/zapcore"
@@ -79,27 +77,6 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	for _, log := range logs.All() {
 		assert.True(t, log.Level <= zapcore.WarnLevel)
 	}
-}
-
-func TestScheduler_Start_resumeSleepingRuns(t *testing.T) {
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	sched := services.NewScheduler(store)
-
-	j := models.NewJob()
-	i := models.Initiator{Type: models.InitiatorWeb}
-	j.Initiators = []models.Initiator{i}
-	json := fmt.Sprintf(`{"until":"%v"}`, utils.ISO8601UTC(time.Now().Add(time.Second)))
-	j.Tasks = []models.TaskSpec{cltest.NewTask("sleep", json)}
-	assert.NoError(t, store.Save(&j))
-
-	jr := j.NewRun(i)
-	jr.Status = models.RunStatusPendingSleep
-	assert.NoError(t, store.Save(&jr))
-
-	assert.NoError(t, sched.Start())
-	input := <-store.RunManager.Queue
-	assert.Equal(t, jr.ID, input.JobRunID)
 }
 
 func TestRecurring_AddJob(t *testing.T) {

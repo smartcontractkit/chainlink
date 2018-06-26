@@ -18,11 +18,11 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*models.ORM
-	Config     Config
-	Clock      AfterNower
-	KeyStore   *KeyStore
-	TxManager  *TxManager
-	RunManager *RunManager
+	Config    Config
+	Clock     AfterNower
+	KeyStore  *KeyStore
+	RunQueue  *RunQueue
+	TxManager *TxManager
 }
 
 type rpcSubscriptionWrapper struct {
@@ -71,11 +71,11 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
-		Clock:      Clock{},
-		Config:     config,
-		KeyStore:   keyStore,
-		ORM:        orm,
-		RunManager: NewRunManager(),
+		Clock:    Clock{},
+		Config:   config,
+		KeyStore: keyStore,
+		ORM:      orm,
+		RunQueue: NewRunQueue(),
 		TxManager: &TxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
@@ -97,7 +97,6 @@ func (s *Store) Start() error {
 
 // Stop shuts down all of the working parts of the store.
 func (s *Store) Stop() error {
-	s.RunManager.Stop()
 	return s.Close()
 }
 
@@ -137,38 +136,27 @@ func initializeORM(config Config) *models.ORM {
 	return orm
 }
 
-// RunManager handles safely coordinating job runs.
-type RunManager struct {
-	Queue      chan models.RunResult
-	Waiter     sync.WaitGroup
-	Workers    map[string]chan *models.IndexableBlockNumber
-	activeRuns map[string]struct{}
+// RunQueue manages sending runs from anywhere the store is available up to the
+// job runner.
+type RunQueue struct {
+	channel chan models.RunResult
+	waiter  sync.WaitGroup
 }
 
-// NewRunManager initializes a RunManager.
-func NewRunManager() *RunManager {
-	return &RunManager{
-		Queue:      make(chan models.RunResult),
-		Workers:    make(map[string]chan *models.IndexableBlockNumber),
-		activeRuns: make(map[string]struct{}),
+// NewRunQueue initializes a RunQueue.
+func NewRunQueue() *RunQueue {
+	return &RunQueue{
+		channel: make(chan models.RunResult),
 	}
 }
 
-// Stop waits for the open runs to stop before forcing the queue to close.
-func (rm *RunManager) Stop() {
-	if !utils.WaitTimeout(&rm.Waiter, 10*time.Second) {
-		close(rm.Queue)
-	}
+func (rq *RunQueue) Push(rr models.RunResult) {
+	rq.waiter.Add(1)
+	rq.channel <- rr
 }
 
-// WorkerChannelFor accepts a JobRun ID and returns a worker channel dedicated
-// to that JobRun. The channel accepts new block heights for triggering runs,
-// and ensures that the block height confirmations are run syncronously.
-func (rm *RunManager) WorkerChannelFor(runID string) chan *models.IndexableBlockNumber {
-	workerChannel, ok := rm.Workers[runID]
-	if !ok {
-		workerChannel = make(chan *models.IndexableBlockNumber, 100)
-		rm.Workers[runID] = workerChannel
-	}
-	return workerChannel
+func (rq *RunQueue) Pop() (models.RunResult, bool) {
+	defer rq.waiter.Done()
+	run, open := <-rq.channel
+	return run, open
 }
