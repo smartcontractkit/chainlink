@@ -31,6 +31,12 @@ contract ConcreteChainlinkLib {
     run = r2;
   }
 
+  function addBytes(string _key, bytes _value) public {
+    ChainlinkLib.Run memory r2 = run;
+    r2.addBytes(_key, _value);
+    run = r2;
+  }
+
   function addInt(string _key, int256 _value) public {
     ChainlinkLib.Run memory r2 = run;
     r2.addInt(_key, _value);
