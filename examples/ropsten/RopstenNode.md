@@ -113,7 +113,9 @@ With your own Oracle contract, you can run your own node to fulfill jobs. With t
 
 If you would like to run requests based on a pre-defined spec, we have example [JobSpecs](https://github.com/smartcontractkit/chainlink/wiki/Job-Pipeline) in the `jobs/` directory. Adding jobs can be done by using the command `chainlink c` with the path to the JobSpec file.
 
-**You will need to modify each JobSpec to update the `"address"` for the `RunLog` initiator to your deployed oracle contract address.**
+You will need to set the config variable [`ORACLE_CONTRACT_ADDRESS`](https://github.com/smartcontractkit/chainlink/wiki/Configuration-Variables#oracle_contract_address) to your deployed oracle contract address when running the node (this is not set automatically).
+
+**You will also need to modify each JobSpec to update the `"address"` for the `RunLog` initiator to your deployed oracle contract address.**
 
 EthUint256:
 
