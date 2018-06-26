@@ -71,10 +71,10 @@ func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
 
 		backup := BackupController{app}
 		v2.GET("/backup", backup.Show)
-	}
 
-	cc := ConfigController{app}
-	engine.GET("/config", cc.Show)
+		cc := ConfigController{app}
+		v2.GET("/config", cc.Show)
+	}
 
 	return engine
 }
