@@ -77,13 +77,15 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if runs, err := jsc.App.Store.JobRunsFor(j.ID); err != nil {
 		c.AbortWithError(500, err)
+	} else if doc, err := marshalSpecFromJSONAPI(j, runs); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		p := presenters.JobSpec{JobSpec: j, Runs: runs}
-		doc, err := jsonapi.MarshalToStruct(p, nil)
-		if err != nil {
-			c.AbortWithError(500, err)
-		} else {
-			c.JSON(200, doc)
-		}
+		c.JSON(200, doc)
 	}
+}
+
+func marshalSpecFromJSONAPI(j models.JobSpec, runs []models.JobRun) (*jsonapi.Document, error) {
+	p := presenters.JobSpec{JobSpec: j, Runs: runs}
+	doc, err := jsonapi.MarshalToStruct(p, nil)
+	return doc, err
 }
