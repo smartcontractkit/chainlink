@@ -25,6 +25,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	HeadTracker          *HeadTracker
 	JobSubscriber        JobSubscriber
+	RunManager           *RunManager
 	Scheduler            *Scheduler
 	Store                *store.Store
 	Exiter               func(int)
@@ -44,6 +45,7 @@ func NewApplication(config store.Config) Application {
 	return &ChainlinkApplication{
 		HeadTracker:          ht,
 		JobSubscriber:        NewJobSubscriber(store),
+		RunManager:           NewRunManager(store),
 		Scheduler:            NewScheduler(store),
 		Store:                store,
 		Exiter:               os.Exit,
@@ -64,10 +66,11 @@ func (app *ChainlinkApplication) Start() error {
 		app.Stop()
 		app.Exiter(0)
 	}()
-	go app.listenToRunChannel()
+	go app.RunManager.Start()
 
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
 	app.specSubscriberID = app.HeadTracker.Attach(app.specAndRunSubscriber)
+
 	return multierr.Combine(app.Store.Start(),
 		app.HeadTracker.Start(),
 		app.Scheduler.Start())
@@ -138,18 +141,64 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) listenToRunChannel() {
-	for input := range app.Store.RunManager.Queue {
-		run, err := app.Store.FindJobRun(input.JobRunID)
-		if err != nil {
-			logger.Warn("Application Run Channel Executor: error finding run", "ID", input.JobRunID)
-			continue
+// RunManager safely handles coordinating job runs.
+type RunManager struct {
+	store  *store.Store
+	waiter sync.WaitGroup
+}
+
+// NewRunManager initializes a RunManager.
+func NewRunManager(store *store.Store) *RunManager {
+	return &RunManager{
+		store: store,
+	}
+}
+
+func (rm *RunManager) Start() error {
+	if err := rm.ResumeSleepingRuns(); err != nil {
+		return err
+	}
+	rm.executeRunQueue()
+
+	return nil
+}
+
+func (rm *RunManager) ResumeSleepingRuns() error {
+	pendingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
+	if err != nil {
+		return err
+	}
+	for _, run := range pendingRuns {
+		go func(run models.JobRun) {
+			if jr, err := ExecuteRun(run, rm.store, models.RunResult{}); err != nil {
+				logger.Warnw("Rescheduling sleeping runs: error executing run", jr.ForLogger()...)
+			}
+		}(run)
+	}
+	return nil
+}
+
+func (rm *RunManager) executeRunQueue() {
+	for {
+		input, open := rm.store.RunQueue.Pop()
+		if !open {
+			logger.Debug("Application Run Manager Closed")
+			break
 		}
 
-		go func(run models.JobRun, input models.RunResult) {
-			if jr, err := ExecuteRun(run, app.Store, input); err != nil {
+		go func(input models.RunResult) {
+			rm.waiter.Add(1)
+			defer rm.waiter.Done()
+
+			run, err := rm.store.FindJobRun(input.JobRunID)
+			if err != nil {
+				logger.Warn("Application Run Channel Executor: error finding run", "ID", input.JobRunID)
+				return
+			}
+
+			if jr, err := ExecuteRun(run, rm.store, input); err != nil {
 				logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger()...)
 			}
-		}(run, input)
+		}(input)
 	}
 }

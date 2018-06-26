@@ -20,6 +20,7 @@ type JobSubscriber interface {
 	Jobs() []models.JobSpec
 	OnNewHead(head *models.BlockHeader)
 	Stop()
+	WorkerChannelFor(jr models.JobRun) chan *models.IndexableBlockNumber
 }
 
 // jobSubscriber implementation
@@ -29,12 +30,14 @@ type jobSubscriber struct {
 	jobsMutex        sync.Mutex
 	workerMutex      sync.Mutex
 	workerWaiter     sync.WaitGroup
+	workers          map[string]chan *models.IndexableBlockNumber
 }
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store) JobSubscriber {
 	return &jobSubscriber{
-		Store: store,
+		Store:   store,
+		workers: make(map[string]chan *models.IndexableBlockNumber),
 	}
 }
 
@@ -105,7 +108,29 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 	for _, jr := range pendingRuns {
 		activeJobRunIDs[jr.ID] = struct{}{}
 
-		workerChannel := js.Store.RunManager.WorkerChannelFor(jr.ID)
+		workerChannel := js.WorkerChannelFor(jr)
+		blockNumber := head.ToIndexableBlockNumber()
+		workerChannel <- blockNumber
+	}
+
+	//Stop any workers that didn't have corresponding pending confirmations
+	for id, workerChannel := range js.workers {
+		if _, ok := activeJobRunIDs[id]; !ok {
+			close(workerChannel)
+			delete(js.workers, id)
+		}
+	}
+}
+
+// workerChannelFor accepts a JobRun and returns a worker channel dedicated
+// to that JobRun. The channel accepts new block heights for triggering runs,
+// and ensures that the block height confirmations are run syncronously.
+func (js *jobSubscriber) WorkerChannelFor(jr models.JobRun) chan *models.IndexableBlockNumber {
+	workerChannel, present := js.workers[jr.ID]
+	if !present {
+		workerChannel = make(chan *models.IndexableBlockNumber, 100)
+		js.workers[jr.ID] = workerChannel
+
 		go func() {
 			js.workerWaiter.Add(1)
 			defer js.workerWaiter.Done()
@@ -122,24 +147,15 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 				}
 			}
 		}()
-		blockNumber := head.ToIndexableBlockNumber()
-		workerChannel <- blockNumber
 	}
-
-	//Stop any workers that didn't have corresponding pending confirmations
-	for id, workerChannel := range js.Store.RunManager.Workers {
-		if _, ok := activeJobRunIDs[id]; !ok {
-			close(workerChannel)
-			delete(js.Store.RunManager.Workers, id)
-		}
-	}
+	return workerChannel
 }
 
 // Stop closes all workers that have been started to process Job Runs on new
 // heads and waits for them to finish.
 func (js *jobSubscriber) Stop() {
 	js.workerMutex.Lock()
-	for _, workerChannel := range js.Store.RunManager.Workers {
+	for _, workerChannel := range js.workers {
 		workerChannel <- nil
 	}
 	js.workerMutex.Unlock()
