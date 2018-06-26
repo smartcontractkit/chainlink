@@ -1,8 +1,10 @@
 package store
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +18,27 @@ func TestStore_ConfigDefaults(t *testing.T) {
 	assert.Equal(t, *big.NewInt(20000000000), config.EthGasPriceDefault)
 	assert.Equal(t, "0x514910771AF9Ca656af840dff83E8264EcF986CA", common.HexToAddress(config.LinkContractAddress).String())
 	assert.Equal(t, *big.NewInt(1000000000000000000), config.MinimumContractPayment)
+}
+
+func TestStore_DurationMarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	d := Duration{
+		Duration: time.Millisecond,
+	}
+	b, err := json.Marshal(d)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(`"1ms"`), b)
+}
+
+func TestStore_DurationUnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	da := Duration{}
+	err := json.Unmarshal([]byte(`"1ms"`), &da)
+	assert.NoError(t, err)
+	assert.Equal(t, Duration{Duration: time.Millisecond}, da)
 }
 
 func TestStore_addressParser(t *testing.T) {

@@ -118,7 +118,8 @@ func logNodeBalance(store *strpkg.Store) {
 }
 
 func logConfigVariables(config strpkg.Config) {
-	logger.Debug("Environment variables\n", config)
+	wlc := presenters.NewConfigWhitelist(config)
+	logger.Debug("Environment variables\n", wlc)
 }
 
 // DisplayAccountBalance renders a table containing the active account address

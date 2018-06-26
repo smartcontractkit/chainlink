@@ -372,6 +372,13 @@ func ObserveLogs() *observer.ObservedLogs {
 	return observed
 }
 
+// ReadLogs returns the contents of the applications log file as a string
+func ReadLogs(app *TestApplication) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", app.Store.Config.RootDir)
+	b, err := ioutil.ReadFile(logFile)
+	return string(b), err
+}
+
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	resp := BasicAuthPost(
