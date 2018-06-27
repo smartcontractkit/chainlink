@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
 import "../Chainlinked.sol";
 import "../lib/Ownable.sol";
@@ -42,7 +42,7 @@ contract SpecAndRunRequester is Chainlinked, Ownable {
   }
 
   function withdrawLink() onlyOwner public {
-    require(link.transfer(owner, link.balanceOf(address(this))));
+    require(link.transfer(owner, link.balanceOf(address(this))), "Unable to transfer");
   }
 
 }

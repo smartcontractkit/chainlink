@@ -8,7 +8,7 @@
     "openzeppelin-solidity": "^1.6.0",
     "request-promise": "^4.2.2",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
-    "truffle": "^4.1.6",
-    "truffle-contract": "^3.0.3"
+    "truffle": "^4.1.12",
+    "truffle-contract": "^3.0.6"
   }
 }

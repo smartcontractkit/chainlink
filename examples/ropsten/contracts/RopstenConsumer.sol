@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
 import "github.com/smartcontractkit/chainlink/solidity/contracts/Chainlinked.sol";
 
@@ -119,7 +119,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   }
 
   function withdrawLink() public onlyOwner {
-    require(link.transfer(owner, link.balanceOf(address(this))));
+    require(link.transfer(owner, link.balanceOf(address(this))), "Unable to transfer");
   }
 
 }

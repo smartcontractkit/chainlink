@@ -2,8 +2,8 @@
   "dependencies": {
     "express": "^4.16.2",
     "request": "^2.83.0",
-    "truffle": "^4.0.6",
-    "truffle-contract": "^3.0.3",
+    "truffle": "^4.1.12",
+    "truffle-contract": "^3.0.6",
     "twilio": "^3.11.3"
   }
 }
