@@ -58,7 +58,7 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 			txm.orm.DeleteStruct(tx)
 			txm.orm.DeleteStruct(txa)
 
-			return err
+			return fmt.Errorf("TxManager CreateTX %v", err)
 		}
 
 		return nil
@@ -126,8 +126,10 @@ func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
-	_, err = txm.SendRawTx(hex)
-	return err
+	if _, err = txm.SendRawTx(hex); err != nil {
+		return fmt.Errorf("TxManager sendTransaction: %v", err)
+	}
+	return nil
 }
 
 func (txm *TxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {

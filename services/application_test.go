@@ -69,9 +69,9 @@ func TestRunManager_WorkerChannelFor_equalityBetweenRuns(t *testing.T) {
 	run1 := job.NewRun(initr)
 	run2 := job.NewRun(initr)
 
-	chan1a := rm.WorkerChannelFor(run1)
-	chan2 := rm.WorkerChannelFor(run2)
-	chan1b := rm.WorkerChannelFor(run1)
+	chan1a := rm.WorkerChannelFor(run1.ID)
+	chan2 := rm.WorkerChannelFor(run2.ID)
+	chan1b := rm.WorkerChannelFor(run1.ID)
 
 	assert.NotEqual(t, chan1a, chan2)
 	assert.Equal(t, chan1a, chan1a)
@@ -91,14 +91,14 @@ func TestRunManager_WorkerChannelFor_equalityAfterClosing(t *testing.T) {
 	jr := j.NewRun(initr)
 	assert.NoError(t, s.Save(&jr))
 
-	chan1 := rm.WorkerChannelFor(jr)
-	chan2 := rm.WorkerChannelFor(jr)
+	chan1 := rm.WorkerChannelFor(jr.ID)
+	chan2 := rm.WorkerChannelFor(jr.ID)
 	assert.Equal(t, chan1, chan2)
 
 	chan1 <- store.RunRequest{}
 	cltest.WaitForJobRunToComplete(t, s, jr)
 
-	chan2 = rm.WorkerChannelFor(jr)
+	chan2 = rm.WorkerChannelFor(jr.ID)
 	assert.NotEqual(t, chan1, chan2)
 }
 
@@ -116,12 +116,12 @@ func TestRunManager_WorkerChannelFor_equalityWithoutClosing(t *testing.T) {
 	jr := j.NewRun(initr)
 	assert.NoError(t, s.Save(&jr))
 
-	chan1 := rm.WorkerChannelFor(jr)
+	chan1 := rm.WorkerChannelFor(jr.ID)
 
 	chan1 <- store.RunRequest{}
 	cltest.WaitForJobRunToPendConfirmations(t, s, jr)
 
-	chan2 := rm.WorkerChannelFor(jr)
+	chan2 := rm.WorkerChannelFor(jr.ID)
 	assert.Equal(t, chan1, chan2)
 }
 
@@ -134,7 +134,7 @@ func TestRunManager_Stop(t *testing.T) {
 
 	j, initr := cltest.NewJobWithWebInitiator()
 	jr := j.NewRun(initr)
-	rc := rm.WorkerChannelFor(jr)
+	rc := rm.WorkerChannelFor(jr.ID)
 
 	rm.Stop()
 
