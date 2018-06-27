@@ -80,11 +80,10 @@ func (app *ChainlinkApplication) Start() error {
 // logs, and closing the DB connection.
 func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
-	defer app.RunManager.Stop()
 	logger.Info("Gracefully exiting...")
-	app.JobSubscriber.Stop()
 	app.Scheduler.Stop()
 	app.HeadTracker.Stop()
+	app.RunManager.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	app.HeadTracker.Detach(app.specSubscriberID)
 	return app.Store.Stop()
@@ -144,8 +143,9 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 
 // RunManager safely handles coordinating job runs.
 type RunManager struct {
-	store   *store.Store
-	Workers map[string]chan store.RunRequest
+	Workers     map[string]chan store.RunRequest
+	store       *store.Store
+	workerMutex sync.Mutex
 }
 
 // NewRunManager initializes a RunManager.
@@ -180,6 +180,7 @@ func (rm *RunManager) ResumeSleepingRuns() error {
 
 func (rm *RunManager) executeRunQueue() {
 	for rr := range rm.store.RunQueue {
+		rm.workerMutex.Lock()
 		go func(rr store.RunRequest) {
 			jr, err := rm.store.FindJobRun(rr.Input.JobRunID)
 			if err != nil {
@@ -188,6 +189,7 @@ func (rm *RunManager) executeRunQueue() {
 			}
 
 			rm.WorkerChannelFor(jr) <- rr
+			rm.workerMutex.Unlock()
 		}(rr)
 	}
 	logger.Debug("Run Manager Closed")
@@ -196,17 +198,20 @@ func (rm *RunManager) executeRunQueue() {
 // WorkerChannelFor accepts a JobRun and returns a worker channel dedicated
 // to that JobRun. The channel accepts new block heights for triggering runs,
 // and ensures that the block height confirmations are run syncronously.
-func (rm *RunManager) WorkerChannelFor(jr models.JobRun) chan store.RunRequest {
-	workerChannel, present := rm.Workers[jr.ID]
+func (rm *RunManager) WorkerChannelFor(run models.JobRun) chan store.RunRequest {
+	workerChannel, present := rm.Workers[run.ID]
 	if !present {
 		workerChannel = make(chan store.RunRequest, 1000)
-		rm.Workers[jr.ID] = workerChannel
+		rm.Workers[run.ID] = workerChannel
 
 		go func() {
 			for rr := range workerChannel {
-				logger.Debug("Woke up", jr.ID, "worker to process", rr.BlockNumber.ToInt())
-				jr, err := ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber)
+				jr, err := rm.store.FindJobRun(run.ID)
 				if err != nil {
+					logger.Warnw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
+				}
+				logger.Debug("Woke up", jr.ID, "worker to process", rr.BlockNumber.ToInt())
+				if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
 					logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
 				}
 
@@ -215,7 +220,7 @@ func (rm *RunManager) WorkerChannelFor(jr models.JobRun) chan store.RunRequest {
 					close(workerChannel)
 				}
 			}
-			logger.Debug("Stopped worker for", jr.ID)
+			logger.Debug("Stopped worker for ", run.ID)
 		}()
 	}
 	return workerChannel
@@ -224,7 +229,11 @@ func (rm *RunManager) WorkerChannelFor(jr models.JobRun) chan store.RunRequest {
 // Stop closes all workers that have been started to process Job Runs on new
 // heads and waits for them to finish.
 func (rm *RunManager) Stop() {
-	for _, workerChannel := range rm.Workers {
+	rm.workerMutex.Lock()
+	defer rm.workerMutex.Unlock()
+
+	for key, workerChannel := range rm.Workers {
+		delete(rm.Workers, key)
 		close(workerChannel)
 	}
 }
