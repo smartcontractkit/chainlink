@@ -23,16 +23,16 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
+	Exiter               func(int)
 	HeadTracker          *HeadTracker
+	JobRunner            JobRunner
 	JobSubscriber        JobSubscriber
-	RunManager           *RunManager
 	Scheduler            *Scheduler
 	Store                *store.Store
-	Exiter               func(int)
+	bridgeTypeMutex      sync.Mutex
 	jobSubscriberID      string
 	specAndRunSubscriber *SpecAndRunSubscriber
 	specSubscriberID     string
-	bridgeTypeMutex      sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
@@ -45,7 +45,7 @@ func NewApplication(config store.Config) Application {
 	return &ChainlinkApplication{
 		HeadTracker:          ht,
 		JobSubscriber:        NewJobSubscriber(store),
-		RunManager:           NewRunManager(store),
+		JobRunner:            NewJobRunner(store),
 		Scheduler:            NewScheduler(store),
 		Store:                store,
 		Exiter:               os.Exit,
@@ -73,7 +73,7 @@ func (app *ChainlinkApplication) Start() error {
 	return multierr.Combine(app.Store.Start(),
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
-		app.RunManager.Start())
+		app.JobRunner.Start())
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -83,7 +83,7 @@ func (app *ChainlinkApplication) Stop() error {
 	logger.Info("Gracefully exiting...")
 	app.Scheduler.Stop()
 	app.HeadTracker.Stop()
-	app.RunManager.Stop()
+	app.JobRunner.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	app.HeadTracker.Detach(app.specSubscriberID)
 	return app.Store.Stop()
@@ -139,97 +139,4 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	}
 
 	return nil
-}
-
-// RunManager safely handles coordinating job runs.
-type RunManager struct {
-	Workers     map[string]chan store.RunRequest
-	store       *store.Store
-	workerMutex sync.Mutex
-}
-
-// NewRunManager initializes a RunManager.
-func NewRunManager(str *store.Store) *RunManager {
-	return &RunManager{
-		store:   str,
-		Workers: make(map[string]chan store.RunRequest),
-	}
-}
-
-func (rm *RunManager) Start() error {
-	go rm.executeRunQueue()
-	if err := rm.ResumeSleepingRuns(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ResumeSleepingRuns enqueues all recorded sleeping runs to make sure they are
-// woken after their sleep is expected to finish.
-func (rm *RunManager) ResumeSleepingRuns() error {
-	pendingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
-	if err != nil {
-		return err
-	}
-	for _, run := range pendingRuns {
-		rm.store.RunQueue <- store.RunRequest{
-			Input: models.RunResult{JobRunID: run.ID},
-		}
-	}
-	return nil
-}
-
-func (rm *RunManager) executeRunQueue() {
-	for rr := range rm.store.RunQueue {
-		rm.workerMutex.Lock()
-		rm.WorkerChannelFor(rr.Input.JobRunID) <- rr
-		rm.workerMutex.Unlock()
-	}
-	logger.Debug("Run Manager Closed")
-}
-
-// WorkerChannelFor accepts a JobRun and returns a worker channel dedicated
-// to that JobRun. The channel accepts new block heights for triggering runs,
-// and ensures that the block height confirmations are run syncronously.
-func (rm *RunManager) WorkerChannelFor(runID string) chan store.RunRequest {
-	workerChannel, present := rm.Workers[runID]
-	if !present {
-		workerChannel = make(chan store.RunRequest, 1000)
-		rm.Workers[runID] = workerChannel
-
-		go func() {
-			for rr := range workerChannel {
-				jr, err := rm.store.FindJobRun(runID)
-				if err != nil {
-					logger.Warnw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
-				}
-				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
-				if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
-					logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
-				}
-
-				if jr.Status.Finished() {
-					rm.workerMutex.Lock()
-					delete(rm.Workers, jr.ID)
-					close(workerChannel)
-					rm.workerMutex.Unlock()
-					break
-				}
-			}
-			logger.Debug("Stopped worker for ", runID)
-		}()
-	}
-	return workerChannel
-}
-
-// Stop closes all open worker channels.
-func (rm *RunManager) Stop() {
-	rm.workerMutex.Lock()
-	defer rm.workerMutex.Unlock()
-
-	for key, workerChannel := range rm.Workers {
-		delete(rm.Workers, key)
-		close(workerChannel)
-	}
 }

@@ -8,11 +8,119 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
+
+func TestJobRunner_Start_ResumeSleepingRuns(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	rm := services.NewJobRunner(store)
+
+	j := models.NewJob()
+	i := models.Initiator{Type: models.InitiatorWeb}
+	j.Initiators = []models.Initiator{i}
+	json := fmt.Sprintf(`{"until":"%v"}`, utils.ISO8601UTC(time.Now().Add(time.Second)))
+	j.Tasks = []models.TaskSpec{cltest.NewTask("sleep", json)}
+	assert.NoError(t, store.Save(&j))
+
+	jr := j.NewRun(i)
+	jr.Status = models.RunStatusPendingSleep
+	assert.NoError(t, store.Save(&jr))
+
+	assert.NoError(t, rm.ResumeSleepingRuns())
+	rr, open := <-store.RunQueue
+	assert.Equal(t, jr.ID, rr.Input.JobRunID)
+	assert.True(t, open)
+}
+
+func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	rm := services.NewJobRunner(store)
+
+	job, initr := cltest.NewJobWithWebInitiator()
+	run1 := job.NewRun(initr)
+	run2 := job.NewRun(initr)
+
+	chan1a := rm.ChannelForRun(run1.ID)
+	chan2 := rm.ChannelForRun(run2.ID)
+	chan1b := rm.ChannelForRun(run1.ID)
+
+	assert.NotEqual(t, chan1a, chan2)
+	assert.Equal(t, chan1a, chan1a)
+	assert.NotEqual(t, chan2, chan1b)
+}
+
+func TestJobRunner_ChannelForRun_equalityAfterClosing(t *testing.T) {
+	t.Parallel()
+
+	s, cleanup := cltest.NewStore()
+	defer cleanup()
+	rm := services.NewJobRunner(s)
+	assert.NoError(t, rm.Start())
+
+	j, initr := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, s.SaveJob(&j))
+	jr := j.NewRun(initr)
+	assert.NoError(t, s.Save(&jr))
+
+	chan1 := rm.ChannelForRun(jr.ID)
+	chan2 := rm.ChannelForRun(jr.ID)
+	assert.Equal(t, chan1, chan2)
+
+	chan1 <- store.RunRequest{}
+	cltest.WaitForJobRunToComplete(t, s, jr)
+
+	chan2 = rm.ChannelForRun(jr.ID)
+	assert.NotEqual(t, chan1, chan2)
+}
+
+func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
+	t.Parallel()
+
+	s, cleanup := cltest.NewStore()
+	defer cleanup()
+	rm := services.NewJobRunner(s)
+	assert.NoError(t, rm.Start())
+
+	j, initr := cltest.NewJobWithWebInitiator()
+	j.Tasks = []models.TaskSpec{cltest.NewTask("nooppend")}
+	assert.NoError(t, s.SaveJob(&j))
+	jr := j.NewRun(initr)
+	assert.NoError(t, s.Save(&jr))
+
+	chan1 := rm.ChannelForRun(jr.ID)
+
+	chan1 <- store.RunRequest{}
+	cltest.WaitForJobRunToPendConfirmations(t, s, jr)
+
+	chan2 := rm.ChannelForRun(jr.ID)
+	assert.Equal(t, chan1, chan2)
+}
+
+func TestJobRunner_Stop(t *testing.T) {
+	t.Parallel()
+
+	s, cleanup := cltest.NewStore()
+	defer cleanup()
+	rm := services.NewJobRunner(s)
+
+	j, initr := cltest.NewJobWithWebInitiator()
+	jr := j.NewRun(initr)
+	rc := rm.ChannelForRun(jr.ID)
+
+	rm.Stop()
+
+	_, open := <-rc
+	assert.False(t, open)
+}
 
 func TestJobRunner_ExecuteRun(t *testing.T) {
 	t.Parallel()
