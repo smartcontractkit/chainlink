@@ -62,6 +62,7 @@ func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
 		v2.GET("/specs/:SpecID/runs", jr.Index)
 		v2.POST("/specs/:SpecID/runs", jr.Create)
 		v2.PATCH("/runs/:RunID", jr.Update)
+		v2.GET("/runs/:RunID", jr.Show)
 
 		tt := BridgeTypesController{app}
 		v2.GET("/bridge_types", tt.Index)
