@@ -49,6 +49,11 @@ func (s RunStatus) PendingConfirmations() bool {
 	return s == RunStatusPendingConfirmations
 }
 
+// PendingSleep returns true if the status is pending_sleep.
+func (s RunStatus) PendingSleep() bool {
+	return s == RunStatusPendingSleep
+}
+
 // Completed returns true if the status is RunStatusCompleted.
 func (s RunStatus) Completed() bool {
 	return s == RunStatusCompleted
@@ -61,7 +66,7 @@ func (s RunStatus) Errored() bool {
 
 // Pending returns true if the status is pending external or confirmations.
 func (s RunStatus) Pending() bool {
-	return s.PendingBridge() || s.PendingConfirmations()
+	return s.PendingBridge() || s.PendingConfirmations() || s.PendingSleep()
 }
 
 // Finished returns true if the status is final and can't be changed.
@@ -76,7 +81,7 @@ func (s RunStatus) Runnable() bool {
 
 // CanStart returns true if the run is ready to begin processed.
 func (s RunStatus) CanStart() bool {
-	return !s.Errored() && (s.Pending() || s.Unstarted())
+	return s.Pending() || s.Unstarted()
 }
 
 // ParseCBOR attempts to coerce the input byte array into valid CBOR
