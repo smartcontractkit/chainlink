@@ -11,7 +11,7 @@ type Sleep struct {
 }
 
 // Perform returns the input RunResult after waiting for the specified Until parameter.
-func (adapter *Sleep) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (adapter *Sleep) Perform(input models.RunResult, str *store.Store) models.RunResult {
 	duration := adapter.Until.DurationFromNow()
 	if duration <= 0 {
 		input.Status = models.RunStatusCompleted
@@ -20,8 +20,8 @@ func (adapter *Sleep) Perform(input models.RunResult, store *store.Store) models
 
 	input.Status = models.RunStatusPendingSleep
 	go func() {
-		<-store.Clock.After(duration)
-		store.RunQueue.Push(input)
+		<-str.Clock.After(duration)
+		str.RunQueue <- store.RunRequest{Input: input}
 	}()
 
 	return input
