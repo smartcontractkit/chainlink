@@ -162,7 +162,7 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 		t.Run(string(test.status), func(t *testing.T) {
 			store, js, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
-			rm, cleanup := cltest.NewRunManager(store)
+			rm, cleanup := cltest.NewJobRunner(store)
 			defer cleanup()
 			rm.Start()
 

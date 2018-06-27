@@ -724,7 +724,7 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 	}
 }
 
-func NewRunManager(s *store.Store) (*services.RunManager, func()) {
-	rm := services.NewRunManager(s)
+func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
+	rm := services.NewJobRunner(s)
 	return rm, func() { rm.Stop() }
 }

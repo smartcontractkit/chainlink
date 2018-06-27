@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -10,6 +11,107 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
+
+// JobRunner safely handles coordinating job runs.
+type JobRunner interface {
+	Start() error
+	Stop()
+	ResumeSleepingRuns() error
+	ChannelForRun(string) chan store.RunRequest
+}
+
+type jobRunner struct {
+	workers     map[string]chan store.RunRequest
+	store       *store.Store
+	workerMutex sync.Mutex
+}
+
+// NewJobRunner initializes a JobRunner.
+func NewJobRunner(str *store.Store) *jobRunner {
+	return &jobRunner{
+		store:   str,
+		workers: make(map[string]chan store.RunRequest),
+	}
+}
+
+// Start reinitializes runs and starts the execution of the store's RunQueue.
+func (rm *jobRunner) Start() error {
+	go rm.executeRunQueue()
+	if err := rm.ResumeSleepingRuns(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ResumeSleepingRuns enqueues all recorded sleeping runs to make sure they are
+// woken after their sleep is expected to finish.
+func (rm *jobRunner) ResumeSleepingRuns() error {
+	pendingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
+	if err != nil {
+		return err
+	}
+	for _, run := range pendingRuns {
+		rm.store.RunQueue <- store.RunRequest{
+			Input: models.RunResult{JobRunID: run.ID},
+		}
+	}
+	return nil
+}
+
+func (rm *jobRunner) executeRunQueue() {
+	for rr := range rm.store.RunQueue {
+		rm.workerMutex.Lock()
+		rm.ChannelForRun(rr.Input.JobRunID) <- rr
+		rm.workerMutex.Unlock()
+	}
+	logger.Debug("Run Manager Closed")
+}
+
+// ChannelForRun accepts a JobRun and returns a worker channel dedicated
+// to that JobRun. The channel accepts new block heights for triggering runs,
+// and ensures that the block height confirmations are run syncronously.
+func (rm *jobRunner) ChannelForRun(runID string) chan store.RunRequest {
+	workerChannel, present := rm.workers[runID]
+	if !present {
+		workerChannel = make(chan store.RunRequest, 1000)
+		rm.workers[runID] = workerChannel
+
+		go func() {
+			for rr := range workerChannel {
+				jr, err := rm.store.FindJobRun(runID)
+				if err != nil {
+					logger.Warnw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
+				}
+				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
+				if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
+					logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
+				}
+
+				if jr.Status.Finished() {
+					rm.workerMutex.Lock()
+					delete(rm.workers, jr.ID)
+					close(workerChannel)
+					rm.workerMutex.Unlock()
+					break
+				}
+			}
+			logger.Debug("Stopped worker for ", runID)
+		}()
+	}
+	return workerChannel
+}
+
+// Stop closes all open worker channels.
+func (rm *jobRunner) Stop() {
+	rm.workerMutex.Lock()
+	defer rm.workerMutex.Unlock()
+
+	for key, workerChannel := range rm.workers {
+		delete(rm.workers, key)
+		close(workerChannel)
+	}
+}
 
 // BeginRun creates a new run if the job is valid and starts the job.
 func BeginRun(
