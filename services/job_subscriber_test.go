@@ -160,8 +160,11 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.status), func(t *testing.T) {
-			store, el, cleanup := cltest.NewJobSubscriber()
+			store, js, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
+			rm, cleanup := cltest.NewRunManager(store)
+			defer cleanup()
+			rm.Start()
 
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
@@ -169,28 +172,11 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 
 			assert.Nil(t, store.SaveJob(&job))
 			assert.Nil(t, store.Save(&run))
-			el.OnNewHead(cltest.NewBlockHeader(10))
-			el.Stop()
+			run.Result = models.RunResult{JobRunID: run.ID}
+			assert.Nil(t, store.Save(&run))
+			js.OnNewHead(cltest.NewBlockHeader(10))
 
 			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
 		})
 	}
-}
-
-func TestJobSubscriber_WorkerChannelFor(t *testing.T) {
-	t.Parallel()
-
-	_, el, cleanup := cltest.NewJobSubscriber()
-	defer cleanup()
-	job, initr := cltest.NewJobWithWebInitiator()
-	run1 := job.NewRun(initr)
-	run2 := job.NewRun(initr)
-
-	chan1a := el.WorkerChannelFor(run1)
-	chan2 := el.WorkerChannelFor(run2)
-	chan1b := el.WorkerChannelFor(run1)
-
-	assert.NotEqual(t, chan1a, chan2)
-	assert.Equal(t, chan1a, chan1a)
-	assert.NotEqual(t, chan2, chan1b)
 }
