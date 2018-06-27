@@ -105,7 +105,7 @@ func (a *AccountBalance) SetID(value string) error {
 // JobSpec holds the JobSpec definition and each run associated with that Job.
 type JobSpec struct {
 	models.JobSpec
-	Runs []models.JobRun `json:"runs,omitempty"`
+	Runs []JobRun `json:"runs,omitempty"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.

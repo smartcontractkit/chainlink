@@ -85,7 +85,11 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 }
 
 func marshalSpecFromJSONAPI(j models.JobSpec, runs []models.JobRun) (*jsonapi.Document, error) {
-	p := presenters.JobSpec{JobSpec: j, Runs: runs}
+	pruns := make([]presenters.JobRun, len(runs))
+	for i, r := range runs {
+		pruns[i] = presenters.JobRun{r}
+	}
+	p := presenters.JobSpec{JobSpec: j, Runs: pruns}
 	doc, err := jsonapi.MarshalToStruct(p, nil)
 	return doc, err
 }
