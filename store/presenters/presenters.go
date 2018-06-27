@@ -248,6 +248,23 @@ func (i Initiator) FriendlyAddress() string {
 	return ""
 }
 
+// JobRun presents an API friendly version of the data.
+type JobRun struct {
+	models.JobRun
+}
+
+// MarshalJSON returns the JSON data of the JobRun and its Initiator.
+func (jr JobRun) MarshalJSON() ([]byte, error) {
+	type Alias JobRun
+	return json.Marshal(&struct {
+		Alias
+		Initiator Initiator `json:"initiator"`
+	}{
+		Alias(jr),
+		Initiator{jr.Initiator},
+	})
+}
+
 // TaskSpec holds a task specified in the Job definition.
 type TaskSpec struct {
 	models.TaskSpec

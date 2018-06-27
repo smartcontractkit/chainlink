@@ -7,10 +7,12 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
 // JobRunsController manages JobRun requests in the node.
@@ -67,6 +69,22 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 		return models.JSON{}, err
 	}
 	return models.ParseJSON(b)
+}
+
+// Show returns the details of a JobRun.
+// Example:
+//  "<application>/runs/:RunID"
+func (jrc *JobRunsController) Show(c *gin.Context) {
+	id := c.Param("RunID")
+	if jr, err := jrc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
+		c.AbortWithError(404, errors.New("Job Run not found"))
+	} else if err != nil {
+		c.AbortWithError(500, err)
+	} else if doc, err := jsonapi.Marshal(presenters.JobRun{jr}); err != nil {
+		c.AbortWithError(500, err)
+	} else {
+		c.Data(200, MediaType, doc)
+	}
 }
 
 // Update allows external adapters to resume a JobRun, reporting the result of
