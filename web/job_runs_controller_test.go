@@ -3,12 +3,15 @@ package web_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
@@ -268,4 +271,48 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
+}
+
+func TestJobRunsController_Show_Found(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
+	app.Store.SaveJob(&j)
+
+	jr := j.NewRun(initr)
+	jr.ID = "jobrun1"
+	assert.Nil(t, app.Store.Save(&jr))
+
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/" + jr.ID)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+
+	var respJobRun presenters.JobRun
+	b, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.NoError(t, web.ParseJSONAPIResponse(b, &respJobRun))
+	assert.Equal(t, jr.Initiator.Schedule, respJobRun.Initiator.Schedule, "should have the same schedule")
+	assert.Equal(t, jr.ID, respJobRun.ID, "should have job run id")
+}
+
+func TestJobRunsController_Show_NotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/garbage")
+	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+}
+
+func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	resp, err := http.Get(app.Server.URL + "/v2/runs/notauthorized")
+	assert.NoError(t, err)
+	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
 }

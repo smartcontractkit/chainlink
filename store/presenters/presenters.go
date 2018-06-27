@@ -207,7 +207,7 @@ func (c *ConfigWhitelist) SetID(value string) error {
 // JobSpec holds the JobSpec definition and each run associated with that Job.
 type JobSpec struct {
 	models.JobSpec
-	Runs []models.JobRun `json:"runs,omitempty"`
+	Runs []JobRun `json:"runs,omitempty"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
@@ -348,6 +348,23 @@ func (i Initiator) FriendlyAddress() string {
 		return LogListeningAddress(i.Address)
 	}
 	return ""
+}
+
+// JobRun presents an API friendly version of the data.
+type JobRun struct {
+	models.JobRun
+}
+
+// MarshalJSON returns the JSON data of the JobRun and its Initiator.
+func (jr JobRun) MarshalJSON() ([]byte, error) {
+	type Alias JobRun
+	return json.Marshal(&struct {
+		Alias
+		Initiator Initiator `json:"initiator"`
+	}{
+		Alias(jr),
+		Initiator{jr.Initiator},
+	})
 }
 
 // TaskSpec holds a task specified in the Job definition.
