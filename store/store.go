@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/coreos/bbolt"
@@ -21,8 +20,8 @@ type Store struct {
 	Config    Config
 	Clock     AfterNower
 	KeyStore  *KeyStore
-	RunQueue  *RunQueue
 	TxManager *TxManager
+	RunQueue  chan RunRequest
 }
 
 type rpcSubscriptionWrapper struct {
@@ -75,7 +74,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		Config:   config,
 		KeyStore: keyStore,
 		ORM:      orm,
-		RunQueue: NewRunQueue(),
+		RunQueue: make(chan RunRequest, 1000),
 		TxManager: &TxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
@@ -97,6 +96,7 @@ func (s *Store) Start() error {
 
 // Stop shuts down all of the working parts of the store.
 func (s *Store) Stop() error {
+	defer close(s.RunQueue)
 	return s.Close()
 }
 
@@ -136,27 +136,9 @@ func initializeORM(config Config) *models.ORM {
 	return orm
 }
 
-// RunQueue manages sending runs from anywhere the store is available up to the
-// job runner.
-type RunQueue struct {
-	channel chan models.RunResult
-	waiter  sync.WaitGroup
-}
-
-// NewRunQueue initializes a RunQueue.
-func NewRunQueue() *RunQueue {
-	return &RunQueue{
-		channel: make(chan models.RunResult, 1000),
-	}
-}
-
-func (rq *RunQueue) Push(rr models.RunResult) {
-	rq.waiter.Add(1)
-	rq.channel <- rr
-}
-
-func (rq *RunQueue) Pop() (models.RunResult, bool) {
-	defer rq.waiter.Done()
-	run, open := <-rq.channel
-	return run, open
+// RunRequest is the type that the RunQueue uses to package all the necessary
+// pieces to execute a Job Run.
+type RunRequest struct {
+	Input       models.RunResult
+	BlockNumber *models.IndexableBlockNumber
 }
