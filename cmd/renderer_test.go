@@ -30,7 +30,7 @@ func TestRendererTableRenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job, initr := cltest.NewJobWithWebInitiator()
 	run := job.NewRun(initr)
-	p := presenters.JobSpec{JobSpec: job, Runs: []models.JobRun{run}}
+	p := presenters.JobSpec{JobSpec: job, Runs: []presenters.JobRun{presenters.JobRun{run}}}
 	assert.Nil(t, r.Render(&p))
 }
 
