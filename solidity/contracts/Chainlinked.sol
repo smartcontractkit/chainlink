@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
 import "./ChainlinkLib.sol";
 import "./Oracle.sol";
@@ -45,7 +45,7 @@ contract Chainlinked {
     requests += 1;
     _run.requestId = bytes32(requests);
     _run.close();
-    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)));
+    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
     unfulfilledRequests[_run.requestId] = true;
     return _run.requestId;
@@ -58,7 +58,7 @@ contract Chainlinked {
     requests += 1;
     _spec.requestId = bytes32(requests);
     _spec.close();
-    require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)));
+    require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
     emit ChainlinkRequested(_spec.requestId);
     unfulfilledRequests[_spec.requestId] = true;
     return _spec.requestId;
@@ -85,7 +85,7 @@ contract Chainlinked {
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == address(oracle) && unfulfilledRequests[_requestId]);
+    require(msg.sender == address(oracle) && unfulfilledRequests[_requestId], "Source must be oracle with a valid requestId");
     _;
     unfulfilledRequests[_requestId] = false;
     emit ChainlinkFulfilled(_requestId);

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
 import "./lib/CBOR.sol";
 
@@ -25,7 +25,7 @@ library ChainlinkLib {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
+    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
     self.buf.startMap();
     return self;
   }
@@ -102,7 +102,7 @@ library ChainlinkLib {
   ) internal pure returns (ChainlinkLib.Spec memory) {
     Buffer.init(self.buf, 128);
     self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = bytes4(keccak256(_callbackFunctionSignature));
+    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
 
     self.buf.startMap();
     self.buf.encodeString("tasks");
