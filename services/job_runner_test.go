@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -111,15 +112,17 @@ func TestJobRunner_Stop(t *testing.T) {
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
 	rm := services.NewJobRunner(s)
-
 	j, initr := cltest.NewJobWithWebInitiator()
 	jr := j.NewRun(initr)
-	rc := rm.ChannelForRun(jr.ID)
+
+	rm.ChannelForRun(jr.ID)
+	assert.Equal(t, 1, rm.WorkerCount())
 
 	rm.Stop()
 
-	_, open := <-rc
-	assert.False(t, open)
+	gomega.NewGomegaWithT(t).Eventually(func() int {
+		return rm.WorkerCount()
+	}).Should(gomega.Equal(0))
 }
 
 func TestJobRunner_ExecuteRun(t *testing.T) {
