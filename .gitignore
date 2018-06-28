@@ -13,6 +13,7 @@ internal/gethnet/datadir/history
 
 # GUI
 gui/dist
+web/web-packr.go
 
 # Log files
 *.log
