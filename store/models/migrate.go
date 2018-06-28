@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -17,6 +18,6 @@ func (orm ORM) migrate() {
 func (orm ORM) initializeModel(klass interface{}) {
 	err := orm.InitBucket(klass)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Sprintf("failed to migrate %T: %+v", klass, err))
 	}
 }
