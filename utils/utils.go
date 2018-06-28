@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -388,23 +387,4 @@ func ParseUintHex(hex string) (*big.Int, error) {
 		return amount, fmt.Errorf("unable to decode hex to integer: %s", hex)
 	}
 	return amount, nil
-}
-
-// WaitTimeout waits for a waitGroup to be finished, but abandons it after a
-// specified timeout.
-//
-// This is used to allow work to finish within a reasoble time interval,
-// even if a worker thread is procesing something with a long duration.
-func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	completion := make(chan struct{})
-	go func() {
-		defer close(completion)
-		wg.Wait()
-	}()
-	select {
-	case <-completion:
-		return false
-	case <-time.After(timeout):
-		return true
-	}
 }

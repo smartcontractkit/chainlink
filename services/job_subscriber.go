@@ -25,7 +25,7 @@ type jobSubscriber struct {
 }
 
 // NewJobSubscriber returns a new job subscriber.
-func NewJobSubscriber(store *store.Store) *jobSubscriber {
+func NewJobSubscriber(store *store.Store) JobSubscriber {
 	return &jobSubscriber{store: store}
 }
 
