@@ -3,6 +3,7 @@ import Routes from 'react-static-routes'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
 import AppBar from '@material-ui/core/AppBar'
+import Typography from '@material-ui/core/Typography'
 import universal from 'react-universal-component'
 import createStore from 'connectors/redux'
 import { Link, Router, Route, Switch } from 'react-static'
@@ -14,6 +15,7 @@ import logoImg from './logo.svg'
 // Use universal-react-component for code-splitting non-static routes
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
+const Configuration = universal(import('./containers/Configuration'))
 
 // Custom styles
 const styles = theme => {
@@ -59,12 +61,18 @@ class App extends PureComponent {
                 <Link to='/'>
                   <img src={logoImg} alt='Chainlink' width={121} height={44} />
                 </Link>
+                <Link to='/configuration'>
+                  <Typography variant='subheading' color='secondary' component='h2'>
+                    Configuration
+                  </Typography>
+                </Link>
               </AppBar>
 
               <div className={classes.content}>
                 <Switch>
                   <Route path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
+                  <Route exact path='/configuration' component={Configuration} />
                   <Routes />
                 </Switch>
               </div>

@@ -28,3 +28,20 @@ export const jobRunsCountSelector = (state, jobSpecId) => {
   const spec = jobSpecSelector(state, jobSpecId)
   return spec ? spec.runsCount : 0
 }
+
+const camelCaseToUnderscore = str => (
+  str
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/([0-9])([^0-9])/g, '$1_$2')
+    .replace(/([^0-9])([0-9])/g, '$1_$2')
+    .replace(/-+/g, '_')
+    .toUpperCase()
+)
+
+export const configsSelector = state => (
+  Object.keys(state.configuration.config)
+    .sort()
+    .map(key => [camelCaseToUnderscore(key), state.configuration.config[key]])
+)
