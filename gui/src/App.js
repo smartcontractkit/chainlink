@@ -30,6 +30,12 @@ const styles = theme => {
     content: {
       margin: theme.spacing.unit * 5,
       marginTop: 0
+    },
+    configuration: {
+      color: theme.palette.common.white,
+      marginTop: theme.spacing.unit * 2,
+      display: 'block',
+      textDecoration: 'none'
     }
   }
 }
@@ -58,14 +64,20 @@ class App extends PureComponent {
                 color='default'
                 position='static'
               >
-                <Link to='/'>
-                  <img src={logoImg} alt='Chainlink' width={121} height={44} />
-                </Link>
-                <Link to='/configuration'>
-                  <Typography variant='subheading' color='secondary' component='h2'>
-                    Configuration
-                  </Typography>
-                </Link>
+                <Grid container spacing={40}>
+                  <Grid item xs={9}>
+                    <Link to='/'>
+                      <img src={logoImg} alt='Chainlink' width={121} height={44} />
+                    </Link>
+                  </Grid>
+                  <Grid item xs={3}>
+                    <Link to='/configuration' className={classes.configuration}>
+                      <Typography align='right' color='inherit'>
+                        Configuration
+                      </Typography>
+                    </Link>
+                  </Grid>
+                </Grid>
               </AppBar>
 
               <div className={classes.content}>
