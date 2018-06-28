@@ -27,7 +27,7 @@ type jobRunner struct {
 }
 
 // NewJobRunner initializes a JobRunner.
-func NewJobRunner(str *store.Store) *jobRunner {
+func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
 		store:   str,
 		workers: make(map[string]chan store.RunRequest),
@@ -37,11 +37,7 @@ func NewJobRunner(str *store.Store) *jobRunner {
 // Start reinitializes runs and starts the execution of the store's RunQueue.
 func (rm *jobRunner) Start() error {
 	go rm.executeRunQueue()
-	if err := rm.ResumeSleepingRuns(); err != nil {
-		return err
-	}
-
-	return nil
+	return rm.ResumeSleepingRuns()
 }
 
 // ResumeSleepingRuns enqueues all recorded sleeping runs to make sure they are

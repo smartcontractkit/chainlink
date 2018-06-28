@@ -147,7 +147,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
+func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmationsAndInProgress(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -155,7 +155,9 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 		wantStatus models.RunStatus
 	}{
 		{models.RunStatusPendingBridge, models.RunStatusPendingBridge},
+		{models.RunStatusPendingSleep, models.RunStatusPendingSleep},
 		{models.RunStatusPendingConfirmations, models.RunStatusCompleted},
+		{models.RunStatusInProgress, models.RunStatusCompleted},
 	}
 
 	for _, test := range tests {
@@ -164,17 +166,19 @@ func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmations(t *testing.T) {
 			defer cleanup()
 			rm, cleanup := cltest.NewJobRunner(store)
 			defer cleanup()
-			rm.Start()
 
 			job, initr := cltest.NewJobWithWebInitiator()
+			assert.Nil(t, store.SaveJob(&job))
 			run := job.NewRun(initr)
 			run.Status = test.status
-
-			assert.Nil(t, store.SaveJob(&job))
 			assert.Nil(t, store.Save(&run))
 			run.Result = models.RunResult{JobRunID: run.ID}
 			assert.Nil(t, store.Save(&run))
 			js.OnNewHead(cltest.NewBlockHeader(10))
+
+			run.Status = models.RunStatusUnstarted
+			assert.Nil(t, store.SaveJob(&job))
+			rm.Start()
 
 			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
 		})
