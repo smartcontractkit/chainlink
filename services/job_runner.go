@@ -39,7 +39,7 @@ func NewJobRunner(str *store.Store) JobRunner {
 
 // Start reinitializes runs and starts the execution of the store's runs.
 func (rm *jobRunner) Start() error {
-	go rm.executeRuns()
+	go rm.demultiplexRuns()
 	return rm.ResumeSleepingRuns()
 }
 
@@ -51,12 +51,12 @@ func (rm *jobRunner) ResumeSleepingRuns() error {
 		return err
 	}
 	for _, run := range pendingRuns {
-		rm.store.RunChannel.Send(models.RunResult{JobRunID: run.ID}, nil)
+		rm.store.RunChannel.Send(run.Result, nil)
 	}
 	return nil
 }
 
-func (rm *jobRunner) executeRuns() {
+func (rm *jobRunner) demultiplexRuns() {
 	for rr := range rm.store.RunChannel.Receive() {
 		rm.ChannelForRun(rr.Input.JobRunID) <- rr
 	}
