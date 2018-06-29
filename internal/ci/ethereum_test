@@ -26,13 +26,13 @@ waitForResponse ()
 {
   printf -- "\033[34mWaiting for $1.\033[0m\n"
   sleepCount=0
-  while [ "$sleepCount" -le "120" ] && ! curl -s "$1" >/dev/null; do
+  while [ "$sleepCount" -le "300" ] && ! curl -s "$1" >/dev/null; do
       sleep 1
       sleepCount=$((sleepCount+1))
   done
 
-  if [ "$sleepCount" -gt "120" ]; then
-    printf -- "\033[31mTimed out waiting for $1 (waited 120s).\033[0m\n"
+  if [ "$sleepCount" -gt "300" ]; then
+    printf -- "\033[31mTimed out waiting for $1 (waited 300s).\033[0m\n"
     exit 1
   fi
   printf -- "\033[34mService on $1 is ready.\033[0m\n"
