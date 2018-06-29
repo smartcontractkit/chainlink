@@ -1,5 +1,6 @@
 import {
   getAccountBalance,
+  getBridges,
   getConfiguration,
   getJobs,
   getJobSpec,
@@ -144,5 +145,33 @@ export const fetchConfiguration = () => {
     return getConfiguration()
       .then(json => dispatch(receiveConfiguration(json)))
       .catch(_ => dispatch(receiveConfigurationNetworkError()))
+  }
+}
+
+export const REQUEST_BRIDGES = 'REQUEST_BRIDGES'
+export const RECEIVE_BRIDGES_SUCCESS = 'RECEIVE_BRIDGES_SUCCESS'
+export const RECEIVE_BRIDGES_ERROR = 'RECEIVE_BRIDGES_ERROR'
+
+const requestBridges = () => ({ type: REQUEST_BRIDGES })
+const receiveBridgesSuccess = (json) => {
+  return {
+    type: RECEIVE_BRIDGES_SUCCESS,
+    count: json.meta.count,
+    items: json.data.map(b => b.attributes)
+  }
+}
+const receiveBridgesNetworkError = () => {
+  return {
+    type: RECEIVE_BRIDGES_ERROR,
+    networkError: true
+  }
+}
+
+export const fetchBridges = (page, size) => {
+  return dispatch => {
+    dispatch(requestBridges())
+    return getBridges(page, size)
+      .then(json => dispatch(receiveBridgesSuccess(json)))
+      .catch(_ => dispatch(receiveBridgesNetworkError()))
   }
 }
