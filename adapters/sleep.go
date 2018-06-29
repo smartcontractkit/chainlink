@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 )
@@ -21,7 +22,9 @@ func (adapter *Sleep) Perform(input models.RunResult, str *store.Store) models.R
 	input.Status = models.RunStatusPendingSleep
 	go func() {
 		<-str.Clock.After(duration)
-		str.RunQueue <- store.RunRequest{Input: input}
+		if err := str.RunChannel.Send(input, nil); err != nil {
+			logger.Warn("Sleep Adapter Perform:", err.Error())
+		}
 	}()
 
 	return input

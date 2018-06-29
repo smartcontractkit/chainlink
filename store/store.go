@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/coreos/bbolt"
@@ -17,11 +19,12 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*models.ORM
-	Config    Config
-	Clock     AfterNower
-	KeyStore  *KeyStore
-	TxManager *TxManager
-	RunQueue  chan RunRequest
+	Config     Config
+	Clock      AfterNower
+	KeyStore   *KeyStore
+	RunChannel *RunChannel
+	TxManager  *TxManager
+	closed     bool
 }
 
 type rpcSubscriptionWrapper struct {
@@ -70,11 +73,11 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
-		Clock:    Clock{},
-		Config:   config,
-		KeyStore: keyStore,
-		ORM:      orm,
-		RunQueue: make(chan RunRequest, 1000),
+		Clock:      Clock{},
+		Config:     config,
+		KeyStore:   keyStore,
+		ORM:        orm,
+		RunChannel: NewRunChannel(),
 		TxManager: &TxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
@@ -96,7 +99,7 @@ func (s *Store) Start() error {
 
 // Stop shuts down all of the working parts of the store.
 func (s *Store) Stop() error {
-	defer close(s.RunQueue)
+	defer s.RunChannel.Close()
 	return s.Close()
 }
 
@@ -136,9 +139,56 @@ func initializeORM(config Config) *models.ORM {
 	return orm
 }
 
-// RunRequest is the type that the RunQueue uses to package all the necessary
+// RunRequest is the type that the RunChannel uses to package all the necessary
 // pieces to execute a Job Run.
 type RunRequest struct {
 	Input       models.RunResult
 	BlockNumber *models.IndexableBlockNumber
+}
+
+// RunChannel manages accepting a queue of incoming runs.
+type RunChannel struct {
+	queue  chan RunRequest
+	closed bool
+	mutex  sync.Mutex
+}
+
+// NewRunChannel initializes a RunChannel.
+func NewRunChannel() *RunChannel {
+	return &RunChannel{
+		queue: make(chan RunRequest, 1000),
+	}
+}
+
+// Send adds another entry to the queue of runs.
+func (rq *RunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error {
+	rq.mutex.Lock()
+	defer rq.mutex.Unlock()
+
+	if rq.closed {
+		return errors.New("RunChannel.Add: cannot add to a closed RunChannel")
+	}
+
+	rq.queue <- RunRequest{
+		Input:       rr,
+		BlockNumber: ibn,
+	}
+	return nil
+}
+
+// Receive returs a channel for listening to sent runs.
+func (rq *RunChannel) Receive() <-chan RunRequest {
+	return rq.queue
+}
+
+// Close closes the RunChannel so that no runs can be added to it without
+// throwing an error.
+func (rq *RunChannel) Close() {
+	rq.mutex.Lock()
+	defer rq.mutex.Unlock()
+
+	if !rq.closed {
+		rq.closed = true
+		close(rq.queue)
+	}
 }
