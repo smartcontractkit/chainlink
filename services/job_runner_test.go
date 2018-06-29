@@ -59,7 +59,7 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 	assert.NotEqual(t, chan2, chan1b)
 }
 
-func TestJobRunner_ChannelForRun_equalityAfterClosing(t *testing.T) {
+func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	t.Parallel()
 
 	s, cleanup := cltest.NewStore()
@@ -73,14 +73,15 @@ func TestJobRunner_ChannelForRun_equalityAfterClosing(t *testing.T) {
 	assert.NoError(t, s.Save(&jr))
 
 	chan1 := rm.ChannelForRun(jr.ID)
-	chan2 := rm.ChannelForRun(jr.ID)
-	assert.Equal(t, chan1, chan2)
-
 	chan1 <- store.RunRequest{}
 	cltest.WaitForJobRunToComplete(t, s, jr)
 
-	chan2 = rm.ChannelForRun(jr.ID)
-	assert.NotEqual(t, chan1, chan2)
+	gomega.NewGomegaWithT(t).Eventually(func() chan<- store.RunRequest {
+		return rm.ChannelForRun(jr.ID)
+	}).Should(gomega.Not(gomega.Equal(chan1))) // eventually deletes the channel
+
+	chan2 := rm.ChannelForRun(jr.ID)
+	chan2 <- store.RunRequest{} // does not panic
 }
 
 func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
