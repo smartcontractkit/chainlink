@@ -31,11 +31,12 @@ func TestJobRunner_Start_ResumeSleepingRuns(t *testing.T) {
 
 	jr := j.NewRun(i)
 	jr.Status = models.RunStatusPendingSleep
+	jr.Result.Data = cltest.JSONFromString(`{"foo":"bar"}`)
 	assert.NoError(t, store.Save(&jr))
 
 	assert.NoError(t, rm.ResumeSleepingRuns())
 	rr, open := <-store.RunChannel.Receive()
-	assert.Equal(t, jr.ID, rr.Input.JobRunID)
+	assert.Equal(t, jr.Result, rr.Input)
 	assert.True(t, open)
 }
 
