@@ -28,10 +28,15 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-	ethMock.Register("eth_sendRawTransaction", hash)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+	})
 	assert.NoError(t, app.Start())
+
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", hash)
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
 
 	a, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
@@ -69,10 +74,15 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-	ethMock.Register("eth_sendRawTransaction", "invalid")
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+	})
 	assert.NoError(t, app.Start())
+
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", "invalid")
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
 
 	_, err = manager.CreateTx(to, data)
 	assert.Error(t, err)
@@ -86,8 +96,10 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	assert.Equal(t, 0, len(txAttempts))
 
 	hash := cltest.NewHash()
-	ethMock.Register("eth_sendRawTransaction", hash)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", hash)
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
 
 	a, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
@@ -107,7 +119,7 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_MeetsMinConfirmations_BeforeThreshold(t *testing.T) {
+func TestTxManager_MeetsMinConfirmations_beforeGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -115,18 +127,21 @@ func TestTxManager_MeetsMinConfirmations_BeforeThreshold(t *testing.T) {
 	store := app.Store
 	config := store.Config
 	txm := store.TxManager
+	ethMock := app.MockEthClient()
 
 	sentAt := uint64(23456)
 	from := cltest.GetAccountAddress(store)
-
-	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold-1))
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	attempts, err := store.AttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	a := attempts[0]
+
+	currentBlock := sentAt + config.EthGasBumpThreshold - 1
+	ethMock.Context("txm.MeetsMinConfirmations", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(currentBlock))
+	})
 
 	confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 	assert.NoError(t, err)
@@ -146,19 +161,20 @@ func TestTxManager_MeetsMinConfirmations_AtThreshold(t *testing.T) {
 	store := app.Store
 	config := store.Config
 	txm := store.TxManager
+	ethMock := app.MockEthClient()
 
 	sentAt := uint64(23456)
 	from := cltest.GetAccountAddress(store)
-
-	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
-	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 	attempts, err := store.AttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	a := attempts[0]
+	ethMock.Context("txm.MeetsMinConfirmations", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
 
 	confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 	assert.NoError(t, err)
@@ -206,11 +222,12 @@ func TestTxManager_MeetsMinConfirmations_confirmed(t *testing.T) {
 				Hash:        cltest.NewHash(),
 				BlockNumber: cltest.BigHexInt(receiptAt),
 			}
-			ethMock.Register("eth_getTransactionReceipt", confirmationReceipt)
-			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.currentHeight))
-
 			tx := cltest.CreateTxAndAttempt(store, from, sentAt)
 			a := tx.TxAttempt
+			ethMock.Context("txm.MeetsMinConfirmations", func(ethMock *cltest.EthMock) {
+				ethMock.Register("eth_getTransactionReceipt", confirmationReceipt)
+				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.currentHeight))
+			})
 
 			actual, err := txm.MeetsMinConfirmations(a.Hash)
 			assert.NoError(t, err)
