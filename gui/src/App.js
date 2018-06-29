@@ -71,7 +71,7 @@ class App extends PureComponent {
                     </Link>
                   </Grid>
                   <Grid item xs={3}>
-                    <Link to='/configuration' className={classes.configuration}>
+                    <Link to='/config' className={classes.configuration}>
                       <Typography align='right' color='inherit'>
                         Configuration
                       </Typography>
@@ -84,7 +84,7 @@ class App extends PureComponent {
                 <Switch>
                   <Route path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
-                  <Route exact path='/configuration' component={Configuration} />
+                  <Route exact path='/config' component={Configuration} />
                   <Routes />
                 </Switch>
               </div>
