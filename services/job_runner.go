@@ -37,9 +37,9 @@ func NewJobRunner(str *store.Store) JobRunner {
 	}
 }
 
-// Start reinitializes runs and starts the execution of the store's RunQueue.
+// Start reinitializes runs and starts the execution of the store's runs.
 func (rm *jobRunner) Start() error {
-	go rm.executeRunQueue()
+	go rm.executeRuns()
 	return rm.ResumeSleepingRuns()
 }
 
@@ -51,15 +51,13 @@ func (rm *jobRunner) ResumeSleepingRuns() error {
 		return err
 	}
 	for _, run := range pendingRuns {
-		rm.store.RunQueue <- store.RunRequest{
-			Input: models.RunResult{JobRunID: run.ID},
-		}
+		rm.store.RunChannel.Send(models.RunResult{JobRunID: run.ID}, nil)
 	}
 	return nil
 }
 
-func (rm *jobRunner) executeRunQueue() {
-	for rr := range rm.store.RunQueue {
+func (rm *jobRunner) executeRuns() {
+	for rr := range rm.store.RunChannel.Receive() {
 		rm.ChannelForRun(rr.Input.JobRunID) <- rr
 	}
 	logger.Debug("Run Manager Closed")
