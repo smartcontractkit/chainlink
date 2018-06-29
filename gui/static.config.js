@@ -10,16 +10,11 @@ export default {
   }),
   getRoutes: async () => {
     return [
-      {
-        path: '/',
-        component: 'src/containers/Jobs'
-      },
+      {path: '/', component: 'src/containers/Jobs'},
+      {path: '/job_specs/_jobSpecId_/runs/_jobRunId_'},
       {path: '/bridges'},
       {path: '/config'},
-      {
-        is404: true,
-        component: 'src/containers/404'
-      }
+      {is404: true, component: 'src/containers/404'}
     ]
   },
   renderToHtml: (render, Comp, meta) => {
