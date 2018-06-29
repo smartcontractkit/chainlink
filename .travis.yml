@@ -7,9 +7,6 @@ env:
 matrix:
   include:
     - language: go
-      go: "1.9"
-      env: COMMAND=./internal/ci/go_test
-    - language: go
       go: "1.10"
       env: COMMAND=./internal/ci/go_test
     - language: go
