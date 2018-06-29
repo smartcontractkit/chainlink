@@ -17,7 +17,7 @@ type JobRunner interface {
 	Start() error
 	Stop()
 	ResumeSleepingRuns() error
-	ChannelForRun(string) chan store.RunRequest
+	ChannelForRun(string) chan<- store.RunRequest
 	WorkerCount() int
 }
 
@@ -66,7 +66,7 @@ func (rm *jobRunner) executeRuns() {
 // ChannelForRun accepts a JobRun and returns a worker channel dedicated
 // to that JobRun. The channel accepts new block heights for triggering runs,
 // and ensures that the block height confirmations are run syncronously.
-func (rm *jobRunner) ChannelForRun(runID string) chan store.RunRequest {
+func (rm *jobRunner) ChannelForRun(runID string) chan<- store.RunRequest {
 	rm.workerMutex.Lock()
 	defer rm.workerMutex.Unlock()
 
