@@ -1,0 +1,14 @@
+- type: parallel
+  steps:
+  - service: ci
+    command: ./internal/ci/go_test
+  - service: ci
+    command: ./internal/ci/truffle_test
+  - service: ci
+    command: ./internal/ci/ethereum_test
+  - service: ci
+    command: ./internal/ci/gui_test
+
+- name: codecov
+  service: ci
+  command: bash -c "curl -s https://codecov.io/bash"
