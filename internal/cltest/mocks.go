@@ -42,11 +42,19 @@ type EthMock struct {
 	Subscriptions  []MockSubscription
 	newHeadsCalled bool
 	mutex          sync.RWMutex
+	context        string
 }
 
 // Dial mock dial
 func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
 	return mock, nil
+}
+
+// Context adds helpful context to EthMock values set in the callback function.
+func (mock *EthMock) Context(context string, callback func(*EthMock)) {
+	mock.context = context
+	callback(mock)
+	mock.context = ""
 }
 
 // Register register mock responses and append to Ethmock
@@ -58,6 +66,7 @@ func (mock *EthMock) Register(
 	res := MockResponse{
 		methodName: method,
 		response:   response,
+		context:    mock.context,
 	}
 	if len(callback) > 0 {
 		res.callback = callback[0]
@@ -74,6 +83,7 @@ func (mock *EthMock) RegisterError(method, errMsg string) {
 		methodName: method,
 		errMsg:     errMsg,
 		hasError:   true,
+		context:    mock.context,
 	}
 
 	mock.mutex.Lock()
@@ -110,7 +120,7 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 			reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
 			if resp.callback != nil {
 				if err := resp.callback(result, args); err != nil {
-					return fmt.Errorf("ethMock Error: %v", err)
+					return fmt.Errorf("ethMock Error: %v\ncontext: %v", err, resp.context)
 				}
 			}
 			return nil
@@ -248,6 +258,7 @@ func (mes MockSubscription) Unsubscribe() {
 // MockResponse a mock response
 type MockResponse struct {
 	methodName string
+	context    string
 	response   interface{}
 	errMsg     string
 	hasError   bool
