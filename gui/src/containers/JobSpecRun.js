@@ -1,0 +1,126 @@
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
+import Grid from '@material-ui/core/Grid'
+import Breadcrumb from 'components/Breadcrumb'
+import BreadcrumbItem from 'components/BreadcrumbItem'
+import Typography from '@material-ui/core/Typography'
+import PaddedCard from 'components/PaddedCard'
+import PrettyJson from 'components/PrettyJson'
+import { bindActionCreators } from 'redux'
+import { fetchJobSpecRun } from 'actions'
+import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
+import { jobRunSelector } from 'selectors'
+
+const styles = theme => ({
+  title: {
+    marginTop: theme.spacing.unit * 5,
+    marginBottom: theme.spacing.unit * 5
+  },
+  breadcrumb: {
+    marginTop: theme.spacing.unit * 5,
+    marginBottom: theme.spacing.unit * 5
+  }
+})
+
+const renderDetails = ({fetching, jobRun}) => {
+  if (fetching || !jobRun) {
+    return <div>Fetching job run...</div>
+  }
+
+  return (
+    <Grid container spacing={40}>
+      <Grid item xs={8}>
+        <PaddedCard>
+          <PrettyJson object={jobRun} />
+        </PaddedCard>
+      </Grid>
+      <Grid item xs={4}>
+        <PaddedCard>
+          <Grid container spacing={16}>
+            <Grid item xs={12}>
+              <Typography variant='subheading' color='textSecondary'>ID</Typography>
+              <Typography variant='body1' color='inherit'>
+                {jobRun.id}
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant='subheading' color='textSecondary'>Status</Typography>
+              <Typography variant='body1' color='inherit'>
+                {jobRun.status}
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant='subheading' color='textSecondary'>Created</Typography>
+              <Typography variant='body1' color='inherit'>
+                {jobRun.createdAt}
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant='subheading' color='textSecondary'>Result</Typography>
+              <Typography variant='body1' color='inherit'>
+                {jobRun.result && JSON.stringify(jobRun.result.data)}
+              </Typography>
+            </Grid>
+          </Grid>
+        </PaddedCard>
+      </Grid>
+    </Grid>
+  )
+}
+
+export class JobSpecRun extends Component {
+  componentDidMount () {
+    this.props.fetchJobSpecRun(this.props.jobRunId)
+  }
+
+  render () {
+    const {classes, jobSpecId, jobRunId} = this.props
+
+    return (
+      <div>
+        <Breadcrumb className={classes.breadcrumb}>
+          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
+          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>
+            Job ID: {jobSpecId}
+          </BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
+          <BreadcrumbItem>Job Run ID: {jobRunId}</BreadcrumbItem>
+        </Breadcrumb>
+        <Typography variant='display2' color='inherit' className={classes.title}>
+          Job Run Detail
+        </Typography>
+
+        {renderDetails(this.props)}
+      </div>
+    )
+  }
+}
+
+JobSpecRun.propTypes = {
+  classes: PropTypes.object.isRequired
+}
+
+const mapStateToProps = (state, ownProps) => {
+  const {jobSpecId, jobRunId} = ownProps.match.params
+  const jobRun = jobRunSelector(state, jobRunId)
+  const fetching = state.jobRuns.fetching
+
+  return {
+    jobSpecId,
+    jobRunId,
+    jobRun,
+    fetching
+  }
+}
+
+const mapDispatchToProps = (dispatch) => {
+  return bindActionCreators({
+    fetchJobSpecRun
+  }, dispatch)
+}
+
+export const ConnectedJobSpecRun = connect(mapStateToProps, mapDispatchToProps)(JobSpecRun)
+
+export default withStyles(styles)(ConnectedJobSpecRun)

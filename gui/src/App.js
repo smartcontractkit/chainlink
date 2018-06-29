@@ -17,6 +17,7 @@ const Bridges = universal(import('./containers/Bridges'))
 const Configuration = universal(import('./containers/Configuration'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
+const JobSpecRun = universal(import('./containers/JobSpecRun'))
 
 // Custom styles
 const styles = theme => {
@@ -94,8 +95,9 @@ class App extends PureComponent {
 
               <div className={classes.content}>
                 <Switch>
-                  <Route path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
+                  <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
+                  <Route exact path='/job_specs/:jobSpecId/runs/:jobRunId' component={JobSpecRun} />
                   <Route exact path='/config' component={Configuration} />
                   <Route exact path='/bridges' component={Bridges} />
                   <Routes />
