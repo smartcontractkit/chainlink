@@ -1,18 +1,8 @@
-**/.git
-.git
-!.git/HEAD
-!.git/refs/heads
-**/*_test.go
-
 .git-together
 .DS_Store
 .envrc
 tmp/
-
-internal/bin/
-internal/ci/
-internal/clroot/
-internal/gethnet/
+*.log
 
 node_modules/
 **/node_modules/
@@ -25,3 +15,10 @@ sgx/target/
 
 Dockerfile
 chainlink
+
+# codeship
+codeship-*.yml
+*.aes
+dockercfg
+credentials.env
+gcr_creds.env

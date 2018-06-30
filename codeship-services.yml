@@ -1,0 +1,7 @@
+ci:
+  build:
+    image: ci
+    dockerfile: ./internal/ci/Dockerfile
+    context: ./
+  encrypted_env_file: env.encrypted
+  cached: true
