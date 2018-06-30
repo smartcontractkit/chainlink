@@ -16,11 +16,19 @@ import (
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
 	ID         string      `json:"id" storm:"id,unique"`
+	CreatedAt  Time        `json:"createdAt" storm:"index"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
-	CreatedAt  Time        `json:"createdAt" storm:"index"`
+}
+
+// JobSpecRequest represents a job request as sent over the wire.
+type JobSpecRequest struct {
+	Initiators []Initiator `json:"initiators"`
+	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
+	StartAt    null.Time   `json:"startAt" storm:"index"`
+	EndAt      null.Time   `json:"endAt" storm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -37,6 +45,18 @@ func (j JobSpec) GetName() string {
 func (j *JobSpec) SetID(value string) error {
 	j.ID = value
 	return nil
+}
+
+// NewJobFromRequest initializes a new job from a JobSpecRequest.
+func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
+	return JobSpec{
+		ID:         utils.NewBytes32ID(),
+		CreatedAt:  Time{Time: time.Now()},
+		Initiators: jsr.Initiators,
+		Tasks:      jsr.Tasks,
+		StartAt:    jsr.StartAt,
+		EndAt:      jsr.EndAt,
+	}
 }
 
 // NewJob initializes a new job by generating a unique ID and setting
