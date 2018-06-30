@@ -3,5 +3,23 @@ ci:
     image: ci
     dockerfile: ./internal/ci/Dockerfile
     context: ./
+    args:
+      ENVIRONMENT: development
   encrypted_env_file: env.encrypted
+  cached: true
+
+app:
+  build:
+    image: smartcontract/chainlink
+    dockerfile: Dockerfile
+    args:
+      ENVIRONMENT: release
+  cached: true
+
+app-sgx:
+  build:
+    image: smartcontract/chainlink-sgx
+    dockerfile: Dockerfile-sgx
+    args:
+      ENVIRONMENT: release
   cached: true

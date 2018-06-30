@@ -33,7 +33,7 @@ install: dep gui ## Install chainlink
 
 gui: ## Install GUI
 	@cd gui
-	@yarn install
+	yarn install
 	@cd ..
 	yarn build
 	go generate ./...
