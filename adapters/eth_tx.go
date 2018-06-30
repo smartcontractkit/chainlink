@@ -3,6 +3,7 @@ package adapters
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -62,10 +63,10 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 	}
 
 	confirmed, err := store.TxManager.MeetsMinConfirmations(hash)
-
 	if err != nil {
-		return input.WithError(err)
-	} else if !confirmed {
+		logger.Error("EthTx Adapter Perform Resuming: ", err)
+	}
+	if !confirmed {
 		return input.MarkPendingConfirmations()
 	}
 	return input.WithValue(hash.String())

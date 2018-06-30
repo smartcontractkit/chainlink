@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"go.uber.org/multierr"
 )
 
 const defaultGasLimit uint64 = 500000
@@ -86,13 +87,15 @@ func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 		return false, err
 	}
 
+	var merr error
 	for _, txat := range attempts {
 		success, err := txm.checkAttempt(&tx, &txat, blkNum)
+		merr = multierr.Combine(merr, err)
 		if success {
-			return success, err
+			return success, merr
 		}
 	}
-	return false, nil
+	return false, merr
 }
 
 func (txm *TxManager) createAttempt(
