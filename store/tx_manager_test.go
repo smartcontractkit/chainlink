@@ -3,6 +3,7 @@ package store_test
 import (
 	"encoding/hex"
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -171,6 +172,83 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 			assert.Equal(t, test.wantLength, len(attempts))
 
 			ethMock.EventuallyAllCalled(t)
+		})
+	}
+}
+
+func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig()
+	defer cleanup()
+
+	sentAt1 := uint64(23456)
+	sentAt2 := sentAt1 + config.EthGasBumpThreshold
+	confirmedAt := sentAt2 + 1
+	safeAt := confirmedAt + config.MinOutgoingConfirmations
+
+	nonConfedReceipt := strpkg.TxReceipt{}
+	confedReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.BigHexInt(confirmedAt)}
+
+	tests := []struct {
+		name          string
+		blockHeight   uint64
+		mockSetup     func(*cltest.EthMock)
+		wantConfirmed bool
+		wantErrored   bool
+	}{
+		{"no conf, no error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
+			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
+		}, false, false},
+		{"no conf, early error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
+			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
+		}, false, true},
+		{"no conf, later error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
+			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
+		}, false, true},
+		{"early conf, no error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
+			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
+		}, true, false},
+		{"early conf, later error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
+			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
+		}, true, false},
+		{"later conf, no error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
+			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
+		}, true, false},
+		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
+			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
+		}, true, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKeyStore()
+			defer cleanup()
+			store := app.Store
+			ethMock := app.MockEthClient()
+			txm := store.TxManager
+			from := cltest.GetAccountAddress(store)
+			tx := cltest.CreateTxAndAttempt(store, from, sentAt1)
+			a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
+			assert.NoError(t, err)
+
+			ethMock.Context("txm.MeetsMinConfirmations()", test.mockSetup)
+			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
+
+			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
+			assert.Equal(t, test.wantConfirmed, confirmed)
+			if test.wantErrored {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
