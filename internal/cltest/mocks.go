@@ -41,6 +41,7 @@ type EthMock struct {
 	Responses      []MockResponse
 	Subscriptions  []MockSubscription
 	newHeadsCalled bool
+	logsCalled     bool
 	mutex          sync.RWMutex
 	context        string
 }
@@ -185,6 +186,12 @@ func (mock *EthMock) EthSubscribe(
 	if args[0] == "newHeads" && !mock.newHeadsCalled {
 		mock.newHeadsCalled = true
 		return EmptyMockSubscription(), nil
+	} else if args[0] == "logs" && !mock.logsCalled {
+		mock.logsCalled = true
+		return MockSubscription{
+			channel: make(chan types.Log),
+			Errors:  make(chan error),
+		}, nil
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 	}

@@ -1,4 +1,4 @@
-package web_test
+package integration_test
 
 import (
 	"bytes"
@@ -44,45 +44,55 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
-	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 
 	newHeads := make(chan models.BlockHeader, 10)
-	eth.RegisterSubscription("newHeads", newHeads)
-	eth.Register("eth_getTransactionCount", `0x0100`) // for TxManager#ActivateAccount
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
 	safe := confirmed + config.MinOutgoingConfirmations - 1
 
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	eth.Register("eth_sendRawTransaction", hash)
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("newHeads", newHeads)
+		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
 
 	err := app.Start()
 	assert.NoError(t, err)
 	defer cleanup()
 
+	eth.Context("ethTx.Perform()#1", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		eth.Register("eth_sendRawTransaction", hash)
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+		eth.Register("eth_sendRawTransaction", hash)
+	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
 
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
-		Hash:        hash,
-		BlockNumber: cltest.BigHexInt(confirmed),
+	eth.Context("ethTx.Perform()#3 at block 23460", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+			Hash:        hash,
+			BlockNumber: cltest.BigHexInt(confirmed),
+		})
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
 
-	eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-	eth.Register("eth_getTransactionReceipt", store.TxReceipt{
-		Hash:        hash,
-		BlockNumber: cltest.BigHexInt(confirmed),
+	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+		eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+			Hash:        hash,
+			BlockNumber: cltest.BigHexInt(confirmed),
+		})
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 
@@ -130,9 +140,10 @@ func TestIntegration_EthLog(t *testing.T) {
 
 	eth := app.MockEthClient()
 	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
-
 	logs := make(chan types.Log, 1)
-	eth.RegisterSubscription("logs", logs)
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+	})
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/eth_log_job.json")
@@ -157,8 +168,10 @@ func TestIntegration_RunLog(t *testing.T) {
 	eth := app.MockEthClient()
 	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
-	eth.RegisterSubscription("logs", logs)
 	newHeads := eth.RegisterNewHeads()
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+	})
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_noop_job.json")
@@ -195,9 +208,11 @@ func TestIntegration_SpecAndRunLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	newHeads := eth.RegisterNewHeads()
 	logs := make(chan types.Log, 1)
-	eth.RegisterSubscription("logs", logs)
+	newHeads := eth.RegisterNewHeads()
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+	})
 	app.Start()
 
 	payload := `{"tasks": ["noop"]}`
@@ -268,9 +283,11 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	eth := app.MockEthClient()
 	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
-	eth.RegisterSubscription("logs", logs)
 	newHeads := make(chan models.BlockHeader, 10)
-	eth.RegisterSubscription("newHeads", newHeads)
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+		eth.RegisterSubscription("newHeads", newHeads)
+	})
 	app.Start()
 
 	eaValue := "87698118359"
@@ -405,7 +422,9 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	eth := app.MockEthClient()
 	eth.RegisterNewHead(1)
 	logs := make(chan types.Log, 1)
-	eth.RegisterSubscription("logs", logs)
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+	})
 
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
@@ -467,20 +486,24 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/web_initiated_eth_tx_job.json")
 
 	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionCount", `0x0100`) // activate account nonce
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.Register("eth_getTransactionCount", `0x0100`) // activate account nonce
+	})
 	app.Start()
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
 		hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(blockNumber))
-		eth.Register("eth_sendRawTransaction", hash)
+		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
+			eth.Register("eth_blockNumber", utils.Uint64ToHex(blockNumber))
+			eth.Register("eth_sendRawTransaction", hash)
 
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{
-			Hash:        hash,
-			BlockNumber: cltest.BigHexInt(blockNumber),
+			eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+				Hash:        hash,
+				BlockNumber: cltest.BigHexInt(blockNumber),
+			})
+			confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations
+			eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))
 		})
-		confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))
 
 		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"0x11"}`)
 		jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
