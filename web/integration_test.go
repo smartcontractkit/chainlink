@@ -420,7 +420,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	post := cltest.NewTask("httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
-	cltest.CreateJobSpecViaWeb(t, app, j)
+	j = cltest.CreateJobSpecViaWeb(t, app, j)
 
 	app.Start()
 	logs <- log
