@@ -724,8 +724,3 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 		assert.FailNowf(t, "Unexpected response", "Expected %d response, got %d", expectedStatusCode, resp.StatusCode)
 	}
 }
-
-func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
-	rm := services.NewJobRunner(s)
-	return rm, func() { rm.Stop() }
-}
