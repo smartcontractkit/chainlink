@@ -81,7 +81,7 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	assert.NoError(t, app.Start())
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_sendRawTransaction", "invalid")
+		ethMock.RegisterError("eth_sendRawTransaction", "invalid transaction")
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 

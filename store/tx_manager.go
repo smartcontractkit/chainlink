@@ -102,26 +102,18 @@ func (txm *TxManager) createAttempt(
 	tx *models.Tx,
 	gasPrice *big.Int,
 	blkNum uint64,
-) (a *models.TxAttempt, err error) {
+) (*models.TxAttempt, error) {
 	etx := tx.EthTx(gasPrice)
-	etx, err = txm.keyStore.SignTx(etx, txm.config.ChainID)
+	etx, err := txm.keyStore.SignTx(etx, txm.config.ChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	a, err = txm.orm.AddAttempt(tx, etx, blkNum)
+	a, err := txm.orm.AddAttempt(tx, etx, blkNum)
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("error sending transaction: %v", r)
-		}
-	}()
-	err = txm.sendTransaction(etx)
-
-	return a, err
+	return a, txm.sendTransaction(etx)
 }
 
 func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
