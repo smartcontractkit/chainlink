@@ -17,7 +17,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestJobRunner_Start_ResumeSleepingRuns(t *testing.T) {
+func TestJobRunner_resumeSleepingRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	rm := services.NewJobRunner(store)
@@ -34,7 +34,7 @@ func TestJobRunner_Start_ResumeSleepingRuns(t *testing.T) {
 	jr.Result.Data = cltest.JSONFromString(`{"foo":"bar"}`)
 	assert.NoError(t, store.Save(&jr))
 
-	assert.NoError(t, rm.ResumeSleepingRuns())
+	assert.NoError(t, services.ExportedResumeSleepingRuns(rm))
 	rr, open := <-store.RunChannel.Receive()
 	assert.Equal(t, jr.Result, rr.Input)
 	assert.True(t, open)
@@ -51,9 +51,9 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 	run1 := job.NewRun(initr)
 	run2 := job.NewRun(initr)
 
-	chan1a := rm.ChannelForRun(run1.ID)
-	chan2 := rm.ChannelForRun(run2.ID)
-	chan1b := rm.ChannelForRun(run1.ID)
+	chan1a := services.ExportedChannelForRun(rm, run1.ID)
+	chan2 := services.ExportedChannelForRun(rm, run2.ID)
+	chan1b := services.ExportedChannelForRun(rm, run1.ID)
 
 	assert.NotEqual(t, chan1a, chan2)
 	assert.Equal(t, chan1a, chan1a)
@@ -73,15 +73,15 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	jr := j.NewRun(initr)
 	assert.NoError(t, s.Save(&jr))
 
-	chan1 := rm.ChannelForRun(jr.ID)
+	chan1 := services.ExportedChannelForRun(rm, jr.ID)
 	chan1 <- store.RunRequest{Input: jr.Result}
 	cltest.WaitForJobRunToComplete(t, s, jr)
 
 	gomega.NewGomegaWithT(t).Eventually(func() chan<- store.RunRequest {
-		return rm.ChannelForRun(jr.ID)
+		return services.ExportedChannelForRun(rm, jr.ID)
 	}).Should(gomega.Not(gomega.Equal(chan1))) // eventually deletes the channel
 
-	chan2 := rm.ChannelForRun(jr.ID)
+	chan2 := services.ExportedChannelForRun(rm, jr.ID)
 	chan2 <- store.RunRequest{Input: jr.Result} // does not panic
 }
 
@@ -99,12 +99,12 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 	jr := j.NewRun(initr)
 	assert.NoError(t, s.Save(&jr))
 
-	chan1 := rm.ChannelForRun(jr.ID)
+	chan1 := services.ExportedChannelForRun(rm, jr.ID)
 
 	chan1 <- store.RunRequest{}
 	cltest.WaitForJobRunToPendConfirmations(t, s, jr)
 
-	chan2 := rm.ChannelForRun(jr.ID)
+	chan2 := services.ExportedChannelForRun(rm, jr.ID)
 	assert.Equal(t, chan1, chan2)
 }
 
@@ -117,13 +117,13 @@ func TestJobRunner_Stop(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	jr := j.NewRun(initr)
 
-	rm.ChannelForRun(jr.ID)
-	assert.Equal(t, 1, rm.WorkerCount())
+	services.ExportedChannelForRun(rm, jr.ID)
+	assert.Equal(t, 1, services.ExportedWorkerCount(rm))
 
 	rm.Stop()
 
 	gomega.NewGomegaWithT(t).Eventually(func() int {
-		return rm.WorkerCount()
+		return services.ExportedWorkerCount(rm)
 	}).Should(gomega.Equal(0))
 }
 

@@ -308,3 +308,8 @@ func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
 	jr.TaskRuns[i].Result.Status = models.RunStatusPendingBridge
 	return jr
 }
+
+func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
+	rm := services.NewJobRunner(s)
+	return rm, func() { rm.Stop() }
+}
