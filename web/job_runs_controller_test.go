@@ -26,6 +26,7 @@ type JobRun struct {
 
 func BenchmarkJobRunsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 	j := setupJobRunsControllerIndex(b, app)
 
@@ -40,6 +41,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	j := setupJobRunsControllerIndex(t, app)
@@ -99,6 +101,7 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 func TestJobRunsController_Create_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	j, _ := cltest.NewJobWithWebInitiator()
@@ -114,6 +117,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	j, _ := cltest.NewJobWithWebInitiator()
@@ -126,6 +130,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	j, _ := cltest.NewJobWithWebInitiator()
@@ -140,6 +145,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	j := cltest.NewJob()
@@ -153,6 +159,7 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	url := app.Server.URL + "/v2/specs/garbageID/runs"
@@ -163,6 +170,7 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
@@ -189,6 +197,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 func TestJobRunsController_Update_NotPending(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
@@ -208,6 +217,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 func TestJobRunsController_Update_WithError(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
@@ -234,6 +244,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 func TestJobRunsController_Update_BadInput(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
@@ -255,6 +266,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 func TestJobRunsController_Update_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
@@ -277,6 +289,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
@@ -301,6 +314,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 func TestJobRunsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/garbage")
@@ -310,6 +324,7 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
+	app.Start()
 	defer cleanup()
 
 	resp, err := http.Get(app.Server.URL + "/v2/runs/notauthorized")
