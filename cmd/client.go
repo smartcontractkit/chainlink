@@ -84,7 +84,7 @@ func logIfNonceOutOfSync(store *strpkg.Store) {
 	account := store.TxManager.GetActiveAccount()
 	lastNonce, err := store.GetLastNonce(account.Address)
 	if err != nil {
-		logger.Warn("database error when checking nonce: ", err)
+		logger.Error("database error when checking nonce: ", err)
 		return
 	}
 

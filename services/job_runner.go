@@ -97,13 +97,13 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 		case rr := <-workerChannel:
 			jr, err := rm.store.FindJobRun(runID)
 			if err != nil {
-				logger.Warnw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
+				logger.Errorw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
 			}
 			if rr.BlockNumber != nil {
 				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
 			}
 			if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
-				logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
+				logger.Errorw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
 			}
 
 			if jr.Status.Finished() {
