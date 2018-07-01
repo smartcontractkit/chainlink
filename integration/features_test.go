@@ -39,60 +39,60 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse, func(body string) {})
 	defer assertCalled()
 
-	config, _ := cltest.NewConfig()
+	config, cleanup := cltest.NewConfig()
+	defer cleanup()
 	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	app, cleanup := cltest.NewApplicationWithConfig(config)
+	defer cleanup()
 	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
 
 	newHeads := make(chan models.BlockHeader, 10)
-	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold + 1
 	safe := confirmed + config.MinOutgoingConfirmations - 1
+	unconfirmedReceipt := store.TxReceipt{}
+	confirmedReceipt := store.TxReceipt{
+		Hash:        attempt1Hash,
+		BlockNumber: cltest.BigHexInt(confirmed),
+	}
 
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
+	assert.NoError(t, app.Start())
 
-	err := app.Start()
-	assert.NoError(t, err)
-	defer cleanup()
-
-	eth.Context("ethTx.Perform()#1", func(eth *cltest.EthMock) {
+	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-		eth.Register("eth_sendRawTransaction", hash)
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
+		eth.Register("eth_sendRawTransaction", attempt1Hash)
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-		eth.Register("eth_sendRawTransaction", hash)
+		eth.Register("eth_sendRawTransaction", attempt1Hash)
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
 
 	eth.Context("ethTx.Perform()#3 at block 23460", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{
-			Hash:        hash,
-			BlockNumber: cltest.BigHexInt(confirmed),
-		})
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
-		eth.Register("eth_getTransactionReceipt", store.TxReceipt{
-			Hash:        hash,
-			BlockNumber: cltest.BigHexInt(confirmed),
-		})
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 
@@ -105,10 +105,10 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	assert.Equal(t, "10583.75", val)
 	assert.NoError(t, err)
 	val, err = jr.TaskRuns[3].Result.Value()
-	assert.Equal(t, hash.String(), val)
+	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
 	val, err = jr.Result.Value()
-	assert.Equal(t, hash.String(), val)
+	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
 	assert.Equal(t, jr.Result.JobRunID, jr.ID)
 
