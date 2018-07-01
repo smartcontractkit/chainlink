@@ -183,7 +183,7 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 	go func() {
 		err := <-sub.Err()
 		if err != nil {
-			logger.Warnw("Error in new head subscription, disconnected", "err", err)
+			logger.Errorw("Error in new head subscription, disconnected", "err", err)
 			ht.reconnectLoop()
 		}
 	}()
@@ -193,7 +193,7 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 func (ht *HeadTracker) updateBlockHeader() {
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
-		logger.Warn("Unable to update latest block header", "err", err)
+		logger.Errorw("Unable to update latest block header", "err", err)
 		return
 	}
 
@@ -238,7 +238,7 @@ func (ht *HeadTracker) reconnectLoop() {
 		ht.sleeper.Sleep()
 		err := ht.Start()
 		if err != nil {
-			logger.Warnw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
+			logger.Errorw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
 		} else {
 			logger.Info("Reconnected to node ", ht.store.Config.EthereumURL)
 			break
