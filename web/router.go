@@ -97,7 +97,7 @@ func guiEngine(app *services.ChainlinkApplication) *gin.Engine {
 		if filepath.Ext(c.Request.URL.Path) == "" {
 			index, err := box.Open("index.html")
 			if err != nil {
-				logger.Warn(err)
+				logger.Error(err)
 			}
 
 			buf := new(bytes.Buffer)
@@ -115,7 +115,7 @@ func loggerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logger.Warn("Web request log error: ", err.Error())
+			logger.Error("Web request log error: ", err.Error())
 			c.Next()
 			return
 		}
