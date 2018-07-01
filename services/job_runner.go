@@ -16,9 +16,9 @@ import (
 type JobRunner interface {
 	Start() error
 	Stop()
-	ResumeSleepingRuns() error
-	ChannelForRun(string) chan<- store.RunRequest
-	WorkerCount() int
+	resumeSleepingRuns() error
+	channelForRun(string) chan<- store.RunRequest
+	workerCount() int
 }
 
 type jobRunner struct {
@@ -42,12 +42,21 @@ func NewJobRunner(str *store.Store) JobRunner {
 // Start reinitializes runs and starts the execution of the store's runs.
 func (rm *jobRunner) Start() error {
 	go rm.demultiplexRuns()
-	return rm.ResumeSleepingRuns()
+	return rm.resumeSleepingRuns()
 }
 
-// ResumeSleepingRuns enqueues all recorded sleeping runs to make sure they are
-// woken after their sleep is expected to finish.
-func (rm *jobRunner) ResumeSleepingRuns() error {
+// Stop closes all open worker channels.
+func (rm *jobRunner) Stop() {
+	rm.closingMutex.Lock()
+	defer rm.closingMutex.Unlock()
+
+	if !rm.closed {
+		rm.closed = true
+		close(rm.closer)
+	}
+}
+
+func (rm *jobRunner) resumeSleepingRuns() error {
 	pendingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
 		return err
@@ -60,15 +69,12 @@ func (rm *jobRunner) ResumeSleepingRuns() error {
 
 func (rm *jobRunner) demultiplexRuns() {
 	for rr := range rm.store.RunChannel.Receive() {
-		rm.ChannelForRun(rr.Input.JobRunID) <- rr
+		rm.channelForRun(rr.Input.JobRunID) <- rr
 	}
 	logger.Debug("Run Manager Closed")
 }
 
-// ChannelForRun accepts a JobRun and returns a worker channel dedicated
-// to that JobRun. The channel accepts new block heights for triggering runs,
-// and ensures that the block height confirmations are run syncronously.
-func (rm *jobRunner) ChannelForRun(runID string) chan<- store.RunRequest {
+func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
 	rm.workerMutex.Lock()
 	defer rm.workerMutex.Unlock()
 
@@ -115,19 +121,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 	}
 }
 
-// Stop closes all open worker channels.
-func (rm *jobRunner) Stop() {
-	rm.closingMutex.Lock()
-	defer rm.closingMutex.Unlock()
-
-	if !rm.closed {
-		rm.closed = true
-		close(rm.closer)
-	}
-}
-
-// WorkerCount returns the current number of available worker channels.
-func (rm *jobRunner) WorkerCount() int {
+func (rm *jobRunner) workerCount() int {
 	rm.workerMutex.Lock()
 	defer rm.workerMutex.Unlock()
 
