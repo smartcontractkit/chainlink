@@ -22,7 +22,7 @@ const mountBridges = (opts = {}) => (
 )
 
 describe('containers/Bridge', () => {
-  it('renders the list of bridges and account balance', async () => {
+  it('renders the list of bridges', async () => {
     expect.assertions(2)
 
     const bridgesResponse = bridgesFactory([{
