@@ -14,6 +14,7 @@ export default {
         path: '/',
         component: 'src/containers/Jobs'
       },
+      {path: '/config'},
       {
         is404: true,
         component: 'src/containers/404'

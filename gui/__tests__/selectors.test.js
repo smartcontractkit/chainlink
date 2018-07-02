@@ -2,7 +2,8 @@ import {
   jobsSelector,
   jobSpecSelector,
   jobRunsSelector,
-  jobRunsCountSelector
+  jobRunsCountSelector,
+  configsSelector
 } from 'selectors'
 
 describe('selectors', () => {
@@ -129,6 +130,25 @@ describe('selectors', () => {
       }
 
       expect(jobRunsCountSelector(state, 'jobA')).toEqual(0)
+    })
+  })
+
+  describe('configsSelector', () => {
+    it('returns a tuple per key/value pair', () => {
+      const state = {
+        configuration: {
+          config: {
+            camelCased: 'value',
+            key: 'value'
+          }
+        }
+      }
+
+      let expectation = [
+        ['CAMEL_CASED', 'value'],
+        ['KEY', 'value']
+      ]
+      expect(configsSelector(state)).toEqual(expectation)
     })
   })
 })

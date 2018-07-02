@@ -1,5 +1,6 @@
 import {
   getAccountBalance,
+  getConfiguration,
   getJobs,
   getJobSpec,
   getJobSpecRuns
@@ -116,5 +117,32 @@ export const fetchJobSpecRuns = (id, page, size) => {
     return getJobSpecRuns(id, page, size)
       .then(json => dispatch(receiveJobSpecRunsSuccess(json)))
       .catch(_ => dispatch(receiveJobSpecRunsNetworkError()))
+  }
+}
+
+export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
+export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
+export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
+
+const requestConfiguration = () => ({ type: REQUEST_CONFIGURATION })
+const receiveConfiguration = (json) => {
+  return {
+    type: RECEIVE_CONFIGURATION_SUCCESS,
+    config: json.data.attributes
+  }
+}
+const receiveConfigurationNetworkError = () => {
+  return {
+    type: RECEIVE_CONFIGURATION_ERROR,
+    networkError: true
+  }
+}
+
+export const fetchConfiguration = () => {
+  return dispatch => {
+    dispatch(requestConfiguration())
+    return getConfiguration()
+      .then(json => dispatch(receiveConfiguration(json)))
+      .catch(_ => dispatch(receiveConfigurationNetworkError()))
   }
 }
