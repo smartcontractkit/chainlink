@@ -1,14 +1,76 @@
-- type: parallel
+- name: Tests
+  type: parallel
   steps:
-  - service: ci
+  - name: Go Unit Tests
+    service: ci
     command: ./internal/ci/go_test
-  - service: ci
+  - name: Solidity Contract Tests
+    service: ci
     command: ./internal/ci/truffle_test
-  - service: ci
+  - name: Integration Tests
+    service: ci
     command: ./internal/ci/ethereum_test
-  - service: ci
+  - name: Frontend Tests
+    service: ci
     command: ./internal/ci/gui_test
+  # These force a build of the app images, which are otherwise unused in tests
+  - name: Build Docker Image
+    service: app
+    command: --version
+  - name: Build Docker Image (SGX)
+    service: app-sgx
+    command: --version
 
-- name: codecov
+- name: Publish Coverage Stats
   service: ci
   command: bash -c "curl -s https://codecov.io/bash"
+
+- name: Docker Publish
+  type: parallel
+  steps:
+  - name: Image w/Timestamp + Version Tag
+    type: push
+    service: app
+    image_name: smartcontract/chainlink
+    image_tag: "0.2.0-{{.StringTime}}"
+    registry: https://index.docker.io/v1/
+    encrypted_dockercfg_path: dockercfg.encrypted
+  - name: Image w/Version Tag
+    tag: master
+    type: push
+    service: app
+    image_name: smartcontract/chainlink
+    image_tag: "0.2.0"
+    registry: https://index.docker.io/v1/
+    encrypted_dockercfg_path: dockercfg.encrypted
+  - name: Image w/Latest Tag
+    tag: master
+    type: push
+    service: app
+    image_name: smartcontract/chainlink
+    image_tag: latest
+    registry: https://index.docker.io/v1/
+    encrypted_dockercfg_path: dockercfg.encrypted
+  - name: SGX Image w/Timestamp + Version Tag
+    type: push
+    service: app-sgx
+    image_name: smartcontract/chainlink-sgx
+    image_tag: "0.2.0-{{.StringTime}}"
+    registry: https://index.docker.io/v1/
+    encrypted_dockercfg_path: dockercfg.encrypted
+  - name: SGX Image w/Version Tag
+    tag: master
+    type: push
+    service: app-sgx
+    image_name: smartcontract/chainlink-sgx
+    image_tag: "0.2.0"
+    registry: https://index.docker.io/v1/
+    encrypted_dockercfg_path: dockercfg.encrypted
+  - name: SGX Image w/Latest Tag
+    tag: master
+    type: push
+    service: app-sgx
+    image_name: smartcontract/chainlink-sgx
+    image_tag: latest
+    registry: https://index.docker.io/v1/
+    encrypted_dockercfg_path: dockercfg.encrypted

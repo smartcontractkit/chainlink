@@ -1,5 +1,7 @@
 FROM smartcontract/builder:1.0.1
 
+# The integration tests need jq
+ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y jq
 
 # Have to reintroduce ENV vars from Baidu's SGX SDK image
@@ -7,16 +9,21 @@ ENV PATH /root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/b
 ENV LD_LIBRARY_PATH /opt/sgxsdk/sdk_libs
 ENV SGX_SDK /opt/sgxsdk
 
-ARG COMMIT_SHA
-ARG ENVIRONMENT
-ARG SGX_ENABLED
-ARG SGX_SIMULATION
+# Install goverage to capture go test coverage
+RUN go get -u github.com/haya14busa/goverage
 
-ADD . /go/src/github.com/smartcontractkit/chainlink
+# Create the project working directory in the full GOPATH
+RUN mkdir -p /go/src/github.com/smartcontractkit/chainlink/
 WORKDIR /go/src/github.com/smartcontractkit/chainlink
 
+# Do dependency installs first, since these will change less than the full
+# source tree and can get cached
+ADD Gopkg.* ./
 RUN dep ensure -vendor-only
-RUN go get -u github.com/haya14busa/goverage
+ADD package.json yarn.lock ./
 RUN yarn install
+
+# Copy in full source
+ADD . .
 
 CMD ["/bin/bash"]
