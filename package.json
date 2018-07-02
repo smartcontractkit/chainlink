@@ -12,6 +12,7 @@
     "watch": "NODE_ENV=test jest --watchAll --notify"
   },
   "dependencies": {
+    "change-case": "^3.0.2",
     "linkToken": "github:smartcontractkit/linktoken",
     "openzeppelin-solidity": "^1.8.0",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
