@@ -1,3 +1,5 @@
+import { constantCase } from 'change-case'
+
 export const jobsSelector = state => (
   state
     .jobs
@@ -28,3 +30,9 @@ export const jobRunsCountSelector = (state, jobSpecId) => {
   const spec = jobSpecSelector(state, jobSpecId)
   return spec ? spec.runsCount : 0
 }
+
+export const configsSelector = state => (
+  Object.keys(state.configuration.config)
+    .sort()
+    .map(key => [constantCase(key), state.configuration.config[key]])
+)
