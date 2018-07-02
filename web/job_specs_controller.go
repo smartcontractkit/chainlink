@@ -57,15 +57,14 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	var jr models.JobSpecRequest
 	if err := c.ShouldBindJSON(&jr); err != nil {
 		publicError(c, 400, err)
+	} else if j, err := models.NewJobFromRequest(jr); err != nil {
+		c.AbortWithError(500, err)
+	} else if err := services.ValidateJob(j, jsc.App.Store); err != nil {
+		publicError(c, 400, err)
+	} else if err = jsc.App.AddJob(j); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		j := models.NewJobFromRequest(jr)
-		if err := services.ValidateJob(j, jsc.App.Store); err != nil {
-			publicError(c, 400, err)
-		} else if err = jsc.App.AddJob(j); err != nil {
-			c.AbortWithError(500, err)
-		} else {
-			c.JSON(200, presenters.JobSpec{JobSpec: j})
-		}
+		c.JSON(200, presenters.JobSpec{JobSpec: j})
 	}
 }
 

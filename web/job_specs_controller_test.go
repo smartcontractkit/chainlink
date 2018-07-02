@@ -91,7 +91,17 @@ func TestJobSpecsController_Create(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
+	resp := cltest.BasicAuthPost(
+		app.Server.URL+"/v2/specs",
+		"application/json",
+		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")),
+	)
+	defer resp.Body.Close()
+	cltest.AssertServerResponse(t, resp, 200)
+
+	js := cltest.ParseCommonJSON(resp.Body)
+	j := cltest.FindJob(app.Store, js.ID)
+	assert.NotEqual(t, "", js.Digest)
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := cltest.UnwrapAdapter(adapter1).(*adapters.HTTPGet)
