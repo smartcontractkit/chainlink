@@ -1,6 +1,6 @@
 .EXPORT_ALL_VARIABLES:
 .DEFAULT_GOAL := build
-.PHONY: dep build install gui docker dockerpush
+.PHONY: godep yarndep build install gui docker dockerpush
 
 ENVIRONMENT ?= release
 
@@ -23,19 +23,19 @@ else
 	SGX_BUILD_ENCLAVE :=
 endif
 
-dep: ## Ensure chainlink's go dependencies are installed.
+godep: ## Ensure chainlink's go dependencies are installed.
 	dep ensure -vendor-only
 
-build: dep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
+yarndep: ## Ensure the frontend's dependencies are installed.
+	yarn install
+
+build: godep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
 	go build $(GOFLAGS) -o chainlink
 
-install: dep gui ## Install chainlink
+install: godep gui ## Install chainlink
 	go install $(GOFLAGS)
 
-gui: ## Install GUI
-	@cd gui
-	yarn install
-	@cd ..
+gui: yarndep ## Install GUI
 	yarn build
 	go generate ./...
 
