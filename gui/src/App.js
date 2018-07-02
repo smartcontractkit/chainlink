@@ -13,9 +13,10 @@ import { Provider } from 'react-redux'
 import logoImg from './logo.svg'
 
 // Use universal-react-component for code-splitting non-static routes
+const Bridges = universal(import('./containers/Bridges'))
+const Configuration = universal(import('./containers/Configuration'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
-const Configuration = universal(import('./containers/Configuration'))
 
 // Custom styles
 const styles = theme => {
@@ -31,10 +32,14 @@ const styles = theme => {
       margin: theme.spacing.unit * 5,
       marginTop: 0
     },
-    configuration: {
-      color: theme.palette.common.white,
+    menu: {
       marginTop: theme.spacing.unit * 2,
-      display: 'block',
+      textDecoration: 'none'
+    },
+    menuitem: {
+      color: theme.palette.common.white,
+      paddingRight: theme.spacing.unit * 5,
+      display: 'inline-block',
       textDecoration: 'none'
     }
   }
@@ -71,11 +76,18 @@ class App extends PureComponent {
                     </Link>
                   </Grid>
                   <Grid item xs={3}>
-                    <Link to='/config' className={classes.configuration}>
-                      <Typography align='right' color='inherit'>
-                        Configuration
-                      </Typography>
-                    </Link>
+                    <div  align='right' className={classes.menu}>
+                      <Link to='/bridges' className={classes.menuitem}>
+                        <Typography color='inherit'>
+                          Bridges
+                        </Typography>
+                      </Link>
+                      <Link to='/config' className={classes.menuitem}>
+                        <Typography color='inherit'>
+                          Configuration
+                        </Typography>
+                      </Link>
+                    </div>
                   </Grid>
                 </Grid>
               </AppBar>
@@ -85,6 +97,7 @@ class App extends PureComponent {
                   <Route path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
                   <Route exact path='/config' component={Configuration} />
+                  <Route exact path='/bridges' component={Bridges} />
                   <Routes />
                 </Switch>
               </div>
