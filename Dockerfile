@@ -16,10 +16,12 @@ FROM ubuntu:16.04
 
 COPY --from=builder \
   /go/src/github.com/smartcontractkit/chainlink/chainlink \
-  /root
+  /usr/local/bin/
+COPY --from=builder \
+  /go/src/github.com/smartcontractkit/chainlink/gui/dist \
+  /go/src/github.com/smartcontractkit/chainlink/gui/dist
 
-WORKDIR /root
 EXPOSE 6688
 EXPOSE 6689
-ENTRYPOINT ["./chainlink"]
+ENTRYPOINT ["chainlink"]
 CMD ["node"]
