@@ -1,12 +1,13 @@
+.EXPORT_ALL_VARIABLES:
 .DEFAULT_GOAL := build
 .PHONY: dep build install gui docker dockerpush
 
 ENVIRONMENT ?= release
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
-REPO=smartcontract/chainlink
-LDFLAGS=-X github.com/smartcontractkit/chainlink/store.Sha=$(COMMIT_SHA)
-GOFLAGS=-ldflags "$(LDFLAGS)"
+REPO := smartcontract/chainlink
+GO_LDFLAGS := -X github.com/smartcontractkit/chainlink/store.Sha=$(COMMIT_SHA)
+GOFLAGS := -ldflags "$(GO_LDFLAGS)"
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
@@ -15,7 +16,7 @@ SGX_TARGET := ./sgx/target/$(ENVIRONMENT)/
 SGX_ENCLAVE := enclave.signed.so
 
 ifeq ($(SGX_ENABLED),yes)
-	LDFLAGS += -L $(SGX_TARGET)
+	GO_LDFLAGS += -L $(SGX_TARGET)
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
 else
@@ -26,10 +27,10 @@ dep: ## Ensure chainlink's go dependencies are installed.
 	dep ensure -vendor-only
 
 build: dep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
-	ENVIRONMENT=$(ENVIRONMENT) go build $(GOFLAGS) -o chainlink
+	go build $(GOFLAGS) -o chainlink
 
 install: dep gui ## Install chainlink
-	@go install $(GOFLAGS)
+	go install $(GOFLAGS)
 
 gui: ## Install GUI
 	@cd gui
@@ -40,10 +41,10 @@ gui: ## Install GUI
 
 docker: ## Build the docker image.
 	docker build \
-		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
-		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-		--build-arg SGX_ENABLED=$(SGX_ENABLED) \
-		--build-arg SGX_SIMULATION=$(SGX_SIMULATION) \
+		--build-arg ENVIRONMENT \
+		--build-arg COMMIT_SHA \
+		--build-arg SGX_ENABLED \
+		--build-arg SGX_SIMULATION \
 		-t $(REPO) .
 
 dockerpush: ## Push the docker image to dockerhub
@@ -51,7 +52,7 @@ dockerpush: ## Push the docker image to dockerhub
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):
-	@SGX_SIMULATION=$(SGX_SIMULATION) make -C sgx/
+	@make -C sgx/
 
 help:
 	@echo ""
