@@ -148,3 +148,27 @@ func TestTask_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeSpecJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"identitiy", `{"endAt":"2018-07-02T21:51:36Z"}`, `{"endAt":"2018-07-02T21:51:36Z","initiators":null,"startAt":null,"tasks":null}`},
+		{"ordering of keys", `{"startAt":"2018-07-02T21:51:36Z","endAt":"2018-07-02T21:51:36Z"}`, `{"endAt":"2018-07-02T21:51:36Z","initiators":null,"startAt":"2018-07-02T21:51:36Z","tasks":null}`},
+		{"task type normalization", `{"tasks":[{"type":"noOp"}]}`, `{"endAt":null,"initiators":null,"startAt":null,"tasks":[{"confirmations":0.000000e+00,"type":"noop"}]}`},
+		{"initiator type normalization", `{"initiators":[{"type":"runLog"}]}`, `{"endAt":null,"initiators":[{"address":"0x0000000000000000000000000000000000000000","id":0.000000e+00,"jobId":"","time":"0001-01-01T00:00:00Z","type":"runlog"}],"startAt":null,"tasks":null}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := models.NormalizeSpecJSON(test.input)
+
+			assert.Equal(t, test.want, result)
+			assert.NoError(t, err)
+		})
+	}
+}
