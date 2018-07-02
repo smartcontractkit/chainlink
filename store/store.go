@@ -99,7 +99,7 @@ func (s *Store) Start() error {
 
 // Stop shuts down all of the working parts of the store.
 func (s *Store) Stop() error {
-	defer s.RunChannel.Close()
+	s.RunChannel.Close()
 	return s.Close()
 }
 
