@@ -45,10 +45,13 @@ func NormalizedJSON(object interface{}) (string, error) {
 		return "", err
 	}
 
+	return NormalizedJSONString(jsonBytes)
+}
+
+func NormalizedJSONString(val []byte) (string, error) {
 	// Unmarshal into a generic interface{}
 	var data interface{}
-	err = json.Unmarshal(jsonBytes, &data)
-	if err != nil {
+	if err := json.Unmarshal(val, &data); err != nil {
 		return "", err
 	}
 
@@ -60,8 +63,7 @@ func NormalizedJSON(object interface{}) (string, error) {
 	defer wc.Close()
 
 	// Now marshal the generic interface
-	err = marshal(wc, data)
-	if err != nil {
+	if err := marshal(wc, data); err != nil {
 		return "", err
 	}
 	wc.Close()

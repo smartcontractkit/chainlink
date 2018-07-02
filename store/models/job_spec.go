@@ -273,3 +273,17 @@ func (bt *BridgeType) UnmarshalJSON(input []byte) error {
 	bt.DefaultConfirmations = aux.DefaultConfirmations
 	return nil
 }
+
+func NormalizeSpecJSON(s string) (string, error) {
+	var jsr JobSpecRequest
+	if err := json.Unmarshal([]byte(s), &jsr); err != nil {
+		return "", err
+	}
+
+	js, err := json.Marshal(&jsr)
+	if err != nil {
+		return "", err
+	}
+
+	return utils.NormalizedJSONString(js)
+}
