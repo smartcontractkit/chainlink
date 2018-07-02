@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ type JobSpec struct {
 	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
+	Digest     string      `json:"digest"`
 }
 
 // JobSpecRequest represents a job request as sent over the wire.
@@ -48,7 +50,12 @@ func (j *JobSpec) SetID(value string) error {
 }
 
 // NewJobFromRequest initializes a new job from a JobSpecRequest.
-func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
+func NewJobFromRequest(jsr JobSpecRequest) (JobSpec, error) {
+	digest, err := utils.ObjectDigest(jsr)
+	if err != nil {
+		return JobSpec{}, err
+	}
+
 	return JobSpec{
 		ID:         utils.NewBytes32ID(),
 		CreatedAt:  Time{Time: time.Now()},
@@ -56,7 +63,8 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 		Tasks:      jsr.Tasks,
 		StartAt:    jsr.StartAt,
 		EndAt:      jsr.EndAt,
-	}
+		Digest:     fmt.Sprintf("0x%x", digest.Sum(nil)),
+	}, nil
 }
 
 // NewJob initializes a new job by generating a unique ID and setting
