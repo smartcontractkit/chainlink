@@ -3,7 +3,7 @@ ci:
     image: ci
     dockerfile: ./internal/ci/Dockerfile
     context: ./
-  encrypted_env_file: env.encrypted
+  encrypted_env_file: internal/ci/env.encrypted
   cached: true
   environment:
     ENVIRONMENT: development

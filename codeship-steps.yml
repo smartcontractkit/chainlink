@@ -34,7 +34,7 @@
     image_name: smartcontract/chainlink
     image_tag: "0.2.0-{{.StringTime}}"
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: Image w/Version Tag
     tag: master
     type: push
@@ -42,7 +42,7 @@
     image_name: smartcontract/chainlink
     image_tag: "0.2.0"
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: Image w/Latest Tag
     tag: master
     type: push
@@ -50,14 +50,14 @@
     image_name: smartcontract/chainlink
     image_tag: latest
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: SGX Image w/Timestamp + Version Tag
     type: push
     service: app-sgx
     image_name: smartcontract/chainlink-sgx
     image_tag: "0.2.0-{{.StringTime}}"
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: SGX Image w/Version Tag
     tag: master
     type: push
@@ -65,7 +65,7 @@
     image_name: smartcontract/chainlink-sgx
     image_tag: "0.2.0"
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: SGX Image w/Latest Tag
     tag: master
     type: push
@@ -73,4 +73,4 @@
     image_name: smartcontract/chainlink-sgx
     image_tag: latest
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
