@@ -23,7 +23,8 @@ func TestClient_RunNode(t *testing.T) {
 	config.GuiPort = "6689"
 
 	// cleanup invoked in client.RunNode
-	app, _ := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
 
 	eth := app.MockEthClient()
 	eth.Register("eth_getTransactionCount", `0x1`)
@@ -34,7 +35,7 @@ func TestClient_RunNode(t *testing.T) {
 	client := cmd.Client{
 		Renderer:   r,
 		Config:     app.Store.Config,
-		AppFactory: cltest.InstanceAppFactory{App: app},
+		AppFactory: cltest.InstanceAppFactory{App: app.ChainlinkApplication},
 		Auth:       auth,
 		Runner:     cltest.EmptyRunner{}}
 
