@@ -12,41 +12,12 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-// JobSpec is the definition for all the work to be carried out by the node
-// for a given contract. It contains the Initiators, Tasks (which are the
-// individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
-type JobSpec struct {
-	ID         string      `json:"id" storm:"id,unique"`
-	CreatedAt  Time        `json:"createdAt" storm:"index"`
-	Initiators []Initiator `json:"initiators"`
-	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
-	StartAt    null.Time   `json:"startAt" storm:"index"`
-	EndAt      null.Time   `json:"endAt" storm:"index"`
-	Digest     string      `json:"digest"`
-}
-
 // JobSpecRequest represents a job request as sent over the wire.
 type JobSpecRequest struct {
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (j JobSpec) GetID() string {
-	return j.ID
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (j JobSpec) GetName() string {
-	return "specs"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (j *JobSpec) SetID(value string) error {
-	j.ID = value
-	return nil
 }
 
 // NewJobFromRequest initializes a new job from a JobSpecRequest.
@@ -65,6 +36,35 @@ func NewJobFromRequest(jsr JobSpecRequest) (JobSpec, error) {
 		EndAt:      jsr.EndAt,
 		Digest:     fmt.Sprintf("0x%x", digest.Sum(nil)),
 	}, nil
+}
+
+// JobSpec is the definition for all the work to be carried out by the node
+// for a given contract. It contains the Initiators, Tasks (which are the
+// individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
+type JobSpec struct {
+	ID         string      `json:"id" storm:"id,unique"`
+	CreatedAt  Time        `json:"createdAt" storm:"index"`
+	Initiators []Initiator `json:"initiators"`
+	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
+	StartAt    null.Time   `json:"startAt" storm:"index"`
+	EndAt      null.Time   `json:"endAt" storm:"index"`
+	Digest     string      `json:"digest"`
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (j JobSpec) GetID() string {
+	return j.ID
+}
+
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (j JobSpec) GetName() string {
+	return "specs"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (j *JobSpec) SetID(value string) error {
+	j.ID = value
+	return nil
 }
 
 // NewJob initializes a new job by generating a unique ID and setting
@@ -202,9 +202,9 @@ func (i Initiator) IsLogInitiated() bool {
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	Type          string `json:"type" storm:"index"`
-	Confirmations uint64 `json:"confirmations"`
-	Params        JSON   `json:"-"`
+	Type          taskType `json:"type" storm:"index"`
+	Confirmations uint64   `json:"confirmations"`
+	Params        JSON     `json:"-"`
 }
 
 // UnmarshalJSON parses the given input and updates the TaskSpec.
@@ -216,7 +216,7 @@ func (t *TaskSpec) UnmarshalJSON(input []byte) error {
 	}
 
 	t.Confirmations = aux.Confirmations
-	t.Type = strings.ToLower(aux.Type)
+	t.Type = aux.Type
 	var params json.RawMessage
 	if err := json.Unmarshal(input, &params); err != nil {
 		return err
@@ -242,6 +242,31 @@ func (t TaskSpec) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(merged)
+}
+
+type taskType struct {
+	string
+}
+
+func NewTaskType(val string) taskType {
+	return taskType{strings.ToLower(val)}
+}
+
+func (t *taskType) UnmarshalJSON(input []byte) error {
+	var aux string
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+	*t = NewTaskType(aux)
+	return nil
+}
+
+func (t taskType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.string)
+}
+
+func (t taskType) String() string {
+	return t.string
 }
 
 // BridgeType is used for external adapters and has fields for

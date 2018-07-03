@@ -25,7 +25,7 @@ import (
 // NewJob return new NoOp JobSpec
 func NewJob() models.JobSpec {
 	j := models.NewJob()
-	j.Tasks = []models.TaskSpec{{Type: "NoOp"}}
+	j.Tasks = []models.TaskSpec{{Type: models.NewTaskType("NoOp")}}
 	return j
 }
 
@@ -39,7 +39,7 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 	mustNotErr(err)
 
 	return models.TaskSpec{
-		Type:   taskType,
+		Type:   models.NewTaskType(taskType),
 		Params: params,
 	}
 }

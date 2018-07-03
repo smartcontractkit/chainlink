@@ -3,7 +3,6 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -40,7 +39,7 @@ func (wa MinConfsWrappedAdapter) MinConfs() uint64 {
 func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) {
 	var ac Adapter
 	var err error
-	switch strings.ToLower(task.Type) {
+	switch task.Type.String() {
 	case "copy":
 		ac = &Copy{}
 		err = unmarshalParams(task.Params, ac)
@@ -78,7 +77,7 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 		ac = &Sleep{}
 		err = unmarshalParams(task.Params, ac)
 	default:
-		bt, err := store.BridgeTypeFor(task.Type)
+		bt, err := store.BridgeTypeFor(task.Type.String())
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}

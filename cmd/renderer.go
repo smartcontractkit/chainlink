@@ -174,7 +174,7 @@ func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	for _, t := range j.Tasks {
 		p := presenters.TaskSpec{TaskSpec: t}
 		keys, values := p.FriendlyParams()
-		table.Append([]string{p.Type, keys, values})
+		table.Append([]string{p.Type.String(), keys, values})
 	}
 
 	render("Tasks", table)

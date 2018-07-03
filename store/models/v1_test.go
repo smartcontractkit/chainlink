@@ -67,7 +67,7 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 
 			for i, wantTask := range want.Tasks {
 				actual := j2.Tasks[i]
-				assert.Equal(t, strings.ToLower(wantTask.Type), actual.Type)
+				assert.Equal(t, wantTask.Type, actual.Type)
 				assert.JSONEq(t, wantTask.Params.String(), actual.Params.String())
 			}
 

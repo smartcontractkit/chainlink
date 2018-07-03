@@ -41,9 +41,9 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 
 	j, i := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{
-		{Type: "NoOp"},
-		{Type: "NoOpPend"},
-		{Type: "NoOp"},
+		{Type: models.NewTaskType("NoOp")},
+		{Type: models.NewTaskType("NoOpPend")},
+		{Type: models.NewTaskType("NoOp")},
 	}
 	assert.NoError(t, store.SaveJob(&j))
 	jr := j.NewRun(i)
@@ -109,7 +109,7 @@ func TestTaskRun_Merge(t *testing.T) {
 			tr := models.TaskRun{
 				Task: models.TaskSpec{
 					Params: models.JSON{Result: gjson.Parse(orig)},
-					Type:   "httpget",
+					Type:   models.NewTaskType("httpget"),
 				},
 			}
 			input := cltest.JSONFromString(test.input)

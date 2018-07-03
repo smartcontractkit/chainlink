@@ -16,7 +16,7 @@ func TestCreatingAdapterWithConfig(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	task := models.TaskSpec{Type: "NoOp"}
+	task := models.TaskSpec{Type: models.NewTaskType("NoOp")}
 	adapter, err := adapters.For(task, store)
 	adapter.Perform(models.RunResult{}, nil)
 	assert.NoError(t, err)
@@ -44,7 +44,7 @@ func TestAdapterFor(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.want, func(t *testing.T) {
-			task := models.TaskSpec{Type: test.bridgeName}
+			task := models.TaskSpec{Type: models.NewTaskType(test.bridgeName)}
 			adapter, err := adapters.For(task, store)
 			if test.errored {
 				assert.Error(t, err)

@@ -312,7 +312,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, "randomnumber", tr.Task.Type)
+	assert.Equal(t, "randomnumber", tr.Task.Type.String())
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
@@ -339,7 +339,7 @@ func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, "randomnumber", tr.Task.Type)
+	assert.Equal(t, "randomnumber", tr.Task.Type.String())
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
@@ -366,9 +366,9 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, "assetprice", tr.Task.Type)
+	assert.Equal(t, "assetprice", tr.Task.Type.String())
 	tr = jr.TaskRuns[1]
-	assert.Equal(t, "copy", tr.Task.Type)
+	assert.Equal(t, "copy", tr.Task.Type.String())
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaPrice, val)

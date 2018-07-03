@@ -90,7 +90,7 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		params, err := st.Params.Add("type", st.Type)
 		multierr.Append(merr, err)
 		tasks = append(tasks, TaskSpec{
-			Type:   st.Type,
+			Type:   NewTaskType(st.Type),
 			Params: params,
 		})
 	}
@@ -163,7 +163,7 @@ func buildAssignment(ts []TaskSpec) (Assignment, error) {
 		}
 
 		st = append(st, Subtask{
-			Type:   t.Type,
+			Type:   t.Type.String(),
 			Params: t.Params,
 		})
 	}
