@@ -151,7 +151,7 @@ type RunChannel struct {
 	queue  chan RunRequest
 	closed bool
 	mutex  sync.Mutex
-	Waiter sync.WaitGroup
+	waiter sync.WaitGroup
 }
 
 // NewRunChannel initializes a RunChannel.
@@ -170,7 +170,7 @@ func (rq *RunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber
 		return errors.New("RunChannel.Add: cannot add to a closed RunChannel")
 	}
 
-	rq.Waiter.Add(1)
+	rq.waiter.Add(1)
 	rq.queue <- RunRequest{
 		Input:       rr,
 		BlockNumber: ibn,
@@ -189,10 +189,24 @@ func (rq *RunChannel) Close() {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
-	rq.Waiter.Wait()
+	rq.waiter.Wait()
 
 	if !rq.closed {
 		rq.closed = true
 		close(rq.queue)
+	}
+}
+
+// Add updates the run channel so that it knows it should wait for n additional
+// runs to finish.
+func (rq *RunChannel) Add(n int) {
+	rq.waiter.Add(n)
+}
+
+// Done updates the run channel so that it knows it no longer has to wait for
+// n runs to finish.
+func (rq *RunChannel) Done(n int) {
+	for i := 1; i <= n; i++ {
+		rq.waiter.Done()
 	}
 }
