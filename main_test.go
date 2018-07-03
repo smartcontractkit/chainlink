@@ -49,6 +49,7 @@ func ExampleRun() {
 	//      showbridge                Show a specific bridge
 	//      removebridge              Removes a specific bridge
 	//      agree, createsa           Creates a service agreement
+	//      withdraw, w               Withdraw LINK to an authorized address
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:

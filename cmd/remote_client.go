@@ -255,6 +255,54 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return cli.errorOut(err)
 }
 
+// Withdraw will withdraw LINK to an address authorized by the node
+func (cli *Client) Withdraw(c *clipkg.Context) error {
+	cfg := cli.Config
+	if len(c.Args()) < 2 {
+		return cli.errorOut(errors.New("withdraw amount address"))
+	}
+
+	wR := models.WithdrawalRequest{
+		Address: c.Args().First(),
+		Amount:  c.Args().Get(1),
+	}
+
+	requestData, err := json.Marshal(wR)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	body := bytes.NewBuffer(requestData)
+
+	resp, err := utils.BasicAuthPost(
+		cfg.BasicAuthUsername,
+		cfg.BasicAuthPassword,
+		cfg.ClientNodeURL+"/v2/withdraw",
+		"application/json",
+		body,
+	)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.printResponseBody(resp)
+}
+
+func isDirEmpty(dir string) (bool, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	if _, err = f.Readdirnames(1); err == io.EOF {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("Account already present in keystore: %s", dir)
+}
+
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
@@ -330,6 +378,16 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errors.New(resp.Status)
 	}
 	return b, err
+}
+
+func (cli *Client) printResponseBody(resp *http.Response) error {
+	b, err := parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	fmt.Println(string(b))
+	return nil
 }
 
 func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
