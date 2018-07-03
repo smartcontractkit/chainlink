@@ -265,7 +265,7 @@ func (job JobSpec) FriendlyInitiators() string {
 func (job JobSpec) FriendlyTasks() string {
 	var tasks []string
 	for _, t := range job.Tasks {
-		tasks = append(tasks, t.Type)
+		tasks = append(tasks, t.Type.String())
 	}
 
 	return strings.Join(tasks, "\n")

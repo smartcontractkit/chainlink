@@ -127,7 +127,7 @@ func NewSpecAndRunLogEvent(log types.Log) (SpecAndRunLogEvent, error) {
 	tasks := make([]models.TaskSpec, len(jsTasks))
 	for i, tt := range jsTasks {
 		tasks[i] = models.TaskSpec{
-			Type:   tt.String(),
+			Type:   models.NewTaskType(tt.String()),
 			Params: defaultParamsFor(tt.String(), log),
 		}
 	}

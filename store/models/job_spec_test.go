@@ -40,7 +40,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 	assert.Equal(t, 1, len(run.TaskRuns))
 
 	taskRun := run.TaskRuns[0]
-	assert.Equal(t, "NoOp", taskRun.Task.Type)
+	assert.Equal(t, "noop", taskRun.Task.Type.String())
 	adapter, _ := adapters.For(taskRun.Task, store)
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.Task.Params.String())
@@ -102,7 +102,7 @@ func TestJobSpec_Started(t *testing.T) {
 	}
 }
 
-func TestTask_UnmarshalJSON(t *testing.T) {
+func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -138,7 +138,7 @@ func TestTask_UnmarshalJSON(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.confirmations, task.Confirmations)
 
-			assert.Equal(t, test.taskType, task.Type)
+			assert.Equal(t, test.taskType, task.Type.String())
 			_, err = adapters.For(task, store)
 			assert.NoError(t, err)
 
