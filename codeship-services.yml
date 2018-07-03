@@ -23,3 +23,10 @@ app-sgx:
     args:
       ENVIRONMENT: release
   cached: true
+
+deploy:
+  image: codeship/google-cloud-deployment
+  add_docker: true
+  encrypted_env_file: internal/ci/gcp_creds.encrypted.env
+  volumes:
+    - ./internal/ci/:/ci
