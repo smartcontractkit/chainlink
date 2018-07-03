@@ -74,7 +74,7 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	assert.NoError(t, s.Save(&jr))
 
 	chan1 := rm.ChannelForRun(jr.ID)
-	s.RunChannel.Waiter.Add(1)
+	s.RunChannel.Add(1)
 	chan1 <- store.RunRequest{Input: jr.Result}
 	cltest.WaitForJobRunToComplete(t, s, jr)
 
@@ -83,7 +83,7 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	}).Should(gomega.Not(gomega.Equal(chan1))) // eventually deletes the channel
 
 	chan2 := rm.ChannelForRun(jr.ID)
-	s.RunChannel.Waiter.Add(1)
+	s.RunChannel.Add(1)
 	chan2 <- store.RunRequest{Input: jr.Result} // does not panic
 }
 
@@ -103,7 +103,7 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 
 	chan1 := rm.ChannelForRun(jr.ID)
 
-	s.RunChannel.Waiter.Add(1)
+	s.RunChannel.Add(1)
 	chan1 <- store.RunRequest{}
 	cltest.WaitForJobRunToPendConfirmations(t, s, jr)
 
