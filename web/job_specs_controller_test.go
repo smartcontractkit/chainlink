@@ -136,7 +136,7 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	jsonParse := cltest.UnwrapAdapter(adapter2).(*adapters.JSONParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
-	assert.Equal(t, "ethbytes32", j.Tasks[2].Type)
+	assert.Equal(t, "ethbytes32", j.Tasks[2].Type.String())
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
 	signTx := cltest.UnwrapAdapter(adapter4).(*adapters.EthTx)

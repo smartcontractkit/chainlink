@@ -38,7 +38,7 @@ func TestSpecAndRunSubscriber_AttachedToHeadTracker(t *testing.T) {
 	run := cltest.WaitForJobRunToComplete(t, store, runs[0])
 
 	assert.Equal(t, 1, len(job.Tasks))
-	assert.Equal(t, "noop", job.Tasks[0].Type)
+	assert.Equal(t, "noop", job.Tasks[0].Type.String())
 
 	assert.Equal(t, job.ID, run.JobID)
 	assert.Equal(t, "www.lmgtfy.com", run.Result.Data.Get("url").String())
