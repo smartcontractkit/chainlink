@@ -4,11 +4,6 @@ FROM smartcontract/builder:1.0.1
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y jq
 
-# Have to reintroduce ENV vars from Baidu's SGX SDK image
-ENV PATH /root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sgxsdk/bin:/opt/sgxsdk/bin/x64
-ENV LD_LIBRARY_PATH /opt/sgxsdk/sdk_libs
-ENV SGX_SDK /opt/sgxsdk
-
 # Install goverage to capture go test coverage
 RUN go get -u github.com/haya14busa/goverage
 
