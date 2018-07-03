@@ -97,10 +97,20 @@ func BasicAuthPost(username, password, url string, contentType string, body io.R
 
 // BasicAuthGet uses the given username and password to send a GET request
 // at the given URL and returns a response.
-func BasicAuthGet(username, password, url string) (*http.Response, error) {
+func BasicAuthGet(username, password, url string, headers ...map[string]string) (*http.Response, error) {
+	var h map[string]string
+	if len(headers) > 0 {
+		h = headers[0]
+	} else {
+		h = map[string]string{}
+	}
+
 	client := &http.Client{}
 	request, _ := http.NewRequest("GET", url, nil)
 	request.SetBasicAuth(username, password)
+	for key, value := range h {
+		request.Header.Add(key, value)
+	}
 	resp, err := client.Do(request)
 	return resp, err
 }

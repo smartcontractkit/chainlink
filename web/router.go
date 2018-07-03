@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -141,15 +142,16 @@ func loggerFunc() gin.HandlerFunc {
 
 // Add CORS headers so UI can make api requests
 func uiCorsHandler(config store.Config) gin.HandlerFunc {
-	webpackDevServer := "http://localhost:3000"
-	gui := "http://localhost:" + config.GuiPort
 	c := cors.Config{
-		AllowOrigins:     []string{webpackDevServer, gui},
 		AllowMethods:     []string{"GET"},
 		AllowHeaders:     []string{"Origin"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
+	}
+	allowOrigins := strings.Split(config.AllowOrigins, ",")
+	if len(allowOrigins) > 0 {
+		c.AllowOrigins = allowOrigins
 	}
 	return cors.New(c)
 }

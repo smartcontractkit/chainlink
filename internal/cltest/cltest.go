@@ -82,6 +82,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			EthGasBumpThreshold:      3,
 			EthGasPriceDefault:       *big.NewInt(20000000000),
 			DatabasePollInterval:     store.Duration{Duration: time.Millisecond * 500},
+			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
 		},
 	}
 	config.SetEthereumServer(wsserver)
@@ -298,8 +299,8 @@ func BasicAuthPost(url string, contentType string, body io.Reader) *http.Respons
 }
 
 // BasicAuthGet performs a GET request to given url and returns the Response
-func BasicAuthGet(url string) *http.Response {
-	resp, err := utils.BasicAuthGet(Username, Password, url)
+func BasicAuthGet(url string, headers ...map[string]string) *http.Response {
+	resp, err := utils.BasicAuthGet(Username, Password, url, headers...)
 	mustNotErr(err)
 	return resp
 }
