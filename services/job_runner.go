@@ -22,10 +22,12 @@ type JobRunner interface {
 }
 
 type jobRunner struct {
-	closer      chan struct{}
-	store       *store.Store
-	workerMutex sync.Mutex
-	workers     map[string]chan store.RunRequest
+	closed       bool
+	closer       chan struct{}
+	closingMutex sync.Mutex
+	store        *store.Store
+	workerMutex  sync.Mutex
+	workers      map[string]chan store.RunRequest
 }
 
 // NewJobRunner initializes a JobRunner.
@@ -111,7 +113,13 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 
 // Stop closes all open worker channels.
 func (rm *jobRunner) Stop() {
-	close(rm.closer)
+	rm.closingMutex.Lock()
+	defer rm.closingMutex.Unlock()
+
+	if !rm.closed {
+		rm.closed = true
+		close(rm.closer)
+	}
 }
 
 // WorkerCount returns the current number of available worker channels.
