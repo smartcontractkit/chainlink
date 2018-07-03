@@ -193,7 +193,7 @@ func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (mod
 func (ht *HeadTracker) updateBlockHeader() {
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
-		logger.Warnw("Unable to update latest block header", "err", err)
+		logger.Warn("Unable to update latest block header", "err", err)
 		return
 	}
 

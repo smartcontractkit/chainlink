@@ -80,6 +80,10 @@ func (rm *jobRunner) ChannelForRun(runID string) chan<- store.RunRequest {
 
 			rm.workerMutex.Lock()
 			delete(rm.workers, runID)
+			outstandingRuns := len(workerChannel)
+			for i := 1; i <= outstandingRuns; i++ {
+				rm.store.RunChannel.Waiter.Done()
+			}
 			rm.workerMutex.Unlock()
 			logger.Debug("Worker finished for ", runID)
 		}()
@@ -95,11 +99,14 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 			if err != nil {
 				logger.Warnw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
 			}
-			logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
+			if rr.BlockNumber != nil {
+				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
+			}
 			if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
 				logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
 			}
 
+			rm.store.RunChannel.Waiter.Done()
 			if jr.Status.Finished() {
 				return
 			}
