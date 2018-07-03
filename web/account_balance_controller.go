@@ -17,8 +17,8 @@ type AccountBalanceController struct {
 // Show returns the address, plus it's ETH & LINK balance
 // Example:
 //  "<application>/account_balance"
-func (jsc *AccountBalanceController) Show(c *gin.Context) {
-	store := jsc.App.Store
+func (abc *AccountBalanceController) Show(c *gin.Context) {
+	store := abc.App.Store
 	txm := store.TxManager
 
 	if account, err := store.KeyStore.GetAccount(); err != nil {
@@ -39,4 +39,10 @@ func (jsc *AccountBalanceController) Show(c *gin.Context) {
 			c.Data(200, MediaType, json)
 		}
 	}
+}
+
+// Withdraw will withdraw some LINK to an authorized address
+func (abc *AccountBalanceController) Withdraw(c *gin.Context) {
+
+	c.JSON(200, gin.H{"txhash": "TXHASH"})
 }

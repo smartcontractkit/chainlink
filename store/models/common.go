@@ -308,3 +308,8 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 func (c Cron) String() string {
 	return string(c)
 }
+
+type WithdrawalRequest struct {
+	Address string `json:"address"`
+	Amount  string `json:"amount"`
+}
