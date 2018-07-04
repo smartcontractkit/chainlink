@@ -48,10 +48,12 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 }
 
 func TestRendererTableRenderBridge(t *testing.T) {
-	bridge := models.BridgeType{Name: "hapax",
+	bridge := models.BridgeType{
+		Name:                 models.NewTaskType("hapax"),
 		URL:                  cltest.WebURL("http://hap.ax"),
-		DefaultConfirmations: 0}
-	tw := &testWriter{bridge.Name, t, false}
+		DefaultConfirmations: 0,
+	}
+	tw := &testWriter{bridge.Name.String(), t, false}
 	r := cmd.RendererTable{Writer: tw}
 	assert.Nil(t, r.Render(&bridge))
 	assert.Equal(t, tw.found, true)

@@ -170,14 +170,14 @@ func TestCreatingTx(t *testing.T) {
 	assert.Equal(t, gasLimit, tx.GasLimit)
 }
 
-func TestBridgeTypeFor(t *testing.T) {
+func TestFindBridge(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
 	tt := models.BridgeType{}
-	tt.Name = "solargridreporting"
+	tt.Name = models.NewTaskType("solargridreporting")
 	u, err := url.Parse("https://denergy.eth")
 	assert.NoError(t, err)
 	tt.URL = models.WebURL{URL: u}
@@ -189,14 +189,14 @@ func TestBridgeTypeFor(t *testing.T) {
 		want        models.BridgeType
 		errored     bool
 	}{
-		{"actual external adapter", tt.Name, tt, false},
+		{"actual external adapter", tt.Name.String(), tt, false},
 		{"core adapter", "ethtx", models.BridgeType{}, true},
 		{"non-existent adapter", "nonExistent", models.BridgeType{}, true},
 	}
 
 	for _, test := range cases {
 		t.Run(test.description, func(t *testing.T) {
-			tt, err := store.BridgeTypeFor(test.name)
+			tt, err := store.FindBridge(test.name)
 			assert.Equal(t, test.want, tt)
 			assert.Equal(t, test.errored, err != nil)
 		})

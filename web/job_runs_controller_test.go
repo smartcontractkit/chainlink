@@ -176,7 +176,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{{Type: models.NewTaskType(bt.Name)}}
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -203,7 +203,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{{Type: models.NewTaskType(bt.Name)}}
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun(initr)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -223,7 +223,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{{Type: models.NewTaskType(bt.Name)}}
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -250,7 +250,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{{Type: models.NewTaskType(bt.Name)}}
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
@@ -272,7 +272,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{cltest.NewTask(bt.Name)}
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
