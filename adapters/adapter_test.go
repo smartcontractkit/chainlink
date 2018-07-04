@@ -2,7 +2,6 @@ package adapters_test
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -38,8 +37,8 @@ func TestAdapterFor(t *testing.T) {
 		{"NoOp", "*adapters.NoOp", false},
 		{"EthTx", "*adapters.EthTx", false},
 		{"nonExistent", "<nil>", true},
-		{bt.Name, "*adapters.Bridge", false},
-		{strings.ToLower(bt.Name), "*adapters.Bridge", false},
+		{bt.Name.String(), "*adapters.Bridge", false},
+		{bt.Name.String(), "*adapters.Bridge", false},
 	}
 
 	for _, test := range cases {

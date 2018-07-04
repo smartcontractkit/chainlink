@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
-	"strings"
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
@@ -62,7 +61,7 @@ func emptySlice(to interface{}) {
 // FindBridge looks up a Bridge by its Name.
 func (orm *ORM) FindBridge(name string) (BridgeType, error) {
 	var bt BridgeType
-	err := orm.One("Name", name, &bt)
+	err := orm.One("Name", NewTaskType(name), &bt)
 	return bt, err
 }
 
@@ -236,13 +235,6 @@ func (orm *ORM) AddAttempt(
 	}
 
 	return attempt, dbtx.Commit()
-}
-
-// BridgeTypeFor returns the BridgeType for a given name.
-func (orm *ORM) BridgeTypeFor(name string) (BridgeType, error) {
-	tt := BridgeType{}
-	err := orm.One("Name", strings.ToLower(name), &tt)
-	return tt, err
 }
 
 // GetLastNonce retrieves the last known nonce in the database for an account

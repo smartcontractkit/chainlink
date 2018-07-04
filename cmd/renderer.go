@@ -92,7 +92,7 @@ func jobRowToStrings(job models.JobSpec) []string {
 
 func bridgeRowToStrings(bridge models.BridgeType) []string {
 	return []string{
-		bridge.Name,
+		bridge.Name.String(),
 		bridge.URL.String(),
 		strconv.FormatUint(bridge.DefaultConfirmations, 10),
 	}
@@ -113,7 +113,7 @@ func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader([]string{"Name", "URL", "DefaultConfirmations"})
 	table.Append([]string{
-		bridge.Name,
+		bridge.Name.String(),
 		bridge.URL.String(),
 		strconv.FormatUint(bridge.DefaultConfirmations, 10),
 	})

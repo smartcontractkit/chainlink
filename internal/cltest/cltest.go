@@ -525,9 +525,9 @@ func CreateBridgeTypeViaWeb(
 	)
 	defer resp.Body.Close()
 	AssertServerResponse(t, resp, 200)
-	var bt models.BridgeType
 	name := ParseCommonJSON(resp.Body).Name
-	assert.Nil(t, app.Store.One("Name", name, &bt))
+	bt, err := app.Store.FindBridge(name)
+	assert.NoError(t, err)
 
 	return bt
 }

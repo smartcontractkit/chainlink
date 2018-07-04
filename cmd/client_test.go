@@ -299,14 +299,18 @@ func TestClient_AddBridge(t *testing.T) {
 func TestClient_GetBridges(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	bt1 := &models.BridgeType{Name: "testingbridges1",
+	bt1 := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	app.AddAdapter(bt1)
 
-	bt2 := &models.BridgeType{Name: "testingbridges2",
+	bt2 := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges2"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	app.AddAdapter(bt2)
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
@@ -320,15 +324,17 @@ func TestClient_GetBridges(t *testing.T) {
 func TestClient_ShowBridge(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	bt := &models.BridgeType{Name: "testingbridges1",
+	bt := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	app.AddAdapter(bt)
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name})
+	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.ShowBridge(c))
 	assert.Equal(t, 1, len(r.Renders))
@@ -338,15 +344,17 @@ func TestClient_ShowBridge(t *testing.T) {
 func TestClient_RemoveBridge(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	bt := &models.BridgeType{Name: "testingbridges1",
+	bt := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	app.AddAdapter(bt)
 
 	client, r := cltest.NewClientAndRenderer(app.Store.Config)
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name})
+	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.RemoveBridge(c))
 	assert.Equal(t, 1, len(r.Renders))

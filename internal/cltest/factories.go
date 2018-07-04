@@ -121,9 +121,9 @@ func NewBridgeType(info ...string) models.BridgeType {
 	bt := models.BridgeType{}
 
 	if len(info) > 0 {
-		bt.Name = strings.ToLower(info[0])
+		bt.Name = models.NewTaskType(info[0])
 	} else {
-		bt.Name = strings.ToLower("defaultFixtureBridgeType")
+		bt.Name = models.NewTaskType("defaultFixtureBridgeType")
 	}
 
 	if len(info) > 1 {

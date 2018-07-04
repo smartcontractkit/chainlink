@@ -140,9 +140,11 @@ func TestPresenter_FriendlyBigInt(t *testing.T) {
 
 func TestBridgeTypeMarshalJSON(t *testing.T) {
 	t.Parallel()
-	input := models.BridgeType{Name: "hapax",
+	input := models.BridgeType{
+		Name:                 models.NewTaskType("hapax"),
 		URL:                  cltest.WebURL("http://hap.ax"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	expected := []byte("{\"name\":\"hapax\",\"url\":\"http://hap.ax\",\"defaultConfirmations\":0}")
 	bt := presenters.BridgeType{BridgeType: input}
 	output, err := bt.MarshalJSON()
