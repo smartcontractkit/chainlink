@@ -1,17 +1,23 @@
 import {
   RECEIVE_JOB_SPEC_SUCCESS,
-  RECEIVE_JOB_SPEC_RUNS_SUCCESS
+  RECEIVE_JOB_SPEC_RUNS_SUCCESS,
+  REQUEST_JOB_SPEC_RUN,
+  RECEIVE_JOB_SPEC_RUN_SUCCESS
 } from 'actions'
 
 const initialState = {
   currentPage: [],
-  items: {}
+  items: {},
+  fetching: false
 }
 
 export const LATEST_JOB_RUNS_COUNT = 5
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
+    case REQUEST_JOB_SPEC_RUN: {
+      return Object.assign({}, state, {fetching: true})
+    }
     case RECEIVE_JOB_SPEC_RUNS_SUCCESS: {
       const runs = (action.items || [])
       const mapped = runs.reduce(
@@ -25,6 +31,16 @@ export default (state = initialState, action = {}) => {
         {
           currentPage: runs.map(jr => jr.id),
           items: Object.assign({}, state.items, mapped)
+        }
+      )
+    }
+    case RECEIVE_JOB_SPEC_RUN_SUCCESS: {
+      return Object.assign(
+        {},
+        state,
+        {
+          fetching: false,
+          items: Object.assign({}, state.items, {[action.item.id]: action.item})
         }
       )
     }

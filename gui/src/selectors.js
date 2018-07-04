@@ -26,6 +26,8 @@ export const jobRunsSelector = (state) => {
     })
 }
 
+export const jobRunSelector = (state, id) => state.jobRuns.items[id]
+
 export const jobRunsCountSelector = (state, jobSpecId) => {
   const spec = jobSpecSelector(state, jobSpecId)
   return spec ? spec.runsCount : 0
