@@ -8,6 +8,21 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
+var (
+	taskTypeCopy       = models.NewTaskType("copy")
+	taskTypeEthBytes32 = models.NewTaskType("ethbytes32")
+	taskTypeEthInt256  = models.NewTaskType("ethint256")
+	taskTypeEthUint256 = models.NewTaskType("ethuint256")
+	taskTypeEthTx      = models.NewTaskType("ethtx")
+	taskTypeHTTPGet    = models.NewTaskType("httpget")
+	taskTypeHTTPPost   = models.NewTaskType("httppost")
+	taskTypeJSONParse  = models.NewTaskType("jsonparse")
+	taskTypeMultiply   = models.NewTaskType("multiply")
+	taskTypeNoOp       = models.NewTaskType("noop")
+	taskTypeNoOpPend   = models.NewTaskType("nooppend")
+	taskTypeSleep      = models.NewTaskType("sleep")
+)
+
 // Adapter interface applies to all core adapters.
 // Each implementation must return a RunResult.
 type Adapter interface {
@@ -39,41 +54,41 @@ func (wa MinConfsWrappedAdapter) MinConfs() uint64 {
 func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) {
 	var ac Adapter
 	var err error
-	switch task.Type.String() {
-	case "copy":
+	switch task.Type {
+	case taskTypeCopy:
 		ac = &Copy{}
 		err = unmarshalParams(task.Params, ac)
-	case "ethbytes32":
+	case taskTypeEthBytes32:
 		ac = &EthBytes32{}
 		err = unmarshalParams(task.Params, ac)
-	case "ethint256":
+	case taskTypeEthInt256:
 		ac = &EthInt256{}
 		err = unmarshalParams(task.Params, ac)
-	case "ethuint256":
+	case taskTypeEthUint256:
 		ac = &EthUint256{}
 		err = unmarshalParams(task.Params, ac)
-	case "ethtx":
+	case taskTypeEthTx:
 		ac = &EthTx{}
 		err = unmarshalParams(task.Params, ac)
-	case "httpget":
+	case taskTypeHTTPGet:
 		ac = &HTTPGet{}
 		err = unmarshalParams(task.Params, ac)
-	case "httppost":
+	case taskTypeHTTPPost:
 		ac = &HTTPPost{}
 		err = unmarshalParams(task.Params, ac)
-	case "jsonparse":
+	case taskTypeJSONParse:
 		ac = &JSONParse{}
 		err = unmarshalParams(task.Params, ac)
-	case "multiply":
+	case taskTypeMultiply:
 		ac = &Multiply{}
 		err = unmarshalParams(task.Params, ac)
-	case "noop":
+	case taskTypeNoOp:
 		ac = &NoOp{}
 		err = unmarshalParams(task.Params, ac)
-	case "nooppend":
+	case taskTypeNoOpPend:
 		ac = &NoOpPend{}
 		err = unmarshalParams(task.Params, ac)
-	case "sleep":
+	case taskTypeSleep:
 		ac = &Sleep{}
 		err = unmarshalParams(task.Params, ac)
 	default:
