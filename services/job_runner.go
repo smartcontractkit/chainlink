@@ -77,13 +77,14 @@ func (rm *jobRunner) ChannelForRun(runID string) chan<- store.RunRequest {
 		workerChannel = make(chan store.RunRequest, 1000)
 		rm.workers[runID] = workerChannel
 
+		rm.store.RunChannel.Add(1)
 		go func() {
+			defer rm.store.RunChannel.Done()
 			rm.workerLoop(runID, workerChannel)
 
 			rm.workerMutex.Lock()
 			delete(rm.workers, runID)
 			rm.workerMutex.Unlock()
-			rm.store.RunChannel.Done(len(workerChannel))
 			logger.Debug("Worker finished for ", runID)
 		}()
 	}
@@ -105,7 +106,6 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 				logger.Warnw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
 			}
 
-			rm.store.RunChannel.Done(1)
 			if jr.Status.Finished() {
 				return
 			}
