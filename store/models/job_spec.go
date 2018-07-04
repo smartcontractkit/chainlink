@@ -308,6 +308,8 @@ func (bt *BridgeType) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+// NormalizeSpecJSON makes a string of JSON deterministically ordered and
+// downcases the Chainlink type values.
 func NormalizeSpecJSON(s string) (string, error) {
 	var jsr JobSpecRequest
 	if err := json.Unmarshal([]byte(s), &jsr); err != nil {
