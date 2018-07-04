@@ -34,12 +34,10 @@ func TestNewStore_Stop(t *testing.T) {
 	s.RunChannel.Send(want, nil)
 
 	rr, open := <-s.RunChannel.Receive()
-	s.RunChannel.Done(1)
 	assert.Equal(t, want, rr.Input)
 	assert.True(t, open)
 
 	rr, open = <-s.RunChannel.Receive()
-	s.RunChannel.Done(1)
 	assert.Equal(t, want, rr.Input)
 	assert.True(t, open)
 
