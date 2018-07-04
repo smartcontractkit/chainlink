@@ -48,6 +48,8 @@ func NormalizedJSON(object interface{}) (string, error) {
 	return NormalizedJSONString(jsonBytes)
 }
 
+// NormalizedJSONString takes stirng of JSON representation and produces a
+// normalized version for consistent output for hashing.
 func NormalizedJSONString(val []byte) (string, error) {
 	// Unmarshal into a generic interface{}
 	var data interface{}
