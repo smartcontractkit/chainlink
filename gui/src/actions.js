@@ -4,7 +4,8 @@ import {
   getConfiguration,
   getJobs,
   getJobSpec,
-  getJobSpecRuns
+  getJobSpecRuns,
+  getJobSpecRun
 } from 'api'
 
 export const REQUEST_JOBS = 'REQUEST_JOBS'
@@ -121,6 +122,32 @@ export const fetchJobSpecRuns = (id, page, size) => {
   }
 }
 
+export const REQUEST_JOB_SPEC_RUN = 'REQUEST_JOB_SPEC_RUN'
+export const RECEIVE_JOB_SPEC_RUN_SUCCESS = 'RECEIVE_JOB_SPEC_RUN_SUCCESS'
+export const RECEIVE_JOB_SPEC_RUN_ERROR = 'RECEIVE_JOB_SPEC_RUN_ERROR'
+
+const requestJobSpecRun = () => ({ type: REQUEST_JOB_SPEC_RUN })
+const receiveJobSpecRunSuccess = (json) => {
+  return {
+    type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
+    item: json.data.attributes
+  }
+}
+const receiveJobSpecRunNetworkError = () => {
+  return {
+    type: RECEIVE_JOB_SPEC_RUN_ERROR,
+    networkError: true
+  }
+}
+export const fetchJobSpecRun = (id) => {
+  return dispatch => {
+    dispatch(requestJobSpecRun())
+    return getJobSpecRun(id)
+      .then(json => dispatch(receiveJobSpecRunSuccess(json)))
+      .catch(_ => dispatch(receiveJobSpecRunNetworkError()))
+  }
+}
+
 export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
 export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
 export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
@@ -138,7 +165,6 @@ const receiveConfigurationNetworkError = () => {
     networkError: true
   }
 }
-
 export const fetchConfiguration = () => {
   return dispatch => {
     dispatch(requestConfiguration())
