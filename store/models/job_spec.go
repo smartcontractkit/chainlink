@@ -248,6 +248,7 @@ type taskType struct {
 	string
 }
 
+// NewTaskType returns a formatted Task type.
 func NewTaskType(val string) taskType {
 	return taskType{strings.ToLower(val)}
 }
@@ -272,14 +273,14 @@ func (t taskType) String() string {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                 string `json:"name" storm:"id,unique"`
-	URL                  WebURL `json:"url"`
-	DefaultConfirmations uint64 `json:"defaultConfirmations"`
+	Name                 taskType `json:"name" storm:"id,unique"`
+	URL                  WebURL   `json:"url"`
+	DefaultConfirmations uint64   `json:"defaultConfirmations"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
 func (bt BridgeType) GetID() string {
-	return bt.Name
+	return bt.Name.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
@@ -289,7 +290,7 @@ func (bt BridgeType) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (bt *BridgeType) SetID(value string) error {
-	bt.Name = value
+	bt.Name = NewTaskType(value)
 	return nil
 }
 
@@ -301,7 +302,7 @@ func (bt *BridgeType) UnmarshalJSON(input []byte) error {
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
 	}
-	bt.Name = strings.ToLower(aux.Name)
+	bt.Name = aux.Name
 	bt.URL = aux.URL
 	bt.DefaultConfirmations = aux.DefaultConfirmations
 	return nil

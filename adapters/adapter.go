@@ -77,7 +77,7 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 		ac = &Sleep{}
 		err = unmarshalParams(task.Params, ac)
 	default:
-		bt, err := store.BridgeTypeFor(task.Type.String())
+		bt, err := store.FindBridge(task.Type.String())
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}

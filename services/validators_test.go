@@ -52,7 +52,7 @@ func TestValidateAdapter(t *testing.T) {
 	defer cleanup()
 
 	tt := models.BridgeType{}
-	tt.Name = "solargridreporting"
+	tt.Name = models.NewTaskType("solargridreporting")
 	u, err := url.Parse("https://denergy.eth")
 	assert.NoError(t, err)
 	tt.URL = models.WebURL{URL: u}
@@ -76,7 +76,7 @@ func TestValidateAdapter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			bt := &models.BridgeType{Name: test.name}
+			bt := &models.BridgeType{Name: models.NewTaskType(test.name)}
 			result := services.ValidateAdapter(bt, store)
 			assert.Equal(t, result, test.want)
 		})

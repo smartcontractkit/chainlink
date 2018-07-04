@@ -84,7 +84,6 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 			document.Links[KeyPreviousLink] = prevLink(url, size, page)
 		}
 	}
-
 	return json.Marshal(document)
 }
 

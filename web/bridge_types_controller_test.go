@@ -69,17 +69,21 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeType, error) {
 
-	bt1 := &models.BridgeType{Name: "testingbridges1",
+	bt1 := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	err := app.AddAdapter(bt1)
 	if err != nil {
 		return nil, err
 	}
 
-	bt2 := &models.BridgeType{Name: "testingbridges2",
+	bt2 := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges2"),
 		URL:                  cltest.WebURL("https://testing.com/tari"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	err = app.AddAdapter(bt2)
 
 	return []*models.BridgeType{bt1, bt2}, err
@@ -99,9 +103,9 @@ func TestBridgeTypesController_Create(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 	btName := cltest.ParseCommonJSON(resp.Body).Name
 
-	bt := &models.BridgeType{}
-	assert.Nil(t, app.Store.One("Name", btName, bt))
-	assert.Equal(t, "randomnumber", bt.Name)
+	bt, err := app.Store.FindBridge(btName)
+	assert.NoError(t, err)
+	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.DefaultConfirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 }
@@ -112,13 +116,14 @@ func TestBridgeController_Show(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	bt := &models.BridgeType{Name: "testingbridges1",
+	bt := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
-	err := app.AddAdapter(bt)
-	assert.NoError(t, err)
+		DefaultConfirmations: 0,
+	}
+	assert.NoError(t, app.AddAdapter(bt))
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/" + bt.Name)
+	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/" + bt.Name.String())
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respBridge presenters.BridgeType
@@ -141,13 +146,15 @@ func TestBridgeController_Destroy(t *testing.T) {
 		nil)
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 
-	bt := &models.BridgeType{Name: "testingbridges2",
+	bt := &models.BridgeType{
+		Name:                 models.NewTaskType("testingbridges2"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0}
+		DefaultConfirmations: 0,
+	}
 	err := app.AddAdapter(bt)
 	assert.NoError(t, err)
 
-	resp = cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types/"+bt.Name,
+	resp = cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types/"+bt.Name.String(),
 		"application/json",
 		nil)
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
