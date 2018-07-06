@@ -21,56 +21,55 @@
     service: app-sgx
     command: --version
 
-- name: Publish Coverage Stats
-  service: ci
-  command: bash -c "curl -s https://codecov.io/bash"
-
-- name: Docker Publish
-  type: parallel
+- name: Deploy to Acceptance
+  exclude: ^master
+  type: manual
   steps:
   - name: Image w/Timestamp + Version Tag
     type: push
     service: app
-    image_name: smartcontract/chainlink
-    image_tag: "0.2.0-{{.StringTime}}"
-    registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    image_name: gcr.io/chainlink-209321/chainlink
+    image_tag: "0.2.0-{{.Timestamp}}"
+    registry: https://gcr.io
+    dockercfg_service: dockercfg
+  - name: Set Container Image
+    service: deploy
+    command: ./ci/gcp-deploy-acceptance.sh
+
+- name: Publish Docker Images
+  tag: master
+  type: parallel
+  steps:
   - name: Image w/Version Tag
-    tag: master
     type: push
     service: app
     image_name: smartcontract/chainlink
     image_tag: "0.2.0"
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: Image w/Latest Tag
-    tag: master
     type: push
     service: app
     image_name: smartcontract/chainlink
     image_tag: latest
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
-  - name: SGX Image w/Timestamp + Version Tag
-    type: push
-    service: app-sgx
-    image_name: smartcontract/chainlink-sgx
-    image_tag: "0.2.0-{{.StringTime}}"
-    registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: SGX Image w/Version Tag
-    tag: master
     type: push
     service: app-sgx
     image_name: smartcontract/chainlink-sgx
     image_tag: "0.2.0"
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
   - name: SGX Image w/Latest Tag
-    tag: master
     type: push
     service: app-sgx
     image_name: smartcontract/chainlink-sgx
     image_tag: latest
     registry: https://index.docker.io/v1/
-    encrypted_dockercfg_path: dockercfg.encrypted
+    encrypted_dockercfg_path: internal/ci/dockercfg.encrypted
+
+- name: Deploy to Staging
+  tag: master
+  service: deploy
+  command: ./ci/gcp-deploy-staging.sh
