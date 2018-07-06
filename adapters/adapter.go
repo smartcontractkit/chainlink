@@ -9,18 +9,30 @@ import (
 )
 
 var (
-	taskTypeCopy       = models.NewTaskType("copy")
-	taskTypeEthBytes32 = models.NewTaskType("ethbytes32")
-	taskTypeEthInt256  = models.NewTaskType("ethint256")
-	taskTypeEthUint256 = models.NewTaskType("ethuint256")
-	taskTypeEthTx      = models.NewTaskType("ethtx")
-	taskTypeHTTPGet    = models.NewTaskType("httpget")
-	taskTypeHTTPPost   = models.NewTaskType("httppost")
-	taskTypeJSONParse  = models.NewTaskType("jsonparse")
-	taskTypeMultiply   = models.NewTaskType("multiply")
-	taskTypeNoOp       = models.NewTaskType("noop")
-	taskTypeNoOpPend   = models.NewTaskType("nooppend")
-	taskTypeSleep      = models.NewTaskType("sleep")
+	// TaskTypeCopy is the identifier for the Copy adapter.
+	TaskTypeCopy = models.NewTaskType("copy")
+	// TaskTypeEthBytes32 is the identifier for the EthBytes32 adapter.
+	TaskTypeEthBytes32 = models.NewTaskType("ethbytes32")
+	// TaskTypeEthInt256 is the identifier for the EthInt256 adapter.
+	TaskTypeEthInt256 = models.NewTaskType("ethint256")
+	// TaskTypeEthUint256 is the identifier for the EthUint256 adapter.
+	TaskTypeEthUint256 = models.NewTaskType("ethuint256")
+	// TaskTypeEthTx is the identifier for the EthTx adapter.
+	TaskTypeEthTx = models.NewTaskType("ethtx")
+	// TaskTypeHTTPGet is the identifier for the HTTPGet adapter.
+	TaskTypeHTTPGet = models.NewTaskType("httpget")
+	// TaskTypeHTTPPost is the identifier for the HTTPPost adapter.
+	TaskTypeHTTPPost = models.NewTaskType("httppost")
+	// TaskTypeJSONParse is the identifier for the JSONParse adapter.
+	TaskTypeJSONParse = models.NewTaskType("jsonparse")
+	// TaskTypeMultiply is the identifier for the Multiply adapter.
+	TaskTypeMultiply = models.NewTaskType("multiply")
+	// TaskTypeNoOp is the identifier for the NoOp adapter.
+	TaskTypeNoOp = models.NewTaskType("noop")
+	// TaskTypeNoOpPend is the identifier for the NoOpPend adapter.
+	TaskTypeNoOpPend = models.NewTaskType("nooppend")
+	// TaskTypeSleep is the identifier for the Sleep adapter.
+	TaskTypeSleep = models.NewTaskType("sleep")
 )
 
 // Adapter interface applies to all core adapters.
@@ -55,40 +67,40 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 	var ac Adapter
 	var err error
 	switch task.Type {
-	case taskTypeCopy:
+	case TaskTypeCopy:
 		ac = &Copy{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeEthBytes32:
+	case TaskTypeEthBytes32:
 		ac = &EthBytes32{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeEthInt256:
+	case TaskTypeEthInt256:
 		ac = &EthInt256{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeEthUint256:
+	case TaskTypeEthUint256:
 		ac = &EthUint256{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeEthTx:
+	case TaskTypeEthTx:
 		ac = &EthTx{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeHTTPGet:
+	case TaskTypeHTTPGet:
 		ac = &HTTPGet{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeHTTPPost:
+	case TaskTypeHTTPPost:
 		ac = &HTTPPost{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeJSONParse:
+	case TaskTypeJSONParse:
 		ac = &JSONParse{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeMultiply:
+	case TaskTypeMultiply:
 		ac = &Multiply{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeNoOp:
+	case TaskTypeNoOp:
 		ac = &NoOp{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeNoOpPend:
+	case TaskTypeNoOpPend:
 		ac = &NoOpPend{}
 		err = unmarshalParams(task.Params, ac)
-	case taskTypeSleep:
+	case TaskTypeSleep:
 		ac = &Sleep{}
 		err = unmarshalParams(task.Params, ac)
 	default:
