@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -226,7 +227,7 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 			job, initr := cltest.NewJobWithLogInitiator()
 			job.Tasks = []models.TaskSpec{
 				{
-					Type:          models.NewTaskType("NoOp"),
+					Type:          adapters.TaskTypeNoOp,
 					Confirmations: uint64(test.confirmations),
 				},
 			}

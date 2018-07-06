@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -25,7 +26,7 @@ import (
 // NewJob return new NoOp JobSpec
 func NewJob() models.JobSpec {
 	j := models.NewJob()
-	j.Tasks = []models.TaskSpec{{Type: models.NewTaskType("NoOp")}}
+	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
 	return j
 }
 
