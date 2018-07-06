@@ -16,11 +16,22 @@ import (
 var logger *Logger
 
 func init() {
+	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
+	if err != nil {
+		log.Fatalf("failed to register pretty printer %+v", err)
+	}
+
 	zl, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal(err)
 	}
 	SetLogger(zl)
+}
+
+func prettyConsoleSink(s zap.Sink) func() (zap.Sink, error) {
+	return func() (zap.Sink, error) {
+		return PrettyConsole{s}, nil
+	}
 }
 
 // Logger holds a field for the logger interface.
@@ -51,7 +62,8 @@ func CreateProductionLogger(dir string, lvl zapcore.Level) *zap.Logger {
 	config.OutputPaths = []string{"pretty", destination}
 	config.ErrorOutputPaths = []string{"stderr", destination}
 	config.Level.SetLevel(lvl)
-	zl, err := config.BuildWithSinks(prettyConsoleSinks(os.Stdout), zap.AddCallerSkip(1))
+
+	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,17 +77,11 @@ func CreateTestLogger() *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(zapcore.DebugLevel)
 	config.OutputPaths = []string{"pretty"}
-	zl, err := config.BuildWithSinks(prettyConsoleSinks(os.Stderr), zap.AddCallerSkip(1))
+	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
 	return zl
-}
-
-func prettyConsoleSinks(s zap.Sink) map[string]zap.Sink {
-	factories := zap.DefaultSinks()
-	factories["pretty"] = PrettyConsole{s}
-	return factories
 }
 
 // Infow logs an info message and any additional given information.
