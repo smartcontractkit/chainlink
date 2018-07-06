@@ -3,7 +3,7 @@ ci:
     image: ci
     dockerfile: ./internal/ci/Dockerfile
     context: ./
-  encrypted_env_file: env.encrypted
+  encrypted_env_file: internal/ci/env.encrypted
   cached: true
   environment:
     ENVIRONMENT: development
@@ -23,3 +23,17 @@ app-sgx:
     args:
       ENVIRONMENT: release
   cached: true
+
+# Image with GCP toolkit, used to do deploys
+deploy:
+  image: codeship/google-cloud-deployment
+  add_docker: true
+  encrypted_env_file: internal/ci/gcp_creds.encrypted.env
+  volumes:
+    - ./internal/ci/:/ci
+
+# Used to generate credentials for pushing docker images to gcr
+dockercfg:
+  image: codeship/gcr-dockercfg-generator
+  add_docker: true
+  encrypted_env_file: internal/ci/gcp_creds.encrypted.env
