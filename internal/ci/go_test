@@ -2,5 +2,7 @@
 
 set -e
 
-goverage -v -coverprofile=coverage.out ./...
+cc-test-reporter before-build
+goverage -v -coverprofile=c.out ./...
+cc-test-reporter after-build -t gocov --exit-code $?
 bash <(curl -s https://codecov.io/bash)
