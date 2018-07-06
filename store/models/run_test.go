@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -41,9 +42,9 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 
 	j, i := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{
-		{Type: models.NewTaskType("NoOp")},
-		{Type: models.NewTaskType("NoOpPend")},
-		{Type: models.NewTaskType("NoOp")},
+		{Type: adapters.TaskTypeNoOp},
+		{Type: adapters.TaskTypeNoOpPend},
+		{Type: adapters.TaskTypeNoOp},
 	}
 	assert.NoError(t, store.SaveJob(&j))
 	jr := j.NewRun(i)
@@ -109,7 +110,7 @@ func TestTaskRun_Merge(t *testing.T) {
 			tr := models.TaskRun{
 				Task: models.TaskSpec{
 					Params: models.JSON{Result: gjson.Parse(orig)},
-					Type:   models.NewTaskType("httpget"),
+					Type:   adapters.TaskTypeHTTPGet,
 				},
 			}
 			input := cltest.JSONFromString(test.input)
