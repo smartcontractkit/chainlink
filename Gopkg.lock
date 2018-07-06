@@ -128,7 +128,10 @@
 
 [[projects]]
   name = "github.com/gobuffalo/packr"
-  packages = ["."]
+  packages = [
+    ".",
+    "builder"
+  ]
   revision = "7f4074995d431987caaa35088199f13c44b24440"
   version = "v1.11.0"
 
@@ -345,7 +348,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  branch = "features/custom-sinks"
+  branch = "master"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -356,8 +359,8 @@
     "zapcore",
     "zaptest/observer"
   ]
-  revision = "08c8e44075833fdbb6fd221d82fa708350686e7e"
-  source = "github.com/smartcontractkit/zap"
+  revision = "7e7e266a8dbce911a49554b945538c5b950196b8"
+  source = "github.com/uber-go/zap"
 
 [[projects]]
   branch = "master"
@@ -365,6 +368,7 @@
   packages = [
     "pbkdf2",
     "scrypt",
+    "sha3",
     "ssh/terminal"
   ]
   revision = "034e5325b6ab92faa14d15c30e86919e911cf8e0"
@@ -411,11 +415,14 @@
     "encoding/unicode",
     "internal/gen",
     "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
     "internal/utf8internal",
     "language",
     "runes",
     "transform",
-    "unicode/cldr"
+    "unicode/cldr",
+    "unicode/norm"
   ]
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
   version = "v0.3.0"
@@ -459,6 +466,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a75449cec5cfba766fa3500cebe9a0640ff5a49313d85333b5a125ef4eb2d5ea"
+  inputs-digest = "a1d4e08a563d896ba388dee6fdf5be1c62ad5fcf9df0bcb3a0a70bf594f5a4b5"
   solver-name = "gps-cdcl"
   solver-version = 1
