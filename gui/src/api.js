@@ -3,17 +3,18 @@ import url from 'url'
 import { camelizeKeys } from 'humps'
 import 'isomorphic-unfetch'
 
-const DEFAULT_CHAINLINK_PORT = 6688
-
 const formatUrl = (path, query = {}) => {
-  const port = parseQueryString(global.location.search).port || process.env.CHAINLINK_PORT || DEFAULT_CHAINLINK_PORT
-
-  return url.format({
+  let options = {
     hostname: global.location.hostname,
-    port: port,
     pathname: path,
     query: query
-  })
+  }
+
+  const port = parseQueryString(global.location.search).port || process.env.CHAINLINK_PORT
+  if (port) {
+    options['port'] = port
+  }
+  return url.format(options)
 }
 
 const request = (path, query) => (

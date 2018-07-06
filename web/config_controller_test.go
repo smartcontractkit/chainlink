@@ -29,7 +29,6 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, store.LogLevel{Level: -1}, cwl.LogLevel)
 	assert.Contains(t, cwl.RootDir, "/tmp/chainlink_test/")
 	assert.Equal(t, "", cwl.Port)
-	assert.Equal(t, "", cwl.GuiPort)
 	assert.Equal(t, "testusername", cwl.BasicAuthUsername)
 	assert.Contains(t, cwl.EthereumURL, "ws://127.0.0.1:")
 	assert.Equal(t, uint64(3), cwl.ChainID)

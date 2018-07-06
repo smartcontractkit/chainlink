@@ -35,7 +35,6 @@ services:
       - geth
     ports:
       - 6688:6688
-      - 6689:6689
     secrets:
       - node_password
 
