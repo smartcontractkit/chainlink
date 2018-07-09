@@ -26,9 +26,10 @@ const receiveJobsSuccess = (json) => {
     ))
   }
 }
-const receiveJobsNetworkError = () => {
+const receiveJobsNetworkError = (error) => {
   return {
     type: RECEIVE_JOBS_ERROR,
+    error: error,
     networkError: true
   }
 }
@@ -38,7 +39,7 @@ export const fetchJobs = (page, size) => {
     dispatch(requestJobs())
     return getJobs(page, size)
       .then(json => dispatch(receiveJobsSuccess(json)))
-      .catch(_ => dispatch(receiveJobsNetworkError()))
+      .catch(error => dispatch(receiveJobsNetworkError(error)))
   }
 }
 
@@ -54,9 +55,10 @@ const receiveAccountBalance = (json) => {
     link: json.data.attributes.linkBalance
   }
 }
-const receiveAccountBalanceNetworkError = () => {
+const receiveAccountBalanceNetworkError = (error) => {
   return {
     type: RECEIVE_ACCOUNT_BALANCE_ERROR,
+    error: error,
     networkError: true
   }
 }
@@ -66,7 +68,7 @@ export const fetchAccountBalance = () => {
     dispatch(requestAccountBalance())
     return getAccountBalance()
       .then(json => dispatch(receiveAccountBalance(json)))
-      .catch(_ => dispatch(receiveAccountBalanceNetworkError()))
+      .catch(error => dispatch(receiveAccountBalanceNetworkError(error)))
   }
 }
 
@@ -81,10 +83,11 @@ const receiveJobSpecSuccess = (json) => {
     item: json.data.attributes
   }
 }
-const receiveJobSpecNetworkError = () => {
+const receiveJobSpecNetworkError = (error) => {
   return {
     type: RECEIVE_JOB_SPEC_ERROR,
-    networkError: true
+    networkError: true,
+    error: error
   }
 }
 
@@ -93,7 +96,7 @@ export const fetchJobSpec = (id) => {
     dispatch(requestJobSpec())
     return getJobSpec(id)
       .then(json => dispatch(receiveJobSpecSuccess(json)))
-      .catch(_ => dispatch(receiveJobSpecNetworkError()))
+      .catch(error => dispatch(receiveJobSpecNetworkError(error)))
   }
 }
 
@@ -107,9 +110,10 @@ const receiveJobSpecRunsSuccess = (json) => {
     runsCount: json.meta.count
   }
 }
-const receiveJobSpecRunsNetworkError = () => {
+const receiveJobSpecRunsNetworkError = (error) => {
   return {
     type: RECEIVE_JOB_SPEC_RUNS_ERROR,
+    error: error,
     networkError: true
   }
 }
@@ -118,7 +122,7 @@ export const fetchJobSpecRuns = (id, page, size) => {
   return dispatch => {
     return getJobSpecRuns(id, page, size)
       .then(json => dispatch(receiveJobSpecRunsSuccess(json)))
-      .catch(_ => dispatch(receiveJobSpecRunsNetworkError()))
+      .catch(error => dispatch(receiveJobSpecRunsNetworkError(error)))
   }
 }
 
@@ -133,9 +137,10 @@ const receiveJobSpecRunSuccess = (json) => {
     item: json.data.attributes
   }
 }
-const receiveJobSpecRunNetworkError = () => {
+const receiveJobSpecRunNetworkError = (error) => {
   return {
     type: RECEIVE_JOB_SPEC_RUN_ERROR,
+    error: error,
     networkError: true
   }
 }
@@ -144,7 +149,7 @@ export const fetchJobSpecRun = (id) => {
     dispatch(requestJobSpecRun())
     return getJobSpecRun(id)
       .then(json => dispatch(receiveJobSpecRunSuccess(json)))
-      .catch(_ => dispatch(receiveJobSpecRunNetworkError()))
+      .catch(error => dispatch(receiveJobSpecRunNetworkError(error)))
   }
 }
 
@@ -159,9 +164,10 @@ const receiveConfiguration = (json) => {
     config: json.data.attributes
   }
 }
-const receiveConfigurationNetworkError = () => {
+const receiveConfigurationNetworkError = (error) => {
   return {
     type: RECEIVE_CONFIGURATION_ERROR,
+    error: error,
     networkError: true
   }
 }
@@ -170,7 +176,7 @@ export const fetchConfiguration = () => {
     dispatch(requestConfiguration())
     return getConfiguration()
       .then(json => dispatch(receiveConfiguration(json)))
-      .catch(_ => dispatch(receiveConfigurationNetworkError()))
+      .catch(error => dispatch(receiveConfigurationNetworkError(error)))
   }
 }
 
@@ -186,9 +192,10 @@ const receiveBridgesSuccess = (json) => {
     items: json.data.map(b => b.attributes)
   }
 }
-const receiveBridgesNetworkError = () => {
+const receiveBridgesNetworkError = (error) => {
   return {
     type: RECEIVE_BRIDGES_ERROR,
+    error: error,
     networkError: true
   }
 }
@@ -198,6 +205,6 @@ export const fetchBridges = (page, size) => {
     dispatch(requestBridges())
     return getBridges(page, size)
       .then(json => dispatch(receiveBridgesSuccess(json)))
-      .catch(_ => dispatch(receiveBridgesNetworkError()))
+      .catch(error => dispatch(receiveBridgesNetworkError(error)))
   }
 }
