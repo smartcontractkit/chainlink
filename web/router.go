@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,14 +20,7 @@ import (
 )
 
 // Router listens and responds to requests to the node for valid paths.
-func Router(app *services.ChainlinkApplication) (server *gin.Engine, gui *gin.Engine) {
-	server = serverEngine(app)
-	gui = guiEngine(app)
-	return server, gui
-}
-
-// Serve API requests
-func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
+func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
 	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
@@ -38,6 +32,35 @@ func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
 		basicAuth,
 	)
 
+	v1Routes(app, engine)
+	v2Routes(app, engine)
+
+	box := packr.NewBox("../gui/dist/")
+	engine.NoRoute(func(c *gin.Context) {
+		path := "index.html"
+		if filepath.Ext(c.Request.URL.Path) != "" {
+			path = c.Request.URL.Path
+		}
+
+		file, err := box.Open(path)
+		if err != nil {
+			if err == os.ErrNotExist {
+				c.AbortWithStatus(http.StatusNotFound)
+			} else {
+				err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
+				logger.Error(err.Error())
+				c.AbortWithError(http.StatusInternalServerError, err)
+			}
+			return
+		}
+
+		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
+	})
+
+	return engine
+}
+
+func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v1 := engine.Group("/v1")
 	{
 		ac := AssignmentsController{app}
@@ -48,7 +71,9 @@ func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
 		v1.POST("/assignments/:AID/snapshots", sc.CreateSnapshot)
 		v1.GET("/snapshots/:ID", sc.ShowSnapshot)
 	}
+}
 
+func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
 	{
 		ab := AccountBalanceController{app}
@@ -77,37 +102,6 @@ func serverEngine(app *services.ChainlinkApplication) *gin.Engine {
 		cc := ConfigController{app}
 		v2.GET("/config", cc.Show)
 	}
-
-	return engine
-}
-
-// Serve static assets for the GUI
-func guiEngine(app *services.ChainlinkApplication) *gin.Engine {
-	engine := gin.New()
-	config := app.Store.Config
-	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
-	engine.Use(
-		loggerFunc(),
-		gin.Recovery(),
-		basicAuth,
-	)
-
-	box := packr.NewBox("../gui/dist/")
-	engine.NoRoute(func(c *gin.Context) {
-		if filepath.Ext(c.Request.URL.Path) == "" {
-			index, err := box.Open("index.html")
-			if err != nil {
-				logger.Error(err)
-			}
-
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(index)
-			c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
-		}
-	})
-	engine.StaticFS("/", box)
-
-	return engine
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961

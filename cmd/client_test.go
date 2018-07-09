@@ -20,7 +20,6 @@ func TestClient_RunNode(t *testing.T) {
 	defer configCleanup()
 	config.LinkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	config.Port = "6688"
-	config.GuiPort = "6689"
 
 	// cleanup invoked in client.RunNode
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
@@ -52,7 +51,6 @@ func TestClient_RunNode(t *testing.T) {
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
 	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
-	assert.Contains(t, logs, "GUI_PORT: 6689\\n")
 	assert.Contains(t, logs, "USERNAME: testusername\\n")
 	assert.Contains(t, logs, "ETH_URL: ws://")
 	assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")

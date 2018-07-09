@@ -535,11 +535,10 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
-	api, gui := web.Router(app.(*services.ChainlinkApplication))
+	server := web.Router(app.(*services.ChainlinkApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group
 
-	g.Go(func() error { return api.Run(":" + config.Port) })
-	g.Go(func() error { return gui.Run(":" + config.GuiPort) })
+	g.Go(func() error { return server.Run(":" + config.Port) })
 	return g.Wait()
 }

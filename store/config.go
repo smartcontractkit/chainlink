@@ -24,7 +24,6 @@ type Config struct {
 	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
 	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
-	GuiPort                  string          `env:"GUI_PORT" envDefault:"6689"`
 	BasicAuthUsername        string          `env:"USERNAME" envDefault:"chainlink"`
 	BasicAuthPassword        string          `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL              string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
