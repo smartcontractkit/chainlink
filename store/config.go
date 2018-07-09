@@ -38,7 +38,7 @@ type Config struct {
 	MinimumContractPayment   big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	DatabasePollInterval     Duration        `env:"DATABASE_POLL_INTERVAL" envDefault:"500ms"`
-	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6689"`
+	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
 }
 
 // NewConfig returns the config with the environment variables set to their
