@@ -66,6 +66,7 @@ func TestClient_RunNode(t *testing.T) {
 	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0\\n")
 	assert.Contains(t, logs, "ORACLE_CONTRACT_ADDRESS: \\n")
 	assert.Contains(t, logs, "DATABASE_POLL_INTERVAL: 500ms\\n")
+	assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6689\\n")
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
