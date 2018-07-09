@@ -20,7 +20,7 @@ const formatUrl = (path, query = {}) => {
 const request = (path, query) => (
   global.fetch(
     formatUrl(path, query),
-    {credentials: 'include'}
+    {credentials: 'same-origin'}
   )
     .then(response => response.json())
     .then((data) => camelizeKeys(data))

@@ -143,9 +143,13 @@ func uiCorsHandler(config store.Config) gin.HandlerFunc {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}
-	allowOrigins := strings.Split(config.AllowOrigins, ",")
-	if len(allowOrigins) > 0 {
-		c.AllowOrigins = allowOrigins
+	if config.AllowOrigins == "*" {
+		c.AllowAllOrigins = true
+	} else {
+		allowOrigins := strings.Split(config.AllowOrigins, ",")
+		if len(allowOrigins) > 0 {
+			c.AllowOrigins = allowOrigins
+		}
 	}
 	return cors.New(c)
 }

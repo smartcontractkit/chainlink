@@ -42,3 +42,20 @@ func TestCors_OverrideOrigins(t *testing.T) {
 	resp = cltest.BasicAuthGet(app.Server.URL+"/v2/config", headers)
 	cltest.AssertServerResponse(t, resp, 403)
 }
+
+func TestCors_WildcardOrigin(t *testing.T) {
+	t.Parallel()
+
+	config, _ := cltest.NewConfig()
+	config.AllowOrigins = "*"
+	app, appCleanup := cltest.NewApplicationWithConfig(config)
+	defer appCleanup()
+
+	headers := map[string]string{"Origin": "http://chainlink.com"}
+	resp := cltest.BasicAuthGet(app.Server.URL+"/v2/config", headers)
+	cltest.AssertServerResponse(t, resp, 200)
+
+	headers = map[string]string{"Origin": "http://localhost:3000"}
+	resp = cltest.BasicAuthGet(app.Server.URL+"/v2/config", headers)
+	cltest.AssertServerResponse(t, resp, 200)
+}
