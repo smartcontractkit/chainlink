@@ -22,6 +22,5 @@ COPY --from=builder \
   /go/src/github.com/smartcontractkit/chainlink/gui/dist
 
 EXPOSE 6688
-EXPOSE 6689
 ENTRYPOINT ["chainlink"]
 CMD ["node"]
