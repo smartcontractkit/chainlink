@@ -210,7 +210,7 @@ func NewStore() (*store.Store, func()) {
 
 func cleanUpStore(store *store.Store) {
 	logger.Sync()
-	store.Close()
+	store.Stop()
 	go func() {
 		if err := os.RemoveAll(store.Config.RootDir); err != nil {
 			log.Println(err)
