@@ -307,7 +307,7 @@ func AddPrivateKey(config *TestConfig, src string) {
 
 // BasicAuthPost performs a POST request to the given url with specified contentType and body
 // and returns the Response
-func BasicAuthPost(url string, contentType string, body io.Reader) *http.Response {
+func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, func()) {
 	resp, err := utils.BasicAuthPost(
 		Username,
 		Password,
@@ -315,19 +315,19 @@ func BasicAuthPost(url string, contentType string, body io.Reader) *http.Respons
 		contentType,
 		body)
 	mustNotErr(err)
-	return resp
+	return resp, func() { mustNotErr(resp.Body.Close()) }
 }
 
 // BasicAuthGet performs a GET request to given url and returns the Response
-func BasicAuthGet(url string, headers ...map[string]string) *http.Response {
+func BasicAuthGet(url string, headers ...map[string]string) (*http.Response, func()) {
 	resp, err := utils.BasicAuthGet(Username, Password, url, headers...)
 	mustNotErr(err)
-	return resp
+	return resp, func() { mustNotErr(resp.Body.Close()) }
 }
 
 // BasicAuthPatch performs a PATCH request to the given url with specified contentType and body
 // and returns the Response
-func BasicAuthPatch(url string, contentType string, body io.Reader) *http.Response {
+func BasicAuthPatch(url string, contentType string, body io.Reader) (*http.Response, func()) {
 	resp, err := utils.BasicAuthPatch(
 		Username,
 		Password,
@@ -335,12 +335,12 @@ func BasicAuthPatch(url string, contentType string, body io.Reader) *http.Respon
 		contentType,
 		body)
 	mustNotErr(err)
-	return resp
+	return resp, func() { mustNotErr(resp.Body.Close()) }
 }
 
 // BasicAuthDelete performs a DELETE request to the given url with specified contentType and body
 // and returns the Response
-func BasicAuthDelete(url string, contentType string, body io.Reader) *http.Response {
+func BasicAuthDelete(url string, contentType string, body io.Reader) (*http.Response, func()) {
 	resp, err := utils.BasicAuthDelete(
 		Username,
 		Password,
@@ -348,14 +348,13 @@ func BasicAuthDelete(url string, contentType string, body io.Reader) *http.Respo
 		contentType,
 		body)
 	mustNotErr(err)
-	return resp
+	return resp, func() { mustNotErr(resp.Body.Close()) }
 }
 
 // ParseResponseBody will parse the given response into a byte slice
 func ParseResponseBody(resp *http.Response) []byte {
 	b, err := ioutil.ReadAll(resp.Body)
 	mustNotErr(err)
-	mustNotErr(resp.Body.Close())
 	return b
 }
 
@@ -402,12 +401,12 @@ func ReadLogs(app *TestApplication) (string, error) {
 
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	resp := BasicAuthPost(
+	resp, cleanup := BasicAuthPost(
 		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(LoadJSON(path)),
 	)
-	defer resp.Body.Close()
+	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
@@ -431,12 +430,12 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	resp := BasicAuthPost(
+	resp, cleanup := BasicAuthPost(
 		app.Server.URL+"/v1/assignments",
 		"application/json",
 		bytes.NewBuffer(LoadJSON(path)),
 	)
-	defer resp.Body.Close()
+	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
@@ -445,12 +444,12 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
-	resp := BasicAuthPost(
+	resp, cleanup := BasicAuthPost(
 		app.Server.URL+"/v2/specs",
 		"application/json",
 		bytes.NewBuffer(marshaled),
 	)
-	defer resp.Body.Close()
+	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
@@ -463,8 +462,8 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}
-	resp := BasicAuthPost(url, "application/json", bodyBuffer)
-	defer resp.Body.Close()
+	resp, cleanup := BasicAuthPost(url, "application/json", bodyBuffer)
+	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
 
@@ -503,8 +502,8 @@ func UpdateJobRunViaWeb(
 ) models.JobRun {
 	t.Helper()
 	url := app.Server.URL + "/v2/runs/" + jr.ID
-	resp := BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
-	defer resp.Body.Close()
+	resp, cleanup := BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
@@ -518,12 +517,12 @@ func CreateBridgeTypeViaWeb(
 	app *TestApplication,
 	payload string,
 ) models.BridgeType {
-	resp := BasicAuthPost(
+	resp, cleanup := BasicAuthPost(
 		app.Server.URL+"/v2/bridge_types",
 		"application/json",
 		bytes.NewBufferString(payload),
 	)
-	defer resp.Body.Close()
+	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	name := ParseCommonJSON(resp.Body).Name
 	bt, err := app.Store.FindBridge(name)

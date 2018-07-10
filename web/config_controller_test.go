@@ -19,7 +19,8 @@ func TestConfigController_Show(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/config")
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/config")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
 	cwl := presenters.ConfigWhitelist{}

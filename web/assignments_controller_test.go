@@ -2,9 +2,10 @@ package web_test
 
 import (
 	"encoding/json"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"reflect"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -48,7 +49,8 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 	a1, err := models.ConvertToAssignment(j)
 	assert.NoError(t, err)
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v1/assignments/" + j.ID)
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v1/assignments/" + j.ID)
+	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respAssignment models.AssignmentSpec
