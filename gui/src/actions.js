@@ -17,7 +17,7 @@ export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
 
 fetchActions.jobs = {
   request: requestAction(REQUEST_JOBS),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_JOBS_SUCCESS,
     count: json.meta.count,
     items: json.data.map((j) => (
@@ -37,7 +37,7 @@ export const RECEIVE_ACCOUNT_BALANCE_ERROR = 'RECEIVE_ACCOUNT_BALANCE_ERROR'
 
 fetchActions.accountBalance = {
   request: requestAction(REQUEST_ACCOUNT_BALANCE),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_ACCOUNT_BALANCE_SUCCESS,
     eth: json.data.attributes.ethBalance,
     link: json.data.attributes.linkBalance
@@ -51,7 +51,7 @@ export const RECEIVE_JOB_SPEC_ERROR = 'RECEIVE_JOB_SPEC_ERROR'
 
 fetchActions.jobSpec = {
   request: requestAction(REQUEST_JOB_SPEC),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_SUCCESS,
     item: json.data.attributes
   }),
@@ -64,7 +64,7 @@ export const RECEIVE_JOB_SPEC_RUNS_ERROR = 'RECEIVE_JOB_SPEC_RUNS_ERROR'
 
 fetchActions.jobSpecRuns = {
   request: requestAction(REQUEST_JOB_SPEC_RUNS),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
     items: json.data.map(j => j.attributes),
     runsCount: json.meta.count
@@ -78,7 +78,7 @@ export const RECEIVE_JOB_SPEC_RUN_ERROR = 'RECEIVE_JOB_SPEC_RUN_ERROR'
 
 fetchActions.jobSpecRun = {
   request: requestAction(REQUEST_JOB_SPEC_RUN),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
     item: json.data.attributes
   }),
@@ -91,7 +91,7 @@ export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
 
 fetchActions.configuration = {
   request: requestAction(REQUEST_CONFIGURATION),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_CONFIGURATION_SUCCESS,
     config: json.data.attributes
   }),
@@ -104,7 +104,7 @@ export const RECEIVE_BRIDGES_ERROR = 'RECEIVE_BRIDGES_ERROR'
 
 fetchActions.bridges = {
   request: requestAction(REQUEST_BRIDGES),
-  receiveSuccess: (json) => ({
+  receiveSuccess: json => ({
     type: RECEIVE_BRIDGES_SUCCESS,
     count: json.meta.count,
     items: json.data.map(b => b.attributes)
