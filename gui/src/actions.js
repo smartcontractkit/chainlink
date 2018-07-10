@@ -3,12 +3,14 @@ import { pascalCase } from 'change-case'
 
 const fetchActions = {}
 
+const requestAction = (type) => ({type: type})
+
 export const REQUEST_JOBS = 'REQUEST_JOBS'
 export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
 export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
 
 fetchActions.jobs = {
-  request: () => ({ type: REQUEST_JOBS }),
+  request: requestAction(REQUEST_JOBS),
   receiveSuccess: (json) => ({
     type: RECEIVE_JOBS_SUCCESS,
     count: json.meta.count,
@@ -32,7 +34,7 @@ export const RECEIVE_ACCOUNT_BALANCE_SUCCESS = 'RECEIVE_ACCOUNT_BALANCE_SUCCESS'
 export const RECEIVE_ACCOUNT_BALANCE_ERROR = 'RECEIVE_ACCOUNT_BALANCE_ERROR'
 
 fetchActions.accountBalance = {
-  request: () => ({ type: REQUEST_ACCOUNT_BALANCE }),
+  request: requestAction(REQUEST_ACCOUNT_BALANCE),
   receiveSuccess: (json) => ({
     type: RECEIVE_ACCOUNT_BALANCE_SUCCESS,
     eth: json.data.attributes.ethBalance,
@@ -50,7 +52,7 @@ export const RECEIVE_JOB_SPEC_SUCCESS = 'RECEIVE_JOB_SPEC_SUCCESS'
 export const RECEIVE_JOB_SPEC_ERROR = 'RECEIVE_JOB_SPEC_ERROR'
 
 fetchActions.jobSpec = {
-  request: () => ({ type: REQUEST_JOB_SPEC }),
+  request: requestAction(REQUEST_JOB_SPEC),
   receiveSuccess: (json) => ({
     type: RECEIVE_JOB_SPEC_SUCCESS,
     item: json.data.attributes
@@ -67,7 +69,7 @@ export const RECEIVE_JOB_SPEC_RUNS_SUCCESS = 'RECEIVE_JOB_SPEC_RUNS_SUCCESS'
 export const RECEIVE_JOB_SPEC_RUNS_ERROR = 'RECEIVE_JOB_SPEC_RUNS_ERROR'
 
 fetchActions.jobSpecRuns = {
-  request: () => ({ type: REQUEST_JOB_SPEC_RUNS }),
+  request: requestAction(REQUEST_JOB_SPEC_RUNS),
   receiveSuccess: (json) => ({
     type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
     items: json.data.map(j => j.attributes),
@@ -85,7 +87,7 @@ export const RECEIVE_JOB_SPEC_RUN_SUCCESS = 'RECEIVE_JOB_SPEC_RUN_SUCCESS'
 export const RECEIVE_JOB_SPEC_RUN_ERROR = 'RECEIVE_JOB_SPEC_RUN_ERROR'
 
 fetchActions.jobSpecRun = {
-  request: () => ({ type: REQUEST_JOB_SPEC_RUN }),
+  request: requestAction(REQUEST_JOB_SPEC_RUN),
   receiveSuccess: (json) => ({
     type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
     item: json.data.attributes
@@ -102,7 +104,7 @@ export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
 export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
 
 fetchActions.configuration = {
-  request: () => ({ type: REQUEST_CONFIGURATION }),
+  request: requestAction(REQUEST_CONFIGURATION),
   receiveSuccess: (json) => ({
     type: RECEIVE_CONFIGURATION_SUCCESS,
     config: json.data.attributes
@@ -119,7 +121,7 @@ export const RECEIVE_BRIDGES_SUCCESS = 'RECEIVE_BRIDGES_SUCCESS'
 export const RECEIVE_BRIDGES_ERROR = 'RECEIVE_BRIDGES_ERROR'
 
 fetchActions.bridges = {
-  request: () => ({ type: REQUEST_BRIDGES }),
+  request: requestAction(REQUEST_BRIDGES),
   receiveSuccess: (json) => ({
     type: RECEIVE_BRIDGES_SUCCESS,
     count: json.meta.count,
@@ -139,7 +141,7 @@ function sendFetchActions (type) {
     const {request, receiveSuccess, receiveNetworkError} = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
 
-    dispatch(request())
+    dispatch(request)
     return apiGet(...getArgs)
       .then(json => dispatch(receiveSuccess(json)))
       .catch(error => dispatch(receiveNetworkError(error)))
