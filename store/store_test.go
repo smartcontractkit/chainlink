@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewStore_Start(t *testing.T) {
+func TestStore_Start(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -23,7 +23,7 @@ func TestNewStore_Start(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestNewStore_Stop(t *testing.T) {
+func TestStore_Close(t *testing.T) {
 	t.Parallel()
 
 	s, cleanup := cltest.NewStore()
@@ -41,7 +41,7 @@ func TestNewStore_Stop(t *testing.T) {
 	assert.Equal(t, want, rr.Input)
 	assert.True(t, open)
 
-	assert.NoError(t, s.Stop())
+	assert.NoError(t, s.Close())
 
 	rr, open = <-s.RunChannel.Receive()
 	assert.Equal(t, store.RunRequest{}, rr)
