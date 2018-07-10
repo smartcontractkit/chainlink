@@ -5,6 +5,12 @@ const fetchActions = {}
 
 const requestAction = (type) => ({type: type})
 
+const requestNetworkError = (type, error) => ({
+  type: type,
+  error: error,
+  networkError: true
+})
+
 export const REQUEST_JOBS = 'REQUEST_JOBS'
 export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
 export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
@@ -22,11 +28,7 @@ fetchActions.jobs = {
       }
     ))
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_JOBS_ERROR,
-    error: error,
-    networkError: true
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_JOBS_ERROR, error)
 }
 
 export const REQUEST_ACCOUNT_BALANCE = 'REQUEST_ACCOUNT_BALANCE'
@@ -40,11 +42,7 @@ fetchActions.accountBalance = {
     eth: json.data.attributes.ethBalance,
     link: json.data.attributes.linkBalance
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_ACCOUNT_BALANCE_ERROR,
-    error: error,
-    networkError: true
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_ACCOUNT_BALANCE_ERROR, error)
 }
 
 export const REQUEST_JOB_SPEC = 'REQUEST_JOB_SPEC'
@@ -57,11 +55,7 @@ fetchActions.jobSpec = {
     type: RECEIVE_JOB_SPEC_SUCCESS,
     item: json.data.attributes
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_JOB_SPEC_ERROR,
-    networkError: true,
-    error: error
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_JOB_SPEC_ERROR, error)
 }
 
 export const REQUEST_JOB_SPEC_RUNS = 'REQUEST_JOB_SPEC_RUNS'
@@ -75,11 +69,7 @@ fetchActions.jobSpecRuns = {
     items: json.data.map(j => j.attributes),
     runsCount: json.meta.count
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_JOB_SPEC_RUNS_ERROR,
-    error: error,
-    networkError: true
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_JOB_SPEC_RUNS_ERROR, error)
 }
 
 export const REQUEST_JOB_SPEC_RUN = 'REQUEST_JOB_SPEC_RUN'
@@ -92,11 +82,7 @@ fetchActions.jobSpecRun = {
     type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
     item: json.data.attributes
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_JOB_SPEC_RUN_ERROR,
-    error: error,
-    networkError: true
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_JOB_SPEC_RUN_ERROR, error)
 }
 
 export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
@@ -109,11 +95,7 @@ fetchActions.configuration = {
     type: RECEIVE_CONFIGURATION_SUCCESS,
     config: json.data.attributes
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_CONFIGURATION_ERROR,
-    error: error,
-    networkError: true
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_CONFIGURATION_ERROR, error)
 }
 
 export const REQUEST_BRIDGES = 'REQUEST_BRIDGES'
@@ -127,11 +109,7 @@ fetchActions.bridges = {
     count: json.meta.count,
     items: json.data.map(b => b.attributes)
   }),
-  receiveNetworkError: (error) => ({
-    type: RECEIVE_BRIDGES_ERROR,
-    error: error,
-    networkError: true
-  })
+  receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGES_ERROR, error)
 }
 
 function sendFetchActions (type) {
