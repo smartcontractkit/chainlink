@@ -61,8 +61,8 @@ type TestConfig struct {
 
 // NewConfig returns a new TestConfig
 func NewConfig() (*TestConfig, func()) {
-	wsserver := newWSServer()
-	return NewConfigWithWSServer(wsserver), func() { wsserver.Close() }
+	wsserver, cleanup := newWSServer()
+	return NewConfigWithWSServer(wsserver), cleanup
 }
 
 // NewConfigWithWSServer return new config with specified wsserver
@@ -91,7 +91,8 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 
 // SetEthereumServer sets the ethereum server for testconfig with given wsserver
 func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
-	u, _ := url.Parse(wss.URL)
+	u, err := url.Parse(wss.URL)
+	mustNotErr(err)
 	u.Scheme = "ws"
 	tc.EthereumURL = u.String()
 	tc.wsServer = wss
@@ -104,23 +105,39 @@ type TestApplication struct {
 	wsServer *httptest.Server
 }
 
-func newWSServer() *httptest.Server {
+func newWSServer() (*httptest.Server, func()) {
 	return NewWSServer("")
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string) *httptest.Server {
+func NewWSServer(msg string) (*httptest.Server, func()) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
+	var conn *websocket.Conn
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
+		var err error
+		conn, err = upgrader.Upgrade(w, r, nil)
 		logger.PanicIf(err)
-		conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
+		for {
+			_, _, err = conn.ReadMessage()
+			if err != nil {
+				break
+			}
+			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
+			if err != nil {
+				break
+			}
+		}
 	})
 	server := httptest.NewServer(handler)
-	return server
+	return server, func() {
+		if conn != nil {
+			mustNotErr(conn.Close())
+		}
+		server.Close()
+	}
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
@@ -196,16 +213,17 @@ func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 	s := store.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(s)
-		if config.wsServer != nil {
-			config.wsServer.Close()
-		}
 	}
 }
 
 // NewStore creates a new store
 func NewStore() (*store.Store, func()) {
-	c, _ := NewConfig()
-	return NewStoreWithConfig(c)
+	c, cleanup := NewConfig()
+	store, storecleanup := NewStoreWithConfig(c)
+	return store, func() {
+		storecleanup()
+		cleanup()
+	}
 }
 
 func cleanUpStore(store *store.Store) {
