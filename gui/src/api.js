@@ -5,7 +5,6 @@ import 'isomorphic-unfetch'
 
 const formatUrl = (path, query = {}) => {
   let options = {
-    hostname: global.location.hostname,
     pathname: path,
     query: query
   }
@@ -13,6 +12,7 @@ const formatUrl = (path, query = {}) => {
   const port = parseQueryString(global.location.search).port || process.env.CHAINLINK_PORT
   if (port) {
     options['port'] = port
+    options['hostname'] = global.location.hostname
   }
   return url.format(options)
 }
