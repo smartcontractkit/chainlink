@@ -97,10 +97,10 @@ func (s *Store) Start() error {
 	return s.TxManager.ActivateAccount(acc)
 }
 
-// Stop shuts down all of the working parts of the store.
-func (s *Store) Stop() error {
+// Close shuts down all of the working parts of the store.
+func (s *Store) Close() error {
 	s.RunChannel.Close()
-	return s.Close()
+	return s.ORM.Close()
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`
