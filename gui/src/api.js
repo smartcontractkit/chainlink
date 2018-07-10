@@ -1,25 +1,17 @@
-import { parse as parseQueryString } from 'query-string'
-import url from 'url'
+import formatRequestURI from 'utils/formatRequestURI'
 import { camelizeKeys } from 'humps'
 import 'isomorphic-unfetch'
 
-const formatUrl = (path, query = {}) => {
-  let options = {
-    pathname: path,
-    query: query
-  }
-
-  const port = parseQueryString(global.location.search).port || process.env.CHAINLINK_PORT
-  if (port) {
-    options['port'] = port
-    options['hostname'] = global.location.hostname
-  }
-  return url.format(options)
+const formatURI = (path, query = {}) => {
+  return formatRequestURI(path, query, {
+    hostname: global.location.hostname,
+    port: process.env.CHAINLINK_PORT
+  })
 }
 
 const request = (path, query) => (
   global.fetch(
-    formatUrl(path, query),
+    formatURI(path, query),
     {credentials: 'same-origin'}
   )
     .then(response => response.json())
