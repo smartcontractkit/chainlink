@@ -83,6 +83,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			EthGasPriceDefault:       *big.NewInt(20000000000),
 			DatabasePollInterval:     store.Duration{Duration: time.Millisecond * 500},
 			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
+			Dev:                      true,
 		},
 	}
 	config.SetEthereumServer(wsserver)
