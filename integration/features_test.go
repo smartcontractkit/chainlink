@@ -243,7 +243,8 @@ func TestIntegration_EndAt(t *testing.T) {
 	clock.SetTime(endAt.Add(time.Nanosecond))
 
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	resp, cleanup := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
 		jobRuns, err := app.Store.JobRunsFor(j.ID)
@@ -265,7 +266,8 @@ func TestIntegration_StartAt(t *testing.T) {
 	assert.Equal(t, startAt, j.StartAt.Time)
 
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	resp, cleanup := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode)
 	cltest.WaitForRuns(t, j, app.Store, 0)
 

@@ -32,7 +32,8 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
+		resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
+		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
 }
@@ -48,10 +49,12 @@ func TestJobRunsController_Index(t *testing.T) {
 	jr, err := app.Store.JobRunsFor(j.ID)
 	assert.NoError(t, err)
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=x")
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=x")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=1")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=1")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var links jsonapi.Links
@@ -65,7 +68,8 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.Len(t, runs, 1)
 	assert.Equal(t, jr[1].ID, runs[0].ID, "expected runs ordered by created at(descending)")
 
-	resp = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
 	runs = []models.JobRun{}
@@ -137,8 +141,8 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
-	defer resp.Body.Close()
+	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 500)
 }
 
@@ -152,7 +156,8 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	defer cleanup()
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
 
@@ -163,7 +168,8 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	defer cleanup()
 
 	url := app.Server.URL + "/v2/specs/garbageID/runs"
-	resp := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 
@@ -183,7 +189,8 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
@@ -210,7 +217,8 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer cleanup()
 	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
 }
 
@@ -230,7 +238,8 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
-	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
@@ -257,7 +266,8 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprint(`{`, jr.ID)
-	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
@@ -279,7 +289,8 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 
 	url := app.Server.URL + "/v2/runs/" + jr.ID + "1"
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	resp := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
@@ -299,8 +310,8 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	jr.ID = "jobrun1"
 	assert.Nil(t, app.Store.Save(&jr))
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/" + jr.ID)
-	defer resp.Body.Close()
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/" + jr.ID)
+	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respJobRun presenters.JobRun
@@ -317,7 +328,8 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 	app.Start()
 	defer cleanup()
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/garbage")
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/garbage")
+	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
 
