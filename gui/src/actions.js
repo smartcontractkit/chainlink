@@ -112,9 +112,7 @@ fetchActions.bridges = {
   receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGES_ERROR, error)
 }
 
-function sendFetchActions (type) {
-  const getArgs = Array.prototype.slice.call(arguments, 1)
-
+function sendFetchActions (type, ...getArgs) {
   return dispatch => {
     const {request, receiveSuccess, receiveNetworkError} = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
