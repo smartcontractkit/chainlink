@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
+import createStore from 'connectors/redux'
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
+import { Provider } from 'react-redux'
 
 // Your top level component
 import App from './App'
@@ -19,7 +21,9 @@ if (typeof document !== 'undefined') {
   const render = Comp => {
     renderMethod(
       <MuiThemeProvider theme={muiTheme}>
-        <Comp />
+        <Provider store={createStore()}>
+          <Comp />
+        </Provider>
       </MuiThemeProvider>,
       document.getElementById('root')
     )
