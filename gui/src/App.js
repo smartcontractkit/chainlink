@@ -1,15 +1,22 @@
 import React, { PureComponent } from 'react'
 import Routes from 'react-static-routes'
-import CssBaseline from '@material-ui/core/CssBaseline'
-import Grid from '@material-ui/core/Grid'
 import AppBar from '@material-ui/core/AppBar'
+import ChevronLeftIcon from '@material-ui/icons/ChevronLeft'
+import CssBaseline from '@material-ui/core/CssBaseline'
+import Divider from '@material-ui/core/Divider'
+import Drawer from '@material-ui/core/Drawer'
+import List from '@material-ui/core/List'
+import ListItem from '@material-ui/core/ListItem'
+import ListItemText from '@material-ui/core/ListItemText'
+import Grid from '@material-ui/core/Grid'
+import IconButton from '@material-ui/core/IconButton'
+import MenuIcon from '@material-ui/icons/Menu'
 import Typography from '@material-ui/core/Typography'
 import universal from 'react-universal-component'
-import createStore from 'connectors/redux'
+import classNames from 'classnames'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
-import { Provider } from 'react-redux'
 import logoImg from './logo.svg'
 
 // Use universal-react-component for code-splitting non-static routes
@@ -19,34 +26,58 @@ const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
 const JobSpecRun = universal(import('./containers/JobSpecRun'))
 
+const appBarHeight = 64
+const drawerWidth = 240
+
 // Custom styles
 const styles = theme => {
+  console.log(theme.mixins.toolbar)
+
   return {
     appBar: {
       backgroundColor: theme.palette.background.appBar,
-      paddingTop: theme.spacing.unit * 3,
-      paddingBottom: theme.spacing.unit * 3,
       paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      paddingRight: theme.spacing.unit * 5,
+      // TODO: Use a better value than hardcoded 1000
+      zIndex: theme.zIndex.drawer + 1000
+    },
+    appBarContent: {
+      height: appBarHeight
     },
     content: {
       margin: theme.spacing.unit * 5,
       marginTop: 0
     },
-    menu: {
-      marginTop: theme.spacing.unit * 2,
-      textDecoration: 'none'
+    menuButton: {
+      color: theme.palette.common.white
     },
     menuitem: {
-      color: theme.palette.common.white,
-      paddingRight: theme.spacing.unit * 5,
+      padding: theme.spacing.unit * 3,
+      paddingTop: theme.spacing.unit * 2,
+      paddingBottom: theme.spacing.unit * 2,
       display: 'inline-block',
       textDecoration: 'none'
+    },
+    drawerPaper: {
+      backgroundColor: theme.palette.common.white,
+      width: drawerWidth
+    },
+    drawerList: {
+      padding: 0
+    },
+    toolbar: {
+      minHeight: appBarHeight
     }
   }
 }
 
 class App extends PureComponent {
+  constructor(props) {
+    super(props)
+    this.state = {drawerOpen: false}
+    this.toggleDrawer = this.toggleDrawer.bind(this)
+  }
+
   // Remove the server-side injected CSS.
   componentDidMount () {
     const jssStyles = document.getElementById('jss-server-side')
@@ -55,63 +86,96 @@ class App extends PureComponent {
     }
   }
 
+  toggleDrawer () {
+    this.setState({drawerOpen: !this.state.drawerOpen})
+  }
+
   render () {
-    const { classes } = this.props
+    const {classes} = this.props
+    const {drawerOpen} = this.state
+
+    const drawer = (
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        classes={{
+          paper: classes.drawerPaper,
+        }}
+        onClose={this.toggleDrawer}
+      >
+        <div className={classes.toolbar} />
+        <div
+          tabIndex={0}
+          role="button"
+          onClick={this.toggleDrawer}
+        >
+          <List className={classes.drawerList}>
+            <ListItem button>
+              <Link to='/' className={classes.menuitem}>
+                <ListItemText primary="Jobs" />
+              </Link>
+            </ListItem>
+            <ListItem button>
+              <Link to='/bridges' className={classes.menuitem}>
+                <ListItemText primary="Bridges" />
+              </Link>
+            </ListItem>
+            <ListItem button>
+              <Link to='/config' className={classes.menuitem}>
+                <ListItemText primary="Configuration" />
+              </Link>
+            </ListItem>
+          </List>
+        </div>
+      </Drawer>
+    );
 
     return (
-      <Provider store={createStore()}>
-        <Router>
-          <Grid container>
-            <CssBaseline />
-            <Grid item xs={12}>
-              <AppBar
-                className={classes.appBar}
-                elevation={0}
-                color='default'
-                position='static'
-              >
-                <Grid container spacing={40}>
-                  <Grid item xs={9}>
-                    <Link to='/'>
-                      <img src={logoImg} alt='Chainlink' width={121} height={44} />
-                    </Link>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <div  align='right' className={classes.menu}>
-                      <Link to='/bridges' className={classes.menuitem}>
-                        <Typography color='inherit'>
-                          Bridges
-                        </Typography>
-                      </Link>
-                      <Link to='/config' className={classes.menuitem}>
-                        <Typography color='inherit'>
-                          Configuration
-                        </Typography>
-                      </Link>
-                      <Link to='/about' className={classes.menuitem}>
-                        <Typography color='inherit'>
-                          About
-                        </Typography>
-                      </Link>
-                    </div>
-                  </Grid>
+      <Router>
+        <Grid container>
+          <CssBaseline />
+          <Grid item xs={12}>
+            <AppBar
+              className={classes.appBar}
+              color='default'
+              position='absolute'
+            >
+              <Grid container alignItems="center" className={classes.appBarContent}>
+                <Grid item xs={9}>
+                  <Link to='/'>
+                    <img src={logoImg} alt='Chainlink' width={121} height={44} />
+                  </Link>
                 </Grid>
-              </AppBar>
+                <Grid item xs={3}>
+                  <div align='right'>
+                    <IconButton
+                      aria-label="open drawer"
+                      onClick={this.toggleDrawer}
+                      className={classes.menuButton}
+                    >
+                      <MenuIcon />
+                    </IconButton>
+                  </div>
+                </Grid>
+              </Grid>
+            </AppBar>
 
-              <div className={classes.content}>
-                <Switch>
-                  <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
-                  <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
-                  <Route exact path='/job_specs/:jobSpecId/runs/:jobRunId' component={JobSpecRun} />
-                  <Route exact path='/config' component={Configuration} />
-                  <Route exact path='/bridges' component={Bridges} />
-                  <Routes />
-                </Switch>
-              </div>
-            </Grid>
+            <div className={classes.content}>
+              <div className={classes.toolbar} />
+              <Switch>
+                <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
+                <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
+                <Route exact path='/job_specs/:jobSpecId/runs/:jobRunId' component={JobSpecRun} />
+                <Route exact path='/config' component={Configuration} />
+                <Route exact path='/bridges' component={Bridges} />
+                <Routes />
+              </Switch>
+            </div>
+
+            {drawer}
           </Grid>
-        </Router>
-      </Provider>
+        </Grid>
+      </Router>
     )
   }
 }
