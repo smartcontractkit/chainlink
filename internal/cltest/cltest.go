@@ -219,9 +219,9 @@ func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 // NewStore creates a new store
 func NewStore() (*store.Store, func()) {
 	c, cleanup := NewConfig()
-	store, storecleanup := NewStoreWithConfig(c)
+	store, storeCleanup := NewStoreWithConfig(c)
 	return store, func() {
-		storecleanup()
+		storeCleanup()
 		cleanup()
 	}
 }
