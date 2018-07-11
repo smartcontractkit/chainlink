@@ -2,6 +2,9 @@ import { common, green, grey } from '@material-ui/core/colors'
 
 export default {
   palette: {
+    action: {
+      hoverOpacity: 0.3
+    },
     primary: {
       light: '#776bfa',
       main: '#3c40c6',

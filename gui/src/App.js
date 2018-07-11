@@ -31,15 +31,12 @@ const drawerWidth = 240
 
 // Custom styles
 const styles = theme => {
-  console.log(theme.mixins.toolbar)
-
   return {
     appBar: {
       backgroundColor: theme.palette.background.appBar,
       paddingLeft: theme.spacing.unit * 5,
       paddingRight: theme.spacing.unit * 5,
-      // TODO: Use a better value than hardcoded 1000
-      zIndex: theme.zIndex.drawer + 1000
+      zIndex: theme.zIndex.modal + 1
     },
     appBarContent: {
       height: appBarHeight
