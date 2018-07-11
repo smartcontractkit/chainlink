@@ -1,7 +1,14 @@
-#!/bin/bash -ex
+#!/bin/bash
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <deployment>"
+    exit 1
+fi
+deployment=$1
+
+set -ex
 
 export GOOGLE_APPLICATION_CREDENTIALS=/keyconfig.json
-deployment=$1
 
 codeship_google authenticate
 gcloud config set compute/zone us-central1-a
