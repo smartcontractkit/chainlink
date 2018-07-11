@@ -20,7 +20,8 @@ import (
 func TestJobRunner_resumeSleepingRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	rm := services.NewJobRunner(store)
+	rm, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -45,7 +46,8 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	rm := services.NewJobRunner(store)
+	rm, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	run1 := job.NewRun(initr)
@@ -56,7 +58,7 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 	chan1b := services.ExportedChannelForRun(rm, run1.ID)
 
 	assert.NotEqual(t, chan1a, chan2)
-	assert.Equal(t, chan1a, chan1a)
+	assert.Equal(t, chan1a, chan1b)
 	assert.NotEqual(t, chan2, chan1b)
 }
 
@@ -65,7 +67,8 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
-	rm := services.NewJobRunner(s)
+	rm, cleanup := cltest.NewJobRunner(s)
+	defer cleanup()
 	assert.NoError(t, rm.Start())
 
 	j, initr := cltest.NewJobWithWebInitiator()
@@ -90,7 +93,8 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
-	rm := services.NewJobRunner(s)
+	rm, cleanup := cltest.NewJobRunner(s)
+	defer cleanup()
 	assert.NoError(t, rm.Start())
 
 	j, initr := cltest.NewJobWithWebInitiator()
@@ -113,7 +117,8 @@ func TestJobRunner_Stop(t *testing.T) {
 
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
-	rm := services.NewJobRunner(s)
+	rm, cleanup := cltest.NewJobRunner(s)
+	defer cleanup()
 	j, initr := cltest.NewJobWithWebInitiator()
 	jr := j.NewRun(initr)
 
