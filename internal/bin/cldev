@@ -22,7 +22,7 @@ pushd $PROJECT_ROOT >/dev/null
 if [ "$#" == 0 ] || [ "$1" == "node" ]; then
   pushd gui >/dev/null
   yarn install --no-progress | cat
-  yarn build | cat
+  CHAINLINK_VERSION=$(chainlink --version) yarn build | cat
   popd >/dev/null
   go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
 elif [ "$1" == "clean" ]; then
