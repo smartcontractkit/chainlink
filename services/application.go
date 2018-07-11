@@ -86,7 +86,7 @@ func (app *ChainlinkApplication) Stop() error {
 	app.JobRunner.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	app.HeadTracker.Detach(app.specSubscriberID)
-	return app.Store.Stop()
+	return app.Store.Close()
 }
 
 // GetStore returns the pointer to the store for the ChainlinkApplication.

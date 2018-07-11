@@ -85,7 +85,10 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	eth.EventuallyAllCalled(t)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&count))
+
+	gomega.NewGomegaWithT(t).Eventually(func() int32 {
+		return atomic.LoadInt32(&count)
+	}).Should(gomega.Equal(int32(1)))
 }
 
 func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T) {
