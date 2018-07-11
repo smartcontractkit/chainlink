@@ -23,13 +23,11 @@ import (
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
-	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
 	cors := uiCorsHandler(config)
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		basicAuth,
 	)
 
 	v1Routes(app, engine)
@@ -60,8 +58,13 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	return engine
 }
 
+func basicAuth(config store.Config) gin.HandlerFunc {
+	return gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
+}
+
 func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v1 := engine.Group("/v1")
+	v1.Use(basicAuth(app.Store.Config))
 	{
 		ac := AssignmentsController{app}
 		v1.POST("/assignments", ac.Create)
@@ -75,6 +78,7 @@ func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
+	v2.Use(basicAuth(app.Store.Config))
 	{
 		ab := AccountBalanceController{app}
 		v2.GET("/account_balance", ab.Show)
