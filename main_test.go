@@ -29,7 +29,7 @@ func ExampleRun() {
 	//    chainlink.test [global options] command [command options] [arguments...]
 	//
 	// VERSION:
-	//    0.2.0@unset
+	//    unset@unset
 	//
 	// COMMANDS:
 	//      node, n                   Run the chainlink node
@@ -63,8 +63,7 @@ func ExampleVersion() {
 		Runner:     cmd.ChainlinkRunner{},
 	}
 
-	// Powers React GUI About page.
 	Run(testClient, "chainlink.test", "--version")
 	// Output:
-	// chainlink.test version 0.2.0@unset
+	// chainlink.test version unset@unset
 }

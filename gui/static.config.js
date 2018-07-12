@@ -18,22 +18,11 @@ export default {
         path: '/about',
         component: 'src/containers/About',
         getData: () => {
-          const about = {
-            version: 'unknown',
-            sha: 'unknown'
+          const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
+          return {
+            version: matches[1] || 'unknown',
+            sha: matches[2] || 'unknown'
           }
-
-          const versionMatches = (/version (\d+\.\d+\.\d+)/g).exec(process.env.CHAINLINK_VERSION)
-          if (versionMatches) {
-            about.version = versionMatches[1]
-          }
-
-          const shaMatches = (/@(.+)$/g).exec(process.env.CHAINLINK_VERSION)
-          if (versionMatches) {
-            about.sha = shaMatches[1]
-          }
-
-          return about
         }
       },
       {is404: true, component: 'src/containers/404'}
