@@ -14,6 +14,9 @@ RUN make build
 # Final layer: ubuntu with chainlink binary
 FROM ubuntu:16.04
 
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update && apt-get install -y ca-certificates
+
 COPY --from=builder \
   /go/src/github.com/smartcontractkit/chainlink/chainlink \
   /usr/local/bin/
