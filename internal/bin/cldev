@@ -9,7 +9,7 @@
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
-LDFLAGS="-X github.com/smartcontractkit/chainlink/store.Sha=`git rev-parse HEAD`"
+LDFLAGS=`internal/bin/ldflags`
 
 export LOG_LEVEL=debug
 export ETH_URL=ws://localhost:18546
