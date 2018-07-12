@@ -539,6 +539,12 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 	config := app.GetStore().Config
 	var g errgroup.Group
 
-	g.Go(func() error { return server.Run(":" + config.Port) })
+	if config.Dev {
+		g.Go(func() error { return server.Run(":" + config.Port) })
+	} else {
+		certFile := config.CertFile()
+		keyFile := config.KeyFile()
+		g.Go(func() error { return server.RunTLS(":"+config.Port, certFile, keyFile) })
+	}
 	return g.Wait()
 }
