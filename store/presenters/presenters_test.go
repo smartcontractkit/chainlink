@@ -141,7 +141,7 @@ func TestPresenter_FriendlyBigInt(t *testing.T) {
 func TestBridgeTypeMarshalJSON(t *testing.T) {
 	t.Parallel()
 	input := models.BridgeType{
-		Name:                 models.NewTaskType("hapax"),
+		Name:                 models.MustNewTaskType("hapax"),
 		URL:                  cltest.WebURL("http://hap.ax"),
 		DefaultConfirmations: 0,
 	}

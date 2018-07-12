@@ -177,7 +177,7 @@ func TestFindBridge(t *testing.T) {
 	defer cleanup()
 
 	tt := models.BridgeType{}
-	tt.Name = models.NewTaskType("solargridreporting")
+	tt.Name = models.MustNewTaskType("solargridreporting")
 	u, err := url.Parse("https://denergy.eth")
 	assert.NoError(t, err)
 	tt.URL = models.WebURL{URL: u}

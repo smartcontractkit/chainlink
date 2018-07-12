@@ -172,3 +172,31 @@ func TestNormalizeSpecJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestNewTaskType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		errored bool
+	}{
+		{"basic", "NoOp", "noop", false},
+		{"special characters", "-_-", "-_-", false},
+		{"invalid character", "NoOp!", "", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := models.NewTaskType(test.input)
+
+			if test.errored {
+				assert.Error(t, err)
+			} else {
+				assert.Equal(t, models.TaskType(test.want), got)
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

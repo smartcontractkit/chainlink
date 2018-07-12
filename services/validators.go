@@ -3,7 +3,6 @@ package services
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -37,18 +36,18 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 
 // ValidateAdapter checks that the bridge type doesn't have a duplicate or invalid name
 func ValidateAdapter(bt *models.BridgeType, store *store.Store) (err error) {
+	var merr error
 	if len(bt.Name.String()) < 1 {
-		err = fmt.Errorf("adapter validation: no name specified")
+		merr = multierr.Append(merr, fmt.Errorf("adapter validation: no name specified"))
 	}
-	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
-	if !re.MatchString(bt.Name.String()) {
-		err = fmt.Errorf("adapter validation: name %v contains invalid characters", bt.Name)
+	if _, err := models.NewTaskType(bt.Name.String()); err != nil {
+		merr = multierr.Append(merr, fmt.Errorf("adapter validation error: %v", err))
 	}
 	ts := models.TaskSpec{Type: bt.Name}
 	if a, _ := adapters.For(ts, store); a != nil {
-		err = fmt.Errorf("adapter validation: adapter %v exists", bt.Name)
+		merr = multierr.Append(merr, fmt.Errorf("adapter validation: adapter %v exists", bt.Name))
 	}
-	return err
+	return merr
 }
 
 func fmtJobError(err error) error {

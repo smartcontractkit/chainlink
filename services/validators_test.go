@@ -52,7 +52,7 @@ func TestValidateAdapter(t *testing.T) {
 	defer cleanup()
 
 	tt := models.BridgeType{}
-	tt.Name = models.NewTaskType("solargridreporting")
+	tt.Name = models.MustNewTaskType("solargridreporting")
 	u, err := url.Parse("https://denergy.eth")
 	assert.NoError(t, err)
 	tt.URL = models.WebURL{URL: u}
@@ -70,15 +70,15 @@ func TestValidateAdapter(t *testing.T) {
 		{"no adapter name", "",
 			errors.New("adapter validation: no name specified")},
 		{"invalid adapter name", "invalid/adapter",
-			errors.New("adapter validation: name invalid/adapter contains invalid characters")},
+			errors.New("adapter validation error: Task Type validation: name invalid/adapter contains invalid characters")},
 		{"new external adapter", "gdaxprice", nil},
 	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			bt := &models.BridgeType{Name: models.NewTaskType(test.name)}
+			bt := &models.BridgeType{Name: models.TaskType(test.name)}
 			result := services.ValidateAdapter(bt, store)
-			assert.Equal(t, result, test.want)
+			assert.Equal(t, test.want, result)
 		})
 	}
 }

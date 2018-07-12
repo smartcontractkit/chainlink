@@ -43,7 +43,7 @@ func TestAdapterFor(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.want, func(t *testing.T) {
-			task := models.TaskSpec{Type: models.NewTaskType(test.bridgeName)}
+			task := models.TaskSpec{Type: models.MustNewTaskType(test.bridgeName)}
 			adapter, err := adapters.For(task, store)
 			if test.errored {
 				assert.Error(t, err)
