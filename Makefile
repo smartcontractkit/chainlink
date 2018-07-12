@@ -36,7 +36,7 @@ install: godep gui ## Install chainlink
 	go install $(GOFLAGS)
 
 gui: yarndep ## Install GUI
-	CHAINLINK_VERSION=$(shell chainlink --version) yarn build
+	CHAINLINK_VERSION="$(shell chainlink --version)" yarn build
 	go generate ./...
 
 docker: ## Build the docker image.
