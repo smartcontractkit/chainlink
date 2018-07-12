@@ -20,7 +20,7 @@ func ExampleRun() {
 		Runner:     cmd.ChainlinkRunner{},
 	}
 
-	Run(testClient, "chainlink.test --help")
+	Run(testClient, "chainlink.test", "--help")
 	// Output:
 	// NAME:
 	//    chainlink.test - CLI for Chainlink
@@ -29,7 +29,7 @@ func ExampleRun() {
 	//    chainlink.test [global options] command [command options] [arguments...]
 	//
 	// VERSION:
-	//    0.2.0
+	//    0.2.0@unset
 	//
 	// COMMANDS:
 	//      node, n                   Run the chainlink node
@@ -50,4 +50,21 @@ func ExampleRun() {
 	//    --json, -j     json output as opposed to table
 	//    --help, -h     show help
 	//    --version, -v  print the version
+}
+
+func ExampleVersion() {
+	tc, cleanup := cltest.NewConfig()
+	defer cleanup()
+	testClient := &cmd.Client{
+		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
+		Config:     tc.Config,
+		AppFactory: cmd.ChainlinkAppFactory{},
+		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
+		Runner:     cmd.ChainlinkRunner{},
+	}
+
+	// Powers React GUI About page.
+	Run(testClient, "chainlink.test", "--version")
+	// Output:
+	// chainlink.test version 0.2.0@unset
 }
