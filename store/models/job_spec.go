@@ -202,7 +202,7 @@ func (i Initiator) IsLogInitiated() bool {
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	Type          taskType `json:"type" storm:"index"`
+	Type          TaskType `json:"type" storm:"index"`
 	Confirmations uint64   `json:"confirmations"`
 	Params        JSON     `json:"-"`
 }
@@ -244,16 +244,14 @@ func (t TaskSpec) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
-type taskType struct {
-	string
-}
+type TaskType string
 
 // NewTaskType returns a formatted Task type.
-func NewTaskType(val string) taskType {
-	return taskType{strings.ToLower(val)}
+func NewTaskType(val string) TaskType {
+	return TaskType(strings.ToLower(val))
 }
 
-func (t *taskType) UnmarshalJSON(input []byte) error {
+func (t *TaskType) UnmarshalJSON(input []byte) error {
 	var aux string
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
@@ -262,18 +260,18 @@ func (t *taskType) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (t taskType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.string)
+func (t TaskType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.String())
 }
 
-func (t taskType) String() string {
-	return t.string
+func (t TaskType) String() string {
+	return string(t)
 }
 
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                 taskType `json:"name" storm:"id,unique"`
+	Name                 TaskType `json:"name" storm:"id,unique"`
 	URL                  WebURL   `json:"url"`
 	DefaultConfirmations uint64   `json:"defaultConfirmations"`
 }
