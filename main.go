@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -23,7 +24,7 @@ func main() {
 func Run(client *cmd.Client, args ...string) {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
-	app.Version = store.Version
+	app.Version = fmt.Sprintf("%v@%v", store.Version, store.Sha)
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",

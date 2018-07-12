@@ -28,6 +28,11 @@ export default {
             about.version = versionMatches[1]
           }
 
+          const shaMatches = (/@(.+)$/g).exec(process.env.CHAINLINK_VERSION)
+          if (versionMatches) {
+            about.sha = shaMatches[1]
+          }
+
           return about
         }
       },
