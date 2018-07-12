@@ -4,9 +4,10 @@
 
 ENVIRONMENT ?= release
 
-COMMIT_SHA ?= $(shell git rev-parse HEAD)
 REPO := smartcontract/chainlink
-GO_LDFLAGS := -X github.com/smartcontractkit/chainlink/store.Sha=$(COMMIT_SHA)
+COMMIT_SHA ?= $(shell git rev-parse HEAD)
+VERSION = $(shell cat VERSION)
+GO_LDFLAGS := $(shell internal/bin/ldflags)
 GOFLAGS := -ldflags "$(GO_LDFLAGS)"
 
 # SGX is disabled by default, but turned on when building from Docker
@@ -36,7 +37,7 @@ install: godep gui ## Install chainlink
 	go install $(GOFLAGS)
 
 gui: yarndep ## Install GUI
-	yarn build
+	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
 	go generate ./...
 
 docker: ## Build the docker image.

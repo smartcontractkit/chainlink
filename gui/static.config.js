@@ -14,6 +14,17 @@ export default {
       {path: '/job_specs/_jobSpecId_/runs/_jobRunId_'},
       {path: '/bridges'},
       {path: '/config'},
+      {
+        path: '/about',
+        component: 'src/containers/About',
+        getData: () => {
+          const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
+          return {
+            version: matches[1] || 'unknown',
+            sha: matches[2] || 'unknown'
+          }
+        }
+      },
       {is404: true, component: 'src/containers/404'}
     ]
   },
