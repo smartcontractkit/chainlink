@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -244,22 +245,40 @@ func (t TaskSpec) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+// TaskType defines what Adapter a TaskSpec will use.
 type TaskType string
 
 // NewTaskType returns a formatted Task type.
-func NewTaskType(val string) TaskType {
-	return TaskType(strings.ToLower(val))
+func NewTaskType(val string) (TaskType, error) {
+	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
+	if !re.MatchString(val) {
+		return TaskType(""), fmt.Errorf("Task Type validation: name %v contains invalid characters", val)
+	}
+
+	return TaskType(strings.ToLower(val)), nil
 }
 
+// MustNewTaskType instantiates a new TaskType, and panics if a bad input is provided.
+func MustNewTaskType(val string) TaskType {
+	tt, err := NewTaskType(val)
+	if err != nil {
+		panic(fmt.Sprintf("%v is not a valid TaskType", val))
+	}
+	return tt
+}
+
+// UnmarshalJSON converts a bytes slice of JSON to a TaskType.
 func (t *TaskType) UnmarshalJSON(input []byte) error {
 	var aux string
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
 	}
-	*t = NewTaskType(aux)
-	return nil
+	tt, err := NewTaskType(aux)
+	*t = tt
+	return err
 }
 
+// MarshalJSON converts a TaskType to a JSON byte slice.
 func (t TaskType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
@@ -288,8 +307,9 @@ func (bt BridgeType) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (bt *BridgeType) SetID(value string) error {
-	bt.Name = NewTaskType(value)
-	return nil
+	name, err := NewTaskType(value)
+	bt.Name = name
+	return err
 }
 
 // UnmarshalJSON parses the given input and updates the BridgeType

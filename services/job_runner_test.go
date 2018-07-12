@@ -283,7 +283,7 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 			job, initr := cltest.NewJobWithLogInitiator()
 			job.Tasks = []models.TaskSpec{
 				{
-					Type:          models.NewTaskType("randomNumber"),
+					Type:          models.MustNewTaskType("randomNumber"),
 					Confirmations: uint64(test.taskSpecConfirmations),
 				},
 			}

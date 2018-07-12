@@ -49,7 +49,7 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 
 func TestRendererTableRenderBridge(t *testing.T) {
 	bridge := models.BridgeType{
-		Name:                 models.NewTaskType("hapax"),
+		Name:                 models.MustNewTaskType("hapax"),
 		URL:                  cltest.WebURL("http://hap.ax"),
 		DefaultConfirmations: 0,
 	}

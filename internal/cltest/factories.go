@@ -40,7 +40,7 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 	mustNotErr(err)
 
 	return models.TaskSpec{
-		Type:   models.NewTaskType(taskType),
+		Type:   models.MustNewTaskType(taskType),
 		Params: params,
 	}
 }
@@ -122,9 +122,9 @@ func NewBridgeType(info ...string) models.BridgeType {
 	bt := models.BridgeType{}
 
 	if len(info) > 0 {
-		bt.Name = models.NewTaskType(info[0])
+		bt.Name = models.MustNewTaskType(info[0])
 	} else {
-		bt.Name = models.NewTaskType("defaultFixtureBridgeType")
+		bt.Name = models.MustNewTaskType("defaultFixtureBridgeType")
 	}
 
 	if len(info) > 1 {
