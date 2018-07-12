@@ -74,7 +74,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeType, error) {
 
 	bt1 := &models.BridgeType{
-		Name:                 models.NewTaskType("testingbridges1"),
+		Name:                 models.MustNewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
 		DefaultConfirmations: 0,
 	}
@@ -84,7 +84,7 @@ func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeTy
 	}
 
 	bt2 := &models.BridgeType{
-		Name:                 models.NewTaskType("testingbridges2"),
+		Name:                 models.MustNewTaskType("testingbridges2"),
 		URL:                  cltest.WebURL("https://testing.com/tari"),
 		DefaultConfirmations: 0,
 	}
@@ -122,7 +122,7 @@ func TestBridgeController_Show(t *testing.T) {
 	defer cleanup()
 
 	bt := &models.BridgeType{
-		Name:                 models.NewTaskType("testingbridges1"),
+		Name:                 models.MustNewTaskType("testingbridges1"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
 		DefaultConfirmations: 0,
 	}
@@ -153,7 +153,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 
 	bt := &models.BridgeType{
-		Name:                 models.NewTaskType("testingbridges2"),
+		Name:                 models.MustNewTaskType("testingbridges2"),
 		URL:                  cltest.WebURL("https://testing.com/bridges"),
 		DefaultConfirmations: 0,
 	}

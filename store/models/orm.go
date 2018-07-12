@@ -61,7 +61,13 @@ func emptySlice(to interface{}) {
 // FindBridge looks up a Bridge by its Name.
 func (orm *ORM) FindBridge(name string) (BridgeType, error) {
 	var bt BridgeType
-	err := orm.One("Name", NewTaskType(name), &bt)
+
+	tt, err := NewTaskType(name)
+	if err != nil {
+		return bt, err
+	}
+
+	err = orm.One("Name", tt, &bt)
 	return bt, err
 }
 

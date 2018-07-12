@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 )
 
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
@@ -125,10 +126,13 @@ func NewSpecAndRunLogEvent(log types.Log) (SpecAndRunLogEvent, error) {
 	job.Initiators = []models.Initiator{{JobID: job.ID, Type: models.InitiatorSpecAndRun}}
 	jsTasks := js.Get("tasks").Array()
 	tasks := make([]models.TaskSpec, len(jsTasks))
-	for i, tt := range jsTasks {
+	var merr error
+	for i, jst := range jsTasks {
+		tt, err := models.NewTaskType(jst.String())
+		merr = multierr.Append(merr, err)
 		tasks[i] = models.TaskSpec{
-			Type:   models.NewTaskType(tt.String()),
-			Params: defaultParamsFor(tt.String(), log),
+			Type:   tt,
+			Params: defaultParamsFor(jst.String(), log),
 		}
 	}
 	job.Tasks = tasks

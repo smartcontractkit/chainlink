@@ -10,29 +10,29 @@ import (
 
 var (
 	// TaskTypeCopy is the identifier for the Copy adapter.
-	TaskTypeCopy = models.NewTaskType("copy")
+	TaskTypeCopy = models.MustNewTaskType("copy")
 	// TaskTypeEthBytes32 is the identifier for the EthBytes32 adapter.
-	TaskTypeEthBytes32 = models.NewTaskType("ethbytes32")
+	TaskTypeEthBytes32 = models.MustNewTaskType("ethbytes32")
 	// TaskTypeEthInt256 is the identifier for the EthInt256 adapter.
-	TaskTypeEthInt256 = models.NewTaskType("ethint256")
+	TaskTypeEthInt256 = models.MustNewTaskType("ethint256")
 	// TaskTypeEthUint256 is the identifier for the EthUint256 adapter.
-	TaskTypeEthUint256 = models.NewTaskType("ethuint256")
+	TaskTypeEthUint256 = models.MustNewTaskType("ethuint256")
 	// TaskTypeEthTx is the identifier for the EthTx adapter.
-	TaskTypeEthTx = models.NewTaskType("ethtx")
+	TaskTypeEthTx = models.MustNewTaskType("ethtx")
 	// TaskTypeHTTPGet is the identifier for the HTTPGet adapter.
-	TaskTypeHTTPGet = models.NewTaskType("httpget")
+	TaskTypeHTTPGet = models.MustNewTaskType("httpget")
 	// TaskTypeHTTPPost is the identifier for the HTTPPost adapter.
-	TaskTypeHTTPPost = models.NewTaskType("httppost")
+	TaskTypeHTTPPost = models.MustNewTaskType("httppost")
 	// TaskTypeJSONParse is the identifier for the JSONParse adapter.
-	TaskTypeJSONParse = models.NewTaskType("jsonparse")
+	TaskTypeJSONParse = models.MustNewTaskType("jsonparse")
 	// TaskTypeMultiply is the identifier for the Multiply adapter.
-	TaskTypeMultiply = models.NewTaskType("multiply")
+	TaskTypeMultiply = models.MustNewTaskType("multiply")
 	// TaskTypeNoOp is the identifier for the NoOp adapter.
-	TaskTypeNoOp = models.NewTaskType("noop")
+	TaskTypeNoOp = models.MustNewTaskType("noop")
 	// TaskTypeNoOpPend is the identifier for the NoOpPend adapter.
-	TaskTypeNoOpPend = models.NewTaskType("nooppend")
+	TaskTypeNoOpPend = models.MustNewTaskType("nooppend")
 	// TaskTypeSleep is the identifier for the Sleep adapter.
-	TaskTypeSleep = models.NewTaskType("sleep")
+	TaskTypeSleep = models.MustNewTaskType("sleep")
 )
 
 // Adapter interface applies to all core adapters.
