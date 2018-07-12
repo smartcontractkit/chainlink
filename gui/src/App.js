@@ -88,6 +88,11 @@ class App extends PureComponent {
                           Configuration
                         </Typography>
                       </Link>
+                      <Link to='/about' className={classes.menuitem}>
+                        <Typography color='inherit'>
+                          About
+                        </Typography>
+                      </Link>
                     </div>
                   </Grid>
                 </Grid>

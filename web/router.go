@@ -23,13 +23,11 @@ import (
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
-	basicAuth := gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
 	cors := uiCorsHandler(config)
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		basicAuth,
 	)
 
 	v1Routes(app, engine)
@@ -60,48 +58,50 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	return engine
 }
 
+func basicAuth(config store.Config) gin.HandlerFunc {
+	return gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
+}
+
 func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v1 := engine.Group("/v1")
-	{
-		ac := AssignmentsController{app}
-		v1.POST("/assignments", ac.Create)
-		v1.GET("/assignments/:ID", ac.Show)
+	v1.Use(basicAuth(app.Store.Config))
+	ac := AssignmentsController{app}
+	v1.POST("/assignments", ac.Create)
+	v1.GET("/assignments/:ID", ac.Show)
 
-		sc := SnapshotsController{app}
-		v1.POST("/assignments/:AID/snapshots", sc.CreateSnapshot)
-		v1.GET("/snapshots/:ID", sc.ShowSnapshot)
-	}
+	sc := SnapshotsController{app}
+	v1.POST("/assignments/:AID/snapshots", sc.CreateSnapshot)
+	v1.GET("/snapshots/:ID", sc.ShowSnapshot)
 }
 
 func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
-	{
-		ab := AccountBalanceController{app}
-		v2.GET("/account_balance", ab.Show)
+	v2.Use(basicAuth(app.Store.Config))
+	ab := AccountBalanceController{app}
+	v2.GET("/account_balance", ab.Show)
 
-		j := JobSpecsController{app}
-		v2.GET("/specs", j.Index)
-		v2.POST("/specs", j.Create)
-		v2.GET("/specs/:SpecID", j.Show)
+	j := JobSpecsController{app}
+	v2.GET("/specs", j.Index)
+	v2.POST("/specs", j.Create)
+	v2.GET("/specs/:SpecID", j.Show)
 
-		jr := JobRunsController{app}
-		v2.GET("/specs/:SpecID/runs", jr.Index)
-		v2.POST("/specs/:SpecID/runs", jr.Create)
-		v2.PATCH("/runs/:RunID", jr.Update)
-		v2.GET("/runs/:RunID", jr.Show)
+	jr := JobRunsController{app}
+	v2.GET("/specs/:SpecID/runs", jr.Index)
+	v2.POST("/specs/:SpecID/runs", jr.Create)
+	v2.PATCH("/runs/:RunID", jr.Update)
+	v2.GET("/runs/:RunID", jr.Show)
 
-		tt := BridgeTypesController{app}
-		v2.GET("/bridge_types", tt.Index)
-		v2.POST("/bridge_types", tt.Create)
-		v2.GET("/bridge_types/:BridgeName", tt.Show)
-		v2.DELETE("/bridge_types/:BridgeName", tt.Destroy)
+	tt := BridgeTypesController{app}
+	v2.GET("/bridge_types", tt.Index)
+	v2.POST("/bridge_types", tt.Create)
+	v2.GET("/bridge_types/:BridgeName", tt.Show)
+	v2.DELETE("/bridge_types/:BridgeName", tt.Destroy)
 
-		backup := BackupController{app}
-		v2.GET("/backup", backup.Show)
+	backup := BackupController{app}
+	v2.GET("/backup", backup.Show)
 
-		cc := ConfigController{app}
-		v2.GET("/config", cc.Show)
-	}
+	cc := ConfigController{app}
+	v2.GET("/config", cc.Show)
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
