@@ -114,6 +114,11 @@ class Layout extends Component {
                 <ListItemText primary="Configuration" />
               </Link>
             </ListItem>
+            <ListItem button>
+              <Link to='/about' className={classes.menuitem}>
+                <ListItemText primary="About" />
+              </Link>
+            </ListItem>
           </List>
         </div>
       </Drawer>
