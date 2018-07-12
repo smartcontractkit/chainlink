@@ -110,6 +110,7 @@ printf -- "\033[34mMigration complete.\033[0m\n"
 ########################
 
 printf -- "\033[34mStarting chainlink...\033[0m\n"
+export CHAINLINK_DEV=true
 cldev &>$ROOT/integration/cldev.log &
 waitForResponse http://127.0.0.1:6688
 printf -- "\033[34mChainlink is running.\033[0m\n"

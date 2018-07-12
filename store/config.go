@@ -39,6 +39,9 @@ type Config struct {
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	DatabasePollInterval     Duration        `env:"DATABASE_POLL_INTERVAL" envDefault:"500ms"`
 	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
+	Dev                      bool            `env:"CHAINLINK_DEV" envDefault:"false"`
+	TLSCertPath              string          `env:"TLS_CERT_PATH" envDefault:""`
+	TLSKeyPath               string          `env:"TLS_KEY_PATH" envDefault:""`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -62,6 +65,26 @@ func NewConfig() Config {
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
 	return path.Join(c.RootDir, "keys")
+}
+
+func (c Config) tlsDir() string {
+	return path.Join(c.RootDir, "tls")
+}
+
+// KeyFile returns the path where the server key is kept
+func (c Config) KeyFile() string {
+	if c.TLSKeyPath == "" {
+		return path.Join(c.tlsDir(), "server.key")
+	}
+	return c.TLSKeyPath
+}
+
+// CertFile returns the path where the server certificate is kept
+func (c Config) CertFile() string {
+	if c.TLSCertPath == "" {
+		return path.Join(c.tlsDir(), "server.crt")
+	}
+	return c.TLSCertPath
 }
 
 // CreateProductionLogger returns a custom logger for the config's root directory

@@ -36,6 +36,8 @@ Ethereum node versions currently tested and supported:
 
 ## Run
 
+**NOTE**: By default, chainlink will run in TLS mode. For local development you can either disable this by setting CHAINLINK_DEV to true, or generate self signed certificates using `internal/bin/self-signed-certs`.
+
 To start your Chainlink node, simply run:
 ```bash
 $ chainlink node
@@ -71,6 +73,9 @@ You can configure your node's behavior by setting environment variables which ca
     MIN_INCOMING_CONFIRMATIONS     Default: 6
     ETH_GAS_BUMP_WEI               Default: 5000000000  (5 gwei)
     ETH_GAS_PRICE_DEFAULT          Default: 20000000000 (20 gwei)
+    TLS_CERT_PATH                  Default: ~/.chainlink/tls/server.crt
+    TLS_KEY_PATH                   Default: ~/.chainlink/tls/server.key
+    CHAINLINK_DEV                  Default: false
 
 When running the CLI to talk to a Chainlink node on another machine, you can change the following environment variables:
 
