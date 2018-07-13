@@ -13,6 +13,7 @@ func (orm ORM) migrate() {
 	orm.initializeModel(&TxAttempt{})
 	orm.initializeModel(&BridgeType{})
 	orm.initializeModel(&IndexableBlockNumber{})
+	orm.initializeModel(&User{})
 }
 
 func (orm ORM) initializeModel(klass interface{}) {

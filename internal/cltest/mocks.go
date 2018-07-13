@@ -422,10 +422,23 @@ func (p *MockCountingPrompt) Prompt(string) string {
 	return p.EnteredStrings[i]
 }
 
+// PasswordPrompt returns an entered string
+func (p *MockCountingPrompt) PasswordPrompt(string) string {
+	i := p.Count
+	p.Count++
+	return p.EnteredStrings[i]
+}
+
 // IsTerminal always returns true in tests
 func (p *MockCountingPrompt) IsTerminal() bool {
 	return true
 }
+
+type MockUserInitializer struct{}
+
+func (m MockUserInitializer) Prompt(string) string         { return "" }
+func (m MockUserInitializer) PasswordPrompt(string) string { return "" }
+func (m MockUserInitializer) IsTerminal() bool             { return true }
 
 // NewHTTPMockServer create http test server with passed in parameters
 func NewHTTPMockServer(

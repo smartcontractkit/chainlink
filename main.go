@@ -135,10 +135,11 @@ func Run(client *cmd.Client, args ...string) {
 // in production.
 func NewProductionClient() *cmd.Client {
 	return &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: os.Stdout},
-		Config:     store.NewConfig(),
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}},
-		Runner:     cmd.ChainlinkRunner{},
+		Renderer:        cmd.RendererTable{Writer: os.Stdout},
+		Config:          store.NewConfig(),
+		AppFactory:      cmd.ChainlinkAppFactory{},
+		Auth:            cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
+		UserInitializer: cmd.NewTerminalUserInitializer(),
+		Runner:          cmd.ChainlinkRunner{},
 	}
 }

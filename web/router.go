@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,23 +13,30 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 )
 
+const sessionIdKey = "cl_session_id"
+
 // Router listens and responds to requests to the node for valid paths.
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
+	sessionStore := sessions.NewCookieStore([]byte("secret"))
 	cors := uiCorsHandler(config)
+
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
+		sessions.Sessions("clsession", sessionStore),
 	)
 
+	usersRoutes(app, engine)
 	v1Routes(app, engine)
 	v2Routes(app, engine)
 	guiAssetRoutes(engine)
@@ -36,13 +44,32 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	return engine
 }
 
-func basicAuth(config store.Config) gin.HandlerFunc {
-	return gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
+func authRequired(store *store.Store) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		sessionId, ok := session.Get(sessionIdKey).(string)
+		if !ok || sessionId == "" {
+			publicError(c, http.StatusUnauthorized, errors.New("Missing session id"))
+		} else if _, err := store.FindUserBySession(sessionId); err != nil {
+			publicError(c, http.StatusUnauthorized, err)
+		} else {
+			c.Next()
+		}
+	}
+}
+
+func usersRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
+	users := engine.Group("/users")
+
+	sc := SessionsController{app}
+	users.POST("/sessions", sc.Create)
+	users.DELETE("/sessions", sc.Destroy)
 }
 
 func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v1 := engine.Group("/v1")
-	v1.Use(basicAuth(app.Store.Config))
+	v1.Use(authRequired(app.Store))
+
 	ac := AssignmentsController{app}
 	v1.POST("/assignments", ac.Create)
 	v1.GET("/assignments/:ID", ac.Show)
@@ -54,7 +81,8 @@ func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
-	v2.Use(basicAuth(app.Store.Config))
+	v2.Use(authRequired(app.Store))
+
 	ab := AccountBalanceController{app}
 	v2.GET("/account_balance", ab.Show)
 

@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/crypto/bcrypt"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -397,4 +398,14 @@ func ParseUintHex(hex string) (*big.Int, error) {
 		return amount, fmt.Errorf("unable to decode hex to integer: %s", hex)
 	}
 	return amount, nil
+}
+
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(bytes), err
+}
+
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
