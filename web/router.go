@@ -59,11 +59,9 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 }
 
 func usersRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
-	users := engine.Group("/users")
-
 	sc := SessionsController{app}
-	users.POST("/sessions", sc.Create)
-	users.DELETE("/sessions", sc.Destroy)
+	engine.POST("/sessions", sc.Create)
+	engine.DELETE("/sessions", sc.Destroy)
 }
 
 func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
