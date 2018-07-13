@@ -30,14 +30,13 @@ godep: ## Ensure chainlink's go dependencies are installed.
 yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install
 
-build: godep gui $(SGX_BUILD_ENCLAVE) ## Build chainlink.
-	go build $(GOFLAGS) -o chainlink
+build: yarndep godep chainlink ## Build chainlink.
 
 install: godep gui ## Install chainlink
 	go install $(GOFLAGS)
 
-gui: yarndep ## Install GUI
-	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
+gui: ## Install GUI
+	yarn build
 	go generate ./...
 
 docker: ## Build the docker image.
@@ -50,6 +49,9 @@ docker: ## Build the docker image.
 
 dockerpush: ## Push the docker image to dockerhub
 	docker push $(REPO)
+
+chainlink: gui $(SGX_BUILD_ENCLAVE)
+	go build $(GOFLAGS) -o chainlink
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):

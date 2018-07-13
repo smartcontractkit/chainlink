@@ -7,9 +7,16 @@ ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr
 ARG COMMIT_SHA
 ARG ENVIRONMENT
 
-ADD . /go/src/github.com/smartcontractkit/chainlink
+# Do dependency installs first, since these will change less than the full
+# source tree and can get cached
 WORKDIR /go/src/github.com/smartcontractkit/chainlink
-RUN make build
+ADD Gopkg.* /go/src/github.com/smartcontractkit/chainlink/
+RUN dep ensure -vendor-only
+ADD package.json yarn.lock /go/src/github.com/smartcontractkit/chainlink/
+RUN yarn install
+
+ADD . /go/src/github.com/smartcontractkit/chainlink
+RUN make chainlink
 
 # Final layer: ubuntu with chainlink binary
 FROM ubuntu:16.04
