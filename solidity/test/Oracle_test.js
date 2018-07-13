@@ -207,7 +207,7 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(oracleNode, {from: oracleNode})
+          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
           const newBalance = await link.balanceOf.call(oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
@@ -241,7 +241,7 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(oracleNode, {from: oracleNode})
+          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
           const newBalance = await link.balanceOf.call(oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
@@ -261,7 +261,9 @@ contract('Oracle', () => {
       it('does nothing', async () => {
         let balance = await link.balanceOf(oracleNode)
         assert.equal(0, balance)
-        await oc.withdraw(oracleNode, {from: oracleNode})
+        await assertActionThrows(async () => {
+          await oc.withdraw(oracleNode, toWei(1), {from: oracleNode})
+        })
         balance = await link.balanceOf(oracleNode)
         assert.equal(0, balance)
       })
@@ -282,7 +284,9 @@ contract('Oracle', () => {
 
       context('but not freeing funds w fulfillData', () => {
         it('does not transfer funds', async () => {
-          await oc.withdraw(oracleNode, {from: oracleNode})
+          await assertActionThrows(async () => {
+            await oc.withdraw(oracleNode, amount, {from: oracleNode})
+          })
           let balance = await link.balanceOf(oracleNode)
           assert.equal(0, balance)
         })
@@ -293,15 +297,32 @@ contract('Oracle', () => {
           await oc.fulfillData(internalId, 'Hello World!', {from: oracleNode})
         })
 
+        it('does not allow input greater than the balance', async () => {
+          let originalOracleBalance = await link.balanceOf(oc.address)
+          let originalStrangerBalance = await link.balanceOf(stranger)
+          let withdrawAmount = amount + 1
+
+          assert.isAbove(withdrawAmount, originalOracleBalance.toNumber())
+          await assertActionThrows(async () => {
+            await oc.withdraw(stranger, withdrawAmount, {from: oracleNode})
+          })
+
+          let newOracleBalance = await link.balanceOf(oc.address)
+          let newStrangerBalance = await link.balanceOf(stranger)
+          
+          assert.equal(originalOracleBalance.toNumber(), newOracleBalance.toNumber())
+          assert.equal(originalStrangerBalance.toNumber(), newStrangerBalance.toNumber())
+        })
+
         it('allows transfer of funds by owner to specified address', async () => {
-          await oc.withdraw(stranger, {from: oracleNode})
+          await oc.withdraw(stranger, amount, {from: oracleNode})
           let balance = await link.balanceOf(stranger)
           assert.equal(amount, balance)
         })
 
         it('does not allow a transfer of funds by non-owner', async () => {
           await assertActionThrows(async () => {
-            await oc.withdraw(stranger, {from: stranger})
+            await oc.withdraw(stranger, amount, {from: stranger})
           })
           let balance = await link.balanceOf(stranger)
           assert.equal(0, balance)

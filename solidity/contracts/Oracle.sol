@@ -113,9 +113,10 @@ contract Oracle is Ownable {
     callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
   }
 
-  function withdraw(address _recipient) public onlyOwner {
-    LINK.transfer(_recipient, withdrawableWei.sub(oneForConsistentGasCost));
-    withdrawableWei = oneForConsistentGasCost;
+  function withdraw(address _recipient, uint256 _amount) public onlyOwner {
+    require(withdrawableWei >= _amount.add(oneForConsistentGasCost), "Amount requested is greater than withdrawable balance");
+    withdrawableWei = withdrawableWei.sub(_amount);
+    LINK.transfer(_recipient, _amount);
   }
 
   function cancel(bytes32 _externalId)
