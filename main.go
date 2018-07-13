@@ -140,12 +140,14 @@ func Run(client *cmd.Client, args ...string) {
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
+	cfg := store.NewConfig()
 	return &cmd.Client{
 		Renderer:        cmd.RendererTable{Writer: os.Stdout},
-		Config:          store.NewConfig(),
+		Config:          cfg,
 		AppFactory:      cmd.ChainlinkAppFactory{},
 		Auth:            cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
 		UserInitializer: cmd.NewTerminalUserInitializer(),
 		Runner:          cmd.ChainlinkRunner{},
+		RemoteClient:    cmd.NewHttpPrompterClient(cfg, cmd.NewTerminalPrompter()),
 	}
 }

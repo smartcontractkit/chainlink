@@ -25,3 +25,8 @@ func NewUser(email, plainPwd string) (User, error) {
 		CreatedAt:      Time{Time: time.Now()},
 	}, nil
 }
+
+type SessionRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}

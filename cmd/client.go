@@ -18,6 +18,7 @@ type Client struct {
 	Auth            Authenticator
 	UserInitializer UserInitializer
 	Runner          Runner
+	RemoteClient    RemoteClient
 }
 
 func (cli *Client) errorOut(err error) error {

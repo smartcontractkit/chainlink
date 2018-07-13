@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -315,6 +316,19 @@ func (orm *ORM) FindUserBySession(sessionId string) (User, error) {
 		return User{}, storm.ErrNotFound
 	}
 	return user, nil
+}
+
+func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
+	user, err := orm.FindUser()
+	if err != nil {
+		return "", err
+	}
+
+	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		user.SessionID = utils.NewBytes32ID()
+		return user.SessionID, orm.Save(&user)
+	}
+	return "", errors.New("Invalid password")
 }
 
 func (orm *ORM) DeleteUser() (User, error) {

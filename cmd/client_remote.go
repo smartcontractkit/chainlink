@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -25,12 +27,7 @@ import (
 // DisplayAccountBalance renders a table containing the active account address
 // with it's ETH & LINK balance
 func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
-	cfg := cli.Config
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/account_balance",
-	)
+	resp, err := cli.RemoteClient.Get("/v2/account_balance")
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -46,10 +43,10 @@ func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
 
 // ShowJobSpec returns the status of the given JobID.
 func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
-	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
 	}
+	cfg := cli.Config
 	resp, err := utils.BasicAuthGet(
 		cfg.BasicAuthUsername,
 		cfg.BasicAuthPassword,
@@ -347,4 +344,78 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 		return cli.errorOut(err)
 	}
 	return cli.errorOut(cli.Render(dst))
+}
+
+type RemoteClient interface {
+	Get(string) (*http.Response, error)
+	Post(string) (*http.Response, error)
+}
+
+type httpPrompterClient struct {
+	config   store.Config
+	client   *http.Client
+	prompter Prompter
+}
+
+func NewHttpPrompterClient(cfg store.Config, prompter Prompter) RemoteClient {
+	return &httpPrompterClient{
+		config:   cfg,
+		client:   &http.Client{},
+		prompter: prompter,
+	}
+}
+
+func (h *httpPrompterClient) Get(path string) (*http.Response, error) {
+	cookie, err := h.login()
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequest("GET", h.config.ClientNodeURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	request.AddCookie(cookie)
+	return h.client.Do(request)
+}
+
+func (h *httpPrompterClient) Post(path string) (*http.Response, error) {
+	return nil, errors.New("bogus")
+}
+
+func (h *httpPrompterClient) login() (*http.Cookie, error) {
+	url := h.config.ClientNodeURL + "/sessions"
+	email := h.prompter.Prompt("Enter email: ")
+	pwd := h.prompter.PasswordPrompt("Enter password: ")
+	sessionRequest := models.SessionRequest{Email: email, Password: pwd}
+	b := new(bytes.Buffer)
+	err := json.NewEncoder(b).Encode(sessionRequest)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("POST", url, b)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	_, err = parseResponse(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	cookies := resp.Cookies()
+	fmt.Println(cookies)
+	fmt.Println("response", resp)
+	if len(cookies) < 1 {
+		return nil, errors.New("Did not receive cookie with session id")
+	}
+	return cookies[0], nil
 }
