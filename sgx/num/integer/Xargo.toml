@@ -1,0 +1,20 @@
+[dependencies]
+alloc = {}
+panic_unwind = {}
+panic_abort = {}
+
+[dependencies.std]
+path = "../../../xargo/sgx_tstd"
+stage = 1
+
+[dependencies.sgx_rand]
+path = "../../../xargo/sgx_rand"
+stage = 2
+
+[dependencies.sgx_serialize]
+path = "../../../xargo/sgx_serialize"
+stage = 2
+
+[dependencies.sgx_tunittest]
+path = "../../../xargo/sgx_tunittest"
+stage = 2

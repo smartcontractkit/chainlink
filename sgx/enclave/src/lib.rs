@@ -2,6 +2,7 @@
 #![crate_type = "staticlib"]
 #![cfg_attr(not(target_env = "sgx"), no_std)]
 #![cfg_attr(target_env = "sgx", feature(rustc_private))]
+#![feature(alloc)]
 
 extern crate base64;
 extern crate num;
@@ -17,6 +18,7 @@ mod wasm;
 
 use sgx_types::*;
 use util::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
+use std::string::String;
 
 #[no_mangle]
 pub extern "C" fn sgx_http_get(url_ptr: *const u8, url_len: usize) -> sgx_status_t {
@@ -110,6 +112,34 @@ pub extern "C" fn sgx_multiply(multiplicand_ptr: *const u8, multiplicand_len: us
     let multiplicand = string_from_cstr_with_len(multiplicand_ptr, multiplicand_len).unwrap();
     let multiplier = string_from_cstr_with_len(multiplier_ptr, multiplier_len).unwrap();
 
-    println!("Performing MULTIPLY from within enclave with {:?} {:?}", multiplicand, multiplier);
+    println!("Performing MULTIPLY from within enclave with {:?} * {:?} = {:?}",
+             multiplicand, multiplier, multiply(&multiplicand, &multiplier));
     sgx_status_t::SGX_SUCCESS
+}
+
+fn multiply(multiplicand_str: &str, multiplier_str: &str) -> Result<String, std::num::ParseIntError> {
+    let multiplicand = match i128::from_str_radix(multiplicand_str, 10) {
+        Ok(a) => a,
+        Err(err) => return Err(err)
+    };
+    let multiplier = match i128::from_str_radix(multiplier_str, 10) {
+        Ok(a) => a,
+        Err(err) => return Err(err)
+    };
+
+    Ok(format!("{:?}", multiplicand * multiplier))
+}
+
+#[cfg(test)]
+mod test {
+    use std::ffi::CString;
+    use *;
+
+    #[test]
+    fn test_multiply() {
+      assert_eq!(multiply("1", "1"), Ok("1".to_string()));
+      assert_eq!(multiply("13", "19"), Ok("247".to_string()));
+
+      assert!(multiply("", "19").is_err());
+    }
 }
