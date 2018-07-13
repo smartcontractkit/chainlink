@@ -121,3 +121,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/tevino/abool"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/gin-gonic/contrib"

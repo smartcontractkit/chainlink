@@ -34,10 +34,11 @@ import (
 // Config, AppFactory (the services application), Authenticator, and Runner.
 type Client struct {
 	Renderer
-	Config     strpkg.Config
-	AppFactory AppFactory
-	Auth       Authenticator
-	Runner     Runner
+	Config          strpkg.Config
+	AppFactory      AppFactory
+	Auth            Authenticator
+	UserInitializer UserInitializer
+	Runner          Runner
 }
 
 // RunNode starts the Chainlink core.
@@ -61,6 +62,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
+	var user models.User
+	if user, err = cli.UserInitializer.Initialize(store); err != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	}
+	logger.Info("API exposed for user ", user.Email)
 	if err := app.Start(); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}

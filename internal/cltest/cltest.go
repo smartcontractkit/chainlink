@@ -535,11 +535,12 @@ func CreateBridgeTypeViaWeb(
 func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:   r,
-		Config:     config,
-		AppFactory: EmptyAppFactory{},
-		Auth:       CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		Runner:     EmptyRunner{},
+		Renderer:        r,
+		Config:          config,
+		AppFactory:      EmptyAppFactory{},
+		Auth:            CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		UserInitializer: cltest.MockUserInitializer{},
+		Runner:          EmptyRunner{},
 	}
 	return client, r
 }

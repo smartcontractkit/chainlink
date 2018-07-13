@@ -291,3 +291,28 @@ func (e *DatabaseAccessError) Error() string { return e.msg }
 func NewDatabaseAccessError(msg string) error {
 	return &DatabaseAccessError{msg}
 }
+
+func (orm *ORM) FindUser() (User, error) {
+	var users []User
+	err := orm.All(&users)
+	if err != nil {
+		return User{}, err
+	}
+
+	if len(users) == 0 {
+		return User{}, storm.ErrNotFound
+	}
+
+	return users[0], nil
+}
+
+func (orm *ORM) FindUserBySession(sessionId string) (User, error) {
+	user, err := orm.FindUser()
+	if err != nil {
+		return User{}, err
+	}
+	if sessionId != user.SessionID {
+		return User{}, storm.ErrNotFound
+	}
+	return user, nil
+}

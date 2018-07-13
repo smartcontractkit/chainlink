@@ -32,11 +32,12 @@ func TestClient_RunNode(t *testing.T) {
 	var called bool
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { called = true; return nil }}
 	client := cmd.Client{
-		Renderer:   r,
-		Config:     app.Store.Config,
-		AppFactory: cltest.InstanceAppFactory{App: app.ChainlinkApplication},
-		Auth:       auth,
-		Runner:     cltest.EmptyRunner{}}
+		Renderer:        r,
+		Config:          app.Store.Config,
+		AppFactory:      cltest.InstanceAppFactory{App: app.ChainlinkApplication},
+		Auth:            auth,
+		UserInitializer: cltest.MockUserInitializer{},
+		Runner:          cltest.EmptyRunner{}}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("debug", true, "")
@@ -95,11 +96,12 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 			auth := cltest.CallbackAuthenticator{Callback: callback}
 			client := cmd.Client{
-				Renderer:   r,
-				Config:     app.Store.Config,
-				AppFactory: cltest.InstanceAppFactory{App: app},
-				Auth:       auth,
-				Runner:     cltest.EmptyRunner{}}
+				Renderer:        r,
+				Config:          app.Store.Config,
+				AppFactory:      cltest.InstanceAppFactory{App: app},
+				Auth:            auth,
+				UserInitializer: cltest.MockUserInitializer{},
+				Runner:          cltest.EmptyRunner{}}
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("password", test.pwdfile, "")

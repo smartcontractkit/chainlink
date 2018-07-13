@@ -13,11 +13,12 @@ func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
-		Config:     tc.Config,
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
-		Runner:     cmd.ChainlinkRunner{},
+		Renderer:        cmd.RendererTable{Writer: ioutil.Discard},
+		Config:          tc.Config,
+		AppFactory:      cmd.ChainlinkAppFactory{},
+		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
+		UserInitializer: cltest.MockUserInitializer{},
+		Runner:          cmd.ChainlinkRunner{},
 	}
 
 	Run(testClient, "chainlink.test", "--help")
@@ -56,11 +57,12 @@ func ExampleVersion() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
-		Config:     tc.Config,
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
-		Runner:     cmd.ChainlinkRunner{},
+		Renderer:        cmd.RendererTable{Writer: ioutil.Discard},
+		Config:          tc.Config,
+		AppFactory:      cmd.ChainlinkAppFactory{},
+		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
+		UserInitializer: cltest.MockUserInitializer{},
+		Runner:          cmd.ChainlinkRunner{},
 	}
 
 	Run(testClient, "chainlink.test", "--version")
