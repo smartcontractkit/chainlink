@@ -9,6 +9,8 @@ COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
 GO_LDFLAGS := $(shell internal/bin/ldflags)
 GOFLAGS := -ldflags "$(GO_LDFLAGS)"
+DOCKERFILE := Dockerfile
+DOCKER_TAG := $(REPO)
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
@@ -20,6 +22,8 @@ ifeq ($(SGX_ENABLED),yes)
 	GO_LDFLAGS += -L $(SGX_TARGET)
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
+	DOCKERFILE := Dockerfile-sgx
+	DOCKER_TAG := $(REPO)-sgx
 else
 	SGX_BUILD_ENCLAVE :=
 endif
@@ -44,9 +48,10 @@ docker: ## Build the docker image.
 	docker build \
 		--build-arg ENVIRONMENT \
 		--build-arg COMMIT_SHA \
-		--build-arg SGX_ENABLED \
 		--build-arg SGX_SIMULATION \
-		-t $(REPO) .
+		-t $(DOCKER_TAG) \
+		-f $(DOCKERFILE) \
+		.
 
 dockerpush: ## Push the docker image to dockerhub
 	docker push $(REPO)
