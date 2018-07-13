@@ -316,3 +316,11 @@ func (orm *ORM) FindUserBySession(sessionId string) (User, error) {
 	}
 	return user, nil
 }
+
+func (orm *ORM) DeleteUser() (User, error) {
+	user, err := orm.FindUser()
+	if err != nil {
+		return user, err
+	}
+	return user, orm.DeleteStruct(&user)
+}

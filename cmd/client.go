@@ -128,6 +128,17 @@ func logConfigVariables(config strpkg.Config) {
 	logger.Debug("Environment variables\n", wlc)
 }
 
+func (cli *Client) DeleteUser(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	app := cli.AppFactory.NewApplication(cli.Config)
+	store := app.GetStore()
+	user, err := store.DeleteUser()
+	if err == nil {
+		logger.Info("Deleted API user ", user.Email)
+	}
+	return err
+}
+
 // DisplayAccountBalance renders a table containing the active account address
 // with it's ETH & LINK balance
 func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
