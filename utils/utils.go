@@ -89,7 +89,10 @@ func NullISO8601UTC(t null.Time) string {
 // and password to authenticate at the url with contentType and returns a response.
 func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
-	request, _ := http.NewRequest("POST", url, body)
+	request, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
+	}
 	request.Header.Set("Content-Type", contentType)
 	request.SetBasicAuth(username, password)
 	resp, err := client.Do(request)
@@ -107,7 +110,10 @@ func BasicAuthGet(username, password, url string, headers ...map[string]string) 
 	}
 
 	client := &http.Client{}
-	request, _ := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
 	request.SetBasicAuth(username, password)
 	for key, value := range h {
 		request.Header.Add(key, value)
@@ -120,7 +126,10 @@ func BasicAuthGet(username, password, url string, headers ...map[string]string) 
 // and password to authenticate at the url with contentType and returns a response.
 func BasicAuthPatch(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
-	request, _ := http.NewRequest("PATCH", url, body)
+	request, err := http.NewRequest("PATCH", url, body)
+	if err != nil {
+		return nil, err
+	}
 	request.Header.Set("Content-Type", contentType)
 	request.SetBasicAuth(username, password)
 	resp, err := client.Do(request)
@@ -131,7 +140,10 @@ func BasicAuthPatch(username, password, url string, contentType string, body io.
 // and password to authenticate at the url with contentType and returns a response.
 func BasicAuthDelete(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
-	request, _ := http.NewRequest("DELETE", url, body)
+	request, err := http.NewRequest("DELETE", url, body)
+	if err != nil {
+		return nil, err
+	}
 	request.Header.Set("Content-Type", contentType)
 	request.SetBasicAuth(username, password)
 	resp, err := client.Do(request)
