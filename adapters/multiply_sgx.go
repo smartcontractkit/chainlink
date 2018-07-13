@@ -1,10 +1,15 @@
-// +build !sgx_enclave
+// +build sgx_enclave
 
 package adapters
 
+/*
+#cgo LDFLAGS: -L../sgx/target/release/ -ladapters
+#include "../sgx/libadapters/adapters.h"
+*/
+import "C"
+
 import (
 	"fmt"
-	"math/big"
 	"strconv"
 
 	"github.com/smartcontractkit/chainlink/store"
@@ -30,6 +35,10 @@ func (m *Multiplier) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func isString(input []byte) bool {
+	return len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"'
+}
+
 // Multiply holds the a number to multiply the given value by.
 type Multiply struct {
 	Times Multiplier `json:"times"`
@@ -41,16 +50,11 @@ type Multiply struct {
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
 func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val := input.Get("value")
-	i, ok := (&big.Float{}).SetString(val.String())
-	if !ok {
-		return input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+	multiplicand := C.CString(strconv.FormatUint(uint64(ma.Times), 10))
+	multiplier := C.CString(input.Data.Get("value").String())
+	body, err := C.multiply(multiplicand, multiplier)
+	if err != nil {
+		return input.WithError(fmt.Errorf(C.GoString(body)))
 	}
-
-	res := i.Mul(i, big.NewFloat(float64(ma.Times)))
-	return input.WithValue(res.String())
-}
-
-func isString(input []byte) bool {
-	return len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"'
+	return input.WithValue(C.GoString(body))
 }

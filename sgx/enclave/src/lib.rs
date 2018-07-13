@@ -105,3 +105,11 @@ fn wasm(
     copy_string_to_cstr_ptr(&value, result_ptr, result_capacity, result_len)?;
     Ok(())
 }
+
+pub extern "C" fn sgx_multiply(multiplicand_ptr: *const u8, multiplicand_len: usize, multiplier_ptr: *const u8, multiplier_len: usize) -> sgx_status_t {
+    let multiplicand = string_from_cstr_with_len(multiplicand_ptr, multiplicand_len).unwrap();
+    let multiplier = string_from_cstr_with_len(multiplier_ptr, multiplier_len).unwrap();
+
+    println!("Performing MULTIPLY from within enclave with {:?} {:?}", multiplicand, multiplier);
+    sgx_status_t::SGX_SUCCESS
+}
