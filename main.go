@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/cmd"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/urfave/cli"
 )
@@ -53,6 +54,11 @@ func Run(client *cmd.Client, args ...string) {
 			},
 			Usage:  "Run the chainlink node",
 			Action: client.RunNode,
+		},
+		{
+			Name:   "deleteuser",
+			Usage:  "Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.",
+			Action: client.DeleteUser,
 		},
 		{
 			Name:    "account",
@@ -128,7 +134,7 @@ func Run(client *cmd.Client, args ...string) {
 			Action: client.RemoveBridge,
 		},
 	}
-	app.Run(args)
+	logger.WarnIf(app.Run(args))
 }
 
 // NewProductionClient configures an instance of the CLI to be used
