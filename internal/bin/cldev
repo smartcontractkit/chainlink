@@ -19,11 +19,13 @@ export MINIMUM_CONTRACT_PAYMENT=1000000000000
 export ROOT=$PROJECT_ROOT/internal/clroot
 
 pushd $PROJECT_ROOT >/dev/null
-if [ "$#" == 0 ] || [ "$1" == "node" ]; then
-  #pushd gui >/dev/null
-  #yarn install --no-progress | cat
-  #CHAINLINK_VERSION=$(chainlink --version) yarn build | cat
-  #popd >/dev/null
+if [ "$#" == 0 ]; then
+  pushd gui >/dev/null
+  yarn install --no-progress | cat
+  CHAINLINK_VERSION=$(chainlink --version) yarn build | cat
+  popd >/dev/null
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
+elif [ "$1" == "node" ]; then
   go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
 elif [ "$1" == "clean" ]; then
   rm -f $ROOT/db.bolt $ROOT/log.jsonl
