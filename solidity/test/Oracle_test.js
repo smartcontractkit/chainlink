@@ -314,7 +314,17 @@ contract('Oracle', () => {
           assert.equal(originalStrangerBalance.toNumber(), newStrangerBalance.toNumber())
         })
 
-        it('allows transfer of funds by owner to specified address', async () => {
+        it('allows transfer of partial balance by owner to specified address', async () => {
+          let partialAmount = 6
+          let difference = amount - partialAmount
+          await oc.withdraw(stranger, partialAmount, {from: oracleNode})
+          let strangerBalance = await link.balanceOf(stranger)
+          let oracleBalance = await link.balanceOf(oc.address)
+          assert.equal(partialAmount, strangerBalance)
+          assert.equal(difference, oracleBalance)
+        })
+
+        it('allows transfer of entire balance by owner to specified address', async () => {
           await oc.withdraw(stranger, amount, {from: oracleNode})
           let balance = await link.balanceOf(stranger)
           assert.equal(amount, balance)
