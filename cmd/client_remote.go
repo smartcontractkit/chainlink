@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -385,12 +386,18 @@ func (h *httpPrompterClient) Post(path string) (*http.Response, error) {
 }
 
 func (h *httpPrompterClient) login() (*http.Cookie, error) {
+	cookie, err := h.retrieveCookieFromDisk()
+	if err == nil {
+		return cookie, nil
+	}
+
+	fmt.Println(err.Error())
 	url := h.config.ClientNodeURL + "/sessions"
 	email := h.prompter.Prompt("Enter email: ")
 	pwd := h.prompter.PasswordPrompt("Enter password: ")
 	sessionRequest := models.SessionRequest{Email: email, Password: pwd}
 	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(sessionRequest)
+	err = json.NewEncoder(b).Encode(sessionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -412,10 +419,31 @@ func (h *httpPrompterClient) login() (*http.Cookie, error) {
 	}
 
 	cookies := resp.Cookies()
-	fmt.Println(cookies)
-	fmt.Println("response", resp)
-	if len(cookies) < 1 {
+	if len(cookies) == 0 {
 		return nil, errors.New("Did not receive cookie with session id")
 	}
-	return cookies[0], nil
+	return cookies[0], h.saveCookieToDisk(cookies[0])
+}
+
+func (h *httpPrompterClient) saveCookieToDisk(cookie *http.Cookie) error {
+	return ioutil.WriteFile(h.cookiePath(), []byte(cookie.String()), 0660)
+}
+
+func (h *httpPrompterClient) retrieveCookieFromDisk() (*http.Cookie, error) {
+	b, err := ioutil.ReadFile(h.cookiePath())
+	if err != nil {
+		return nil, err
+	}
+	header := http.Header{}
+	header.Add("Cookie", string(b))
+	request := http.Request{Header: header}
+	cookies := request.Cookies()
+	if len(cookies) == 0 {
+		return nil, errors.New("Cookie not in file")
+	}
+	return request.Cookies()[0], nil
+}
+
+func (h *httpPrompterClient) cookiePath() string {
+	return path.Join(h.config.RootDir, "cookie")
 }
