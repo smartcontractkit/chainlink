@@ -10,6 +10,10 @@ contract RopstenConsumer is Chainlinked, Ownable {
   address constant ROPSTEN_LINK_ADDRESS = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
   address constant ROPSTEN_ORACLE_ADDRESS = 0x1b4b6b38926f8edf03e734e0c96e1f2e9caacc03;
 
+  bytes32 constant PRICE_SPEC_ID = bytes32("0bdf244a39234ea6a416c9d37d66c701");
+  bytes32 constant CHANGE_SPEC_ID = bytes32("cbe3b0be008747da92f66105998bdad4");
+  bytes32 constant MARKET_SPEC_ID = bytes32("d107362cef564d35b02792d7733e1481");
+
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
     uint256 indexed price
@@ -34,64 +38,44 @@ contract RopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    string[] memory tasks = new string[](5);
-    tasks[0] = "httpget";
-    tasks[1] = "jsonparse";
-    tasks[2] = "multiply";
-    tasks[3] = "ethuint256";
-    tasks[4] = "ethtx";
-
-    ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfillEthereumPrice(bytes32,uint256)");
-    spec.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    ChainlinkLib.Run memory run = newRun(PRICE_SPEC_ID, this, "fulfillEthereumPrice(bytes32,uint256)");
+    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
-    spec.addStringArray("path", path);
-    spec.addInt("times", 100);
-    chainlinkRequest(spec, LINK(1));
+    run.addStringArray("path", path);
+    run.addInt("times", 100);
+    chainlinkRequest(run, LINK(1));
   }
 
   function requestEthereumChange(string _currency)
     public
     onlyOwner
   {
-    string[] memory tasks = new string[](5);
-    tasks[0] = "httpget";
-    tasks[1] = "jsonparse";
-    tasks[2] = "multiply";
-    tasks[3] = "ethint256";
-    tasks[4] = "ethtx";
-
-    ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfillEthereumChange(bytes32,int256)");
-    spec.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
+    ChainlinkLib.Run memory run = newRun(CHANGE_SPEC_ID, this, "fulfillEthereumChange(bytes32,int256)");
+    run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
     path[1] = "ETH";
     path[2] = _currency;
     path[3] = "CHANGEPCTDAY";
-    spec.addStringArray("path", path);
-    spec.addInt("times", 1000000000);
-    chainlinkRequest(spec, LINK(1));
+    run.addStringArray("path", path);
+    run.addInt("times", 1000000000);
+    chainlinkRequest(run, LINK(1));
   }
 
   function requestEthereumLastMarket(string _currency)
     public
     onlyOwner
   {
-    string[] memory tasks = new string[](4);
-    tasks[0] = "httpget";
-    tasks[1] = "jsonparse";
-    tasks[2] = "ethbytes32";
-    tasks[3] = "ethtx";
-
-    ChainlinkLib.Spec memory spec = newSpec(tasks, this, "fulfillEthereumLastMarket(bytes32,bytes32)");
-    spec.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
+    ChainlinkLib.Run memory run = newRun(MARKET_SPEC_ID, this, "fulfillEthereumLastMarket(bytes32,bytes32)");
+    run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
     path[1] = "ETH";
     path[2] = _currency;
     path[3] = "LASTMARKET";
-    spec.addStringArray("path", path);
-    chainlinkRequest(spec, LINK(1));
+    run.addStringArray("path", path);
+    chainlinkRequest(run, LINK(1));
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
