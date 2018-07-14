@@ -86,6 +86,8 @@ Use the following environment variables as an example to configure your node for
     MINIMUM_CONTRACT_PAYMENT=1000000000000
     ORACLE_CONTRACT_ADDRESS=***Your deployed oracle contract address***
 
+_If you want to require HTTPS, you'll need to [create your own self-signed certificates](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates). Otherwise, add `CHAINLINK_DEV=true` to your environment variables._
+
 ## Running the Node
 
 Once environment variables are set, run the node with:
@@ -120,11 +122,11 @@ You can get the address of your node by running:
 chainlink a
 ```
 
-## Running and Adding Jobs
+## Adding and Running Jobs
 
-With your own Oracle contract, you can run your own node to fulfill jobs. With the `RopstenConsumer.sol` example contract, you would simply change the value for `address constant ROPSTEN_ORACLE_ADDRESS = ` to your deployed oracle contract address.
+With your own Oracle contract, you can use your own node to fulfill requests. With the `RopstenConsumer.sol` example contract, you would simply change the value for `address constant ROPSTEN_ORACLE_ADDRESS = ` to your deployed oracle contract address and the value for each of the `*_SPEC_ID` constants to the Spec ID reported from your node.
 
-If you would like to run requests based on a pre-defined spec, we have example [JobSpecs](https://github.com/smartcontractkit/chainlink/wiki/Job-Pipeline) in the `jobs/` directory. Adding jobs can be done by using the command `chainlink c` with the path to the JobSpec file.
+In order to add the specs to your node, we have example [JobSpecs](https://github.com/smartcontractkit/chainlink/wiki/Job-Pipeline) in the `jobs/` directory. Adding specs can be done by using the command `chainlink c` with the path to the JobSpec file.
 
 **You will need to modify each JobSpec to update the `"address"` for the `RunLog` initiator to your deployed oracle contract address.**
 
@@ -132,12 +134,6 @@ EthUint256:
 
 ```
 chainlink c jobs/EthUint256Job.json
-```
-
-EthUint256 with the value multiplied by 100:
-
-```
-chainlink c jobs/EthUint256Jobx100.json
 ```
 
 EthInt256
@@ -150,4 +146,12 @@ EthBytes32
 
 ```
 chainlink c jobs/EthBytes32.json
+```
+
+Once the specs have been added, you'll update their value in the `RopstenConsumer.sol` contract, like so (replacing the values below with your actual IDs):
+
+```js
+bytes32 constant PRICE_SPEC_ID = bytes32("0bdf244a39234ea6a416c9d37d66c701");
+bytes32 constant CHANGE_SPEC_ID = bytes32("cbe3b0be008747da92f66105998bdad4");
+bytes32 constant MARKET_SPEC_ID = bytes32("d107362cef564d35b02792d7733e1481");
 ```
