@@ -4,5 +4,8 @@ set -e
 
 cc-test-reporter before-build
 goverage -v -coverprofile=c.out ./...
-cc-test-reporter after-build -t gocov --exit-code $?
+result=$?
+if [ -n "$CC_TEST_REPORTER_ID"  ]; then
+  cc-test-reporter after-build -t gocov --exit-code $result
+fi
 bash <(curl -s https://codecov.io/bash)
