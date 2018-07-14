@@ -28,6 +28,8 @@ services:
       - ETH_CHAIN_ID=17
       - MIN_OUTGOING_CONFIRMATIONS=2
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
+      - RUST_BACKTRACE=1
+      - CHAINLINK_DEV=true
     networks:
       gethnet:
         ipv4_address: 172.16.1.101
