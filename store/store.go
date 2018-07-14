@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -63,12 +64,12 @@ func NewStore(config Config) *Store {
 func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	err := os.MkdirAll(config.RootDir, os.FileMode(0700))
 	if err != nil {
-		logger.Fatal("Unable to create project root dir: %+v", err)
+		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
 	orm := initializeORM(config)
 	ethrpc, err := dialer.Dial(config.EthereumURL)
 	if err != nil {
-		logger.Fatal("Unable to dial ETH RPC port: %+v", err)
+		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
 	keyStore := NewKeyStore(config.KeysDir())
 
