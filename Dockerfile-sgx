@@ -22,14 +22,15 @@ FROM ubuntu:16.04
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && \
   apt-get install -y \
+    ca-certificates \
     curl \
-    libssl-dev \
-    libcurl4-openssl-dev \
-    libprotobuf-dev \
     kmod \
+    libcurl4-openssl-dev \
     libprotobuf-c0-dev \
-    libxml2-dev \
-    libssl1.0.0
+    libprotobuf-dev \
+    libssl-dev \
+    libssl1.0.0 \
+    libxml2-dev
 
 RUN /usr/sbin/useradd aesmd 2>/dev/null
 
