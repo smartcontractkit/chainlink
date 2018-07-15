@@ -20,9 +20,6 @@ RUN apt-get update && apt-get install -y ca-certificates
 COPY --from=builder \
   /go/src/github.com/smartcontractkit/chainlink/chainlink \
   /usr/local/bin/
-COPY --from=builder \
-  /go/src/github.com/smartcontractkit/chainlink/gui/dist \
-  /go/src/github.com/smartcontractkit/chainlink/gui/dist
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
