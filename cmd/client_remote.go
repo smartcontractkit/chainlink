@@ -322,11 +322,13 @@ func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) err
 
 func parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		if err != nil {
-			return b, errors.New(resp.Status)
-		}
-		return b, errors.New(string(b))
+	if err != nil {
+		return b, multierr.Append(errors.New(resp.Status), err)
+	}
+	if resp.StatusCode == 401 {
+		return b, fmt.Errorf("%s: %s", resp.Status, "Try deleting your cookie and trying again")
+	} else if resp.StatusCode >= 400 {
+		return b, errors.New(resp.Status)
 	}
 	return b, err
 }
@@ -391,7 +393,6 @@ func (h *httpPrompterClient) login() (*http.Cookie, error) {
 		return cookie, nil
 	}
 
-	fmt.Println(err.Error())
 	url := h.config.ClientNodeURL + "/sessions"
 	email := h.prompter.Prompt("Enter email: ")
 	pwd := h.prompter.PasswordPrompt("Enter password: ")
