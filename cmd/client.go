@@ -10,12 +10,12 @@ import (
 )
 
 // Client is the shell for the node. It has fields for the Renderer,
-// Config, AppFactory (the services application), Authenticator, and Runner.
+// Config, AppFactory (the services application), KeyStoreAuthenticator, and Runner.
 type Client struct {
 	Renderer
 	Config          strpkg.Config
 	AppFactory      AppFactory
-	Auth            Authenticator
+	Auth            KeyStoreAuthenticator
 	UserInitializer UserInitializer
 	Runner          Runner
 	RemoteClient    RemoteClient

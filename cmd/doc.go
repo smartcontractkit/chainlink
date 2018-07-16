@@ -1,12 +1,12 @@
 // Package cmd is the front-end interface for the application
 // as a command-line utility.
 //
-// Authenticator
+// KeyStoreAuthenticator
 //
-// Authenticator prompts the user for their password, which
+// KeyStoreAuthenticator prompts the user for their password, which
 // is used to unlock their keystore file to interact with the
 // Ethereum blockchain. Since multiple keystore files can exist
-// at the configured directory, the Authenticator will try the
+// at the configured directory, the KeyStoreAuthenticator will try the
 // password on all keystore files present.
 //
 // Client
