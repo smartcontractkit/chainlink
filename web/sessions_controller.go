@@ -1,8 +1,6 @@
 package web
 
 import (
-	"errors"
-
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
@@ -30,10 +28,15 @@ func (sc *SessionsController) Create(c *gin.Context) {
 }
 
 func (sc *SessionsController) Destroy(c *gin.Context) {
-	publicError(c, 404, errors.New("Job not found"))
+	err := sc.App.GetStore().DeleteUserSession()
+	if err != nil {
+		c.AbortWithError(500, err)
+	} else {
+		c.JSON(200, gin.H{})
+	}
 }
 
 func saveSessionID(session sessions.Session, sessionID string) error {
-	session.Set(sessionIDKey, sessionID)
+	session.Set(SessionIDKey, sessionID)
 	return session.Save()
 }

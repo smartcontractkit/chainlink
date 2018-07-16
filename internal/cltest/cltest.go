@@ -19,6 +19,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -744,4 +746,21 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 	} else {
 		assert.FailNowf(t, "Unexpected response", "Expected %d response, got %d", expectedStatusCode, resp.StatusCode)
 	}
+}
+
+func DecodeSessionCookie(value string) (string, error) {
+	var decrypted map[interface{}]interface{}
+	codecs := securecookie.CodecsFromPairs([]byte(web.SessionSecret))
+	err := securecookie.DecodeMulti(web.SessionName, value, &decrypted, codecs...)
+	return decrypted[web.SessionIDKey].(string), err
+}
+
+func MustGenerateSessionCookie(value string) *http.Cookie {
+	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
+	codecs := securecookie.CodecsFromPairs([]byte(web.SessionSecret))
+	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
+	if err != nil {
+		logger.Panic(err)
+	}
+	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }

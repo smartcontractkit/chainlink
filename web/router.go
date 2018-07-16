@@ -20,20 +20,24 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 )
 
-const sessionIDKey = "cl_session_id"
+const (
+	SessionName   = "clsession"
+	SessionIDKey  = "clsession_id"
+	SessionSecret = "clsession_secret_tobechanged"
+)
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
-	sessionStore := sessions.NewCookieStore([]byte("secret"))
+	sessionStore := sessions.NewCookieStore([]byte(SessionSecret))
 	cors := uiCorsHandler(config)
 
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		sessions.Sessions("clsession", sessionStore),
+		sessions.Sessions(SessionName, sessionStore),
 	)
 
 	sessionRoutes(app, engine)
@@ -47,7 +51,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 func authRequired(store *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		sessionID, ok := session.Get(sessionIDKey).(string)
+		sessionID, ok := session.Get(SessionIDKey).(string)
 		if !ok || sessionID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else if _, err := store.FindUserBySession(sessionID); err != nil {
@@ -61,7 +65,8 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 func sessionRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	sc := SessionsController{app}
 	engine.POST("/sessions", sc.Create)
-	engine.DELETE("/sessions", sc.Destroy)
+	auth := engine.Group("/", authRequired(app.Store))
+	auth.DELETE("/sessions", sc.Destroy)
 }
 
 func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
@@ -212,6 +217,7 @@ func readBody(reader io.Reader) string {
 }
 
 func readSanitizedJson(buf *bytes.Buffer) (string, error) {
+	var blacklist = map[string]struct{}{"password": struct{}{}}
 	var dst map[string]interface{}
 	err := json.Unmarshal(buf.Bytes(), &dst)
 	if err != nil {
@@ -220,7 +226,7 @@ func readSanitizedJson(buf *bytes.Buffer) (string, error) {
 
 	cleaned := map[string]interface{}{}
 	for k, v := range dst {
-		if strings.ToLower(k) == "password" {
+		if _, ok := blacklist[strings.ToLower(k)]; ok {
 			cleaned[k] = "*REDACTED*"
 			continue
 		}
