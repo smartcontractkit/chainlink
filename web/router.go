@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 )
 
-const sessionIdKey = "cl_session_id"
+const sessionIDKey = "cl_session_id"
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app *services.ChainlinkApplication) *gin.Engine {
@@ -36,7 +36,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		sessions.Sessions("clsession", sessionStore),
 	)
 
-	usersRoutes(app, engine)
+	sessionRoutes(app, engine)
 	v1Routes(app, engine)
 	v2Routes(app, engine)
 	guiAssetRoutes(engine)
@@ -47,10 +47,10 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 func authRequired(store *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		sessionId, ok := session.Get(sessionIdKey).(string)
-		if !ok || sessionId == "" {
+		sessionID, ok := session.Get(sessionIDKey).(string)
+		if !ok || sessionID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
-		} else if _, err := store.FindUserBySession(sessionId); err != nil {
+		} else if _, err := store.FindUserBySession(sessionID); err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Next()
@@ -58,7 +58,7 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 	}
 }
 
-func usersRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
+func sessionRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	sc := SessionsController{app}
 	engine.POST("/sessions", sc.Create)
 	engine.DELETE("/sessions", sc.Destroy)

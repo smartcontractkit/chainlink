@@ -307,12 +307,12 @@ func (orm *ORM) FindUser() (User, error) {
 	return users[0], nil
 }
 
-func (orm *ORM) FindUserBySession(sessionId string) (User, error) {
+func (orm *ORM) FindUserBySession(sessionID string) (User, error) {
 	user, err := orm.FindUser()
 	if err != nil {
 		return User{}, err
 	}
-	if sessionId != user.SessionID {
+	if sessionID != user.SessionID {
 		return User{}, storm.ErrNotFound
 	}
 	return user, nil
