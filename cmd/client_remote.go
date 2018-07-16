@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
@@ -76,7 +75,6 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 
 // CreateJobSpec creates job spec based on JSON input
 func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
-	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
@@ -86,13 +84,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs",
-		"application/json",
-		buf,
-	)
+	resp, err := cli.RemoteClient.Post("/v2/specs", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -104,7 +96,6 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 
 // CreateJobRun creates job run based on SpecID and optional JSON
 func (cli *Client) CreateJobRun(c *clipkg.Context) error {
-	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
 	}
@@ -118,13 +109,7 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 		buf = jbuf
 	}
 
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs/"+c.Args().First()+"/runs",
-		"application/json",
-		buf,
-	)
+	resp, err := cli.RemoteClient.Post("/v2/specs/"+c.Args().First()+"/runs", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -158,7 +143,6 @@ func saveBodyAsFile(resp *http.Response, dst string) error {
 
 // AddBridge adds a new bridge to the chainlink node
 func (cli *Client) AddBridge(c *clipkg.Context) error {
-	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in the bridge's parameters [JSON blob | JSON filepath]"))
 	}
@@ -168,13 +152,7 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/bridge_types",
-		"application/json",
-		buf,
-	)
+	resp, err := cli.RemoteClient.Post("/v2/bridge_types", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -236,17 +214,10 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 
 // RemoveBridge removes a specific Bridge by name.
 func (cli *Client) RemoveBridge(c *clipkg.Context) error {
-	cfg := cli.Config
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
 	}
-	resp, err := utils.BasicAuthDelete(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/bridge_types/"+c.Args().First(),
-		"application/json",
-		nil,
-	)
+	resp, err := cli.RemoteClient.Delete("/v2/bridge_types/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -341,7 +312,8 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 
 type RemoteClient interface {
 	Get(string) (*http.Response, error)
-	Post(string) (*http.Response, error)
+	Post(string, io.Reader) (*http.Response, error)
+	Delete(string) (*http.Response, error)
 }
 
 type httpPrompterClient struct {
@@ -359,22 +331,31 @@ func NewHttpPrompterClient(cfg store.Config, prompter Prompter) RemoteClient {
 }
 
 func (h *httpPrompterClient) Get(path string) (*http.Response, error) {
+	return h.doRequest("GET", path, nil)
+}
+
+func (h *httpPrompterClient) Post(path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest("POST", path, body)
+}
+
+func (h *httpPrompterClient) Delete(path string) (*http.Response, error) {
+	return h.doRequest("DELETE", path, nil)
+}
+
+func (h *httpPrompterClient) doRequest(verb, path string, body io.Reader) (*http.Response, error) {
 	cookie, err := h.login()
 	if err != nil {
 		return nil, err
 	}
 
-	request, err := http.NewRequest("GET", h.config.ClientNodeURL+path, nil)
+	request, err := http.NewRequest(verb, h.config.ClientNodeURL+path, body)
 	if err != nil {
 		return nil, err
 	}
 
+	request.Header.Set("Content-Type", "application/json")
 	request.AddCookie(cookie)
 	return h.client.Do(request)
-}
-
-func (h *httpPrompterClient) Post(path string) (*http.Response, error) {
-	return nil, errors.New("bogus")
 }
 
 func (h *httpPrompterClient) login() (*http.Cookie, error) {
