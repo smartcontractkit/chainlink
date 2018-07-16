@@ -11,7 +11,7 @@ solidity/node_modules/
 solidity/build/
 solidity/.python-version
 
-sgx/target/
+**/target/
 
 Dockerfile
 chainlink
