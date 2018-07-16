@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -203,6 +204,32 @@ func readBody(reader io.Reader) string {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(reader)
 
-	s := buf.String()
+	s, err := readSanitizedJson(buf)
+	if err != nil {
+		return buf.String()
+	}
 	return s
+}
+
+func readSanitizedJson(buf *bytes.Buffer) (string, error) {
+	var dst map[string]interface{}
+	err := json.Unmarshal(buf.Bytes(), &dst)
+	if err != nil {
+		return "", err
+	}
+
+	cleaned := map[string]interface{}{}
+	for k, v := range dst {
+		if strings.ToLower(k) == "password" {
+			cleaned[k] = "*REDACTED*"
+			continue
+		}
+		cleaned[k] = v
+	}
+
+	b, err := json.Marshal(cleaned)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
 }
