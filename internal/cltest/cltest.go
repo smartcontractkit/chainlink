@@ -23,7 +23,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/cmd"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -540,9 +539,9 @@ func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
 		Config:          config,
 		AppFactory:      EmptyAppFactory{},
 		Auth:            CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		UserInitializer: cltest.MockUserInitializer{},
+		UserInitializer: MockUserInitializer{},
 		Runner:          EmptyRunner{},
-		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
+		RemoteClient:    NewMockAuthenticatedRemoteClient(config),
 	}
 	return client, r
 }

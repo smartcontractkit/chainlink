@@ -435,12 +435,6 @@ func (p *MockCountingPrompt) IsTerminal() bool {
 	return true
 }
 
-type MockUserInitializer struct{}
-
-func (m MockUserInitializer) Prompt(string) string         { return "" }
-func (m MockUserInitializer) PasswordPrompt(string) string { return "" }
-func (m MockUserInitializer) IsTerminal() bool             { return true }
-
 // NewHTTPMockServer create http test server with passed in parameters
 func NewHTTPMockServer(
 	t *testing.T,
@@ -562,7 +556,7 @@ func MustUser(email, pwd string) models.User {
 	return r
 }
 
-var mockUser = models.MustUser("email@test.net", "password123")
+var mockUser = MustUser("email@test.net", "password123")
 
 type MockUserInitializer struct{}
 
@@ -570,7 +564,7 @@ func (m MockUserInitializer) Initialize(*store.Store) (models.User, error) {
 	return mockUser, nil
 }
 
-func NewMockAuthenticatedRemoteClient() RemoteClient {
+func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
 	return cmd.NewAuthenticatedHttpClient(cfg, MockCookieAuthenticator{})
 }
 
