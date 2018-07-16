@@ -33,6 +33,8 @@ var (
 	TaskTypeNoOpPend = models.MustNewTaskType("nooppend")
 	// TaskTypeSleep is the identifier for the Sleep adapter.
 	TaskTypeSleep = models.MustNewTaskType("sleep")
+	// TaskTypeWasm is the wasm interpereter adapter
+	TaskTypeWasm = models.MustNewTaskType("wasm")
 )
 
 // Adapter interface applies to all core adapters.
@@ -102,6 +104,9 @@ func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) 
 		err = unmarshalParams(task.Params, ac)
 	case TaskTypeSleep:
 		ac = &Sleep{}
+		err = unmarshalParams(task.Params, ac)
+	case TaskTypeWasm:
+		ac = &Wasm{}
 		err = unmarshalParams(task.Params, ac)
 	default:
 		bt, err := store.FindBridge(task.Type.String())
