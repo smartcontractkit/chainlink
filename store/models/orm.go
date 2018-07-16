@@ -324,6 +324,10 @@ func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
 		return "", err
 	}
 
+	if sr.Email != user.Email {
+		return "", errors.New("Invalid email")
+	}
+
 	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
 		user.SessionID = utils.NewBytes32ID()
 		return user.SessionID, orm.Save(&user)
@@ -337,4 +341,13 @@ func (orm *ORM) DeleteUser() (User, error) {
 		return user, err
 	}
 	return user, orm.DeleteStruct(&user)
+}
+
+func (orm *ORM) DeleteUserSession() error {
+	user, err := orm.FindUser()
+	if err != nil {
+		return err
+	}
+	user.SessionID = ""
+	return orm.Save(&user)
 }
