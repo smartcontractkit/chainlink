@@ -5,9 +5,9 @@ dependencies = [
  "errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_trts 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_urts 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_trts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_urts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -41,24 +41,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sgx_trts"
-version = "0.9.8"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "sgx_types 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sgx_types"
-version = "0.9.8"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sgx_urts"
-version = "0.9.8"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -76,8 +76,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d"
 "checksum libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)" = "6fd41f331ac7c5b8ac259b8bf82c75c0fb2e469bbf37d2becbba9a6a2221965b"
-"checksum sgx_trts 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)" = "1293a490ceb58471411c704f0163b716970bf53133ce9fdf2c163f46930603ea"
-"checksum sgx_types 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)" = "dae9217f41cde70a81a3adfab96d78bcab678fd97ad4eedee004a3f0f6bb21a9"
-"checksum sgx_urts 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)" = "77309e3cb70d9a2312dc7cf3d95e9c4ad4b908e7a970306b5d87e3daa8eb6e4d"
+"checksum sgx_trts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5c3f481502aaa72062b44ff5b3bbdd48b711e547cd4518cee7da832dc5e1037d"
+"checksum sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "856c6648b731660db14bca279ffefeca4093de8ebb9e5eebc98406b9d97dcd41"
+"checksum sgx_urts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "89e8311ae4f049cd2ebe4822006f62bd2964643c17c67a5425d4859abb2d31a6"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
