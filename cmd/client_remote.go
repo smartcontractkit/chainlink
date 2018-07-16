@@ -316,34 +316,34 @@ type RemoteClient interface {
 	Delete(string) (*http.Response, error)
 }
 
-type httpPrompterClient struct {
-	config   store.Config
-	client   *http.Client
-	prompter Prompter
+type authenticatedHTTPClient struct {
+	config     store.Config
+	client     *http.Client
+	cookieAuth CookieAuthenticator
 }
 
-func NewHttpPrompterClient(cfg store.Config, prompter Prompter) RemoteClient {
-	return &httpPrompterClient{
-		config:   cfg,
-		client:   &http.Client{},
-		prompter: prompter,
+func NewAuthenticatedHttpClient(cfg store.Config, cookieAuth CookieAuthenticator) RemoteClient {
+	return &authenticatedHTTPClient{
+		config:     cfg,
+		client:     &http.Client{},
+		cookieAuth: cookieAuth,
 	}
 }
 
-func (h *httpPrompterClient) Get(path string) (*http.Response, error) {
+func (h *authenticatedHTTPClient) Get(path string) (*http.Response, error) {
 	return h.doRequest("GET", path, nil)
 }
 
-func (h *httpPrompterClient) Post(path string, body io.Reader) (*http.Response, error) {
+func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
 	return h.doRequest("POST", path, body)
 }
 
-func (h *httpPrompterClient) Delete(path string) (*http.Response, error) {
+func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
 	return h.doRequest("DELETE", path, nil)
 }
 
-func (h *httpPrompterClient) doRequest(verb, path string, body io.Reader) (*http.Response, error) {
-	cookie, err := h.login()
+func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader) (*http.Response, error) {
+	cookie, err := h.cookieAuth.Authenticate()
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,20 @@ func (h *httpPrompterClient) doRequest(verb, path string, body io.Reader) (*http
 	return h.client.Do(request)
 }
 
-func (h *httpPrompterClient) login() (*http.Cookie, error) {
+type CookieAuthenticator interface {
+	Authenticate() (*http.Cookie, error)
+}
+
+type TerminalCookieAuthenticator struct {
+	config   store.Config
+	prompter Prompter
+}
+
+func NewTerminalCookieAuthenticator(cfg store.Config, prompter Prompter) CookieAuthenticator {
+	return &TerminalCookieAuthenticator{config: cfg, prompter: prompter}
+}
+
+func (h *TerminalCookieAuthenticator) Authenticate() (*http.Cookie, error) {
 	cookie, err := h.retrieveCookieFromDisk()
 	if err == nil {
 		return cookie, nil
@@ -379,7 +392,8 @@ func (h *httpPrompterClient) login() (*http.Cookie, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := h.client.Do(req)
+	client := http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -397,11 +411,11 @@ func (h *httpPrompterClient) login() (*http.Cookie, error) {
 	return cookies[0], h.saveCookieToDisk(cookies[0])
 }
 
-func (h *httpPrompterClient) saveCookieToDisk(cookie *http.Cookie) error {
+func (h *TerminalCookieAuthenticator) saveCookieToDisk(cookie *http.Cookie) error {
 	return ioutil.WriteFile(h.cookiePath(), []byte(cookie.String()), 0660)
 }
 
-func (h *httpPrompterClient) retrieveCookieFromDisk() (*http.Cookie, error) {
+func (h *TerminalCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, error) {
 	b, err := ioutil.ReadFile(h.cookiePath())
 	if err != nil {
 		return nil, err
@@ -416,6 +430,6 @@ func (h *httpPrompterClient) retrieveCookieFromDisk() (*http.Cookie, error) {
 	return request.Cookies()[0], nil
 }
 
-func (h *httpPrompterClient) cookiePath() string {
+func (h *TerminalCookieAuthenticator) cookiePath() string {
 	return path.Join(h.config.RootDir, "cookie")
 }

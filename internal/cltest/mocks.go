@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -552,3 +553,29 @@ func (ns NeverSleeper) Sleep() {}
 
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
+
+func MustUser(email, pwd string) models.User {
+	r, err := models.NewUser(email, pwd)
+	if err != nil {
+		logger.Panic(err)
+	}
+	return r
+}
+
+var mockUser = models.MustUser("email@test.net", "password123")
+
+type MockUserInitializer struct{}
+
+func (m MockUserInitializer) Initialize(*store.Store) (models.User, error) {
+	return mockUser, nil
+}
+
+func NewMockAuthenticatedRemoteClient() RemoteClient {
+	return cmd.NewAuthenticatedHttpClient(cfg, MockCookieAuthenticator{})
+}
+
+type MockCookieAuthenticator struct{}
+
+func (m MockCookieAuthenticator) Authenticate() (*http.Cookie, error) {
+	return nil, nil
+}
