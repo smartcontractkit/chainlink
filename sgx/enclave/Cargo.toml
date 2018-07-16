@@ -14,6 +14,7 @@ default = []
 num = { path = "/opt/rust-sgx-sdk/third_party/num" }
 lazy_static = { path = "/opt/rust-sgx-sdk/third_party/lazy-static.rs" }
 serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }
+serde_derive = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde_derive" }
 serde_json = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/json"}
 wabt-core = { path = "/opt/rust-sgx-sdk/third_party/wabt-rs-core" }
 wasmi = { path = "/opt/rust-sgx-sdk/third_party/wasmi" }

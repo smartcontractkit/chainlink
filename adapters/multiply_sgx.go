@@ -9,6 +9,7 @@ package adapters
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -50,11 +51,19 @@ type Multiply struct {
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
 func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	multiplicand := C.CString(strconv.FormatUint(uint64(ma.Times), 10))
-	multiplier := C.CString(input.Data.Get("value").String())
-	body, err := C.multiply(multiplicand, multiplier)
+	adapter_json, err := json.Marshal(ma)
 	if err != nil {
-		return input.WithError(fmt.Errorf(C.GoString(body)))
+		return input.WithError(err)
 	}
-	return input.WithValue(C.GoString(body))
+	input_json, err := json.Marshal(input)
+	if err != nil {
+		return input.WithError(err)
+	}
+
+	output, err := C.multiply(C.CString(string(adapter_json)), C.CString(string(input_json)))
+	if err != nil {
+		return input.WithError(fmt.Errorf(C.GoString(output)))
+	}
+
+	return input.WithValue(C.GoString(output))
 }
