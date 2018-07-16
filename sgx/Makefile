@@ -115,7 +115,7 @@ target/$(ENVIRONMENT)/enclave_t.o: $(TRUSTED_EDL_FILES) $(ENCLAVE) $(RT_PATCH)
 
 $(PATCHED_ENCLAVE): target/$(ENVIRONMENT)/enclave_t.o
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
-	@printf -- '\nLinking against simulation libraries: \e[1;91m$(SGX_SIMULATION)\e[0m\n\n'
+	@printf -- 'Linking against simulation libraries: \e[1;91m$(SGX_SIMULATION)\e[0m\n\n'
 	$(CXX) $< -o $@ $(ENCLAVE_RS_LD_FLAGS)
 
 $(SIGNED_ENCLAVE): $(PATCHED_ENCLAVE)
