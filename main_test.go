@@ -19,6 +19,7 @@ func ExampleRun() {
 		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
 		UserInitializer: cltest.MockUserInitializer{},
 		Runner:          cmd.ChainlinkRunner{},
+		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
 	}
 
 	Run(testClient, "chainlink.test", "--help")
@@ -63,6 +64,7 @@ func ExampleVersion() {
 		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
 		UserInitializer: cltest.MockUserInitializer{},
 		Runner:          cmd.ChainlinkRunner{},
+		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
 	}
 
 	Run(testClient, "chainlink.test", "--version")

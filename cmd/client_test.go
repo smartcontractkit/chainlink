@@ -37,7 +37,9 @@ func TestClient_RunNode(t *testing.T) {
 		AppFactory:      cltest.InstanceAppFactory{App: app.ChainlinkApplication},
 		Auth:            auth,
 		UserInitializer: cltest.MockUserInitializer{},
-		Runner:          cltest.EmptyRunner{}}
+		Runner:          cltest.EmptyRunner{},
+		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
+	}
 
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("debug", true, "")
@@ -101,7 +103,9 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 				AppFactory:      cltest.InstanceAppFactory{App: app},
 				Auth:            auth,
 				UserInitializer: cltest.MockUserInitializer{},
-				Runner:          cltest.EmptyRunner{}}
+				Runner:          cltest.EmptyRunner{},
+				RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
+			}
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("password", test.pwdfile, "")

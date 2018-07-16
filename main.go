@@ -148,6 +148,6 @@ func NewProductionClient() *cmd.Client {
 		Auth:            cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
 		UserInitializer: cmd.NewTerminalUserInitializer(),
 		Runner:          cmd.ChainlinkRunner{},
-		RemoteClient:    cmd.NewHttpPrompterClient(cfg, cmd.NewTerminalPrompter()),
+		RemoteClient:    cmd.NewAuthenticatedHttpClient(cfg, cmd.NewTerminalCookieAuthenticator(cfg, cmd.NewTerminalPrompter())),
 	}
 }
