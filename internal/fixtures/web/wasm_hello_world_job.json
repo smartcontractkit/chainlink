@@ -1,0 +1,9 @@
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    {
+      "type": "Wasm",
+      "wasmt": "(module (type $type0 (func (result i32))) (table 0 anyfunc) (memory 1) (export \"memory\" memory) (export \"hello\" $func0) (func $func0 (result i32) i32.const 16) (data (i32.const 16) \"Hello World\00\"))"
+    }
+  ]
+}
