@@ -7,9 +7,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 )
 
-// Authenticator implements the Authenticate method for the store and
+// KeyStoreAuthenticator implements the Authenticate method for the store and
 // a password string.
-type Authenticator interface {
+type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) error
 }
 
