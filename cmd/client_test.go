@@ -38,7 +38,7 @@ func TestClient_RunNode(t *testing.T) {
 		Auth:            auth,
 		UserInitializer: cltest.MockUserInitializer{},
 		Runner:          cltest.EmptyRunner{},
-		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
+		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 	}
 
 	set := flag.NewFlagSet("test", 0)
@@ -104,7 +104,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 				Auth:            auth,
 				UserInitializer: cltest.MockUserInitializer{},
 				Runner:          cltest.EmptyRunner{},
-				RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(),
+				RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 			}
 
 			set := flag.NewFlagSet("test", 0)
