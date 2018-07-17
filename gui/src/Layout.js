@@ -70,7 +70,7 @@ const styles = theme => {
 }
 
 class Layout extends Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = {drawerOpen: false}
     this.toggleDrawer = this.toggleDrawer.bind(this)
@@ -86,44 +86,44 @@ class Layout extends Component {
 
     const drawer = (
       <Drawer
-        anchor="right"
+        anchor='right'
         open={drawerOpen}
         classes={{
-          paper: classes.drawerPaper,
+          paper: classes.drawerPaper
         }}
         onClose={this.toggleDrawer}
       >
         <div className={classes.toolbar} />
         <div
           tabIndex={0}
-          role="button"
+          role='button'
           onClick={this.toggleDrawer}
         >
           <List className={classes.drawerList}>
             <ListItem button>
               <Link to='/' className={classes.menuitem}>
-                <ListItemText primary="Jobs" />
+                <ListItemText primary='Jobs' />
               </Link>
             </ListItem>
             <ListItem button>
               <Link to='/bridges' className={classes.menuitem}>
-                <ListItemText primary="Bridges" />
+                <ListItemText primary='Bridges' />
               </Link>
             </ListItem>
             <ListItem button>
               <Link to='/config' className={classes.menuitem}>
-                <ListItemText primary="Configuration" />
+                <ListItemText primary='Configuration' />
               </Link>
             </ListItem>
             <ListItem button>
               <Link to='/about' className={classes.menuitem}>
-                <ListItemText primary="About" />
+                <ListItemText primary='About' />
               </Link>
             </ListItem>
           </List>
         </div>
       </Drawer>
-    );
+    )
 
     return (
       <Router>
@@ -135,7 +135,7 @@ class Layout extends Component {
               color='default'
               position='absolute'
             >
-              <Grid container alignItems="center" className={classes.appBarContent}>
+              <Grid container alignItems='center' className={classes.appBarContent}>
                 <Grid item xs={9}>
                   <Link to='/'>
                     <img src={logoImg} alt='Chainlink' width={121} height={44} />
@@ -144,7 +144,7 @@ class Layout extends Component {
                 <Grid item xs={3}>
                   <div align='right'>
                     <IconButton
-                      aria-label="open drawer"
+                      aria-label='open drawer'
                       onClick={this.toggleDrawer}
                       className={classes.menuButton}
                     >
