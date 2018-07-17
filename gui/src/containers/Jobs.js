@@ -5,6 +5,7 @@ import Typography from '@material-ui/core/Typography'
 import JobList from 'components/JobList'
 import TokenBalance from 'components/TokenBalance'
 import MetaInfo from 'components/MetaInfo'
+import Footer from 'components/Footer'
 import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
@@ -83,6 +84,7 @@ export class Jobs extends Component {
             {renderSidebar(this.props)}
           </Grid>
         </Grid>
+          <Footer/>
       </div>
     )
   }
