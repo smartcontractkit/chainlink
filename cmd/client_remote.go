@@ -324,9 +324,9 @@ type authenticatedHTTPClient struct {
 	cookieAuth CookieAuthenticator
 }
 
-// NewAuthenticatedHttpClient uses the CookieAuthenticator to generate a sessionID
+// NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHttpClient(cfg store.Config, cookieAuth CookieAuthenticator) RemoteClient {
+func NewAuthenticatedHTTPClient(cfg store.Config, cookieAuth CookieAuthenticator) RemoteClient {
 	return &authenticatedHTTPClient{
 		config:     cfg,
 		client:     &http.Client{},

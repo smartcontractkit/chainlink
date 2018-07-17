@@ -568,7 +568,7 @@ func (m MockUserInitializer) Initialize(*store.Store) (models.User, error) {
 }
 
 func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
-	return cmd.NewAuthenticatedHttpClient(cfg, MockCookieAuthenticator{})
+	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 
 type MockCookieAuthenticator struct{}
