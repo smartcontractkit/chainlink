@@ -311,7 +311,7 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 }
 
 type RemoteClient interface {
-	Get(string) (*http.Response, error)
+	Get(string, ...map[string]string) (*http.Response, error)
 	Post(string, io.Reader) (*http.Response, error)
 	Delete(string) (*http.Response, error)
 }
@@ -330,8 +330,8 @@ func NewAuthenticatedHttpClient(cfg store.Config, cookieAuth CookieAuthenticator
 	}
 }
 
-func (h *authenticatedHTTPClient) Get(path string) (*http.Response, error) {
-	return h.doRequest("GET", path, nil)
+func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest("GET", path, nil, headers...)
 }
 
 func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
@@ -342,10 +342,17 @@ func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
 	return h.doRequest("DELETE", path, nil)
 }
 
-func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader) (*http.Response, error) {
+func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
 	cookie, err := h.cookieAuth.Authenticate()
 	if err != nil {
 		return nil, err
+	}
+
+	var headers map[string]string
+	if len(headerArgs) > 0 {
+		headers = headerArgs[0]
+	} else {
+		headers = map[string]string{}
 	}
 
 	request, err := http.NewRequest(verb, h.config.ClientNodeURL+path, body)
@@ -354,6 +361,9 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader) (
 	}
 
 	request.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		request.Header.Add(key, value)
+	}
 	request.AddCookie(cookie)
 	return h.client.Do(request)
 }

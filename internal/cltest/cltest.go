@@ -330,8 +330,8 @@ type RemoteClientCleaner struct {
 	RemoteClient cmd.RemoteClient
 }
 
-func (r *RemoteClientCleaner) Get(path string) (*http.Response, func()) {
-	return bodyCleaner(r.RemoteClient.Get(path))
+func (r *RemoteClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
+	return bodyCleaner(r.RemoteClient.Get(path, headers...))
 }
 
 func (r *RemoteClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
