@@ -12,7 +12,7 @@ cbor = require('cbor');
   let utils, wallet, deployer
   eth = web3.eth;
 
-  process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../contracts/:../../contracts/lib/:../../node_modules/:../../node_modules/linkToken/contracts'
+  process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../solidity/contracts/examples/:../../contracts/:../../contracts/lib/:../../node_modules/:../../node_modules/linkToken/contracts'
 
   before(async function () {
     // Default hard coded truffle accounts:
