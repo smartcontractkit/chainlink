@@ -10,7 +10,17 @@ export default {
   }),
   getRoutes: async () => {
     return [
-      {path: '/', component: 'src/containers/Jobs'},
+      {
+        path: '/', 
+        component: 'src/containers/Jobs',
+        getData: () => {
+        const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
+        return {
+          version: matches[1] || 'unknown',
+          sha: matches[2] || 'unknown'
+        }
+      }
+      },
       {path: '/job_specs/_jobSpecId_/runs/_jobRunId_'},
       {path: '/bridges'},
       {path: '/config'},
