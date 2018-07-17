@@ -38,14 +38,18 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-// RootDir the root directory for cltest
-const RootDir = "/tmp/chainlink_test"
-
-// Username the test username
-const Username = "testusername"
-
-// Password the password
-const Password = "password"
+const (
+	// RootDir the root directory for cltest
+	RootDir = "/tmp/chainlink_test"
+	// Username the test username
+	Username = "testusername"
+	// Email of the API user
+	UserEmail = "email@test.net"
+	// Password the password
+	Password = "password"
+	// Session ID for API user
+	UserSessionID = "session"
+)
 
 var storeCounter uint64
 
@@ -104,8 +108,9 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	*services.ChainlinkApplication
-	Server   *httptest.Server
-	wsServer *httptest.Server
+	Server     *httptest.Server
+	wsServer   *httptest.Server
+	testConfig *TestConfig
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -164,6 +169,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 		ChainlinkApplication: app,
 		Server:               server,
 		wsServer:             tc.wsServer,
+		testConfig:           tc,
 	}
 	return ta, func() {
 		if !ethMock.AllCalled() {
@@ -209,6 +215,19 @@ func (ta *TestApplication) Stop() error {
 		ta.wsServer.Close()
 	}
 	return nil
+}
+
+func (ta *TestApplication) MustSeedUserSession() models.User {
+	mockUser := MustUser(UserEmail, Password, UserSessionID)
+	mustNotErr(ta.Store.Save(&mockUser))
+	return mockUser
+}
+
+func (ta *TestApplication) NewRemoteClient() RemoteClientCleaner {
+	ta.MustSeedUserSession()
+	return RemoteClientCleaner{
+		RemoteClient: NewMockAuthenticatedRemoteClient(ta.testConfig.Config),
+	}
 }
 
 // NewStoreWithConfig creates a new store with given config
@@ -307,6 +326,27 @@ func AddPrivateKey(config *TestConfig, src string) {
 	copyFile(src, dst)
 }
 
+type RemoteClientCleaner struct {
+	RemoteClient cmd.RemoteClient
+}
+
+func (r *RemoteClientCleaner) Get(path string) (*http.Response, func()) {
+	return bodyCleaner(r.RemoteClient.Get(path))
+}
+
+func (r *RemoteClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
+	return bodyCleaner(r.RemoteClient.Post(path, body))
+}
+
+func (r *RemoteClientCleaner) Delete(path string) (*http.Response, func()) {
+	return bodyCleaner(r.RemoteClient.Delete(path))
+}
+
+func bodyCleaner(resp *http.Response, err error) (*http.Response, func()) {
+	mustNotErr(err)
+	return resp, func() { mustNotErr(resp.Body.Close()) }
+}
+
 // BasicAuthPost performs a POST request to the given url with specified contentType and body
 // and returns the Response
 func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, func()) {
@@ -403,11 +443,8 @@ func ReadLogs(app *TestApplication) (string, error) {
 
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(LoadJSON(path)),
-	)
+	client := app.NewRemoteClient()
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 

@@ -64,8 +64,7 @@ func TestSessionsController_create(t *testing.T) {
 func TestSessionsController_destroy(t *testing.T) {
 	t.Parallel()
 
-	seedUser := cltest.MustUser("email@test.net", "password123")
-	seedUser.SessionID = "ShouldBeDeleted"
+	seedUser := cltest.MustUser("email@test.net", "password123", "ShouldBeDeleted")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	err := app.Store.Save(&seedUser)

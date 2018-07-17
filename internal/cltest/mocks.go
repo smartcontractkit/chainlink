@@ -548,20 +548,23 @@ func (ns NeverSleeper) Sleep() {}
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustUser(email, pwd string) models.User {
+func MustUser(email, pwd string, sessionIDArgs ...string) models.User {
+	sessionID := ""
+	if len(sessionIDArgs) == 1 {
+		sessionID = sessionIDArgs[0]
+	}
 	r, err := models.NewUser(email, pwd)
+	r.SessionID = sessionID
 	if err != nil {
 		logger.Panic(err)
 	}
 	return r
 }
 
-var mockUser = MustUser("email@test.net", "password123")
-
 type MockUserInitializer struct{}
 
 func (m MockUserInitializer) Initialize(*store.Store) (models.User, error) {
-	return mockUser, nil
+	return MustUser(UserEmail, Password), nil
 }
 
 func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
@@ -571,5 +574,5 @@ func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
 type MockCookieAuthenticator struct{}
 
 func (m MockCookieAuthenticator) Authenticate() (*http.Cookie, error) {
-	return nil, nil
+	return MustGenerateSessionCookie(UserSessionID), nil
 }
