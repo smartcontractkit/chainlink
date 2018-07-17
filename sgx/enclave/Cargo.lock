@@ -1,4 +1,13 @@
 [[package]]
+name = "base64"
+version = "0.7.0"
+dependencies = [
+ "byteorder 1.2.1",
+ "safemem 0.2.0",
+ "sgx_tstd 1.0.0",
+]
+
+[[package]]
 name = "byteorder"
 version = "1.2.1"
 dependencies = [
@@ -20,6 +29,7 @@ dependencies = [
 name = "enclave"
 version = "0.1.0"
 dependencies = [
+ "base64 0.7.0",
  "lazy_static 0.2.8",
  "num 0.1.40",
  "serde 1.0.16",
@@ -118,6 +128,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "quote"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "safemem"
+version = "0.2.0"
+dependencies = [
+ "sgx_tstd 1.0.0",
+]
 
 [[package]]
 name = "serde"
