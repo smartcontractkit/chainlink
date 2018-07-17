@@ -11,6 +11,7 @@ import JobRunsList from 'components/JobRunsList'
 import formatInitiators from 'utils/formatInitiators'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import Link from 'components/Link'
+import Copy from 'components/CopyJobSpec'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -52,7 +53,8 @@ const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
         <Typography variant='title' className={classes.definitionTitle}>
           Definition
         </Typography>
-        <PrettyJson object={jobSpecDefinition(jobSpec)} />
+        <Copy JobSpec={JSON.stringify(jobSpecDefinition(jobSpec), null, "\t")}/>     
+	<PrettyJson object={jobSpecDefinition(jobSpec)} />
       </PaddedCard>
     </Grid>
     <Grid item xs={4}>
