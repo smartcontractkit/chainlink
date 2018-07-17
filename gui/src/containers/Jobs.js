@@ -84,7 +84,7 @@ export class Jobs extends Component {
             {renderSidebar(this.props)}
           </Grid>
         </Grid>
-          <Footer/>
+        <Footer/>
       </div>
     )
   }
