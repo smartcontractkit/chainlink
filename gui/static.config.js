@@ -4,6 +4,14 @@ import JssProvider from 'react-jss/lib/JssProvider'
 import { MuiThemeProvider, createMuiTheme, createGenerateClassName } from '@material-ui/core/styles'
 import theme from './src/theme' // Custom Material UI theme
 
+const getVersion = () => {
+  const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
+  return {
+    version: matches[1] || 'unknown',
+    sha: matches[2] || 'unknown'
+  }
+}
+
 export default {
   getSiteData: () => ({
     title: 'Chainlink'
@@ -13,13 +21,7 @@ export default {
       {
         path: '/', 
         component: 'src/containers/Jobs',
-        getData: () => {
-        const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
-        return {
-          version: matches[1] || 'unknown',
-          sha: matches[2] || 'unknown'
-        }
-      }
+        getData: getVersion
       },
       {path: '/job_specs/_jobSpecId_/runs/_jobRunId_'},
       {path: '/bridges'},
@@ -27,13 +29,7 @@ export default {
       {
         path: '/about',
         component: 'src/containers/About',
-        getData: () => {
-          const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
-          return {
-            version: matches[1] || 'unknown',
-            sha: matches[2] || 'unknown'
-          }
-        }
+        getData: getVersion
       },
       {is404: true, component: 'src/containers/404'}
     ]
