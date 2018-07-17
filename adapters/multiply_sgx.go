@@ -61,14 +61,18 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	}
 
 	cAdapter := C.CString(string(adapter_json))
+	defer C.free(unsafe.Pointer(cAdapter))
 	cInput := C.CString(string(input_json))
-	result := C.CString(stringOfLength(4096))
-	_, err = C.multiply(cAdapter, cInput, result)
+	defer C.free(unsafe.Pointer(cInput))
+	sgxResult := C.CString(stringOfLength(4096))
+	defer C.free(unsafe.Pointer(sgxResult))
+
+	_, err = C.multiply(cAdapter, cInput, sgxResult)
 	if err != nil {
 		return input.WithError(fmt.Errorf("CGO multiply: %v", err))
 	}
 
-	return input.WithValue(C.GoString(result))
+	return input.WithValue(C.GoString(sgxResult))
 }
 
 func stringOfLength(l int) string {
