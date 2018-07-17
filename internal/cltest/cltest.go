@@ -469,11 +469,8 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v1/assignments",
-		"application/json",
-		bytes.NewBuffer(LoadJSON(path)),
-	)
+	client := app.NewRemoteClient()
+	resp, cleanup := client.Post("/v1/assignments", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
@@ -481,13 +478,10 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
+	client := app.NewRemoteClient()
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(marshaled),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(marshaled))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
@@ -526,7 +520,6 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the given MockServer Url
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-
 	j := FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
 	j.Tasks[0] = NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
 	return CreateJobSpecViaWeb(t, app, j)
