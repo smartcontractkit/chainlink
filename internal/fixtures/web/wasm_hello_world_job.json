@@ -1,9 +1,11 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
+    { "type": "HttpGet", "url": "https://api.coinmarketcap.com/v2/ticker/1027/?structure=array" },
+    { "type": "JsonParse", "path": ["data", "0", "quotes", "USD", "price"] },
     {
       "type": "Wasm",
-      "wasmt": "(module (type $type0 (func (result i32))) (table 0 anyfunc) (memory 1) (export \"memory\" memory) (export \"hello\" $func0) (func $func0 (result i32) i32.const 16) (data (i32.const 16) \"Hello World\00\"))"
+      "wasm": "AGFzbQEAAAABBgFgAX4BfwMCAQAHCwEHcGVyZm9ybQAACgoBCABCwgMgAFML"
     }
   ]
 }

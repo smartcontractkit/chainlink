@@ -18,6 +18,7 @@ serde_json = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/json"}
 sgxwasm = { path = "sgxwasm" }
 wabt-core = { path = "/opt/rust-sgx-sdk/third_party/wabt-rs-core" }
 wasmi = { path = "/opt/rust-sgx-sdk/third_party/wasmi" }
+base64 = { path = "/opt/rust-sgx-sdk/third_party/rust-base64" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
 sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }
