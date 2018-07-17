@@ -293,6 +293,7 @@ func NewDatabaseAccessError(msg string) error {
 	return &DatabaseAccessError{msg}
 }
 
+// FindUser will return the one API user, or an error.
 func (orm *ORM) FindUser() (User, error) {
 	var users []User
 	err := orm.All(&users)
@@ -307,6 +308,7 @@ func (orm *ORM) FindUser() (User, error) {
 	return users[0], nil
 }
 
+// FindUserBySession will return the one API user if the SessionID matches.
 func (orm *ORM) FindUserBySession(sessionID string) (User, error) {
 	user, err := orm.FindUser()
 	if err != nil {
@@ -318,6 +320,8 @@ func (orm *ORM) FindUserBySession(sessionID string) (User, error) {
 	return user, nil
 }
 
+// CheckPasswordForSession will check the password in the SessionRequest against
+// the hashed API User password in the db.
 func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
 	user, err := orm.FindUser()
 	if err != nil {
@@ -335,6 +339,7 @@ func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
 	return "", errors.New("Invalid password")
 }
 
+// DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() (User, error) {
 	user, err := orm.FindUser()
 	if err != nil {
@@ -343,6 +348,7 @@ func (orm *ORM) DeleteUser() (User, error) {
 	return user, orm.DeleteStruct(&user)
 }
 
+// DeleteUserSession will erase the session ID for the sole API User.
 func (orm *ORM) DeleteUserSession() error {
 	user, err := orm.FindUser()
 	if err != nil {
