@@ -345,11 +345,13 @@ func ParseUintHex(hex string) (*big.Int, error) {
 	return amount, nil
 }
 
+// HashPassword wraps around bcrypt.GenerateFromPassword for a friendlier API.
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
 }
 
+// CheckPasswordHash wraps around bcrypt.CompareHashAndPassword for a friendlier API.
 func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
