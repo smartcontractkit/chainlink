@@ -103,6 +103,7 @@ func logConfigVariables(config strpkg.Config) {
 	logger.Debug("Environment variables\n", wlc)
 }
 
+// DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)

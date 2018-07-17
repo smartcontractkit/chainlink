@@ -21,8 +21,11 @@ import (
 )
 
 const (
-	SessionName   = "clsession"
-	SessionIDKey  = "clsession_id"
+	// SessionName is the session name
+	SessionName = "clsession"
+	// SessionIDKey is the session ID key in the session map
+	SessionIDKey = "clsession_id"
+	// SessionSecret is the temporarily hardcoded secret
 	SessionSecret = "clsession_secret_tobechanged"
 )
 
@@ -209,14 +212,14 @@ func readBody(reader io.Reader) string {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(reader)
 
-	s, err := readSanitizedJson(buf)
+	s, err := readSanitizedJSON(buf)
 	if err != nil {
 		return buf.String()
 	}
 	return s
 }
 
-func readSanitizedJson(buf *bytes.Buffer) (string, error) {
+func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 	var blacklist = map[string]struct{}{"password": struct{}{}}
 	var dst map[string]interface{}
 	err := json.Unmarshal(buf.Bytes(), &dst)

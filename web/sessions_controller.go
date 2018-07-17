@@ -7,14 +7,13 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// SnapshotsController manages Snapshot requests.
+// SessionsController manages session requests.
 type SessionsController struct {
 	App *services.ChainlinkApplication
 }
 
-// CreateSnapshot begins the job run for the given Assignment ID
-// Example:
-//  "/assignments/:AID/snapshots"
+// Create creates a session ID for the given user credentials, and returns it
+// in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	session := sessions.Default(c)
 	var sr models.SessionRequest
@@ -27,6 +26,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	}
 }
 
+// Destroy erases the session ID for the sole API user.
 func (sc *SessionsController) Destroy(c *gin.Context) {
 	err := sc.App.GetStore().DeleteUserSession()
 	if err != nil {

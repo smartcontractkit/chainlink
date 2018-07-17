@@ -22,6 +22,7 @@ type Prompter interface {
 // terminalPrompter is used to display and read input from the user.
 type terminalPrompter struct{}
 
+// NewTerminalPrompter prompts the user via terminal.
 func NewTerminalPrompter() Prompter {
 	return terminalPrompter{}
 }

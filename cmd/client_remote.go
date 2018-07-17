@@ -310,6 +310,7 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 	return cli.errorOut(cli.Render(dst))
 }
 
+// RemoteClient encapsulates all methods used to interact with a chainlink node API.
 type RemoteClient interface {
 	Get(string, ...map[string]string) (*http.Response, error)
 	Post(string, io.Reader) (*http.Response, error)
@@ -323,6 +324,8 @@ type authenticatedHTTPClient struct {
 	cookieAuth CookieAuthenticator
 }
 
+// NewAuthenticatedHttpClient uses the CookieAuthenticator to generate a sessionID
+// which is then used for all subsequent HTTP API requests.
 func NewAuthenticatedHttpClient(cfg store.Config, cookieAuth CookieAuthenticator) RemoteClient {
 	return &authenticatedHTTPClient{
 		config:     cfg,
@@ -331,18 +334,22 @@ func NewAuthenticatedHttpClient(cfg store.Config, cookieAuth CookieAuthenticator
 	}
 }
 
+// Get performs an HTTP Get using the authenticated HTTP client's cookie.
 func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
 	return h.doRequest("GET", path, nil, headers...)
 }
 
+// Post performs an HTTP Post using the authenticated HTTP client's cookie.
 func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
 	return h.doRequest("POST", path, body)
 }
 
+// Patch performs an HTTP Patch using the authenticated HTTP client's cookie.
 func (h *authenticatedHTTPClient) Patch(path string, body io.Reader) (*http.Response, error) {
 	return h.doRequest("PATCH", path, body)
 }
 
+// Delete performs an HTTP Delete using the authenticated HTTP client's cookie.
 func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
 	return h.doRequest("DELETE", path, nil)
 }
@@ -373,19 +380,27 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	return h.client.Do(request)
 }
 
+// CookieAuthenticator is the interface to generating a cookie to authenticate
+// future HTTP requests.
 type CookieAuthenticator interface {
 	Authenticate() (*http.Cookie, error)
 }
 
+// TerminalCookieAuthenticator is a concrete implementation of CookieAuthenticator
+// that prompts the user for credentials via terminal.
 type TerminalCookieAuthenticator struct {
 	config   store.Config
 	prompter Prompter
 }
 
+// NewTerminalCookieAuthenticator creates a TerminalCookieAuthenticator using the passed config
+// and prompter.
 func NewTerminalCookieAuthenticator(cfg store.Config, prompter Prompter) CookieAuthenticator {
 	return &TerminalCookieAuthenticator{config: cfg, prompter: prompter}
 }
 
+// Authenticate either prompts the user for credentials to generate a cookie, or pulls a
+// previously saved cookie from disk.
 func (h *TerminalCookieAuthenticator) Authenticate() (*http.Cookie, error) {
 	cookie, err := h.retrieveCookieFromDisk()
 	if err == nil {
