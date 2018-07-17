@@ -151,7 +151,6 @@ func (c ConfigWhitelist) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
 		"CHAINLINK_PORT: %s\n" +
-		"USERNAME: %s\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
 		"CLIENT_NODE_URL: %s\n" +

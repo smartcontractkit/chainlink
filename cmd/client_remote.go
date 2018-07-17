@@ -313,6 +313,7 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 type RemoteClient interface {
 	Get(string, ...map[string]string) (*http.Response, error)
 	Post(string, io.Reader) (*http.Response, error)
+	Patch(string, io.Reader) (*http.Response, error)
 	Delete(string) (*http.Response, error)
 }
 
@@ -336,6 +337,10 @@ func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string)
 
 func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
 	return h.doRequest("POST", path, body)
+}
+
+func (h *authenticatedHTTPClient) Patch(path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest("PATCH", path, body)
 }
 
 func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {

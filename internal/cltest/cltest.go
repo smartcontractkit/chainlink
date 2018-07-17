@@ -230,6 +230,22 @@ func (ta *TestApplication) NewRemoteClient() RemoteClientCleaner {
 	}
 }
 
+// NewClientAndRenderer creates a new cmd.Client for the test application
+func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
+	ta.MustSeedUserSession()
+	r := &RendererMock{}
+	client := &cmd.Client{
+		Renderer:        r,
+		Config:          ta.testConfig.Config,
+		AppFactory:      EmptyAppFactory{},
+		Auth:            CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		UserInitializer: MockUserInitializer{},
+		Runner:          EmptyRunner{},
+		RemoteClient:    NewMockAuthenticatedRemoteClient(ta.testConfig.Config),
+	}
+	return client, r
+}
+
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*store.Store, func()) {
 	s := store.NewStore(config.Config)
@@ -336,6 +352,10 @@ func (r *RemoteClientCleaner) Get(path string, headers ...map[string]string) (*h
 
 func (r *RemoteClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
 	return bodyCleaner(r.RemoteClient.Post(path, body))
+}
+
+func (r *RemoteClientCleaner) Patch(path string, body io.Reader) (*http.Response, func()) {
+	return bodyCleaner(r.RemoteClient.Patch(path, body))
 }
 
 func (r *RemoteClientCleaner) Delete(path string) (*http.Response, func()) {
@@ -490,12 +510,12 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
-	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	bodyBuffer := &bytes.Buffer{}
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}
-	resp, cleanup := BasicAuthPost(url, "application/json", bodyBuffer)
+	client := app.NewRemoteClient()
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bodyBuffer)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
@@ -533,8 +553,8 @@ func UpdateJobRunViaWeb(
 	body string,
 ) models.JobRun {
 	t.Helper()
-	url := app.Server.URL + "/v2/runs/" + jr.ID
-	resp, cleanup := BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	client := app.NewRemoteClient()
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
@@ -549,9 +569,9 @@ func CreateBridgeTypeViaWeb(
 	app *TestApplication,
 	payload string,
 ) models.BridgeType {
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
+	client := app.NewRemoteClient()
+	resp, cleanup := client.Post(
+		"/v2/bridge_types",
 		bytes.NewBufferString(payload),
 	)
 	defer cleanup()
@@ -561,21 +581,6 @@ func CreateBridgeTypeViaWeb(
 	assert.NoError(t, err)
 
 	return bt
-}
-
-// NewClientAndRenderer creates a new cmd.Client with given config
-func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
-	r := &RendererMock{}
-	client := &cmd.Client{
-		Renderer:        r,
-		Config:          config,
-		AppFactory:      EmptyAppFactory{},
-		Auth:            CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		UserInitializer: MockUserInitializer{},
-		Runner:          EmptyRunner{},
-		RemoteClient:    NewMockAuthenticatedRemoteClient(config),
-	}
-	return client, r
 }
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status

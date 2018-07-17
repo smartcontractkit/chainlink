@@ -44,12 +44,13 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewRemoteClient()
 
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job_with_schedule.json")
 	a1, err := models.ConvertToAssignment(j)
 	assert.NoError(t, err)
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v1/assignments/" + j.ID)
+	resp, cleanup := client.Get("/v1/assignments/" + j.ID)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
