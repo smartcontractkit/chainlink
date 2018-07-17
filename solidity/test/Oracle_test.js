@@ -220,6 +220,28 @@ contract('Oracle', () => {
         })
       })
 
+      context('calls selfdestruct', () => {
+        beforeEach(async () => {
+          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          await link.transfer(mock.address, paymentAmount)
+
+          const req = await mock.requestData('doesNothing(bytes32,bytes32)')
+          internalId = req.receipt.logs[2].topics[1]
+          await mock.remove()
+        })
+
+        it('allows the oracle node to receive their payment', async () => {
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await oc.withdraw(oracleNode, {from: oracleNode})
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
+        })
+      })
+
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
           mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
