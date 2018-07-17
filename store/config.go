@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/caarlos0/env"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"go.uber.org/zap"
@@ -40,6 +42,7 @@ type Config struct {
 	Dev                      bool            `env:"CHAINLINK_DEV" envDefault:"false"`
 	TLSCertPath              string          `env:"TLS_CERT_PATH" envDefault:""`
 	TLSKeyPath               string          `env:"TLS_KEY_PATH" envDefault:""`
+	SecretGenerator          SecretGenerator
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -57,6 +60,7 @@ func NewConfig() Config {
 		log.Fatal(fmt.Errorf("error creating %s: %+v", dir, err))
 	}
 	config.RootDir = dir
+	config.SecretGenerator = filePersistedSecretGenerator{}
 	return config
 }
 
@@ -89,6 +93,36 @@ func (c Config) CertFile() string {
 // and LogLevel, with pretty printing for stdout.
 func (c Config) CreateProductionLogger() *zap.Logger {
 	return logger.CreateProductionLogger(c.RootDir, c.LogLevel.Level)
+}
+
+// SessionSecret returns a sequence of bytes to be used as a private key for
+// session signing or encryption.
+func (c Config) SessionSecret() ([]byte, error) {
+	return c.SecretGenerator.Generate(c)
+}
+
+// SecretGenerator is the interface for objects that generate a secret
+// used to sign or encrypt.
+type SecretGenerator interface {
+	Generate(Config) ([]byte, error)
+}
+
+type filePersistedSecretGenerator struct{}
+
+func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
+	sessionPath := path.Join(c.RootDir, "secret")
+	if fileExists(sessionPath) {
+		return ioutil.ReadFile(sessionPath)
+	}
+	key := securecookie.GenerateRandomKey(32)
+	return key, ioutil.WriteFile(sessionPath, key, 0644)
+}
+
+func fileExists(name string) bool {
+	if _, err := os.Stat(name); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
 
 func parseEnv(cfg interface{}) error {

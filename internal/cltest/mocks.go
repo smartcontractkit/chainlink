@@ -576,3 +576,9 @@ type MockCookieAuthenticator struct{}
 func (m MockCookieAuthenticator) Authenticate() (*http.Cookie, error) {
 	return MustGenerateSessionCookie(UserSessionID), nil
 }
+
+type mockSecretGenerator struct{}
+
+func (m mockSecretGenerator) Generate(store.Config) ([]byte, error) {
+	return []byte(SessionSecret), nil
+}

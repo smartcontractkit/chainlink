@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -49,6 +48,8 @@ const (
 	Password = "password"
 	// Session ID for API user
 	UserSessionID = "session"
+	// SessionSecret is the temporarily hardcoded secret
+	SessionSecret = "clsession_test_secret"
 )
 
 var storeCounter uint64
@@ -88,6 +89,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			DatabasePollInterval:     store.Duration{Duration: time.Millisecond * 500},
 			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
 			Dev:                      true,
+			SecretGenerator:          mockSecretGenerator{},
 		},
 	}
 	config.SetEthereumServer(wsserver)
@@ -737,14 +739,14 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 
 func DecodeSessionCookie(value string) (string, error) {
 	var decrypted map[interface{}]interface{}
-	codecs := securecookie.CodecsFromPairs([]byte(web.SessionSecret))
+	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	err := securecookie.DecodeMulti(web.SessionName, value, &decrypted, codecs...)
 	return decrypted[web.SessionIDKey].(string), err
 }
 
 func MustGenerateSessionCookie(value string) *http.Cookie {
 	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
-	codecs := securecookie.CodecsFromPairs([]byte(web.SessionSecret))
+	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
 	if err != nil {
 		logger.Panic(err)

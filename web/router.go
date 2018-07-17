@@ -25,15 +25,17 @@ const (
 	SessionName = "clsession"
 	// SessionIDKey is the session ID key in the session map
 	SessionIDKey = "clsession_id"
-	// SessionSecret is the temporarily hardcoded secret
-	SessionSecret = "clsession_secret_tobechanged"
 )
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
-	sessionStore := sessions.NewCookieStore([]byte(SessionSecret))
+	secret, err := config.SessionSecret()
+	if err != nil {
+		logger.Panic(err)
+	}
+	sessionStore := sessions.NewCookieStore(secret)
 	cors := uiCorsHandler(config)
 
 	engine.Use(
