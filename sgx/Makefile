@@ -93,7 +93,6 @@ $(ENCLAVE_STUB): target/$(ENVIRONMENT)/enclave_u.o
 $(LIBADAPTERS): libadapters/Cargo.toml $(wildcard libadapters/src/*.rs) $(ENCLAVE_STUB)
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
 	SGX_SIMULATION=$(SGX_SIMULATION) ENVIRONMENT=$(ENVIRONMENT) SGX_SDK=$(SGX_SDK) $(CARGO) build $(RUST_FLAGS) --manifest-path $<
-	cp libadapters/$(LIBADAPTERS) $@
 
 # Enclave ---------------
 
@@ -104,8 +103,7 @@ $(RT_PATCH):
 
 $(ENCLAVE): enclave/Cargo.toml $(wildcard enclave/src/*.rs)
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
-	ENVIRONMENT=$(ENVIRONMENT) SGX_SDK=$(SGX_SDK) $(CARGO) build $(RUST_FLAGS) --manifest-path $<
-	cp enclave/$(ENCLAVE) $@
+	SGX_SIMULATION=$(SGX_SIMULATION) ENVIRONMENT=$(ENVIRONMENT) SGX_SDK=$(SGX_SDK) $(CARGO) build $(RUST_FLAGS) --manifest-path $<
 
 $(TRUSTED_EDL_FILES): $(SGX_EDGER8R) enclave/enclave.edl
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
