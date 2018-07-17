@@ -24,6 +24,7 @@ func TestClient_RunNode(t *testing.T) {
 	// cleanup invoked in client.RunNode
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
+	app.MustSeedUserSession()
 
 	eth := app.MockEthClient()
 	eth.Register("eth_getTransactionCount", `0x1`)
@@ -54,7 +55,6 @@ func TestClient_RunNode(t *testing.T) {
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
 	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
-	assert.Contains(t, logs, "USERNAME: testusername\\n")
 	assert.Contains(t, logs, "ETH_URL: ws://")
 	assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")
 	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
@@ -88,6 +88,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			assert.NoError(t, err)
 			r := &cltest.RendererMock{}
 			eth := app.MockEthClient()
+			app.MustSeedUserSession()
 
 			var unlocked bool
 			callback := func(store *store.Store, phrase string) error {
@@ -133,7 +134,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	ethMock.Register("eth_getBalance", "0x0100")
 	ethMock.Register("eth_call", "0x0100")
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	c := cli.NewContext(nil, set, nil)
@@ -151,7 +152,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 	j2 := cltest.NewJob()
 	app.Store.SaveJob(&j2)
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	assert.Nil(t, client.GetJobSpecs(nil))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
@@ -165,7 +166,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	job := cltest.NewJob()
 	app.Store.SaveJob(&job)
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
@@ -179,7 +180,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"bogus-ID"})
@@ -191,7 +192,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 func TestClient_CreateJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
 		input   string
@@ -225,7 +226,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
 		name    string
@@ -271,7 +272,7 @@ func TestClient_AddBridge(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
 		name    string
@@ -319,7 +320,7 @@ func TestClient_GetBridges(t *testing.T) {
 	}
 	app.AddAdapter(bt2)
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	assert.Nil(t, client.GetBridges(nil))
 	bridges := *r.Renders[0].(*[]models.BridgeType)
@@ -337,7 +338,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	}
 	app.AddAdapter(bt)
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
@@ -357,7 +358,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 	}
 	app.AddAdapter(bt)
 
-	client, r := cltest.NewClientAndRenderer(app.Store.Config)
+	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
@@ -372,7 +373,7 @@ func TestClient_BackupDatabase(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+	client, _ := app.NewClientAndRenderer()
 
 	job := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(&job))
@@ -400,7 +401,7 @@ func TestClient_ImportKey(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client, _ := cltest.NewClientAndRenderer(app.Store.Config)
+	client, _ := app.NewClientAndRenderer()
 
 	os.MkdirAll(app.Store.Config.KeysDir(), os.FileMode(0700))
 
