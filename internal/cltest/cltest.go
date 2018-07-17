@@ -79,8 +79,6 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 		Config: store.Config{
 			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
 			RootDir:                  rootdir,
-			BasicAuthUsername:        Username,
-			BasicAuthPassword:        Password,
 			ChainID:                  3,
 			MinOutgoingConfirmations: 6,
 			MinIncomingConfirmations: 0,
@@ -363,52 +361,6 @@ func (r *RemoteClientCleaner) Delete(path string) (*http.Response, func()) {
 }
 
 func bodyCleaner(resp *http.Response, err error) (*http.Response, func()) {
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
-}
-
-// BasicAuthPost performs a POST request to the given url with specified contentType and body
-// and returns the Response
-func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, func()) {
-	resp, err := utils.BasicAuthPost(
-		Username,
-		Password,
-		url,
-		contentType,
-		body)
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
-}
-
-// BasicAuthGet performs a GET request to given url and returns the Response
-func BasicAuthGet(url string, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := utils.BasicAuthGet(Username, Password, url, headers...)
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
-}
-
-// BasicAuthPatch performs a PATCH request to the given url with specified contentType and body
-// and returns the Response
-func BasicAuthPatch(url string, contentType string, body io.Reader) (*http.Response, func()) {
-	resp, err := utils.BasicAuthPatch(
-		Username,
-		Password,
-		url,
-		contentType,
-		body)
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
-}
-
-// BasicAuthDelete performs a DELETE request to the given url with specified contentType and body
-// and returns the Response
-func BasicAuthDelete(url string, contentType string, body io.Reader) (*http.Response, func()) {
-	resp, err := utils.BasicAuthDelete(
-		Username,
-		Password,
-		url,
-		contentType,
-		body)
 	mustNotErr(err)
 	return resp, func() { mustNotErr(resp.Body.Close()) }
 }

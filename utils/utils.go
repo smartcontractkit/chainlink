@@ -8,9 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -83,71 +81,6 @@ func NullISO8601UTC(t null.Time) string {
 		return ISO8601UTC(t.Time)
 	}
 	return ""
-}
-
-// BasicAuthPost sends a POST request to the HTTP client with the given username
-// and password to authenticate at the url with contentType and returns a response.
-func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, err := http.NewRequest("POST", url, body)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(username, password)
-	resp, err := client.Do(request)
-	return resp, err
-}
-
-// BasicAuthGet uses the given username and password to send a GET request
-// at the given URL and returns a response.
-func BasicAuthGet(username, password, url string, headers ...map[string]string) (*http.Response, error) {
-	var h map[string]string
-	if len(headers) > 0 {
-		h = headers[0]
-	} else {
-		h = map[string]string{}
-	}
-
-	client := &http.Client{}
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	request.SetBasicAuth(username, password)
-	for key, value := range h {
-		request.Header.Add(key, value)
-	}
-	resp, err := client.Do(request)
-	return resp, err
-}
-
-// BasicAuthPatch sends a PATCH request to the HTTP client with the given username
-// and password to authenticate at the url with contentType and returns a response.
-func BasicAuthPatch(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, err := http.NewRequest("PATCH", url, body)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(username, password)
-	resp, err := client.Do(request)
-	return resp, err
-}
-
-// BasicAuthDelete sends a DELETE request to the HTTP client with the given username
-// and password to authenticate at the url with contentType and returns a response.
-func BasicAuthDelete(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, err := http.NewRequest("DELETE", url, body)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(username, password)
-	resp, err := client.Do(request)
-	return resp, err
 }
 
 // FormatJSON applies indent to format a JSON response.
