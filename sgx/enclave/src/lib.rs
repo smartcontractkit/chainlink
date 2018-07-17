@@ -14,7 +14,6 @@ extern crate wasmi;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
 extern crate serde_json;
 
 #[macro_use] mod util;
@@ -22,6 +21,7 @@ mod wasm;
 
 use sgx_types::*;
 use util::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
+use std::ptr;
 use std::string::String;
 
 #[no_mangle]
@@ -112,7 +112,14 @@ fn wasm(
     Ok(())
 }
 
-pub extern "C" fn sgx_multiply(adapter_str_ptr: *const u8, adapter_str_len: usize, input_str_ptr: *const u8, input_str_len: usize) -> sgx_status_t {
+pub extern "C" fn sgx_multiply(
+    adapter_str_ptr: *const u8,
+    adapter_str_len: usize,
+    input_str_ptr: *const u8,
+    input_str_len: usize,
+    output_bin: *mut u8,
+    output_max_len: usize,
+) -> sgx_status_t {
     let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len).unwrap();
     let adapter: serde_json::Value = match serde_json::from_str(&adapter_str) {
         Ok(result) => result,
@@ -131,20 +138,31 @@ pub extern "C" fn sgx_multiply(adapter_str_ptr: *const u8, adapter_str_len: usiz
         _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
     };
 
-
     let multiplicand = match &input.data["value"] {
         serde_json::Value::String(v) => v.clone(),
         serde_json::Value::Number(v) => format!("{}", v),
         _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
     };
 
-    println!("Performing MULTIPLY from within enclave with {:?} * {:?} = {:?}",
-             multiplicand, multiplier, multiply(&multiplicand, &multiplier));
+    let result = match multiply(&multiplicand, &multiplier) {
+        Ok(v) => v,
+        _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
+    };
 
-    sgx_status_t::SGX_SUCCESS
+    if result.len() < output_max_len {
+        unsafe {
+            ptr::copy_nonoverlapping(result.as_ptr(), output_bin, result.len());
+        }
+        return sgx_status_t::SGX_SUCCESS;
+    }
+    return sgx_status_t::SGX_ERROR_INVALID_PARAMETER;
 }
 
-fn multiply(multiplicand_str: &str, multiplier_str: &str) -> Result<String, std::num::ParseIntError> {
+
+fn multiply(
+    multiplicand_str: &str,
+    multiplier_str: &str,
+) -> Result<String, std::num::ParseIntError> {
     let multiplicand = match i128::from_str_radix(multiplicand_str, 10) {
         Ok(result) => result,
         Err(err) => return Err(err),

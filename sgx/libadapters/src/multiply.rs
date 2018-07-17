@@ -1,6 +1,6 @@
 use libc;
 use sgx_types::*;
-use std::ffi::CStr;
+use std::ffi::{CStr};
 use std::ptr;
 
 use ENCLAVE;
@@ -13,6 +13,8 @@ extern "C" {
         adapter_len: usize,
         input: *const u8,
         input_len: usize,
+        output: *mut u8,
+        output_len: usize,
     ) -> sgx_status_t;
 }
 
@@ -25,6 +27,7 @@ fn cstr_len(string: *const libc::c_char) -> usize {
 pub extern "C" fn multiply(
         adapter: *const libc::c_char,
         input: *const libc::c_char,
+        output: *mut libc::c_char,
     ) -> *const libc::c_char {
 
     let mut retval = sgx_status_t::SGX_SUCCESS;
@@ -36,8 +39,11 @@ pub extern "C" fn multiply(
             cstr_len(adapter),
             input as *const u8,
             cstr_len(input),
+            output as *mut u8,
+            cstr_len(output),
         )
     };
+
     match result {
         sgx_status_t::SGX_SUCCESS => {}
         _ => {

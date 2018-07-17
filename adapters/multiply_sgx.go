@@ -60,10 +60,21 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input.WithError(err)
 	}
 
-	output, err := C.multiply(C.CString(string(adapter_json)), C.CString(string(input_json)))
+	cAdapter := C.CString(string(adapter_json))
+	cInput := C.CString(string(input_json))
+	result := C.CString(stringOfLength(4096))
+	_, err = C.multiply(cAdapter, cInput, result)
 	if err != nil {
-		return input.WithError(fmt.Errorf(C.GoString(output)))
+		return input.WithError(fmt.Errorf("CGO multiply: %v", err))
 	}
 
-	return input.WithValue(C.GoString(output))
+	return input.WithValue(C.GoString(result))
+}
+
+func stringOfLength(l int) string {
+	var s string
+	for i := 0; i < l; i++ {
+		s = s + " "
+	}
+	return s
 }
