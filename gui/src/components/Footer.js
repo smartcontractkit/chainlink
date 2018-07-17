@@ -1,9 +1,9 @@
-import React, { Component } from 'react'
-import { withStyles } from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
-import classNames from 'classnames'
-import { withRouteData } from 'react-static'
+import React, { Component } from "react";
+import { withStyles } from "@material-ui/core/styles";
+import Grid from "@material-ui/core/Grid";
+import Typography from "@material-ui/core/Typography";
+import classNames from "classnames";
+import { withRouteData } from "react-static";
 
 const styles = theme => ({
   style: {
@@ -15,28 +15,26 @@ const styles = theme => ({
     left: "0",
     bottom: "0",
     height: "60px",
-    width: "100%",
+    width: "100%"
   },
   wrapper: {
-    display: 'block',
-    padding: '20px',
-    height: '60px',
-    width: '100%',
+    display: "block",
+    padding: "20px",
+    height: "60px",
+    width: "100%"
   }
-})
+});
 
-const Footnote = ({classes, version, sha}) => {
+const Footnote = ({ classes, version, sha }) => {
   return (
-      <div className={classes.wrapper}>
+    <div className={classes.wrapper}>
       <div className={classes.style}>
-            <Typography
-              className={classNames(classes.footerText, classes.footerSections)}
-            >
-            Chainlink Node {version} at commit {sha}
-            </Typography>
+        <Typography>
+          Chainlink Node {version} at commit {sha}
+        </Typography>
       </div>
-      </div>
-  )
-}
+    </div>
+  );
+};
 
-export default withRouteData(withStyles(styles)(Footnote))
+export default withRouteData(withStyles(styles)(Footnote));
