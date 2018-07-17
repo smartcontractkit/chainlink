@@ -107,7 +107,6 @@ type ConfigWhitelist struct {
 	LogLevel                 store.LogLevel  `json:"logLevel"`
 	RootDir                  string          `json:"root"`
 	Port                     string          `json:"chainlinkPort"`
-	BasicAuthUsername        string          `json:"username"`
 	EthereumURL              string          `json:"ethUrl"`
 	ChainID                  uint64          `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
@@ -130,7 +129,6 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		LogLevel:                 config.LogLevel,
 		RootDir:                  config.RootDir,
 		Port:                     config.Port,
-		BasicAuthUsername:        config.BasicAuthUsername,
 		EthereumURL:              config.EthereumURL,
 		ChainID:                  config.ChainID,
 		ClientNodeURL:            config.ClientNodeURL,
@@ -179,7 +177,6 @@ func (c ConfigWhitelist) String() string {
 		c.LogLevel,
 		c.RootDir,
 		c.Port,
-		c.BasicAuthUsername,
 		c.EthereumURL,
 		c.ChainID,
 		c.ClientNodeURL,
