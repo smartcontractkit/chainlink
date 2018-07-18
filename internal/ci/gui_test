@@ -3,4 +3,4 @@
 set -e
 
 cd gui
-yarn test-ci
+yarn lint && yarn test-ci

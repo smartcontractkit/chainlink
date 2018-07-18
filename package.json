@@ -20,8 +20,10 @@
   "devDependencies": {
     "@material-ui/core": "^1.0.0",
     "@material-ui/icons": "^1.0.0",
+    "babel-eslint": "^8.2.6",
     "babel-plugin-transform-es3-member-expression-literals": "^6.22.0",
     "babel-plugin-transform-es3-property-literals": "^6.22.0",
+    "babel-preset-stage-2": "^6.24.1",
     "bignumber.js": "^7.2.1",
     "cbor": "^4.0.0",
     "enzyme": "^3.3.0",
@@ -67,6 +69,7 @@
     "wscat": "^2.1.1"
   },
   "standard": {
+    "parser": "babel-eslint",
     "env": [
       "jest"
     ],
