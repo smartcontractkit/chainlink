@@ -1,7 +1,6 @@
 use libc;
 use sgx_types::*;
-use std::ffi::{CStr};
-use std::ptr;
+use util::cstr_len;
 
 use ENCLAVE;
 
@@ -18,18 +17,12 @@ extern "C" {
     ) -> sgx_status_t;
 }
 
-fn cstr_len(string: *const libc::c_char) -> usize {
-    let buffer = unsafe { CStr::from_ptr(string).to_bytes() };
-    buffer.len()
-}
-
 #[no_mangle]
 pub extern "C" fn multiply(
-        adapter: *const libc::c_char,
-        input: *const libc::c_char,
-        output: *mut libc::c_char,
-    ) -> *const libc::c_char {
-
+    adapter: *const libc::c_char,
+    input: *const libc::c_char,
+    output: *mut libc::c_char,
+) {
     let mut retval = sgx_status_t::SGX_SUCCESS;
     let result = unsafe {
         sgx_multiply(
@@ -50,5 +43,4 @@ pub extern "C" fn multiply(
             println!("Call into Enclave multiplier failed: {}", result.as_str());
         }
     }
-    ptr::null()
 }
