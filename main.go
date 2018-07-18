@@ -153,13 +153,13 @@ func NewProductionClient() *cmd.Client {
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewTerminalCookieAuthenticator(cfg, prompter)
 	return &cmd.Client{
-		Renderer:            cmd.RendererTable{Writer: os.Stdout},
-		Config:              cfg,
-		AppFactory:          cmd.ChainlinkAppFactory{},
-		Auth:                cmd.TerminalAuthenticator{Prompter: prompter},
-		APIInitializer:      cmd.NewPromptingAPIInitializer(prompter),
-		Runner:              cmd.ChainlinkRunner{},
-		RemoteClient:        cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
-		CookieAuthenticator: cookieAuth,
+		Renderer:   cmd.RendererTable{Writer: os.Stdout},
+		Config:     cfg,
+		AppFactory: cmd.ChainlinkAppFactory{},
+		Auth:       cmd.TerminalAuthenticator{Prompter: prompter},
+		FallbackAPIInitializer: cmd.NewPromptingAPIInitializer(prompter),
+		Runner:                 cmd.ChainlinkRunner{},
+		RemoteClient:           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
+		CookieAuthenticator:    cookieAuth,
 	}
 }

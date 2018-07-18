@@ -42,7 +42,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(store); err != nil && err != errNoCredentialFile {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
-	if user, err = cli.APIInitializer.Initialize(store); err != nil {
+	if user, err = cli.FallbackAPIInitializer.Initialize(store); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)

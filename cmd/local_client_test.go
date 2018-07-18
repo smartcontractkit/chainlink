@@ -23,11 +23,11 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
 	client := cmd.Client{
-		Config:         app.Store.Config,
-		AppFactory:     cltest.InstanceAppFactory{App: app.ChainlinkApplication},
-		Auth:           auth,
-		APIInitializer: &cltest.MockAPIInitializer{},
-		Runner:         cltest.EmptyRunner{},
+		Config:     app.Store.Config,
+		AppFactory: cltest.InstanceAppFactory{App: app.ChainlinkApplication},
+		Auth:       auth,
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 cltest.EmptyRunner{},
 	}
 
 	set := flag.NewFlagSet("test", 0)
@@ -88,11 +88,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			auth := cltest.CallbackAuthenticator{Callback: callback}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:         app.Store.Config,
-				AppFactory:     cltest.InstanceAppFactory{App: app},
-				Auth:           auth,
-				APIInitializer: apiPrompt,
-				Runner:         cltest.EmptyRunner{},
+				Config:     app.Store.Config,
+				AppFactory: cltest.InstanceAppFactory{App: app},
+				Auth:       auth,
+				FallbackAPIInitializer: apiPrompt,
+				Runner:                 cltest.EmptyRunner{},
 			}
 
 			set := flag.NewFlagSet("test", 0)
@@ -134,11 +134,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:         app.Config,
-				AppFactory:     cltest.InstanceAppFactory{App: app},
-				Auth:           noauth,
-				APIInitializer: apiPrompt,
-				Runner:         cltest.EmptyRunner{},
+				Config:     app.Config,
+				AppFactory: cltest.InstanceAppFactory{App: app},
+				Auth:       noauth,
+				FallbackAPIInitializer: apiPrompt,
+				Runner:                 cltest.EmptyRunner{},
 			}
 
 			set := flag.NewFlagSet("test", 0)
