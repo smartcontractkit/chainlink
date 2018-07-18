@@ -55,7 +55,7 @@ func TestSessionsController_create(t *testing.T) {
 				assert.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				user, err := app.Store.FindUser()
 				assert.NoError(t, err)
-				assert.Equal(t, "", user.SessionID)
+				assert.Empty(t, user.SessionID)
 			}
 		})
 	}
@@ -94,7 +94,7 @@ func TestSessionsController_destroy(t *testing.T) {
 				assert.Equal(t, 200, resp.StatusCode)
 				user, err := app.Store.FindUser()
 				assert.NoError(t, err)
-				assert.Equal(t, "", user.SessionID)
+				assert.Empty(t, user.SessionID)
 			} else {
 				assert.True(t, resp.StatusCode >= 400, "Should not be able to destroy session")
 				user, err := app.Store.FindUser()
