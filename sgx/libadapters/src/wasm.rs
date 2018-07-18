@@ -1,7 +1,7 @@
 use errno::{set_errno, Errno};
 use libc;
 use sgx_types::*;
-use std::ffi::CStr;
+use util::cstr_len;
 
 use ENCLAVE;
 
@@ -17,11 +17,6 @@ extern "C" {
         result_capacity: usize,
         result_len: *mut usize,
     ) -> sgx_status_t;
-}
-
-fn cstr_len(string: *const libc::c_char) -> usize {
-    let buffer = unsafe { CStr::from_ptr(string).to_bytes() };
-    buffer.len()
 }
 
 #[no_mangle]

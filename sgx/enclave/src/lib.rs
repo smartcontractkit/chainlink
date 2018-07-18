@@ -23,6 +23,7 @@ use sgx_types::*;
 use util::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
 use std::ptr;
 use std::string::String;
+use std::string::ToString;
 
 #[no_mangle]
 pub extern "C" fn sgx_http_get(url_ptr: *const u8, url_len: usize) -> sgx_status_t {
@@ -112,6 +113,7 @@ fn wasm(
     Ok(())
 }
 
+#[no_mangle]
 pub extern "C" fn sgx_multiply(
     adapter_str_ptr: *const u8,
     adapter_str_len: usize,
@@ -127,7 +129,7 @@ pub extern "C" fn sgx_multiply(
     };
 
     let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len).unwrap();
-    let input = match parse_run_result_json(&input_str) {
+    let mut input = match parse_run_result_json(&input_str) {
         Ok(result) => result,
         Err(_err) => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
     };
@@ -149,12 +151,19 @@ pub extern "C" fn sgx_multiply(
         _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
     };
 
-    if result.len() < output_max_len {
+    input.status = Some("completed".to_string());
+    input.add("value".to_string(), serde_json::Value::String(result));
+    let rr_json = match serde_json::to_string(&input) {
+        Ok(v) => v,
+        _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
+    };
+
+    if rr_json.len() < output_max_len {
         unsafe {
-            ptr::copy_nonoverlapping(result.as_ptr(), output_bin, result.len());
+            ptr::copy_nonoverlapping(rr_json.as_ptr(), output_bin, rr_json.len());
         }
         return sgx_status_t::SGX_SUCCESS;
-    }
+    };
     return sgx_status_t::SGX_ERROR_INVALID_PARAMETER;
 }
 
@@ -188,4 +197,10 @@ struct RunResult {
     status: Option<String>,
     error_message: Option<String>,
     amount: Option<u64>,
+}
+
+impl RunResult {
+    fn add(&mut self, key: String, value: serde_json::Value) {
+        self.data[key] = value;
+    }
 }

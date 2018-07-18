@@ -4,6 +4,7 @@ package adapters
 
 /*
 #cgo LDFLAGS: -L../sgx/target/release/ -ladapters
+#include <stdlib.h>
 #include "../sgx/libadapters/adapters.h"
 */
 import "C"
@@ -12,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"unsafe"
 
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -67,12 +69,15 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	sgxResult := C.CString(stringOfLength(4096))
 	defer C.free(unsafe.Pointer(sgxResult))
 
-	_, err = C.multiply(cAdapter, cInput, sgxResult)
-	if err != nil {
-		return input.WithError(fmt.Errorf("CGO multiply: %v", err))
+	if _, err = C.multiply(cAdapter, cInput, sgxResult); err != nil {
+		return input.WithError(fmt.Errorf("SGX multiply: %v", err))
+	}
+	var output models.RunResult
+	if err := json.Unmarshal([]byte(C.GoString(sgxResult)), &output); err != nil {
+		return input.WithError(fmt.Errorf("unmarshaling SGX result: %v", err))
 	}
 
-	return input.WithValue(C.GoString(sgxResult))
+	return output
 }
 
 func stringOfLength(l int) string {
