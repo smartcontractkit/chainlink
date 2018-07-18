@@ -13,7 +13,6 @@ import MenuIcon from '@material-ui/icons/Menu'
 import Flash from 'components/Flash'
 import universal from 'react-universal-component'
 import PrivateRoute from './PrivateRoute'
-import Tabs from 'components/Tabs'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
@@ -28,6 +27,7 @@ const Bridges = universal(import('./containers/Bridges'))
 const BridgeSpec = universal(import('./containers/BridgeSpec'))
 const Configuration = universal(import('./containers/Configuration'))
 const About = universal(import('./containers/About'))
+const Create = universal(import('./containers/Create'))
 const Jobs = universal(import('./containers/Jobs'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
@@ -186,7 +186,7 @@ class Layout extends Component {
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
                   <PrivateRoute exact path='/about' component={About} />
                   <PrivateRoute exact path='/config' component={Configuration} />
-                  <PrivateRoute exact path='/create' component={Tabs} />
+                  <PrivateRoute exact path='/create' component={Create} />
                   <PrivateRoute exact path='/bridges' component={Bridges} />
                   <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
                   <PrivateRoute exact path='/' component={Jobs} />

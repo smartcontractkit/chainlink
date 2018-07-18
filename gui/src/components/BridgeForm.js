@@ -1,5 +1,5 @@
 import axios from "axios";
-import React from "react";
+import React, { Fragment } from "react";
 import { withFormik, Form } from "formik";
 import * as Yup from "yup";
 import { withStyles } from "@material-ui/core/styles";
@@ -10,18 +10,22 @@ import "react-toastify/dist/ReactToastify.css";
 
 const styles = theme => ({
   textfield: {
-    padding: "10px 0px",
+    paddingTop: theme.spacing.unit * 1.25,
     width: "270px"
   },
   card: {
     paddingBottom: theme.spacing.unit * 2
+  },
+  form: {
+    position: "relative", 
+    textAlign: "center"
   }
 });
 
-const App = ({ values, errors, touched, isSubmitting, classes, handleChange }) => (
-  <div style={{}}>
+const App = ({ errors, touched, isSubmitting, classes, handleChange }) => (
+  <Fragment>
     <br />
-    <Form style={{ position: "relative", textAlign: "center" }} noValidate>
+    <Form className={classes.form} noValidate>
       <div>
         {touched.name && errors.name && <Typography color="error">{errors.name}</Typography>}
         <TextField
@@ -60,7 +64,7 @@ const App = ({ values, errors, touched, isSubmitting, classes, handleChange }) =
       </Button>
       <ToastContainer />
     </Form>
-  </div>
+  </Fragment>
 );
 
 const BridgeForm = withFormik({
@@ -74,7 +78,6 @@ const BridgeForm = withFormik({
   validationSchema: Yup.object().shape({
     name: Yup.string().required("Name is required"),
     url: Yup.string()
-      .url("Should be a valid link")
       .required("URL is required"),
     confirmations: Yup.number()
       .positive("Should be a positive number")

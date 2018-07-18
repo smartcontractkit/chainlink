@@ -8,24 +8,26 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const styles = theme => ({
-  textfield: {
-    padding: "10px 0px",
-    width: "200px"
-  },
   jsonfield: {
-    padding: "10px 0px",
+    paddingTop: theme.spacing.unit * 1.25,
     width: "700px"
   },
-
+  form: {
+    left: "50%",
+    position: "relative"
+  },
   card: {
     paddingBottom: theme.spacing.unit * 2
+  },
+  wrapform: {
+    width: "50%"
   }
 });
 
 const App = ({ values, isSubmitting, classes, handleChange }) => (
-  <div style={{ width: "50%" }}>
+  <div className={classes.wrapform}>
     <br />
-    <Form style={{ left: "50%", position: "relative" }}>
+    <Form className={classes.form}>
       <div>
         <TextField
           id="textarea"
