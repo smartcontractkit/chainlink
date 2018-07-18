@@ -38,7 +38,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
 	var user models.User
-	if user, err = cli.UserInitializer.Initialize(store); err != nil {
+	if user, err = cli.APIInitializer.Initialize(store); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)

@@ -152,7 +152,7 @@ func NewProductionClient() *cmd.Client {
 		Config:              cfg,
 		AppFactory:          cmd.ChainlinkAppFactory{},
 		Auth:                cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
-		UserInitializer:     cmd.NewTerminalUserInitializer(),
+		APIInitializer:      cmd.NewTerminalAPIInitializer(),
 		Runner:              cmd.ChainlinkRunner{},
 		RemoteClient:        cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
 		CookieAuthenticator: cookieAuth,
