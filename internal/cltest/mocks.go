@@ -561,9 +561,12 @@ func MustUser(email, pwd string, sessionIDArgs ...string) models.User {
 	return r
 }
 
-type MockUserInitializer struct{}
+type MockUserInitializer struct {
+	Count int
+}
 
-func (m MockUserInitializer) Initialize(*store.Store) (models.User, error) {
+func (m *MockUserInitializer) Initialize(*store.Store) (models.User, error) {
+	m.Count += 1
 	return MustUser(UserEmail, Password), nil
 }
 

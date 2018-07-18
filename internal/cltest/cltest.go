@@ -123,10 +123,9 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
-	var conn *websocket.Conn
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
-		conn, err = upgrader.Upgrade(w, r, nil)
+		conn, err := upgrader.Upgrade(w, r, nil)
 		logger.PanicIf(err)
 		for {
 			_, _, err = conn.ReadMessage()
@@ -141,9 +140,6 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 	})
 	server := httptest.NewServer(handler)
 	return server, func() {
-		if conn != nil {
-			mustNotErr(conn.Close())
-		}
 		server.Close()
 	}
 }
@@ -239,7 +235,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Config:              ta.Config,
 		AppFactory:          EmptyAppFactory{},
 		Auth:                CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		UserInitializer:     MockUserInitializer{},
+		UserInitializer:     &MockUserInitializer{},
 		Runner:              EmptyRunner{},
 		RemoteClient:        NewMockAuthenticatedRemoteClient(ta.Config),
 		CookieAuthenticator: MockCookieAuthenticator{},

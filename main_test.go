@@ -17,7 +17,7 @@ func ExampleRun() {
 		Config:          tc.Config,
 		AppFactory:      cmd.ChainlinkAppFactory{},
 		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
-		UserInitializer: cltest.MockUserInitializer{},
+		UserInitializer: &cltest.MockUserInitializer{},
 		Runner:          cmd.ChainlinkRunner{},
 		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(tc.Config),
 	}
@@ -64,7 +64,7 @@ func ExampleVersion() {
 		Config:          tc.Config,
 		AppFactory:      cmd.ChainlinkAppFactory{},
 		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
-		UserInitializer: cltest.MockUserInitializer{},
+		UserInitializer: &cltest.MockUserInitializer{},
 		Runner:          cmd.ChainlinkRunner{},
 		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(tc.Config),
 	}

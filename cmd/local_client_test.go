@@ -12,29 +12,23 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestClient_RunNode(t *testing.T) {
+func TestClient_RunNodeShowsEnv(t *testing.T) {
 	config, configCleanup := cltest.NewConfig()
 	defer configCleanup()
 	config.LinkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	config.Port = "6688"
 
-	// cleanup invoked in client.RunNode
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
-	app.MustSeedUserSession()
-
-	eth := app.MockEthClient()
-	eth.Register("eth_getTransactionCount", `0x1`)
 
 	r := &cltest.RendererMock{}
-	var called bool
-	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { called = true; return nil }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
 	client := cmd.Client{
 		Renderer:        r,
 		Config:          app.Store.Config,
 		AppFactory:      cltest.InstanceAppFactory{App: app.ChainlinkApplication},
 		Auth:            auth,
-		UserInitializer: cltest.MockUserInitializer{},
+		UserInitializer: &cltest.MockUserInitializer{},
 		Runner:          cltest.EmptyRunner{},
 		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 	}
@@ -43,8 +37,10 @@ func TestClient_RunNode(t *testing.T) {
 	set.Bool("debug", true, "")
 	c := cli.NewContext(nil, set, nil)
 
+	eth := app.MockEthClient()
+	eth.Register("eth_getTransactionCount", `0x1`)
+
 	assert.NoError(t, client.RunNode(c))
-	assert.True(t, called)
 
 	logs, err := cltest.ReadLogs(app)
 	assert.NoError(t, err)
@@ -95,12 +91,13 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			auth := cltest.CallbackAuthenticator{Callback: callback}
+			apiInitializer := &cltest.MockUserInitializer{}
 			client := cmd.Client{
 				Renderer:        r,
 				Config:          app.Store.Config,
 				AppFactory:      cltest.InstanceAppFactory{App: app},
 				Auth:            auth,
-				UserInitializer: cltest.MockUserInitializer{},
+				UserInitializer: apiInitializer,
 				Runner:          cltest.EmptyRunner{},
 				RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 			}
@@ -113,9 +110,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			if test.wantUnlocked {
 				assert.NoError(t, client.RunNode(c))
 				assert.True(t, unlocked)
+				assert.Equal(t, 1, apiInitializer.Count)
 			} else {
 				assert.Error(t, client.RunNode(c))
 				assert.False(t, unlocked)
+				assert.Equal(t, 0, apiInitializer.Count)
 			}
 		})
 	}
