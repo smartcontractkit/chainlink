@@ -1,6 +1,8 @@
 package web_test
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/web"
@@ -10,15 +12,16 @@ import (
 func TestBox_MatchWildcardBoxPath(t *testing.T) {
 	t.Parallel()
 
-	boxList := []string{
-		"index.html",
-		"job_specs/_jobSpecId_/index.html",
-		"job_specs/_jobSpecId_/runs/_jobSpecRunId_/routeInfo.json",
-	}
+	rootIndex := "index.html"
+	jobSpecRunShowRouteInfo := strings.Join(
+		[]string{"job_specs", "_jobSpecId_", "runs", "_jobSpecRunId_", "routeInfo.json"},
+		(string)(os.PathSeparator),
+	)
+	boxList := []string{rootIndex, jobSpecRunShowRouteInfo}
 
 	assert.Equal(
 		t,
-		"index.html",
+		rootIndex,
 		web.MatchWildcardBoxPath(boxList, "/", "index.html"),
 	)
 	assert.Equal(
@@ -29,7 +32,7 @@ func TestBox_MatchWildcardBoxPath(t *testing.T) {
 
 	assert.Equal(
 		t,
-		"job_specs/_jobSpecId_/runs/_jobSpecRunId_/routeInfo.json",
+		jobSpecRunShowRouteInfo,
 		web.MatchWildcardBoxPath(boxList, "/job_specs/abc123/runs/abc123", "routeInfo.json"),
 	)
 	assert.Equal(
@@ -42,12 +45,14 @@ func TestBox_MatchWildcardBoxPath(t *testing.T) {
 func TestBox_MatchExactBoxPath(t *testing.T) {
 	t.Parallel()
 
-	boxList := []string{"main.js", "page/main.js"}
+	main := "main.js"
+	pageMain := strings.Join([]string{"page", "main.js"}, (string)(os.PathSeparator))
+	boxList := []string{main, pageMain}
 
-	assert.Equal(t, "main.js", web.MatchExactBoxPath(boxList, "/main.js"))
+	assert.Equal(t, main, web.MatchExactBoxPath(boxList, "/main.js"))
 	assert.Equal(t, "", web.MatchExactBoxPath(boxList, "/not_found.js"))
 
-	assert.Equal(t, "page/main.js", web.MatchExactBoxPath(boxList, "/page/main.js"))
+	assert.Equal(t, pageMain, web.MatchExactBoxPath(boxList, "/page/main.js"))
 	assert.Equal(t, "", web.MatchExactBoxPath(boxList, "/ppage/main.js"))
 	assert.Equal(t, "", web.MatchExactBoxPath(boxList, "/page/not_found.js"))
 }
