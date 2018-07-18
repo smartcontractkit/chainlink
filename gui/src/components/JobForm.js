@@ -1,28 +1,28 @@
-import axios from "axios";
-import React from "react";
-import { withFormik, Form } from "formik";
-import { withStyles } from "@material-ui/core/styles";
-import Button from "@material-ui/core/Button";
-import { TextField } from "@material-ui/core";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import axios from 'axios'
+import React from 'react'
+import { withFormik, Form } from 'formik'
+import { withStyles } from '@material-ui/core/styles'
+import Button from '@material-ui/core/Button'
+import { TextField } from '@material-ui/core'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 const styles = theme => ({
   jsonfield: {
     paddingTop: theme.spacing.unit * 1.25,
-    width: "700px"
+    width: '700px'
   },
   form: {
-    left: "50%",
-    position: "relative"
+    left: '50%',
+    position: 'relative'
   },
   card: {
     paddingBottom: theme.spacing.unit * 2
   },
   wrapform: {
-    width: "50%"
+    width: '50%'
   }
-});
+})
 
 const App = ({ values, isSubmitting, classes, handleChange }) => (
   <div className={classes.wrapform}>
@@ -30,46 +30,46 @@ const App = ({ values, isSubmitting, classes, handleChange }) => (
     <Form className={classes.form}>
       <div>
         <TextField
-          id="textarea"
-          label="Paste JSON"
+          id='textarea'
+          label='Paste JSON'
           onChange={handleChange}
-          placeholder="Paste JSON"
+          placeholder='Paste JSON'
           multiline
           className={classes.jsonfield}
-          margin="normal"
+          margin='normal'
         />
       </div>
-      <Button color="primary" type="submit" disabled={isSubmitting}>
+      <Button color='primary' type='submit' disabled={isSubmitting}>
         Build Job
       </Button>
-      <ToastContainer  />
+      <ToastContainer />
     </Form>
   </div>
-);
+)
 
 const JobForm = withFormik({
-  mapPropsToValues({ json }) {
+  mapPropsToValues ({ json }) {
     return {
-      json: json || ""
-    };
+      json: json || ''
+    }
   },
-  handleSubmit(values) {
+  handleSubmit (values) {
     axios
-      .post("/v2/specs", JSON.parse(values.textarea), {
+      .post('/v2/specs', JSON.parse(values.textarea), {
         headers: {
-          "Content-Type": "application/json"
+          'Content-Type': 'application/json'
         },
         auth: {
-          username: "chainlink",
-          password: "twochains"
+          username: 'chainlink',
+          password: 'twochains'
         }
       })
       .then(res =>
         toast.success(`Job ${res.data.id} created`, {
           position: toast.POSITION.BOTTOM_RIGHT
         })
-      );
+      )
   }
-})(App);
+})(App)
 
-export default withStyles(styles)(JobForm);
+export default withStyles(styles)(JobForm)
