@@ -10,6 +10,7 @@ import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import universal from 'react-universal-component'
+import Tabs from 'components/Tabs'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
@@ -66,7 +67,7 @@ const styles = theme => {
 }
 
 class Layout extends Component {
-  constructor (props) {
+  constructor(props) {
     super(props)
     this.state = {drawerOpen: false}
     this.toggleDrawer = this.toggleDrawer.bind(this)
@@ -82,44 +83,49 @@ class Layout extends Component {
 
     const drawer = (
       <Drawer
-        anchor='right'
+        anchor="right"
         open={drawerOpen}
         classes={{
-          paper: classes.drawerPaper
+          paper: classes.drawerPaper,
         }}
         onClose={this.toggleDrawer}
       >
         <div className={classes.toolbar} />
         <div
           tabIndex={0}
-          role='button'
+          role="button"
           onClick={this.toggleDrawer}
         >
           <List className={classes.drawerList}>
             <ListItem button>
               <Link to='/' className={classes.menuitem}>
-                <ListItemText primary='Jobs' />
+                <ListItemText primary="Jobs" />
               </Link>
             </ListItem>
             <ListItem button>
               <Link to='/bridges' className={classes.menuitem}>
-                <ListItemText primary='Bridges' />
+                <ListItemText primary="Bridges" />
+              </Link>
+            </ListItem>
+            <ListItem button>
+              <Link to='/create' className={classes.menuitem}>
+                <ListItemText primary="Create" />
               </Link>
             </ListItem>
             <ListItem button>
               <Link to='/config' className={classes.menuitem}>
-                <ListItemText primary='Configuration' />
+                <ListItemText primary="Configuration" />
               </Link>
             </ListItem>
             <ListItem button>
               <Link to='/about' className={classes.menuitem}>
-                <ListItemText primary='About' />
+                <ListItemText primary="About" />
               </Link>
             </ListItem>
           </List>
         </div>
       </Drawer>
-    )
+    );
 
     return (
       <Router>
@@ -131,7 +137,7 @@ class Layout extends Component {
               color='default'
               position='absolute'
             >
-              <Grid container alignItems='center' className={classes.appBarContent}>
+              <Grid container alignItems="center" className={classes.appBarContent}>
                 <Grid item xs={9}>
                   <Link to='/'>
                     <img src={logoImg} alt='Chainlink' width={121} height={44} />
@@ -140,7 +146,7 @@ class Layout extends Component {
                 <Grid item xs={3}>
                   <div align='right'>
                     <IconButton
-                      aria-label='open drawer'
+                      aria-label="open drawer"
                       onClick={this.toggleDrawer}
                       className={classes.menuButton}
                     >
@@ -157,6 +163,7 @@ class Layout extends Component {
                 <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
                 <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                 <Route exact path='/job_specs/:jobSpecId/runs/:jobRunId' component={JobSpecRun} />
+                <Route exact path='/create' component={Tabs} />
                 <Route exact path='/config' component={Configuration} />
                 <Route exact path='/bridges' component={Bridges} />
                 <Routes />
