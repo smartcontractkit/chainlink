@@ -235,7 +235,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Config:              ta.Config,
 		AppFactory:          EmptyAppFactory{},
 		Auth:                CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		UserInitializer:     &MockUserInitializer{},
+		APIInitializer:      &MockAPIInitializer{},
 		Runner:              EmptyRunner{},
 		RemoteClient:        NewMockAuthenticatedRemoteClient(ta.Config),
 		CookieAuthenticator: MockCookieAuthenticator{},

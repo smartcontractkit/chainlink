@@ -26,7 +26,7 @@ type Client struct {
 	Config              store.Config
 	AppFactory          AppFactory
 	Auth                KeyStoreAuthenticator
-	UserInitializer     UserInitializer
+	APIInitializer      APIInitializer
 	Runner              Runner
 	RemoteClient        RemoteClient
 	CookieAuthenticator CookieAuthenticator

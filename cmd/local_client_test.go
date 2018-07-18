@@ -24,13 +24,13 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	r := &cltest.RendererMock{}
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
 	client := cmd.Client{
-		Renderer:        r,
-		Config:          app.Store.Config,
-		AppFactory:      cltest.InstanceAppFactory{App: app.ChainlinkApplication},
-		Auth:            auth,
-		UserInitializer: &cltest.MockUserInitializer{},
-		Runner:          cltest.EmptyRunner{},
-		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
+		Renderer:       r,
+		Config:         app.Store.Config,
+		AppFactory:     cltest.InstanceAppFactory{App: app.ChainlinkApplication},
+		Auth:           auth,
+		APIInitializer: &cltest.MockAPIInitializer{},
+		Runner:         cltest.EmptyRunner{},
+		RemoteClient:   cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 	}
 
 	set := flag.NewFlagSet("test", 0)
@@ -91,15 +91,15 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			auth := cltest.CallbackAuthenticator{Callback: callback}
-			apiInitializer := &cltest.MockUserInitializer{}
+			apiInitializer := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Renderer:        r,
-				Config:          app.Store.Config,
-				AppFactory:      cltest.InstanceAppFactory{App: app},
-				Auth:            auth,
-				UserInitializer: apiInitializer,
-				Runner:          cltest.EmptyRunner{},
-				RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
+				Renderer:       r,
+				Config:         app.Store.Config,
+				AppFactory:     cltest.InstanceAppFactory{App: app},
+				Auth:           auth,
+				APIInitializer: apiInitializer,
+				Runner:         cltest.EmptyRunner{},
+				RemoteClient:   cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 			}
 
 			set := flag.NewFlagSet("test", 0)
