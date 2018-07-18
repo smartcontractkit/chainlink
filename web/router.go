@@ -13,7 +13,6 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -32,28 +31,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 
 	v1Routes(app, engine)
 	v2Routes(app, engine)
-
-	box := packr.NewBox("../gui/dist/")
-	engine.NoRoute(func(c *gin.Context) {
-		path := "index.html"
-		if filepath.Ext(c.Request.URL.Path) != "" {
-			path = c.Request.URL.Path
-		}
-
-		file, err := box.Open(path)
-		if err != nil {
-			if err == os.ErrNotExist {
-				c.AbortWithStatus(http.StatusNotFound)
-			} else {
-				err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
-				logger.Error(err.Error())
-				c.AbortWithError(http.StatusInternalServerError, err)
-			}
-			return
-		}
-
-		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
-	})
+	guiAssetRoutes(engine)
 
 	return engine
 }
@@ -102,6 +80,48 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 	cc := ConfigController{app}
 	v2.GET("/config", cc.Show)
+}
+
+func guiAssetRoutes(engine *gin.Engine) {
+	box := NewBox()
+	boxList := box.List()
+
+	engine.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		matchedBoxPath := MatchExactBoxPath(boxList, path)
+
+		if matchedBoxPath == "" {
+			if filepath.Ext(path) == "" {
+				matchedBoxPath = MatchWildcardBoxPath(
+					boxList,
+					path,
+					"index.html",
+				)
+			} else if filepath.Ext(path) == ".json" {
+				matchedBoxPath = MatchWildcardBoxPath(
+					boxList,
+					filepath.Dir(path),
+					filepath.Base(path),
+				)
+			}
+		}
+
+		if matchedBoxPath != "" {
+			file, err := box.Open(matchedBoxPath)
+			if err != nil {
+				if err == os.ErrNotExist {
+					c.AbortWithStatus(http.StatusNotFound)
+				} else {
+					err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
+					logger.Error(err.Error())
+					c.AbortWithError(http.StatusInternalServerError, err)
+				}
+				return
+			}
+
+			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
+		}
+	})
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
