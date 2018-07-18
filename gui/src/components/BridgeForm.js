@@ -5,6 +5,8 @@ import * as Yup from "yup";
 import { withStyles } from "@material-ui/core/styles";
 import Button from "@material-ui/core/Button";
 import { TextField, Typography } from "@material-ui/core";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const styles = theme => ({
   textfield: {
@@ -56,6 +58,7 @@ const App = ({ values, errors, touched, isSubmitting, classes, handleChange }) =
       <Button color="primary" type="submit" disabled={isSubmitting}>
         Build Bridge
       </Button>
+      <ToastContainer />
     </Form>
   </div>
 );
@@ -79,7 +82,7 @@ const BridgeForm = withFormik({
   }),
   handleSubmit(values) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace("confirmations", "defaultConfirmations"));
-    formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
+    formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0;
     axios
       .post("/v2/bridge_types", formattedValues, {
         headers: {
@@ -90,7 +93,11 @@ const BridgeForm = withFormik({
           password: "twochains"
         }
       })
-      .then(res => console.log(res));
+      .then(res =>
+        toast.success(`Bridge ${res.data.name} created`, {
+          position: toast.POSITION.BOTTOM_RIGHT
+        })
+      );
   }
 })(App);
 

@@ -4,6 +4,8 @@ import { withFormik, Form } from "formik";
 import { withStyles } from "@material-ui/core/styles";
 import Button from "@material-ui/core/Button";
 import { TextField } from "@material-ui/core";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const styles = theme => ({
   textfield: {
@@ -38,6 +40,7 @@ const App = ({ values, isSubmitting, classes, handleChange }) => (
       <Button color="primary" type="submit" disabled={isSubmitting}>
         Build Job
       </Button>
+      <ToastContainer  />
     </Form>
   </div>
 );
@@ -59,7 +62,11 @@ const JobForm = withFormik({
           password: "twochains"
         }
       })
-      .then(res => console.log(res));
+      .then(res =>
+        toast.success(`Job ${res.data.id} created`, {
+          position: toast.POSITION.BOTTOM_RIGHT
+        })
+      );
   }
 })(App);
 
