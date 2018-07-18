@@ -296,7 +296,7 @@ func NewDatabaseAccessError(msg string) error {
 // FindUser will return the one API user, or an error.
 func (orm *ORM) FindUser() (User, error) {
 	var users []User
-	err := orm.All(&users)
+	err := orm.AllByIndex("CreatedAt", &users, storm.Limit(1), storm.Reverse())
 	if err != nil {
 		return User{}, err
 	}
@@ -308,8 +308,8 @@ func (orm *ORM) FindUser() (User, error) {
 	return users[0], nil
 }
 
-// FindUserBySession will return the one API user if the SessionID matches.
-func (orm *ORM) FindUserBySession(sessionID string) (User, error) {
+// AuthorizedUserWithSession will return the one API user if the SessionID matches.
+func (orm *ORM) AuthorizedUserWithSession(sessionID string) (User, error) {
 	user, err := orm.FindUser()
 	if err != nil {
 		return User{}, err
@@ -318,25 +318,6 @@ func (orm *ORM) FindUserBySession(sessionID string) (User, error) {
 		return User{}, storm.ErrNotFound
 	}
 	return user, nil
-}
-
-// CheckPasswordForSession will check the password in the SessionRequest against
-// the hashed API User password in the db.
-func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
-	user, err := orm.FindUser()
-	if err != nil {
-		return "", err
-	}
-
-	if sr.Email != user.Email {
-		return "", errors.New("Invalid email")
-	}
-
-	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		user.SessionID = utils.NewBytes32ID()
-		return user.SessionID, orm.Save(&user)
-	}
-	return "", errors.New("Invalid password")
 }
 
 // DeleteUser will delete the API User in the db.
@@ -356,4 +337,23 @@ func (orm *ORM) DeleteUserSession() error {
 	}
 	user.SessionID = ""
 	return orm.Save(&user)
+}
+
+// CheckPasswordForSession will check the password in the SessionRequest against
+// the hashed API User password in the db.
+func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
+	user, err := orm.FindUser()
+	if err != nil {
+		return "", err
+	}
+
+	if sr.Email != user.Email {
+		return "", errors.New("Invalid email")
+	}
+
+	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		user.SessionID = utils.NewBytes32ID()
+		return user.SessionID, orm.Save(&user)
+	}
+	return "", errors.New("Invalid password")
 }

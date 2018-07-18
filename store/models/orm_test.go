@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWhereNotFound(t *testing.T) {
@@ -279,7 +280,7 @@ func TestORM_SaveCreationHeight(t *testing.T) {
 	}
 }
 
-func TestMarkRan(t *testing.T) {
+func TestORM_MarkRan(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -292,4 +293,118 @@ func TestMarkRan(t *testing.T) {
 	var ir models.Initiator
 	assert.NoError(t, store.One("ID", initr.ID, &ir))
 	assert.True(t, ir.Ran)
+}
+
+func TestORM_FindUser(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	user1 := cltest.MustUser("test1@email1.net", "password1")
+	user2 := cltest.MustUser("test2@email2.net", "password2")
+	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
+
+	require.NoError(t, store.Save(&user1))
+	require.NoError(t, store.Save(&user2))
+
+	actual, err := store.FindUser()
+	require.NoError(t, err)
+	assert.Equal(t, user1.Email, actual.Email)
+	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
+	assert.Equal(t, user1.SessionID, actual.SessionID)
+}
+
+func TestORM_AuthorizedUserWithSession(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	user1 := cltest.MustUser("test1@email1.net", "password1", "allowedSession")
+	user2 := cltest.MustUser("test2@email2.net", "password2", "disallowedSession")
+	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
+
+	require.NoError(t, store.Save(&user1))
+	require.NoError(t, store.Save(&user2))
+
+	actual, err := store.AuthorizedUserWithSession("allowedSession")
+	require.NoError(t, err)
+	assert.Equal(t, user1.Email, actual.Email)
+
+	actual, err = store.AuthorizedUserWithSession("disallowedSession")
+	require.Error(t, err)
+	assert.Equal(t, "", actual.Email)
+}
+
+func TestORM_DeleteUser(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	user := cltest.MustUser("test1@email1.net", "password1")
+	require.NoError(t, store.Save(&user))
+
+	_, err := store.DeleteUser()
+	require.NoError(t, err)
+
+	_, err = store.FindUser()
+	require.Error(t, err)
+}
+
+func TestORM_DeleteUserSession(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	user := cltest.MustUser("test1@email1.net", "password1", "allowedSession")
+	require.NoError(t, store.Save(&user))
+
+	err := store.DeleteUserSession()
+	require.NoError(t, err)
+
+	user, err = store.FindUser()
+	require.NoError(t, err)
+	require.Empty(t, user.SessionID)
+}
+
+func TestORM_CheckPasswordForSession(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	initial := cltest.MustUser(cltest.APIEmail, cltest.Password)
+	require.NoError(t, store.Save(&initial))
+
+	tests := []struct {
+		name        string
+		email       string
+		password    string
+		wantSession bool
+	}{
+		{"correct", cltest.APIEmail, cltest.Password, true},
+		{"incorrect email", "bogus@town.org", cltest.Password, false},
+		{"incorrect pwd", cltest.APIEmail, "jamaicandundada", false},
+		{"incorrect both", "dudus@coke.ja", "jamaicandundada", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sessionRequest := models.SessionRequest{
+				Email:    test.email,
+				Password: test.password,
+			}
+			sessionID, err := store.CheckPasswordForSession(sessionRequest)
+
+			if test.wantSession {
+				require.NoError(t, err)
+				assert.NotEmpty(t, sessionID)
+				user, err := store.FindUser()
+				require.NoError(t, err)
+				require.Equal(t, sessionID, user.SessionID)
+			} else {
+				require.Error(t, err)
+				assert.Empty(t, sessionID)
+			}
+		})
+	}
 }
