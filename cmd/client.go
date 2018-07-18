@@ -9,8 +9,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -250,8 +252,7 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 	return &promptingAPIInitializer{prompter: prompter}
 }
 
-// Initialize uses the terminal to get credentials from the user that it then saves in the
-// store.
+// Initialize uses the terminal to get credentials that it then saves in the store.
 func (t *promptingAPIInitializer) Initialize(store *store.Store) (models.User, error) {
 	if user, err := store.FindUser(); err == nil {
 		return user, err
@@ -270,4 +271,59 @@ func (t *promptingAPIInitializer) Initialize(store *store.Store) (models.User, e
 		}
 		return user, err
 	}
+}
+
+type fileAPIInitializer struct {
+	file string
+}
+
+// NewFileAPIInitializer creates a concrete instance of APIInitializer
+// that pulls API user credentials from the passed file path.
+func NewFileAPIInitializer(file string) APIInitializer {
+	return fileAPIInitializer{file: file}
+}
+
+func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) {
+	if user, err := store.FindUser(); err == nil {
+		return user, err
+	}
+
+	request, err := credentialsFromFile(f.file)
+	if err != nil {
+		return models.User{}, err
+	}
+
+	user, err := models.NewUser(request.email, request.password)
+	if err != nil {
+		return user, err
+	}
+	return user, store.Save(&user)
+}
+
+var errNoCredentialFile = errors.New("No API user credential file was passed")
+
+func credentialsFromFile(file string) (userCredentials, error) {
+	if len(file) == 0 {
+		return userCredentials{}, errNoCredentialFile
+	}
+
+	logger.Debug("Initializing API credentials from ", file)
+	dat, err := ioutil.ReadFile(file)
+	if err != nil {
+		return userCredentials{}, err
+	}
+	lines := strings.Split(string(dat), "\n")
+	if len(lines) < 2 {
+		return userCredentials{}, fmt.Errorf("Malformed API credentials file does not have at least two lines at %s", file)
+	}
+	credentials := userCredentials{
+		email:    strings.TrimSpace(lines[0]),
+		password: strings.TrimSpace(lines[1]),
+	}
+	return credentials, nil
+}
+
+type userCredentials struct {
+	email    string
+	password string
 }

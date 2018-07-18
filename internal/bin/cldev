@@ -26,7 +26,7 @@ if [ "$#" == 0 ]; then
   popd >/dev/null
   go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
 elif [ "$1" == "node" ]; then
-  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt ${@:2}
 elif [ "$1" == "clean" ]; then
   rm -f $ROOT/db.bolt $ROOT/log.jsonl
 else

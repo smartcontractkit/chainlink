@@ -565,9 +565,13 @@ type MockAPIInitializer struct {
 	Count int
 }
 
-func (m *MockAPIInitializer) Initialize(*store.Store) (models.User, error) {
+func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error) {
+	if user, err := store.FindUser(); err == nil {
+		return user, err
+	}
 	m.Count += 1
-	return MustUser(APIEmail, Password), nil
+	user := MustUser(APIEmail, Password)
+	return user, store.Save(&user)
 }
 
 func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {

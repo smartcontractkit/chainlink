@@ -151,3 +151,59 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	assert.Equal(t, initialUser.HashedPassword, user.HashedPassword)
 	assert.Empty(t, user.SessionID)
 }
+
+func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+	tests := []struct {
+		name      string
+		file      string
+		wantError bool
+	}{
+		{"correct", "../internal/fixtures/apicredentials", false},
+		{"no file", "", true},
+		{"incorrect file", "/tmp/doesnotexist", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore()
+			defer cleanup()
+
+			tfi := cmd.NewFileAPIInitializer(test.file)
+			user, err := tfi.Initialize(store)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, cltest.APIEmail, user.Email)
+				persistedUser, err := store.FindUser()
+				assert.NoError(t, err)
+				assert.Equal(t, persistedUser.Email, user.Email)
+			}
+		})
+	}
+}
+
+func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
+	require.NoError(t, store.Save(&initialUser))
+
+	tests := []struct {
+		name      string
+		file      string
+		wantError bool
+	}{
+		{"correct", "../internal/fixtures/apicredentials", false},
+		{"no file", "", true},
+		{"incorrect file", "/tmp/doesnotexist", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tfi := cmd.NewFileAPIInitializer(test.file)
+			user, err := tfi.Initialize(store)
+			assert.NoError(t, err)
+			assert.Equal(t, initialUser.Email, user.Email)
+		})
+	}
+}
