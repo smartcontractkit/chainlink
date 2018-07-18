@@ -224,6 +224,7 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &bridge)
 }
 
+// RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	_, err := cli.CookieAuthenticator.Authenticate()
 	return cli.errorOut(err)

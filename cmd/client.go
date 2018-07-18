@@ -230,8 +230,8 @@ func (t *TerminalCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, er
 	return request.Cookies()[0], nil
 }
 
-func (h *TerminalCookieAuthenticator) cookiePath() string {
-	return path.Join(h.config.RootDir, "cookie")
+func (t *TerminalCookieAuthenticator) cookiePath() string {
+	return path.Join(t.config.RootDir, "cookie")
 }
 
 // APIInitializer is the interface used to create the API User credentials
