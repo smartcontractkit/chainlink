@@ -14,7 +14,7 @@ export default {
   getRoutes: async () => {
     return [
       {
-        path: '/', 
+        path: '/',
         component: 'src/containers/Jobs',
         getData: () => buildInfo
       },
