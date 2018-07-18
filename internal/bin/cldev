@@ -24,9 +24,9 @@ if [ "$#" == 0 ]; then
   yarn install --no-progress | cat
   CHAINLINK_VERSION=$(chainlink --version) yarn build | cat
   popd >/dev/null
-  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt -a $ROOT/apicredentials
 elif [ "$1" == "node" ]; then
-  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt ${@:2}
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
 elif [ "$1" == "clean" ]; then
   rm -f $ROOT/db.bolt $ROOT/log.jsonl
 else
