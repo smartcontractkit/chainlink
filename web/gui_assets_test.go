@@ -14,28 +14,36 @@ func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/")
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/not_found")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/not_found")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/jjob_specs/abc123")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/jjob_specs/abc123")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rruns")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rruns")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/abc123")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/abc123")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rruns/abc123")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rruns/abc123")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 }
 
@@ -45,16 +53,20 @@ func TestGuiAssets_WildcardRouteInfo(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/routeInfo.json")
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/routeInfo.json")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rrouteInfo.json")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rrouteInfo.json")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/routeInfo.json")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/routeInfo.json")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/rrouteInfo.json")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/rrouteInfo.json")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 }
 
@@ -64,9 +76,11 @@ func TestGuiAssets_Exact(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	resp := cltest.BasicAuthGet(app.Server.URL + "/main.js")
+	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/main.js")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp = cltest.BasicAuthGet(app.Server.URL + "/mmain.js")
+	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/mmain.js")
+	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 }
