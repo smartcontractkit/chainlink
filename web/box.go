@@ -47,11 +47,18 @@ func MatchWildcardBoxPath(boxList []string, path string, file string) (matchedPa
 // MatchExactBoxPath returns the box path when there is an exact match for the
 // resource and an empty string otherwise
 func MatchExactBoxPath(boxList []string, path string) (matchedPath string) {
+	pathSeparator := (string)(os.PathSeparator)
 	pathWithoutPrefix := strings.TrimPrefix(path, "/")
+	normalizedPathAndFile := strings.Replace(
+		strings.TrimPrefix(pathWithoutPrefix, pathSeparator),
+		`/`,
+		pathSeparator,
+		-1,
+	)
 
 	for i := 0; i < len(boxList) && matchedPath == ""; i++ {
 		boxPath := boxList[i]
-		if boxPath == pathWithoutPrefix {
+		if boxPath == normalizedPathAndFile {
 			matchedPath = boxPath
 		}
 	}
