@@ -44,6 +44,10 @@ func Run(client *cmd.Client, args ...string) {
 			Aliases: []string{"n"},
 			Flags: []cli.Flag{
 				cli.StringFlag{
+					Name:  "api, a",
+					Usage: "text file holding the API email and password, each on a line",
+				},
+				cli.StringFlag{
 					Name:  "password, p",
 					Usage: "text file holding the password for the node's account",
 				},

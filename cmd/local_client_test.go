@@ -21,16 +21,13 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 
-	r := &cltest.RendererMock{}
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
 	client := cmd.Client{
-		Renderer:       r,
 		Config:         app.Store.Config,
 		AppFactory:     cltest.InstanceAppFactory{App: app.ChainlinkApplication},
 		Auth:           auth,
 		APIInitializer: &cltest.MockAPIInitializer{},
 		Runner:         cltest.EmptyRunner{},
-		RemoteClient:   cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 	}
 
 	set := flag.NewFlagSet("test", 0)
@@ -76,12 +73,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, _ := cltest.NewApplication() // cleanup invoked in client.RunNode
-			_, err := app.Store.KeyStore.NewAccount("password")
+			app, cleanup := cltest.NewApplication()
+			defer cleanup()
+			_, err := app.Store.KeyStore.NewAccount("password") // matches correct_password.txt
 			assert.NoError(t, err)
-			r := &cltest.RendererMock{}
-			eth := app.MockEthClient()
-			app.MustSeedUserSession()
 
 			var unlocked bool
 			callback := func(store *store.Store, phrase string) error {
@@ -91,31 +86,74 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 
 			auth := cltest.CallbackAuthenticator{Callback: callback}
-			apiInitializer := &cltest.MockAPIInitializer{}
+			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Renderer:       r,
 				Config:         app.Store.Config,
 				AppFactory:     cltest.InstanceAppFactory{App: app},
 				Auth:           auth,
-				APIInitializer: apiInitializer,
+				APIInitializer: apiPrompt,
 				Runner:         cltest.EmptyRunner{},
-				RemoteClient:   cltest.NewMockAuthenticatedRemoteClient(app.Store.Config),
 			}
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("password", test.pwdfile, "")
 			c := cli.NewContext(nil, set, nil)
 
+			eth := app.MockEthClient()
 			eth.Register("eth_getTransactionCount", `0x1`)
 			if test.wantUnlocked {
 				assert.NoError(t, client.RunNode(c))
 				assert.True(t, unlocked)
-				assert.Equal(t, 1, apiInitializer.Count)
+				assert.Equal(t, 1, apiPrompt.Count)
 			} else {
 				assert.Error(t, client.RunNode(c))
 				assert.False(t, unlocked)
-				assert.Equal(t, 0, apiInitializer.Count)
+				assert.Equal(t, 0, apiPrompt.Count)
 			}
+		})
+	}
+}
+
+func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
+	tests := []struct {
+		name       string
+		apiFile    string
+		wantPrompt bool
+		wantError  bool
+	}{
+		{"correct", "../internal/fixtures/apicredentials", false, false},
+		{"no file", "", true, false},
+		{"wrong file", "doesntexist.txt", false, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKeyStore()
+			defer cleanup()
+
+			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
+			apiPrompt := &cltest.MockAPIInitializer{}
+			client := cmd.Client{
+				Config:         app.Config,
+				AppFactory:     cltest.InstanceAppFactory{App: app},
+				Auth:           noauth,
+				APIInitializer: apiPrompt,
+				Runner:         cltest.EmptyRunner{},
+			}
+
+			set := flag.NewFlagSet("test", 0)
+			set.String("api", test.apiFile, "")
+			c := cli.NewContext(nil, set, nil)
+
+			eth := app.MockEthClient()
+			eth.Register("eth_getTransactionCount", `0x1`)
+
+			if test.wantError {
+				assert.Error(t, client.RunNode(c))
+			} else {
+				assert.NoError(t, client.RunNode(c))
+			}
+			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
 		})
 	}
 }

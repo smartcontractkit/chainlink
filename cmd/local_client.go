@@ -37,7 +37,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
+
 	var user models.User
+	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(store); err != nil && err != errNoCredentialFile {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	}
 	if user, err = cli.APIInitializer.Initialize(store); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
