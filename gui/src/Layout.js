@@ -13,6 +13,7 @@ import MenuIcon from '@material-ui/icons/Menu'
 import Flash from 'components/Flash'
 import universal from 'react-universal-component'
 import PrivateRoute from './PrivateRoute'
+import Tabs from 'components/Tabs'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
@@ -76,7 +77,7 @@ const styles = theme => {
 }
 
 class Layout extends Component {
-  constructor (props) {
+  constructor(props) {
     super(props)
     this.state = {drawerOpen: false}
     this.toggleDrawer = this.toggleDrawer.bind(this)
@@ -97,17 +98,17 @@ class Layout extends Component {
 
     const drawer = (
       <Drawer
-        anchor='right'
+        anchor="right"
         open={drawerOpen}
         classes={{
-          paper: classes.drawerPaper
+          paper: classes.drawerPaper,
         }}
         onClose={this.toggleDrawer}
       >
         <div className={classes.toolbar} />
         <div
           tabIndex={0}
-          role='button'
+          role="button"
           onClick={this.toggleDrawer}
         >
           <List className={classes.drawerList}>
@@ -116,6 +117,9 @@ class Layout extends Component {
             </ListItem>
             <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
               <ListItemText primary='Bridges' />
+            </ListItem>
+            <ListItem button component={Link} to='/create' className={classes.menuitem}>
+                <ListItemText primary="Create" />
             </ListItem>
             <ListItem button component={Link} to='/config' className={classes.menuitem}>
               <ListItemText primary='Configuration' />
@@ -131,7 +135,7 @@ class Layout extends Component {
           </List>
         </div>
       </Drawer>
-    )
+    );
 
     return (
       <Router>
@@ -143,7 +147,7 @@ class Layout extends Component {
               color='default'
               position='absolute'
             >
-              <Grid container alignItems='center' className={classes.appBarContent}>
+              <Grid container alignItems="center" className={classes.appBarContent}>
                 <Grid item xs={9}>
                   <Link to='/'>
                     <img src={logoImg} alt='Chainlink' width={121} height={44} />
@@ -152,7 +156,7 @@ class Layout extends Component {
                 <Grid item xs={3}>
                   <div align='right'>
                     <IconButton
-                      aria-label='open drawer'
+                      aria-label="open drawer"
                       onClick={this.toggleDrawer}
                       className={classes.menuButton}
                     >
@@ -182,6 +186,7 @@ class Layout extends Component {
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
                   <PrivateRoute exact path='/about' component={About} />
                   <PrivateRoute exact path='/config' component={Configuration} />
+                  <PrivateRoute exact path='/create' component={Tabs} />
                   <PrivateRoute exact path='/bridges' component={Bridges} />
                   <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
                   <PrivateRoute exact path='/' component={Jobs} />
