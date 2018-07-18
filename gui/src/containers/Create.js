@@ -9,7 +9,7 @@ import BridgeForm from "components/BridgeForm"
 import JobForm from "components/JobForm"
 import { Card } from '@material-ui/core';
 
-function TabContainer(props) {
+const TabContainer = props => {
   return (
     <Typography component="div" style={{ padding: 8 * 3 }}>
       {props.children}
@@ -26,16 +26,12 @@ const styles = theme => ({
         flexGrow: 1,
         backgroundColor: theme.palette.background.paper,
     },
-    textfield: {
-        padding: "10px 0px",
-        width: "200px"
-    },
     card: {
         paddingBottom: theme.spacing.unit * 2,
     }
 });
 
-class SimpleTabs extends React.Component {
+class WrappedTabs extends React.Component {
   state = {
     value: 0,
   };
@@ -51,7 +47,7 @@ class SimpleTabs extends React.Component {
     return (
         <div className={classes.root}>
         <br/>
-        <Card className={classes.card} style={{ position: "relative"}}>
+        <Card className={classes.card}>
         <AppBar position="static">
           <Tabs value={value} onChange={this.handleChange}>
             <Tab label="Create Bridge" />
@@ -66,8 +62,8 @@ class SimpleTabs extends React.Component {
   }
 }
 
-SimpleTabs.propTypes = {
+WrappedTabs.propTypes = {
   classes: PropTypes.object.isRequired,
 };
 
-export default withStyles(styles)(SimpleTabs);
+export default withStyles(styles)(WrappedTabs);
