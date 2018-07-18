@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -111,18 +112,11 @@ type filePersistedSecretGenerator struct{}
 
 func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	sessionPath := path.Join(c.RootDir, "secret")
-	if fileExists(sessionPath) {
+	if utils.FileExists(sessionPath) {
 		return ioutil.ReadFile(sessionPath)
 	}
 	key := securecookie.GenerateRandomKey(32)
 	return key, ioutil.WriteFile(sessionPath, key, 0644)
-}
-
-func fileExists(name string) bool {
-	if _, err := os.Stat(name); os.IsNotExist(err) {
-		return false
-	}
-	return true
 }
 
 func parseEnv(cfg interface{}) error {

@@ -16,7 +16,7 @@ func ExampleRun() {
 		Renderer:        cmd.RendererTable{Writer: ioutil.Discard},
 		Config:          tc.Config,
 		AppFactory:      cmd.ChainlinkAppFactory{},
-		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
+		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		UserInitializer: cltest.MockUserInitializer{},
 		Runner:          cmd.ChainlinkRunner{},
 		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(tc.Config),
@@ -36,6 +36,7 @@ func ExampleRun() {
 	// COMMANDS:
 	//      node, n                   Run the chainlink node
 	//      deleteuser                Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.
+	//      login                     Login to remote client by creating a session cookie
 	//      account, a                Display the account address with its ETH & LINK balances
 	//      jobspecs, jobs, j, specs  Get all jobs
 	//      show, s                   Show a specific job
@@ -62,7 +63,7 @@ func ExampleVersion() {
 		Renderer:        cmd.RendererTable{Writer: ioutil.Discard},
 		Config:          tc.Config,
 		AppFactory:      cmd.ChainlinkAppFactory{},
-		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
+		Auth:            cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		UserInitializer: cltest.MockUserInitializer{},
 		Runner:          cmd.ChainlinkRunner{},
 		RemoteClient:    cltest.NewMockAuthenticatedRemoteClient(tc.Config),
