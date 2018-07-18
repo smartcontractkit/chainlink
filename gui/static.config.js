@@ -3,6 +3,9 @@ import { SheetsRegistry } from 'react-jss/lib/jss'
 import JssProvider from 'react-jss/lib/JssProvider'
 import { MuiThemeProvider, createMuiTheme, createGenerateClassName } from '@material-ui/core/styles'
 import theme from './src/theme' // Custom Material UI theme
+import extractBuildInfo from './src/utils/extractBuildInfo'
+
+const buildInfo = extractBuildInfo()
 
 export default {
   getSiteData: () => ({
@@ -10,7 +13,11 @@ export default {
   }),
   getRoutes: async () => {
     return [
-      {path: '/', component: 'src/containers/Jobs'},
+      {
+        path: '/',
+        component: 'src/containers/Jobs',
+        getData: () => buildInfo
+      },
       {path: '/job_specs/_jobSpecId_'},
       {path: '/job_specs/_jobSpecId_/runs'},
       {path: '/job_specs/_jobSpecId_/runs/_jobRunId_'},
@@ -19,13 +26,7 @@ export default {
       {
         path: '/about',
         component: 'src/containers/About',
-        getData: () => {
-          const matches = (/(\d+\.\d+\.\d+)@(.+)$/g).exec(process.env.CHAINLINK_VERSION) || []
-          return {
-            version: matches[1] || 'unknown',
-            sha: matches[2] || 'unknown'
-          }
-        }
+        getData: () => buildInfo
       },
       {is404: true, component: 'src/containers/404'}
     ]
