@@ -19,9 +19,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 		name, email, pwd string
 	}{
 		{"bad email", "notreal", cltest.Password},
-		{"bad pwd", cltest.UserEmail, "mostcommonwrongpwdever"},
+		{"bad pwd", cltest.APIEmail, "mostcommonwrongpwdever"},
 		{"bad both", "notreal", "mostcommonwrongpwdever"},
-		{"correct", cltest.UserEmail, cltest.Password},
+		{"correct", cltest.APIEmail, cltest.Password},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -48,9 +48,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 		wantError        bool
 	}{
 		{"bad email", "notreal", cltest.Password, true},
-		{"bad pwd", cltest.UserEmail, "mostcommonwrongpwdever", true},
+		{"bad pwd", cltest.APIEmail, "mostcommonwrongpwdever", true},
 		{"bad both", "notreal", "mostcommonwrongpwdever", true},
-		{"success", cltest.UserEmail, cltest.Password, false},
+		{"success", cltest.APIEmail, cltest.Password, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	initialUser := cltest.MustUser(cltest.UserEmail, cltest.Password)
+	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
 	require.NoError(t, store.Save(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{}

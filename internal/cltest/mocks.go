@@ -567,7 +567,7 @@ type MockAPIInitializer struct {
 
 func (m *MockAPIInitializer) Initialize(*store.Store) (models.User, error) {
 	m.Count += 1
-	return MustUser(UserEmail, Password), nil
+	return MustUser(APIEmail, Password), nil
 }
 
 func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
@@ -579,11 +579,11 @@ type MockCookieAuthenticator struct {
 }
 
 func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(UserSessionID), m.Error
+	return MustGenerateSessionCookie(APISessionID), m.Error
 }
 
 func (m MockCookieAuthenticator) Authenticate() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(UserSessionID), m.Error
+	return MustGenerateSessionCookie(APISessionID), m.Error
 }
 
 type mockSecretGenerator struct{}
