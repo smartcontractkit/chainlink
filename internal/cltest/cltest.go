@@ -43,11 +43,11 @@ const (
 	// Username the test username
 	Username = "testusername"
 	// Email of the API user
-	UserEmail = "email@test.net"
+	APIEmail = "email@test.net"
 	// Password the password
 	Password = "password"
 	// Session ID for API user
-	UserSessionID = "session"
+	APISessionID = "session"
 	// SessionSecret is the temporarily hardcoded secret
 	SessionSecret = "clsession_test_secret"
 )
@@ -214,7 +214,7 @@ func (ta *TestApplication) Stop() error {
 }
 
 func (ta *TestApplication) MustSeedUserSession() models.User {
-	mockUser := MustUser(UserEmail, Password, UserSessionID)
+	mockUser := MustUser(APIEmail, Password, APISessionID)
 	mustNotErr(ta.Store.Save(&mockUser))
 	return mockUser
 }
