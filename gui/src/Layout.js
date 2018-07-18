@@ -10,7 +10,6 @@ import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import universal from 'react-universal-component'
-import Tabs from 'components/Tabs'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
@@ -19,10 +18,10 @@ import logoImg from './logo.svg'
 // Use universal-react-component for code-splitting non-static routes
 const Bridges = universal(import('./containers/Bridges'))
 const Configuration = universal(import('./containers/Configuration'))
+const Create = universal(import('./containers/Create'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
 const JobSpecRun = universal(import('./containers/JobSpecRun'))
-
 const appBarHeight = 64
 const drawerWidth = 240
 
@@ -163,7 +162,7 @@ class Layout extends Component {
                 <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
                 <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                 <Route exact path='/job_specs/:jobSpecId/runs/:jobRunId' component={JobSpecRun} />
-                <Route exact path='/create' component={Tabs} />
+                <Route exact path='/create' component={Create} />
                 <Route exact path='/config' component={Configuration} />
                 <Route exact path='/bridges' component={Bridges} />
                 <Routes />

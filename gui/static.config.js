@@ -14,6 +14,7 @@ export default {
       {path: '/job_specs/_jobSpecId_/runs/_jobRunId_'},
       {path: '/bridges'},
       {path: '/config'},
+      {path: '/create'},
       {
         path: '/about',
         component: 'src/containers/About',
