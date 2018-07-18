@@ -18,9 +18,9 @@
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
   },
   "devDependencies": {
-    "axios": "^0.18.0",
     "@material-ui/core": "^1.0.0",
     "@material-ui/icons": "^1.0.0",
+    "axios": "^0.18.0",
     "babel-eslint": "^8.2.6",
     "babel-plugin-transform-es3-member-expression-literals": "^6.22.0",
     "babel-plugin-transform-es3-property-literals": "^6.22.0",
@@ -54,6 +54,7 @@
     "react-redux": "^5.0.7",
     "react-router": "^4.3.0",
     "react-static": "^5.9.7",
+    "react-toastify": "^4.1.0",
     "react-universal-component": "^2.9.0",
     "redux": "^4.0.0",
     "redux-thunk": "^2.3.0",
@@ -65,11 +66,11 @@
     "standard": "^11.0.1",
     "truffle": "^4.1.12",
     "truffle-contract": "^3.0.6",
-    "yup": "^0.25.1",
     "url": "^0.11.0",
     "uuid": "^3.2.1",
     "web3": "^1.0.0-beta.29",
-    "wscat": "^2.1.1"
+    "wscat": "^2.1.1",
+    "yup": "^0.25.1"
   },
   "standard": {
     "parser": "babel-eslint",
