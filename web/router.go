@@ -59,7 +59,7 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 		sessionID, ok := session.Get(SessionIDKey).(string)
 		if !ok || sessionID == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
-		} else if _, err := store.FindUserBySession(sessionID); err != nil {
+		} else if _, err := store.AuthorizedUserWithSession(sessionID); err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Next()

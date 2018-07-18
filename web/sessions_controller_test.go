@@ -48,7 +48,7 @@ func TestSessionsController_create(t *testing.T) {
 				assert.Equal(t, 1, len(cookies))
 				decrypted, err := cltest.DecodeSessionCookie(cookies[0].Value)
 				require.NoError(t, err)
-				user, err := app.Store.FindUserBySession(decrypted)
+				user, err := app.Store.AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 			} else {

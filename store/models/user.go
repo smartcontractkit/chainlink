@@ -12,7 +12,7 @@ type User struct {
 	Email          string `json:"email" storm:"id,unique"`
 	HashedPassword string `json:"hashedPassword"`
 	SessionID      string `json:"sessionId" storm:"index,unique"`
-	CreatedAt      Time   `json:"createdAt"`
+	CreatedAt      Time   `json:"createdAt" storm:"index"`
 }
 
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
