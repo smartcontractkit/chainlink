@@ -11,7 +11,6 @@ extern crate sgx_types;
 #[cfg(not(target_env = "sgx"))]
 #[macro_use]
 extern crate sgx_tstd as std;
-extern crate sgxwasm;
 extern crate wasmi;
 
 mod util;
