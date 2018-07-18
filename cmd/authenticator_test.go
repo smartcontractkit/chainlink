@@ -14,7 +14,7 @@ func TestTerminalAuthenticatorWithNoAcctNoPwdCreatesAccount(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	prompt := &cltest.MockCountingPrompt{EnteredStrings: []string{
+	prompt := &cltest.MockCountingPrompter{EnteredStrings: []string{
 		cltest.Password, "wrongconfirmation", cltest.Password, cltest.Password,
 	}}
 
@@ -31,7 +31,7 @@ func TestTerminalAuthenticatorWithNoAcctWithInitialPwdCreatesAcct(t *testing.T) 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}}
+	auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
 
 	assert.Equal(t, 0, len(app.Store.KeyStore.Accounts()))
 	assert.NoError(t, auth.Authenticate(app.Store, "somepassword"))
@@ -46,7 +46,7 @@ func TestTerminalAuthenticatorWithAcctNoInitialPwdPromptLoop(t *testing.T) {
 	defer cleanup()
 
 	// prompt loop tries all in array
-	prompt := &cltest.MockCountingPrompt{
+	prompt := &cltest.MockCountingPrompter{
 		EnteredStrings: []string{"wrongpassword", cltest.Password},
 	}
 
@@ -71,7 +71,7 @@ func TestTerminalAuthenticatorWithAcctAndPwd(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.password, func(t *testing.T) {
-			auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}}
+			auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
 			err := auth.Authenticate(app.Store, test.password)
 			assert.Equal(t, test.wantError, err != nil)
 		})

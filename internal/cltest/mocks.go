@@ -410,28 +410,28 @@ func (r EmptyRunner) Run(app services.Application) error {
 	return nil
 }
 
-// MockCountingPrompt is a mock counting prompt
-type MockCountingPrompt struct {
+// MockCountingPrompter is a mock counting prompt
+type MockCountingPrompter struct {
 	EnteredStrings []string
 	Count          int
 }
 
 // Prompt returns an entered string
-func (p *MockCountingPrompt) Prompt(string) string {
+func (p *MockCountingPrompter) Prompt(string) string {
 	i := p.Count
 	p.Count++
 	return p.EnteredStrings[i]
 }
 
 // PasswordPrompt returns an entered string
-func (p *MockCountingPrompt) PasswordPrompt(string) string {
+func (p *MockCountingPrompter) PasswordPrompt(string) string {
 	i := p.Count
 	p.Count++
 	return p.EnteredStrings[i]
 }
 
 // IsTerminal always returns true in tests
-func (p *MockCountingPrompt) IsTerminal() bool {
+func (p *MockCountingPrompter) IsTerminal() bool {
 	return true
 }
 
@@ -571,10 +571,16 @@ func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 
-type MockCookieAuthenticator struct{}
+type MockCookieAuthenticator struct {
+	Error error
+}
+
+func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
+	return MustGenerateSessionCookie(UserSessionID), m.Error
+}
 
 func (m MockCookieAuthenticator) Authenticate() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(UserSessionID), nil
+	return MustGenerateSessionCookie(UserSessionID), m.Error
 }
 
 type mockSecretGenerator struct{}

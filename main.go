@@ -61,6 +61,11 @@ func Run(client *cmd.Client, args ...string) {
 			Action: client.DeleteUser,
 		},
 		{
+			Name:   "login",
+			Usage:  "Login to remote client by creating a session cookie",
+			Action: client.RemoteLogin,
+		},
+		{
 			Name:    "account",
 			Aliases: []string{"a"},
 			Usage:   "Display the account address with its ETH & LINK balances",
@@ -141,13 +146,15 @@ func Run(client *cmd.Client, args ...string) {
 // in production.
 func NewProductionClient() *cmd.Client {
 	cfg := store.NewConfig()
+	cookieAuth := cmd.NewTerminalCookieAuthenticator(cfg, cmd.NewTerminalPrompter())
 	return &cmd.Client{
-		Renderer:        cmd.RendererTable{Writer: os.Stdout},
-		Config:          cfg,
-		AppFactory:      cmd.ChainlinkAppFactory{},
-		Auth:            cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
-		UserInitializer: cmd.NewTerminalUserInitializer(),
-		Runner:          cmd.ChainlinkRunner{},
-		RemoteClient:    cmd.NewAuthenticatedHTTPClient(cfg, cmd.NewTerminalCookieAuthenticator(cfg, cmd.NewTerminalPrompter())),
+		Renderer:            cmd.RendererTable{Writer: os.Stdout},
+		Config:              cfg,
+		AppFactory:          cmd.ChainlinkAppFactory{},
+		Auth:                cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
+		UserInitializer:     cmd.NewTerminalUserInitializer(),
+		Runner:              cmd.ChainlinkRunner{},
+		RemoteClient:        cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
+		CookieAuthenticator: cookieAuth,
 	}
 }

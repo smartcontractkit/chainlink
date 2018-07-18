@@ -108,9 +108,9 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	*services.ChainlinkApplication
-	Server     *httptest.Server
-	wsServer   *httptest.Server
-	testConfig *TestConfig
+	Config   store.Config
+	Server   *httptest.Server
+	wsServer *httptest.Server
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -167,9 +167,9 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	ethMock := MockEthOnStore(app.Store)
 	ta := &TestApplication{
 		ChainlinkApplication: app,
+		Config:               tc.Config,
 		Server:               server,
 		wsServer:             tc.wsServer,
-		testConfig:           tc,
 	}
 	return ta, func() {
 		if !ethMock.AllCalled() {
@@ -226,7 +226,7 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 func (ta *TestApplication) NewRemoteClient() RemoteClientCleaner {
 	ta.MustSeedUserSession()
 	return RemoteClientCleaner{
-		RemoteClient: NewMockAuthenticatedRemoteClient(ta.testConfig.Config),
+		RemoteClient: NewMockAuthenticatedRemoteClient(ta.Config),
 	}
 }
 
@@ -235,13 +235,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	ta.MustSeedUserSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:        r,
-		Config:          ta.testConfig.Config,
-		AppFactory:      EmptyAppFactory{},
-		Auth:            CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		UserInitializer: MockUserInitializer{},
-		Runner:          EmptyRunner{},
-		RemoteClient:    NewMockAuthenticatedRemoteClient(ta.testConfig.Config),
+		Renderer:            r,
+		Config:              ta.Config,
+		AppFactory:          EmptyAppFactory{},
+		Auth:                CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		UserInitializer:     MockUserInitializer{},
+		Runner:              EmptyRunner{},
+		RemoteClient:        NewMockAuthenticatedRemoteClient(ta.Config),
+		CookieAuthenticator: MockCookieAuthenticator{},
 	}
 	return client, r
 }
