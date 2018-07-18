@@ -33,7 +33,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
-	err = cli.Auth.Authenticate(store, pwd)
+	err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}

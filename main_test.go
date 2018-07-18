@@ -13,10 +13,10 @@ func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
-		Config:     tc.Config,
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
+		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
+		Config:                 tc.Config,
+		AppFactory:             cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
 		RemoteClient:           cltest.NewMockAuthenticatedRemoteClient(tc.Config),
@@ -60,10 +60,10 @@ func ExampleVersion() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
-		Config:     tc.Config,
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
+		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
+		Config:                 tc.Config,
+		AppFactory:             cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
 		RemoteClient:           cltest.NewMockAuthenticatedRemoteClient(tc.Config),
