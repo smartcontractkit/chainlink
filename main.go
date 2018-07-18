@@ -146,13 +146,14 @@ func Run(client *cmd.Client, args ...string) {
 // in production.
 func NewProductionClient() *cmd.Client {
 	cfg := store.NewConfig()
-	cookieAuth := cmd.NewTerminalCookieAuthenticator(cfg, cmd.NewTerminalPrompter())
+	prompter := cmd.NewTerminalPrompter()
+	cookieAuth := cmd.NewTerminalCookieAuthenticator(cfg, prompter)
 	return &cmd.Client{
 		Renderer:            cmd.RendererTable{Writer: os.Stdout},
 		Config:              cfg,
 		AppFactory:          cmd.ChainlinkAppFactory{},
-		Auth:                cmd.TerminalAuthenticator{Prompter: cmd.NewTerminalPrompter()},
-		APIInitializer:      cmd.NewTerminalAPIInitializer(),
+		Auth:                cmd.TerminalAuthenticator{Prompter: prompter},
+		APIInitializer:      cmd.NewPromptingAPIInitializer(prompter),
 		Runner:              cmd.ChainlinkRunner{},
 		RemoteClient:        cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
 		CookieAuthenticator: cookieAuth,
