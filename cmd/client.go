@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -231,4 +232,42 @@ func (t *TerminalCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, er
 
 func (h *TerminalCookieAuthenticator) cookiePath() string {
 	return path.Join(h.config.RootDir, "cookie")
+}
+
+// APIInitializer is the interface used to create the API User credentials
+// needed to access the API.
+type APIInitializer interface {
+	Initialize(store *store.Store) (models.User, error)
+}
+
+type promptingAPIInitializer struct {
+	prompter Prompter
+}
+
+// NewPromptingAPIInitializer creates a concrete instance of APIInitializer
+// that uses the terminal to solicit credentials from the user.
+func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter}
+}
+
+// Initialize uses the terminal to get credentials from the user that it then saves in the
+// store.
+func (t *promptingAPIInitializer) Initialize(store *store.Store) (models.User, error) {
+	if user, err := store.FindUser(); err == nil {
+		return user, err
+	}
+
+	for {
+		email := t.prompter.Prompt("Enter API Email: ")
+		pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+		user, err := models.NewUser(email, pwd)
+		if err != nil {
+			fmt.Println("Error creating API user: ", err)
+			continue
+		}
+		if err = store.Save(&user); err != nil {
+			fmt.Println("Error creating API user: ", err)
+		}
+		return user, err
+	}
 }

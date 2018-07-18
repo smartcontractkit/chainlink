@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/utils"
@@ -16,6 +17,10 @@ type User struct {
 
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
 func NewUser(email, plainPwd string) (User, error) {
+	if len(email) == 0 || len(plainPwd) == 0 {
+		return User{}, errors.New("Must enter an email or password")
+	}
+
 	pwd, err := utils.HashPassword(plainPwd)
 	if err != nil {
 		return User{}, err
