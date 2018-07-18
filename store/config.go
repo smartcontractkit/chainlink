@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -113,10 +114,15 @@ type filePersistedSecretGenerator struct{}
 func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	sessionPath := path.Join(c.RootDir, "secret")
 	if utils.FileExists(sessionPath) {
-		return ioutil.ReadFile(sessionPath)
+		data, err := ioutil.ReadFile(sessionPath)
+		if err != nil {
+			return data, err
+		}
+		return base64.StdEncoding.DecodeString(string(data))
 	}
 	key := securecookie.GenerateRandomKey(32)
-	return key, ioutil.WriteFile(sessionPath, key, 0644)
+	str := base64.StdEncoding.EncodeToString(key)
+	return key, ioutil.WriteFile(sessionPath, []byte(str), 0644)
 }
 
 func parseEnv(cfg interface{}) error {
