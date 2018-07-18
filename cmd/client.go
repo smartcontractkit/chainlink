@@ -26,13 +26,13 @@ import (
 // Config, AppFactory (the services application), KeyStoreAuthenticator, and Runner.
 type Client struct {
 	Renderer
-	Config              store.Config
-	AppFactory          AppFactory
-	Auth                KeyStoreAuthenticator
-	APIInitializer      APIInitializer
-	Runner              Runner
-	RemoteClient        RemoteClient
-	CookieAuthenticator CookieAuthenticator
+	Config                 store.Config
+	AppFactory             AppFactory
+	Auth                   KeyStoreAuthenticator
+	FallbackAPIInitializer APIInitializer
+	Runner                 Runner
+	RemoteClient           RemoteClient
+	CookieAuthenticator    CookieAuthenticator
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -237,8 +237,9 @@ func (t *TerminalCookieAuthenticator) cookiePath() string {
 }
 
 // APIInitializer is the interface used to create the API User credentials
-// needed to access the API.
+// needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
+	// Initialize creates a new user for API access, or does nothing if one exists.
 	Initialize(store *store.Store) (models.User, error)
 }
 

@@ -231,14 +231,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	ta.MustSeedUserSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:            r,
-		Config:              ta.Config,
-		AppFactory:          EmptyAppFactory{},
-		Auth:                CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		APIInitializer:      &MockAPIInitializer{},
-		Runner:              EmptyRunner{},
-		RemoteClient:        NewMockAuthenticatedRemoteClient(ta.Config),
-		CookieAuthenticator: MockCookieAuthenticator{},
+		Renderer:   r,
+		Config:     ta.Config,
+		AppFactory: EmptyAppFactory{},
+		Auth:       CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		FallbackAPIInitializer: &MockAPIInitializer{},
+		Runner:                 EmptyRunner{},
+		RemoteClient:           NewMockAuthenticatedRemoteClient(ta.Config),
+		CookieAuthenticator:    MockCookieAuthenticator{},
 	}
 	return client, r
 }
