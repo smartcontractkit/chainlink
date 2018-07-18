@@ -57,6 +57,7 @@
     "react-redux": "^5.0.7",
     "react-router": "^4.3.0",
     "react-static": "^5.9.7",
+    "react-toastify": "^4.1.0",
     "react-universal-component": "^2.9.0",
     "redux": "^4.0.0",
     "redux-mock-store": "^1.5.3",
@@ -69,11 +70,11 @@
     "standard": "^11.0.1",
     "truffle": "^4.1.12",
     "truffle-contract": "^3.0.6",
-    "yup": "^0.25.1",
     "url": "^0.11.0",
     "uuid": "^3.2.1",
     "web3": "^1.0.0-beta.29",
-    "wscat": "^2.1.1"
+    "wscat": "^2.1.1",
+    "yup": "^0.25.1"
   },
   "standard": {
     "parser": "babel-eslint",
