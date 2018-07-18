@@ -73,6 +73,7 @@ enum WasmError {
     FromUtf8Error(std::string::FromUtf8Error),
     WasmError(wasm::Error),
     OutputCStrError(util::OutputCStrError),
+    UnexpectedOutputError,
 }
 
 impl From<std::string::FromUtf8Error> for WasmError {
@@ -112,13 +113,11 @@ fn wasm(
     let output = wasm::exec(&wasmt, &arguments)?;
     println!("output: {:?}", output);
 
-    // FIXME: This prints the value as I32(1) which is not super useful right now
-    copy_string_to_cstr_ptr(
-        &format!("{:?}", output),
-        result_ptr,
-        result_capacity,
-        result_len,
-    )?;
+    let value = match output {
+        wasmi::RuntimeValue::I32(v) => format!("{}", v),
+        _ => return Err(WasmError::UnexpectedOutputError),
+    };
 
+    copy_string_to_cstr_ptr(&value, result_ptr, result_capacity, result_len)?;
     Ok(())
 }
