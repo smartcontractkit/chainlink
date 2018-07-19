@@ -11,7 +11,7 @@ import JobRunsList from 'components/JobRunsList'
 import formatInitiators from 'utils/formatInitiators'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import Link from 'components/Link'
-import Copy from 'components/CopyJobSpec'
+import CopyJobSpec from 'components/CopyJobSpec'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -22,6 +22,7 @@ import {
   jobRunsCountSelector
 } from 'selectors'
 import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
+import { Divider } from '@material-ui/core'
 
 const styles = theme => ({
   title: {
@@ -50,11 +51,14 @@ const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
-        <Typography variant='title' className={classes.definitionTitle}>
-          Definition
-        </Typography>
-        <Copy JobSpec={JSON.stringify(jobSpecDefinition(jobSpec), null, "\t")}/>     
-	<PrettyJson object={jobSpecDefinition(jobSpec)} />
+        <p style={{display: 'inline'}}>
+          <Typography variant='title' className={classes.definitionTitle}>
+            Definition
+          </Typography>
+          <CopyJobSpec JobSpec={JSON.stringify(jobSpecDefinition(jobSpec), null, '\t')} />
+          <Divider />
+        </p>
+        <PrettyJson object={jobSpecDefinition(jobSpec)} />
       </PaddedCard>
     </Grid>
     <Grid item xs={4}>

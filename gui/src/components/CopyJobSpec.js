@@ -1,43 +1,19 @@
-import React from "react";
-import Button from '@material-ui/core/Button';
-import Typography from '@material-ui/core/Typography'
-import { withStyles } from '@material-ui/core/styles';
-import { CopyToClipboard } from "react-copy-to-clipboard";
+import React from 'react'
+import { withStyles } from '@material-ui/core/styles'
+import Copy from 'components/Copy'
 
 const styles = theme => ({
   button: {
-    margin: theme.spacing.unit,
-  },
-  inform: {
-	display: "inline-block",
-    opacity: "1",
+    margin: theme.spacing.unit
   }
-});
-    
+})
 
-class Copy extends React.Component {
-  state = {
-    copied: false
-  };
-
-  render() {
-    return (
-      <div>
-        <CopyToClipboard text={this.props.JobSpec} onCopy={() => this.setState({ copied: true })}>
-      	<Button variant="contained" className={this.props.classes.button}>
-			Copy JobSpec
-	  	</Button>
-        </CopyToClipboard>
-        {
-		this.state.copied
-				&& 
-		<Typography className={this.props.classes.inform} color="primary"> 
-			Copied 
-		</Typography>
-		}
-	  </div> 
-    );
-  }
+const CopyJobSpec = ({classes, JobSpec}) => {
+  return (
+    <div className={classes.button}>
+      <Copy buttonText='Copy JobSpec' data={JobSpec} />
+    </div>
+  )
 }
 
-export default withStyles(styles)(Copy);
+export default withStyles(styles)(CopyJobSpec)
