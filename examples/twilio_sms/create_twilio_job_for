@@ -11,10 +11,12 @@ const job = {
   "tasks": [{ "type": "HttpPost", "url": "http://localhost:6691" }]
 };
 
-const request = require('request');
+const request = require("request").defaults({jar: true});
+let sessionsUrl = "http://localhost:6688/sessions";
+let credentials = {email: "notreal@fakeemail.ch", password: "twochains"};
+request.post(sessionsUrl, {json: credentials});
 request.post({
   url: 'http://localhost:6688/v2/specs',
   body: job,
-  json: true,
-  auth: {username: 'chainlink', password: 'twochains'}
+  json: true
 }, function(err, response, body) { console.log(body) });
