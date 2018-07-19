@@ -18,8 +18,8 @@
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
   },
   "devDependencies": {
-    "@material-ui/core": "^1.0.0",
-    "@material-ui/icons": "^1.0.0",
+    "@material-ui/core": "^1.4.0",
+    "@material-ui/icons": "^1.1.0",
     "babel-eslint": "^8.2.6",
     "babel-plugin-transform-es3-member-expression-literals": "^6.22.0",
     "babel-plugin-transform-es3-property-literals": "^6.22.0",
