@@ -24,7 +24,7 @@ const styles = theme => ({
   }
 })
 
-const App = ({ values, isSubmitting, classes, handleChange }) => (
+const App = ({ json, isSubmitting, classes, handleChange }) => (
   <div className={classes.wrapform}>
     <br />
     <Form className={classes.form}>
@@ -37,6 +37,7 @@ const App = ({ values, isSubmitting, classes, handleChange }) => (
           multiline
           className={classes.jsonfield}
           margin='normal'
+          value={json}
         />
       </div>
       <Button color='primary' type='submit' disabled={isSubmitting}>
