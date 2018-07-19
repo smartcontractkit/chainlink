@@ -88,6 +88,9 @@ const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
           </Grid>
         </Grid>
       </PaddedCard>
+      <Link to={{ pathname: '/create', state: { passedJson: jobSpecDefinition(jobSpec) } }} className={classes.title} >
+        Create From This Spec
+      </Link>
     </Grid>
   </Grid>
 )
@@ -102,7 +105,7 @@ const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount}) => 
       <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
     </Card>
     {jobRunsCount > LATEST_JOB_RUNS_COUNT &&
-      <Link to={`/job_specs/${jobSpecId}/runs`} className={classes.showMore}>
+      <Link to={`/job_specs/${jobSpecId}/runs`}>
         Show More
       </Link>
     }

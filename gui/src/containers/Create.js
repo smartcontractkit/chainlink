@@ -43,20 +43,41 @@ class WrappedTabs extends React.Component {
   render () {
     const { classes } = this.props
     const { value } = this.state
+    var passedJson = ""
+    if( typeof(this.props.location.state) == 'undefined' ){
+      passedJson = ""
+    }
+    else{
+      passedJson = JSON.stringify(this.props.location.state.passedJson, null, "\t")
+    }
+    const isEmptyJson = passedJson.trim() == ""
 
     return (
       <div className={classes.root}>
         <br />
-        <Card className={classes.card}>
-          <AppBar position='static'>
-            <Tabs value={value} onChange={this.handleChange}>
-              <Tab label='Create Bridge' />
-              <Tab label='Create Job' />
-            </Tabs>
-          </AppBar>
-          {value === 0 && <TabContainer><BridgeForm /></TabContainer>}
-          {value === 1 && <TabContainer><JobForm /></TabContainer>}
-        </Card>
+        {
+          isEmptyJson 
+          ?
+            <Card className={classes.card}>
+              <AppBar position='static'>
+                <Tabs value={value} onChange={this.handleChange}>
+                  <Tab label='Create Bridge' />
+                  <Tab label='Create Job' />
+                </Tabs>
+              </AppBar>
+              {(value === 0 && isEmptyJson) && <TabContainer><BridgeForm /></TabContainer>}
+              {(value === 1 || !isEmptyJson) && <TabContainer><JobForm /></TabContainer>}
+            </Card>
+         :
+            <Card className={classes.card}>
+              <AppBar position='static'>
+                <Tabs value={value} onChange={this.handleChange}>
+                  <Tab label='Create Job From Spec' />
+                </Tabs>
+              </AppBar>
+              {(value === 0) && <TabContainer><JobForm json={passedJson} /></TabContainer>}
+            </Card>
+        }
       </div>
     )
   }
