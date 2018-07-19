@@ -113,9 +113,13 @@ contract Oracle is Ownable {
     callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
   }
 
-  function withdraw(address _recipient) public onlyOwner {
-    LINK.transfer(_recipient, withdrawableWei.sub(oneForConsistentGasCost));
-    withdrawableWei = oneForConsistentGasCost;
+  function withdraw(address _recipient, uint256 _amount)
+    public
+    onlyOwner
+    hasAvailableFunds(_amount)
+  {
+    withdrawableWei = withdrawableWei.sub(_amount);
+    LINK.transfer(_recipient, _amount);
   }
 
   function cancel(bytes32 _externalId)
@@ -129,6 +133,11 @@ contract Oracle is Ownable {
   }
 
   // MODIFIERS
+
+  modifier hasAvailableFunds(uint256 _amount) {
+    require(withdrawableWei >= _amount.add(oneForConsistentGasCost), "Amount requested is greater than withdrawable balance");
+    _;
+  }
 
   modifier hasInternalId(uint256 _internalId) {
     require(callbacks[_internalId].addr != address(0), "Must have a valid internalId");
