@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import Link from 'components/Link'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -27,7 +28,7 @@ const renderBridges = bridges => (
   bridges.map(b => (
     <TableRow key={b.name}>
       <TableCell component='th' scope='row'>
-        <Typography variant='body1'>{b.name}</Typography>
+        <Link to={`/bridges/${b.name}`}>{b.name}</Link>
       </TableCell>
       <TableCell>
         <Typography variant='body1'>{b.url}</Typography>
