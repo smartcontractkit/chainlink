@@ -226,8 +226,25 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
-	_, err := cli.CookieAuthenticator.Authenticate()
+	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.CookieAuthenticator.Authenticate(sessionRequest)
 	return cli.errorOut(err)
+}
+
+func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
+	var allerrs error
+	for _, builder := range cli.SessionRequestBuilders {
+		sessionRequest, err := builder.Build(flag)
+		if err == nil {
+			return sessionRequest, nil
+		}
+		allerrs = multierr.Append(allerrs, err)
+	}
+
+	return models.SessionRequest{}, allerrs
 }
 
 func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {

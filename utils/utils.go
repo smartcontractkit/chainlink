@@ -1,6 +1,5 @@
 // Package utils is used for the common functions for dealing with
-// conversion to and from hex, bytes, and strings, formatting time,
-// and basic HTTP authentication.
+// conversion to and from hex, bytes, and strings, formatting time.
 package utils
 
 import (

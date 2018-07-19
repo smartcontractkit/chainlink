@@ -1,11 +1,13 @@
 package cmd_test
 
 import (
+	"errors"
 	"path"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,11 +27,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			entering := []string{test.email, test.pwd}
-			prompter := &cltest.MockCountingPrompter{EnteredStrings: entering}
-
-			tca := cmd.NewTerminalCookieAuthenticator(app.Config, prompter)
-			cookie, err := tca.Authenticate()
+			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
+			tca := cmd.NewSessionCookieAuthenticator(app.Config)
+			cookie, err := tca.Authenticate(sr)
 
 			assert.Error(t, err)
 			assert.Nil(t, cookie)
@@ -54,11 +54,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			entering := []string{test.email, test.pwd}
-			prompter := &cltest.MockCountingPrompter{EnteredStrings: entering}
-
-			tca := cmd.NewTerminalCookieAuthenticator(app.Config, prompter)
-			cookie, err := tca.Authenticate()
+			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
+			tca := cmd.NewSessionCookieAuthenticator(app.Config)
+			cookie, err := tca.Authenticate(sr)
 
 			if test.wantError {
 				assert.Error(t, err)
@@ -88,7 +86,7 @@ func TestTerminalCookieAuthenticator_Cookie(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config.RootDir = test.rootDir
-			tca := cmd.NewTerminalCookieAuthenticator(config, nil)
+			tca := cmd.NewSessionCookieAuthenticator(config)
 			cookie, err := tca.Cookie()
 			if test.wantError {
 				assert.Error(t, err)
@@ -204,6 +202,55 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 			user, err := tfi.Initialize(store)
 			assert.NoError(t, err)
 			assert.Equal(t, initialUser.Email, user.Email)
+		})
+	}
+}
+
+func TestPromptingSessionRequestBuilder(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		email, pwd string
+	}{
+		{"correct@input.com", "mypwd"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.email, func(t *testing.T) {
+			enteredStrings := []string{test.email, test.pwd}
+			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+			builder := cmd.NewPromptingSessionRequestBuilder(prompter)
+
+			sr, err := builder.Build("")
+			require.NoError(t, err)
+			assert.Equal(t, test.email, sr.Email)
+			assert.Equal(t, test.pwd, sr.Password)
+		})
+	}
+}
+
+func TestFileSessionRequestBuilder(t *testing.T) {
+	t.Parallel()
+
+	builder := cmd.NewFileSessionRequestBuilder()
+	tests := []struct {
+		name, file, wantEmail string
+		wantError             error
+	}{
+		{"empty", "", "", errors.New("No API user credential file was passed")},
+		{"correct file", "../internal/fixtures/apicredentials", "email@test.net", nil},
+		{"incorrect file", "/tmp/dontexist", "", errors.New("open /tmp/dontexist: no such file or directory")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sr, err := builder.Build(test.file)
+			assert.Equal(t, test.wantEmail, sr.Email)
+			if test.wantError != nil {
+				assert.Equal(t, test.wantError.Error(), err.Error())
+			} else {
+				assert.Nil(t, err)
+			}
 		})
 	}
 }

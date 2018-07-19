@@ -586,8 +586,21 @@ func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
 	return MustGenerateSessionCookie(APISessionID), m.Error
 }
 
-func (m MockCookieAuthenticator) Authenticate() (*http.Cookie, error) {
+func (m MockCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cookie, error) {
 	return MustGenerateSessionCookie(APISessionID), m.Error
+}
+
+type MockSessionRequestBuilder struct {
+	Count int
+	Error error
+}
+
+func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
+	m.Count += 1
+	if m.Error != nil {
+		return models.SessionRequest{}, m.Error
+	}
+	return models.SessionRequest{Email: APIEmail, Password: Password}, nil
 }
 
 type mockSecretGenerator struct{}

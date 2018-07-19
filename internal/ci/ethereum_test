@@ -137,6 +137,12 @@ printf -- "\n\033[34mRunning tests...\033[0m\n"
 pushd integration >/dev/null
 
 #########################
+### cldev login for remote client
+#########################
+
+cldev login --file internal/clroot/apicredentials
+
+#########################
 ### runlog
 #########################
 

@@ -22,8 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Client is the shell for the node. It has fields for the Renderer,
-// Config, AppFactory (the services application), KeyStoreAuthenticator, and Runner.
+// Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
 	Config                 store.Config
@@ -33,6 +32,7 @@ type Client struct {
 	Runner                 Runner
 	RemoteClient           RemoteClient
 	CookieAuthenticator    CookieAuthenticator
+	SessionRequestBuilders []SessionRequestBuilder
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -155,39 +155,34 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 // future HTTP requests.
 type CookieAuthenticator interface {
 	Cookie() (*http.Cookie, error)
-	Authenticate() (*http.Cookie, error)
+	Authenticate(models.SessionRequest) (*http.Cookie, error)
 }
 
-// TerminalCookieAuthenticator is a concrete implementation of CookieAuthenticator
-// that prompts the user for credentials via terminal.
-type TerminalCookieAuthenticator struct {
-	config   store.Config
-	prompter Prompter
+// SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
+// that retrieves a session id for the user with credentials from the session request.
+type SessionCookieAuthenticator struct {
+	config store.Config
 }
 
-// NewTerminalCookieAuthenticator creates a TerminalCookieAuthenticator using the passed config
-// and prompter.
-func NewTerminalCookieAuthenticator(cfg store.Config, prompter Prompter) CookieAuthenticator {
-	return &TerminalCookieAuthenticator{config: cfg, prompter: prompter}
+// NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
+// and builder.
+func NewSessionCookieAuthenticator(cfg store.Config) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: cfg}
 }
 
 // Cookie Returns the previously saved authentication cookie.
-func (t *TerminalCookieAuthenticator) Cookie() (*http.Cookie, error) {
+func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
 	return t.retrieveCookieFromDisk()
 }
 
-// Authenticate prompts the user for credentials to generate a cookie and saves
-// it do disk.
-func (t *TerminalCookieAuthenticator) Authenticate() (*http.Cookie, error) {
-	url := t.config.ClientNodeURL + "/sessions"
-	email := t.prompter.Prompt("Enter email: ")
-	pwd := t.prompter.PasswordPrompt("Enter password: ")
-	sessionRequest := models.SessionRequest{Email: email, Password: pwd}
+// Authenticate retrieves a session ID via a cookie and saves it to disk.
+func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionRequest) (*http.Cookie, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(sessionRequest)
 	if err != nil {
 		return nil, err
 	}
+	url := t.config.ClientNodeURL + "/sessions"
 	req, err := http.NewRequest("POST", url, b)
 	if err != nil {
 		return nil, err
@@ -213,11 +208,11 @@ func (t *TerminalCookieAuthenticator) Authenticate() (*http.Cookie, error) {
 	return cookies[0], t.saveCookieToDisk(cookies[0])
 }
 
-func (t *TerminalCookieAuthenticator) saveCookieToDisk(cookie *http.Cookie) error {
+func (t *SessionCookieAuthenticator) saveCookieToDisk(cookie *http.Cookie) error {
 	return ioutil.WriteFile(t.cookiePath(), []byte(cookie.String()), 0660)
 }
 
-func (t *TerminalCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, error) {
+func (t *SessionCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, error) {
 	b, err := ioutil.ReadFile(t.cookiePath())
 	if err != nil {
 		return nil, multierr.Append(errors.New("Unable to retrieve credentials, have you logged in?"), err)
@@ -232,8 +227,36 @@ func (t *TerminalCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, er
 	return request.Cookies()[0], nil
 }
 
-func (t *TerminalCookieAuthenticator) cookiePath() string {
+func (t *SessionCookieAuthenticator) cookiePath() string {
 	return path.Join(t.config.RootDir, "cookie")
+}
+
+type SessionRequestBuilder interface {
+	Build(flag string) (models.SessionRequest, error)
+}
+
+type promptingSessionRequestBuilder struct {
+	prompter Prompter
+}
+
+func NewPromptingSessionRequestBuilder(prompter Prompter) SessionRequestBuilder {
+	return promptingSessionRequestBuilder{prompter}
+}
+
+func (p promptingSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
+	email := p.prompter.Prompt("Enter email: ")
+	pwd := p.prompter.PasswordPrompt("Enter password: ")
+	return models.SessionRequest{Email: email, Password: pwd}, nil
+}
+
+type fileSessionRequestBuilder struct{}
+
+func NewFileSessionRequestBuilder() SessionRequestBuilder {
+	return fileSessionRequestBuilder{}
+}
+
+func (f fileSessionRequestBuilder) Build(file string) (models.SessionRequest, error) {
+	return credentialsFromFile(file)
 }
 
 // APIInitializer is the interface used to create the API User credentials
@@ -294,7 +317,7 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 		return models.User{}, err
 	}
 
-	user, err := models.NewUser(request.email, request.password)
+	user, err := models.NewUser(request.Email, request.Password)
 	if err != nil {
 		return user, err
 	}
@@ -303,28 +326,23 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 
 var errNoCredentialFile = errors.New("No API user credential file was passed")
 
-func credentialsFromFile(file string) (userCredentials, error) {
+func credentialsFromFile(file string) (models.SessionRequest, error) {
 	if len(file) == 0 {
-		return userCredentials{}, errNoCredentialFile
+		return models.SessionRequest{}, errNoCredentialFile
 	}
 
 	logger.Debug("Initializing API credentials from ", file)
 	dat, err := ioutil.ReadFile(file)
 	if err != nil {
-		return userCredentials{}, err
+		return models.SessionRequest{}, err
 	}
 	lines := strings.Split(string(dat), "\n")
 	if len(lines) < 2 {
-		return userCredentials{}, fmt.Errorf("Malformed API credentials file does not have at least two lines at %s", file)
+		return models.SessionRequest{}, fmt.Errorf("Malformed API credentials file does not have at least two lines at %s", file)
 	}
-	credentials := userCredentials{
-		email:    strings.TrimSpace(lines[0]),
-		password: strings.TrimSpace(lines[1]),
+	credentials := models.SessionRequest{
+		Email:    strings.TrimSpace(lines[0]),
+		Password: strings.TrimSpace(lines[1]),
 	}
 	return credentials, nil
-}
-
-type userCredentials struct {
-	email    string
-	password string
 }
