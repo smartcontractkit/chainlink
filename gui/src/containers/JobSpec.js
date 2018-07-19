@@ -30,6 +30,11 @@ const styles = theme => ({
     marginBottom: theme.spacing.unit * 5
   },
   definitionTitle: {
+    marginTop: theme.spacing.unit,
+    marginBottom: theme.spacing.unit * 3
+  },
+  divider: {
+    marginTop: theme.spacing.unit,
     marginBottom: theme.spacing.unit * 3
   },
   breadcrumb: {
@@ -47,18 +52,24 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
+const renderJobSpec = ({classes, jobSpec, jobRunsCount}) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
-        <p style={{display: 'inline'}}>
-          <Typography variant='title' className={classes.definitionTitle}>
-            Definition
-          </Typography>
-          <CopyJobSpec JobSpec={JSON.stringify(jobSpecDefinition(jobSpec), null, '\t')} />
-          <Divider />
-        </p>
-        <PrettyJson object={jobSpecDefinition(jobSpec)} />
+        <Grid container alignItems='flex-start'>
+          <Grid item xs={6}>
+            <Typography variant='title' className={classes.definitionTitle}>
+              Definition
+            </Typography>
+          </Grid>
+          <Grid item xs={6} align='right'>
+            <CopyJobSpec JobSpec={jobSpecDefinition(jobSpec)} />
+          </Grid>
+          <Grid item xs={12}>
+            <Divider light className={classes.divider} />
+          </Grid>
+          <PrettyJson object={jobSpecDefinition(jobSpec)} />
+        </Grid>
       </PaddedCard>
     </Grid>
     <Grid item xs={4}>
