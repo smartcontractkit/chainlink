@@ -1,4 +1,13 @@
 #!/bin/bash
 
-curl -sS -u chainlink:twochains -X POST -H 'Content-Type: application/json' \
-       -d @./broadcast_logs_job.json http://localhost:6688/v2/specs
+mkdir tmp
+
+curl -c tmp/cookiefile \
+  -d '{"email":"notreal@fakeemail.ch", "password":"twochains"}' \
+  -X POST -H 'Content-Type: application/json' \
+   http://localhost:6688/sessions
+
+curl -sS -X POST -H 'Content-Type: application/json' \
+  -b tmp/cookiefile \
+  -d @./broadcast_logs_job.json http://localhost:6688/v2/specs
+
