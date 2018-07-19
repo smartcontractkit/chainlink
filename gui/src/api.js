@@ -31,3 +31,5 @@ export const getAccountBalance = () => request('/v2/account_balance')
 export const getConfiguration = () => request('/v2/config')
 
 export const getBridges = (page, size) => request('/v2/bridge_types', {page: page, size: size})
+
+export const getBridgeSpec = (name) => request(`/v2/bridge_types/${name}`)

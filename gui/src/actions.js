@@ -112,6 +112,21 @@ fetchActions.bridges = {
   receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGES_ERROR, error)
 }
 
+export const REQUEST_BRIDGESPEC = 'REQUEST_BRIDGESPEC'
+export const RECEIVE_BRIDGESPEC_SUCCESS = 'RECEIVE_BRIDGESPEC_SUCCESS'
+export const RECEIVE_BRIDGESPEC_ERROR = 'RECEIVE_BRIDGESPEC_ERROR'
+
+fetchActions.bridgeSpec = {
+  request: requestAction(REQUEST_BRIDGESPEC),
+  receiveSuccess: json => ({
+    type: RECEIVE_BRIDGESPEC_SUCCESS,
+    name: json.name,
+    url: json.url,
+    confirmations: json.defaultConfirmations
+  }),
+  receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGESPEC_ERROR, error)
+}
+
 function sendFetchActions (type, ...getArgs) {
   return dispatch => {
     const {request, receiveSuccess, receiveNetworkError} = fetchActions[type]
@@ -131,3 +146,4 @@ export const fetchJobSpecRuns = (id, page, size) => sendFetchActions('jobSpecRun
 export const fetchJobSpecRun = (id) => sendFetchActions('jobSpecRun', id)
 export const fetchConfiguration = () => sendFetchActions('configuration')
 export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
+export const fetchBridgeSpec = (name) => sendFetchActions('bridgeSpec', name)
