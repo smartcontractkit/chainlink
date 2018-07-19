@@ -57,7 +57,7 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		sessionID, ok := session.Get(SessionIDKey).(string)
-		if !ok || sessionID == "" {
+		if !ok {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else if _, err := store.AuthorizedUserWithSession(sessionID); err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
@@ -222,7 +222,7 @@ func readBody(reader io.Reader) string {
 }
 
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
-	var blacklist = map[string]struct{}{"password": struct{}{}}
+	blacklist := map[string]struct{}{"password": struct{}{}}
 	var dst map[string]interface{}
 	err := json.Unmarshal(buf.Bytes(), &dst)
 	if err != nil {
