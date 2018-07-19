@@ -27,7 +27,6 @@ func TestStore_ConfigDefaults(t *testing.T) {
 func TestConfig_sessionSecret(t *testing.T) {
 	t.Parallel()
 	config := NewConfig()
-	config.SecretGenerator = filePersistedSecretGenerator{}
 	config.RootDir = path.Join("/tmp/chainlink_test", fmt.Sprintf("%s", "TestConfig_sessionSecret"))
 	err := os.MkdirAll(config.RootDir, os.FileMode(0770))
 	require.NoError(t, err)

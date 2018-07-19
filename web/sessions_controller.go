@@ -20,7 +20,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&sr); err != nil {
 		publicError(c, 400, err)
 	} else if sid, err := sc.App.GetStore().CheckPasswordForSession(sr); err != nil {
-		publicError(c, 400, err) // TODO: I never differentiate between the errors
+		publicError(c, 400, err)
 	} else if err := saveSessionID(session, sid); err != nil {
 		c.JSON(200, gin.H{})
 	}

@@ -310,6 +310,10 @@ func (orm *ORM) FindUser() (User, error) {
 
 // AuthorizedUserWithSession will return the one API user if the SessionID matches.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string) (User, error) {
+	if len(sessionID) == 0 {
+		return User{}, errors.New("Session ID cannot be empty")
+	}
+
 	user, err := orm.FindUser()
 	if err != nil {
 		return User{}, err

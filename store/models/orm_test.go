@@ -314,13 +314,13 @@ func TestORM_FindUser(t *testing.T) {
 	assert.Equal(t, user1.SessionID, actual.SessionID)
 }
 
-func TestORM_AuthorizedUserWithSession(t *testing.T) {
+func TestORM_AuthorizedUserWithSession_overrideSession(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	user1 := cltest.MustUser("test1@email1.net", "password1", "allowedSession")
-	user2 := cltest.MustUser("test2@email2.net", "password2", "disallowedSession")
+	user2 := cltest.MustUser("test2@email2.net", "password2", "oldSession")
 	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
 
 	require.NoError(t, store.Save(&user1))
@@ -330,7 +330,21 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, user1.Email, actual.Email)
 
-	actual, err = store.AuthorizedUserWithSession("disallowedSession")
+	actual, err = store.AuthorizedUserWithSession("oldSession")
+	require.Error(t, err)
+	assert.Equal(t, "", actual.Email)
+}
+
+func TestORM_AuthorizedUserWithSession_emptySession(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	user := cltest.MustUser("test1@email1.net", "password1", "")
+	require.NoError(t, store.Save(&user))
+
+	actual, err := store.AuthorizedUserWithSession("")
 	require.Error(t, err)
 	assert.Equal(t, "", actual.Email)
 }

@@ -231,6 +231,9 @@ func (t *SessionCookieAuthenticator) cookiePath() string {
 	return path.Join(t.config.RootDir, "cookie")
 }
 
+// SessionRequestBuilder is an interface that returns a SessionRequest,
+// abstracting how session requests are generated, whether they be from
+// the prompt or from a file.
 type SessionRequestBuilder interface {
 	Build(flag string) (models.SessionRequest, error)
 }
@@ -239,6 +242,8 @@ type promptingSessionRequestBuilder struct {
 	prompter Prompter
 }
 
+// NewPromptingSessionRequestBuilder uses a prompter, often via terminal,
+// to solicit information from a user to generate the SessionRequest.
 func NewPromptingSessionRequestBuilder(prompter Prompter) SessionRequestBuilder {
 	return promptingSessionRequestBuilder{prompter}
 }
@@ -251,6 +256,7 @@ func (p promptingSessionRequestBuilder) Build(string) (models.SessionRequest, er
 
 type fileSessionRequestBuilder struct{}
 
+// NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
 func NewFileSessionRequestBuilder() SessionRequestBuilder {
 	return fileSessionRequestBuilder{}
 }
