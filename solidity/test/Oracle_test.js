@@ -262,7 +262,7 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(oracleNode, {from: oracleNode})
+          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
           const newBalance = await link.balanceOf.call(oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })

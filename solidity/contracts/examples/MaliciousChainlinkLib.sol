@@ -16,12 +16,35 @@ library MaliciousChainlinkLib {
     Buffer.buffer buf;
   }
 
+  struct WithdrawRun {
+    bytes32 specId;
+    address callbackAddress;
+    bytes4 callbackFunctionId;
+    bytes32 requestId;
+    uint256 amount;
+    Buffer.buffer buf;
+  }
+
   function initialize(
     Run memory self,
     bytes32 _specId,
     address _callbackAddress,
     string _callbackFunctionSignature
   ) internal pure returns (MaliciousChainlinkLib.Run memory) {
+    Buffer.init(self.buf, 128);
+    self.specId = _specId;
+    self.callbackAddress = _callbackAddress;
+    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
+    self.buf.startMap();
+    return self;
+  }
+
+  function initializeWithdraw(
+    WithdrawRun memory self,
+    bytes32 _specId,
+    address _callbackAddress,
+    string _callbackFunctionSignature
+  ) internal pure returns (MaliciousChainlinkLib.WithdrawRun memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
@@ -45,12 +68,13 @@ library MaliciousChainlinkLib {
   }
 
   function encodeWithdrawForOracle(
-    Run memory self,
+    WithdrawRun memory self,
     uint256 _clArgsVersion
   ) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(
       oracleWithdrawFid,
       self.callbackAddress,
+      self.amount,
       self.buf.buf);
   }
 
@@ -94,6 +118,10 @@ library MaliciousChainlinkLib {
   }
 
   function close(Run memory self) internal pure {
+    self.buf.endSequence();
+  }
+
+  function closeWithdraw(WithdrawRun memory self) internal pure {
     self.buf.endSequence();
   }
 }

@@ -16,8 +16,9 @@ contract MaliciousRequester is MaliciousChainlinked {
   function maliciousWithdraw()
     public
   {
-    MaliciousChainlinkLib.Run memory run = newRun("specId", this, "doesNothing(bytes32,bytes32)");
-    chainlinkRequest(run, LINK(1));
+    MaliciousChainlinkLib.WithdrawRun memory run = newWithdrawRun("specId", this, "doesNothing(bytes32,bytes32)");
+    run.amount = link.balanceOf(address(oracle));
+    chainlinkWithdrawRequest(run, LINK(1));
   }
 
   function doesNothing(bytes32 _requestId, bytes32 _data) public {}
