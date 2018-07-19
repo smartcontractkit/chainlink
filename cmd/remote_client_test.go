@@ -1,10 +1,12 @@
 package cmd_test
 
 import (
+	"errors"
 	"flag"
 	"path"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -301,8 +303,21 @@ func TestClient_RemoteLogin(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			failingBuilder := &cltest.MockSessionRequestBuilder{Error: errors.New("no credential file")}
+			succeedingBuilder := &cltest.MockSessionRequestBuilder{}
+			client.SessionRequestBuilders = []cmd.SessionRequestBuilder{
+				failingBuilder,
+				succeedingBuilder,
+				failingBuilder,
+			}
 			client.CookieAuthenticator = cltest.MockCookieAuthenticator{test.wantError}
-			err := client.RemoteLogin(nil)
+
+			set := flag.NewFlagSet("test", 0)
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.RemoteLogin(c)
+			assert.Equal(t, 1, failingBuilder.Count)
+			assert.Equal(t, 1, succeedingBuilder.Count)
 			assert.Equal(t, test.wantError, err)
 		})
 	}

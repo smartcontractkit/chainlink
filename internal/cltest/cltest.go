@@ -230,6 +230,7 @@ func (ta *TestApplication) NewRemoteClient() RemoteClientCleaner {
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	ta.MustSeedUserSession()
 	r := &RendererMock{}
+	builders := []cmd.SessionRequestBuilder{&MockSessionRequestBuilder{}}
 	client := &cmd.Client{
 		Renderer:               r,
 		Config:                 ta.Config,
@@ -239,6 +240,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Runner:                 EmptyRunner{},
 		RemoteClient:           NewMockAuthenticatedRemoteClient(ta.Config),
 		CookieAuthenticator:    MockCookieAuthenticator{},
+		SessionRequestBuilders: builders,
 	}
 	return client, r
 }

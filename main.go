@@ -68,6 +68,12 @@ func Run(client *cmd.Client, args ...string) {
 			Name:   "login",
 			Usage:  "Login to remote client by creating a session cookie",
 			Action: client.RemoteLogin,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "file, f",
+					Usage: "text file holding the API email and password needed to create a session cookie",
+				},
+			},
 		},
 		{
 			Name:    "account",
@@ -151,7 +157,11 @@ func Run(client *cmd.Client, args ...string) {
 func NewProductionClient() *cmd.Client {
 	cfg := store.NewConfig()
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewTerminalCookieAuthenticator(cfg, prompter)
+	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg)
+	builders := []cmd.SessionRequestBuilder{
+		cmd.NewFileSessionRequestBuilder(),
+		cmd.NewPromptingSessionRequestBuilder(prompter),
+	}
 	return &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: os.Stdout},
 		Config:                 cfg,
@@ -161,5 +171,6 @@ func NewProductionClient() *cmd.Client {
 		Runner:                 cmd.ChainlinkRunner{},
 		RemoteClient:           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
 		CookieAuthenticator:    cookieAuth,
+		SessionRequestBuilders: builders,
 	}
 }
