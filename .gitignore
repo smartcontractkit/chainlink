@@ -22,6 +22,7 @@ web/web-packr.go
 build/
 
 # misc
+.vscode/*
 .envrc
 
 # codeship
