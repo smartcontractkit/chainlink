@@ -57,7 +57,6 @@
     "react-redux": "^5.0.7",
     "react-router": "^4.3.0",
     "react-static": "^5.9.7",
-    "react-toastify": "^4.1.0",
     "react-universal-component": "^2.9.0",
     "redux": "^4.0.0",
     "redux-mock-store": "^1.5.3",

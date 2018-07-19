@@ -1,68 +1,76 @@
-import axios from 'axios'
 import React, { Fragment } from 'react'
 import { withFormik, Form } from 'formik'
-import * as Yup from 'yup'
+import { object, string, number } from 'yup'
 import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
-import { TextField, Typography } from '@material-ui/core'
-import { ToastContainer, toast } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { TextField, Typography, Grid } from '@material-ui/core'
+import postBridge from 'utils/postBridge'
 
 const styles = theme => ({
   textfield: {
-    paddingTop: theme.spacing.unit * 1.25,
-    width: '270px'
+    paddingTop: theme.spacing.unit * 1.25
+  },
+  form: {
+    paddingTop: theme.spacing.unit * 4
   },
   card: {
     paddingBottom: theme.spacing.unit * 2
   },
-  form: {
-    position: 'relative',
-    textAlign: 'center'
+  button: {
+    marginTop: theme.spacing.unit * 3
   }
 })
 
-const App = ({ errors, touched, isSubmitting, classes, handleChange }) => (
+const FormLayout = ({ errors, touched, isSubmitting, classes, handleChange }) => (
   <Fragment>
-    <br />
     <Form className={classes.form} noValidate>
-      <div>
-        {touched.name && errors.name && <Typography color='error'>{errors.name}</Typography>}
-        <TextField
-          onChange={handleChange}
-          className={classes.textfield}
-          label='Type Bridge Name'
-          type='name'
-          name='name'
-          placeholder='name'
-        />
-      </div>
-      <div>
-        {touched.url && errors.url && <Typography color='error'>{errors.url}</Typography>}
-        <TextField
-          onChange={handleChange}
-          className={classes.textfield}
-          label='Type Bridge URL'
-          type='url'
-          name='url'
-          placeholder='url'
-        />
-      </div>
-      <div>
-        {touched.confirmations && errors.confirmations && <Typography color='error'>{errors.confirmations}</Typography>}
-        <TextField
-          onChange={handleChange}
-          className={classes.textfield}
-          label='Type Confirmations'
-          type='confirmations'
-          name='confirmations'
-          placeholder='confirmations'
-        />
-      </div>
-      <Button color='primary' type='submit' disabled={isSubmitting}>
-        Build Bridge
-      </Button>
-      <ToastContainer />
+      <Grid container justify='center' spacing={0}>
+        <Grid item xs={2}>
+          {touched.name && errors.name && <Typography color='error'>{errors.name}</Typography>}
+          <TextField
+            fullWidth
+            onChange={handleChange}
+            className={classes.textfield}
+            label='Type Bridge Name'
+            type='name'
+            name='name'
+            placeholder='name'
+          />
+        </Grid>
+      </Grid>
+      <Grid container justify='center' spacing={0}>
+        <Grid item xs={2}>
+          {touched.url && errors.url && <Typography color='error'>{errors.url}</Typography>}
+          <TextField
+            fullWidth
+            onChange={handleChange}
+            className={classes.textfield}
+            label='Type Bridge URL'
+            type='url'
+            name='url'
+            placeholder='url'
+          />
+        </Grid>
+      </Grid>
+      <Grid container justify='center' spacing={0}>
+        <Grid item xs={2}>
+          {touched.confirmations && errors.confirmations && <Typography color='error'>{errors.confirmations}</Typography>}
+          <TextField
+            fullWidth
+            onChange={handleChange}
+            className={classes.textfield}
+            label='Type Confirmations'
+            type='confirmations'
+            name='confirmations'
+            placeholder='confirmations'
+          />
+        </Grid>
+      </Grid>
+      <Grid container justify='center' spacing={0}>
+        <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting}>
+          Build Bridge
+        </Button>
+      </Grid>
     </Form>
   </Fragment>
 )
@@ -75,33 +83,19 @@ const BridgeForm = withFormik({
       confirmations: confirmations || ''
     }
   },
-  validationSchema: Yup.object().shape({
-    name: Yup.string().required('Name is required'),
-    url: Yup.string()
+  validationSchema: object().shape({
+    name: string().required('Name is required'),
+    url: string()
       .required('URL is required'),
-    confirmations: Yup.number()
+    confirmations: number()
       .positive('Should be a positive number')
       .typeError('Should be a number')
   }),
   handleSubmit (values) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
-    axios
-      .post('/v2/bridge_types', formattedValues, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        auth: {
-          username: 'chainlink',
-          password: 'twochains'
-        }
-      })
-      .then(res =>
-        toast.success(`Bridge ${res.data.name} created`, {
-          position: toast.POSITION.BOTTOM_RIGHT
-        })
-      )
+    postBridge(formattedValues)
   }
-})(App)
+})(FormLayout)
 
 export default withStyles(styles)(BridgeForm)
