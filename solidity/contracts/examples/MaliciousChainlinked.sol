@@ -6,6 +6,7 @@ import "../lib/LinkToken.sol";
 
 contract MaliciousChainlinked {
   using MaliciousChainlinkLib for MaliciousChainlinkLib.Run;
+  using MaliciousChainlinkLib for MaliciousChainlinkLib.WithdrawRun;
   using SafeMath for uint256;
 
   uint256 constant clArgsVersion = 1;
@@ -27,6 +28,15 @@ contract MaliciousChainlinked {
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
+  function newWithdrawRun(
+    bytes32 _specId,
+    address _callbackAddress,
+    string _callbackFunctionSignature
+  ) internal pure returns (MaliciousChainlinkLib.WithdrawRun memory) {
+    MaliciousChainlinkLib.WithdrawRun memory run;
+    return run.initializeWithdraw(_specId, _callbackAddress, _callbackFunctionSignature);
+  }
+
   function chainlinkRequest(MaliciousChainlinkLib.Run memory _run, uint256 _wei)
     internal
     returns(bytes32)
@@ -40,13 +50,13 @@ contract MaliciousChainlinked {
     return _run.requestId;
   }
 
-  function chainlinkWithdrawRequest(MaliciousChainlinkLib.Run memory _run, uint256 _wei)
+  function chainlinkWithdrawRequest(MaliciousChainlinkLib.WithdrawRun memory _run, uint256 _wei)
     internal
     returns(bytes32)
   {
     requests += 1;
     _run.requestId = bytes32(requests);
-    _run.close();
+    _run.closeWithdraw();
     require(link.transferAndCall(oracle, _wei, _run.encodeWithdrawForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
     unfulfilledRequests[_run.requestId] = true;
