@@ -11,7 +11,7 @@ const styles = theme => ({
 const CopyJobSpec = ({classes, JobSpec}) => {
   return (
     <div className={classes.button}>
-      <Copy buttonText='Copy JobSpec' data={JobSpec} />
+      <Copy buttonText='Copy JobSpec' data={JSON.stringify(JobSpec, null, '\t')} />
     </div>
   )
 }
