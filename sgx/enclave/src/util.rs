@@ -48,3 +48,13 @@ pub fn copy_string_to_cstr_ptr(
 
     Ok(())
 }
+
+macro_rules! impl_from_error {
+    ($from:path, $to:tt::$ctor:tt) => {
+        impl From<$from> for $to {
+            fn from(e: $from) -> Self {
+                $to::$ctor(e)
+            }
+        }
+    };
+}
