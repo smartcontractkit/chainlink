@@ -12,8 +12,7 @@ extern crate sgx_types;
 #[macro_use] extern crate sgx_tstd as std;
 extern crate wasmi;
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate serde_derive;
 extern crate serde_json;
 
 #[macro_use] mod util;
@@ -122,71 +121,82 @@ pub extern "C" fn sgx_multiply(
     output_bin: *mut u8,
     output_max_len: usize,
 ) -> sgx_status_t {
+    match multiply(
+        adapter_str_ptr,
+        adapter_str_len,
+        input_str_ptr,
+        input_str_len,
+        output_bin,
+        output_max_len,
+    ) {
+        Ok(_) => sgx_status_t::SGX_SUCCESS,
+        _ => sgx_status_t::SGX_ERROR_UNEXPECTED,
+    }
+}
+
+fn multiply(
+    adapter_str_ptr: *const u8,
+    adapter_str_len: usize,
+    input_str_ptr: *const u8,
+    input_str_len: usize,
+    output_bin: *mut u8,
+    output_max_len: usize,
+) -> Result<(), sgx_status_t> {
     let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len).unwrap();
     let adapter: serde_json::Value = match serde_json::from_str(&adapter_str) {
         Ok(result) => result,
-        Err(_err) => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
+        Err(_err) => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
     };
-
     let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len).unwrap();
-    let mut input = match parse_run_result_json(&input_str) {
-        Ok(result) => result,
-        Err(_err) => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
-    };
-
-    let multiplier = match &adapter["times"] {
-        serde_json::Value::String(v) => v.clone(),
-        serde_json::Value::Number(v) => format!("{}", v),
-        _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
-    };
-
-    let multiplicand = match &input.data["value"] {
-        serde_json::Value::String(v) => v.clone(),
-        serde_json::Value::Number(v) => format!("{}", v),
-        _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
-    };
-
-    let result = match multiply(&multiplicand, &multiplier) {
-        Ok(v) => v,
-        _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
-    };
+    let mut input = parse_run_result_json(&input_str)?;
+    let multiplier = get_json_string(&adapter, "times".to_string())?;
+    let multiplicand = get_json_string(&input.data, "value".to_string())?;
+    let result = format_and_multiply(&multiplicand, &multiplier)?;
 
     input.status = Some("completed".to_string());
     input.add("value".to_string(), serde_json::Value::String(result));
     let rr_json = match serde_json::to_string(&input) {
         Ok(v) => v,
-        _ => return sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
+        _ => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
     };
 
     if rr_json.len() < output_max_len {
         unsafe {
             ptr::copy_nonoverlapping(rr_json.as_ptr(), output_bin, rr_json.len());
         }
-        return sgx_status_t::SGX_SUCCESS;
     };
-    return sgx_status_t::SGX_ERROR_INVALID_PARAMETER;
+    Ok(())
 }
 
+fn get_json_string(object: &serde_json::Value, key: String) -> Result<String, sgx_status_t> {
+    match &object[key] {
+        serde_json::Value::String(v) => Ok(v.clone()),
+        serde_json::Value::Number(v) => Ok(format!("{}", v)),
+        _ => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
+    }
+}
 
-fn multiply(
+fn format_and_multiply(
     multiplicand_str: &str,
     multiplier_str: &str,
-) -> Result<String, std::num::ParseIntError> {
+) -> Result<String, sgx_status_t> {
     let multiplicand = match i128::from_str_radix(multiplicand_str, 10) {
         Ok(result) => result,
-        Err(err) => return Err(err),
+        _ => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
     };
     let multiplier = match i128::from_str_radix(multiplier_str, 10) {
         Ok(result) => result,
-        Err(err) => return Err(err),
+        _ => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
     };
 
     Ok(format!("{:?}", multiplicand * multiplier))
 }
 
-fn parse_run_result_json(input: &str) -> Result<RunResult, serde_json::Error> {
-    let result: RunResult = serde_json::from_str(input)?;
-    Ok(result)
+fn parse_run_result_json(input: &str) -> Result<RunResult, sgx_status_t> {
+    match serde_json::from_str(input) {
+        Ok(rr) => Ok(rr),
+        _ => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
