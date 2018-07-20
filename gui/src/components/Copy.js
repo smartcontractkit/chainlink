@@ -6,7 +6,7 @@ const Copy = ({data, buttonText}) => {
   return (
     <div>
       <CopyToClipboard text={data}>
-        <Button color='secondary' variant='outlined'>{buttonText}</Button>
+        <Button color='primary' variant='outlined'>{buttonText}</Button>
       </CopyToClipboard>
     </div>
   )
