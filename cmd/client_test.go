@@ -1,7 +1,6 @@
 package cmd_test
 
 import (
-	"errors"
 	"path"
 	"testing"
 
@@ -235,21 +234,21 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 	builder := cmd.NewFileSessionRequestBuilder()
 	tests := []struct {
 		name, file, wantEmail string
-		wantError             error
+		wantError             bool
 	}{
-		{"empty", "", "", errors.New("No API user credential file was passed")},
-		{"correct file", "../internal/fixtures/apicredentials", "email@test.net", nil},
-		{"incorrect file", "/tmp/dontexist", "", errors.New("open /tmp/dontexist: no such file or directory")},
+		{"empty", "", "", true},
+		{"correct file", "../internal/fixtures/apicredentials", "email@test.net", false},
+		{"incorrect file", "/tmp/dontexist", "", true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sr, err := builder.Build(test.file)
 			assert.Equal(t, test.wantEmail, sr.Email)
-			if test.wantError != nil {
-				assert.Equal(t, test.wantError.Error(), err.Error())
+			if test.wantError {
+				assert.Error(t, err)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 		})
 	}
