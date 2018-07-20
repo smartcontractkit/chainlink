@@ -31,4 +31,10 @@ contract MaliciousConsumer is Chainlinked {
   {
     cancelChainlinkRequest(_requestId);
   }
+
+  function remove() public {
+    selfdestruct(address(0));
+  }
+
+  function doesNothing(bytes32 _requestId, bytes32 _data) public {}
 }

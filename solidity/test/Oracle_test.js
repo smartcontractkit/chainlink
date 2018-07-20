@@ -51,6 +51,8 @@ contract('Oracle', () => {
   })
 
   describe('#onTokenTransfer', () => {
+    let mock
+
     context('when called from the LINK token', () => {
       it('triggers the intended method', async () => {
         let callData = requestDataBytes(specId, to, fHash, 'id', '')
@@ -75,6 +77,30 @@ contract('Oracle', () => {
         await assertActionThrows(async () => {
           let tx = await oc.onTokenTransfer(oracleNode, 0, callData)
         })
+      })
+    })
+
+    context('malicious requester', () => {
+      const paymentAmount = 1
+
+      beforeEach(async () => {
+        mock = await deploy('examples/MaliciousRequester.sol', link.address, oc.address)
+        await link.transfer(mock.address, paymentAmount)
+      })
+
+      it('cannot withdraw from oracle', async () => {
+        const ocOriginalBalance = await link.balanceOf.call(oc.address)
+        const mockOriginalBalance = await link.balanceOf.call(mock.address)
+
+        await assertActionThrows(async () => {
+          await mock.maliciousWithdraw()
+        })
+
+        const ocNewBalance = await link.balanceOf.call(oc.address)
+        const mockNewBalance = await link.balanceOf.call(mock.address)
+
+        assert.isTrue(ocOriginalBalance.equals(ocNewBalance))
+        assert.isTrue(mockNewBalance.equals(mockOriginalBalance))
       })
     })
   })
@@ -217,6 +243,28 @@ contract('Oracle', () => {
           await assertActionThrows(async () => {
             await oc.fulfillData(internalId, 'hack the planet 102', {from: oracleNode})
           })
+        })
+      })
+
+      context('calls selfdestruct', () => {
+        beforeEach(async () => {
+          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          await link.transfer(mock.address, paymentAmount)
+
+          const req = await mock.requestData('doesNothing(bytes32,bytes32)')
+          internalId = req.receipt.logs[2].topics[1]
+          await mock.remove()
+        })
+
+        it('allows the oracle node to receive their payment', async () => {
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
         })
       })
 
