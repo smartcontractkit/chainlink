@@ -34,7 +34,7 @@ func TestSleep_Perform(t *testing.T) {
 	}{
 		{"valid duration", sleepFor(60), standardInput, models.RunStatusPendingSleep, false, false},
 		{"past time", sleepFor(-1), standardInput, models.RunStatusCompleted, false, false},
-		{"json with iso8601", `{"until":"2018-07-20T12:54:49.000Z"}`, standardInput, models.RunStatusPendingSleep, false, false},
+		{"json with iso8601", `{"until":"2222-07-20T12:54:49.000Z"}`, standardInput, models.RunStatusPendingSleep, false, false},
 		{"long duration", sleepFor(12592000), standardInput, models.RunStatusPendingSleep, false, false},
 		{"invalid json", `{"until":"1000h"}`, standardInput, models.RunStatusPendingSleep, true, false},
 		{"already slept", sleepFor(1000), sleptInput, models.RunStatusPendingSleep, false, false},
