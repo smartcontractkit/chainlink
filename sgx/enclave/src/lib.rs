@@ -7,13 +7,13 @@
 
 extern crate base64;
 extern crate num;
-extern crate sgx_types;
-#[cfg(not(target_env = "sgx"))]
-#[macro_use] extern crate sgx_tstd as std;
-extern crate wasmi;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
+#[cfg(not(target_env = "sgx"))]
+#[macro_use] extern crate sgx_tstd as std;
+extern crate sgx_types;
+extern crate wasmi;
 
 #[macro_use] mod util;
 mod wasm;
