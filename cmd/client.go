@@ -25,14 +25,15 @@ import (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                 store.Config
-	AppFactory             AppFactory
-	KeyStoreAuthenticator  KeyStoreAuthenticator
-	FallbackAPIInitializer APIInitializer
-	Runner                 Runner
-	CookieAuthenticator    CookieAuthenticator
-	SessionRequestBuilders []SessionRequestBuilder
-	HTTP                   HTTPClient
+	Config                         store.Config
+	AppFactory                     AppFactory
+	KeyStoreAuthenticator          KeyStoreAuthenticator
+	FallbackAPIInitializer         APIInitializer
+	Runner                         Runner
+	HTTP                           HTTPClient
+	CookieAuthenticator            CookieAuthenticator
+	FileSessionRequestBuilder      SessionRequestBuilder
+	PromptingSessionRequestBuilder SessionRequestBuilder
 }
 
 func (cli *Client) errorOut(err error) error {

@@ -230,19 +230,37 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	ta.MustSeedUserSession()
 	r := &RendererMock{}
-	builders := []cmd.SessionRequestBuilder{&MockSessionRequestBuilder{}}
 	client := &cmd.Client{
-		Renderer:               r,
-		Config:                 ta.Config,
-		AppFactory:             EmptyAppFactory{},
-		KeyStoreAuthenticator:  CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		FallbackAPIInitializer: &MockAPIInitializer{},
-		Runner:                 EmptyRunner{},
-		CookieAuthenticator:    MockCookieAuthenticator{},
-		SessionRequestBuilders: builders,
-		HTTP: NewMockAuthenticatedHTTPClient(ta.Config),
+		Renderer:                       r,
+		Config:                         ta.Config,
+		AppFactory:                     EmptyAppFactory{},
+		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		FallbackAPIInitializer:         &MockAPIInitializer{},
+		Runner:                         EmptyRunner{},
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config),
+		CookieAuthenticator:            MockCookieAuthenticator{},
+		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
+		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
 	}
 	return client, r
+}
+
+func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
+	ta.MustSeedUserSession()
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config)
+	client := &cmd.Client{
+		Renderer:                       &RendererMock{},
+		Config:                         ta.Config,
+		AppFactory:                     EmptyAppFactory{},
+		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		FallbackAPIInitializer:         &MockAPIInitializer{},
+		Runner:                         EmptyRunner{},
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth),
+		CookieAuthenticator:            cookieAuth,
+		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
+		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
+	}
+	return client
 }
 
 // NewStoreWithConfig creates a new store with given config
