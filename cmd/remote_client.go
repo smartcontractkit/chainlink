@@ -235,16 +235,10 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
-	var allerrs error
-	for _, builder := range cli.SessionRequestBuilders {
-		sessionRequest, err := builder.Build(flag)
-		if err == nil {
-			return sessionRequest, nil
-		}
-		allerrs = multierr.Append(allerrs, err)
+	if len(flag) > 0 {
+		return cli.FileSessionRequestBuilder.Build(flag)
 	}
-
-	return models.SessionRequest{}, allerrs
+	return cli.PromptingSessionRequestBuilder.Build("")
 }
 
 func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {

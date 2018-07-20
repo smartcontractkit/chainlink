@@ -1,12 +1,10 @@
 package cmd_test
 
 import (
-	"errors"
 	"flag"
 	"path"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -291,34 +289,35 @@ func TestClient_RemoteLogin(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client, _ := app.NewClientAndRenderer()
+	app.Start()
 
 	tests := []struct {
-		name      string
-		wantError error
+		name, file string
+		email, pwd string
+		wantError  bool
 	}{
-		{"success", nil},
-		{"failure", cli.NewExitError("login error", 1)},
+		{"success prompt", "", cltest.APIEmail, cltest.Password, false},
+		{"success file", "../internal/fixtures/apicredentials", "", "", false},
+		{"failure prompt", "", "wrong@email.com", "wrongpwd", true},
+		{"failure file", "/tmp/doesntexist", "", "", true},
+		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmail, cltest.Password, true},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			failingBuilder := &cltest.MockSessionRequestBuilder{Error: errors.New("no credential file")}
-			succeedingBuilder := &cltest.MockSessionRequestBuilder{}
-			client.SessionRequestBuilders = []cmd.SessionRequestBuilder{
-				failingBuilder,
-				succeedingBuilder,
-				failingBuilder,
-			}
-			client.CookieAuthenticator = cltest.MockCookieAuthenticator{test.wantError}
+			enteredStrings := []string{test.email, test.pwd}
+			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+			client := app.NewAuthenticatingClient(prompter)
 
 			set := flag.NewFlagSet("test", 0)
+			set.String("file", test.file, "")
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.RemoteLogin(c)
-			assert.Equal(t, 1, failingBuilder.Count)
-			assert.Equal(t, 1, succeedingBuilder.Count)
-			assert.Equal(t, test.wantError, err)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

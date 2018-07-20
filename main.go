@@ -158,19 +158,16 @@ func NewProductionClient() *cmd.Client {
 	cfg := store.NewConfig()
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg)
-	builders := []cmd.SessionRequestBuilder{
-		cmd.NewFileSessionRequestBuilder(),
-		cmd.NewPromptingSessionRequestBuilder(prompter),
-	}
 	return &cmd.Client{
-		Renderer:               cmd.RendererTable{Writer: os.Stdout},
-		Config:                 cfg,
-		AppFactory:             cmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: prompter},
-		FallbackAPIInitializer: cmd.NewPromptingAPIInitializer(prompter),
-		Runner:                 cmd.ChainlinkRunner{},
-		CookieAuthenticator:    cookieAuth,
-		SessionRequestBuilders: builders,
-		HTTP: cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
+		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
+		Config:                         cfg,
+		AppFactory:                     cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:          cmd.TerminalAuthenticator{Prompter: prompter},
+		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
+		Runner:                         cmd.ChainlinkRunner{},
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
+		CookieAuthenticator:            cookieAuth,
+		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
+		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 	}
 }
