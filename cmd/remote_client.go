@@ -27,7 +27,7 @@ var errUnauthorized = errors.New("401 Unauthorized")
 // DisplayAccountBalance renders a table containing the active account address
 // with it's ETH & LINK balance
 func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
-	resp, err := cli.RemoteClient.Get("/v2/account_balance")
+	resp, err := cli.HTTP.Get("/v2/account_balance")
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -46,7 +46,7 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
 	}
-	resp, err := cli.RemoteClient.Get("/v2/specs/" + c.Args().First())
+	resp, err := cli.HTTP.Get("/v2/specs/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -82,7 +82,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.RemoteClient.Post("/v2/specs", buf)
+	resp, err := cli.HTTP.Post("/v2/specs", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -107,7 +107,7 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 		buf = jbuf
 	}
 
-	resp, err := cli.RemoteClient.Post("/v2/specs/"+c.Args().First()+"/runs", buf)
+	resp, err := cli.HTTP.Post("/v2/specs/"+c.Args().First()+"/runs", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -121,7 +121,7 @@ func (cli *Client) BackupDatabase(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the path to save the backup"))
 	}
-	resp, err := cli.RemoteClient.Get("/v2/backup")
+	resp, err := cli.HTTP.Get("/v2/backup")
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -150,7 +150,7 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.RemoteClient.Post("/v2/bridge_types", buf)
+	resp, err := cli.HTTP.Post("/v2/bridge_types", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -187,7 +187,7 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}, links
 	}
 	uri.RawQuery = q.Encode()
 
-	resp, err := cli.RemoteClient.Get(uri.String())
+	resp, err := cli.HTTP.Get(uri.String())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -201,7 +201,7 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be shown"))
 	}
-	resp, err := cli.RemoteClient.Get("/v2/bridge_types/" + c.Args().First())
+	resp, err := cli.HTTP.Get("/v2/bridge_types/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -215,7 +215,7 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
 	}
-	resp, err := cli.RemoteClient.Delete("/v2/bridge_types/" + c.Args().First())
+	resp, err := cli.HTTP.Delete("/v2/bridge_types/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}

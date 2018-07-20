@@ -30,9 +30,9 @@ type Client struct {
 	KeyStoreAuthenticator  KeyStoreAuthenticator
 	FallbackAPIInitializer APIInitializer
 	Runner                 Runner
-	RemoteClient           RemoteClient
 	CookieAuthenticator    CookieAuthenticator
 	SessionRequestBuilders []SessionRequestBuilder
+	HTTP                   HTTPClient
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -81,8 +81,8 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 	return g.Wait()
 }
 
-// RemoteClient encapsulates all methods used to interact with a chainlink node API.
-type RemoteClient interface {
+// HTTPClient encapsulates all methods used to interact with a chainlink node API.
+type HTTPClient interface {
 	Get(string, ...map[string]string) (*http.Response, error)
 	Post(string, io.Reader) (*http.Response, error)
 	Patch(string, io.Reader) (*http.Response, error)
@@ -97,7 +97,7 @@ type authenticatedHTTPClient struct {
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(cfg store.Config, cookieAuth CookieAuthenticator) RemoteClient {
+func NewAuthenticatedHTTPClient(cfg store.Config, cookieAuth CookieAuthenticator) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:     cfg,
 		client:     &http.Client{},

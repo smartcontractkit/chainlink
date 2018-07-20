@@ -574,7 +574,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	return user, store.Save(&user)
 }
 
-func NewMockAuthenticatedRemoteClient(cfg store.Config) cmd.RemoteClient {
+func NewMockAuthenticatedHTTPClient(cfg store.Config) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 

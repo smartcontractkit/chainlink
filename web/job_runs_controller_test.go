@@ -29,7 +29,7 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 	app.Start()
 	defer cleanup()
 	j := setupJobRunsControllerIndex(b, app)
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -45,7 +45,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := setupJobRunsControllerIndex(t, app)
 	jr, err := app.Store.JobRunsFor(j.ID)
@@ -138,7 +138,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j, _ := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
@@ -153,7 +153,7 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(&j))
@@ -168,7 +168,7 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post("/v2/specs/garbageID/runs", bytes.NewBuffer([]byte{}))
 	defer cleanup()
@@ -180,7 +180,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -208,7 +208,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -229,7 +229,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -257,7 +257,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -280,7 +280,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -304,7 +304,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
@@ -330,7 +330,7 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/runs/garbage")
 	defer cleanup()

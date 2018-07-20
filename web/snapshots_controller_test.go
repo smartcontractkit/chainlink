@@ -18,7 +18,7 @@ func TestSnapshotsController_CreateSnapshot_V1_Format(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
 
@@ -35,7 +35,7 @@ func TestSnapshotsController_CreateSnapshot_V1_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	url := "/v1/assignments/" + "badid" + "/snapshots"
 	resp, cleanup := client.Post(url, bytes.NewBuffer([]byte{}))
@@ -47,7 +47,7 @@ func TestSnapshotsController_CreateSnapshot_V1_LateJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job_past_endat_time.json")
 
@@ -84,7 +84,7 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 
 	assert.Nil(t, app.Start())
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := cltest.CreateMockAssignmentViaWeb(t, app, mockServer.URL)
 
@@ -117,7 +117,7 @@ func TestSnapshotsController_ShowSnapshot_V1_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v1/snapshots/" + "badid")
 	defer cleanup()

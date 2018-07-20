@@ -169,8 +169,8 @@ func NewProductionClient() *cmd.Client {
 		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer: cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                 cmd.ChainlinkRunner{},
-		RemoteClient:           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
 		CookieAuthenticator:    cookieAuth,
 		SessionRequestBuilders: builders,
+		HTTP: cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
 	}
 }

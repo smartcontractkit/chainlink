@@ -233,7 +233,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/end_at_job.json")
 	endAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
@@ -260,7 +260,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/start_at_job.json")
 	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")

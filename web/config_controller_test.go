@@ -18,7 +18,7 @@ func TestConfigController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/config")
 	defer cleanup()

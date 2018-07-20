@@ -12,7 +12,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	app, appCleanup := cltest.NewApplicationWithConfig(config)
 	defer appCleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	tests := []struct {
 		origin     string
@@ -53,7 +53,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			config.AllowOrigins = test.allow
 			app, appCleanup := cltest.NewApplicationWithConfig(config)
 			defer appCleanup()
-			client := app.NewRemoteClient()
+			client := app.NewHTTPClient()
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/config", headers)

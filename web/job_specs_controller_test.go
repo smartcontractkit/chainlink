@@ -19,7 +19,7 @@ import (
 func BenchmarkJobSpecsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	setupJobSpecsControllerIndex(app)
 
 	b.ResetTimer()
@@ -35,7 +35,7 @@ func TestJobSpecsController_Index(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j1, err := setupJobSpecsControllerIndex(app)
 	assert.NoError(t, err)
@@ -96,7 +96,7 @@ func TestJobSpecsController_Create(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")))
 	defer cleanup()
@@ -154,7 +154,7 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
@@ -170,7 +170,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
@@ -186,7 +186,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
@@ -202,7 +202,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/initiator_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
@@ -218,7 +218,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/task_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
@@ -233,7 +233,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 func BenchmarkJobSpecsController_Show(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	j := setupJobSpecsControllerShow(b, app)
 
 	b.ResetTimer()
@@ -248,7 +248,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	j := setupJobSpecsControllerShow(t, app)
 
@@ -287,7 +287,7 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/specs/" + "garbage")
 	defer cleanup()
