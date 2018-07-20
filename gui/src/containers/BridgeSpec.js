@@ -5,7 +5,6 @@ import Grid from '@material-ui/core/Grid'
 import PaddedCard from 'components/PaddedCard'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import Card from '@material-ui/core/Card'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -32,21 +31,19 @@ const renderBridgeSpec = ({ classes, name, url, confirmations }) => (
         <Typography variant='title' className={classes.definitionTitle}>
           Bridge Info:
         </Typography>
-        Name: {name} <br />
-        URL: {url} <br />
-        Confirmations: {confirmations} <br />
+        <Grid>
+          <Typography variant='subheading' color='textSecondary'>Name</Typography>
+          <Typography variant='body1' color='inherit'>{name}</Typography>
+
+          <Typography variant='subheading' color='textSecondary'>URL</Typography>
+          <Typography variant='body1' color='inherit'>{url}</Typography>
+
+          <Typography variant='subheading' color='textSecondary'>Confirmations</Typography>
+          <Typography variant='body1' color='inherit'>{confirmations}</Typography>
+        </Grid>
       </PaddedCard>
     </Grid>
   </Grid>
-)
-
-const renderBridgeAssociations = ({ classes }) => (
-  <React.Fragment>
-    <Typography variant='title' className={classes.lastRun}>
-      Associations with:
-    </Typography>
-    <Card>WIP</Card>
-  </React.Fragment>
 )
 
 const renderFetching = () => <div>Fetching...</div>
@@ -56,7 +53,6 @@ const renderDetails = props => {
     return (
       <React.Fragment>
         {renderBridgeSpec(props)}
-        {renderBridgeAssociations(props)}
       </React.Fragment>
     )
   } else {
@@ -81,7 +77,7 @@ export class BridgeSpec extends Component {
           <BreadcrumbItem>{name}</BreadcrumbItem>
         </Breadcrumb>
         <Typography variant='display2' color='inherit' className={classes.title}>
-          Bridge Spec Details:
+          Bridge Spec Details
         </Typography>
         {renderDetails(this.props)}
       </div>
