@@ -9,11 +9,10 @@ extern crate serde;
 extern crate serde_json;
 extern crate sgx_types;
 #[cfg(not(target_env = "sgx"))]
-#[macro_use]
-extern crate sgx_tstd as std;
+#[macro_use] extern crate sgx_tstd as std;
 extern crate wasmi;
 
-mod util;
+#[macro_use] mod util;
 mod wasm;
 
 use sgx_types::*;
@@ -70,28 +69,14 @@ pub extern "C" fn sgx_wasm(
 
 enum WasmError {
     FromUtf8Error(std::string::FromUtf8Error),
-    WasmError(wasm::Error),
+    ExecError(wasm::Error),
     OutputCStrError(util::OutputCStrError),
     UnexpectedOutputError,
 }
 
-impl From<std::string::FromUtf8Error> for WasmError {
-    fn from(e: std::string::FromUtf8Error) -> Self {
-        WasmError::FromUtf8Error(e)
-    }
-}
-
-impl From<wasm::Error> for WasmError {
-    fn from(e: wasm::Error) -> Self {
-        WasmError::WasmError(e)
-    }
-}
-
-impl From<util::OutputCStrError> for WasmError {
-    fn from(e: util::OutputCStrError) -> Self {
-        WasmError::OutputCStrError(e)
-    }
-}
+impl_from_error!(std::string::FromUtf8Error, WasmError::FromUtf8Error);
+impl_from_error!(wasm::Error, WasmError::ExecError);
+impl_from_error!(util::OutputCStrError, WasmError::OutputCStrError);
 
 fn wasm(
     wasmt_ptr: *const u8,
