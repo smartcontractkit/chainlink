@@ -12,11 +12,16 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchJobs, fetchAccountBalance } from 'actions'
 import { jobsSelector } from 'selectors'
+import Button from '@material-ui/core/Button'
+import Link from 'components/Link'
 
 const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
+  },
+  createButtons: {
+    padding: theme.spacing.unit * 2
   }
 })
 
@@ -72,9 +77,23 @@ export class Jobs extends Component {
 
     return (
       <div>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Jobs
-        </Typography>
+        <Grid container alignItems='center' >
+          <Grid item xs={1}>
+            <Typography variant='display2' color='inherit' className={classes.title}>
+              Jobs
+            </Typography>
+          </Grid>
+          <Grid item xs={1}>
+            <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: 0 } }} >
+              Create Bridge
+            </Button>
+          </Grid>
+          <Grid item xs={1}>
+            <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: 1 } }} >
+              Create Job
+            </Button>
+          </Grid>
+        </Grid>
 
         <Grid container spacing={40}>
           <Grid item xs={9}>
