@@ -14,35 +14,11 @@ pub enum Error {
     WasmTrap(wasmi::Trap),
 }
 
-impl From<base64::DecodeError> for Error {
-    fn from(e: base64::DecodeError) -> Self {
-        Error::Base64DecoderError(e)
-    }
-}
-
-impl From<num::ParseIntError> for Error {
-    fn from(e: num::ParseIntError) -> Self {
-        Error::ParseIntError(e)
-    }
-}
-
-impl From<traits::ParseFloatError> for Error {
-    fn from(e: traits::ParseFloatError) -> Self {
-        Error::ParseFloatError(e)
-    }
-}
-
-impl From<wasmi::Error> for Error {
-    fn from(e: wasmi::Error) -> Self {
-        Error::WasmError(e)
-    }
-}
-
-impl From<wasmi::Trap> for Error {
-    fn from(e: wasmi::Trap) -> Self {
-        Error::WasmTrap(e)
-    }
-}
+impl_from_error!(base64::DecodeError, Error::Base64DecoderError);
+impl_from_error!(num::ParseIntError, Error::ParseIntError);
+impl_from_error!(traits::ParseFloatError, Error::ParseFloatError);
+impl_from_error!(wasmi::Error, Error::WasmError);
+impl_from_error!(wasmi::Trap, Error::WasmTrap);
 
 pub fn exec(encoded_program: &str, arguments: &str) -> Result<wasmi::RuntimeValue, Error> {
     let data = base64::decode(encoded_program)?;

@@ -5,8 +5,7 @@ extern crate errno;
 extern crate sgx_types;
 extern crate sgx_urts;
 
-#[macro_use]
-extern crate lazy_static;
+#[macro_use] extern crate lazy_static;
 
 use std::panic;
 
