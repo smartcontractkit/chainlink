@@ -14,7 +14,7 @@ func TestAccountBalanceController_IndexError(t *testing.T) {
 
 	appWithoutAccount, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := appWithoutAccount.NewRemoteClient()
+	client := appWithoutAccount.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/account_balance")
 	defer cleanup()
@@ -28,7 +28,7 @@ func TestAccountBalanceController_Index(t *testing.T) {
 
 	appWithAccount, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	client := appWithAccount.NewRemoteClient()
+	client := appWithAccount.NewHTTPClient()
 
 	ethMock := appWithAccount.MockEthClient()
 	ethMock.Register("eth_getBalance", "0x0100")

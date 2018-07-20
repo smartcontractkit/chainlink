@@ -17,7 +17,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	setupJobSpecsControllerIndex(app)
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -32,7 +32,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt, err := setupBridgeControllerIndex(app)
 	assert.NoError(t, err)
@@ -100,7 +100,7 @@ func TestBridgeTypesController_Create(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -122,7 +122,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
 		Name:                 models.MustNewTaskType("testingbridges1"),
@@ -151,7 +151,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	resp, cleanup := client.Delete("/v2/bridge_types/testingbridges1")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
@@ -177,7 +177,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -192,7 +192,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -207,7 +207,7 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",

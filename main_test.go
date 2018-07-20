@@ -19,7 +19,7 @@ func ExampleRun() {
 		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
-		RemoteClient:           cltest.NewMockAuthenticatedRemoteClient(tc.Config),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
 	}
 
 	Run(testClient, "chainlink.test", "--help")
@@ -66,7 +66,7 @@ func ExampleVersion() {
 		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
-		RemoteClient:           cltest.NewMockAuthenticatedRemoteClient(tc.Config),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
 	}
 
 	Run(testClient, "chainlink.test", "--version")

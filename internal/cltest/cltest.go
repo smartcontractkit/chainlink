@@ -48,7 +48,7 @@ const (
 	Password = "password"
 	// Session ID for API user
 	APISessionID = "session"
-	// SessionSecret is the temporarily hardcoded secret
+	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 )
 
@@ -219,10 +219,10 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 	return mockUser
 }
 
-func (ta *TestApplication) NewRemoteClient() RemoteClientCleaner {
+func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 	ta.MustSeedUserSession()
-	return RemoteClientCleaner{
-		RemoteClient: NewMockAuthenticatedRemoteClient(ta.Config),
+	return HTTPClientCleaner{
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config),
 	}
 }
 
@@ -238,9 +238,9 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		KeyStoreAuthenticator:  CallbackAuthenticator{func(*store.Store, string) error { return nil }},
 		FallbackAPIInitializer: &MockAPIInitializer{},
 		Runner:                 EmptyRunner{},
-		RemoteClient:           NewMockAuthenticatedRemoteClient(ta.Config),
 		CookieAuthenticator:    MockCookieAuthenticator{},
 		SessionRequestBuilders: builders,
+		HTTP: NewMockAuthenticatedHTTPClient(ta.Config),
 	}
 	return client, r
 }
@@ -341,24 +341,24 @@ func AddPrivateKey(config *TestConfig, src string) {
 	copyFile(src, dst)
 }
 
-type RemoteClientCleaner struct {
-	RemoteClient cmd.RemoteClient
+type HTTPClientCleaner struct {
+	HTTPClient cmd.HTTPClient
 }
 
-func (r *RemoteClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
-	return bodyCleaner(r.RemoteClient.Get(path, headers...))
+func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Get(path, headers...))
 }
 
-func (r *RemoteClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
-	return bodyCleaner(r.RemoteClient.Post(path, body))
+func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Post(path, body))
 }
 
-func (r *RemoteClientCleaner) Patch(path string, body io.Reader) (*http.Response, func()) {
-	return bodyCleaner(r.RemoteClient.Patch(path, body))
+func (r *HTTPClientCleaner) Patch(path string, body io.Reader) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Patch(path, body))
 }
 
-func (r *RemoteClientCleaner) Delete(path string) (*http.Response, func()) {
-	return bodyCleaner(r.RemoteClient.Delete(path))
+func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Delete(path))
 }
 
 func bodyCleaner(resp *http.Response, err error) (*http.Response, func()) {
@@ -416,7 +416,7 @@ func ReadLogs(app *TestApplication) (string, error) {
 
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -442,7 +442,7 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v1/assignments", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -451,7 +451,7 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(marshaled))
@@ -467,7 +467,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bodyBuffer)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -506,7 +506,7 @@ func UpdateJobRunViaWeb(
 	body string,
 ) models.JobRun {
 	t.Helper()
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 
@@ -522,7 +522,7 @@ func CreateBridgeTypeViaWeb(
 	app *TestApplication,
 	payload string,
 ) models.BridgeType {
-	client := app.NewRemoteClient()
+	client := app.NewHTTPClient()
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
 		bytes.NewBufferString(payload),
