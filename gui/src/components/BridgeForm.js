@@ -4,7 +4,7 @@ import { object, string, number } from 'yup'
 import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
 import { TextField, Typography, Grid } from '@material-ui/core'
-import postBridge from 'utils/postBridge'
+import { postBridge } from 'api'
 
 const styles = theme => ({
   textfield: {

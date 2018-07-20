@@ -3,7 +3,7 @@ import { withFormik, Form } from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
 import { TextField, Grid } from '@material-ui/core'
-import postJob from 'utils/postJob'
+import { postJob } from 'api'
 
 const styles = theme => ({
   jsonfield: {
@@ -17,19 +17,18 @@ const styles = theme => ({
 const FormLayout = ({ isSubmitting, classes, handleChange }) => (
   <Grid justify='center' container spacing={24}>
     <Grid item xs={5}>
-      <Form>
-        <div>
+      <Form noValidate>
           <TextField
             fullWidth
-            id='textarea'
-            label='Paste JSON'
             onChange={handleChange}
+            label='Paste JSON'
             placeholder='Paste JSON'
             multiline
             className={classes.jsonfield}
             margin='normal'
+            type='json'
+            name='json'
           />
-        </div>
         <Grid container justify='center'>
           <Button color='primary' type='submit' disabled={isSubmitting}>
               Build Job
@@ -47,7 +46,7 @@ const JobForm = withFormik({
     }
   },
   handleSubmit (values) {
-    postJob(values).then(res => console.log(res))
+    postJob(values.json)
   }
 })(FormLayout)
 
