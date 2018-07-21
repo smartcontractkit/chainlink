@@ -41,7 +41,8 @@ class WrappedTabs extends React.Component {
   };
 
   componentDidMount() {
-    this.setState({value: this.props.location.state.tab})
+    if (this.props.location && this.props.location.state)
+      this.setState({ value: this.props.location.state.tab })
   }
 
   handleChange = (event, value) => {
