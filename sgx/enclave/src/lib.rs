@@ -20,7 +20,6 @@ mod wasm;
 
 use sgx_types::*;
 use util::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
-use std::ptr;
 use std::string::String;
 use std::string::ToString;
 
@@ -118,16 +117,18 @@ pub extern "C" fn sgx_multiply(
     adapter_str_len: usize,
     input_str_ptr: *const u8,
     input_str_len: usize,
-    output_bin: *mut u8,
-    output_max_len: usize,
+    result_ptr: *mut u8,
+    result_capacity: usize,
+    result_len: *mut usize,
 ) -> sgx_status_t {
     match multiply(
         adapter_str_ptr,
         adapter_str_len,
         input_str_ptr,
         input_str_len,
-        output_bin,
-        output_max_len,
+        result_ptr,
+        result_capacity,
+        result_len,
     ) {
         Ok(_) => sgx_status_t::SGX_SUCCESS,
         _ => sgx_status_t::SGX_ERROR_UNEXPECTED,
@@ -139,8 +140,9 @@ fn multiply(
     adapter_str_len: usize,
     input_str_ptr: *const u8,
     input_str_len: usize,
-    output_bin: *mut u8,
-    output_max_len: usize,
+    result_ptr: *mut u8,
+    result_capacity: usize,
+    result_len: *mut usize,
 ) -> Result<(), sgx_status_t> {
     let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len).unwrap();
     let adapter: serde_json::Value = match serde_json::from_str(&adapter_str) {
@@ -151,7 +153,7 @@ fn multiply(
     let mut input = parse_run_result_json(&input_str)?;
     let multiplier = get_json_string(&adapter, "times".to_string())?;
     let multiplicand = get_json_string(&input.data, "value".to_string())?;
-    let result = format_and_multiply(&multiplicand, &multiplier)?;
+    let result = parse_and_multiply(&multiplicand, &multiplier)?;
 
     input.status = Some("completed".to_string());
     input.add("value".to_string(), serde_json::Value::String(result));
@@ -160,12 +162,10 @@ fn multiply(
         _ => return Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
     };
 
-    if rr_json.len() < output_max_len {
-        unsafe {
-            ptr::copy_nonoverlapping(rr_json.as_ptr(), output_bin, rr_json.len());
-        }
-    };
-    Ok(())
+    match copy_string_to_cstr_ptr(&rr_json, result_ptr, result_capacity, result_len) {
+        Err(_) => Err(sgx_status_t::SGX_ERROR_INVALID_PARAMETER),
+        _ => Ok(())
+    }
 }
 
 fn get_json_string(object: &serde_json::Value, key: String) -> Result<String, sgx_status_t> {
@@ -176,7 +176,7 @@ fn get_json_string(object: &serde_json::Value, key: String) -> Result<String, sg
     }
 }
 
-fn format_and_multiply(
+fn parse_and_multiply(
     multiplicand_str: &str,
     multiplier_str: &str,
 ) -> Result<String, sgx_status_t> {
