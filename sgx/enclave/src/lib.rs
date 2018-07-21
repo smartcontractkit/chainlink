@@ -13,15 +13,15 @@ extern crate serde_json;
 #[cfg(not(target_env = "sgx"))]
 #[macro_use] extern crate sgx_tstd as std;
 extern crate sgx_types;
+#[macro_use] extern crate utils;
 extern crate wasmi;
 
-#[macro_use] mod util;
 mod wasm;
 
 use sgx_types::*;
-use util::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
 use std::string::String;
 use std::string::ToString;
+use utils::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
 
 #[no_mangle]
 pub extern "C" fn sgx_http_get(url_ptr: *const u8, url_len: usize) -> sgx_status_t {
@@ -75,13 +75,13 @@ pub extern "C" fn sgx_wasm(
 enum WasmError {
     FromUtf8Error(std::string::FromUtf8Error),
     ExecError(wasm::Error),
-    OutputCStrError(util::OutputCStrError),
+    OutputCStrError(utils::OutputCStrError),
     UnexpectedOutputError,
 }
 
 impl_from_error!(std::string::FromUtf8Error, WasmError::FromUtf8Error);
 impl_from_error!(wasm::Error, WasmError::ExecError);
-impl_from_error!(util::OutputCStrError, WasmError::OutputCStrError);
+impl_from_error!(utils::OutputCStrError, WasmError::OutputCStrError);
 
 fn wasm(
     wasmt_ptr: *const u8,
