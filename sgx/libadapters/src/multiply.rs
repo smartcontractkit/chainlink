@@ -12,8 +12,9 @@ extern "C" {
         adapter_len: usize,
         input: *const u8,
         input_len: usize,
-        output: *mut u8,
-        output_len: usize,
+        result_ptr: *mut u8,
+        result_capacity: usize,
+        result_len: *mut usize,
     ) -> sgx_status_t;
 }
 
@@ -21,7 +22,9 @@ extern "C" {
 pub extern "C" fn multiply(
     adapter: *const libc::c_char,
     input: *const libc::c_char,
-    output: *mut libc::c_char,
+    result_ptr: *mut libc::c_char,
+    result_capacity: usize,
+    result_len: *mut usize,
 ) {
     let mut retval = sgx_status_t::SGX_SUCCESS;
     let result = unsafe {
@@ -32,8 +35,9 @@ pub extern "C" fn multiply(
             cstr_len(adapter),
             input as *const u8,
             cstr_len(input),
-            output as *mut u8,
-            cstr_len(output),
+            result_ptr as *mut u8,
+            result_capacity,
+            result_len as *mut usize,
         )
     };
 
