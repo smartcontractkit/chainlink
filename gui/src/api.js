@@ -56,7 +56,7 @@ const destroy = (path) => {
 }
 
 export const getJobs = (page, size) => get('/v2/specs', {page: page, size: size})
-
+}
 export const getJobSpec = (id) => get(`/v2/specs/${id}`)
 
 export const getJobSpecRuns = (id, page, size) => get(`/v2/specs/${id}/runs`, {page: page, size: size})
