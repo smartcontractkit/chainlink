@@ -18,17 +18,17 @@ const FormLayout = ({ isSubmitting, classes, handleChange }) => (
   <Grid justify='center' container spacing={24}>
     <Grid item xs={5}>
       <Form noValidate>
-          <TextField
-            fullWidth
-            onChange={handleChange}
-            label='Paste JSON'
-            placeholder='Paste JSON'
-            multiline
-            className={classes.jsonfield}
-            margin='normal'
-            type='json'
-            name='json'
-          />
+        <TextField
+          fullWidth
+          onChange={handleChange}
+          label='Paste JSON'
+          placeholder='Paste JSON'
+          multiline
+          className={classes.jsonfield}
+          margin='normal'
+          type='json'
+          name='json'
+        />
         <Grid container justify='center'>
           <Button color='primary' type='submit' disabled={isSubmitting}>
               Build Job

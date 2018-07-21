@@ -40,9 +40,8 @@ class Create extends React.Component {
     value: 0
   };
 
-  componentDidMount() {
-    if (this.props.location && this.props.location.state)
-      this.setState({ value: this.props.location.state.tab })
+  componentDidMount () {
+    if (this.props.location && this.props.location.state) { this.setState({ value: this.props.location.state.tab }) }
   }
 
   handleChange = (event, value) => {
