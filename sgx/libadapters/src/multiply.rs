@@ -1,3 +1,4 @@
+use errno::{set_errno, Errno};
 use libc;
 use sgx_types::*;
 use util::cstr_len;
@@ -45,6 +46,18 @@ pub extern "C" fn multiply(
         sgx_status_t::SGX_SUCCESS => {}
         _ => {
             println!("Call into Enclave multiplier failed: {}", result.as_str());
+        }
+    }
+
+    match retval {
+        sgx_status_t::SGX_SUCCESS => {
+            println!("multiply call succeeded");
+            set_errno(Errno(0));
+        }
+        _ => {
+            println!("multiply returned error: {}", retval.as_str());
+            set_errno(Errno(result as i32));
+            return;
         }
     }
 }
