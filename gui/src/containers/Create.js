@@ -35,7 +35,7 @@ TabContainer.propTypes = {
   children: PropTypes.node.isRequired
 }
 
-class WrappedTabs extends React.Component {
+class Create extends React.Component {
   state = {
     value: 0
   };
@@ -70,8 +70,9 @@ class WrappedTabs extends React.Component {
   }
 }
 
-WrappedTabs.propTypes = {
+Create.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-export default withStyles(styles)(WrappedTabs)
+export const withoutStyles = Create
+export default withStyles(styles)(Create)
