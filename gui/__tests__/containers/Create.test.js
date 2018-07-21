@@ -1,7 +1,7 @@
 /* eslint-env jest */
 import React from 'react'
 import { shallow } from 'enzyme'
-import { Conn as Create } from 'containers/Create'
+import { withoutStyles as Create } from 'containers/Create'
 
 const classes = {}
 const mountCreatePage = props => shallow(<Create classes={classes} {...props} />)
