@@ -12,7 +12,8 @@ describe('bridgeSpec reducer', () => {
     expect(state.bridgeSpec).toEqual({
       name: '',
       url: '',
-      defaultConfirmations: 0,
+      confirmations: "0",
+      networkError: false,
       fetching: false
     })
   })
@@ -25,7 +26,7 @@ describe('bridgeSpec reducer', () => {
     expect(state.bridgeSpec.networkError).toEqual(false)
   })
 
-  it('RECEIVE_BRIDGESPEC_SUCCESS stops fetching and assigns name, url & defaultconfirmations', () => {
+  it('RECEIVE_BRIDGESPEC_SUCCESS stops fetching and assigns name, url & confirmations', () => {
     const previousState = {
       bridgeSpec: {
         fetching: true,
@@ -36,13 +37,13 @@ describe('bridgeSpec reducer', () => {
       type: RECEIVE_BRIDGESPEC_SUCCESS,
       name: 'someRandomName',
       url: 'https://localhost.com:8000/endpoint',
-      defaultConfirmations: 5
+      confirmations: 5
     }
     const state = reducer(previousState, action)
 
     expect(state.bridgeSpec.name).toEqual('someRandomName')
     expect(state.bridgeSpec.url).toEqual('https://localhost.com:8000/endpoint')
-    expect(state.bridgeSpec.defaultConfirmations).toEqual(5)
+    expect(state.bridgeSpec.confirmations).toEqual(5)
     expect(state.bridgeSpec.fetching).toEqual(false)
     expect(state.bridgeSpec.networkError).toEqual(false)
   })
