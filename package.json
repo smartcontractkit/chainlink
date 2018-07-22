@@ -72,8 +72,7 @@
     "url": "^0.11.0",
     "uuid": "^3.2.1",
     "web3": "^1.0.0-beta.29",
-    "wscat": "^2.1.1",
-    "yup": "^0.25.1"
+    "wscat": "^2.1.1"
   },
   "standard": {
     "parser": "babel-eslint",

@@ -66,6 +66,12 @@ const renderSidebar = ({
   </Grid>
 )
 
+const CreateButton = ({tabValue, buttonText}) => (
+  <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: tabValue } }} >
+    {buttonText}
+  </Button>
+)
+
 export class Jobs extends Component {
   componentDidMount () {
     this.props.fetchJobs(1, this.props.pageSize)
@@ -74,34 +80,24 @@ export class Jobs extends Component {
 
   render () {
     const { classes } = this.props
-
     return (
       <div>
-        <Grid container alignItems='center' >
-          <Grid item xs={1}>
+        <Grid container spacing={8} xs={9} alignItems='center' >
+          <Grid item xs>
             <Typography variant='display2' color='inherit' className={classes.title}>
               Jobs
             </Typography>
           </Grid>
-          <Grid item xs={1}>
-            <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: 0 } }} >
-              Create Bridge
-            </Button>
+          <Grid item>
+            <CreateButton tabValue={0} buttonText='Create Bridge' />
           </Grid>
-          <Grid item xs={1}>
-            <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: 1 } }} >
-              Create Job
-            </Button>
+          <Grid item>
+            <CreateButton tabValue={1} buttonText='Create Job' />
           </Grid>
         </Grid>
-
         <Grid container spacing={40}>
-          <Grid item xs={9}>
-            {renderJobsList(this.props)}
-          </Grid>
-          <Grid item xs={3}>
-            {renderSidebar(this.props)}
-          </Grid>
+          <Grid item xs={9}>{renderJobsList(this.props)}</Grid>
+          <Grid item xs={3}>{renderSidebar(this.props)}</Grid>
         </Grid>
         <Footer />
       </div>
