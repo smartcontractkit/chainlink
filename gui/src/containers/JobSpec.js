@@ -45,7 +45,7 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({classes, jobSpec, latestJobRuns, jobRunsCount}) => (
+const renderJobSpec = ({classes, jobSpec, jobRunsCount}) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
