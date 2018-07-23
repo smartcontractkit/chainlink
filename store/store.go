@@ -9,11 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -66,7 +64,10 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
-	orm := initializeORM(config)
+	orm, err := initializeORM(config)
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
+	}
 	ethrpc, err := dialer.Dial(config.EthereumURL)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
@@ -124,20 +125,20 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func initializeORM(config Config) *models.ORM {
-	var orm *models.ORM
-	var err error
-	sleeper := utils.NewConstantSleeper(config.DatabasePollInterval.Duration)
-	for {
-		orm, err = models.NewORM(path.Join(config.RootDir, "db.bolt"))
-		if err != nil && err == bolt.ErrTimeout {
-			logger.Info("BoltDB is locked, sleeping", "sleepDuration", sleeper.Duration())
-			sleeper.Sleep()
-		} else {
-			break
-		}
+func initializeORM(config Config) (*models.ORM, error) {
+	path := path.Join(config.RootDir, "db.bolt")
+	duration := config.DatabaseTimeout.Duration
+	logger.Infof("Waiting %s for lock on db file %s", friendlyDuration(duration), path)
+	return models.NewORM(path, duration)
+}
+
+const zeroDuration = time.Duration(0)
+
+func friendlyDuration(duration time.Duration) string {
+	if duration == zeroDuration {
+		return "indefinitely"
 	}
-	return orm
+	return fmt.Sprintf("%v", duration)
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary
