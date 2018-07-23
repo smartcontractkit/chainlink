@@ -105,6 +105,11 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
 }
 
+// Infof formats and then logs the message before panicking.
+func Infof(format string, values ...interface{}) {
+	logger.Info(fmt.Sprintf(format, values...))
+}
+
 // Panicf formats and then logs the message before panicking.
 func Panicf(format string, values ...interface{}) {
 	logger.Panic(fmt.Sprintf(format, values...))

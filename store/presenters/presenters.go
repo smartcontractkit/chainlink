@@ -118,7 +118,7 @@ type ConfigWhitelist struct {
 	LinkContractAddress      string          `json:"linkContractAddress"`
 	MinimumContractPayment   *big.Int        `json:"minimumContractPayment"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
-	DatabasePollInterval     store.Duration  `json:"databasePollInterval"`
+	DatabaseTimeout          store.Duration  `json:"databaseTimeout"`
 	AllowOrigins             string          `json:"allowOrigins"`
 	ChainlinkDev             bool            `json:"chainlinkDev"`
 }
@@ -140,7 +140,7 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		LinkContractAddress:      config.LinkContractAddress,
 		MinimumContractPayment:   &config.MinimumContractPayment,
 		OracleContractAddress:    config.OracleContractAddress,
-		DatabasePollInterval:     config.DatabasePollInterval,
+		DatabaseTimeout:          config.DatabaseTimeout,
 		AllowOrigins:             config.AllowOrigins,
 		ChainlinkDev:             config.Dev,
 	}
@@ -187,7 +187,7 @@ func (c ConfigWhitelist) String() string {
 		c.LinkContractAddress,
 		c.MinimumContractPayment.String(),
 		oracleContractAddress,
-		c.DatabasePollInterval,
+		c.DatabaseTimeout,
 		c.AllowOrigins,
 		c.ChainlinkDev,
 	)

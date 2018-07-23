@@ -4,6 +4,7 @@ import (
 	"flag"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -274,7 +275,7 @@ func TestClient_BackupDatabase(t *testing.T) {
 	err := client.BackupDatabase(c)
 	assert.NoError(t, err)
 
-	restored, err := models.NewORM(path)
+	restored, err := models.NewORM(path, 1*time.Second)
 	assert.NoError(t, err)
 	restoredJob, err := restored.FindJob(job.ID)
 	assert.NoError(t, err)
