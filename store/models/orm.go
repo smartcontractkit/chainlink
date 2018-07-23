@@ -23,7 +23,7 @@ type ORM struct {
 func NewORM(path string) (*ORM, error) {
 	db, err := initializeDatabase(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to init DB: %+v", err)
+		return nil, err
 	}
 	orm := &ORM{db}
 	orm.migrate()
@@ -33,7 +33,7 @@ func NewORM(path string) (*ORM, error) {
 func initializeDatabase(path string) (*storm.DB, error) {
 	db, err := storm.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open stormDB: %+v", err)
+		return nil, err
 	}
 	return db, nil
 }
