@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"time"
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
@@ -20,8 +21,8 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured path.
-func NewORM(path string) (*ORM, error) {
-	db, err := initializeDatabase(path)
+func NewORM(path string, duration time.Duration) (*ORM, error) {
+	db, err := initializeDatabase(path, duration)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +31,9 @@ func NewORM(path string) (*ORM, error) {
 	return orm, nil
 }
 
-func initializeDatabase(path string) (*storm.DB, error) {
-	db, err := storm.Open(path)
+func initializeDatabase(path string, duration time.Duration) (*storm.DB, error) {
+	options := storm.BoltOptions(0600, &bolt.Options{Timeout: duration})
+	db, err := storm.Open(path, options)
 	if err != nil {
 		return nil, err
 	}

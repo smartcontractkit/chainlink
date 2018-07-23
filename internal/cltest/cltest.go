@@ -86,7 +86,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			EthGasBumpWei:            *big.NewInt(5000000000),
 			EthGasBumpThreshold:      3,
 			EthGasPriceDefault:       *big.NewInt(20000000000),
-			DatabasePollInterval:     store.Duration{Duration: time.Millisecond * 500},
+			DatabaseTimeout:          store.Duration{Duration: time.Millisecond * 500},
 			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
 			Dev:                      true,
 			SecretGenerator:          mockSecretGenerator{},
