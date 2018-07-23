@@ -17,6 +17,7 @@ export ETH_CHAIN_ID=17
 export TX_MIN_CONFIRMATIONS=2
 export MINIMUM_CONTRACT_PAYMENT=1000000000000
 export ROOT=$PROJECT_ROOT/internal/clroot
+export CHAINLINK_DEV=true
 
 pushd $PROJECT_ROOT >/dev/null
 if [ "$#" == 0 ]; then
