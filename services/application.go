@@ -23,16 +23,14 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter               func(int)
-	HeadTracker          *HeadTracker
-	JobRunner            JobRunner
-	JobSubscriber        JobSubscriber
-	Scheduler            *Scheduler
-	Store                *store.Store
-	bridgeTypeMutex      sync.Mutex
-	jobSubscriberID      string
-	specAndRunSubscriber *SpecAndRunSubscriber
-	specSubscriberID     string
+	Exiter          func(int)
+	HeadTracker     *HeadTracker
+	JobRunner       JobRunner
+	JobSubscriber   JobSubscriber
+	Scheduler       *Scheduler
+	Store           *store.Store
+	bridgeTypeMutex sync.Mutex
+	jobSubscriberID string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -43,13 +41,12 @@ func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:          ht,
-		JobSubscriber:        NewJobSubscriber(store),
-		JobRunner:            NewJobRunner(store),
-		Scheduler:            NewScheduler(store),
-		Store:                store,
-		Exiter:               os.Exit,
-		specAndRunSubscriber: NewSpecAndRunSubscriber(store, config.OracleContractAddress),
+		HeadTracker:   ht,
+		JobSubscriber: NewJobSubscriber(store),
+		JobRunner:     NewJobRunner(store),
+		Scheduler:     NewScheduler(store),
+		Store:         store,
+		Exiter:        os.Exit,
 	}
 }
 
@@ -68,7 +65,6 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
-	app.specSubscriberID = app.HeadTracker.Attach(app.specAndRunSubscriber)
 
 	return multierr.Combine(app.Store.Start(),
 		app.HeadTracker.Start(),
@@ -85,7 +81,6 @@ func (app *ChainlinkApplication) Stop() error {
 	app.HeadTracker.Stop()
 	app.JobRunner.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)
-	app.HeadTracker.Detach(app.specSubscriberID)
 	return app.Store.Close()
 }
 

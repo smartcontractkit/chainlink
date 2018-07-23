@@ -298,13 +298,6 @@ cbor = require('cbor');
     return [log.topics[1], log.topics[2], log.topics[3], version, data];
   };
 
-  decodeSpecAndRunRequest = function(log) {
-    let runABI = util.toBuffer(log.data);
-    let types = ["uint256", "bytes"];
-    let [version, data] = abi.rawDecode(types, runABI);
-    return [log.topics[1], log.topics[2], version, data];
-  }
-
   requestDataBytes = function requestDataBytes(specId, to, fHash, runId, data) {
     let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
     let values = [1, specId, to, fHash, runId, data];
@@ -315,14 +308,6 @@ cbor = require('cbor');
 
   requestDataFrom = function requestDataFrom(oc, link, amount, args) {
     return link.transferAndCall(oc.address, amount, args);
-  };
-
-  specAndRunBytes = function(to, fHash, requestId, data) {
-    let types = ["uint256", "address", "bytes4", "bytes32", "bytes"];
-    let values = [1, to, fHash, requestId, data];
-    let encoded = abi.rawEncode(types, values);
-    let funcSelector = functionSelector("specAndRun(uint256,address,bytes4,bytes32,bytes)");
-    return funcSelector + encoded.toString("hex");
   };
 
   _0x = (val) => {

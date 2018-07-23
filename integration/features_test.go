@@ -139,7 +139,6 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
@@ -166,7 +165,6 @@ func TestIntegration_RunLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	newHeads := eth.RegisterNewHeads()
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -198,32 +196,6 @@ func TestIntegration_RunLog(t *testing.T) {
 	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
-}
-
-func TestIntegration_SpecAndRunLog(t *testing.T) {
-	config, cfgCleanup := cltest.NewConfig()
-	defer cfgCleanup()
-	config.MinIncomingConfirmations = 3
-	app, cleanup := cltest.NewApplicationWithConfig(config)
-	defer cleanup()
-
-	eth := app.MockEthClient()
-	logs := make(chan types.Log, 1)
-	newHeads := eth.RegisterNewHeads()
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("logs", logs)
-	})
-	app.Start()
-
-	payload := `{"tasks": ["noop"]}`
-	payment := &config.MinimumContractPayment
-	logs <- cltest.NewSpecAndRunLog(cltest.NewAddress(), 1, payload, payment)
-	jobs := cltest.WaitForJobs(t, app.Store, 1)
-	runs := cltest.WaitForRuns(t, jobs[0], app.Store, 1)
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, runs[0])
-
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(3)}
-	cltest.WaitForJobRunToComplete(t, app.Store, runs[0])
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -283,7 +255,6 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	eth.RegisterSubscription("logs") // for SpecAndRunSubscriber
 	logs := make(chan types.Log, 1)
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {

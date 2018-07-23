@@ -22,7 +22,6 @@ contract('Oracle', () => {
       'onTokenTransfer',
       'owner',
       'requestData',
-      'specAndRun',
       'transferOwnership',
       'withdraw'
     ])
@@ -131,38 +130,6 @@ contract('Oracle', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
           await oc.requestData(1, specId, to, fHash, 'id', '', {from: oracleNode})
-        })
-      })
-    })
-  })
-
-  describe('#specAndRun', () => {
-    context('when called through the LINK token', () => {
-      let log, tx, amount
-      beforeEach(async () => {
-        amount = 1337
-        let args = specAndRunBytes(to, fHash, 'requestId', '')
-        tx = await link.transferAndCall(oc.address, amount, args)
-        assert.equal(3, tx.receipt.logs.length)
-
-        log = tx.receipt.logs[2]
-      })
-
-      it('logs an event', async () => {
-        assert.equal(amount, web3.toBigNumber(log.topics[2]))
-      })
-
-      it('uses the expected event signature', () => {
-        // If updating this test, be sure to update services.SpecAndRunTopic.
-        let eventSignature = '0x40a86f3bd301164dcd67d63d081ecb2db540ac73bafb27eea27d65b3a2694f39'
-        assert.equal(eventSignature, log.topics[0])
-      })
-    })
-
-    context('when not called through the LINK token', () => {
-      it('reverts', async () => {
-        await assertActionThrows(async () => {
-          await oc.specAndRun(1, to, fHash, 'id', '', {from: oracleNode})
         })
       })
     })
@@ -357,7 +324,7 @@ contract('Oracle', () => {
 
           let newOracleBalance = await link.balanceOf(oc.address)
           let newStrangerBalance = await link.balanceOf(stranger)
-          
+
           assert.equal(originalOracleBalance.toNumber(), newOracleBalance.toNumber())
           assert.equal(originalStrangerBalance.toNumber(), newStrangerBalance.toNumber())
         })
