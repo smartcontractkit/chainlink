@@ -10,10 +10,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
 import { withStyles } from '@material-ui/core/styles'
-import {
-  jobRunsCountSelector,
-  jobRunsSelector
-} from 'selectors'
+import { jobRunsCountSelector, jobRunsSelector } from 'selectors'
 
 const styles = theme => ({
   breadcrumb: {
@@ -26,10 +23,8 @@ const styles = theme => ({
   }
 })
 
-const START_PAGE = 1
-
 export class JobSpecRuns extends Component {
-  constructor (props) {
+  constructor(props) {
     super(props)
     this.state = {
       page: 0
@@ -37,33 +32,37 @@ export class JobSpecRuns extends Component {
     this.handleChangePage = this.handleChangePage.bind(this)
   }
 
-  componentDidMount () {
-    const {jobSpecId, pageSize, fetchJobSpecRuns} = this.props
-    fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
+  componentDidMount() {
+    const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
+    if (this.props.match) {
+      const START_PAGE = this.props.match.params.jobRunsPage
+      this.setState({ page: START_PAGE - 1 })
+      fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
+    } else {
+      fetchJobSpecRuns(jobSpecId, 1, pageSize)
+    }
   }
 
-  handleChangePage (e, page) {
-    const {fetchJobSpecRuns, jobSpecId, pageSize} = this.props
+  handleChangePage(e, page) {
+    const { fetchJobSpecRuns, jobSpecId, pageSize } = this.props
 
     fetchJobSpecRuns(jobSpecId, page + 1, pageSize)
-    this.setState({page})
+    this.setState({ page })
   }
 
-  render () {
-    const {classes, jobSpecId} = this.props
+  render() {
+    const { classes, jobSpecId } = this.props
 
     return (
       <div>
         <Breadcrumb className={classes.breadcrumb}>
-          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+          <BreadcrumbItem href="/">Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>
-            Job ID: {jobSpecId}
-          </BreadcrumbItem>
+          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Runs</BreadcrumbItem>
         </Breadcrumb>
-        <Typography variant='display2' color='inherit' className={classes.title}>
+        <Typography variant="display2" color="inherit" className={classes.title}>
           Runs
         </Typography>
 
@@ -73,26 +72,24 @@ export class JobSpecRuns extends Component {
   }
 }
 
-const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount, pageSize}, state, handleChangePage) => (
+const renderLatestRuns = ({ jobSpecId, latestJobRuns, jobRunsCount, pageSize }, state, handleChangePage) => (
   <Card>
     <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
     <TablePagination
-      component='div'
+      component="div"
       count={jobRunsCount}
       rowsPerPage={pageSize}
       rowsPerPageOptions={[pageSize]}
       page={state.page}
-      backIconButtonProps={{'aria-label': 'Previous Page'}}
-      nextIconButtonProps={{'aria-label': 'Next Page'}}
+      backIconButtonProps={{ 'aria-label': 'Previous Page' }}
+      nextIconButtonProps={{ 'aria-label': 'Next Page' }}
       onChangePage={handleChangePage}
       onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
     />
   </Card>
 )
 
-const renderFetching = () => (
-  <div>Fetching...</div>
-)
+const renderFetching = () => <div>Fetching...</div>
 
 const renderDetails = (props, state, handleChangePage) => {
   if (props.latestJobRuns && props.latestJobRuns.length > 0) {
@@ -126,10 +123,13 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({
-    fetchJobSpecRuns
-  }, dispatch)
+const mapDispatchToProps = dispatch => {
+  return bindActionCreators(
+    {
+      fetchJobSpecRuns
+    },
+    dispatch
+  )
 }
 
 export const ConnectedJobSpecRuns = connect(mapStateToProps, mapDispatchToProps)(JobSpecRuns)
