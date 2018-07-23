@@ -1,14 +1,20 @@
 // Util functions, primarily for passing data between Go / Rust / SGX enclaves
 
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
-#[cfg(not(test))]
+#[cfg(all(not(test), not(feature = "std")))]
 extern crate sgx_tstd as std;
 
-use std::ffi::{CString, NulError};
+use std::ffi::{CStr, CString, NulError};
 use std::slice::{self, from_raw_parts_mut};
 use std::string::{FromUtf8Error, String};
 use std::ptr;
+
+// cstr_len gets the length of a cstring pointer, not including the null terminator
+pub fn cstr_len(string: *const i8) -> usize {
+    let buffer = unsafe { CStr::from_ptr(string).to_bytes() };
+    buffer.len()
+}
 
 // string_from_cstr_with_len creates a rust String from a string pointer with a specific length.
 pub fn string_from_cstr_with_len(ptr: *const u8, len: usize) -> Result<String, FromUtf8Error> {
@@ -66,7 +72,8 @@ macro_rules! impl_from_error {
 
 #[cfg(test)]
 mod tests {
-    use super::{string_from_cstr_with_len, copy_string_to_cstr_ptr};
+    use std::ffi::CString;
+    use super::{string_from_cstr_with_len, copy_string_to_cstr_ptr, cstr_len};
 
     #[test]
     fn test_string_from_cstr_with_len() {
@@ -96,5 +103,11 @@ mod tests {
 
         let result = copy_string_to_cstr_ptr("hello world!".into(), &mut buffer[0], buffer.len(), &mut size);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cstr_len() {
+        let cstr = CString::new("hello world!").unwrap();
+        assert_eq!(cstr_len(cstr.as_ptr()), 12);
     }
 }
