@@ -73,7 +73,7 @@ export class JobSpecRuns extends Component {
   }
 }
 
-const renderLatestRuns = ({jobSpecId, classes, latestJobRuns, jobRunsCount, pageSize}, state, handleChangePage) => (
+const renderLatestRuns = ({jobSpecId, latestJobRuns, jobRunsCount, pageSize}, state, handleChangePage) => (
   <Card>
     <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
     <TablePagination
