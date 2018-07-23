@@ -233,6 +233,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/end_at_job.json")
 	endAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
@@ -242,8 +243,7 @@ func TestIntegration_EndAt(t *testing.T) {
 
 	clock.SetTime(endAt.Add(time.Nanosecond))
 
-	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", &bytes.Buffer{})
 	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
@@ -260,13 +260,13 @@ func TestIntegration_StartAt(t *testing.T) {
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/start_at_job.json")
 	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
-	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", &bytes.Buffer{})
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", &bytes.Buffer{})
 	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode)
 	cltest.WaitForRuns(t, j, app.Store, 0)

@@ -29,10 +29,11 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 	app.Start()
 	defer cleanup()
 	j := setupJobRunsControllerIndex(b, app)
+	client := app.NewHTTPClient()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs")
+		resp, cleanup := client.Get("/v2/specs/" + j.ID + "/runs")
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
@@ -44,16 +45,17 @@ func TestJobRunsController_Index(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j := setupJobRunsControllerIndex(t, app)
 	jr, err := app.Store.JobRunsFor(j.ID)
 	assert.NoError(t, err)
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=x")
+	resp, cleanup := client.Get("/v2/specs/" + j.ID + "/runs?size=x")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID + "/runs?size=1")
+	resp, cleanup = client.Get("/v2/specs/" + j.ID + "/runs?size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -68,7 +70,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.Len(t, runs, 1)
 	assert.Equal(t, jr[1].ID, runs[0].ID, "expected runs ordered by created at(descending)")
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
+	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -136,12 +138,12 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j, _ := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
-	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBufferString(`{`))
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBufferString(`{`))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 500)
 }
@@ -151,12 +153,12 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j := cltest.NewJob()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
-	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBuffer([]byte{}))
 	defer cleanup()
 	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
 }
@@ -166,9 +168,9 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	url := app.Server.URL + "/v2/specs/garbageID/runs"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	resp, cleanup := client.Post("/v2/specs/garbageID/runs", bytes.NewBuffer([]byte{}))
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
@@ -178,6 +180,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -187,9 +190,8 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
@@ -206,6 +208,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -215,9 +218,8 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	jr := j.NewRun(initr)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
 }
@@ -227,6 +229,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -236,9 +239,8 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
-	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
@@ -255,6 +257,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -264,9 +267,8 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	url := app.Server.URL + "/v2/runs/" + jr.ID
 	body := fmt.Sprint(`{`, jr.ID)
-	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
@@ -278,6 +280,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -287,9 +290,8 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	url := app.Server.URL + "/v2/runs/" + jr.ID + "1"
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	resp, cleanup := cltest.BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID+"1", bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
 	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
@@ -302,6 +304,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
@@ -310,7 +313,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	jr.ID = "jobrun1"
 	assert.Nil(t, app.Store.Save(&jr))
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/" + jr.ID)
+	resp, cleanup := client.Get("/v2/runs/" + jr.ID)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
@@ -327,8 +330,9 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/runs/garbage")
+	resp, cleanup := client.Get("/v2/runs/garbage")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }

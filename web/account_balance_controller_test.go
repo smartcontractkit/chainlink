@@ -14,8 +14,9 @@ func TestAccountBalanceController_IndexError(t *testing.T) {
 
 	appWithoutAccount, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := appWithoutAccount.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthGet(appWithoutAccount.Server.URL + "/v2/account_balance")
+	resp, cleanup := client.Get("/v2/account_balance")
 	defer cleanup()
 	body := cltest.ParseErrorsJSON(resp.Body)
 	assert.Equal(t, 400, resp.StatusCode)
@@ -27,12 +28,13 @@ func TestAccountBalanceController_Index(t *testing.T) {
 
 	appWithAccount, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	client := appWithAccount.NewHTTPClient()
 
 	ethMock := appWithAccount.MockEthClient()
 	ethMock.Register("eth_getBalance", "0x0100")
 	ethMock.Register("eth_call", "0x0100")
 
-	resp, cleanup := cltest.BasicAuthGet(appWithAccount.Server.URL + "/v2/account_balance")
+	resp, cleanup := client.Get("/v2/account_balance")
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode)
 

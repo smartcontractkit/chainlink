@@ -17,10 +17,11 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	setupJobSpecsControllerIndex(app)
+	client := app.NewHTTPClient()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs")
+		resp, cleanup := client.Get("/v2/specs")
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
@@ -31,15 +32,16 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt, err := setupBridgeControllerIndex(app)
 	assert.NoError(t, err)
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=x")
+	resp, cleanup := client.Get("/v2/specs?size=x")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types?size=1")
+	resp, cleanup = client.Get("/v2/bridge_types?size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -56,7 +58,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[0].URL.String(), bridges[0].URL.String(), "should have the same URL")
 	assert.Equal(t, bt[0].DefaultConfirmations, bridges[0].DefaultConfirmations, "should have the same DefaultConfirmations")
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
+	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -98,10 +100,10 @@ func TestBridgeTypesController_Create(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
+	resp, cleanup := client.Post(
+		"/v2/bridge_types",
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")),
 	)
 	defer cleanup()
@@ -120,6 +122,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
 		Name:                 models.MustNewTaskType("testingbridges1"),
@@ -128,7 +131,7 @@ func TestBridgeController_Show(t *testing.T) {
 	}
 	assert.NoError(t, app.AddAdapter(bt))
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/" + bt.Name.String())
+	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
@@ -138,7 +141,7 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
 	assert.Equal(t, respBridge.DefaultConfirmations, bt.DefaultConfirmations, "should have the same DefaultConfirmations")
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/nosuchbridge")
+	resp, cleanup = client.Get("/v2/bridge_types/nosuchbridge")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 }
@@ -148,7 +151,8 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	resp, cleanup := cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types/testingbridges1", "application/json", nil)
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Delete("/v2/bridge_types/testingbridges1")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 
@@ -160,10 +164,10 @@ func TestBridgeController_Destroy(t *testing.T) {
 	err := app.AddAdapter(bt)
 	assert.NoError(t, err)
 
-	resp, cleanup = cltest.BasicAuthDelete(app.Server.URL+"/v2/bridge_types/"+bt.Name.String(), "application/json", nil)
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/v2/bridge_types/testingbridges2")
+	resp, cleanup = client.Get("/v2/bridge_types/testingbridges2")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 }
@@ -173,10 +177,10 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
+	resp, cleanup := client.Post(
+		"/v2/bridge_types",
 		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/existing_core_adapter.json")),
 	)
 	defer cleanup()
@@ -188,10 +192,10 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
+	resp, cleanup := client.Post(
+		"/v2/bridge_types",
 		bytes.NewBufferString("}"),
 	)
 	defer cleanup()
@@ -203,10 +207,10 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
+	resp, cleanup := client.Post(
+		"/v2/bridge_types",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
 	defer cleanup()

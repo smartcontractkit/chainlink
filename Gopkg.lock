@@ -33,6 +33,12 @@
   version = "v0.5.0"
 
 [[projects]]
+  name = "github.com/boj/redistore"
+  packages = ["."]
+  revision = "fc113767cd6b051980f260d6dbe84b2740c46ab0"
+  version = "v1.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
@@ -91,6 +97,15 @@
   version = "v1.6.0"
 
 [[projects]]
+  name = "github.com/garyburd/redigo"
+  packages = [
+    "internal",
+    "redis"
+  ]
+  revision = "a69d19351219b6dd56f274f96d85a7014a2ec34e"
+  version = "v1.6.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/gedex/inflector"
   packages = ["."]
@@ -107,6 +122,12 @@
   name = "github.com/gin-contrib/sse"
   packages = ["."]
   revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gin-gonic/contrib"
+  packages = ["sessions"]
+  revision = "39cfb9727134fef3120d2458fce5fab14265a46c"
 
 [[projects]]
   branch = "master"
@@ -146,6 +167,24 @@
   name = "github.com/golang/snappy"
   packages = ["."]
   revision = "553a641470496b2327abcac10b36396bd98e45c9"
+
+[[projects]]
+  name = "github.com/gorilla/context"
+  packages = ["."]
+  revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+  version = "v1.1.1"
+
+[[projects]]
+  name = "github.com/gorilla/securecookie"
+  packages = ["."]
+  revision = "e59506cc896acb7f7bf732d4fdf5e25f7ccd8983"
+  version = "v1.1.1"
+
+[[projects]]
+  name = "github.com/gorilla/sessions"
+  packages = ["."]
+  revision = "03b6f63cc43ef9c7240a635a5e22b13180e822b8"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -366,6 +405,8 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = [
+    "bcrypt",
+    "blowfish",
     "pbkdf2",
     "scrypt",
     "sha3",
@@ -466,6 +507,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a1d4e08a563d896ba388dee6fdf5be1c62ad5fcf9df0bcb3a0a70bf594f5a4b5"
+  inputs-digest = "d91308ea04183b94a8139d7f02fa667cfc6c245ea312e2b0dcdfe69f757e066b"
   solver-name = "gps-cdcl"
   solver-version = 1

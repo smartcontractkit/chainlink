@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -290,4 +291,73 @@ func (e *DatabaseAccessError) Error() string { return e.msg }
 // NewDatabaseAccessError returns a database access error.
 func NewDatabaseAccessError(msg string) error {
 	return &DatabaseAccessError{msg}
+}
+
+// FindUser will return the one API user, or an error.
+func (orm *ORM) FindUser() (User, error) {
+	var users []User
+	err := orm.AllByIndex("CreatedAt", &users, storm.Limit(1), storm.Reverse())
+	if err != nil {
+		return User{}, err
+	}
+
+	if len(users) == 0 {
+		return User{}, storm.ErrNotFound
+	}
+
+	return users[0], nil
+}
+
+// AuthorizedUserWithSession will return the one API user if the SessionID matches.
+func (orm *ORM) AuthorizedUserWithSession(sessionID string) (User, error) {
+	if len(sessionID) == 0 {
+		return User{}, errors.New("Session ID cannot be empty")
+	}
+
+	user, err := orm.FindUser()
+	if err != nil {
+		return User{}, err
+	}
+	if sessionID != user.SessionID {
+		return User{}, storm.ErrNotFound
+	}
+	return user, nil
+}
+
+// DeleteUser will delete the API User in the db.
+func (orm *ORM) DeleteUser() (User, error) {
+	user, err := orm.FindUser()
+	if err != nil {
+		return user, err
+	}
+	return user, orm.DeleteStruct(&user)
+}
+
+// DeleteUserSession will erase the session ID for the sole API User.
+func (orm *ORM) DeleteUserSession() error {
+	user, err := orm.FindUser()
+	if err != nil {
+		return err
+	}
+	user.SessionID = ""
+	return orm.Save(&user)
+}
+
+// CheckPasswordForSession will check the password in the SessionRequest against
+// the hashed API User password in the db.
+func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
+	user, err := orm.FindUser()
+	if err != nil {
+		return "", err
+	}
+
+	if sr.Email != user.Email {
+		return "", errors.New("Invalid email")
+	}
+
+	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		user.SessionID = utils.NewBytes32ID()
+		return user.SessionID, orm.Save(&user)
+	}
+	return "", errors.New("Invalid password")
 }

@@ -3,9 +3,11 @@
 package web_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
@@ -13,37 +15,38 @@ func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := &http.Client{}
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/")
-	defer cleanup()
+	resp, err := client.Get(app.Server.URL + "/")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/not_found")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/not_found")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/jjob_specs/abc123")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/jjob_specs/abc123")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rruns")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/rruns")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/abc123")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs/abc123")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rruns/abc123")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/rruns/abc123")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 }
 
@@ -52,21 +55,22 @@ func TestGuiAssets_WildcardRouteInfo(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := &http.Client{}
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/routeInfo.json")
-	defer cleanup()
+	resp, err := client.Get(app.Server.URL + "/job_specs/abc123/routeInfo.json")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/rrouteInfo.json")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/rrouteInfo.json")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/routeInfo.json")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs/routeInfo.json")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/job_specs/abc123/runs/rrouteInfo.json")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs/rrouteInfo.json")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 }
 
@@ -75,12 +79,13 @@ func TestGuiAssets_Exact(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := &http.Client{}
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/main.js")
-	defer cleanup()
+	resp, err := client.Get(app.Server.URL + "/main.js")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 200)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/mmain.js")
-	defer cleanup()
+	resp, err = client.Get(app.Server.URL + "/mmain.js")
+	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, 404)
 }

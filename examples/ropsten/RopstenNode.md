@@ -80,8 +80,6 @@ Use the following environment variables as an example to configure your node for
     ETH_CHAIN_ID=3
     MIN_OUTGOING_CONFIRMATIONS=12
     MIN_INCOMING_CONFIRMATIONS=0
-    USERNAME=chainlink
-    PASSWORD=twochains
     LINK_CONTRACT_ADDRESS=0x20fe562d797a42dcb3399062ae9546cd06f63280
     MINIMUM_CONTRACT_PAYMENT=1000000000000
     ORACLE_CONTRACT_ADDRESS=***Your deployed oracle contract address***

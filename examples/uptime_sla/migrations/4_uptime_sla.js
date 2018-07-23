@@ -1,10 +1,12 @@
 const clmigration = require("../clmigration.js");
-const request = require("request-promise");
+const request = require("request-promise").defaults({jar: true});
 const UptimeSLA = artifacts.require("./UptimeSLA.sol");
 const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 const LINK = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
 
-let url = "http://chainlink:twochains@localhost:6688/v2/specs";
+let sessionsUrl = "http://localhost:6688/sessions";
+let specsUrl = "http://localhost:6688/v2/specs";
+let credentials = {email: "notreal@fakeemail.ch", password: "twochains"};
 let job = {
   "_comment": "GETs a number from JSON, multiplies by 10,000, and reports uint256",
   "initiators": [
@@ -23,7 +25,8 @@ module.exports = clmigration(async function(truffleDeployer) {
   let client = "0x542B68aE7029b7212A5223ec2867c6a94703BeE3";
   let serviceProvider = "0xB16E8460cCd76aEC437ca74891D3D358EA7d1d88";
 
-  let body = await request.post(url, {json: job});
+  await request.post(sessionsUrl, {json: credentials});
+  let body = await request.post(specsUrl, {json: job});
   console.log(`Deploying UptimeSLA:`)
   console.log(`\tjob: ${body.id}`);
   console.log(`\tclient: ${client}`);

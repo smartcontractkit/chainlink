@@ -13,11 +13,13 @@ func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
-		Config:     tc.Config,
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
-		Runner:     cmd.ChainlinkRunner{},
+		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
+		Config:                 tc.Config,
+		AppFactory:             cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 cmd.ChainlinkRunner{},
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
 	}
 
 	Run(testClient, "chainlink.test", "--help")
@@ -33,6 +35,8 @@ func ExampleRun() {
 	//
 	// COMMANDS:
 	//      node, n                   Run the chainlink node
+	//      deleteuser                Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.
+	//      login                     Login to remote client by creating a session cookie
 	//      account, a                Display the account address with its ETH & LINK balances
 	//      jobspecs, jobs, j, specs  Get all jobs
 	//      show, s                   Show a specific job
@@ -56,11 +60,13 @@ func ExampleVersion() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	testClient := &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: ioutil.Discard},
-		Config:     tc.Config,
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompt{}},
-		Runner:     cmd.ChainlinkRunner{},
+		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
+		Config:                 tc.Config,
+		AppFactory:             cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:  cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 cmd.ChainlinkRunner{},
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
 	}
 
 	Run(testClient, "chainlink.test", "--version")

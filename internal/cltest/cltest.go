@@ -19,6 +19,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -27,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -36,14 +37,20 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-// RootDir the root directory for cltest
-const RootDir = "/tmp/chainlink_test"
-
-// Username the test username
-const Username = "testusername"
-
-// Password the password
-const Password = "password"
+const (
+	// RootDir the root directory for cltest
+	RootDir = "/tmp/chainlink_test"
+	// Username the test username
+	Username = "testusername"
+	// Email of the API user
+	APIEmail = "email@test.net"
+	// Password the password
+	Password = "password"
+	// Session ID for API user
+	APISessionID = "session"
+	// SessionSecret is the hardcoded secret solely used for test
+	SessionSecret = "clsession_test_secret"
+)
 
 var storeCounter uint64
 
@@ -73,8 +80,6 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 		Config: store.Config{
 			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
 			RootDir:                  rootdir,
-			BasicAuthUsername:        Username,
-			BasicAuthPassword:        Password,
 			ChainID:                  3,
 			MinOutgoingConfirmations: 6,
 			MinIncomingConfirmations: 0,
@@ -84,6 +89,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			DatabasePollInterval:     store.Duration{Duration: time.Millisecond * 500},
 			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
 			Dev:                      true,
+			SecretGenerator:          mockSecretGenerator{},
 		},
 	}
 	config.SetEthereumServer(wsserver)
@@ -102,6 +108,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	*services.ChainlinkApplication
+	Config   store.Config
 	Server   *httptest.Server
 	wsServer *httptest.Server
 }
@@ -116,10 +123,9 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
-	var conn *websocket.Conn
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
-		conn, err = upgrader.Upgrade(w, r, nil)
+		conn, err := upgrader.Upgrade(w, r, nil)
 		logger.PanicIf(err)
 		for {
 			_, _, err = conn.ReadMessage()
@@ -134,9 +140,6 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 	})
 	server := httptest.NewServer(handler)
 	return server, func() {
-		if conn != nil {
-			mustNotErr(conn.Close())
-		}
 		server.Close()
 	}
 }
@@ -160,6 +163,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	ethMock := MockEthOnStore(app.Store)
 	ta := &TestApplication{
 		ChainlinkApplication: app,
+		Config:               tc.Config,
 		Server:               server,
 		wsServer:             tc.wsServer,
 	}
@@ -207,6 +211,56 @@ func (ta *TestApplication) Stop() error {
 		ta.wsServer.Close()
 	}
 	return nil
+}
+
+func (ta *TestApplication) MustSeedUserSession() models.User {
+	mockUser := MustUser(APIEmail, Password, APISessionID)
+	mustNotErr(ta.Store.Save(&mockUser))
+	return mockUser
+}
+
+func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
+	ta.MustSeedUserSession()
+	return HTTPClientCleaner{
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config),
+	}
+}
+
+// NewClientAndRenderer creates a new cmd.Client for the test application
+func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
+	ta.MustSeedUserSession()
+	r := &RendererMock{}
+	client := &cmd.Client{
+		Renderer:                       r,
+		Config:                         ta.Config,
+		AppFactory:                     EmptyAppFactory{},
+		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		FallbackAPIInitializer:         &MockAPIInitializer{},
+		Runner:                         EmptyRunner{},
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config),
+		CookieAuthenticator:            MockCookieAuthenticator{},
+		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
+		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
+	}
+	return client, r
+}
+
+func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
+	ta.MustSeedUserSession()
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config)
+	client := &cmd.Client{
+		Renderer:                       &RendererMock{},
+		Config:                         ta.Config,
+		AppFactory:                     EmptyAppFactory{},
+		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		FallbackAPIInitializer:         &MockAPIInitializer{},
+		Runner:                         EmptyRunner{},
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth),
+		CookieAuthenticator:            cookieAuth,
+		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
+		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
+	}
+	return client
 }
 
 // NewStoreWithConfig creates a new store with given config
@@ -305,48 +359,27 @@ func AddPrivateKey(config *TestConfig, src string) {
 	copyFile(src, dst)
 }
 
-// BasicAuthPost performs a POST request to the given url with specified contentType and body
-// and returns the Response
-func BasicAuthPost(url string, contentType string, body io.Reader) (*http.Response, func()) {
-	resp, err := utils.BasicAuthPost(
-		Username,
-		Password,
-		url,
-		contentType,
-		body)
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
+type HTTPClientCleaner struct {
+	HTTPClient cmd.HTTPClient
 }
 
-// BasicAuthGet performs a GET request to given url and returns the Response
-func BasicAuthGet(url string, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := utils.BasicAuthGet(Username, Password, url, headers...)
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
+func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Get(path, headers...))
 }
 
-// BasicAuthPatch performs a PATCH request to the given url with specified contentType and body
-// and returns the Response
-func BasicAuthPatch(url string, contentType string, body io.Reader) (*http.Response, func()) {
-	resp, err := utils.BasicAuthPatch(
-		Username,
-		Password,
-		url,
-		contentType,
-		body)
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
+func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Post(path, body))
 }
 
-// BasicAuthDelete performs a DELETE request to the given url with specified contentType and body
-// and returns the Response
-func BasicAuthDelete(url string, contentType string, body io.Reader) (*http.Response, func()) {
-	resp, err := utils.BasicAuthDelete(
-		Username,
-		Password,
-		url,
-		contentType,
-		body)
+func (r *HTTPClientCleaner) Patch(path string, body io.Reader) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Patch(path, body))
+}
+
+func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Delete(path))
+}
+
+func bodyCleaner(resp *http.Response, err error) (*http.Response, func()) {
 	mustNotErr(err)
 	return resp, func() { mustNotErr(resp.Body.Close()) }
 }
@@ -401,11 +434,8 @@ func ReadLogs(app *TestApplication) (string, error) {
 
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(LoadJSON(path)),
-	)
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 
@@ -430,11 +460,8 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v1/assignments",
-		"application/json",
-		bytes.NewBuffer(LoadJSON(path)),
-	)
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v1/assignments", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
@@ -442,13 +469,10 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
+	client := app.NewHTTPClient()
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(marshaled),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(marshaled))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
@@ -457,12 +481,12 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
-	url := app.Server.URL + "/v2/specs/" + j.ID + "/runs"
 	bodyBuffer := &bytes.Buffer{}
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}
-	resp, cleanup := BasicAuthPost(url, "application/json", bodyBuffer)
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bodyBuffer)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
@@ -487,7 +511,6 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the given MockServer Url
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-
 	j := FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
 	j.Tasks[0] = NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
 	return CreateJobSpecViaWeb(t, app, j)
@@ -501,8 +524,8 @@ func UpdateJobRunViaWeb(
 	body string,
 ) models.JobRun {
 	t.Helper()
-	url := app.Server.URL + "/v2/runs/" + jr.ID
-	resp, cleanup := BasicAuthPatch(url, "application/json", bytes.NewBufferString(body))
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
@@ -517,9 +540,9 @@ func CreateBridgeTypeViaWeb(
 	app *TestApplication,
 	payload string,
 ) models.BridgeType {
-	resp, cleanup := BasicAuthPost(
-		app.Server.URL+"/v2/bridge_types",
-		"application/json",
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post(
+		"/v2/bridge_types",
 		bytes.NewBufferString(payload),
 	)
 	defer cleanup()
@@ -529,19 +552,6 @@ func CreateBridgeTypeViaWeb(
 	assert.NoError(t, err)
 
 	return bt
-}
-
-// NewClientAndRenderer creates a new cmd.Client with given config
-func NewClientAndRenderer(config store.Config) (*cmd.Client, *RendererMock) {
-	r := &RendererMock{}
-	client := &cmd.Client{
-		Renderer:   r,
-		Config:     config,
-		AppFactory: EmptyAppFactory{},
-		Auth:       CallbackAuthenticator{func(*store.Store, string) error { return nil }},
-		Runner:     EmptyRunner{},
-	}
-	return client, r
 }
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
@@ -742,4 +752,21 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 	} else {
 		assert.FailNowf(t, "Unexpected response", "Expected %d response, got %d", expectedStatusCode, resp.StatusCode)
 	}
+}
+
+func DecodeSessionCookie(value string) (string, error) {
+	var decrypted map[interface{}]interface{}
+	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
+	err := securecookie.DecodeMulti(web.SessionName, value, &decrypted, codecs...)
+	return decrypted[web.SessionIDKey].(string), err
+}
+
+func MustGenerateSessionCookie(value string) *http.Cookie {
+	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
+	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
+	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
+	if err != nil {
+		logger.Panic(err)
+	}
+	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }

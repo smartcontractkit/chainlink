@@ -18,11 +18,12 @@ func TestSnapshotsController_CreateSnapshot_V1_Format(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
 
-	url := app.Server.URL + "/v1/assignments/" + j.ID + "/snapshots"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	path := "/v1/assignments/" + j.ID + "/snapshots"
+	resp, cleanup := client.Post(path, bytes.NewBuffer([]byte{}))
 	defer cleanup()
 
 	runID := cltest.ParseCommonJSON(resp.Body).ID
@@ -34,9 +35,10 @@ func TestSnapshotsController_CreateSnapshot_V1_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	url := app.Server.URL + "/v1/assignments/" + "badid" + "/snapshots"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	url := "/v1/assignments/" + "badid" + "/snapshots"
+	resp, cleanup := client.Post(url, bytes.NewBuffer([]byte{}))
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }
@@ -45,11 +47,12 @@ func TestSnapshotsController_CreateSnapshot_V1_LateJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job_past_endat_time.json")
 
-	url := app.Server.URL + "/v1/assignments/" + j.ID + "/snapshots"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	url := "/v1/assignments/" + j.ID + "/snapshots"
+	resp, cleanup := client.Post(url, bytes.NewBuffer([]byte{}))
 	defer cleanup()
 
 	assert.Equal(t, 500, resp.StatusCode, "Response should be server error")
@@ -81,11 +84,12 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 
 	assert.Nil(t, app.Start())
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j := cltest.CreateMockAssignmentViaWeb(t, app, mockServer.URL)
 
-	url := app.Server.URL + "/v1/assignments/" + j.ID + "/snapshots"
-	resp, cleanup := cltest.BasicAuthPost(url, "application/json", bytes.NewBuffer([]byte{}))
+	url := "/v1/assignments/" + j.ID + "/snapshots"
+	resp, cleanup := client.Post(url, bytes.NewBuffer([]byte{}))
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	runID := cltest.ParseCommonJSON(resp.Body).ID
@@ -96,8 +100,7 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	url = app.Server.URL + "/v1/snapshots/" + runID
-	resp2, cleanup := cltest.BasicAuthGet(url)
+	resp2, cleanup := client.Get("/v1/snapshots/" + runID)
 	defer cleanup()
 	assert.Equal(t, 200, resp2.StatusCode, "Response should be successful")
 
@@ -114,9 +117,9 @@ func TestSnapshotsController_ShowSnapshot_V1_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	url := app.Server.URL + "/v1/snapshots/" + "badid"
-	resp, cleanup := cltest.BasicAuthGet(url)
+	resp, cleanup := client.Get("/v1/snapshots/" + "badid")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }

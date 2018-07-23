@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,23 +13,39 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 )
 
+const (
+	// SessionName is the session name
+	SessionName = "clsession"
+	// SessionIDKey is the session ID key in the session map
+	SessionIDKey = "clsession_id"
+)
+
 // Router listens and responds to requests to the node for valid paths.
 func Router(app *services.ChainlinkApplication) *gin.Engine {
 	engine := gin.New()
 	config := app.Store.Config
+	secret, err := config.SessionSecret()
+	if err != nil {
+		logger.Panic(err)
+	}
+	sessionStore := sessions.NewCookieStore(secret)
 	cors := uiCorsHandler(config)
+
 	engine.Use(
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
+		sessions.Sessions(SessionName, sessionStore),
 	)
 
+	sessionRoutes(app, engine)
 	v1Routes(app, engine)
 	v2Routes(app, engine)
 	guiAssetRoutes(engine)
@@ -36,13 +53,31 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	return engine
 }
 
-func basicAuth(config store.Config) gin.HandlerFunc {
-	return gin.BasicAuth(gin.Accounts{config.BasicAuthUsername: config.BasicAuthPassword})
+func authRequired(store *store.Store) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		sessionID, ok := session.Get(SessionIDKey).(string)
+		if !ok {
+			c.AbortWithStatus(http.StatusUnauthorized)
+		} else if _, err := store.AuthorizedUserWithSession(sessionID); err != nil {
+			c.AbortWithStatus(http.StatusUnauthorized)
+		} else {
+			c.Next()
+		}
+	}
+}
+
+func sessionRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
+	sc := SessionsController{app}
+	engine.POST("/sessions", sc.Create)
+	auth := engine.Group("/", authRequired(app.Store))
+	auth.DELETE("/sessions", sc.Destroy)
 }
 
 func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v1 := engine.Group("/v1")
-	v1.Use(basicAuth(app.Store.Config))
+	v1.Use(authRequired(app.Store))
+
 	ac := AssignmentsController{app}
 	v1.POST("/assignments", ac.Create)
 	v1.GET("/assignments/:ID", ac.Show)
@@ -54,7 +89,8 @@ func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
-	v2.Use(basicAuth(app.Store.Config))
+	v2.Use(authRequired(app.Store))
+
 	ab := AccountBalanceController{app}
 	v2.GET("/account_balance", ab.Show)
 
@@ -178,6 +214,33 @@ func readBody(reader io.Reader) string {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(reader)
 
-	s := buf.String()
+	s, err := readSanitizedJSON(buf)
+	if err != nil {
+		return buf.String()
+	}
 	return s
+}
+
+func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
+	blacklist := map[string]struct{}{"password": struct{}{}}
+	var dst map[string]interface{}
+	err := json.Unmarshal(buf.Bytes(), &dst)
+	if err != nil {
+		return "", err
+	}
+
+	cleaned := map[string]interface{}{}
+	for k, v := range dst {
+		if _, ok := blacklist[strings.ToLower(k)]; ok {
+			cleaned[k] = "*REDACTED*"
+			continue
+		}
+		cleaned[k] = v
+	}
+
+	b, err := json.Marshal(cleaned)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
 }
