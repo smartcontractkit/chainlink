@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+pushd sgx/utils 2>/dev/null
+cargo test
+popd 2>/dev/null
