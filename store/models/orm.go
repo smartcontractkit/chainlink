@@ -24,7 +24,7 @@ type ORM struct {
 func NewORM(path string, duration time.Duration) (*ORM, error) {
 	db, err := initializeDatabase(path, duration)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
 	orm := &ORM{db}
 	orm.migrate()
@@ -35,7 +35,7 @@ func initializeDatabase(path string, duration time.Duration) (*storm.DB, error) 
 	options := storm.BoltOptions(0600, &bolt.Options{Timeout: duration})
 	db, err := storm.Open(path, options)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to open stormDB: %+v", err)
 	}
 	return db, nil
 }
