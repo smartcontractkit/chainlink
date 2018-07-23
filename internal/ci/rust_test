@@ -3,5 +3,5 @@
 set -e
 
 pushd sgx/utils 2>/dev/null
-cargo tarpaulin
+cargo test
 popd 2>/dev/null
