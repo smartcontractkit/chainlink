@@ -6,7 +6,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { blue } from '@material-ui/core/colors'
 import classNames from 'classnames'
 
-const styles = theme => ({
+const styles = () => ({
   link: {
     color: blue[600],
     textDecoration: 'none'

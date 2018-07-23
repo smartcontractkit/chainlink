@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
 
-const MetaInfo = ({title, value, classes}) => (
+const MetaInfo = ({title, value}) => (
   <PaddedCard>
     <Typography gutterBottom variant='headline' component='h2'>
       {title}
