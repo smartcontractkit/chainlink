@@ -156,6 +156,7 @@ fn multiply(
     let adapter = serde_json::from_str(&adapter_str)?;
     let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len)?;
     let mut input : RunResult = serde_json::from_str(&input_str)?;
+
     let multiplier = get_json_string(&adapter, "times")?;
     let multiplicand = get_json_string(&input.data, "value")?;
     let result = parse_and_multiply(&multiplicand, &multiplier)?;
