@@ -5,9 +5,9 @@ dependencies = [
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_trts 1.0.0",
- "sgx_types 1.0.0",
- "sgx_urts 1.0.0",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
+ "sgx_urts 1.0.1",
  "utils 0.1.0",
 ]
 
@@ -47,9 +47,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sgx_alloc"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_trts 1.0.0",
+ "sgx_trts 1.0.1",
 ]
 
 [[package]]
@@ -58,55 +58,55 @@ version = "0.1.0"
 
 [[package]]
 name = "sgx_tprotected_fs"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_trts 1.0.0",
- "sgx_types 1.0.0",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
 ]
 
 [[package]]
 name = "sgx_trts"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_types 1.0.0",
+ "sgx_types 1.0.1",
 ]
 
 [[package]]
 name = "sgx_tstd"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_alloc 1.0.0",
+ "sgx_alloc 1.0.1",
  "sgx_build_helper 0.1.0",
- "sgx_tprotected_fs 1.0.0",
- "sgx_trts 1.0.0",
- "sgx_types 1.0.0",
- "sgx_unwind 0.0.0",
+ "sgx_tprotected_fs 1.0.1",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
+ "sgx_unwind 0.0.1",
 ]
 
 [[package]]
 name = "sgx_types"
-version = "1.0.0"
+version = "1.0.1"
 
 [[package]]
 name = "sgx_unwind"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
- "sgx_trts 1.0.0",
+ "sgx_trts 1.0.1",
 ]
 
 [[package]]
 name = "sgx_urts"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 1.0.0",
+ "sgx_types 1.0.1",
 ]
 
 [[package]]
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
