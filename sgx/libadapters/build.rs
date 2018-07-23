@@ -39,8 +39,7 @@ fn main() {
 
     if env::var("SGX_SIMULATION")
         .unwrap_or_default()
-        .contains("yes")
-    {
+        .contains("yes") {
         println!("cargo:rustc-link-lib=dylib=sgx_urts_sim");
         println!("cargo:rustc-link-lib=dylib=crypto");
     } else {
