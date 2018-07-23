@@ -1,6 +1,8 @@
 import React from 'react'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
+import clickFirstPage from 'test-helpers/clickFirstPage';
+import clickLastPage from 'test-helpers/clickLastPage';
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
@@ -42,12 +44,12 @@ describe('containers/JobSpecRuns', () => {
   })
 
   it('can page through the list of runs', async () => {
-    expect.assertions(6)
+    expect.assertions(12)
 
     const pageOneResponse = jsonApiJobSpecRunFactory(
       [{id: 'ID-ON-FIRST-PAGE'}],
       jobSpecId,
-      2
+      3
     )
     global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
 
@@ -61,7 +63,7 @@ describe('containers/JobSpecRuns', () => {
     const pageTwoResponse = jsonApiJobSpecRunFactory(
       [{id: 'ID-ON-SECOND-PAGE'}],
       jobSpecId,
-      2
+      3
     )
     global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=2&size=1`, pageTwoResponse)
     clickNextPage(wrapper)
@@ -76,5 +78,26 @@ describe('containers/JobSpecRuns', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+
+    const pageThreeResponse = jsonApiJobSpecRunFactory(
+      [{id: 'ID-ON-THIRD-PAGE'}],
+      jobSpecId,
+      3
+    )
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=3&size=1`, pageThreeResponse)
+    clickLastPage(wrapper)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('ID-ON-THIRD-PAGE')
+    expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
+    expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
+    clickFirstPage(wrapper)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+    expect(wrapper.text()).not.toContain('ID-ON-THIRD-PAGE')
+    expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
   })
 })
