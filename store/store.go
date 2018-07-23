@@ -66,7 +66,10 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
-	orm := initializeORM(config)
+	orm, err := initializeORM(config)
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
+	}
 	ethrpc, err := dialer.Dial(config.EthereumURL)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
@@ -124,7 +127,7 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func initializeORM(config Config) *models.ORM {
+func initializeORM(config Config) (*models.ORM, error) {
 	var orm *models.ORM
 	var err error
 	sleeper := utils.NewConstantSleeper(config.DatabasePollInterval.Duration)
@@ -137,7 +140,7 @@ func initializeORM(config Config) *models.ORM {
 			break
 		}
 	}
-	return orm
+	return orm, err
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary
