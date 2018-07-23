@@ -32,6 +32,11 @@ const (
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
 var RunLogTopic = common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d")
 
+// OracleFulfillmentFunctionID is the function id of the oracle fulfillment
+// method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
+// Kept in sync with solidity/contracts/Oracle.sol
+const OracleFulfillmentFunctionID = "0x76005c26"
+
 // Unsubscriber is the interface for all subscriptions, allowing one to unsubscribe.
 type Unsubscriber interface {
 	Unsubscribe()

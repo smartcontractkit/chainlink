@@ -67,8 +67,6 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		fallthrough
 	case models.InitiatorRunLog:
 		fallthrough
-	case models.InitiatorSpecAndRun:
-		fallthrough
 	case models.InitiatorEthLog:
 		return nil
 	}

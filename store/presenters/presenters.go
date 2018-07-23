@@ -320,12 +320,6 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 			models.InitiatorRunLog,
 			i.Address,
 		})
-	case models.InitiatorSpecAndRun:
-		return json.Marshal(&struct {
-			Type string `json:"type"`
-		}{
-			models.InitiatorSpecAndRun,
-		})
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type %v", i.Type)
 	}
