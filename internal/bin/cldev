@@ -9,7 +9,7 @@
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
-LDFLAGS=`internal/bin/ldflags`
+LDFLAGS=`$PROJECT_ROOT/internal/bin/ldflags`
 
 export LOG_LEVEL=debug
 export ETH_URL=ws://localhost:18546
@@ -19,12 +19,14 @@ export MINIMUM_CONTRACT_PAYMENT=1000000000000
 export ROOT=$PROJECT_ROOT/internal/clroot
 
 pushd $PROJECT_ROOT >/dev/null
-if [ "$#" == 0 ] || [ "$1" == "node" ]; then
+if [ "$#" == 0 ]; then
   pushd gui >/dev/null
   yarn install --no-progress | cat
   CHAINLINK_VERSION=$(chainlink --version) yarn build | cat
   popd >/dev/null
-  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt -a $ROOT/apicredentials
+elif [ "$1" == "node" ]; then
+  go run -ldflags "$LDFLAGS" main.go node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
 elif [ "$1" == "clean" ]; then
   rm -f $ROOT/db.bolt $ROOT/log.jsonl
 else

@@ -107,7 +107,6 @@ type ConfigWhitelist struct {
 	LogLevel                 store.LogLevel  `json:"logLevel"`
 	RootDir                  string          `json:"root"`
 	Port                     string          `json:"chainlinkPort"`
-	BasicAuthUsername        string          `json:"username"`
 	EthereumURL              string          `json:"ethUrl"`
 	ChainID                  uint64          `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
@@ -121,6 +120,7 @@ type ConfigWhitelist struct {
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	DatabasePollInterval     store.Duration  `json:"databasePollInterval"`
 	AllowOrigins             string          `json:"allowOrigins"`
+	ChainlinkDev             bool            `json:"chainlinkDev"`
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
@@ -129,7 +129,6 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		LogLevel:                 config.LogLevel,
 		RootDir:                  config.RootDir,
 		Port:                     config.Port,
-		BasicAuthUsername:        config.BasicAuthUsername,
 		EthereumURL:              config.EthereumURL,
 		ChainID:                  config.ChainID,
 		ClientNodeURL:            config.ClientNodeURL,
@@ -143,6 +142,7 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		OracleContractAddress:    config.OracleContractAddress,
 		DatabasePollInterval:     config.DatabasePollInterval,
 		AllowOrigins:             config.AllowOrigins,
+		ChainlinkDev:             config.Dev,
 	}
 }
 
@@ -151,7 +151,6 @@ func (c ConfigWhitelist) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
 		"CHAINLINK_PORT: %s\n" +
-		"USERNAME: %s\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
 		"CLIENT_NODE_URL: %s\n" +
@@ -164,7 +163,8 @@ func (c ConfigWhitelist) String() string {
 		"MINIMUM_CONTRACT_PAYMENT: %s\n" +
 		"ORACLE_CONTRACT_ADDRESS: %s\n" +
 		"DATABASE_POLL_INTERVAL: %s\n" +
-		"ALLOW_ORIGINS: %s\n"
+		"ALLOW_ORIGINS: %s\n" +
+		"CHAINLINK_DEV: %v\n"
 
 	oracleContractAddress := ""
 	if c.OracleContractAddress != nil {
@@ -176,7 +176,6 @@ func (c ConfigWhitelist) String() string {
 		c.LogLevel,
 		c.RootDir,
 		c.Port,
-		c.BasicAuthUsername,
 		c.EthereumURL,
 		c.ChainID,
 		c.ClientNodeURL,
@@ -190,6 +189,7 @@ func (c ConfigWhitelist) String() string {
 		oracleContractAddress,
 		c.DatabasePollInterval,
 		c.AllowOrigins,
+		c.ChainlinkDev,
 	)
 }
 

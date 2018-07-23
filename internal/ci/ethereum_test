@@ -150,6 +150,7 @@ printf -- "---------------------------------------------------------------------
 assert "Echo count" "curl -sS localhost:6690/count" 1
 
 ## Check job counts using jq to parse json: https://stedolan.github.io/jq/
+cldev login --file internal/clroot/apicredentials
 assert "Jobs count" "cldev -j j | jq length" 1
 
 # Check job runs
@@ -191,6 +192,7 @@ ethjob=`./create_ethlog_job`
 assert "Echo count" "curl -sS localhost:6690/count" 3
 
 ## Check job counts
+cldev login --file internal/clroot/apicredentials
 assert "Jobs count" "cldev -j j | jq length" 3
 
 ## Check job runs

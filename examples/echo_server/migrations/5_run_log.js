@@ -1,10 +1,12 @@
 const clmigration = require("../clmigration.js");
-const request = require("request-promise");
+const request = require("request-promise").defaults({jar: true});
 const LinkToken = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
 const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 const RunLog = artifacts.require("./RunLog.sol");
 
-let url = "http://chainlink:twochains@localhost:6688/v2/specs";
+let sessionsUrl = "http://localhost:6688/sessions";
+let specsUrl = "http://localhost:6688/v2/specs";
+let credentials = {email: "notreal@fakeemail.ch", password: "twochains"};
 let job = {
   "_comment": "A runlog has a jobid baked into the contract so chainlink knows which job to run.",
   "initiators": [{ "type": "runlog" }],
@@ -14,7 +16,8 @@ let job = {
 };
 
 module.exports = clmigration(async function(truffleDeployer) {
-  let body = await request.post(url, {json: job});
+  await request.post(sessionsUrl, {json: credentials});
+  let body = await request.post(specsUrl, {json: job});
   console.log(`Deploying Consumer Contract with JobID ${body.id}`);
   await truffleDeployer.deploy(RunLog, LinkToken.address, Oracle.address, body.id);
 });

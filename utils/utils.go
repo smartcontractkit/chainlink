@@ -1,6 +1,5 @@
 // Package utils is used for the common functions for dealing with
-// conversion to and from hex, bytes, and strings, formatting time,
-// and basic HTTP authentication.
+// conversion to and from hex, bytes, and strings, formatting time.
 package utils
 
 import (
@@ -8,9 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/crypto/bcrypt"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -82,59 +81,6 @@ func NullISO8601UTC(t null.Time) string {
 		return ISO8601UTC(t.Time)
 	}
 	return ""
-}
-
-// BasicAuthPost sends a POST request to the HTTP client with the given username
-// and password to authenticate at the url with contentType and returns a response.
-func BasicAuthPost(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, _ := http.NewRequest("POST", url, body)
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(username, password)
-	resp, err := client.Do(request)
-	return resp, err
-}
-
-// BasicAuthGet uses the given username and password to send a GET request
-// at the given URL and returns a response.
-func BasicAuthGet(username, password, url string, headers ...map[string]string) (*http.Response, error) {
-	var h map[string]string
-	if len(headers) > 0 {
-		h = headers[0]
-	} else {
-		h = map[string]string{}
-	}
-
-	client := &http.Client{}
-	request, _ := http.NewRequest("GET", url, nil)
-	request.SetBasicAuth(username, password)
-	for key, value := range h {
-		request.Header.Add(key, value)
-	}
-	resp, err := client.Do(request)
-	return resp, err
-}
-
-// BasicAuthPatch sends a PATCH request to the HTTP client with the given username
-// and password to authenticate at the url with contentType and returns a response.
-func BasicAuthPatch(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, _ := http.NewRequest("PATCH", url, body)
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(username, password)
-	resp, err := client.Do(request)
-	return resp, err
-}
-
-// BasicAuthDelete sends a DELETE request to the HTTP client with the given username
-// and password to authenticate at the url with contentType and returns a response.
-func BasicAuthDelete(username, password, url string, contentType string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	request, _ := http.NewRequest("DELETE", url, body)
-	request.Header.Set("Content-Type", contentType)
-	request.SetBasicAuth(username, password)
-	resp, err := client.Do(request)
-	return resp, err
 }
 
 // FormatJSON applies indent to format a JSON response.
@@ -397,4 +343,24 @@ func ParseUintHex(hex string) (*big.Int, error) {
 		return amount, fmt.Errorf("unable to decode hex to integer: %s", hex)
 	}
 	return amount, nil
+}
+
+// HashPassword wraps around bcrypt.GenerateFromPassword for a friendlier API.
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(bytes), err
+}
+
+// CheckPasswordHash wraps around bcrypt.CompareHashAndPassword for a friendlier API.
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+// FileExists returns true if a file at the passed string exists.
+func FileExists(name string) bool {
+	if _, err := os.Stat(name); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }

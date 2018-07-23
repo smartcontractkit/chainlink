@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const request = require('request-promise')
+const request = require('request-promise').defaults({jar: true})
 const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
 const {LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
 const web3 = require('web3')
@@ -12,7 +12,9 @@ function futureOffset(seconds) {
 }
 
 const main = async () => {
-  const url = 'http://chainlink:twochains@localhost:6688/v2/specs'
+  const sessionsUrl = 'http://localhost:6688/sessions'
+  const specsUrl = 'http://localhost:6688/v2/specs'
+  const credentials = {email: 'notreal@fakeemail.ch', password: 'twochains'}
   const job = {
     '_comment': 'A runlog has a jobid baked into the contract so chainlink knows which job to run.',
     'initiators': [{ 'type': 'runlog' }],
@@ -21,7 +23,8 @@ const main = async () => {
       { 'type': 'HttpPost', 'url': 'http://localhost:6690' }
     ]
   }
-  let Job = await request.post(url, {json: job})
+  await request.post(sessionsUrl, {json: credentials})
+  let Job = await request.post(specsUrl, {json: job})
     .catch(abort('Error creating Job'))
 
   let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS, Job.id)

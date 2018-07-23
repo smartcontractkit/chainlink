@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/cmd"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/urfave/cli"
 )
@@ -43,6 +44,10 @@ func Run(client *cmd.Client, args ...string) {
 			Aliases: []string{"n"},
 			Flags: []cli.Flag{
 				cli.StringFlag{
+					Name:  "api, a",
+					Usage: "text file holding the API email and password, each on a line",
+				},
+				cli.StringFlag{
 					Name:  "password, p",
 					Usage: "text file holding the password for the node's account",
 				},
@@ -53,6 +58,22 @@ func Run(client *cmd.Client, args ...string) {
 			},
 			Usage:  "Run the chainlink node",
 			Action: client.RunNode,
+		},
+		{
+			Name:   "deleteuser",
+			Usage:  "Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.",
+			Action: client.DeleteUser,
+		},
+		{
+			Name:   "login",
+			Usage:  "Login to remote client by creating a session cookie",
+			Action: client.RemoteLogin,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "file, f",
+					Usage: "text file holding the API email and password needed to create a session cookie",
+				},
+			},
 		},
 		{
 			Name:    "account",
@@ -128,17 +149,25 @@ func Run(client *cmd.Client, args ...string) {
 			Action: client.RemoveBridge,
 		},
 	}
-	app.Run(args)
+	logger.WarnIf(app.Run(args))
 }
 
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
+	cfg := store.NewConfig()
+	prompter := cmd.NewTerminalPrompter()
+	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg)
 	return &cmd.Client{
-		Renderer:   cmd.RendererTable{Writer: os.Stdout},
-		Config:     store.NewConfig(),
-		AppFactory: cmd.ChainlinkAppFactory{},
-		Auth:       cmd.TerminalAuthenticator{Prompter: cmd.PasswordPrompter{}},
-		Runner:     cmd.ChainlinkRunner{},
+		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
+		Config:                         cfg,
+		AppFactory:                     cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:          cmd.TerminalAuthenticator{Prompter: prompter},
+		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
+		Runner:                         cmd.ChainlinkRunner{},
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
+		CookieAuthenticator:            cookieAuth,
+		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
+		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 	}
 }

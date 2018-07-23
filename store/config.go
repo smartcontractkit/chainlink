@@ -1,7 +1,9 @@
 package store
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
@@ -12,8 +14,10 @@ import (
 	"github.com/caarlos0/env"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -24,8 +28,6 @@ type Config struct {
 	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
 	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
-	BasicAuthUsername        string          `env:"USERNAME" envDefault:"chainlink"`
-	BasicAuthPassword        string          `env:"PASSWORD" envDefault:"twochains"`
 	EthereumURL              string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
 	ChainID                  uint64          `env:"ETH_CHAIN_ID" envDefault:"0"`
 	ClientNodeURL            string          `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
@@ -42,6 +44,7 @@ type Config struct {
 	Dev                      bool            `env:"CHAINLINK_DEV" envDefault:"false"`
 	TLSCertPath              string          `env:"TLS_CERT_PATH" envDefault:""`
 	TLSKeyPath               string          `env:"TLS_KEY_PATH" envDefault:""`
+	SecretGenerator          SecretGenerator
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -59,6 +62,7 @@ func NewConfig() Config {
 		log.Fatal(fmt.Errorf("error creating %s: %+v", dir, err))
 	}
 	config.RootDir = dir
+	config.SecretGenerator = filePersistedSecretGenerator{}
 	return config
 }
 
@@ -91,6 +95,34 @@ func (c Config) CertFile() string {
 // and LogLevel, with pretty printing for stdout.
 func (c Config) CreateProductionLogger() *zap.Logger {
 	return logger.CreateProductionLogger(c.RootDir, c.LogLevel.Level)
+}
+
+// SessionSecret returns a sequence of bytes to be used as a private key for
+// session signing or encryption.
+func (c Config) SessionSecret() ([]byte, error) {
+	return c.SecretGenerator.Generate(c)
+}
+
+// SecretGenerator is the interface for objects that generate a secret
+// used to sign or encrypt.
+type SecretGenerator interface {
+	Generate(Config) ([]byte, error)
+}
+
+type filePersistedSecretGenerator struct{}
+
+func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
+	sessionPath := path.Join(c.RootDir, "secret")
+	if utils.FileExists(sessionPath) {
+		data, err := ioutil.ReadFile(sessionPath)
+		if err != nil {
+			return data, err
+		}
+		return base64.StdEncoding.DecodeString(string(data))
+	}
+	key := securecookie.GenerateRandomKey(32)
+	str := base64.StdEncoding.EncodeToString(key)
+	return key, ioutil.WriteFile(sessionPath, []byte(str), 0644)
 }
 
 func parseEnv(cfg interface{}) error {

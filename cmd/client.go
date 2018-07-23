@@ -8,499 +8,32 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"os"
-	"strconv"
+	"path"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
-	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/presenters"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
-	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
-// Client is the shell for the node. It has fields for the Renderer,
-// Config, AppFactory (the services application), Authenticator, and Runner.
+// Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config     strpkg.Config
-	AppFactory AppFactory
-	Auth       Authenticator
-	Runner     Runner
-}
-
-// RunNode starts the Chainlink core.
-func (cli *Client) RunNode(c *clipkg.Context) error {
-	config := updateConfig(cli.Config, c.Bool("debug"))
-	logger.SetLogger(config.CreateProductionLogger())
-	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
-
-	err := InitEnclave()
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
-	}
-
-	app := cli.AppFactory.NewApplication(config)
-	store := app.GetStore()
-	pwd, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
-	}
-	err = cli.Auth.Authenticate(store, pwd)
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
-	}
-	if err := app.Start(); err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
-	}
-	defer app.Stop()
-	logNodeBalance(store)
-	logConfigVariables(config)
-	logIfNonceOutOfSync(store)
-
-	return cli.errorOut(cli.Runner.Run(app))
-}
-
-func passwordFromFile(pwdFile string) (string, error) {
-	if len(pwdFile) == 0 {
-		return "", nil
-	}
-	dat, err := ioutil.ReadFile(pwdFile)
-	return strings.TrimSpace(string(dat)), err
-}
-
-func logIfNonceOutOfSync(store *strpkg.Store) {
-	account := store.TxManager.GetActiveAccount()
-	lastNonce, err := store.GetLastNonce(account.Address)
-	if err != nil {
-		logger.Error("database error when checking nonce: ", err)
-		return
-	}
-
-	if localNonceIsNotCurrent(lastNonce, account.GetNonce()) {
-		logger.Warn("The account is being used by another wallet and is not safe to use with chainlink")
-	}
-}
-
-func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
-	if lastNonce+1 < nonce {
-		return true
-	}
-
-	return false
-}
-
-func updateConfig(config strpkg.Config, debug bool) strpkg.Config {
-	if debug {
-		config.LogLevel = strpkg.LogLevel{Level: zapcore.DebugLevel}
-	}
-	return config
-}
-
-func logNodeBalance(store *strpkg.Store) {
-	balance, err := presenters.ShowEthBalance(store)
-	logger.WarnIf(err)
-	logger.Infow(balance)
-	balance, err = presenters.ShowLinkBalance(store)
-	logger.WarnIf(err)
-	logger.Infow(balance)
-}
-
-func logConfigVariables(config strpkg.Config) {
-	wlc := presenters.NewConfigWhitelist(config)
-	logger.Debug("Environment variables\n", wlc)
-}
-
-// DisplayAccountBalance renders a table containing the active account address
-// with it's ETH & LINK balance
-func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
-	cfg := cli.Config
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/account_balance",
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	var links jsonapi.Links
-	a := presenters.AccountBalance{}
-	if err = cli.deserializeAPIResponse(resp, &a, &links); err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&a))
-}
-
-// ShowJobSpec returns the status of the given JobID.
-func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be shown"))
-	}
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs/"+c.Args().First(),
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-	var job presenters.JobSpec
-	return cli.renderAPIResponse(resp, &job)
-}
-
-// GetJobSpecs returns all job specs.
-func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
-	cfg := cli.Config
-	requestURI := cfg.ClientNodeURL + "/v2/specs"
-
-	page := 0
-	if c != nil && c.IsSet("page") {
-		page = c.Int("page")
-	}
-
-	var links jsonapi.Links
-	var jobs []models.JobSpec
-	err := cli.getPage(requestURI, page, &jobs, &links)
-	if err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&jobs))
-}
-
-// CreateJobSpec creates job spec based on JSON input
-func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs",
-		"application/json",
-		buf,
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	var jobs presenters.JobSpec
-	return cli.renderResponse(resp, &jobs)
-}
-
-// CreateJobRun creates job run based on SpecID and optional JSON
-func (cli *Client) CreateJobRun(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
-	}
-
-	buf := bytes.NewBufferString("")
-	if c.NArg() > 1 {
-		jbuf, err := getBufferFromJSON(c.Args().Get(1))
-		if err != nil {
-			return cli.errorOut(err)
-		}
-		buf = jbuf
-	}
-
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/specs/"+c.Args().First()+"/runs",
-		"application/json",
-		buf,
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-	var jobs presenters.JobSpec
-	return cli.renderResponse(resp, &jobs)
-}
-
-// BackupDatabase streams a backup of the node's db to the passed filepath.
-func (cli *Client) BackupDatabase(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the path to save the backup"))
-	}
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/backup",
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-	return cli.errorOut(saveBodyAsFile(resp, c.Args().First()))
-}
-
-// ImportKey imports a key to be used with the chainlink node
-func (cli *Client) ImportKey(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in filepath to key"))
-	}
-
-	src := c.Args().First()
-	kdir := cfg.KeysDir()
-
-	if e, err := isDirEmpty(kdir); !e && err != nil {
-		return cli.errorOut(err)
-	}
-
-	if i := strings.LastIndex(src, "/"); i < 0 {
-		kdir += "/" + src
-	} else {
-		kdir += src[strings.LastIndex(src, "/"):]
-	}
-	return cli.errorOut(copyFile(src, kdir))
-}
-
-// AddBridge adds a new bridge to the chainlink node
-func (cli *Client) AddBridge(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in the bridge's parameters [JSON blob | JSON filepath]"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/bridge_types",
-		"application/json",
-		buf,
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	var bridge models.BridgeType
-	return cli.deserializeResponse(resp, &bridge)
-}
-
-// GetBridges returns all bridges.
-func (cli *Client) GetBridges(c *clipkg.Context) error {
-	cfg := cli.Config
-	requestURI := cfg.ClientNodeURL + "/v2/bridge_types"
-
-	page := 0
-	if c != nil && c.IsSet("page") {
-		page = c.Int("page")
-	}
-
-	var links jsonapi.Links
-	var bridges []models.BridgeType
-	err := cli.getPage(requestURI, page, &bridges, &links)
-	if err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&bridges))
-}
-
-func (cli *Client) getPage(requestURI string, page int, model interface{}, links *jsonapi.Links) error {
-	cfg := cli.Config
-
-	uri, err := url.Parse(requestURI)
-	if err != nil {
-		return err
-	}
-	q := uri.Query()
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	uri.RawQuery = q.Encode()
-
-	resp, err := utils.BasicAuthGet(cfg.BasicAuthUsername, cfg.BasicAuthPassword, uri.String())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	return cli.deserializeAPIResponse(resp, model, links)
-}
-
-// ShowBridge returns the info for the given Bridge name.
-func (cli *Client) ShowBridge(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the name of the bridge to be shown"))
-	}
-	resp, err := utils.BasicAuthGet(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/bridge_types/"+c.Args().First(),
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-	var bridge models.BridgeType
-	return cli.renderResponse(resp, &bridge)
-}
-
-// RemoveBridge removes a specific Bridge by name.
-func (cli *Client) RemoveBridge(c *clipkg.Context) error {
-	cfg := cli.Config
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
-	}
-	resp, err := utils.BasicAuthDelete(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/bridge_types/"+c.Args().First(),
-		"application/json",
-		nil,
-	)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-	var bridge models.BridgeType
-	return cli.renderResponse(resp, &bridge)
-}
-
-func isDirEmpty(dir string) (bool, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true, nil
-	}
-
-	return false, fmt.Errorf("Account already present in keystore: %s", dir)
-}
-
-func copyFile(src, dst string) error {
-	from, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	to, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-
-	return err
-}
-
-func saveBodyAsFile(resp *http.Response, dst string) error {
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
-func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {
-	if gjson.Valid(s) {
-		buf, err = bytes.NewBufferString(s), nil
-	} else if buf, err = fromFile(s); err != nil {
-		buf, err = nil, multierr.Append(errors.New("Must pass in JSON or filepath"), err)
-	}
-	return
-}
-
-func fromFile(arg string) (*bytes.Buffer, error) {
-	dir, err := homedir.Expand(arg)
-	if err != nil {
-		return nil, err
-	}
-	file, err := ioutil.ReadFile(dir)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewBuffer(file), nil
-}
-
-// deserializeAPIResponse is distinct from deserializeResponse in that it supports JSONAPI responses with Links
-func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
-	b, err := parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	if err = web.ParsePaginatedResponse(b, dst, links); err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
-func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
-	b, err := parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	if err = json.Unmarshal(b, &dst); err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
-func parseResponse(resp *http.Response) ([]byte, error) {
-	b, err := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		if err != nil {
-			return b, errors.New(resp.Status)
-		}
-		return b, errors.New(string(b))
-	}
-	return b, err
-}
-
-func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
-	err := cli.deserializeResponse(resp, dst)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	return cli.errorOut(cli.Render(dst))
-}
-
-func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error {
-	var links jsonapi.Links
-	if err := cli.deserializeAPIResponse(resp, dst, &links); err != nil {
-		return cli.errorOut(err)
-	}
-	return cli.errorOut(cli.Render(dst))
+	Config                         store.Config
+	AppFactory                     AppFactory
+	KeyStoreAuthenticator          KeyStoreAuthenticator
+	FallbackAPIInitializer         APIInitializer
+	Runner                         Runner
+	HTTP                           HTTPClient
+	CookieAuthenticator            CookieAuthenticator
+	FileSessionRequestBuilder      SessionRequestBuilder
+	PromptingSessionRequestBuilder SessionRequestBuilder
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -512,14 +45,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(strpkg.Config) services.Application
+	NewApplication(store.Config) services.Application
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config strpkg.Config) services.Application {
+func (n ChainlinkAppFactory) NewApplication(config store.Config) services.Application {
 	return services.NewApplication(config)
 }
 
@@ -547,4 +80,276 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 		g.Go(func() error { return server.RunTLS(":"+config.Port, certFile, keyFile) })
 	}
 	return g.Wait()
+}
+
+// HTTPClient encapsulates all methods used to interact with a chainlink node API.
+type HTTPClient interface {
+	Get(string, ...map[string]string) (*http.Response, error)
+	Post(string, io.Reader) (*http.Response, error)
+	Patch(string, io.Reader) (*http.Response, error)
+	Delete(string) (*http.Response, error)
+}
+
+type authenticatedHTTPClient struct {
+	config     store.Config
+	client     *http.Client
+	cookieAuth CookieAuthenticator
+}
+
+// NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
+// which is then used for all subsequent HTTP API requests.
+func NewAuthenticatedHTTPClient(cfg store.Config, cookieAuth CookieAuthenticator) HTTPClient {
+	return &authenticatedHTTPClient{
+		config:     cfg,
+		client:     &http.Client{},
+		cookieAuth: cookieAuth,
+	}
+}
+
+// Get performs an HTTP Get using the authenticated HTTP client's cookie.
+func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest("GET", path, nil, headers...)
+}
+
+// Post performs an HTTP Post using the authenticated HTTP client's cookie.
+func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest("POST", path, body)
+}
+
+// Patch performs an HTTP Patch using the authenticated HTTP client's cookie.
+func (h *authenticatedHTTPClient) Patch(path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest("PATCH", path, body)
+}
+
+// Delete performs an HTTP Delete using the authenticated HTTP client's cookie.
+func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
+	return h.doRequest("DELETE", path, nil)
+}
+
+func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
+	cookie, err := h.cookieAuth.Cookie()
+	if err != nil {
+		return nil, err
+	}
+
+	var headers map[string]string
+	if len(headerArgs) > 0 {
+		headers = headerArgs[0]
+	} else {
+		headers = map[string]string{}
+	}
+
+	request, err := http.NewRequest(verb, h.config.ClientNodeURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		request.Header.Add(key, value)
+	}
+	request.AddCookie(cookie)
+	return h.client.Do(request)
+}
+
+// CookieAuthenticator is the interface to generating a cookie to authenticate
+// future HTTP requests.
+type CookieAuthenticator interface {
+	Cookie() (*http.Cookie, error)
+	Authenticate(models.SessionRequest) (*http.Cookie, error)
+}
+
+// SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
+// that retrieves a session id for the user with credentials from the session request.
+type SessionCookieAuthenticator struct {
+	config store.Config
+}
+
+// NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
+// and builder.
+func NewSessionCookieAuthenticator(cfg store.Config) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: cfg}
+}
+
+// Cookie Returns the previously saved authentication cookie.
+func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
+	return t.retrieveCookieFromDisk()
+}
+
+// Authenticate retrieves a session ID via a cookie and saves it to disk.
+func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionRequest) (*http.Cookie, error) {
+	b := new(bytes.Buffer)
+	err := json.NewEncoder(b).Encode(sessionRequest)
+	if err != nil {
+		return nil, err
+	}
+	url := t.config.ClientNodeURL + "/sessions"
+	req, err := http.NewRequest("POST", url, b)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	_, err = parseResponse(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	cookies := resp.Cookies()
+	if len(cookies) == 0 {
+		return nil, errors.New("Did not receive cookie with session id")
+	}
+	return cookies[0], t.saveCookieToDisk(cookies[0])
+}
+
+func (t *SessionCookieAuthenticator) saveCookieToDisk(cookie *http.Cookie) error {
+	return ioutil.WriteFile(t.cookiePath(), []byte(cookie.String()), 0660)
+}
+
+func (t *SessionCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, error) {
+	b, err := ioutil.ReadFile(t.cookiePath())
+	if err != nil {
+		return nil, multierr.Append(errors.New("Unable to retrieve credentials, have you logged in?"), err)
+	}
+	header := http.Header{}
+	header.Add("Cookie", string(b))
+	request := http.Request{Header: header}
+	cookies := request.Cookies()
+	if len(cookies) == 0 {
+		return nil, errors.New("Cookie not in file, have you logged in?")
+	}
+	return request.Cookies()[0], nil
+}
+
+func (t *SessionCookieAuthenticator) cookiePath() string {
+	return path.Join(t.config.RootDir, "cookie")
+}
+
+// SessionRequestBuilder is an interface that returns a SessionRequest,
+// abstracting how session requests are generated, whether they be from
+// the prompt or from a file.
+type SessionRequestBuilder interface {
+	Build(flag string) (models.SessionRequest, error)
+}
+
+type promptingSessionRequestBuilder struct {
+	prompter Prompter
+}
+
+// NewPromptingSessionRequestBuilder uses a prompter, often via terminal,
+// to solicit information from a user to generate the SessionRequest.
+func NewPromptingSessionRequestBuilder(prompter Prompter) SessionRequestBuilder {
+	return promptingSessionRequestBuilder{prompter}
+}
+
+func (p promptingSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
+	email := p.prompter.Prompt("Enter email: ")
+	pwd := p.prompter.PasswordPrompt("Enter password: ")
+	return models.SessionRequest{Email: email, Password: pwd}, nil
+}
+
+type fileSessionRequestBuilder struct{}
+
+// NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
+func NewFileSessionRequestBuilder() SessionRequestBuilder {
+	return fileSessionRequestBuilder{}
+}
+
+func (f fileSessionRequestBuilder) Build(file string) (models.SessionRequest, error) {
+	return credentialsFromFile(file)
+}
+
+// APIInitializer is the interface used to create the API User credentials
+// needed to access the API. Does nothing if API user already exists.
+type APIInitializer interface {
+	// Initialize creates a new user for API access, or does nothing if one exists.
+	Initialize(store *store.Store) (models.User, error)
+}
+
+type promptingAPIInitializer struct {
+	prompter Prompter
+}
+
+// NewPromptingAPIInitializer creates a concrete instance of APIInitializer
+// that uses the terminal to solicit credentials from the user.
+func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter}
+}
+
+// Initialize uses the terminal to get credentials that it then saves in the store.
+func (t *promptingAPIInitializer) Initialize(store *store.Store) (models.User, error) {
+	if user, err := store.FindUser(); err == nil {
+		return user, err
+	}
+
+	for {
+		email := t.prompter.Prompt("Enter API Email: ")
+		pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+		user, err := models.NewUser(email, pwd)
+		if err != nil {
+			fmt.Println("Error creating API user: ", err)
+			continue
+		}
+		if err = store.Save(&user); err != nil {
+			fmt.Println("Error creating API user: ", err)
+		}
+		return user, err
+	}
+}
+
+type fileAPIInitializer struct {
+	file string
+}
+
+// NewFileAPIInitializer creates a concrete instance of APIInitializer
+// that pulls API user credentials from the passed file path.
+func NewFileAPIInitializer(file string) APIInitializer {
+	return fileAPIInitializer{file: file}
+}
+
+func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) {
+	if user, err := store.FindUser(); err == nil {
+		return user, err
+	}
+
+	request, err := credentialsFromFile(f.file)
+	if err != nil {
+		return models.User{}, err
+	}
+
+	user, err := models.NewUser(request.Email, request.Password)
+	if err != nil {
+		return user, err
+	}
+	return user, store.Save(&user)
+}
+
+var errNoCredentialFile = errors.New("No API user credential file was passed")
+
+func credentialsFromFile(file string) (models.SessionRequest, error) {
+	if len(file) == 0 {
+		return models.SessionRequest{}, errNoCredentialFile
+	}
+
+	logger.Debug("Initializing API credentials from ", file)
+	dat, err := ioutil.ReadFile(file)
+	if err != nil {
+		return models.SessionRequest{}, err
+	}
+	lines := strings.Split(string(dat), "\n")
+	if len(lines) < 2 {
+		return models.SessionRequest{}, fmt.Errorf("Malformed API credentials file does not have at least two lines at %s", file)
+	}
+	credentials := models.SessionRequest{
+		Email:    strings.TrimSpace(lines[0]),
+		Password: strings.TrimSpace(lines[1]),
+	}
+	return credentials, nil
 }

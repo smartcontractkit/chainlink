@@ -19,11 +19,12 @@ import (
 func BenchmarkJobSpecsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 	setupJobSpecsControllerIndex(app)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs")
+		resp, cleanup := client.Get("/v2/specs")
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
@@ -34,15 +35,16 @@ func TestJobSpecsController_Index(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j1, err := setupJobSpecsControllerIndex(app)
 	assert.NoError(t, err)
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=x")
+	resp, cleanup := client.Get("/v2/specs?size=x")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + "/v2/specs?size=1")
+	resp, cleanup = client.Get("/v2/specs?size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	body := cltest.ParseResponseBody(resp)
@@ -61,7 +63,7 @@ func TestJobSpecsController_Index(t *testing.T) {
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
 
-	resp, cleanup = cltest.BasicAuthGet(app.Server.URL + links["next"].Href)
+	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -94,12 +96,9 @@ func TestJobSpecsController_Create(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -155,13 +154,10 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json")
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
@@ -174,13 +170,10 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json")
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
@@ -193,13 +186,10 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
@@ -212,13 +202,10 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/initiator_only_job.json")
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
@@ -231,13 +218,10 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	jsonStr := cltest.LoadJSON("../internal/fixtures/web/task_only_job.json")
-	resp, cleanup := cltest.BasicAuthPost(
-		app.Server.URL+"/v2/specs",
-		"application/json",
-		bytes.NewBuffer(jsonStr),
-	)
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
@@ -249,11 +233,12 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 func BenchmarkJobSpecsController_Show(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 	j := setupJobSpecsControllerShow(b, app)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, _ := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
+		resp, _ := client.Get("/v2/specs/" + j.ID)
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
 }
@@ -263,13 +248,14 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
 	j := setupJobSpecsControllerShow(t, app)
 
 	jr, err := app.Store.JobRunsFor(j.ID)
 	assert.NoError(t, err)
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + j.ID)
+	resp, cleanup := client.Get("/v2/specs/" + j.ID)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
@@ -301,8 +287,9 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/specs/" + "garbage")
+	resp, cleanup := client.Get("/v2/specs/" + "garbage")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
 }

@@ -18,8 +18,9 @@ func TestConfigController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
 
-	resp, cleanup := cltest.BasicAuthGet(app.Server.URL + "/v2/config")
+	resp, cleanup := client.Get("/v2/config")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -30,7 +31,6 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, store.LogLevel{Level: -1}, cwl.LogLevel)
 	assert.Contains(t, cwl.RootDir, "/tmp/chainlink_test/")
 	assert.Equal(t, "", cwl.Port)
-	assert.Equal(t, "testusername", cwl.BasicAuthUsername)
 	assert.Contains(t, cwl.EthereumURL, "ws://127.0.0.1:")
 	assert.Equal(t, uint64(3), cwl.ChainID)
 	assert.Contains(t, cwl.ClientNodeURL, "http://127.0.0.1:")
