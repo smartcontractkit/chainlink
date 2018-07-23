@@ -1,4 +1,8 @@
 // Util functions, primarily for passing data between Go / Rust / SGX enclaves
+//
+// NOTE: This library is intended to be unit tested, in test mode it uses the std rust library as
+// this is needed for Rust's testing framework. Take care not to introduce a dependency on anything
+// in std which is not also in sgx_tstd.
 
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
