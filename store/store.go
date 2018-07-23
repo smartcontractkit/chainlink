@@ -126,7 +126,19 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 }
 
 func initializeORM(config Config) (*models.ORM, error) {
-	return models.NewORM(path.Join(config.RootDir, "db.bolt"), config.DatabaseTimeout.Duration)
+	path := path.Join(config.RootDir, "db.bolt")
+	duration := config.DatabaseTimeout.Duration
+	logger.Infof("Waiting %s for lock on db file %s", friendlyDuration(duration), path)
+	return models.NewORM(path, duration)
+}
+
+const zeroDuration = time.Duration(0)
+
+func friendlyDuration(duration time.Duration) string {
+	if duration == zeroDuration {
+		return "indefinitely"
+	}
+	return fmt.Sprintf("%v", duration)
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary
