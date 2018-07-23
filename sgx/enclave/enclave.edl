@@ -15,5 +15,9 @@ enclave {
       [in, size=arguments_len] const uint8_t* arguments_ptr, size_t arguments_len,
       [out, size=result_capacity] uint8_t* result_ptr, size_t result_capacity,
       [out] size_t *result_len);
+    public sgx_status_t sgx_multiply(
+      [in, size=adapter_len] const uint8_t* adapter, size_t adapter_len,
+      [in, size=input_len] const uint8_t* input, size_t input_len,
+      [out, size=output_len] uint8_t* output, size_t output_len);
   };
 };

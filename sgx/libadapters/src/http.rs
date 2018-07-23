@@ -1,7 +1,7 @@
 use libc;
 use sgx_types::*;
-use std::ffi::CStr;
 use std::ptr;
+use util::cstr_len;
 
 use ENCLAVE;
 
@@ -20,11 +20,6 @@ extern "C" {
         body: *const u8,
         body_len: usize,
     ) -> sgx_status_t;
-}
-
-fn cstr_len(string: *const libc::c_char) -> usize {
-    let buffer = unsafe { CStr::from_ptr(string).to_bytes() };
-    buffer.len()
 }
 
 #[no_mangle]

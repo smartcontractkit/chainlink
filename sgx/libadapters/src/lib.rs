@@ -15,6 +15,8 @@ use sgx_urts::SgxEnclave;
 
 pub mod http;
 pub mod wasm;
+pub mod multiply;
+mod util;
 
 static ENCLAVE_FILE: &'static str = "enclave.signed.so";
 
