@@ -42,5 +42,5 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, "", cwl.LinkContractAddress)
 	assert.Equal(t, big.NewInt(0), cwl.MinimumContractPayment)
 	assert.Equal(t, (*common.Address)(nil), cwl.OracleContractAddress)
-	assert.Equal(t, store.Duration{Duration: time.Millisecond * 500}, cwl.DatabasePollInterval)
+	assert.Equal(t, store.Duration{Duration: time.Millisecond * 500}, cwl.DatabaseTimeout)
 }

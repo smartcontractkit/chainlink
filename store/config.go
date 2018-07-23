@@ -39,7 +39,7 @@ type Config struct {
 	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	MinimumContractPayment   big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
-	DatabasePollInterval     Duration        `env:"DATABASE_POLL_INTERVAL" envDefault:"500ms"`
+	DatabaseTimeout          Duration        `env:"DATABASE_TIMEOUT" envDefault:"500ms"`
 	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
 	Dev                      bool            `env:"CHAINLINK_DEV" envDefault:"false"`
 	TLSCertPath              string          `env:"TLS_CERT_PATH" envDefault:""`
