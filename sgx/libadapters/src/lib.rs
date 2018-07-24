@@ -4,6 +4,7 @@ extern crate libc;
 extern crate errno;
 extern crate sgx_types;
 extern crate sgx_urts;
+extern crate utils;
 
 #[macro_use] extern crate lazy_static;
 
@@ -16,7 +17,6 @@ use sgx_urts::SgxEnclave;
 pub mod http;
 pub mod wasm;
 pub mod multiply;
-mod util;
 
 static ENCLAVE_FILE: &'static str = "enclave.signed.so";
 

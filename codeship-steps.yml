@@ -4,6 +4,9 @@
   - name: Go Unit Tests
     service: ci
     command: ./internal/ci/go_test
+  - name: Rust Unit Tests
+    service: ci
+    command: ./internal/ci/rust_test
   - name: Solidity Contract Tests
     service: ci
     command: ./internal/ci/truffle_test

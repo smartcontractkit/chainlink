@@ -11,6 +11,7 @@ crate-type = ["staticlib"]
 default = []
 
 [dependencies]
+utils = { path = "../utils", default-features = false }
 num = { path = "/opt/rust-sgx-sdk/third_party/num" }
 lazy_static = { path = "/opt/rust-sgx-sdk/third_party/lazy-static.rs" }
 serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }

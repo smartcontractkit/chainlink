@@ -19,6 +19,9 @@ global_exit = []
 errno = "0.2.3"
 lazy_static = "1.0.0"
 libc = "*"
-sgx_trts = "=1.0.0"
-sgx_types = "=1.0.0"
-sgx_urts = "=1.0.0"
+utils = { path = "../utils" }
+
+[target.'cfg(not(target_env = "sgx"))'.dependencies]
+sgx_trts = { path = "/opt/rust-sgx-sdk/sgx_trts" }
+sgx_types = { path = "/opt/rust-sgx-sdk/sgx_types" }
+sgx_urts = { path = "/opt/rust-sgx-sdk/sgx_urts" }
