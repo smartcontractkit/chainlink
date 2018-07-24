@@ -37,38 +37,28 @@ const TableButtons = props => {
   const lastPage = Math.ceil(props.count / props.rowsPerPage)
   const firstPage = 1
   const currentPage = props.page
-  const handleFirstPage = e => {
-    if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${firstPage}`)
-    props.onChangePage(e, firstPage)
-  }
-  const handleLastPage = e => {
-    if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${lastPage}`)
-    props.onChangePage(e, Math.max(0, lastPage))
-  }
-  const handlePrevPage = e => {
-    if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${currentPage - 1}`)
-    props.onChangePage(e, currentPage - 1)
-  }
-  const handleNextPage = e => {
-    if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${currentPage + 1}`)
-    props.onChangePage(e, currentPage + 1)
+  const handlePage = page => {
+    page = Math.min(page, lastPage)
+    page = Math.max(page, firstPage)
+    const curry = e => {
+      if(props.history)
+        props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`)
+      props.onChangePage(e, page)
+    }
+    return curry
   }
   return (
     <div className={props.classes.customButtons}>
-      <IconButton onClick={handleFirstPage} disabled={currentPage === firstPage} aria-label='First Page'>
+      <IconButton onClick={handlePage(firstPage)} disabled={currentPage === firstPage} aria-label='First Page'>
         <FirstPageIcon />
       </IconButton>
-      <IconButton onClick={handlePrevPage} disabled={currentPage === firstPage} aria-label='Previous Page'>
+      <IconButton onClick={handlePage(currentPage-1)} disabled={currentPage === firstPage} aria-label='Previous Page'>
         <KeyboardArrowLeft />
       </IconButton>
-      <IconButton onClick={handleNextPage} disabled={currentPage >= lastPage} aria-label='Next Page'>
+      <IconButton onClick={handlePage(currentPage+1)} disabled={currentPage >= lastPage} aria-label='Next Page'>
         <KeyboardArrowRight />
       </IconButton>
-      <IconButton onClick={handleLastPage} disabled={currentPage >= lastPage} aria-label='Last Page'>
+      <IconButton onClick={handlePage(lastPage)} disabled={currentPage >= lastPage} aria-label='Last Page'>
         <LastPageIcon />
       </IconButton>
     </div>
