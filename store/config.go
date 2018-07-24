@@ -13,6 +13,7 @@ import (
 
 	"github.com/caarlos0/env"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
@@ -101,6 +102,14 @@ func (c Config) CreateProductionLogger() *zap.Logger {
 // session signing or encryption.
 func (c Config) SessionSecret() ([]byte, error) {
 	return c.SecretGenerator.Generate(c)
+}
+
+// SessionOptions returns the sesssions.Options struct used to configure
+// the session store.
+func (c Config) SessionOptions() sessions.Options {
+	return sessions.Options{
+		Secure: c.Dev == false,
+	}
 }
 
 // SecretGenerator is the interface for objects that generate a secret
