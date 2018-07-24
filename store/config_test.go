@@ -41,6 +41,28 @@ func TestConfig_sessionSecret(t *testing.T) {
 	require.Equal(t, initial, second)
 }
 
+func TestConfig_sessionOptions(t *testing.T) {
+	t.Parallel()
+	config := NewConfig()
+
+	tests := []struct {
+		name string
+		dev  bool
+		want bool
+	}{
+		{"dev", true, false},
+		{"production", false, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config.Dev = test.dev
+			opts := config.SessionOptions()
+			require.Equal(t, test.want, opts.Secure)
+		})
+	}
+}
+
 func TestStore_DurationMarshalJSON(t *testing.T) {
 	t.Parallel()
 

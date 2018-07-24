@@ -36,6 +36,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		logger.Panic(err)
 	}
 	sessionStore := sessions.NewCookieStore(secret)
+	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
 
 	engine.Use(
