@@ -4,14 +4,14 @@ version = "0.7.0"
 dependencies = [
  "byteorder 1.2.1",
  "safemem 0.2.0",
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
 name = "byteorder"
 version = "1.2.1"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -22,7 +22,7 @@ version = "0.1.2"
 name = "dtoa"
 version = "0.4.2"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -35,24 +35,25 @@ dependencies = [
  "serde 1.0.16",
  "serde_derive 1.0.16",
  "serde_json 1.0.17",
- "sgx_tstd 1.0.0",
- "sgx_types 1.0.0",
+ "sgx_tstd 1.0.1",
+ "sgx_types 1.0.1",
+ "utils 0.1.0",
  "wabt-core 0.2.2",
  "wasmi 0.1.1",
 ]
 
 [[package]]
 name = "itoa"
-version = "0.3.4"
+version = "0.4.1"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
 name = "lazy_static"
 version = "0.2.8"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -60,7 +61,7 @@ name = "log"
 version = "0.3.8"
 dependencies = [
  "cfg-if 0.1.2",
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -75,7 +76,7 @@ dependencies = [
  "num-derive 0.1.41",
  "num-integer 0.1.35",
  "num-iter 0.1.34",
- "num-traits 0.1.40",
+ "num-traits 0.2.5",
 ]
 
 [[package]]
@@ -90,8 +91,8 @@ dependencies = [
 name = "num-integer"
 version = "0.1.35"
 dependencies = [
- "num-traits 0.1.40",
- "sgx_tstd 1.0.0",
+ "num-traits 0.2.5",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -99,15 +100,15 @@ name = "num-iter"
 version = "0.1.34"
 dependencies = [
  "num-integer 0.1.35",
- "num-traits 0.1.40",
- "sgx_tstd 1.0.0",
+ "num-traits 0.2.5",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
 name = "num-traits"
-version = "0.1.40"
+version = "0.2.5"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -116,7 +117,7 @@ version = "0.27.5"
 dependencies = [
  "byteorder 1.2.1",
  "log 0.3.8",
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -133,14 +134,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "safemem"
 version = "0.2.0"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
 name = "serde"
 version = "1.0.16"
 dependencies = [
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
@@ -165,17 +166,17 @@ name = "serde_json"
 version = "1.0.17"
 dependencies = [
  "dtoa 0.4.2",
- "itoa 0.3.4",
- "num-traits 0.1.40",
+ "itoa 0.4.1",
+ "num-traits 0.2.5",
  "serde 1.0.16",
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
 name = "sgx_alloc"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_trts 1.0.0",
+ "sgx_trts 1.0.1",
 ]
 
 [[package]]
@@ -184,40 +185,40 @@ version = "0.1.0"
 
 [[package]]
 name = "sgx_tprotected_fs"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_trts 1.0.0",
- "sgx_types 1.0.0",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
 ]
 
 [[package]]
 name = "sgx_trts"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_types 1.0.0",
+ "sgx_types 1.0.1",
 ]
 
 [[package]]
 name = "sgx_tstd"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "sgx_alloc 1.0.0",
+ "sgx_alloc 1.0.1",
  "sgx_build_helper 0.1.0",
- "sgx_tprotected_fs 1.0.0",
- "sgx_trts 1.0.0",
- "sgx_types 1.0.0",
- "sgx_unwind 0.0.0",
+ "sgx_tprotected_fs 1.0.1",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
+ "sgx_unwind 0.0.1",
 ]
 
 [[package]]
 name = "sgx_types"
-version = "1.0.0"
+version = "1.0.1"
 
 [[package]]
 name = "sgx_unwind"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
- "sgx_trts 1.0.0",
+ "sgx_trts 1.0.1",
 ]
 
 [[package]]
@@ -252,14 +253,21 @@ version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "utils"
+version = "0.1.0"
+dependencies = [
+ "sgx_tstd 1.0.1",
+]
+
+[[package]]
 name = "wabt-core"
 version = "0.2.2"
 dependencies = [
  "serde 1.0.16",
  "serde_derive 1.0.16",
  "serde_json 1.0.17",
- "sgx_tstd 1.0.0",
- "sgx_types 1.0.0",
+ "sgx_tstd 1.0.1",
+ "sgx_types 1.0.1",
 ]
 
 [[package]]
@@ -271,7 +279,7 @@ dependencies = [
  "parity-wasm 0.27.5",
  "serde 1.0.16",
  "serde_derive 1.0.16",
- "sgx_tstd 1.0.0",
+ "sgx_tstd 1.0.1",
 ]
 
 [metadata]

@@ -1,0 +1,11 @@
+[package]
+name = "utils"
+version = "0.1.0"
+authors = ["John Barker <jebarker@gmail.com>"]
+
+[features]
+default = ["std"]
+std = []
+
+[target.'cfg(not(target_env = "sgx"))'.dependencies]
+sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }

@@ -2,82 +2,138 @@
 name = "adapters"
 version = "0.1.0"
 dependencies = [
- "errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_trts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_urts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
+ "sgx_urts 1.0.1",
+ "utils 0.1.0",
 ]
 
 [[package]]
 name = "errno"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "errno-dragonfly 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "kernel32-sys"
-version = "0.2.2"
+name = "errno-dragonfly"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gcc 0.3.54 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "gcc"
+version = "0.3.54"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "lazy_static"
-version = "1.0.0"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "libc"
-version = "0.2.40"
+version = "0.2.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "sgx_trts"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+name = "sgx_alloc"
+version = "1.0.1"
 dependencies = [
- "sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_trts 1.0.1",
+]
+
+[[package]]
+name = "sgx_build_helper"
+version = "0.1.0"
+
+[[package]]
+name = "sgx_tprotected_fs"
+version = "1.0.1"
+dependencies = [
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
+]
+
+[[package]]
+name = "sgx_trts"
+version = "1.0.1"
+dependencies = [
+ "sgx_types 1.0.1",
+]
+
+[[package]]
+name = "sgx_tstd"
+version = "1.0.1"
+dependencies = [
+ "sgx_alloc 1.0.1",
+ "sgx_build_helper 0.1.0",
+ "sgx_tprotected_fs 1.0.1",
+ "sgx_trts 1.0.1",
+ "sgx_types 1.0.1",
+ "sgx_unwind 0.0.1",
 ]
 
 [[package]]
 name = "sgx_types"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "1.0.1"
+
+[[package]]
+name = "sgx_unwind"
+version = "0.0.1"
+dependencies = [
+ "sgx_trts 1.0.1",
+]
 
 [[package]]
 name = "sgx_urts"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "1.0.1"
 dependencies = [
- "libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx_types 1.0.1",
+]
+
+[[package]]
+name = "utils"
+version = "0.1.0"
+dependencies = [
+ "sgx_tstd 1.0.1",
 ]
 
 [[package]]
 name = "winapi"
-version = "0.2.8"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "winapi-build"
-version = "0.1.1"
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
-"checksum errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "b2c858c42ac0b88532f48fca88b0ed947cad4f1f64d904bcd6c9f138f7b95d70"
-"checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
-"checksum lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d"
-"checksum libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)" = "6fd41f331ac7c5b8ac259b8bf82c75c0fb2e469bbf37d2becbba9a6a2221965b"
-"checksum sgx_trts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5c3f481502aaa72062b44ff5b3bbdd48b711e547cd4518cee7da832dc5e1037d"
-"checksum sgx_types 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "856c6648b731660db14bca279ffefeca4093de8ebb9e5eebc98406b9d97dcd41"
-"checksum sgx_urts 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "89e8311ae4f049cd2ebe4822006f62bd2964643c17c67a5425d4859abb2d31a6"
-"checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
-"checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
+"checksum errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "c2a071601ed01b988f896ab14b95e67335d1eeb50190932a1320f7fe3cadc84e"
+"checksum errno-dragonfly 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "14ca354e36190500e1e1fb267c647932382b54053c50b14970856c0b00a35067"
+"checksum gcc 0.3.54 (registry+https://github.com/rust-lang/crates.io-index)" = "5e33ec290da0d127825013597dbdfc28bee4964690c7ce1166cbc2a7bd08b1bb"
+"checksum lazy_static 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "fb497c35d362b6a331cfd94956a07fc2c78a4604cdbee844a81170386b996dd3"
+"checksum libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)" = "b685088df2b950fccadf07a7187c8ef846a959c142338a48f9dc0b94517eb5f1"
+"checksum winapi 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "773ef9dcc5f24b7d850d0ff101e542ff24c3b090a9768e03ff889fdef41f00fd"
+"checksum winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+"checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"

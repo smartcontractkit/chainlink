@@ -1,7 +1,7 @@
 use libc;
 use sgx_types::*;
 use std::ptr;
-use util::cstr_len;
+use utils::cstr_len;
 
 use ENCLAVE;
 
