@@ -1,4 +1,4 @@
 export default wrapper => {
-    const firstPage = wrapper.find('button[aria-label="First Page"]')
-    firstPage.simulate('click')
-  }
+  const firstPage = wrapper.find('button[aria-label="First Page"]')
+  firstPage.simulate('click')
+}

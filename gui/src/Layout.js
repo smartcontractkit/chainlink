@@ -159,7 +159,7 @@ class Layout extends Component {
                 <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                 <Route exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
                 <Route exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
-                 <Route exact path='/config' component={Configuration} />
+                <Route exact path='/config' component={Configuration} />
                 <Route exact path='/bridges' component={Bridges} />
                 <Route exact path='/bridges/:bridgeName' component={BridgeSpec} />
                 <Routes />

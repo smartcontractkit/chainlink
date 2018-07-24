@@ -41,8 +41,7 @@ const TableButtons = props => {
     page = Math.min(page, lastPage)
     page = Math.max(page, firstPage)
     const curry = e => {
-      if(props.history)
-        props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`)
+      if (props.history) { props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`) }
       props.onChangePage(e, page)
     }
     return curry
@@ -52,10 +51,10 @@ const TableButtons = props => {
       <IconButton onClick={handlePage(firstPage)} disabled={currentPage === firstPage} aria-label='First Page'>
         <FirstPageIcon />
       </IconButton>
-      <IconButton onClick={handlePage(currentPage-1)} disabled={currentPage === firstPage} aria-label='Previous Page'>
+      <IconButton onClick={handlePage(currentPage - 1)} disabled={currentPage === firstPage} aria-label='Previous Page'>
         <KeyboardArrowLeft />
       </IconButton>
-      <IconButton onClick={handlePage(currentPage+1)} disabled={currentPage >= lastPage} aria-label='Next Page'>
+      <IconButton onClick={handlePage(currentPage + 1)} disabled={currentPage >= lastPage} aria-label='Next Page'>
         <KeyboardArrowRight />
       </IconButton>
       <IconButton onClick={handlePage(lastPage)} disabled={currentPage >= lastPage} aria-label='Last Page'>
@@ -134,7 +133,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
         count={jobRunsCount}
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
-        page={state.page-1}
+        page={state.page - 1}
         onChangePage={() => {} /* handler required by component, so make it a no-op */}
         onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
         ActionsComponent={withStyles(styles)(TableButtonsWithProps)}
