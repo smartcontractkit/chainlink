@@ -17,6 +17,7 @@ import logoImg from './logo.svg'
 
 // Use universal-react-component for code-splitting non-static routes
 const Bridges = universal(import('./containers/Bridges'))
+const BridgeSpec = universal(import('./containers/BridgeSpec'))
 const Configuration = universal(import('./containers/Configuration'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
@@ -159,6 +160,7 @@ class Layout extends Component {
                 <Route exact path='/job_specs/:jobSpecId/runs/:jobRunId' component={JobSpecRun} />
                 <Route exact path='/config' component={Configuration} />
                 <Route exact path='/bridges' component={Bridges} />
+                <Route exact path='/bridges/:bridgeName' component={BridgeSpec} />
                 <Routes />
               </Switch>
             </div>
