@@ -2,7 +2,8 @@
 
 set -e
 
-packages=`go list -f '{{.ImportPath}},' ./... | tr -d '\n' | sed 's/,$//'`
+packages=`go list -f '{{.ImportPath}},' ./... | grep -v "internal\|gui\|tmp" \
+  | tr -d '\n' | sed 's/,$//'`
 
 cc-test-reporter before-build
 go test -v -parallel 2 --tags=test -coverprofile=c.out -coverpkg=$packages ./...
