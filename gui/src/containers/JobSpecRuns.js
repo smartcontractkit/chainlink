@@ -34,34 +34,35 @@ const styles = theme => ({
 })
 
 const TableButtons = props => {
-  const lastPage = Math.ceil(props.count / props.rowsPerPage) - 1
-  const currentPage = props.page - 1
+  const lastPage = Math.ceil(props.count / props.rowsPerPage)
+  const firstPage = 1
+  const currentPage = props.page
   const handleFirstPage = e => {
     if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/1`)
-    props.onChangePage(e, 0)
+      props.history.replace(`/job_specs/${props.specID}/runs/page/${firstPage}`)
+    props.onChangePage(e, firstPage)
   }
   const handleLastPage = e => {
     if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${lastPage + 1}`)
+      props.history.replace(`/job_specs/${props.specID}/runs/page/${lastPage}`)
     props.onChangePage(e, Math.max(0, lastPage))
   }
   const handlePrevPage = e => {
     if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${currentPage}`)
+      props.history.replace(`/job_specs/${props.specID}/runs/page/${currentPage - 1}`)
     props.onChangePage(e, currentPage - 1)
   }
   const handleNextPage = e => {
     if(props.history)
-      props.history.replace(`/job_specs/${props.specID}/runs/page/${currentPage + 2}`)
+      props.history.replace(`/job_specs/${props.specID}/runs/page/${currentPage + 1}`)
     props.onChangePage(e, currentPage + 1)
   }
   return (
     <div className={props.classes.customButtons}>
-      <IconButton onClick={handleFirstPage} disabled={currentPage === 0} aria-label='First Page'>
+      <IconButton onClick={handleFirstPage} disabled={currentPage === firstPage} aria-label='First Page'>
         <FirstPageIcon />
       </IconButton>
-      <IconButton onClick={handlePrevPage} disabled={currentPage === 0} aria-label='Previous Page'>
+      <IconButton onClick={handlePrevPage} disabled={currentPage === firstPage} aria-label='Previous Page'>
         <KeyboardArrowLeft />
       </IconButton>
       <IconButton onClick={handleNextPage} disabled={currentPage >= lastPage} aria-label='Next Page'>
@@ -85,19 +86,20 @@ export class JobSpecRuns extends Component {
 
   componentDidMount () {
     const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
+    const firstPage = 1
     if (this.props.match.params.jobRunsPage) {
       const START_PAGE = this.props.match.params.jobRunsPage
-      this.setState({ page: START_PAGE - 1 })
+      this.setState({ page: START_PAGE })
       fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
     } else {
-      this.setState({ page: 0 })
-      fetchJobSpecRuns(jobSpecId, 1, pageSize)
+      this.setState({ page: firstPage })
+      fetchJobSpecRuns(jobSpecId, firstPage, pageSize)
     }
   }
 
   handleChangePage (e, page) {
     const { fetchJobSpecRuns, jobSpecId, pageSize } = this.props
-    fetchJobSpecRuns(jobSpecId, page + 1, pageSize)
+    fetchJobSpecRuns(jobSpecId, page, pageSize)
     this.setState({ page })
   }
   render () {
@@ -129,7 +131,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
       {...props}
       count={jobRunsCount}
       onChangePage={handleChangePage}
-      page={state.page + 1}
+      page={state.page}
       specID={jobSpecId}
       rowsPerPage={pageSize}
     />
@@ -142,7 +144,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
         count={jobRunsCount}
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
-        page={state.page}
+        page={state.page-1}
         onChangePage={() => {} /* handler required by component, so make it a no-op */}
         onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
         ActionsComponent={withStyles(styles)(TableButtonsWithProps)}
