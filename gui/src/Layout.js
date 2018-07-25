@@ -22,6 +22,7 @@ const Configuration = universal(import('./containers/Configuration'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
 const JobSpecRun = universal(import('./containers/JobSpecRun'))
+const SignIn = universal(import('./containers/SignIn'))
 
 const appBarHeight = 64
 const drawerWidth = 240
@@ -162,6 +163,7 @@ class Layout extends Component {
                 <Route exact path='/config' component={Configuration} />
                 <Route exact path='/bridges' component={Bridges} />
                 <Route exact path='/bridges/:bridgeName' component={BridgeSpec} />
+                <Route exact path='/signin' component={SignIn} />
                 <Routes />
               </Switch>
             </div>
