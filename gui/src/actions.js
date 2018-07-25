@@ -147,7 +147,7 @@ function sendSessionRequest (data) {
   return dispatch => {
     dispatch(createAction(REQUEST_SESSION))
     return api.postSessionRequest(data)
-      .then(json => dispatch({type: RECEIVE_SESSION_SUCCESS}))
+      .then((json) => dispatch(createAction(RECEIVE_SESSION_SUCCESS)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error)))
   }
 }

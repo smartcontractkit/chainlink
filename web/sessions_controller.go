@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
@@ -22,7 +24,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	} else if sid, err := sc.App.GetStore().CheckPasswordForSession(sr); err != nil {
 		publicError(c, 400, err)
 	} else if err := saveSessionID(session, sid); err != nil {
-		c.JSON(200, gin.H{})
+		c.JSON(http.StatusOK, gin.H{"authenticated": true})
 	}
 }
 
@@ -32,7 +34,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 	if err != nil {
 		c.AbortWithError(500, err)
 	} else {
-		c.JSON(200, gin.H{})
+		c.JSON(http.StatusOK, gin.H{"authenticated": false})
 	}
 }
 

@@ -5,6 +5,7 @@ import bridgeSpec from './bridgeSpec'
 import jobs from './jobs'
 import jobRuns from './jobRuns'
 import configuration from './configuration'
+import session from './session'
 
 const reducer = combineReducers({
   accountBalance,
@@ -12,7 +13,8 @@ const reducer = combineReducers({
   bridgeSpec,
   jobs,
   jobRuns,
-  configuration
+  configuration,
+  session
 })
 
 export default reducer
