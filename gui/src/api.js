@@ -18,6 +18,20 @@ const request = (path, query) => (
     .then((data) => camelizeKeys(data))
 )
 
+const post = (path, body) => {
+  return global.fetch(
+    formatURI(path, body),
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    }
+  )
+    .then(response => response.json())
+    .then((data) => camelizeKeys(data))
+}
+
 export const getJobs = (page, size) => request('/v2/specs', {page: page, size: size})
 
 export const getJobSpec = (id) => request(`/v2/specs/${id}`)
@@ -33,3 +47,5 @@ export const getConfiguration = () => request('/v2/config')
 export const getBridges = (page, size) => request('/v2/bridge_types', {page: page, size: size})
 
 export const getBridgeSpec = (name) => request(`/v2/bridge_types/${name}`)
+
+export const postSessionRequest = (data) => post(`/sessions`, data)
