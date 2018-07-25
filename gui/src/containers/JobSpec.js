@@ -30,8 +30,8 @@ const styles = theme => ({
     marginBottom: theme.spacing.unit * 5
   },
   definitionTitle: {
-    marginTop: theme.spacing.unit,
-    marginBottom: theme.spacing.unit * 3
+    marginTop: theme.spacing.unit * 2,
+    marginBottom: theme.spacing.unit * 2
   },
   divider: {
     marginTop: theme.spacing.unit,
