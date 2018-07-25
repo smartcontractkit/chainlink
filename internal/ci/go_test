@@ -2,8 +2,10 @@
 
 set -e
 
+go get -u github.com/smartcontractkit/goverage
+
 cc-test-reporter before-build
-go test -v -parallel 2 --tags=test -coverprofile=c.out ./...
+goverage -v -parallel 2 --tags=test -coverprofile=c.out ./...
 result=$?
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
   cc-test-reporter after-build -t gocov --exit-code $result
