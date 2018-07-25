@@ -10,10 +10,12 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
 import { withStyles } from '@material-ui/core/styles'
-import {
-  jobRunsCountSelector,
-  jobRunsSelector
-} from 'selectors'
+import { jobRunsCountSelector, jobRunsSelector } from 'selectors'
+import { IconButton } from '@material-ui/core'
+import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft'
+import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight'
+import FirstPageIcon from '@material-ui/icons/FirstPage'
+import LastPageIcon from '@material-ui/icons/LastPage'
 
 const styles = theme => ({
   breadcrumb: {
@@ -23,10 +25,44 @@ const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
+  },
+  customButtons: {
+    flexShrink: 0,
+    color: theme.palette.text.secondary,
+    marginLeft: theme.spacing.unit * 2.5
   }
 })
 
-const START_PAGE = 1
+const TableButtons = props => {
+  const lastPage = Math.ceil(props.count / props.rowsPerPage)
+  const firstPage = 1
+  const currentPage = props.page
+  const handlePage = page => {
+    page = Math.min(page, lastPage)
+    page = Math.max(page, firstPage)
+    const curry = e => {
+      if (props.history) { props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`) }
+      props.onChangePage(e, page)
+    }
+    return curry
+  }
+  return (
+    <div className={props.classes.customButtons}>
+      <IconButton onClick={handlePage(firstPage)} disabled={currentPage === firstPage} aria-label='First Page'>
+        <FirstPageIcon />
+      </IconButton>
+      <IconButton onClick={handlePage(currentPage - 1)} disabled={currentPage === firstPage} aria-label='Previous Page'>
+        <KeyboardArrowLeft />
+      </IconButton>
+      <IconButton onClick={handlePage(currentPage + 1)} disabled={currentPage >= lastPage} aria-label='Next Page'>
+        <KeyboardArrowRight />
+      </IconButton>
+      <IconButton onClick={handlePage(lastPage)} disabled={currentPage >= lastPage} aria-label='Last Page'>
+        <LastPageIcon />
+      </IconButton>
+    </div>
+  )
+}
 
 export class JobSpecRuns extends Component {
   constructor (props) {
@@ -38,28 +74,32 @@ export class JobSpecRuns extends Component {
   }
 
   componentDidMount () {
-    const {jobSpecId, pageSize, fetchJobSpecRuns} = this.props
-    fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
+    const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
+    const firstPage = 1
+    if (this.props.match.params.jobRunsPage) {
+      const START_PAGE = this.props.match.params.jobRunsPage
+      this.setState({ page: START_PAGE })
+      fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
+    } else {
+      this.setState({ page: firstPage })
+      fetchJobSpecRuns(jobSpecId, firstPage, pageSize)
+    }
   }
 
   handleChangePage (e, page) {
-    const {fetchJobSpecRuns, jobSpecId, pageSize} = this.props
-
-    fetchJobSpecRuns(jobSpecId, page + 1, pageSize)
-    this.setState({page})
+    const { fetchJobSpecRuns, jobSpecId, pageSize } = this.props
+    fetchJobSpecRuns(jobSpecId, page, pageSize)
+    this.setState({ page })
   }
-
   render () {
-    const {classes, jobSpecId} = this.props
+    const { classes, jobSpecId } = this.props
 
     return (
       <div>
         <Breadcrumb className={classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>
-            Job ID: {jobSpecId}
-          </BreadcrumbItem>
+          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Runs</BreadcrumbItem>
         </Breadcrumb>
@@ -73,26 +113,36 @@ export class JobSpecRuns extends Component {
   }
 }
 
-const renderLatestRuns = ({jobSpecId, latestJobRuns, jobRunsCount, pageSize}, state, handleChangePage) => (
-  <Card>
-    <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
-    <TablePagination
-      component='div'
+const renderLatestRuns = (props, state, handleChangePage) => {
+  const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
+  const TableButtonsWithProps = () => (
+    <TableButtons
+      {...props}
       count={jobRunsCount}
-      rowsPerPage={pageSize}
-      rowsPerPageOptions={[pageSize]}
-      page={state.page}
-      backIconButtonProps={{'aria-label': 'Previous Page'}}
-      nextIconButtonProps={{'aria-label': 'Next Page'}}
       onChangePage={handleChangePage}
-      onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+      page={state.page}
+      specID={jobSpecId}
+      rowsPerPage={pageSize}
     />
-  </Card>
-)
+  )
+  return (
+    <Card>
+      <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
+      <TablePagination
+        component='div'
+        count={jobRunsCount}
+        rowsPerPage={pageSize}
+        rowsPerPageOptions={[pageSize]}
+        page={state.page - 1}
+        onChangePage={() => {} /* handler required by component, so make it a no-op */}
+        onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+        ActionsComponent={withStyles(styles)(TableButtonsWithProps)}
+      />
+    </Card>
+  )
+}
 
-const renderFetching = () => (
-  <div>Fetching...</div>
-)
+const renderFetching = () => <div>Fetching...</div>
 
 const renderDetails = (props, state, handleChangePage) => {
   if (props.latestJobRuns && props.latestJobRuns.length > 0) {
@@ -126,10 +176,13 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({
-    fetchJobSpecRuns
-  }, dispatch)
+const mapDispatchToProps = dispatch => {
+  return bindActionCreators(
+    {
+      fetchJobSpecRuns
+    },
+    dispatch
+  )
 }
 
 export const ConnectedJobSpecRuns = connect(mapStateToProps, mapDispatchToProps)(JobSpecRuns)

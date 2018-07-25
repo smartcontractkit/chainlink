@@ -14,7 +14,7 @@ const statusColor = (status) => {
 const JobRunsRow = ({id, jobSpecId, status, createdAt, result}) => (
   <TableRow>
     <TableCell component='th' scope='row'>
-      <Link to={`/job_specs/${jobSpecId}/runs/${id}`}>{id}</Link>
+      <Link to={`/job_specs/${jobSpecId}/runs/id/${id}`}>{id}</Link>
     </TableCell>
     <TableCell component='th' scope='row'>
       <Typography variant='body1' color={statusColor(status)}>{status}</Typography>
