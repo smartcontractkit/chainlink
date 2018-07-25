@@ -11,6 +11,7 @@ import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import universal from 'react-universal-component'
 import { Link, Router, Route, Switch } from 'react-static'
+import PrivateRoute from './PrivateRoute'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import logoImg from './logo.svg'
@@ -19,6 +20,7 @@ import logoImg from './logo.svg'
 const Bridges = universal(import('./containers/Bridges'))
 const BridgeSpec = universal(import('./containers/BridgeSpec'))
 const Configuration = universal(import('./containers/Configuration'))
+const Jobs = universal(import('./containers/Jobs'))
 const JobSpec = universal(import('./containers/JobSpec'))
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
 const JobSpecRun = universal(import('./containers/JobSpecRun'))
@@ -156,14 +158,15 @@ class Layout extends Component {
             <div className={classes.content}>
               <div className={classes.toolbar} />
               <Switch>
-                <Route exact path='/job_specs/:jobSpecId' component={JobSpec} />
-                <Route exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
-                <Route exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
-                <Route exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
-                <Route exact path='/config' component={Configuration} />
-                <Route exact path='/bridges' component={Bridges} />
-                <Route exact path='/bridges/:bridgeName' component={BridgeSpec} />
                 <Route exact path='/signin' component={SignIn} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobSpec} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
+                <PrivateRoute exact path='/config' component={Configuration} />
+                <PrivateRoute exact path='/bridges' component={Bridges} />
+                <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
+                <PrivateRoute exact path='/' component={Jobs} />
                 <Routes />
               </Switch>
             </div>

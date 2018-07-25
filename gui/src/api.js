@@ -24,8 +24,11 @@ const post = (path, body) => {
     {
       method: 'POST',
       body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
     }
   )
     .then(response => response.json())

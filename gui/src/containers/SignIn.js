@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import { Redirect } from 'react-router'
 import PropTypes from 'prop-types'
 import Button from '@material-ui/core/Button'
 import Typography from '@material-ui/core/Typography'
@@ -34,11 +35,13 @@ export class SignIn extends Component {
     e.preventDefault()
     const { email, password } = this.state
     this.props.submitSessionRequest({email: email, password: password})
-      .then(() => this.props.history.push('/'))
   }
 
   render () {
-    const { classes } = this.props
+    const { classes, authenticated } = this.props
+    if (authenticated) {
+      return <Redirect to='/' />
+    }
     return (
       <form className={classes.container}
         noValidate
@@ -72,7 +75,9 @@ SignIn.propTypes = {
 }
 
 const mapStateToProps = state => {
-  return {}
+  return {
+    authenticated: state.session.authenticated
+  }
 }
 
 const mapDispatchToProps = (dispatch) => {
