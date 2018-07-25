@@ -37,14 +37,11 @@ const TableButtons = props => {
   const lastPage = Math.ceil(props.count / props.rowsPerPage)
   const firstPage = 1
   const currentPage = props.page
-  const handlePage = page => {
+  const handlePage = page => e => {
     page = Math.min(page, lastPage)
     page = Math.max(page, firstPage)
-    const curry = e => {
-      if (props.history) { props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`) }
-      props.onChangePage(e, page)
-    }
-    return curry
+    if (props.history) { props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`) }
+    props.onChangePage(e, page)
   }
   return (
     <div className={props.classes.customButtons}>
