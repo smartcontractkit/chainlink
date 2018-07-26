@@ -38,7 +38,7 @@ export class SignIn extends Component {
   }
 
   render () {
-    const { classes, authenticated } = this.props
+    const { classes, authenticated, errors } = this.props
     if (authenticated) {
       return <Redirect to='/' />
     }
@@ -65,6 +65,9 @@ export class SignIn extends Component {
             Sign In
           </Button>
         </div>
+        <Typography variant='body1' color='error'>
+          {errors}
+        </Typography>
       </form>
     )
   }
@@ -76,7 +79,8 @@ SignIn.propTypes = {
 
 const mapStateToProps = state => {
   return {
-    authenticated: state.session.authenticated
+    authenticated: state.session.authenticated,
+    errors: state.session.errors
   }
 }
 

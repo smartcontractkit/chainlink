@@ -5,6 +5,7 @@ import {
 
 const initialState = {
   authenticated: false,
+  errors: [],
   networkError: false
 }
 
@@ -15,7 +16,8 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {
-          authenticated: true,
+          authenticated: action.authenticated,
+          errors: action.errors,
           networkError: false
         }
       )
@@ -24,6 +26,8 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {
+          authenticated: false,
+          errors: action.errors || [],
           networkError: action.networkError
         }
       )
