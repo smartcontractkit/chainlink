@@ -143,17 +143,31 @@ export const REQUEST_SESSION = 'REQUEST_SESSION'
 export const RECEIVE_SESSION_SUCCESS = 'RECEIVE_SESSION_SUCCESS'
 export const RECEIVE_SESSION_ERROR = 'RECEIVE_SESSION_ERROR'
 
-function sendSessionRequest (data) {
-  const createSuccess = (json) => ({
-    type: RECEIVE_SESSION_SUCCESS,
-    authenticated: json.authenticated,
-    errors: json.errors
-  })
+function sendSignIn (data) {
   return dispatch => {
     dispatch(createAction(REQUEST_SESSION))
     return api.postSessionRequest(data)
-      .then((json) => dispatch(createSuccess(json)))
+      .then((json) => dispatch(createSessionSuccess(json)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error)))
+  }
+}
+
+const createSessionSuccess = (json) => ({
+  type: RECEIVE_SESSION_SUCCESS,
+  authenticated: json.authenticated,
+  errors: json.errors
+})
+
+export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
+export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'
+export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
+
+function sendSignOut () {
+  return dispatch => {
+    dispatch(createAction(REQUEST_SIGNOUT))
+    return api.destroySession()
+      .then((json) => dispatch(createSessionSuccess(json)))
+      .catch(error => dispatch(requestNetworkError(RECEIVE_SIGNOUT_ERROR, error)))
   }
 }
 
@@ -166,4 +180,5 @@ export const fetchConfiguration = () => sendFetchActions('configuration')
 export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
 export const fetchBridgeSpec = (name) => sendFetchActions('bridgeSpec', name)
 
-export const submitSessionRequest = (data) => sendSessionRequest(data)
+export const submitSignIn = (data) => sendSignIn(data)
+export const submitSignOut = () => sendSignOut()
