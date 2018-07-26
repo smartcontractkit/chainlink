@@ -7,7 +7,7 @@ import { withStyles } from '@material-ui/core/styles'
 import TextField from '@material-ui/core/TextField'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { submitSessionRequest } from 'actions'
+import { submitSignIn } from 'actions'
 
 const styles = theme => ({
   title: {
@@ -34,7 +34,7 @@ export class SignIn extends Component {
   onSubmit = (e) => {
     e.preventDefault()
     const { email, password } = this.state
-    this.props.submitSessionRequest({email: email, password: password})
+    this.props.submitSignIn({email: email, password: password})
   }
 
   render () {
@@ -85,7 +85,7 @@ const mapStateToProps = state => {
 }
 
 const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({ submitSessionRequest }, dispatch)
+  return bindActionCreators({ submitSignIn }, dispatch)
 }
 
 export const ConnectedSignIn = connect(mapStateToProps, mapDispatchToProps)(SignIn)

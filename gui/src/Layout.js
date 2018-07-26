@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
 import CssBaseline from '@material-ui/core/CssBaseline'
+import Button from '@material-ui/core/Button'
 import Drawer from '@material-ui/core/Drawer'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
@@ -15,6 +16,9 @@ import PrivateRoute from './PrivateRoute'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import logoImg from './logo.svg'
+import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import { submitSignOut } from 'actions'
 
 // Use universal-react-component for code-splitting non-static routes
 const Bridges = universal(import('./containers/Bridges'))
@@ -50,11 +54,7 @@ const styles = theme => {
     },
     menuitem: {
       padding: theme.spacing.unit * 3,
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2,
-      display: 'inline-block',
-      width: 'inherit',
-      textDecoration: 'none'
+      display: 'block'
     },
     drawerPaper: {
       backgroundColor: theme.palette.common.white,
@@ -74,10 +74,15 @@ class Layout extends Component {
     super(props)
     this.state = {drawerOpen: false}
     this.toggleDrawer = this.toggleDrawer.bind(this)
+    this.signOut = this.signOut.bind(this)
   }
 
   toggleDrawer () {
     this.setState({drawerOpen: !this.state.drawerOpen})
+  }
+
+  signOut () {
+    this.props.submitSignOut()
   }
 
   render () {
@@ -100,26 +105,23 @@ class Layout extends Component {
           onClick={this.toggleDrawer}
         >
           <List className={classes.drawerList}>
-            <ListItem button>
-              <Link to='/' className={classes.menuitem}>
-                <ListItemText primary='Jobs' />
-              </Link>
+            <ListItem button component={Link} to='/' className={classes.menuitem}>
+              <ListItemText primary='Jobs' />
             </ListItem>
-            <ListItem button>
-              <Link to='/bridges' className={classes.menuitem}>
-                <ListItemText primary='Bridges' />
-              </Link>
+            <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
+              <ListItemText primary='Bridges' />
             </ListItem>
-            <ListItem button>
-              <Link to='/config' className={classes.menuitem}>
-                <ListItemText primary='Configuration' />
-              </Link>
+            <ListItem button component={Link} to='/config' className={classes.menuitem}>
+              <ListItemText primary='Configuration' />
             </ListItem>
-            <ListItem button>
-              <Link to='/about' className={classes.menuitem}>
-                <ListItemText primary='About' />
-              </Link>
+            <ListItem button component={Link} to='/about' className={classes.menuitem}>
+              <ListItemText primary='About' />
             </ListItem>
+            { this.props.authenticated &&
+            <ListItem button onClick={this.signOut} className={classes.menuitem}>
+              <ListItemText primary='Sign Out' />
+            </ListItem>
+            }
           </List>
         </div>
       </Drawer>
@@ -179,6 +181,18 @@ class Layout extends Component {
   }
 }
 
-const LayoutWithStyles = withStyles(styles)(Layout)
+const mapStateToProps = state => {
+  return {
+    authenticated: state.session.authenticated
+  }
+}
+
+const mapDispatchToProps = (dispatch) => {
+  return bindActionCreators({ submitSignOut }, dispatch)
+}
+
+export const ConnectedLayout = connect(mapStateToProps, mapDispatchToProps)(Layout)
+
+const LayoutWithStyles = withStyles(styles)(ConnectedLayout)
 
 export default hot(module)(LayoutWithStyles)
