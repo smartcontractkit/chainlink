@@ -7,11 +7,10 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// User holds the credentials and session ID for API use.
+// User holds the credentials for API user.
 type User struct {
 	Email          string `json:"email" storm:"id,unique"`
 	HashedPassword string `json:"hashedPassword"`
-	SessionID      string `json:"sessionId" storm:"index,unique"`
 	CreatedAt      Time   `json:"createdAt" storm:"index"`
 }
 
@@ -38,4 +37,9 @@ func NewUser(email, plainPwd string) (User, error) {
 type SessionRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// Session holds the unique id for the authenticated session.
+type Session struct {
+	ID string `json:"id" storm:"id,unique"`
 }

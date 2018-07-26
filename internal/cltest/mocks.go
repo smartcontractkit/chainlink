@@ -548,13 +548,8 @@ func (ns NeverSleeper) Sleep() {}
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustUser(email, pwd string, sessionIDArgs ...string) models.User {
-	sessionID := ""
-	if len(sessionIDArgs) == 1 {
-		sessionID = sessionIDArgs[0]
-	}
+func MustUser(email, pwd string) models.User {
 	r, err := models.NewUser(email, pwd)
-	r.SessionID = sessionID
 	if err != nil {
 		logger.Panic(err)
 	}
