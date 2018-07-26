@@ -12,6 +12,37 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+func TestNewJobFromRequest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+		{"downcased types",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+		{"different cased keys",
+			`{"initiators":[{"type":"web"}],"tasks":[{"TYPE":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var jsr models.JobSpecRequest
+			assert.Nil(t, json.Unmarshal([]byte(test.input), &jsr))
+
+			js, err := models.NewJobFromRequest(jsr)
+			assert.Nil(t, err)
+			assert.Equal(t, test.want, js.Digest)
+		})
+	}
+}
+
 func TestJobSpec_Save(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
@@ -113,14 +144,22 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 		confirmations uint64
 		json          string
 		output        string
+		wantError     bool
 	}{
-		{"noop", "noop", 0, `{"type":"noOp"}`, `{"type":"noop","confirmations":0}`},
+		{"noop",
+			"noop",
+			0,
+			`{"type":"noOp"}`,
+			`{"type":"noop","confirmations":0}`,
+			false,
+		},
 		{
 			"httpget",
 			"httpget",
 			0,
 			`{"type":"httpget","url":"http://www.no.com"}`,
 			`{"type":"httpget","url":"http://www.no.com","confirmations":0}`,
+			false,
 		},
 		{
 			"with confirmations",
@@ -128,6 +167,31 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 			10,
 			`{"type":"noop","confirmations":10}`,
 			`{"type":"noop","confirmations":10}`,
+			false,
+		},
+		{
+			"with variations in key name casing",
+			"",
+			10,
+			`{"TYPE":"noop","confirmations":10}`,
+			`{"type":"","TYPE":"noop","confirmations":10}`,
+			true,
+		},
+		{
+			"with multiple keys with variations in key name casing",
+			"nooppend",
+			10,
+			`{"TYPE":"noop","confirmations":10,"type":"noopPend"}`,
+			`{"TYPE":"noop","confirmations":10,"type":"nooppend"}`,
+			false,
+		},
+		{
+			"with multiple keys with variations in key name casing 2",
+			"nooppend",
+			10,
+			`{"type":"noopPend","TYPE":"noop","confirmations":10}`,
+			`{"TYPE":"noop","confirmations":10,"type":"nooppend"}`,
+			false,
 		},
 	}
 
@@ -140,7 +204,11 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 
 			assert.Equal(t, test.taskType, task.Type.String())
 			_, err = adapters.For(task, store)
-			assert.NoError(t, err)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 
 			s, err := json.Marshal(task)
 			assert.NoError(t, err)
