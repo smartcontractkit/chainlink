@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -41,6 +42,7 @@ func TestSessionsController_create(t *testing.T) {
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
+			defer resp.Body.Close()
 
 			if test.wantSession {
 				assert.Equal(t, 200, resp.StatusCode)
@@ -51,6 +53,10 @@ func TestSessionsController_create(t *testing.T) {
 				user, err := app.Store.AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
+
+				b, err := ioutil.ReadAll(resp.Body)
+				assert.NoError(t, err)
+				assert.Equal(t, `{"authenticated":true}`, string(b))
 			} else {
 				assert.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				user, err := app.Store.FindUser()
