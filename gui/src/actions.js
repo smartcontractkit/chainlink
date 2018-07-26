@@ -144,10 +144,15 @@ export const RECEIVE_SESSION_SUCCESS = 'RECEIVE_SESSION_SUCCESS'
 export const RECEIVE_SESSION_ERROR = 'RECEIVE_SESSION_ERROR'
 
 function sendSessionRequest (data) {
+  const createSuccess = (json) => ({
+    type: RECEIVE_SESSION_SUCCESS,
+    authenticated: json.authenticated,
+    errors: json.errors
+  })
   return dispatch => {
     dispatch(createAction(REQUEST_SESSION))
     return api.postSessionRequest(data)
-      .then((json) => dispatch(createAction(RECEIVE_SESSION_SUCCESS)))
+      .then((json) => dispatch(createSuccess(json)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error)))
   }
 }
