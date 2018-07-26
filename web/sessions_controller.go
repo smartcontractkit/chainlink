@@ -23,7 +23,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	var sr models.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
 		publicError(c, 400, err)
-	} else if sid, err := sc.App.GetStore().CheckPasswordForSession(sr); err != nil {
+	} else if sid, err := sc.App.GetStore().CreateSession(sr); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else if err := saveSessionID(session, sid); err != nil {
 		c.AbortWithError(500, multierr.Append(errors.New("Unable to save session id"), err))
@@ -34,8 +34,12 @@ func (sc *SessionsController) Create(c *gin.Context) {
 
 // Destroy erases the session ID for the sole API user.
 func (sc *SessionsController) Destroy(c *gin.Context) {
-	err := sc.App.GetStore().DeleteUserSession()
-	if err != nil {
+	session := sessions.Default(c)
+	defer session.Clear()
+	sessionID, ok := session.Get(SessionIDKey).(string)
+	if !ok {
+		c.JSON(http.StatusOK, gin.H{"authenticated": false})
+	} else if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(http.StatusOK, gin.H{"authenticated": false})

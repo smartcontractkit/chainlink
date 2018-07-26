@@ -214,8 +214,9 @@ func (ta *TestApplication) Stop() error {
 }
 
 func (ta *TestApplication) MustSeedUserSession() models.User {
-	mockUser := MustUser(APIEmail, Password, APISessionID)
+	mockUser := MustUser(APIEmail, Password)
 	mustNotErr(ta.Store.Save(&mockUser))
+	mustNotErr(ta.Store.Save(&models.Session{APISessionID}))
 	return mockUser
 }
 
