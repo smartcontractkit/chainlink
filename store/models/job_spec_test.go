@@ -171,11 +171,11 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 		},
 		{
 			"with variations in key name casing",
-			"",
+			"noop",
 			10,
 			`{"TYPE":"noop","confirmations":10}`,
-			`{"type":"","TYPE":"noop","confirmations":10}`,
-			true,
+			`{"type":"noop","TYPE":"noop","confirmations":10}`,
+			false,
 		},
 		{
 			"with multiple keys with variations in key name casing",

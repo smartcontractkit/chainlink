@@ -208,18 +208,27 @@ type TaskSpec struct {
 	Params        JSON     `json:"-"`
 }
 
-// UnmarshalJSON parses the given input and updates the TaskSpec.
+//UnmarshalJSON parses the given input and updates the TaskSpec.
 func (t *TaskSpec) UnmarshalJSON(input []byte) error {
-	pi := gjson.ParseBytes(input)
+	type Alias TaskSpec
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+	t.Confirmations = aux.Confirmations
+	t.Type = aux.Type
 
+	pi := gjson.ParseBytes(input)
 	if confs := pi.Get("confirmations"); confs.Exists() {
 		t.Confirmations = confs.Uint()
 	}
-	tType, err := NewTaskType(pi.Get("type").String())
-	if err != nil {
-		return fmt.Errorf("TaskSpec.UnmarshalJSON: %v", err)
+	if parsedType := pi.Get("type"); parsedType.Exists() {
+		tType, err := NewTaskType(parsedType.String())
+		if err != nil {
+			return fmt.Errorf("TaskSpec.UnmarshalJSON: %v", err)
+		}
+		t.Type = tType
 	}
-	t.Type = tType
 
 	var params json.RawMessage
 	if err := json.Unmarshal(input, &params); err != nil {
