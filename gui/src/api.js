@@ -20,7 +20,7 @@ const request = (path, query) => (
 
 const post = (path, body) => {
   return global.fetch(
-    formatURI(path, body),
+    formatURI(path),
     {
       method: 'POST',
       body: JSON.stringify(body),
