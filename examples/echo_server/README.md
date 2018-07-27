@@ -33,18 +33,6 @@ Uses a `runlog` initiator to echo Chainlink log events with the matching job id.
 6. Wait for log to show up in echo server
 7. Investigate migrations/5_run_log.js for insight
 
-## Run SpecAndRunLog (Define and run jobs on chain)
-
-Uses a `runlog` initiator to echo Chainlink log events with the matching job id.
-
-1. Complete the [Run Chainlink Development Environment](../README.md#run-chainlink-development-environment) steps.
-2. `yarn install`
-3. `node echo.js`
-4. `yarn truffle migrate` in another window
-5. `node send_specandrun_transaction.js`
-6. Wait for log to show up in echo server
-7. Investigate contracts/SpecAndRunLog.sol for insight
-
 ## Further Reading
 
 Please see the other examples in the repo, and take care to

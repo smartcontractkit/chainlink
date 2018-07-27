@@ -43,17 +43,6 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#chainlinkRequest(SpecAndRun)', () => {
-    it('emits an event from the contract showing the run ID', async () => {
-      let tx = await cc.publicRequestSpecAndRun([], cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
-
-      let events = await getEvents(cc)
-      assert.equal(1, events.length)
-      let event = events[0]
-      assert.equal(event.event, 'ChainlinkRequested')
-    })
-  })
-
   describe('#cancelChainlinkRequest', () => {
     let requestId
 
