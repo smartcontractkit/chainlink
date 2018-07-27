@@ -1,4 +1,5 @@
 .git-together
+.git/objects/*
 .DS_Store
 .envrc
 tmp/
@@ -11,7 +12,14 @@ solidity/node_modules/
 solidity/build/
 solidity/.python-version
 
+internal/gethnet/datadir/geth
+internal/clroot/db.bolt
+internal/clroot/*.jsonl
+
 sgx/target/
+
+gui/dist/
+web/web-packr.go
 
 Dockerfile
 chainlink
