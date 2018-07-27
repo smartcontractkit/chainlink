@@ -36,6 +36,7 @@ export class SignIn extends Component {
 
   render () {
     const { classes, fetching, authenticated, errors } = this.props
+    const enabled = this.state.email.length > 0 && this.state.password.length > 0
     if (authenticated) {
       return <Redirect to='/' />
     }
@@ -58,7 +59,7 @@ export class SignIn extends Component {
             value={this.state.password} onChange={this.handleChange('password')} />
         </div>
         <div>
-          <Button type='submit' variant='contained' color='primary' className={classes.button}>
+          <Button type='submit' disabled={!enabled} variant='contained' color='primary' className={classes.button}>
             Sign In
           </Button>
         </div>
