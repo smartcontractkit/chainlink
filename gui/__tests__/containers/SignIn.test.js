@@ -26,6 +26,7 @@ const mountSignIn = (store, props) => (
 const submitForm = (wrapper) => {
   wrapper.find('input#email').simulate('change', { target: { value: 'some@email.net' } })
   wrapper.find('input#password').simulate('change', { target: { value: 'abracadabra' } })
+  expect(wrapper.find('form button').getDOMNode().disabled).toEqual(false)
   wrapper.find('form').simulate('submit')
 }
 
@@ -56,5 +57,11 @@ describe('containers/SignIn', () => {
     const newState = store.getState()
     expect(newState.session.authenticated).toEqual(false)
     expect(newState.session.errors).toEqual(['Invalid email'])
+  })
+
+  it('cannot submit an empty form', async () => {
+    const store = createStore()
+    const wrapper = mountSignIn(store)
+    expect(wrapper.find('form button').getDOMNode().disabled).toEqual(true)
   })
 })
