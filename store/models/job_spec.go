@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -208,35 +209,46 @@ type TaskSpec struct {
 	Params        JSON     `json:"-"`
 }
 
-//UnmarshalJSON parses the given input and updates the TaskSpec.
+// UnmarshalJSON parses the given input and updates the TaskSpec.
 func (t *TaskSpec) UnmarshalJSON(input []byte) error {
 	type Alias TaskSpec
 	var aux Alias
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
 	}
-	t.Confirmations = aux.Confirmations
 	t.Type = aux.Type
+	t.Confirmations = aux.Confirmations
 
-	pi := gjson.ParseBytes(input)
-	if confs := pi.Get("confirmations"); confs.Exists() {
-		t.Confirmations = confs.Uint()
-	}
-	if parsedType := pi.Get("type"); parsedType.Exists() {
-		tType, err := NewTaskType(parsedType.String())
-		if err != nil {
-			return fmt.Errorf("TaskSpec.UnmarshalJSON: %v", err)
-		}
-		t.Type = tType
+	params, merr := deleteTaskSpecificKeys(input)
+	params, err := params.Add("type", t.Type)
+	merr = multierr.Append(merr, err)
+	params, err = params.Add("confirmations", t.Confirmations)
+	merr = multierr.Append(merr, err)
+	if merr != nil {
+		return merr
 	}
 
-	var params json.RawMessage
-	if err := json.Unmarshal(input, &params); err != nil {
-		return fmt.Errorf("TaskSpec.UnmarshalJSON: %v", err)
-	}
-
-	t.Params = JSON{gjson.ParseBytes(params)}
+	t.Params = params
 	return nil
+}
+
+func deleteTaskSpecificKeys(input []byte) (JSON, error) {
+	params, err := ParseJSON(input)
+	if err != nil {
+		return params, err
+	}
+	var merr error
+
+	params.ForEach(func(key, value gjson.Result) bool {
+		keyStr := strings.ToLower(key.String())
+		if keyStr == "type" || keyStr == "confirmations" {
+			params, err = params.Delete(key.String())
+			merr = multierr.Append(merr, err)
+		}
+		return true
+	})
+
+	return params, merr
 }
 
 // MarshalJSON returns the JSON-encoded TaskSpec Params.

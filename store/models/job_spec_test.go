@@ -34,10 +34,10 @@ func TestNewJobFromRequest(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var jsr models.JobSpecRequest
-			assert.Nil(t, json.Unmarshal([]byte(test.input), &jsr))
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &jsr))
 
 			js, err := models.NewJobFromRequest(jsr)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.want, js.Digest)
 		})
 	}
@@ -144,54 +144,39 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 		confirmations uint64
 		json          string
 		output        string
-		wantError     bool
 	}{
-		{"noop",
-			"noop",
-			0,
+		{"noop", "noop", 0,
 			`{"type":"noOp"}`,
 			`{"type":"noop","confirmations":0}`,
-			false,
 		},
 		{
-			"httpget",
-			"httpget",
-			0,
+			"httpget", "httpget", 0,
 			`{"type":"httpget","url":"http://www.no.com"}`,
 			`{"type":"httpget","url":"http://www.no.com","confirmations":0}`,
-			false,
 		},
-		{
-			"with confirmations",
-			"noop",
-			10,
+		{"with confirmations", "noop", 10,
 			`{"type":"noop","confirmations":10}`,
 			`{"type":"noop","confirmations":10}`,
-			false,
 		},
-		{
-			"with variations in key name casing",
-			"noop",
-			10,
+		{"with variations in key name casing for 'type'", "noop", 10,
 			`{"TYPE":"noop","confirmations":10}`,
-			`{"type":"noop","TYPE":"noop","confirmations":10}`,
-			false,
+			`{"type":"noop","confirmations":10}`,
 		},
-		{
-			"with multiple keys with variations in key name casing",
-			"nooppend",
-			10,
+		{"with variations in key name casing for 'confirmations'", "noop", 10,
+			`{"type":"noop","CONFIRMATIONS":10}`,
+			`{"type":"noop","confirmations":10}`,
+		},
+		{"with variations in key name casing for other keys", "noop", 10,
+			`{"type":"noop","CONFIRMATIONS":10,"foo":"bar","Foo":"baz","FOO":3}`,
+			`{"type":"noop","confirmations":10,"foo":"bar","Foo":"baz","FOO":3}`,
+		},
+		{"with multiple keys with variations in key name casing", "nooppend", 10,
 			`{"TYPE":"noop","confirmations":10,"type":"noopPend"}`,
-			`{"TYPE":"noop","confirmations":10,"type":"nooppend"}`,
-			false,
+			`{"confirmations":10,"type":"nooppend"}`,
 		},
-		{
-			"with multiple keys with variations in key name casing 2",
-			"nooppend",
-			10,
+		{"with multiple keys with variations in key name casing with off caps later", "noop", 10,
 			`{"type":"noopPend","TYPE":"noop","confirmations":10}`,
-			`{"TYPE":"noop","confirmations":10,"type":"nooppend"}`,
-			false,
+			`{"confirmations":10,"type":"noop"}`,
 		},
 	}
 
@@ -204,11 +189,7 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 
 			assert.Equal(t, test.taskType, task.Type.String())
 			_, err = adapters.For(task, store)
-			if test.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.NoError(t, err)
 
 			s, err := json.Marshal(task)
 			assert.NoError(t, err)
