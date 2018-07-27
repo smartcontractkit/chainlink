@@ -217,19 +217,6 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 	}
 }
 
-func NewSpecAndRunLog(addr common.Address, blk int, json string, link *big.Int) ethtypes.Log {
-	return ethtypes.Log{
-		Address:     addr,
-		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData(json),
-		Topics: []common.Hash{
-			services.SpecAndRunTopic,
-			StringToHash("internalID"),
-			common.BigToHash(link),
-		},
-	}
-}
-
 // StringToVersionedLogData encodes a string to the log data field.
 func StringToVersionedLogData(str string) hexutil.Bytes {
 	j := JSONFromString(str)

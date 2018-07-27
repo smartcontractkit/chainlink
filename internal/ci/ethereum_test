@@ -158,26 +158,6 @@ jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
 assert "RunLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
 
 ########################
-## specAndRunLog
-########################
-
-printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34mspecAndRunLog test.\033[0m\n"
-printf -- "--------------------------------------------------------------------------------\n\n"
-
-./send_specandrunlog_transaction
-
-# Check echo count
-assert "Echo count" "curl -sS localhost:6690/count" 2
-
-## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-assert "Jobs count" "cldev -j j | jq length" 2
-
-# Check job runs
-jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
-assert "SpecAndRuns count" "cldev -j s $jid |  jq '.runs | length'" 1
-
-########################
 ## ethlog
 ########################
 
@@ -189,11 +169,11 @@ ethjob=`./create_ethlog_job`
 ./send_ethlog_transaction
 
 # Check echo count
-assert "Echo count" "curl -sS localhost:6690/count" 3
+assert "Echo count" "curl -sS localhost:6690/count" 2
 
 ## Check job counts
 cldev login --file internal/clroot/apicredentials
-assert "Jobs count" "cldev -j j | jq length" 3
+assert "Jobs count" "cldev -j j | jq length" 2
 
 ## Check job runs
 jid=`echo $ethjob | jq .id | tr -d '"'`

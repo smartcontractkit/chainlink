@@ -6,7 +6,6 @@ import "./lib/LinkToken.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
-  using ChainlinkLib for ChainlinkLib.Spec;
   using SafeMath for uint256;
 
   uint256 constant clArgsVersion = 1;
@@ -29,15 +28,6 @@ contract Chainlinked {
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function newSpec(
-    string[] _tasks,
-    address _callbackAddress,
-    string _callbackFunctionSignature
-  ) internal pure returns (ChainlinkLib.Spec memory) {
-    ChainlinkLib.Spec memory spec;
-    return spec.initialize(_tasks, _callbackAddress, _callbackFunctionSignature);
-  }
-
   function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _wei)
     internal
     returns(bytes32)
@@ -49,19 +39,6 @@ contract Chainlinked {
     emit ChainlinkRequested(_run.requestId);
     unfulfilledRequests[_run.requestId] = true;
     return _run.requestId;
-  }
-
-  function chainlinkRequest(ChainlinkLib.Spec memory _spec, uint256 _wei)
-    internal
-    returns(bytes32)
-  {
-    requests += 1;
-    _spec.requestId = bytes32(requests);
-    _spec.close();
-    require(link.transferAndCall(oracle, _wei, _spec.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
-    emit ChainlinkRequested(_spec.requestId);
-    unfulfilledRequests[_spec.requestId] = true;
-    return _spec.requestId;
   }
 
   function cancelChainlinkRequest(bytes32 _requestId)

@@ -50,18 +50,6 @@ contract ConcreteChainlinked is Chainlinked {
     chainlinkRequest(run, _wei);
   }
 
-  function publicRequestSpecAndRun(
-    string[] memory _tasks,
-    address _address,
-    string _fulfillmentSignature,
-    uint256 _wei
-  )
-    public
-  {
-    ChainlinkLib.Spec memory spec = newSpec(_tasks, _address, _fulfillmentSignature);
-    chainlinkRequest(spec, _wei);
-  }
-
   function publicCancelRequest(bytes32 _requestId) public {
     cancelChainlinkRequest(_requestId);
   }
