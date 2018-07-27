@@ -35,7 +35,7 @@ export class SignIn extends Component {
   }
 
   render () {
-    const { classes, authenticated, errors } = this.props
+    const { classes, fetching, authenticated, errors } = this.props
     if (authenticated) {
       return <Redirect to='/' />
     }
@@ -62,6 +62,11 @@ export class SignIn extends Component {
             Sign In
           </Button>
         </div>
+        { fetching &&
+        <Typography variant='body1' color='textSecondary'>
+          Signing in...
+        </Typography>
+        }
         <Typography variant='body1' color='error'>
           {errors}
         </Typography>
@@ -75,9 +80,14 @@ SignIn.propTypes = {
 }
 
 const mapStateToProps = state => {
+  let errors = state.session.errors || []
+  if (state.session.networkError) {
+    errors.push('There was an error signing in. Please reload and try again.')
+  }
   return {
+    fetching: state.session.fetching,
     authenticated: state.session.authenticated,
-    errors: state.session.errors
+    errors: errors
   }
 }
 
