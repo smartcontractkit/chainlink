@@ -20,10 +20,7 @@ const styles = theme => ({
 })
 
 export class SignIn extends Component {
-  state = {
-    email: '',
-    password: ''
-  }
+  state = { email: '', password: '' }
 
   handleChange = name => event => {
     this.setState({
