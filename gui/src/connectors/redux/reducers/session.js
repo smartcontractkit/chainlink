@@ -1,4 +1,6 @@
 import {
+  REQUEST_SESSION,
+  REQUEST_SIGNOUT,
   RECEIVE_SESSION_SUCCESS,
   RECEIVE_SESSION_ERROR,
   RECEIVE_SIGNOUT_SUCCESS,
@@ -6,6 +8,7 @@ import {
 } from 'actions'
 
 const initialState = {
+  fetching: false,
   authenticated: false,
   errors: [],
   networkError: false
@@ -13,14 +16,25 @@ const initialState = {
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
+    case REQUEST_SIGNOUT:
+    case REQUEST_SESSION:
+      return Object.assign(
+        {},
+        state,
+        {
+          fetching: true,
+          networkError: false
+        }
+      )
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SESSION_SUCCESS:
       return Object.assign(
         {},
         state,
         {
+          fetching: false,
           authenticated: action.authenticated,
-          errors: action.errors,
+          errors: action.errors || [],
           networkError: false
         }
       )
@@ -30,6 +44,7 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {
+          fetching: false,
           authenticated: false,
           errors: action.errors || [],
           networkError: action.networkError
