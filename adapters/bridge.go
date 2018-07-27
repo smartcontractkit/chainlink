@@ -15,6 +15,7 @@ import (
 // adapters, allowing for custom computations to be executed and included in runs.
 type Bridge struct {
 	models.BridgeType
+	Params *models.JSON
 }
 
 // Perform sends a POST request containing the JSON of the input RunResult to
@@ -45,13 +46,25 @@ func resumeBridge(input models.RunResult) models.RunResult {
 }
 
 func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
-	b, err := postToExternalAdapter(ba.URL.String(), input)
+	var err error
+	if ba.Params != nil {
+		input.Data, err = input.Data.Merge(*ba.Params)
+		if err != nil {
+			return baRunResultError(input, "handling data param", err)
+		}
+	}
+
+	body, err := postToExternalAdapter(ba.URL, input)
 	if err != nil {
 		return baRunResultError(input, "post to external adapter", err)
 	}
 
+	return responseToRunResult(body, input)
+}
+
+func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
 	var brr models.BridgeRunResult
-	err = json.Unmarshal(b, &brr)
+	err := json.Unmarshal(body, &brr)
 	if err != nil {
 		return baRunResultError(input, "unmarshaling JSON", err)
 	}
@@ -64,13 +77,13 @@ func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 	return rr
 }
 
-func postToExternalAdapter(url string, input models.RunResult) ([]byte, error) {
+func postToExternalAdapter(url models.WebURL, input models.RunResult) ([]byte, error) {
 	in, err := json.Marshal(&bridgeOutgoing{input})
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request body: %v", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(in))
+	resp, err := http.Post(url.String(), "application/json", bytes.NewBuffer(in))
 	if err != nil {
 		return nil, fmt.Errorf("POST request: %v", err)
 	}
