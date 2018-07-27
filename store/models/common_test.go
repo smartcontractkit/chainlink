@@ -167,6 +167,30 @@ func TestJSON_Add(t *testing.T) {
 	}
 }
 
+func TestJSON_Delete(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		key  string
+		want string
+	}{
+		{"remove existing key", "b", `{"a":"1"}`},
+		{"remove non-existing key", "c", `{"a":"1","b":2}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			json := cltest.JSONFromString(`{"a":"1","b":2}`)
+
+			json, err := json.Delete(test.key)
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, json.String())
+		})
+	}
+}
+
 func TestJSON_CBOR(t *testing.T) {
 	t.Parallel()
 
