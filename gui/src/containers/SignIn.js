@@ -80,7 +80,7 @@ SignIn.propTypes = {
 }
 
 const mapStateToProps = state => {
-  let errors = state.session.errors || []
+  let errors = state.session.errors.slice()
   if (state.session.networkError) {
     errors.push('There was an error signing in. Please reload and try again.')
   }
