@@ -37,5 +37,6 @@ describe('PrivateRoute', () => {
     const state = { session: { authenticated: true } }
     const wrapper = mountAuthenticatedApp(mockStore(state))
     expect(wrapper.find(AuthenticatedApp).props().location.pathname).toBe('/')
+    expect(wrapper.text()).toContain('Behind authentication')
   })
 })
