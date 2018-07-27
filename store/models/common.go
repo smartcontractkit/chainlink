@@ -10,6 +10,7 @@ import (
 	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/ugorji/go/codec"
 )
 
@@ -187,6 +188,15 @@ func (j JSON) Add(key string, val interface{}) (JSON, error) {
 		return j2, err
 	}
 	return j.Merge(j2)
+}
+
+// Delete returns a new instance of JSON with the specified key removed.
+func (j JSON) Delete(key string) (JSON, error) {
+	js, err := sjson.Delete(j.String(), key)
+	if err != nil {
+		return j, err
+	}
+	return ParseJSON([]byte(js))
 }
 
 // CBOR returns a bytes array of the JSON map or array encoded to CBOR.
