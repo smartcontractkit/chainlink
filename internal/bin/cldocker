@@ -26,7 +26,11 @@ DOCKER="docker run -ti \
 
 source $PROJECT_ROOT/internal/bin/clenv
 export ETH_URL="ws://docker.for.mac.localhost:$ETH_PORT"
-if [ "$1" == "clean" ]; then
+if [ "$#" == 0 ]; then
+  $DOCKER node -d -p /root/.chainlink/password.txt -a /root/.chainlink/apicredentials
+elif [ "$1" == "node" ]; then
+  $DOCKER node -d -p /root/.chainlink/password.txt -a /root/.chainlink/apicredentials ${@:2}
+elif [ "$1" == "clean" ]; then
   rm -f $PROJECT_ROOT/internal/clroot/{db.bolt,log.jsonl}
 else
   $DOCKER ${@}
