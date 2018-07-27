@@ -11,6 +11,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	data := ""
+	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`,
+		func(b string) {
+			body := cltest.JSONFromString(string(b))
+			data = body.Get("data").String()
+		},
+	)
+	defer cleanup()
+
+	bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+	params := cltest.JSONFromString(`{"bodyParam": true}`)
+	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
+
+	input := models.RunResult{
+		Data:   cltest.JSONFromString(`{"value":"100"}`),
+		Status: models.RunStatusUnstarted,
+	}
+	ba.Perform(input, store)
+
+	assert.Equal(t, `{"bodyParam":true,"value":"100"}`, data)
+}
+
 func TestBridge_Perform_transitionsTo(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
