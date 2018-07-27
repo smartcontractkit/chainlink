@@ -145,10 +145,10 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		wantStatus models.RunStatus
 		wantData   string
 	}{
-		{"success", bridgeName, `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100"}`},
-		{"errored", bridgeName, `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{}`},
-		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99"}`},
-		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack"}`},
+		{"success", bridgeName, `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"auctionBidding"}`},
+		{"errored", bridgeName, `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{"type":"auctionBidding"}`},
+		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99","type":"auctionBidding"}`},
+		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack","type":"auctionBidding"}`},
 		{"type parameter does not override", bridgeName, `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"0"}`},
 		{"non-existent bridge type", "non-existent", `{}`, `{}`, models.RunStatusErrored, `{}`},
 	}
@@ -162,9 +162,23 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 			var run models.JobRun
 			mockServer, _ := cltest.NewHTTPMockServer(t, 200, "POST", test.runResult,
-				func(body string) {
-					want := fmt.Sprintf(`{"id":"%v","data":%v}`, run.ID, test.input)
-					assert.JSONEq(t, want, body)
+				func(b string) {
+					body := cltest.JSONFromString(b)
+
+					id := body.Get("id")
+					assert.True(t, id.Exists())
+					assert.Equal(t, run.ID, id.String())
+
+					data := body.Get("data")
+					assert.True(t, data.Exists())
+
+					input := cltest.JSONFromString(test.input)
+					for key, value := range input.Map() {
+						fmt.Println("key", key)
+						field := data.Get(key)
+						assert.True(t, field.Exists())
+						assert.Equal(t, value.String(), field.String())
+					}
 				})
 			bt := cltest.NewBridgeType(bridgeName, mockServer.URL)
 			assert.Nil(t, store.Save(&bt))
@@ -290,9 +304,16 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 
 			run := job.NewRun(initr)
 			mockServer, _ := cltest.NewHTTPMockServer(t, 200, "POST", "{\"todo\": \"todo\"}",
-				func(body string) {
-					want := fmt.Sprintf(`{"id":"%v","data":%v}`, run.ID, "{}")
-					assert.JSONEq(t, want, body)
+				func(b string) {
+					body := cltest.JSONFromString(b)
+
+					id := body.Get("id")
+					assert.True(t, id.Exists())
+					assert.Equal(t, run.ID, id.String())
+
+					data := body.Get("data")
+					assert.True(t, data.Exists())
+					assert.Equal(t, data.Type, gjson.JSON)
 				})
 			bt := cltest.NewBridgeTypeWithDefaultConfirmations(uint64(test.bridgeTypeConfirmations), "randomNumber", mockServer.URL)
 			assert.Nil(t, store.Save(&bt))

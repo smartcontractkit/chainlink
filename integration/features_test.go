@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -15,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 )
 
 func TestIntegration_Scheduler(t *testing.T) {
@@ -359,10 +364,29 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	eaPrice := "1234"
 	eaQuote := "USD"
 	eaResponse := fmt.Sprintf(`{"data":{"price": "%v", "quote": "%v"}}`, eaPrice, eaQuote)
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
-	defer cleanup()
 
-	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, mockServer.URL)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/", r.URL.Path)
+
+		b, err := ioutil.ReadAll(r.Body)
+		assert.NoError(t, err)
+		body := cltest.JSONFromString(string(b))
+		data := body.Get("data")
+		assert.True(t, data.Exists())
+		bodyParam := data.Get("bodyParam")
+		assert.True(t, bodyParam.Exists())
+		assert.Equal(t, true, bodyParam.Bool())
+		typeParam := data.Get("type")
+		assert.True(t, typeParam.Exists())
+		assert.Equal(t, "assetprice", typeParam.String())
+
+		w.WriteHeader(200)
+		io.WriteString(w, eaResponse)
+	}))
+	defer ts.Close()
+
+	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, ts.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/bridge_type_copy_job.json")
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
@@ -387,10 +411,18 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
-		func(body string) {
+		func(b string) {
+			body := cltest.JSONFromString(b)
+
 			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 			jr := jrs[0]
-			assert.JSONEq(t, fmt.Sprintf(`{"id":"%v","data":{}}`, jr.ID), body)
+			id := body.Get("id")
+			assert.True(t, id.Exists())
+			assert.Equal(t, jr.ID, id.String())
+
+			data := body.Get("data")
+			assert.True(t, data.Exists())
+			assert.Equal(t, data.Type, gjson.JSON)
 		})
 	defer cleanup()
 
