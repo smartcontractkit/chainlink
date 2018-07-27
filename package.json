@@ -55,6 +55,7 @@
     "react-static": "^5.9.7",
     "react-universal-component": "^2.9.0",
     "redux": "^4.0.0",
+    "redux-mock-store": "^1.5.3",
     "redux-thunk": "^2.3.0",
     "request-promise": "^4.2.2",
     "serve": "^6.5.0",

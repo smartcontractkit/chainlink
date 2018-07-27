@@ -5,9 +5,7 @@ import { bindActionCreators } from 'redux'
 
 export class PrivateRoute extends Route {
   render = (props) => (
-    this.props.authenticated === true
-      ? super.render(props)
-      : <Redirect to='/signin' />
+    this.props.authenticated ? super.render(props) : <Redirect to='/signin' />
   )
 }
 
