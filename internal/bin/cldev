@@ -9,17 +9,11 @@
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
+ROOT=$PROJECT_ROOT/internal/clroot
 LDFLAGS=`$PROJECT_ROOT/internal/bin/ldflags`
 
-export LOG_LEVEL=debug
-export ETH_URL=ws://localhost:18546
-export ETH_CHAIN_ID=17
-export TX_MIN_CONFIRMATIONS=2
-export MINIMUM_CONTRACT_PAYMENT=1000000000000
-export ROOT=$PROJECT_ROOT/internal/clroot
-export CHAINLINK_DEV=true
-
 pushd $PROJECT_ROOT >/dev/null
+source internal/bin/clenv
 if [ "$#" == 0 ]; then
   pushd gui >/dev/null
   yarn install --no-progress | cat
