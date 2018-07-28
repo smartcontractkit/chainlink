@@ -13,7 +13,7 @@ if [ "$SGX_SIMULATION" != yes ]; then
   aesm_pid=$!
 fi
 
-./chainlink "$@" &
+./chainlink "$@" | cat &
 chainlink_pid=$!
 
 if [ "$SGX_SIMULATION" != yes ]; then

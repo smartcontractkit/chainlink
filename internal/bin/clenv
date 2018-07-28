@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Environment variables for running chainlink in development mode
+
+export LOG_LEVEL=debug
+export ETH_PORT=18546
+export ETH_URL=ws://localhost:$ETH_PORT
+export ETH_CHAIN_ID=17
+export TX_MIN_CONFIRMATIONS=2
+export MINIMUM_CONTRACT_PAYMENT=1000000000000
+export CHAINLINK_DEV=true
