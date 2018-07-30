@@ -1,6 +1,7 @@
-import formatRequestURI from 'utils/formatRequestURI'
-import { camelizeKeys } from 'humps'
 import 'isomorphic-unfetch'
+import formatRequestURI from 'utils/formatRequestURI'
+import { AuthenticationError } from './errors'
+import { camelizeKeys } from 'humps'
 
 const formatURI = (path, query = {}) => {
   return formatRequestURI(path, query, {
@@ -9,7 +10,7 @@ const formatURI = (path, query = {}) => {
   })
 }
 
-const request = (path, query) => (
+const get = (path, query) => (
   global.fetch(
     formatURI(path, query),
     {credentials: 'include'}
@@ -31,7 +32,13 @@ const post = (path, body) => {
       }
     }
   )
-    .then(response => response.json())
+    .then(response => {
+      if (response.status === 401) {
+        throw new AuthenticationError(response.statusText)
+      }
+
+      return response.json()
+    })
     .then((data) => camelizeKeys(data))
 }
 
@@ -48,22 +55,22 @@ const destroy = (path) => {
     .then((data) => camelizeKeys(data))
 }
 
-export const getJobs = (page, size) => request('/v2/specs', {page: page, size: size})
+export const getJobs = (page, size) => get('/v2/specs', {page: page, size: size})
 
-export const getJobSpec = (id) => request(`/v2/specs/${id}`)
+export const getJobSpec = (id) => get(`/v2/specs/${id}`)
 
-export const getJobSpecRuns = (id, page, size) => request(`/v2/specs/${id}/runs`, {page: page, size: size})
+export const getJobSpecRuns = (id, page, size) => get(`/v2/specs/${id}/runs`, {page: page, size: size})
 
-export const getJobSpecRun = (id) => request(`/v2/runs/${id}`)
+export const getJobSpecRun = (id) => get(`/v2/runs/${id}`)
 
-export const getAccountBalance = () => request('/v2/account_balance')
+export const getAccountBalance = () => get('/v2/account_balance')
 
-export const getConfiguration = () => request('/v2/config')
+export const getConfiguration = () => get('/v2/config')
 
-export const getBridges = (page, size) => request('/v2/bridge_types', {page: page, size: size})
+export const getBridges = (page, size) => get('/v2/bridge_types', {page: page, size: size})
 
-export const getBridgeSpec = (name) => request(`/v2/bridge_types/${name}`)
+export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
 
-export const postSessionRequest = (data) => post(`/sessions`, data)
+export const createSession = (data) => post(`/sessions`, data)
 
 export const destroySession = () => destroy(`/sessions`)
