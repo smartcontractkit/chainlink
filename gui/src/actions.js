@@ -3,7 +3,7 @@ import { pascalCase } from 'change-case'
 
 const fetchActions = {}
 
-const requestAction = (type) => ({type: type})
+const createAction = (type) => ({type: type})
 
 const requestNetworkError = (type, error) => ({
   type: type,
@@ -16,7 +16,7 @@ export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
 export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
 
 fetchActions.jobs = {
-  request: requestAction(REQUEST_JOBS),
+  action: createAction(REQUEST_JOBS),
   receiveSuccess: json => ({
     type: RECEIVE_JOBS_SUCCESS,
     count: json.meta.count,
@@ -36,7 +36,7 @@ export const RECEIVE_ACCOUNT_BALANCE_SUCCESS = 'RECEIVE_ACCOUNT_BALANCE_SUCCESS'
 export const RECEIVE_ACCOUNT_BALANCE_ERROR = 'RECEIVE_ACCOUNT_BALANCE_ERROR'
 
 fetchActions.accountBalance = {
-  request: requestAction(REQUEST_ACCOUNT_BALANCE),
+  action: createAction(REQUEST_ACCOUNT_BALANCE),
   receiveSuccess: json => ({
     type: RECEIVE_ACCOUNT_BALANCE_SUCCESS,
     eth: json.data.attributes.ethBalance,
@@ -50,7 +50,7 @@ export const RECEIVE_JOB_SPEC_SUCCESS = 'RECEIVE_JOB_SPEC_SUCCESS'
 export const RECEIVE_JOB_SPEC_ERROR = 'RECEIVE_JOB_SPEC_ERROR'
 
 fetchActions.jobSpec = {
-  request: requestAction(REQUEST_JOB_SPEC),
+  action: createAction(REQUEST_JOB_SPEC),
   receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_SUCCESS,
     item: json.data.attributes
@@ -63,7 +63,7 @@ export const RECEIVE_JOB_SPEC_RUNS_SUCCESS = 'RECEIVE_JOB_SPEC_RUNS_SUCCESS'
 export const RECEIVE_JOB_SPEC_RUNS_ERROR = 'RECEIVE_JOB_SPEC_RUNS_ERROR'
 
 fetchActions.jobSpecRuns = {
-  request: requestAction(REQUEST_JOB_SPEC_RUNS),
+  action: createAction(REQUEST_JOB_SPEC_RUNS),
   receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
     items: json.data.map(j => j.attributes),
@@ -77,7 +77,7 @@ export const RECEIVE_JOB_SPEC_RUN_SUCCESS = 'RECEIVE_JOB_SPEC_RUN_SUCCESS'
 export const RECEIVE_JOB_SPEC_RUN_ERROR = 'RECEIVE_JOB_SPEC_RUN_ERROR'
 
 fetchActions.jobSpecRun = {
-  request: requestAction(REQUEST_JOB_SPEC_RUN),
+  action: createAction(REQUEST_JOB_SPEC_RUN),
   receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
     item: json.data.attributes
@@ -90,7 +90,7 @@ export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
 export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
 
 fetchActions.configuration = {
-  request: requestAction(REQUEST_CONFIGURATION),
+  action: createAction(REQUEST_CONFIGURATION),
   receiveSuccess: json => ({
     type: RECEIVE_CONFIGURATION_SUCCESS,
     config: json.data.attributes
@@ -103,7 +103,7 @@ export const RECEIVE_BRIDGES_SUCCESS = 'RECEIVE_BRIDGES_SUCCESS'
 export const RECEIVE_BRIDGES_ERROR = 'RECEIVE_BRIDGES_ERROR'
 
 fetchActions.bridges = {
-  request: requestAction(REQUEST_BRIDGES),
+  action: createAction(REQUEST_BRIDGES),
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGES_SUCCESS,
     count: json.meta.count,
@@ -117,7 +117,7 @@ export const RECEIVE_BRIDGESPEC_SUCCESS = 'RECEIVE_BRIDGESPEC_SUCCESS'
 export const RECEIVE_BRIDGESPEC_ERROR = 'RECEIVE_BRIDGESPEC_ERROR'
 
 fetchActions.bridgeSpec = {
-  request: requestAction(REQUEST_BRIDGESPEC),
+  action: createAction(REQUEST_BRIDGESPEC),
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGESPEC_SUCCESS,
     name: json.name,
@@ -129,13 +129,45 @@ fetchActions.bridgeSpec = {
 
 function sendFetchActions (type, ...getArgs) {
   return dispatch => {
-    const {request, receiveSuccess, receiveNetworkError} = fetchActions[type]
+    const {action, receiveSuccess, receiveNetworkError} = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
 
-    dispatch(request)
+    dispatch(action)
     return apiGet(...getArgs)
       .then(json => dispatch(receiveSuccess(json)))
       .catch(error => dispatch(receiveNetworkError(error)))
+  }
+}
+
+export const REQUEST_SESSION = 'REQUEST_SESSION'
+export const RECEIVE_SESSION_SUCCESS = 'RECEIVE_SESSION_SUCCESS'
+export const RECEIVE_SESSION_ERROR = 'RECEIVE_SESSION_ERROR'
+
+function sendSignIn (data) {
+  return dispatch => {
+    dispatch(createAction(REQUEST_SESSION))
+    return api.postSessionRequest(data)
+      .then((json) => dispatch(createSessionSuccess(json)))
+      .catch(error => dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error)))
+  }
+}
+
+const createSessionSuccess = (json) => ({
+  type: RECEIVE_SESSION_SUCCESS,
+  authenticated: json.authenticated,
+  errors: json.errors
+})
+
+export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
+export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'
+export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
+
+function sendSignOut () {
+  return dispatch => {
+    dispatch(createAction(REQUEST_SIGNOUT))
+    return api.destroySession()
+      .then((json) => dispatch(createSessionSuccess(json)))
+      .catch(error => dispatch(requestNetworkError(RECEIVE_SIGNOUT_ERROR, error)))
   }
 }
 
@@ -147,3 +179,6 @@ export const fetchJobSpecRun = (id) => sendFetchActions('jobSpecRun', id)
 export const fetchConfiguration = () => sendFetchActions('configuration')
 export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
 export const fetchBridgeSpec = (name) => sendFetchActions('bridgeSpec', name)
+
+export const submitSignIn = (data) => sendSignIn(data)
+export const submitSignOut = () => sendSignOut()

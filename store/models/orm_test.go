@@ -311,28 +311,6 @@ func TestORM_FindUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, user1.Email, actual.Email)
 	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
-	assert.Equal(t, user1.SessionID, actual.SessionID)
-}
-
-func TestORM_AuthorizedUserWithSession_overrideSession(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	user1 := cltest.MustUser("test1@email1.net", "password1", "allowedSession")
-	user2 := cltest.MustUser("test2@email2.net", "password2", "oldSession")
-	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
-
-	require.NoError(t, store.Save(&user1))
-	require.NoError(t, store.Save(&user2))
-
-	actual, err := store.AuthorizedUserWithSession("allowedSession")
-	require.NoError(t, err)
-	assert.Equal(t, user1.Email, actual.Email)
-
-	actual, err = store.AuthorizedUserWithSession("oldSession")
-	require.Error(t, err)
-	assert.Equal(t, "", actual.Email)
 }
 
 func TestORM_AuthorizedUserWithSession_emptySession(t *testing.T) {
@@ -341,7 +319,7 @@ func TestORM_AuthorizedUserWithSession_emptySession(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	user := cltest.MustUser("test1@email1.net", "password1", "")
+	user := cltest.MustUser("test1@email1.net", "password1")
 	require.NoError(t, store.Save(&user))
 
 	actual, err := store.AuthorizedUserWithSession("")
@@ -369,18 +347,25 @@ func TestORM_DeleteUserSession(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	user := cltest.MustUser("test1@email1.net", "password1", "allowedSession")
+	user := cltest.MustUser("test1@email1.net", "password1")
 	require.NoError(t, store.Save(&user))
 
-	err := store.DeleteUserSession()
+	session := models.Session{"allowedSession"}
+	require.NoError(t, store.Save(&session))
+
+	err := store.DeleteUserSession("allowedSession")
 	require.NoError(t, err)
 
 	user, err = store.FindUser()
 	require.NoError(t, err)
-	require.Empty(t, user.SessionID)
+
+	var sessions []models.Session
+	err = store.All(&sessions)
+	require.NoError(t, err)
+	require.Empty(t, sessions)
 }
 
-func TestORM_CheckPasswordForSession(t *testing.T) {
+func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -407,14 +392,11 @@ func TestORM_CheckPasswordForSession(t *testing.T) {
 				Email:    test.email,
 				Password: test.password,
 			}
-			sessionID, err := store.CheckPasswordForSession(sessionRequest)
 
+			sessionID, err := store.CreateSession(sessionRequest)
 			if test.wantSession {
 				require.NoError(t, err)
 				assert.NotEmpty(t, sessionID)
-				user, err := store.FindUser()
-				require.NoError(t, err)
-				require.Equal(t, sessionID, user.SessionID)
 			} else {
 				require.Error(t, err)
 				assert.Empty(t, sessionID)

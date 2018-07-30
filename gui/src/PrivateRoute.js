@@ -1,0 +1,17 @@
+import React from 'react'
+import { Route, Redirect } from 'react-router'
+import { connect } from 'react-redux'
+
+export class PrivateRoute extends Route {
+  render = (props) => (
+    this.props.authenticated ? super.render(props) : <Redirect to='/signin' />
+  )
+}
+
+const mapStateToProps = state => {
+  return {
+    authenticated: state.session.authenticated
+  }
+}
+
+export default connect(mapStateToProps)(PrivateRoute)

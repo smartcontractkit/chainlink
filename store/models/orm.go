@@ -310,20 +310,18 @@ func (orm *ORM) FindUser() (User, error) {
 	return users[0], nil
 }
 
-// AuthorizedUserWithSession will return the one API user if the SessionID matches.
+// AuthorizedUserWithSession will return the one API user if the Session ID exists.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string) (User, error) {
 	if len(sessionID) == 0 {
 		return User{}, errors.New("Session ID cannot be empty")
 	}
 
-	user, err := orm.FindUser()
+	var session Session
+	err := orm.One("ID", sessionID, &session)
 	if err != nil {
 		return User{}, err
 	}
-	if sessionID != user.SessionID {
-		return User{}, storm.ErrNotFound
-	}
-	return user, nil
+	return orm.FindUser()
 }
 
 // DeleteUser will delete the API User in the db.
@@ -332,22 +330,37 @@ func (orm *ORM) DeleteUser() (User, error) {
 	if err != nil {
 		return user, err
 	}
-	return user, orm.DeleteStruct(&user)
+
+	tx, err := orm.Begin(true)
+	if err != nil {
+		return user, fmt.Errorf("error starting transaction: %+v", err)
+	}
+	defer tx.Rollback()
+
+	err = tx.DeleteStruct(&user)
+	if err != nil {
+		return user, err
+	}
+	err = tx.Drop(&Session{})
+	if err != nil {
+		return user, err
+	}
+	err = tx.Init(&Session{})
+	if err != nil {
+		return user, err
+	}
+	return user, tx.Commit()
 }
 
 // DeleteUserSession will erase the session ID for the sole API User.
-func (orm *ORM) DeleteUserSession() error {
-	user, err := orm.FindUser()
-	if err != nil {
-		return err
-	}
-	user.SessionID = ""
-	return orm.Save(&user)
+func (orm *ORM) DeleteUserSession(sessionID string) error {
+	session := Session{ID: sessionID}
+	return orm.DeleteStruct(&session)
 }
 
-// CheckPasswordForSession will check the password in the SessionRequest against
+// CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
-func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
+func (orm *ORM) CreateSession(sr SessionRequest) (string, error) {
 	user, err := orm.FindUser()
 	if err != nil {
 		return "", err
@@ -358,8 +371,8 @@ func (orm *ORM) CheckPasswordForSession(sr SessionRequest) (string, error) {
 	}
 
 	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		user.SessionID = utils.NewBytes32ID()
-		return user.SessionID, orm.Save(&user)
+		session := Session{ID: utils.NewBytes32ID()}
+		return session.ID, orm.Save(&session)
 	}
 	return "", errors.New("Invalid password")
 }

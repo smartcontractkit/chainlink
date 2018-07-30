@@ -118,14 +118,12 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			user, err := tai.Initialize(store)
 			assert.NoError(t, err)
 			assert.Equal(t, len(test.enteredStrings), mock.Count)
-			assert.Empty(t, user.SessionID)
 
 			persistedUser, err := store.FindUser()
 			assert.NoError(t, err)
 
 			assert.Equal(t, user.Email, persistedUser.Email)
 			assert.Equal(t, user.HashedPassword, persistedUser.HashedPassword)
-			assert.Empty(t, persistedUser.SessionID)
 		})
 	}
 }
@@ -146,7 +144,6 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 
 	assert.Equal(t, initialUser.Email, user.Email)
 	assert.Equal(t, initialUser.HashedPassword, user.HashedPassword)
-	assert.Empty(t, user.SessionID)
 }
 
 func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {

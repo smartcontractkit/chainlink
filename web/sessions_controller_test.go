@@ -3,10 +3,12 @@ package web_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,6 +43,7 @@ func TestSessionsController_create(t *testing.T) {
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
+			defer resp.Body.Close()
 
 			if test.wantSession {
 				assert.Equal(t, 200, resp.StatusCode)
@@ -51,11 +54,16 @@ func TestSessionsController_create(t *testing.T) {
 				user, err := app.Store.AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
+
+				b, err := ioutil.ReadAll(resp.Body)
+				assert.NoError(t, err)
+				assert.Equal(t, `{"authenticated":true}`, string(b))
 			} else {
 				assert.True(t, resp.StatusCode >= 400, "Should not be able to create session")
-				user, err := app.Store.FindUser()
+				var sessions []models.Session
+				err = app.Store.All(&sessions)
 				assert.NoError(t, err)
-				assert.Empty(t, user.SessionID)
+				assert.Empty(t, sessions)
 			}
 		})
 	}
@@ -64,42 +72,42 @@ func TestSessionsController_create(t *testing.T) {
 func TestSessionsController_destroy(t *testing.T) {
 	t.Parallel()
 
-	seedUser := cltest.MustUser("email@test.net", "password123", "ShouldBeDeleted")
+	seedUser := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	err := app.Store.Save(&seedUser)
 	assert.NoError(t, err)
+
+	correctSession := models.Session{"ShouldBeDeleted"}
+	require.NoError(t, app.Store.Save(&correctSession))
 	defer cleanup()
 
 	config := app.Store.Config
 	client := http.Client{}
 	tests := []struct {
-		name    string
-		cookie  *http.Cookie
-		success bool
+		name, sessionID string
+		success         bool
 	}{
-		{"incorrect cookie", cltest.MustGenerateSessionCookie("deadbeef"), false},
-		{"correct cookie", cltest.MustGenerateSessionCookie(seedUser.SessionID), true},
+		{"correct cookie", correctSession.ID, true},
+		{"incorrect cookie", "wrongsessionid", false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			cookie := cltest.MustGenerateSessionCookie(test.sessionID)
 			request, err := http.NewRequest("DELETE", config.ClientNodeURL+"/sessions", nil)
-			request.AddCookie(test.cookie)
 			assert.NoError(t, err)
+			request.AddCookie(cookie)
+
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
 
+			_, err = app.Store.AuthorizedUserWithSession(test.sessionID)
+			assert.Error(t, err)
 			if test.success {
 				assert.Equal(t, 200, resp.StatusCode)
-				user, err := app.Store.FindUser()
-				assert.NoError(t, err)
-				assert.Empty(t, user.SessionID)
 			} else {
-				assert.True(t, resp.StatusCode >= 400, "Should not be able to destroy session")
-				user, err := app.Store.FindUser()
-				assert.NoError(t, err)
-				assert.Equal(t, seedUser.SessionID, user.SessionID)
+				assert.True(t, resp.StatusCode >= 400, "Should get an erroneous status code for deleting a nonexistent session id")
 			}
 		})
 	}
