@@ -108,7 +108,9 @@ func (c Config) SessionSecret() ([]byte, error) {
 // the session store.
 func (c Config) SessionOptions() sessions.Options {
 	return sessions.Options{
-		Secure: c.Dev == false,
+		Secure:   c.Dev == false,
+		HttpOnly: true,
+		MaxAge:   86400 * 30,
 	}
 }
 

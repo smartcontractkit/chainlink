@@ -25,6 +25,7 @@ export default {
       {path: '/bridges'},
       {path: '/bridges/_bridgeName_'},
       {path: '/config'},
+      {path: '/signin'},
       {
         path: '/about',
         component: 'src/containers/About',

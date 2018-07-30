@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,7 +182,7 @@ func loggerFunc() gin.HandlerFunc {
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
-			"query", c.Request.URL.RawQuery,
+			"query", redact(c.Request.URL.Query()),
 			"body", readBody(rdr),
 			"clientIP", c.ClientIP(),
 			"errors", c.Errors.String(),
@@ -194,8 +195,8 @@ func loggerFunc() gin.HandlerFunc {
 // Add CORS headers so UI can make api requests
 func uiCorsHandler(config store.Config) gin.HandlerFunc {
 	c := cors.Config{
-		AllowMethods:     []string{"GET"},
-		AllowHeaders:     []string{"Origin"},
+		AllowMethods:     []string{"GET", "POST", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -222,8 +223,9 @@ func readBody(reader io.Reader) string {
 	return s
 }
 
+var blacklist = map[string]struct{}{"password": struct{}{}}
+
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
-	blacklist := map[string]struct{}{"password": struct{}{}}
 	var dst map[string]interface{}
 	err := json.Unmarshal(buf.Bytes(), &dst)
 	if err != nil {
@@ -244,4 +246,16 @@ func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 		return "", err
 	}
 	return string(b), err
+}
+
+func redact(values url.Values) string {
+	cleaned := url.Values{}
+	for k, v := range values {
+		if _, ok := blacklist[strings.ToLower(k)]; ok {
+			cleaned[k] = []string{"REDACTED"}
+			continue
+		}
+		cleaned[k] = v
+	}
+	return cleaned.Encode()
 }
