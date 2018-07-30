@@ -59,7 +59,10 @@ describe('containers/SignIn', () => {
     await syncFetch(wrapper)
 
     const newState = store.getState()
-    expect(newState.errors).toEqual(['Your email or password are incorrect. Please try again'])
+    expect(newState.errors).toEqual({
+      messages: ['Your email or password are incorrect. Please try again'],
+      currentUrl: '/signin'
+    })
     expect(newState.session.authenticated).toEqual(false)
     expect(newState.session.errors).toEqual([])
   })

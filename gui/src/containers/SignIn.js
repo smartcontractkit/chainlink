@@ -7,7 +7,7 @@ import { withStyles } from '@material-ui/core/styles'
 import TextField from '@material-ui/core/TextField'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { submitSignIn } from 'actions'
+import { matchRoute, submitSignIn } from 'actions'
 
 const styles = theme => ({
   title: {
@@ -77,14 +77,13 @@ SignIn.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-const mapStateToProps = state => {
-  return {
-    fetching: state.session.fetching,
-    authenticated: state.session.authenticated
-  }
-}
+const mapStateToProps = state => ({
+  fetching: state.session.fetching,
+  authenticated: state.session.authenticated
+})
 
-const mapDispatchToProps = (dispatch) => {
+const mapDispatchToProps = (dispatch, ownProps) => {
+  dispatch(matchRoute(ownProps.match))
   return bindActionCreators({ submitSignIn }, dispatch)
 }
 

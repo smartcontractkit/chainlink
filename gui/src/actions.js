@@ -12,6 +12,13 @@ const requestNetworkError = (type, error) => ({
   networkError: true
 })
 
+export const MATCH_ROUTE = 'MATCH_ROUTE'
+
+export const matchRoute = match => ({
+  type: MATCH_ROUTE,
+  match: match
+})
+
 export const REQUEST_JOBS = 'REQUEST_JOBS'
 export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
 export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
