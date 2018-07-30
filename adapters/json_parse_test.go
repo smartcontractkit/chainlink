@@ -47,7 +47,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"return array",
 			`{"data": [[0, 1]]}`,
 			[]string{"data", "0"},
-			`{"value":"[0, 1]"}`,
+			`{"value":"[0,1]"}`,
 			false,
 			false,
 		},
