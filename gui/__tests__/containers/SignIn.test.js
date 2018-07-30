@@ -6,6 +6,7 @@ import { Provider } from 'react-redux'
 import { Switch, Route } from 'react-static'
 import { MemoryRouter } from 'react-router'
 import SignIn from 'containers/SignIn'
+import fillIn from 'test-helpers/fillIn'
 
 const RedirectApp = () => (
   <div>Behind authentication</div>
@@ -24,8 +25,8 @@ const mountSignIn = (store, props) => (
 )
 
 const submitForm = (wrapper) => {
-  wrapper.find('input#email').simulate('change', { target: { value: 'some@email.net' } })
-  wrapper.find('input#password').simulate('change', { target: { value: 'abracadabra' } })
+  fillIn(wrapper, 'input#email', 'some@email.net')
+  fillIn(wrapper, 'input#password', 'abracadabra')
   expect(wrapper.find('form button').getDOMNode().disabled).toEqual(false)
   wrapper.find('form').simulate('submit')
 }
