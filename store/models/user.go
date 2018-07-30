@@ -21,12 +21,16 @@ var emailRegexp = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0
 
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
 func NewUser(email, plainPwd string) (User, error) {
-	if len(email) == 0 || len(plainPwd) == 0 {
-		return User{}, errors.New("Must enter an email or password")
+	if len(email) == 0 {
+		return User{}, errors.New("Must enter an email")
 	}
 
 	if !emailRegexp.MatchString(email) {
 		return User{}, errors.New("Invalid email format")
+	}
+
+	if len(plainPwd) < 8 || len(plainPwd) > 1028 {
+		return User{}, errors.New("Must enter a password with 8 - 1028 characters")
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)

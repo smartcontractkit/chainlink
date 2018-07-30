@@ -16,11 +16,12 @@ func TestNewUser(t *testing.T) {
 		email, pwd string
 		wantError  bool
 	}{
-		{"good@email.com", "goodpwd", false},
-		{"notld@email", "goodpwd", false},
-		{"bademail", "goodpwd", true},
-		{"bad@", "goodpwd", true},
-		{"@email", "goodpwd", true},
+		{"good@email.com", "goodpassword", false},
+		{"notld@email", "goodpassword", false},
+		{"good@email.com", "badpd", true},
+		{"bademail", "goodpassword", true},
+		{"bad@", "goodpassword", true},
+		{"@email", "goodpassword", true},
 	}
 
 	for _, test := range tests {
