@@ -1,4 +1,5 @@
 import * as api from 'api'
+import { AuthenticationError } from 'errors'
 import { pascalCase } from 'change-case'
 
 const fetchActions = {}
@@ -141,22 +142,30 @@ function sendFetchActions (type, ...getArgs) {
 
 export const REQUEST_SESSION = 'REQUEST_SESSION'
 export const RECEIVE_SESSION_SUCCESS = 'RECEIVE_SESSION_SUCCESS'
+export const RECEIVE_SESSION_FAIL = 'RECEIVE_SESSION_FAIL'
 export const RECEIVE_SESSION_ERROR = 'RECEIVE_SESSION_ERROR'
-
-function sendSignIn (data) {
-  return dispatch => {
-    dispatch(createAction(REQUEST_SESSION))
-    return api.postSessionRequest(data)
-      .then((json) => dispatch(createSessionSuccess(json)))
-      .catch(error => dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error)))
-  }
-}
 
 const createSessionSuccess = (json) => ({
   type: RECEIVE_SESSION_SUCCESS,
   authenticated: json.authenticated,
   errors: json.errors
 })
+const signInFail = () => ({type: RECEIVE_SESSION_FAIL})
+
+function sendSignIn (data) {
+  return dispatch => {
+    dispatch(createAction(REQUEST_SESSION))
+    return api.createSession(data)
+      .then((json) => dispatch(createSessionSuccess(json)))
+      .catch(error => {
+        if (error instanceof AuthenticationError) {
+          dispatch(signInFail())
+        } else {
+          dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error))
+        }
+      })
+  }
+}
 
 export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
 export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'

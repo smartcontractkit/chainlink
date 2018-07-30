@@ -2,6 +2,7 @@ import {
   REQUEST_SESSION,
   REQUEST_SIGNOUT,
   RECEIVE_SESSION_SUCCESS,
+  RECEIVE_SESSION_FAIL,
   RECEIVE_SESSION_ERROR,
   RECEIVE_SIGNOUT_SUCCESS,
   RECEIVE_SIGNOUT_ERROR
@@ -36,6 +37,16 @@ export default (state = initialState, action = {}) => {
           authenticated: action.authenticated,
           errors: action.errors || [],
           networkError: false
+        }
+      )
+    case RECEIVE_SESSION_FAIL:
+      return Object.assign(
+        {},
+        state,
+        {
+          fetching: false,
+          authenticated: false,
+          errors: []
         }
       )
     case RECEIVE_SESSION_ERROR:
