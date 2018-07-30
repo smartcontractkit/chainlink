@@ -93,7 +93,7 @@ const mapStateToProps = (state) => {
   return {
     name: state.bridgeSpec.name,
     url: state.bridgeSpec.url,
-    confirmations: state.bridgeSpec.confirmations,
+    confirmations: state.bridgeSpec.confirmations
   }
 }
 
