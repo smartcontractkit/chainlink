@@ -39,25 +39,40 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return input.WithError(err)
 	}
 
-	js, err = getEarlyPath(js, jpa.Path)
+	last, err := dig(js, jpa.Path)
+	if err != nil {
+		return moldErrorOutput(js, jpa.Path, input)
+	}
+
+	rval, err := getStringValue(last)
 	if err != nil {
 		return input.WithError(err)
 	}
+	return input.WithValue(rval)
+}
 
-	rval, ok := js.CheckGet(jpa.Path[len(jpa.Path)-1])
-	if !ok {
-		input.Data, err = input.Data.Add("value", nil)
-		if err != nil {
-			return input.WithError(err)
+func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
+	var ok bool
+	for _, k := range path[:len(path)] {
+		if isArray(js, k) {
+			js, ok = arrayGet(js, k)
+		} else {
+			js, ok = js.CheckGet(k)
 		}
-		return input
+		if !ok {
+			return js, errors.New("No value could be found for the key '" + k + "'")
+		}
 	}
+	return js, nil
+}
 
-	result, err := getStringValue(rval)
-	if err != nil {
+// only error if any keys prior to the last one in the path are nonexistent.
+// i.e. Path = ["errorIfNonExistent", "nullIfNonExistent"]
+func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunResult {
+	if _, err := getEarlyPath(js, path); err != nil {
 		return input.WithError(err)
 	}
-	return input.WithValue(result)
+	return input.WithNull()
 }
 
 func getStringValue(js *simplejson.Json) (string, error) {

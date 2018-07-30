@@ -27,6 +27,30 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"value":"0.99991"}`, false, false},
 		{"float value", `{"availability":0.99991}`, []string{"availability"},
 			`{"value":"0.99991"}`, false, false},
+		{
+			"index array",
+			`{"data": [0, 1]}`,
+			[]string{"data", "0"},
+			`{"value":"0"}`,
+			false,
+			false,
+		},
+		{
+			"index array of array",
+			`{"data": [[0, 1]]}`,
+			[]string{"data", "0", "0"},
+			`{"value":"0"}`,
+			false,
+			false,
+		},
+		{
+			"return array",
+			`{"data": [[0, 1]]}`,
+			[]string{"data", "0"},
+			`{"value":"[0,1]"}`,
+			false,
+			false,
+		},
 	}
 
 	for _, tt := range tests {
