@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"regexp"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/utils"
@@ -15,10 +16,17 @@ type User struct {
 	CreatedAt      Time   `json:"createdAt" storm:"index"`
 }
 
+// https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
+var emailRegexp = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
 func NewUser(email, plainPwd string) (User, error) {
 	if len(email) == 0 || len(plainPwd) == 0 {
 		return User{}, errors.New("Must enter an email or password")
+	}
+
+	if !emailRegexp.MatchString(email) {
+		return User{}, errors.New("Invalid email format")
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)
