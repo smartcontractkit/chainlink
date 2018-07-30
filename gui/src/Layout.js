@@ -206,7 +206,7 @@ Layout.defaultProps = {
 
 const mapStateToProps = state => ({
   authenticated: state.session.authenticated,
-  errors: state.errors
+  errors: state.errors.messages
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)

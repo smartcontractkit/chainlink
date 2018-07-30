@@ -4,6 +4,9 @@ import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
 import { withStyles } from '@material-ui/core/styles'
 import { withRouteData } from 'react-static'
+import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import { matchRoute } from 'actions'
 
 const styles = theme => ({
   title: {
@@ -37,4 +40,13 @@ const About = ({classes, version, sha}) => {
   )
 }
 
-export default withRouteData(withStyles(styles)(About))
+const mapStateToProps = state => ({})
+
+const mapDispatchToProps = (dispatch, ownProps) => {
+  dispatch(matchRoute(ownProps.match))
+  return bindActionCreators({}, dispatch)
+}
+
+export const ConnectedAbout = connect(mapStateToProps, mapDispatchToProps)(About)
+
+export default withRouteData(withStyles(styles)(ConnectedAbout))

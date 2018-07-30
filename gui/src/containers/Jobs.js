@@ -10,7 +10,7 @@ import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { fetchJobs, fetchAccountBalance } from 'actions'
+import { fetchJobs, fetchAccountBalance, matchRoute } from 'actions'
 import { jobsSelector } from 'selectors'
 
 const styles = theme => ({
@@ -129,7 +129,8 @@ const mapStateToProps = state => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
+const mapDispatchToProps = (dispatch, ownProps) => {
+  dispatch(matchRoute(ownProps.match))
   return bindActionCreators({
     fetchAccountBalance,
     fetchJobs
