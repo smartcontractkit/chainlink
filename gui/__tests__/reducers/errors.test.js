@@ -19,7 +19,7 @@ describe('errors reducer', () => {
     const state = reducer(undefined, action)
 
     expect(state.errors).toEqual({
-      messages: ['Your email or password are incorrect. Please try again'],
+      messages: ['Your email or password is incorrect. Please try again'],
       currentUrl: null
     })
   })
