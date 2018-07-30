@@ -3,10 +3,11 @@ package adapters_test
 import (
 	"testing"
 
+	"log"
+
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
-	"log"
 )
 
 func TestCopy_Perform(t *testing.T) {
@@ -28,6 +29,14 @@ func TestCopy_Perform(t *testing.T) {
 			`{"data":[{"availability":"0.99991"}],"value":"0.99991"}`, false, false},
 		{"float value", `{"availability":0.99991}`, []string{"availability"},
 			`{"availability":0.99991,"value":"0.99991"}`, false, false},
+		{
+			"index array of array",
+			`{"data":[[0,1]]}`,
+			[]string{"data", "0", "0"},
+			`{"data":[[0,1]],"value":"0"}`,
+			false,
+			false,
+		},
 	}
 
 	for _, tt := range tests {

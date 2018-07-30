@@ -195,6 +195,17 @@ func (rr RunResult) WithValue(val string) RunResult {
 	return rr
 }
 
+// WithNull returns a copy of the RunResult, overriding the "value" field of
+// Data to null.
+func (rr RunResult) WithNull() RunResult {
+	data, err := rr.Data.Add("value", nil)
+	if err != nil {
+		return rr.WithError(err)
+	}
+	rr.Data = data
+	return rr
+}
+
 // WithError returns a copy of the RunResult, setting the error field
 // and setting the status to in progress.
 func (rr RunResult) WithError(err error) RunResult {
