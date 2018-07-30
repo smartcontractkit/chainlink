@@ -12,7 +12,7 @@ describe('bridgeSpec reducer', () => {
     expect(state.bridgeSpec).toEqual({
       name: '',
       url: '',
-      confirmations: "0",
+      confirmations: '0',
       networkError: false,
       fetching: false
     })
