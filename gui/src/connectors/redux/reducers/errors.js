@@ -7,7 +7,7 @@ const initialState = {
   messages: [],
   currentUrl: null
 }
-const SIGN_IN_FAIL_MSG = 'Your email or password are incorrect. Please try again'
+const SIGN_IN_FAIL_MSG = 'Your email or password is incorrect. Please try again'
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
