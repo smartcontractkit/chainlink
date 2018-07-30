@@ -27,12 +27,6 @@
   version = "v2.1.1"
 
 [[projects]]
-  name = "github.com/bitly/go-simplejson"
-  packages = ["."]
-  revision = "aabad6e819789e569bd6aabf444c935aa9ba1e44"
-  version = "v0.5.0"
-
-[[projects]]
   name = "github.com/boj/redistore"
   packages = ["."]
   revision = "fc113767cd6b051980f260d6dbe84b2740c46ab0"
@@ -315,7 +309,10 @@
 
 [[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  packages = [
+    "assert",
+    "require"
+  ]
   revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
   version = "v1.2.1"
 
@@ -507,6 +504,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d91308ea04183b94a8139d7f02fa667cfc6c245ea312e2b0dcdfe69f757e066b"
+  inputs-digest = "01f0e89eb8b8da99b32a5b503aad11cbabd2dfe17af9bf82d292d8a10cd8a376"
   solver-name = "gps-cdcl"
   solver-version = 1
