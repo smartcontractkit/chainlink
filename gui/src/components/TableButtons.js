@@ -14,9 +14,9 @@ const styles = theme => ({
 })
 
 const TableButtons = props => {
-  const lastPage = Math.ceil(props.count / props.rowsPerPage)
   const firstPage = 1
   const currentPage = props.page
+  const lastPage = Math.ceil(props.count / props.rowsPerPage)
   const handlePage = page => e => {
     page = Math.min(page, lastPage)
     page = Math.max(page, firstPage)

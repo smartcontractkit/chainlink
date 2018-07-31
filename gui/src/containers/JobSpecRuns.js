@@ -36,14 +36,9 @@ export class JobSpecRuns extends Component {
   componentDidMount () {
     const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
     const firstPage = 1
-    if (this.props.match.params.jobRunsPage) {
-      const START_PAGE = this.props.match.params.jobRunsPage
-      this.setState({ page: START_PAGE })
-      fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
-    } else {
-      this.setState({ page: firstPage })
-      fetchJobSpecRuns(jobSpecId, firstPage, pageSize)
-    }
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.page) || firstPage) : firstPage
+    this.setState({ page: queryPage })
+    fetchJobSpecRuns(jobSpecId, queryPage, pageSize)
   }
 
   handleChangePage (e, page) {
