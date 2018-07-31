@@ -5,9 +5,9 @@ import Grid from '@material-ui/core/Grid'
 import PaddedCard from 'components/PaddedCard'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import { fetchBridgeSpec } from 'actions'
 
 const styles = theme => ({
@@ -97,10 +97,9 @@ const mapStateToProps = (state) => {
   }
 }
 
-const mapDispatchToProps = dispatch => {
-  return bindActionCreators({ fetchBridgeSpec }, dispatch)
-}
-
-export const ConnectedBridgeSpec = connect(mapStateToProps, mapDispatchToProps)(BridgeSpec)
+export const ConnectedBridgeSpec = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchBridgeSpec})
+)(BridgeSpec)
 
 export default withStyles(styles)(ConnectedBridgeSpec)
