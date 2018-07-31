@@ -125,3 +125,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/gin-gonic/contrib"
+
+[[constraint]]
+  name = "github.com/tidwall/sjson"
+  version = "1.0.0"

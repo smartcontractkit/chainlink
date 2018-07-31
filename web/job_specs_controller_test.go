@@ -124,6 +124,28 @@ func TestJobSpecsController_Create(t *testing.T) {
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 }
 
+func TestJobSpecsController_Create_checkDigest(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBufferString(
+		`{"initiators":[{"type":"web"}],"tasks":[{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`))
+	defer cleanup()
+	j1 := cltest.FindJob(app.Store, cltest.ParseCommonJSON(resp.Body).ID)
+	cltest.AssertServerResponse(t, resp, 200)
+
+	resp, cleanup = client.Post("/v2/specs", bytes.NewBufferString(
+		`{"initiators":[{"type":"web"}],"tasks":[{"type":"httpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`))
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+	j2 := cltest.FindJob(app.Store, cltest.ParseCommonJSON(resp.Body).ID)
+
+	assert.Equal(t, j1.Digest, j2.Digest)
+}
+
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()

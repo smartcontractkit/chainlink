@@ -12,6 +12,37 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+func TestNewJobFromRequest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+		{"downcased types",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+		{"different cased keys",
+			`{"initiators":[{"type":"web"}],"tasks":[{"TYPE":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var jsr models.JobSpecRequest
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &jsr))
+
+			js, err := models.NewJobFromRequest(jsr)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, js.Digest)
+		})
+	}
+}
+
 func TestJobSpec_Save(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
@@ -114,20 +145,38 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 		json          string
 		output        string
 	}{
-		{"noop", "noop", 0, `{"type":"noOp"}`, `{"type":"noop","confirmations":0}`},
+		{"noop", "noop", 0,
+			`{"type":"noOp"}`,
+			`{"type":"noop","confirmations":0}`,
+		},
 		{
-			"httpget",
-			"httpget",
-			0,
+			"httpget", "httpget", 0,
 			`{"type":"httpget","url":"http://www.no.com"}`,
 			`{"type":"httpget","url":"http://www.no.com","confirmations":0}`,
 		},
-		{
-			"with confirmations",
-			"noop",
-			10,
+		{"with confirmations", "noop", 10,
 			`{"type":"noop","confirmations":10}`,
 			`{"type":"noop","confirmations":10}`,
+		},
+		{"with variations in key name casing for 'type'", "noop", 10,
+			`{"TYPE":"noop","confirmations":10}`,
+			`{"type":"noop","confirmations":10}`,
+		},
+		{"with variations in key name casing for 'confirmations'", "noop", 10,
+			`{"type":"noop","CONFIRMATIONS":10}`,
+			`{"type":"noop","confirmations":10}`,
+		},
+		{"with variations in key name casing for other keys", "noop", 10,
+			`{"type":"noop","CONFIRMATIONS":10,"foo":"bar","Foo":"baz","FOO":3}`,
+			`{"type":"noop","confirmations":10,"foo":"bar","Foo":"baz","FOO":3}`,
+		},
+		{"with multiple keys with variations in key name casing", "nooppend", 10,
+			`{"TYPE":"noop","confirmations":10,"type":"noopPend"}`,
+			`{"confirmations":10,"type":"nooppend"}`,
+		},
+		{"with multiple keys with variations in key name casing with off caps later", "noop", 10,
+			`{"type":"noopPend","TYPE":"noop","confirmations":10}`,
+			`{"confirmations":10,"type":"noop"}`,
 		},
 	}
 
