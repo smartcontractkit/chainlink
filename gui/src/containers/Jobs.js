@@ -20,16 +20,21 @@ const styles = theme => ({
   }
 })
 
-const renderJobsList = ({jobs, jobCount, pageSize, jobsFetching, jobsError, fetchJobs}) => (
-  <JobList
-    jobs={jobs}
-    jobCount={jobCount}
-    pageSize={pageSize}
-    fetching={jobsFetching}
-    error={jobsError}
-    fetchJobs={fetchJobs}
-  />
-)
+const renderJobsList = (props) => {
+  const {jobs, jobCount, pageSize, jobsFetching, jobsError, fetchJobs, history, match} = props
+  return (
+    <JobList
+      jobs={jobs}
+      jobCount={jobCount}
+      pageSize={pageSize}
+      fetching={jobsFetching}
+      error={jobsError}
+      fetchJobs={fetchJobs}
+      history={history}
+      match={match}
+    />
+  )
+}
 
 const renderSidebar = ({
   ethBalance,
@@ -63,13 +68,11 @@ const renderSidebar = ({
 
 export class Jobs extends Component {
   componentDidMount () {
-    this.props.fetchJobs(1, this.props.pageSize)
     this.props.fetchAccountBalance()
   }
 
   render () {
     const { classes } = this.props
-
     return (
       <div>
         <Typography variant='display2' color='inherit' className={classes.title}>
