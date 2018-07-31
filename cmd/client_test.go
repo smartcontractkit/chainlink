@@ -103,9 +103,9 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		name           string
 		enteredStrings []string
 	}{
-		{"correct", []string{"email", "password"}},
-		{"incorrect pwd then correct", []string{"email", "", "email", "password"}},
-		{"incorrect email then correct", []string{"", "password", "email", "password"}},
+		{"correct", []string{"good@email.com", "password"}},
+		{"incorrect pwd then correct", []string{"good@email.com", "", "good@email.com", "password"}},
+		{"incorrect email then correct", []string{"", "password", "good@email.com", "password"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
