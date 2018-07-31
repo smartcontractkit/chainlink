@@ -1,12 +1,12 @@
 import React, { Component } from 'react'
-import { Redirect } from 'react-router'
 import PropTypes from 'prop-types'
 import Button from '@material-ui/core/Button'
 import Typography from '@material-ui/core/Typography'
-import { withStyles } from '@material-ui/core/styles'
 import TextField from '@material-ui/core/TextField'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { Redirect } from 'react-router'
+import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import { submitSignIn } from 'actions'
 
 const styles = theme => ({
@@ -35,7 +35,7 @@ export class SignIn extends Component {
   }
 
   render () {
-    const { classes, fetching, authenticated, errors } = this.props
+    const {classes, fetching, authenticated} = this.props
     const enabled = this.state.email.length > 0 && this.state.password.length > 0
     if (authenticated) {
       return <Redirect to='/' />
@@ -68,9 +68,6 @@ export class SignIn extends Component {
           Signing in...
         </Typography>
         }
-        <Typography variant='body1' color='error'>
-          {errors}
-        </Typography>
       </form>
     )
   }
@@ -80,22 +77,14 @@ SignIn.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-const mapStateToProps = state => {
-  let errors = state.session.errors.slice()
-  if (state.session.networkError) {
-    errors.push('There was an error signing in. Please reload and try again.')
-  }
-  return {
-    fetching: state.session.fetching,
-    authenticated: state.session.authenticated,
-    errors: errors
-  }
-}
+const mapStateToProps = state => ({
+  fetching: state.session.fetching,
+  authenticated: state.session.authenticated
+})
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({ submitSignIn }, dispatch)
-}
-
-export const ConnectedSignIn = connect(mapStateToProps, mapDispatchToProps)(SignIn)
+export const ConnectedSignIn = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({submitSignIn})
+)(SignIn)
 
 export default withStyles(styles)(ConnectedSignIn)

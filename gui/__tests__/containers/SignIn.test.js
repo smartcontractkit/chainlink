@@ -47,17 +47,24 @@ describe('containers/SignIn', () => {
 
   it('unauthenticated user inputs wrong credentials', async () => {
     const store = createStore()
-    global.fetch.postOnce(`/sessions`, { authenticated: false, errors: ['Invalid email'] })
+    global.fetch.postOnce(
+      '/sessions',
+      {authenticated: false, errors: ['Invalid email']},
+      {response: {status: 401}}
+    )
 
     const wrapper = mountSignIn(store)
     submitForm(wrapper)
 
     await syncFetch(wrapper)
 
-    expect(wrapper.text()).toContain('Invalid email')
     const newState = store.getState()
+    expect(newState.errors).toEqual({
+      messages: ['Your email or password is incorrect. Please try again'],
+      currentUrl: '/signin'
+    })
     expect(newState.session.authenticated).toEqual(false)
-    expect(newState.session.errors).toEqual(['Invalid email'])
+    expect(newState.session.errors).toEqual([])
   })
 
   it('cannot submit an empty form', async () => {

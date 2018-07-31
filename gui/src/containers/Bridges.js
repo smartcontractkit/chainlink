@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import BridgeList from 'components/BridgeList'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import { fetchBridges } from 'actions'
 
 const styles = theme => ({
@@ -78,12 +78,9 @@ const mapStateToProps = state => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({
-    fetchBridges
-  }, dispatch)
-}
-
-export const ConnectedBridges = connect(mapStateToProps, mapDispatchToProps)(Bridges)
+export const ConnectedBridges = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchBridges})
+)(Bridges)
 
 export default withSiteData(withStyles(styles)(ConnectedBridges))

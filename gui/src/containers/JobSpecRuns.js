@@ -6,16 +6,16 @@ import React, { Component } from 'react'
 import Typography from '@material-ui/core/Typography'
 import TablePagination from '@material-ui/core/TablePagination'
 import Card from '@material-ui/core/Card'
-import { bindActionCreators } from 'redux'
+import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft'
+import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight'
+import FirstPageIcon from '@material-ui/icons/FirstPage'
+import LastPageIcon from '@material-ui/icons/LastPage'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
 import { withStyles } from '@material-ui/core/styles'
 import { jobRunsCountSelector, jobRunsSelector } from 'selectors'
 import { IconButton } from '@material-ui/core'
-import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft'
-import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight'
-import FirstPageIcon from '@material-ui/icons/FirstPage'
-import LastPageIcon from '@material-ui/icons/LastPage'
 
 const styles = theme => ({
   breadcrumb: {
@@ -173,15 +173,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-const mapDispatchToProps = dispatch => {
-  return bindActionCreators(
-    {
-      fetchJobSpecRuns
-    },
-    dispatch
-  )
-}
-
-export const ConnectedJobSpecRuns = connect(mapStateToProps, mapDispatchToProps)(JobSpecRuns)
+export const ConnectedJobSpecRuns = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchJobSpecRuns})
+)(JobSpecRuns)
 
 export default withStyles(styles)(ConnectedJobSpecRuns)

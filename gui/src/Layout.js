@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import PropTypes from 'prop-types'
 import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -9,15 +10,17 @@ import ListItemText from '@material-ui/core/ListItemText'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
+import Flash from 'components/Flash'
 import universal from 'react-universal-component'
-import { Link, Router, Route, Switch } from 'react-static'
 import PrivateRoute from './PrivateRoute'
+import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
-import logoImg from './logo.svg'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { submitSignOut } from 'actions'
+
+import logoImg from './logo.svg'
 
 // Use universal-react-component for code-splitting non-static routes
 const Bridges = universal(import('./containers/Bridges'))
@@ -64,6 +67,9 @@ const styles = theme => {
     },
     toolbar: {
       minHeight: appBarHeight
+    },
+    flash: {
+      textAlign: 'center'
     }
   }
 }
@@ -85,7 +91,7 @@ class Layout extends Component {
   }
 
   render () {
-    const {classes} = this.props
+    const {classes, errors} = this.props
     const {drawerOpen} = this.state
 
     const drawer = (
@@ -156,20 +162,30 @@ class Layout extends Component {
               </Grid>
             </AppBar>
 
-            <div className={classes.content}>
+            <div>
               <div className={classes.toolbar} />
-              <Switch>
-                <Route exact path='/signin' component={SignIn} />
-                <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobSpec} />
-                <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
-                <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
-                <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
-                <PrivateRoute exact path='/config' component={Configuration} />
-                <PrivateRoute exact path='/bridges' component={Bridges} />
-                <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
-                <PrivateRoute exact path='/' component={Jobs} />
-                <Routes />
-              </Switch>
+
+              {
+                errors.length > 0 &&
+                <Flash error className={classes.flash}>
+                  {errors.map((msg, i) => <p key={i}>{msg}</p>)}
+                </Flash>
+              }
+
+              <div className={classes.content}>
+                <Switch>
+                  <Route exact path='/signin' component={SignIn} />
+                  <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobSpec} />
+                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
+                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
+                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
+                  <PrivateRoute exact path='/config' component={Configuration} />
+                  <PrivateRoute exact path='/bridges' component={Bridges} />
+                  <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
+                  <PrivateRoute exact path='/' component={Jobs} />
+                  <Routes />
+                </Switch>
+              </div>
             </div>
 
             {drawer}
@@ -180,18 +196,21 @@ class Layout extends Component {
   }
 }
 
-const mapStateToProps = state => {
-  return {
-    authenticated: state.session.authenticated
-  }
+Layout.propTypes = {
+  errors: PropTypes.array
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({ submitSignOut }, dispatch)
+Layout.defaultProps = {
+  errors: []
 }
+
+const mapStateToProps = state => ({
+  authenticated: state.session.authenticated,
+  errors: state.errors.messages
+})
+
+const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)
 
 export const ConnectedLayout = connect(mapStateToProps, mapDispatchToProps)(Layout)
 
-const LayoutWithStyles = withStyles(styles)(ConnectedLayout)
-
-export default hot(module)(LayoutWithStyles)
+export default hot(module)(withStyles(styles)(ConnectedLayout))
