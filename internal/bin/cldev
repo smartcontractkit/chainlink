@@ -9,11 +9,11 @@
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
-ROOT=$PROJECT_ROOT/internal/clroot
 LDFLAGS=`$PROJECT_ROOT/internal/bin/ldflags`
 
 pushd $PROJECT_ROOT >/dev/null
 source internal/bin/clenv
+export ROOT=$PROJECT_ROOT/internal/clroot
 if [ "$#" == 0 ]; then
   pushd gui >/dev/null
   yarn install --no-progress | cat
