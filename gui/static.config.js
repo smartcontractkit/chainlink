@@ -18,6 +18,7 @@ export default {
         component: 'src/containers/Jobs',
         getData: () => buildInfo
       },
+      {path: '/jobs/page/_jobPage_'},
       {path: '/job_specs/_jobSpecId_'},
       {path: '/job_specs/_jobSpecId_/runs'},
       {path: '/job_specs/_jobSpecId_/runs/page/_jobRunsPage_'},
