@@ -7,6 +7,7 @@
     "build": "cd gui && react-static build",
     "serve": "cd gui && serve dist -p 3000",
     "lint": "standard --fix --verbose | snazzy",
+    "lint-ci": "standard --verbose | snazzy",
     "test": "NODE_ENV=test jest",
     "test-ci": "NODE_ENV=test yarn jest -i --reporters jest-silent-reporter",
     "watch": "NODE_ENV=test jest --watchAll --notify"
