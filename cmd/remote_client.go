@@ -207,7 +207,7 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 	var bridge models.BridgeType
-	return cli.renderResponse(resp, &bridge)
+	return cli.renderAPIResponse(resp, &bridge)
 }
 
 // RemoveBridge removes a specific Bridge by name.

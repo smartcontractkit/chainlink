@@ -2,7 +2,7 @@ package web_test
 
 import (
 	"bytes"
-	"encoding/json"
+	"io/ioutil"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
@@ -136,7 +137,9 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respBridge presenters.BridgeType
-	json.Unmarshal(cltest.ParseResponseBody(resp), &respBridge)
+	b, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, web.ParseJSONAPIResponse(b, &respBridge))
 	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
 	assert.Equal(t, respBridge.DefaultConfirmations, bt.DefaultConfirmations, "should have the same DefaultConfirmations")
