@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/asdine/storm"
@@ -104,11 +105,20 @@ func (orm *ORM) Jobs() ([]JobSpec, error) {
 // sorted by their created at time.
 func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
 	runs := []JobRun{}
-	err := orm.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Reverse().Find(&runs)
+	err := orm.Find("JobID", jobID, &runs) // Use Find to leverage db index
 	if err == storm.ErrNotFound {
 		return []JobRun{}, nil
 	}
+	sort.Sort(jobRunSorterAscending(runs))
 	return runs, err
+}
+
+type jobRunSorterAscending []JobRun
+
+func (jrs jobRunSorterAscending) Len() int      { return len(jrs) }
+func (jrs jobRunSorterAscending) Swap(i, j int) { jrs[i], jrs[j] = jrs[j], jrs[i] }
+func (jrs jobRunSorterAscending) Less(i, j int) bool {
+	return jrs[i].CreatedAt.Sub(jrs[j].CreatedAt) > 0
 }
 
 // JobRunsCountFor returns the current number of runs for the job
