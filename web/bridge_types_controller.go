@@ -6,6 +6,7 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -70,8 +71,10 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
+	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: bt}); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		c.JSON(200, presenters.BridgeType{BridgeType: bt})
+		c.Data(200, MediaType, doc)
 	}
 }
 
