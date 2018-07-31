@@ -62,14 +62,9 @@ export class JobList extends Component {
   componentDidMount () {
     const { pageSize, fetchJobs } = this.props
     const firstPage = 1
-    if (this.props.match.params.page) {
-      const queryPage = this.props.match.params.page
-      this.setState({ page: queryPage })
-      fetchJobs(queryPage, pageSize)
-    } else {
-      this.setState({ page: firstPage })
-      fetchJobs(firstPage, pageSize)
-    }
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.page) || firstPage) : firstPage
+    this.setState({ page: queryPage })
+    fetchJobs(queryPage, pageSize)
   }
 
   handleChangePage (e, page) {
