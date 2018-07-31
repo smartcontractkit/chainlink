@@ -2,11 +2,10 @@ import React from 'react'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withStyles } from '@material-ui/core/styles'
 import { withRouteData } from 'react-static'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
-import { matchRoute } from 'actions'
 
 const styles = theme => ({
   title: {
@@ -42,11 +41,9 @@ const About = ({classes, version, sha}) => {
 
 const mapStateToProps = state => ({})
 
-const mapDispatchToProps = (dispatch, ownProps) => {
-  dispatch(matchRoute(ownProps.match))
-  return bindActionCreators({}, dispatch)
-}
-
-export const ConnectedAbout = connect(mapStateToProps, mapDispatchToProps)(About)
+export const ConnectedAbout = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({})
+)(About)
 
 export default withRouteData(withStyles(styles)(ConnectedAbout))

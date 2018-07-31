@@ -1,13 +1,13 @@
 import React, { Component } from 'react'
-import { Redirect } from 'react-router'
 import PropTypes from 'prop-types'
 import Button from '@material-ui/core/Button'
 import Typography from '@material-ui/core/Typography'
-import { withStyles } from '@material-ui/core/styles'
 import TextField from '@material-ui/core/TextField'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { Redirect } from 'react-router'
+import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
-import { matchRoute, submitSignIn } from 'actions'
+import { submitSignIn } from 'actions'
 
 const styles = theme => ({
   title: {
@@ -82,11 +82,9 @@ const mapStateToProps = state => ({
   authenticated: state.session.authenticated
 })
 
-const mapDispatchToProps = (dispatch, ownProps) => {
-  dispatch(matchRoute(ownProps.match))
-  return bindActionCreators({ submitSignIn }, dispatch)
-}
-
-export const ConnectedSignIn = connect(mapStateToProps, mapDispatchToProps)(SignIn)
+export const ConnectedSignIn = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({submitSignIn})
+)(SignIn)
 
 export default withStyles(styles)(ConnectedSignIn)

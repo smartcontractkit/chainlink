@@ -6,11 +6,11 @@ import JobList from 'components/JobList'
 import TokenBalance from 'components/TokenBalance'
 import MetaInfo from 'components/MetaInfo'
 import Footer from 'components/Footer'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
-import { fetchJobs, fetchAccountBalance, matchRoute } from 'actions'
+import { fetchJobs, fetchAccountBalance } from 'actions'
 import { jobsSelector } from 'selectors'
 
 const styles = theme => ({
@@ -129,15 +129,10 @@ const mapStateToProps = state => {
   }
 }
 
-const mapDispatchToProps = (dispatch, ownProps) => {
-  dispatch(matchRoute(ownProps.match))
-  return bindActionCreators({
-    fetchAccountBalance,
-    fetchJobs
-  }, dispatch)
-}
-
-export const ConnectedJobs = connect(mapStateToProps, mapDispatchToProps)(Jobs)
+export const ConnectedJobs = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchAccountBalance, fetchJobs})
+)(Jobs)
 
 export default withSiteData(
   withStyles(styles)(ConnectedJobs)

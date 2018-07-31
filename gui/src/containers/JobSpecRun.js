@@ -6,7 +6,7 @@ import BreadcrumbItem from 'components/BreadcrumbItem'
 import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
-import { bindActionCreators } from 'redux'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobSpecRun } from 'actions'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -115,12 +115,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({
-    fetchJobSpecRun
-  }, dispatch)
-}
-
-export const ConnectedJobSpecRun = connect(mapStateToProps, mapDispatchToProps)(JobSpecRun)
+export const ConnectedJobSpecRun = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchJobSpecRun})
+)(JobSpecRun)
 
 export default withStyles(styles)(ConnectedJobSpecRun)

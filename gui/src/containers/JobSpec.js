@@ -12,9 +12,9 @@ import formatInitiators from 'utils/formatInitiators'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import Link from 'components/Link'
 import CopyJobSpec from 'components/CopyJobSpec'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import { fetchJobSpec } from 'actions'
 import {
   jobSpecSelector,
@@ -193,12 +193,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({
-    fetchJobSpec
-  }, dispatch)
-}
-
-export const ConnectedJobSpec = connect(mapStateToProps, mapDispatchToProps)(JobSpec)
+export const ConnectedJobSpec = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchJobSpec})
+)(JobSpec)
 
 export default withStyles(styles)(ConnectedJobSpec)
