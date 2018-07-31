@@ -120,9 +120,9 @@ fetchActions.bridgeSpec = {
   action: createAction(REQUEST_BRIDGESPEC),
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGESPEC_SUCCESS,
-    name: json.name,
-    url: json.url,
-    confirmations: json.defaultConfirmations
+    name: json.data.attributes.name,
+    url: json.data.attributes.url,
+    confirmations: json.data.attributes.defaultConfirmations
   }),
   receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGESPEC_ERROR, error)
 }
