@@ -3,6 +3,7 @@ import {
   REQUEST_SESSION,
   REQUEST_SIGNOUT,
   RECEIVE_SESSION_SUCCESS,
+  RECEIVE_SESSION_FAIL,
   RECEIVE_SESSION_ERROR,
   RECEIVE_SIGNOUT_SUCCESS,
   RECEIVE_SIGNOUT_ERROR
@@ -44,6 +45,22 @@ describe('session reducer', () => {
     expect(state.session.authenticated).toEqual(true)
     expect(state.session.fetching).toEqual(false)
     expect(state.session.networkError).toEqual(false)
+  })
+
+  it('RECEIVE_SESSION_FAIL stops fetching and clears session errors', () => {
+    const previousState = {
+      session: {
+        authenticated: true,
+        fetching: true,
+        errors: ['error 1']
+      }
+    }
+    const action = {type: RECEIVE_SESSION_FAIL}
+    const state = reducer(previousState, action)
+
+    expect(state.session.authenticated).toEqual(false)
+    expect(state.session.fetching).toEqual(false)
+    expect(state.session.errors).toEqual([])
   })
 
   it('RECEIVE_SESSION_ERROR stops fetching and assigns a network error', () => {

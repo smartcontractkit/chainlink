@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import ConfigList from 'components/ConfigList'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import { fetchConfiguration } from 'actions'
 import { configsSelector } from 'selectors'
 
@@ -69,10 +69,9 @@ const mapStateToProps = state => {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return bindActionCreators({ fetchConfiguration }, dispatch)
-}
-
-export const ConnectedConfiguration = connect(mapStateToProps, mapDispatchToProps)(Configuration)
+export const ConnectedConfiguration = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchConfiguration})
+)(Configuration)
 
 export default withSiteData(withStyles(styles)(ConnectedConfiguration))
