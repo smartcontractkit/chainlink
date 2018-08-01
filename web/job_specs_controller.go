@@ -54,7 +54,6 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
-
 	var jr models.JobSpecRequest
 	if err := c.ShouldBindJSON(&jr); err != nil {
 		publicError(c, 400, err)
