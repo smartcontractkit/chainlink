@@ -178,11 +178,16 @@ export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
 export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'
 export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
 
+const receiveSignoutSuccess = (json) => ({
+  type: RECEIVE_SIGNOUT_SUCCESS,
+  authenticated: json.authenticated
+})
+
 function sendSignOut () {
   return dispatch => {
     dispatch(createAction(REQUEST_SIGNOUT))
     return api.destroySession()
-      .then((json) => dispatch(createSessionSuccess(json)))
+      .then((json) => dispatch(receiveSignoutSuccess(json)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_SIGNOUT_ERROR, error)))
   }
 }
