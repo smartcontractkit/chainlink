@@ -342,10 +342,21 @@ func NormalizeSpecJSON(s string) (string, error) {
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
-	ID string `json:"id" storm:"id,unique"`
+	ID        string `json:"id" storm:"id,unique"`
+	JobSpecID string `json:"jobSpecID"`
+	jobSpec   JobSpec
 }
 
-// NewServiceAgreement builds a new ServiceAgreement.
-func NewServiceAgreement() ServiceAgreement {
-	return ServiceAgreement{ID: utils.NewBytes32ID()}
+// NewServiceAgreementFromRequest builds a new ServiceAgreement.
+func NewServiceAgreementFromRequest(jsr JobSpecRequest) (ServiceAgreement, error) {
+	sa := ServiceAgreement{}
+
+	js, err := NewJobFromRequest(jsr)
+	if err != nil {
+		return sa, err
+	}
+
+	sa.jobSpec = js
+	sa.ID = js.Digest
+	return sa, nil
 }
