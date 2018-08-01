@@ -1,9 +1,9 @@
 import {
-  REQUEST_SESSION,
+  REQUEST_SIGNIN,
+  RECEIVE_SIGNIN_SUCCESS,
+  RECEIVE_SIGNIN_FAIL,
+  RECEIVE_SIGNIN_ERROR,
   REQUEST_SIGNOUT,
-  RECEIVE_SESSION_SUCCESS,
-  RECEIVE_SESSION_FAIL,
-  RECEIVE_SESSION_ERROR,
   RECEIVE_SIGNOUT_SUCCESS,
   RECEIVE_SIGNOUT_ERROR
 } from 'actions'
@@ -18,7 +18,7 @@ const initialState = {
 export default (state = initialState, action = {}) => {
   switch (action.type) {
     case REQUEST_SIGNOUT:
-    case REQUEST_SESSION:
+    case REQUEST_SIGNIN:
       return Object.assign(
         {},
         state,
@@ -28,7 +28,7 @@ export default (state = initialState, action = {}) => {
         }
       )
     case RECEIVE_SIGNOUT_SUCCESS:
-    case RECEIVE_SESSION_SUCCESS:
+    case RECEIVE_SIGNIN_SUCCESS:
       return Object.assign(
         {},
         state,
@@ -39,7 +39,7 @@ export default (state = initialState, action = {}) => {
           networkError: false
         }
       )
-    case RECEIVE_SESSION_FAIL:
+    case RECEIVE_SIGNIN_FAIL:
       return Object.assign(
         {},
         state,
@@ -49,7 +49,7 @@ export default (state = initialState, action = {}) => {
           errors: []
         }
       )
-    case RECEIVE_SESSION_ERROR:
+    case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR:
       return Object.assign(
         {},
