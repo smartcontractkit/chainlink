@@ -1,5 +1,7 @@
+import storage from 'local-storage-fallback'
+
 export const get = key => {
-  const localStorageItem = global.localStorage.getItem(`chainlink.${key}`)
+  const localStorageItem = storage.getItem(`chainlink.${key}`)
   let obj = {}
 
   if (localStorageItem) {
@@ -10,5 +12,5 @@ export const get = key => {
 }
 
 export const set = (key, obj) => {
-  global.localStorage.setItem(`chainlink.${key}`, JSON.stringify(obj))
+  storage.setItem(`chainlink.${key}`, JSON.stringify(obj))
 }
