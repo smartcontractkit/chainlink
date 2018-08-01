@@ -1,10 +1,10 @@
 import reducer from 'connectors/redux/reducers'
 import {
-  REQUEST_SESSION,
+  REQUEST_SIGNIN,
+  RECEIVE_SIGNIN_SUCCESS,
+  RECEIVE_SIGNIN_FAIL,
+  RECEIVE_SIGNIN_ERROR,
   REQUEST_SIGNOUT,
-  RECEIVE_SESSION_SUCCESS,
-  RECEIVE_SESSION_FAIL,
-  RECEIVE_SESSION_ERROR,
   RECEIVE_SIGNOUT_SUCCESS,
   RECEIVE_SIGNOUT_ERROR
 } from 'actions'
@@ -21,15 +21,15 @@ describe('session reducer', () => {
     })
   })
 
-  it('REQUEST_SESSION starts fetching and disables the network error', () => {
-    const action = {type: REQUEST_SESSION}
+  it('REQUEST_SIGNIN starts fetching and disables the network error', () => {
+    const action = {type: REQUEST_SIGNIN}
     const state = reducer(undefined, action)
 
     expect(state.session.fetching).toEqual(true)
     expect(state.session.networkError).toEqual(false)
   })
 
-  it('RECEIVE_SESSION_SUCCESS stops fetching and assigns authenticated', () => {
+  it('RECEIVE_SIGNIN_SUCCESS stops fetching and assigns authenticated', () => {
     const previousState = {
       session: {
         fetching: true,
@@ -37,7 +37,7 @@ describe('session reducer', () => {
       }
     }
     const action = {
-      type: RECEIVE_SESSION_SUCCESS,
+      type: RECEIVE_SIGNIN_SUCCESS,
       authenticated: true
     }
     const state = reducer(previousState, action)
@@ -47,7 +47,7 @@ describe('session reducer', () => {
     expect(state.session.networkError).toEqual(false)
   })
 
-  it('RECEIVE_SESSION_FAIL stops fetching and clears session errors', () => {
+  it('RECEIVE_SIGNIN_FAIL stops fetching and clears session errors', () => {
     const previousState = {
       session: {
         authenticated: true,
@@ -55,7 +55,7 @@ describe('session reducer', () => {
         errors: ['error 1']
       }
     }
-    const action = {type: RECEIVE_SESSION_FAIL}
+    const action = {type: RECEIVE_SIGNIN_FAIL}
     const state = reducer(previousState, action)
 
     expect(state.session.authenticated).toEqual(false)
@@ -63,7 +63,7 @@ describe('session reducer', () => {
     expect(state.session.errors).toEqual([])
   })
 
-  it('RECEIVE_SESSION_ERROR stops fetching and assigns a network error', () => {
+  it('RECEIVE_SIGNIN_ERROR stops fetching and assigns a network error', () => {
     const previousState = {
       session: {
         authenticated: true,
@@ -72,7 +72,7 @@ describe('session reducer', () => {
       }
     }
     const action = {
-      type: RECEIVE_SESSION_ERROR,
+      type: RECEIVE_SIGNIN_ERROR,
       networkError: true
     }
     const state = reducer(previousState, action)

@@ -1,7 +1,7 @@
 import reducer from 'connectors/redux/reducers'
 import {
   MATCH_ROUTE,
-  RECEIVE_SESSION_FAIL
+  RECEIVE_SIGNIN_FAIL
 } from 'actions'
 
 describe('errors reducer', () => {
@@ -14,8 +14,8 @@ describe('errors reducer', () => {
     })
   })
 
-  it('RECEIVE_SESSION_FAIL adds a failure message', () => {
-    const action = {type: RECEIVE_SESSION_FAIL}
+  it('RECEIVE_SIGNIN_FAIL adds a failure message', () => {
+    const action = {type: RECEIVE_SIGNIN_FAIL}
     const state = reducer(undefined, action)
 
     expect(state.errors).toEqual({
