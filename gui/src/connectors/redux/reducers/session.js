@@ -1,3 +1,4 @@
+import * as sessionStorage from 'utils/sessionStorage'
 import {
   REQUEST_SIGNIN,
   RECEIVE_SIGNIN_SUCCESS,
@@ -8,12 +9,18 @@ import {
   RECEIVE_SIGNOUT_ERROR
 } from 'actions'
 
-const initialState = {
+const defaultState = {
   fetching: false,
   authenticated: false,
   errors: [],
   networkError: false
 }
+
+const initialState = Object.assign(
+  {},
+  defaultState,
+  sessionStorage.get()
+)
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
@@ -28,27 +35,33 @@ export default (state = initialState, action = {}) => {
         }
       )
     case RECEIVE_SIGNOUT_SUCCESS:
-    case RECEIVE_SIGNIN_SUCCESS:
+    case RECEIVE_SIGNIN_SUCCESS: {
+      const auth = {authenticated: action.authenticated}
+      sessionStorage.set(auth)
       return Object.assign(
         {},
         state,
+        auth,
         {
           fetching: false,
-          authenticated: action.authenticated,
           errors: action.errors || [],
           networkError: false
         }
       )
-    case RECEIVE_SIGNIN_FAIL:
+    }
+    case RECEIVE_SIGNIN_FAIL: {
+      const auth = {authenticated: false}
+      sessionStorage.set(auth)
       return Object.assign(
         {},
         state,
+        auth,
         {
           fetching: false,
-          authenticated: false,
           errors: []
         }
       )
+    }
     case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR:
       return Object.assign(
