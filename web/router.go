@@ -107,11 +107,14 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2.PATCH("/runs/:RunID", jr.Update)
 	v2.GET("/runs/:RunID", jr.Show)
 
-	tt := BridgeTypesController{app}
-	v2.GET("/bridge_types", tt.Index)
-	v2.POST("/bridge_types", tt.Create)
-	v2.GET("/bridge_types/:BridgeName", tt.Show)
-	v2.DELETE("/bridge_types/:BridgeName", tt.Destroy)
+	sa := ServiceAgreementsController{app}
+	v2.POST("/service_agreements", sa.Create)
+
+	bt := BridgeTypesController{app}
+	v2.GET("/bridge_types", bt.Index)
+	v2.POST("/bridge_types", bt.Create)
+	v2.GET("/bridge_types/:BridgeName", bt.Show)
+	v2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
 	backup := BackupController{app}
 	v2.GET("/backup", backup.Show)
