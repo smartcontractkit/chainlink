@@ -339,3 +339,13 @@ func NormalizeSpecJSON(s string) (string, error) {
 
 	return utils.NormalizedJSONString(js)
 }
+
+// ServiceAgreement connects job specifications with on-chain encumbrances.
+type ServiceAgreement struct {
+	ID string `json:"id" storm:"id,unique"`
+}
+
+// NewServiceAgreement builds a new ServiceAgreement.
+func NewServiceAgreement() ServiceAgreement {
+	return ServiceAgreement{ID: utils.NewBytes32ID()}
+}
