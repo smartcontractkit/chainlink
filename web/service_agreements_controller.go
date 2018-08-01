@@ -13,8 +13,12 @@ type ServiceAgreementsController struct {
 
 // Create builds and saves a new service agreement record.
 func (sac *ServiceAgreementsController) Create(c *gin.Context) {
-	sa := models.NewServiceAgreement()
-	if err := sac.App.Store.Save(&sa); err != nil {
+	var jr models.JobSpecRequest
+	if err := c.ShouldBindJSON(&jr); err != nil {
+		publicError(c, 400, err)
+	} else if sa, err := models.NewServiceAgreementFromRequest(jr); err != nil {
+		c.AbortWithError(500, err)
+	} else if err = sac.App.Store.Save(&sa); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, sa)
