@@ -15,6 +15,7 @@ func (orm ORM) migrate() {
 	orm.initializeModel(&IndexableBlockNumber{})
 	orm.initializeModel(&User{})
 	orm.initializeModel(&Session{})
+	orm.initializeModel(&ServiceAgreement{})
 }
 
 func (orm ORM) initializeModel(klass interface{}) {

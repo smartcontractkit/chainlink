@@ -459,6 +459,13 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 	return j
 }
 
+func FindServiceAgreement(s *store.Store, id string) models.ServiceAgreement {
+	sa, err := s.FindServiceAgreement(id)
+	mustNotErr(err)
+
+	return sa
+}
+
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	client := app.NewHTTPClient()
@@ -466,6 +473,19 @@ func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, pa
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
+}
+
+// FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
+func FixtureCreateServiceAgreementViaWeb(
+	t *testing.T,
+	app *TestApplication,
+	path string,
+) models.ServiceAgreement {
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBuffer(LoadJSON(path)))
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	return FindServiceAgreement(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
