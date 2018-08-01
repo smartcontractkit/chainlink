@@ -200,3 +200,26 @@ func TestNewTaskType(t *testing.T) {
 		})
 	}
 }
+
+func TestNewServiceAgreementFromRequest(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var jsr models.JobSpecRequest
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &jsr))
+
+			sa, err := models.NewServiceAgreementFromRequest(jsr)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, sa.ID)
+		})
+	}
+}
