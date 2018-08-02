@@ -1,4 +1,4 @@
-import * as sessionStorage from 'utils/sessionStorage'
+import * as authenticationStorage from 'utils/authenticationStorage'
 import {
   REQUEST_SIGNIN,
   RECEIVE_SIGNIN_SUCCESS,
@@ -19,7 +19,7 @@ const defaultState = {
 const initialState = Object.assign(
   {},
   defaultState,
-  sessionStorage.get()
+  authenticationStorage.get()
 )
 
 export default (state = initialState, action = {}) => {
@@ -37,7 +37,7 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SIGNIN_SUCCESS: {
       const auth = {authenticated: action.authenticated}
-      sessionStorage.set(auth)
+      authenticationStorage.set(auth)
       return Object.assign(
         {},
         state,
@@ -51,7 +51,7 @@ export default (state = initialState, action = {}) => {
     }
     case RECEIVE_SIGNIN_FAIL: {
       const auth = {authenticated: false}
-      sessionStorage.set(auth)
+      authenticationStorage.set(auth)
       return Object.assign(
         {},
         state,
@@ -65,7 +65,7 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR: {
       const auth = {authenticated: false}
-      sessionStorage.set(auth)
+      authenticationStorage.set(auth)
       return Object.assign(
         {},
         state,

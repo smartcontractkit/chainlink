@@ -205,7 +205,7 @@ Layout.defaultProps = {
 }
 
 const mapStateToProps = state => ({
-  authenticated: state.session.authenticated,
+  authenticated: state.authentication.authenticated,
   errors: state.errors.messages
 })
 
