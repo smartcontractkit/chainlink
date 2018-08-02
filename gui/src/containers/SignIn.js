@@ -78,8 +78,8 @@ SignIn.propTypes = {
 }
 
 const mapStateToProps = state => ({
-  fetching: state.session.fetching,
-  authenticated: state.session.authenticated
+  fetching: state.authentication.fetching,
+  authenticated: state.authentication.authenticated
 })
 
 export const ConnectedSignIn = connect(
