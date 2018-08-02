@@ -11,7 +11,7 @@ import {
 
 const defaultState = {
   fetching: false,
-  authenticated: false,
+  allowed: false,
   errors: [],
   networkError: false
 }
@@ -36,12 +36,12 @@ export default (state = initialState, action = {}) => {
       )
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SIGNIN_SUCCESS: {
-      const auth = {authenticated: action.authenticated}
-      authenticationStorage.set(auth)
+      const allowed = {allowed: action.authenticated}
+      authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
-        auth,
+        allowed,
         {
           fetching: false,
           errors: action.errors || [],
@@ -50,12 +50,12 @@ export default (state = initialState, action = {}) => {
       )
     }
     case RECEIVE_SIGNIN_FAIL: {
-      const auth = {authenticated: false}
-      authenticationStorage.set(auth)
+      const allowed = {allowed: false}
+      authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
-        auth,
+        allowed,
         {
           fetching: false,
           errors: []
@@ -64,12 +64,12 @@ export default (state = initialState, action = {}) => {
     }
     case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR: {
-      const auth = {authenticated: false}
-      authenticationStorage.set(auth)
+      const allowed = {allowed: false}
+      authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
-        auth,
+        allowed,
         {
           fetching: false,
           errors: action.errors || [],
