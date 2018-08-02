@@ -50,7 +50,7 @@ describe('session reducer', () => {
       expect(state.session.networkError).toEqual(false)
     })
 
-    it('saves authenticated true to local storage', () => {
+    it('saves authenticated to local storage', () => {
       const action = {type: RECEIVE_SIGNIN_SUCCESS, authenticated: true}
       reducer(undefined, action)
 
@@ -83,23 +83,29 @@ describe('session reducer', () => {
     })
   })
 
-  it('RECEIVE_SIGNIN_ERROR stops fetching and assigns a network error', () => {
-    const previousState = {
-      session: {
-        authenticated: true,
-        fetching: true,
-        networkError: false
+  describe('RECEIVE_SIGNIN_ERROR', () => {
+    it('stops fetching and assigns a network error', () => {
+      const previousState = {
+        session: {
+          authenticated: true,
+          fetching: true,
+          networkError: false
+        }
       }
-    }
-    const action = {
-      type: RECEIVE_SIGNIN_ERROR,
-      networkError: true
-    }
-    const state = reducer(previousState, action)
+      const action = {type: RECEIVE_SIGNIN_ERROR, networkError: true}
+      const state = reducer(previousState, action)
 
-    expect(state.session.fetching).toEqual(false)
-    expect(state.session.networkError).toEqual(true)
-    expect(state.session.authenticated).toEqual(false)
+      expect(state.session.fetching).toEqual(false)
+      expect(state.session.networkError).toEqual(true)
+      expect(state.session.authenticated).toEqual(false)
+    })
+
+    it('saves authenticated false to local storage', () => {
+      const action = {type: RECEIVE_SIGNIN_ERROR}
+      reducer(undefined, action)
+
+      expect(getSessionStorage()).toEqual({authenticated: false})
+    })
   })
 
   it('REQUEST_SIGNOUT starts fetching and disables the network error', () => {
@@ -127,7 +133,7 @@ describe('session reducer', () => {
       expect(state.session.networkError).toEqual(false)
     })
 
-    it('saves authenticated false to local storage', () => {
+    it('saves authenticated to local storage', () => {
       const action = {type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false}
       reducer(undefined, action)
 
@@ -135,22 +141,28 @@ describe('session reducer', () => {
     })
   })
 
-  it('RECEIVE_SIGNOUT_ERROR stops fetching and assigns a network error', () => {
-    const previousState = {
-      session: {
-        authenticated: true,
-        fetching: true,
-        networkError: false
+  describe('RECEIVE_SIGNOUT_ERROR', () => {
+    it('stops fetching and assigns a network error', () => {
+      const previousState = {
+        session: {
+          authenticated: true,
+          fetching: true,
+          networkError: false
+        }
       }
-    }
-    const action = {
-      type: RECEIVE_SIGNOUT_ERROR,
-      networkError: true
-    }
-    const state = reducer(previousState, action)
+      const action = {type: RECEIVE_SIGNOUT_ERROR, networkError: true}
+      const state = reducer(previousState, action)
 
-    expect(state.session.fetching).toEqual(false)
-    expect(state.session.networkError).toEqual(true)
-    expect(state.session.authenticated).toEqual(false)
+      expect(state.session.fetching).toEqual(false)
+      expect(state.session.networkError).toEqual(true)
+      expect(state.session.authenticated).toEqual(false)
+    })
+
+    it('saves authenticated false to local storage', () => {
+      const action = {type: RECEIVE_SIGNOUT_ERROR}
+      reducer(undefined, action)
+
+      expect(getSessionStorage()).toEqual({authenticated: false})
+    })
   })
 })

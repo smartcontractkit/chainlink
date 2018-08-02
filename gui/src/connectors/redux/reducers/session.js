@@ -63,17 +63,20 @@ export default (state = initialState, action = {}) => {
       )
     }
     case RECEIVE_SIGNIN_ERROR:
-    case RECEIVE_SIGNOUT_ERROR:
+    case RECEIVE_SIGNOUT_ERROR: {
+      const auth = {authenticated: false}
+      sessionStorage.set(auth)
       return Object.assign(
         {},
         state,
+        auth,
         {
           fetching: false,
-          authenticated: false,
           errors: action.errors || [],
           networkError: action.networkError
         }
       )
+    }
     default:
       return state
   }
