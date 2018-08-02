@@ -2786,7 +2786,7 @@ cookie-signature@1.0.6:
   version "1.0.6"
   resolved "https://registry.yarnpkg.com/cookie-signature/-/cookie-signature-1.0.6.tgz#e303a882b342cc3ee8ca513a79999734dab3ae2c"
 
-cookie@0.3.1:
+cookie@0.3.1, cookie@^0.3.1:
   version "0.3.1"
   resolved "https://registry.yarnpkg.com/cookie/-/cookie-0.3.1.tgz#e7e0a1f9ef43b4c8ba925c5c5a96e806d16873bb"
 
@@ -2810,6 +2810,10 @@ copy-to-clipboard@^3:
   resolved "https://registry.yarnpkg.com/copy-to-clipboard/-/copy-to-clipboard-3.0.8.tgz#f4e82f4a8830dce4666b7eb8ded0c9bcc313aba9"
   dependencies:
     toggle-selection "^1.0.3"
+
+core-js@^0.8.3:
+  version "0.8.4"
+  resolved "https://registry.yarnpkg.com/core-js/-/core-js-0.8.4.tgz#c22665f1e0d1b9c3c5e1b08dabd1f108695e4fcf"
 
 core-js@^1.0.0:
   version "1.2.7"
@@ -5167,7 +5171,7 @@ global-prefix@^1.0.1:
     is-windows "^1.0.1"
     which "^1.2.14"
 
-global@^4.3.0, global@~4.3.0:
+global@^4.3.0, global@^4.3.2, global@~4.3.0:
   version "4.3.2"
   resolved "https://registry.yarnpkg.com/global/-/global-4.3.2.tgz#e76989268a6c74c38908b1305b10fc0e394e9d0f"
   dependencies:
@@ -7209,6 +7213,12 @@ loader-utils@^1.0.2, loader-utils@^1.1.0:
     emojis-list "^2.0.0"
     json5 "^0.5.0"
 
+local-storage-fallback@^4.1.1:
+  version "4.1.1"
+  resolved "https://registry.yarnpkg.com/local-storage-fallback/-/local-storage-fallback-4.1.1.tgz#6dc964635c8e9ab6d522d7d88538f465b62bd161"
+  dependencies:
+    cookie "^0.3.1"
+
 locate-path@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/locate-path/-/locate-path-2.0.0.tgz#2b568b265eec944c6d9c0de9c3dbbbca0354cd8e"
@@ -7803,6 +7813,13 @@ mocha@^4.0.1, mocha@^4.1.0:
 mock-fs@^4.1.0:
   version "4.5.0"
   resolved "https://registry.yarnpkg.com/mock-fs/-/mock-fs-4.5.0.tgz#75245b966f7e3defe197b03454af9c5b355594b7"
+
+mock-local-storage@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/mock-local-storage/-/mock-local-storage-1.0.5.tgz#899ff300027cefed47816e6dc539bb059fcce489"
+  dependencies:
+    core-js "^0.8.3"
+    global "^4.3.2"
 
 moment@^2.15.2, moment@^2.20.1:
   version "2.22.1"

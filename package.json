@@ -44,6 +44,8 @@
     "jest-environment-enzyme": "^6.0.0",
     "jest-silent-reporter": "^0.0.4",
     "json-pretty-html": "^1.1.2",
+    "local-storage-fallback": "^4.1.1",
+    "mock-local-storage": "^1.0.5",
     "moment": "^2.20.1",
     "numeral": "^2.0.6",
     "query-string": "^6.1.0",

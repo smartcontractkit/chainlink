@@ -6,7 +6,7 @@ import bridgeSpec from './bridgeSpec'
 import jobs from './jobs'
 import jobRuns from './jobRuns'
 import configuration from './configuration'
-import session from './session'
+import authentication from './authentication'
 
 const reducer = combineReducers({
   errors,
@@ -16,7 +16,7 @@ const reducer = combineReducers({
   jobs,
   jobRuns,
   configuration,
-  session
+  authentication
 })
 
 export default reducer

@@ -1,6 +1,6 @@
 import {
   MATCH_ROUTE,
-  RECEIVE_SESSION_FAIL
+  RECEIVE_SIGNIN_FAIL
 } from 'actions'
 
 const initialState = {
@@ -22,7 +22,7 @@ export default (state = initialState, action = {}) => {
 
       return state
     }
-    case RECEIVE_SESSION_FAIL:
+    case RECEIVE_SIGNIN_FAIL:
       return Object.assign(
         {},
         state,

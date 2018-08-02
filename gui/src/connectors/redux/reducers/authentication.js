@@ -1,24 +1,31 @@
+import * as authenticationStorage from 'utils/authenticationStorage'
 import {
-  REQUEST_SESSION,
+  REQUEST_SIGNIN,
+  RECEIVE_SIGNIN_SUCCESS,
+  RECEIVE_SIGNIN_FAIL,
+  RECEIVE_SIGNIN_ERROR,
   REQUEST_SIGNOUT,
-  RECEIVE_SESSION_SUCCESS,
-  RECEIVE_SESSION_FAIL,
-  RECEIVE_SESSION_ERROR,
   RECEIVE_SIGNOUT_SUCCESS,
   RECEIVE_SIGNOUT_ERROR
 } from 'actions'
 
-const initialState = {
+const defaultState = {
   fetching: false,
-  authenticated: false,
+  allowed: false,
   errors: [],
   networkError: false
 }
 
+const initialState = Object.assign(
+  {},
+  defaultState,
+  authenticationStorage.get()
+)
+
 export default (state = initialState, action = {}) => {
   switch (action.type) {
     case REQUEST_SIGNOUT:
-    case REQUEST_SESSION:
+    case REQUEST_SIGNIN:
       return Object.assign(
         {},
         state,
@@ -28,39 +35,48 @@ export default (state = initialState, action = {}) => {
         }
       )
     case RECEIVE_SIGNOUT_SUCCESS:
-    case RECEIVE_SESSION_SUCCESS:
+    case RECEIVE_SIGNIN_SUCCESS: {
+      const allowed = {allowed: action.authenticated}
+      authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
+        allowed,
         {
           fetching: false,
-          authenticated: action.authenticated,
           errors: action.errors || [],
           networkError: false
         }
       )
-    case RECEIVE_SESSION_FAIL:
+    }
+    case RECEIVE_SIGNIN_FAIL: {
+      const allowed = {allowed: false}
+      authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
+        allowed,
         {
           fetching: false,
-          authenticated: false,
           errors: []
         }
       )
-    case RECEIVE_SESSION_ERROR:
-    case RECEIVE_SIGNOUT_ERROR:
+    }
+    case RECEIVE_SIGNIN_ERROR:
+    case RECEIVE_SIGNOUT_ERROR: {
+      const allowed = {allowed: false}
+      authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
+        allowed,
         {
           fetching: false,
-          authenticated: false,
           errors: action.errors || [],
           networkError: action.networkError
         }
       )
+    }
     default:
       return state
   }
