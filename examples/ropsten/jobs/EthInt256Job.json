@@ -1,25 +1,25 @@
 {
-    "initiators": [
-        {
-            "type": "runlog",
-            "address": "0x5be84B6381d45579Ed04A887B8473F76699E0389"
-        }
-    ],
-    "tasks": [
-        {
-            "type": "httpGet"
-        },
-        {
-            "type": "jsonParse"
-        },
-        {
-            "type": "multiply"
-        },
-        {
-            "type": "ethint256"
-        },
-        {
-            "type": "ethtx"
-        }
-    ]
+  "initiators": [
+    {
+      "type": "runlog",
+      "address": "0xA39A4cC64C91267EC1376f6861aAC0622352de8F"
+    }
+  ],
+  "tasks": [
+    {
+      "type": "httpGet"
+    },
+    {
+      "type": "jsonParse"
+    },
+    {
+      "type": "multiply"
+    },
+    {
+      "type": "ethint256"
+    },
+    {
+      "type": "ethtx"
+    }
+  ]
 }

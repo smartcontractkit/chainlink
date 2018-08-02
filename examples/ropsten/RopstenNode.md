@@ -22,16 +22,18 @@ cd devnet
 make ropsten
 ```
 
+Note that by default, Devnet will run the websocket protocl on port `18546` instead of the default `8546` as with Geth and Parity.
+
 ### [Geth](https://github.com/ethereum/go-ethereum)
 
 ```
-geth --testnet --ws --wsaddr 127.0.0.1 --wsport 18546 --wsorigins "*"
+geth --testnet --ws --wsaddr 127.0.0.1 --wsport 8546 --wsorigins "*"
 ```
 
 ### [Parity](https://github.com/paritytech/parity)
 
 ```
-parity --chain=ropsten --ws-interface 127.0.0.1 --ws-port 18546 --ws-origins "all"
+parity --chain=ropsten --ws-interface 127.0.0.1 --ws-port 8546 --ws-origins "all"
 ```
 
 ## Deploying your own Oracle contract
@@ -74,14 +76,9 @@ You can use [direnv](https://github.com/direnv/direnv/) to set environment varia
 
 Use the following environment variables as an example to configure your node for Ropsten:
 
-    LOG_LEVEL=debug
-    ROOT=~/.chainlink
-    ETH_URL="ws://localhost:18546"
     ETH_CHAIN_ID=3
-    MIN_OUTGOING_CONFIRMATIONS=12
     MIN_INCOMING_CONFIRMATIONS=0
     LINK_CONTRACT_ADDRESS=0x20fe562d797a42dcb3399062ae9546cd06f63280
-    MINIMUM_CONTRACT_PAYMENT=1000000000000
     ORACLE_CONTRACT_ADDRESS=***Your deployed oracle contract address***
 
 _If you want to require HTTPS, you'll need to [create your own self-signed certificates](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates). Otherwise, add `CHAINLINK_DEV=true` to your environment variables._
@@ -98,7 +95,7 @@ chainlink node
 
 *You can also [run the node with Docker](https://github.com/smartcontractkit/chainlink/wiki/Running-the-Docker-Image).*
 
-When running the node for the first time, it will ask for a password and confirmation password. It will use this password to create a keystore file for you at `$ROOT/keys`. It will then display the following, showing you the address and its current balance:
+When running the node for the first time, it will ask for a password and confirmation password. It will use this password to create a keystore file for you at `$ROOT/keys`. You will then be prompted to enter an API Email and Password. This will be used to authenticate sessions with the node so you can manage it via the command-line or GUI. It will then display the following, showing you the address and its current balance:
 
 ```
 2018-05-07T17:20:50Z [WARN]  0 Balance. Chainlink node not fully functional, please deposit ETH into your address: 0xC9EED6F5018E6aB95c03FcDfe661e38e97018235 cmd/client.go:70        
