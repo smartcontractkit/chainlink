@@ -20,10 +20,11 @@ Examples of how to utilize and integrate Chainlinks can be found in the [example
 ## Install
 
 1. [Install Go 1.10+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
-2. Install [dep](https://github.com/golang/dep#installation): `$ brew install dep` <br> or `$ go get -u github.com/golang/dep/cmd/dep`
-3. Download Chainlink: `$ go get -d github.com/smartcontractkit/chainlink && cd $GOPATH/src/github.com/smartcontractkit/chainlink`
-4. Install: `$ make install`
-5. Run the node: `$ chainlink help`
+2. Install [dep](https://github.com/golang/dep#installation): `go get -u github.com/golang/dep/cmd/dep`
+3. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
+4. Download Chainlink: `go get -d github.com/smartcontractkit/chainlink && cd $GOPATH/src/github.com/smartcontractkit/chainlink`
+5. Install: `make install`
+6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
 
@@ -31,12 +32,12 @@ In order to run the Chainlink node you must have access to a running Ethereum no
 Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
 Ethereum node versions currently tested and supported:
 
-- Parity 1.9+ (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
-- Geth 1.7+
+- [Parity 1.11+](https://github.com/paritytech/parity-ethereum/releases) (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
+- [Geth 1.8+](https://github.com/ethereum/go-ethereum/releases)
 
 ## Run
 
-**NOTE**: By default, chainlink will run in TLS mode. For local development you can either disable this by setting CHAINLINK_DEV to true, or generate self signed certificates using `internal/bin/self-signed-certs`.
+**NOTE**: By default, chainlink will run in TLS mode. For local development you can either disable this by setting CHAINLINK_DEV to true, or generate self signed certificates using `internal/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
 
 To start your Chainlink node, simply run:
 ```bash
@@ -59,29 +60,7 @@ Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages
 
 ## Configure
 
-You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found:
-
-    LOG_LEVEL                      Default: info
-    ROOT                           Default: ~/.chainlink
-    CHAINLINK_PORT                 Default: 6688
-    USERNAME                       Default: chainlink
-    PASSWORD                       Default: twochains
-    ETH_URL                        Default: ws://localhost:8546
-    ETH_CHAIN_ID                   Default: 0
-    ETH_GAS_BUMP_THRESHOLD         Default: 12
-    MIN_OUTGOING_CONFIRMATIONS     Default: 12
-    MIN_INCOMING_CONFIRMATIONS     Default: 6
-    ETH_GAS_BUMP_WEI               Default: 5000000000  (5 gwei)
-    ETH_GAS_PRICE_DEFAULT          Default: 20000000000 (20 gwei)
-    TLS_CERT_PATH                  Default: ~/.chainlink/tls/server.crt
-    TLS_KEY_PATH                   Default: ~/.chainlink/tls/server.key
-    CHAINLINK_DEV                  Default: false
-
-When running the CLI to talk to a Chainlink node on another machine, you can change the following environment variables:
-
-    CLIENT_NODE_URL          Default: http://localhost:6688
-    USERNAME                 Default: chainlink
-    PASSWORD                 Default: twochains
+You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the wiki](https://github.com/smartcontractkit/chainlink/wiki/Configuration-Variables).
 
 ## External Adapters
 
@@ -93,35 +72,7 @@ For more information on creating and using external adapters, please see our [ex
 
 ## Development Setup
 
-
-- [Install Go 1.10+](https://golang.org/doc/install#install)
-- Set up a Go workspace(`~/go` given as an example directory) and add go binaries to your path:
-```bash
-$ mkdir ~/go && cd ~/go
-$ export GOPATH=$(pwd)
-$ export PATH=$PATH:$GOPATH/bin
-```
-
-- [Install `dep`](https://github.com/golang/dep#installation):
-```bash
-$ go get -u github.com/golang/dep/cmd/dep
-```
-
-- Clone the repo:
-```bash
-$ git clone https://github.com/smartcontractkit/chainlink.git $GOPATH/src/github.com/smartcontractkit/chainlink
-```
-
-- Install dependencies:
-```bash
-$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
-$ dep ensure
-```
-
-- Run:
-```bash
-$ go run main.go
-```
+For the latest information on setting up a development environment, see the [guide here](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
 ### Build your current version
 
