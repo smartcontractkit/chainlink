@@ -28,13 +28,13 @@ const mountAuthenticatedApp = (store) => (
 
 describe('PrivateRoute', () => {
   it('redirects when user is NOT autheticated', () => {
-    const state = { session: { authenticated: false } }
+    const state = { authentication: { authenticated: false } }
     const wrapper = mountAuthenticatedApp(mockStore(state))
     expect(wrapper.find(AuthenticatedApp).props().location.pathname).toBe('/signin')
   })
 
   it('goes to destination when user is autheticated', async () => {
-    const state = { session: { authenticated: true } }
+    const state = { authentication: { authenticated: true } }
     const wrapper = mountAuthenticatedApp(mockStore(state))
     expect(wrapper.find(AuthenticatedApp).props().location.pathname).toBe('/')
     expect(wrapper.text()).toContain('Behind authentication')
