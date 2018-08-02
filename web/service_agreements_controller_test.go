@@ -14,4 +14,5 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
 	assert.NotEqual(t, "", sa.ID)
+	cltest.FindJob(app.Store, sa.JobSpecID)
 }

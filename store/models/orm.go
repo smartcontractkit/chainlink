@@ -141,6 +141,13 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 	}
 	defer tx.Rollback()
 
+	if err := saveJobSpec(job, tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func saveJobSpec(job *JobSpec, tx storm.Node) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobID = job.ID
 		if err := tx.Save(&job.Initiators[i]); err != nil {
@@ -150,6 +157,27 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 	if err := tx.Save(job); err != nil {
 		return fmt.Errorf("error saving job: %+v", err)
 	}
+	return nil
+}
+
+// SaveServiceAgreement saves a service agreement and it's associations to the
+// database.
+func (orm *ORM) SaveServiceAgreement(sa *ServiceAgreement) error {
+	tx, err := orm.Begin(true)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %+v", err)
+	}
+	defer tx.Rollback()
+
+	if err := saveJobSpec(&sa.jobSpec, tx); err != nil {
+		return fmt.Errorf("error saving service agreement: %+v", err)
+	}
+
+	sa.JobSpecID = sa.jobSpec.ID
+	if err := tx.Save(sa); err != nil {
+		return fmt.Errorf("error saving service agreement: %+v", err)
+	}
+
 	return tx.Commit()
 }
 

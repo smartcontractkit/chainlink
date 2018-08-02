@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"net/url"
 	"testing"
@@ -40,7 +41,7 @@ func TestAllNotFound(t *testing.T) {
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
-func TestORMSaveJob(t *testing.T) {
+func TestORM_SaveJob(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -79,6 +80,33 @@ func TestJobRunsFor(t *testing.T) {
 	assert.NoError(t, err)
 	actual := []string{runs[0].ID, runs[1].ID, runs[2].ID}
 	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
+}
+
+func TestORM_SaveServiceAgreement(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic",
+			`{"initiators":[{"type":"web"}],"tasks":[{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`,
+			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var jsr models.JobSpecRequest
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &jsr))
+			sa, err := models.NewServiceAgreementFromRequest(jsr)
+			assert.NoError(t, err)
+
+			assert.NoError(t, store.SaveServiceAgreement(&sa))
+			cltest.FindJob(store, sa.JobSpecID)
+		})
+	}
 }
 
 func TestJobRunsWithStatus(t *testing.T) {
