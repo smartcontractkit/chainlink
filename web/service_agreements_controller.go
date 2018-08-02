@@ -18,7 +18,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		publicError(c, 400, err)
 	} else if sa, err := models.NewServiceAgreementFromRequest(jr); err != nil {
 		c.AbortWithError(500, err)
-	} else if err = sac.App.Store.Save(&sa); err != nil {
+	} else if err = sac.App.Store.SaveServiceAgreement(&sa); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, sa)
