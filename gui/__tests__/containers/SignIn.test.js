@@ -41,7 +41,7 @@ describe('containers/SignIn', () => {
 
     await syncFetch(wrapper)
     const newState = store.getState()
-    expect(newState.authentication.authenticated).toEqual(true)
+    expect(newState.authentication.allowed).toEqual(true)
     expect(wrapper.text()).toContain('Behind authentication')
   })
 
@@ -63,7 +63,7 @@ describe('containers/SignIn', () => {
       messages: ['Your email or password is incorrect. Please try again'],
       currentUrl: '/signin'
     })
-    expect(newState.authentication.authenticated).toEqual(false)
+    expect(newState.authentication.allowed).toEqual(false)
     expect(newState.authentication.errors).toEqual([])
   })
 
