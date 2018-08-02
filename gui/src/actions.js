@@ -147,28 +147,28 @@ function sendFetchActions (type, ...getArgs) {
   }
 }
 
-export const REQUEST_SESSION = 'REQUEST_SESSION'
-export const RECEIVE_SESSION_SUCCESS = 'RECEIVE_SESSION_SUCCESS'
-export const RECEIVE_SESSION_FAIL = 'RECEIVE_SESSION_FAIL'
-export const RECEIVE_SESSION_ERROR = 'RECEIVE_SESSION_ERROR'
+export const REQUEST_SIGNIN = 'REQUEST_SIGNIN'
+export const RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS'
+export const RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL'
+export const RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR'
 
-const createSessionSuccess = (json) => ({
-  type: RECEIVE_SESSION_SUCCESS,
+const receiveSignInSuccess = (json) => ({
+  type: RECEIVE_SIGNIN_SUCCESS,
   authenticated: json.authenticated,
   errors: json.errors
 })
-const signInFail = () => ({type: RECEIVE_SESSION_FAIL})
+const receiveSignInFail = () => ({type: RECEIVE_SIGNIN_FAIL})
 
 function sendSignIn (data) {
   return dispatch => {
-    dispatch(createAction(REQUEST_SESSION))
+    dispatch(createAction(REQUEST_SIGNIN))
     return api.createSession(data)
-      .then((json) => dispatch(createSessionSuccess(json)))
+      .then((json) => dispatch(receiveSignInSuccess(json)))
       .catch(error => {
         if (error instanceof AuthenticationError) {
-          dispatch(signInFail())
+          dispatch(receiveSignInFail())
         } else {
-          dispatch(requestNetworkError(RECEIVE_SESSION_ERROR, error))
+          dispatch(requestNetworkError(RECEIVE_SIGNIN_ERROR, error))
         }
       })
   }
@@ -178,11 +178,16 @@ export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
 export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'
 export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
 
+const receiveSignoutSuccess = (json) => ({
+  type: RECEIVE_SIGNOUT_SUCCESS,
+  authenticated: json.authenticated
+})
+
 function sendSignOut () {
   return dispatch => {
     dispatch(createAction(REQUEST_SIGNOUT))
     return api.destroySession()
-      .then((json) => dispatch(createSessionSuccess(json)))
+      .then((json) => dispatch(receiveSignoutSuccess(json)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_SIGNOUT_ERROR, error)))
   }
 }
