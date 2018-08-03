@@ -16,12 +16,11 @@ const styles = theme => ({
   }
 })
 
-const renderBridgeList = ({bridges, bridgeCount, pageSize, bridgesFetching, bridgesError, fetchBridges}) => (
+const renderBridgeList = ({bridges, bridgeCount, pageSize, bridgesError, fetchBridges}) => (
   <BridgeList
     bridges={bridges}
     bridgeCount={bridgeCount}
     pageSize={pageSize}
-    fetching={bridgesFetching}
     error={bridgesError}
     fetchBridges={fetchBridges}
   />
@@ -55,7 +54,6 @@ Bridges.propTypes = {
   classes: PropTypes.object.isRequired,
   bridgeCount: PropTypes.number.isRequired,
   bridges: PropTypes.array.isRequired,
-  bridgesFetching: PropTypes.bool.isRequired,
   bridgesError: PropTypes.string,
   pageSize: PropTypes.number
 }
@@ -73,7 +71,6 @@ const mapStateToProps = state => {
   return {
     bridgeCount: state.bridges.count,
     bridges: state.bridges.items,
-    bridgesFetching: state.bridges.fetching,
     bridgesError: bridgesError
   }
 }

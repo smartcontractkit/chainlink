@@ -12,12 +12,6 @@ import Typography from '@material-ui/core/Typography'
 import formatInitiators from 'utils/formatInitiators'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
-const renderFetching = () => (
-  <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>...</TableCell>
-  </TableRow>
-)
-
 const renderError = error => (
   <TableRow>
     <TableCell component='th' scope='row' colSpan={3}>
@@ -42,10 +36,8 @@ const renderJobs = jobs => (
   ))
 )
 
-const renderBody = (jobs, fetching, error) => {
-  if (fetching) {
-    return renderFetching()
-  } else if (error) {
+const renderBody = (jobs, error) => {
+  if (error) {
     return renderError(error)
   } else {
     return renderJobs(jobs)
@@ -73,7 +65,7 @@ export class JobList extends Component {
   }
 
   render () {
-    const {jobs, jobCount, pageSize, fetching, error} = this.props
+    const {jobs, jobCount, pageSize, error} = this.props
     const TableButtonsWithProps = () => (
       <TableButtons
         {...this.props}
@@ -102,7 +94,7 @@ export class JobList extends Component {
             </TableRow>
           </TableHead>
           <TableBody>
-            {renderBody(jobs, fetching, error)}
+            {renderBody(jobs, error)}
           </TableBody>
         </Table>
         <TablePagination
@@ -124,7 +116,6 @@ JobList.propTypes = {
   jobs: PropTypes.array.isRequired,
   jobCount: PropTypes.number.isRequired,
   pageSize: PropTypes.number.isRequired,
-  fetching: PropTypes.bool,
   error: PropTypes.string,
   fetchJobs: PropTypes.func.isRequired
 }

@@ -17,10 +17,9 @@ const styles = theme => ({
   }
 })
 
-const renderConfigList = ({configs, fetching, error}) => (
+const renderConfigList = ({configs, error}) => (
   <ConfigList
     configs={configs}
-    fetching={fetching}
     error={error}
   />
 )
@@ -52,7 +51,6 @@ export class Configuration extends Component {
 Configuration.propTypes = {
   classes: PropTypes.object.isRequired,
   configs: PropTypes.array.isRequired,
-  fetching: PropTypes.bool.isRequired,
   error: PropTypes.string
 }
 
@@ -64,7 +62,6 @@ const mapStateToProps = state => {
 
   return {
     configs: configsSelector(state),
-    fetching: state.configuration.fetching,
     error: configError
   }
 }
