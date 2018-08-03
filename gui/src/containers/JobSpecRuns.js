@@ -36,7 +36,7 @@ export class JobSpecRuns extends Component {
   componentDidMount () {
     const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
     const firstPage = 1
-    const queryPage = this.props.match ? (parseInt(this.props.match.params.page) || firstPage) : firstPage
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobRunsPage) || firstPage) : firstPage
     this.setState({ page: queryPage })
     fetchJobSpecRuns(jobSpecId, queryPage, pageSize)
   }
