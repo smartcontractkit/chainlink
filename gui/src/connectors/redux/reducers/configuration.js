@@ -6,7 +6,6 @@ import {
 
 const initialState = {
   config: {},
-  fetching: false,
   networkError: false
 }
 
@@ -16,10 +15,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: true,
-          networkError: false
-        }
+        {networkError: false}
       )
     case RECEIVE_CONFIGURATION_SUCCESS:
       return Object.assign(
@@ -27,7 +23,6 @@ export default (state = initialState, action = {}) => {
         state,
         {
           config: action.config,
-          fetching: false,
           networkError: false
         }
       )
@@ -35,10 +30,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: false,
-          networkError: !!action.networkError
-        }
+        {networkError: !!action.networkError}
       )
     default:
       return state

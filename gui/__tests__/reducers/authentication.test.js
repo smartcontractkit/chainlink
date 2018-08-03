@@ -19,34 +19,26 @@ describe('authentication reducer', () => {
     const state = reducer(undefined, {})
 
     expect(state.authentication).toEqual({
-      fetching: false,
       allowed: false,
       errors: [],
       networkError: false
     })
   })
 
-  it('REQUEST_SIGNIN starts fetching and disables the network error', () => {
+  it('REQUEST_SIGNIN disables the network error', () => {
     const action = {type: REQUEST_SIGNIN}
     const state = reducer(undefined, action)
 
-    expect(state.authentication.fetching).toEqual(true)
     expect(state.authentication.networkError).toEqual(false)
   })
 
   describe('RECEIVE_SIGNIN_SUCCESS', () => {
-    it('stops fetching and assigns allowed', () => {
-      const previousState = {
-        authentication: {
-          fetching: true,
-          networkError: true
-        }
-      }
+    it('assigns allowed', () => {
+      const previousState = {authentication: {networkError: true}}
       const action = {type: RECEIVE_SIGNIN_SUCCESS, authenticated: true}
       const state = reducer(previousState, action)
 
       expect(state.authentication.allowed).toEqual(true)
-      expect(state.authentication.fetching).toEqual(false)
       expect(state.authentication.networkError).toEqual(false)
     })
 
@@ -59,11 +51,10 @@ describe('authentication reducer', () => {
   })
 
   describe('RECEIVE_SIGNIN_FAIL', () => {
-    it('stops fetching and clears authentication errors', () => {
+    it('clears authentication errors', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          fetching: true,
           errors: ['error 1']
         }
       }
@@ -71,7 +62,6 @@ describe('authentication reducer', () => {
       const state = reducer(previousState, action)
 
       expect(state.authentication.allowed).toEqual(false)
-      expect(state.authentication.fetching).toEqual(false)
       expect(state.authentication.errors).toEqual([])
     })
 
@@ -84,18 +74,16 @@ describe('authentication reducer', () => {
   })
 
   describe('RECEIVE_SIGNIN_ERROR', () => {
-    it('stops fetching and assigns a network error', () => {
+    it('assigns a network error', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          fetching: true,
           networkError: false
         }
       }
       const action = {type: RECEIVE_SIGNIN_ERROR, networkError: true}
       const state = reducer(previousState, action)
 
-      expect(state.authentication.fetching).toEqual(false)
       expect(state.authentication.networkError).toEqual(true)
       expect(state.authentication.allowed).toEqual(false)
     })
@@ -108,20 +96,18 @@ describe('authentication reducer', () => {
     })
   })
 
-  it('REQUEST_SIGNOUT starts fetching and disables the network error', () => {
+  it('REQUEST_SIGNOUT disables the network error', () => {
     const action = {type: REQUEST_SIGNOUT}
     const state = reducer(undefined, action)
 
-    expect(state.authentication.fetching).toEqual(true)
     expect(state.authentication.networkError).toEqual(false)
   })
 
   describe('RECEIVE_SIGNOUT_SUCCESS', () => {
-    it('stops fetching and assigns allowed', () => {
+    it('assigns allowed', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          fetching: true,
           networkError: true
         }
       }
@@ -129,7 +115,6 @@ describe('authentication reducer', () => {
       const state = reducer(previousState, action)
 
       expect(state.authentication.allowed).toEqual(false)
-      expect(state.authentication.fetching).toEqual(false)
       expect(state.authentication.networkError).toEqual(false)
     })
 
@@ -142,18 +127,16 @@ describe('authentication reducer', () => {
   })
 
   describe('RECEIVE_SIGNOUT_ERROR', () => {
-    it('stops fetching and assigns a network error', () => {
+    it('assigns a network error', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          fetching: true,
           networkError: false
         }
       }
       const action = {type: RECEIVE_SIGNOUT_ERROR, networkError: true}
       const state = reducer(previousState, action)
 
-      expect(state.authentication.fetching).toEqual(false)
       expect(state.authentication.networkError).toEqual(true)
       expect(state.authentication.allowed).toEqual(false)
     })
