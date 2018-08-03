@@ -183,7 +183,7 @@ class Layout extends Component {
                   <PrivateRoute exact path='/bridges' component={Bridges} />
                   <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
                   <PrivateRoute exact path='/' component={Jobs} />
-                  <PrivateRoute exact path='/jobs/page/:page' component={Jobs} />
+                  <PrivateRoute exact path='/jobs/page/:jobPage' component={Jobs} />
                   <Routes />
                 </Switch>
               </div>
