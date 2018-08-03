@@ -20,13 +20,12 @@ const styles = theme => ({
 })
 
 const renderJobsList = (props) => {
-  const {jobs, jobCount, pageSize, jobsFetching, jobsError, fetchJobs, history, match} = props
+  const {jobs, jobCount, pageSize, jobsError, fetchJobs, history, match} = props
   return (
     <JobList
       jobs={jobs}
       jobCount={jobCount}
       pageSize={pageSize}
-      fetching={jobsFetching}
       error={jobsError}
       fetchJobs={fetchJobs}
       history={history}
@@ -39,14 +38,12 @@ const renderSidebar = ({
   ethBalance,
   linkBalance,
   jobCount,
-  accountBalanceFetching,
   accountBalanceError
 }) => (
   <Grid container spacing={24}>
     <Grid item xs={12}>
       <TokenBalance
         title='Ethereum'
-        fetching={accountBalanceFetching}
         value={ethBalance}
         error={accountBalanceError}
       />
@@ -54,7 +51,6 @@ const renderSidebar = ({
     <Grid item xs={12}>
       <TokenBalance
         title='Link'
-        fetching={accountBalanceFetching}
         value={linkBalance}
         error={accountBalanceError}
       />
@@ -94,13 +90,11 @@ export class Jobs extends Component {
 
 Jobs.propTypes = {
   classes: PropTypes.object.isRequired,
-  ethBalance: PropTypes.string.isRequired,
-  linkBalance: PropTypes.string.isRequired,
-  accountBalanceFetching: PropTypes.bool.isRequired,
+  ethBalance: PropTypes.string,
+  linkBalance: PropTypes.string,
   accountBalanceError: PropTypes.string,
   jobCount: PropTypes.number.isRequired,
   jobs: PropTypes.array.isRequired,
-  jobsFetching: PropTypes.bool.isRequired,
   jobsError: PropTypes.string,
   pageSize: PropTypes.number
 }
@@ -122,11 +116,9 @@ const mapStateToProps = state => {
   return {
     ethBalance: state.accountBalance.eth,
     linkBalance: state.accountBalance.link,
-    accountBalanceFetching: state.accountBalance.fetching,
     accountBalanceError: accountBalanceError,
     jobCount: state.jobs.count,
     jobs: jobsSelector(state),
-    jobsFetching: state.jobs.fetching,
     jobsError: jobsError
   }
 }

@@ -31,15 +31,15 @@ const renderConfigs = configs => (
       <TableCell>
         <Typography variant='body1'>{v}</Typography>
       </TableCell>
-    </TableRow>
-  ))
+    </TableRow>)
+  )
 )
 
-const renderBody = (configs, fetching, error) => {
-  if (fetching) {
-    return renderFetching()
-  } else if (error) {
+const renderBody = (configs, error) => {
+  if (error) {
     return renderError(error)
+  } else if (configs.length === 0) {
+    return renderFetching()
   } else {
     return renderConfigs(configs)
   }
@@ -52,7 +52,7 @@ export class ConfigList extends Component {
   }
 
   render () {
-    const {configs, fetching, error} = this.props
+    const {configs, error} = this.props
 
     return (
       <Card>
@@ -68,7 +68,7 @@ export class ConfigList extends Component {
             </TableRow>
           </TableHead>
           <TableBody>
-            {renderBody(configs, fetching, error)}
+            {renderBody(configs, error)}
           </TableBody>
         </Table>
       </Card>
@@ -78,7 +78,6 @@ export class ConfigList extends Component {
 
 ConfigList.propTypes = {
   configs: PropTypes.array.isRequired,
-  fetching: PropTypes.bool,
   error: PropTypes.string
 }
 

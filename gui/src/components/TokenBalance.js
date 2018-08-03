@@ -13,12 +13,12 @@ const formatBalance = (val) => {
   return numeral(tokenBalance).format('0.20a')
 }
 
-const TokenBalance = ({title, value, className, fetching, error}) => {
+const TokenBalance = ({title, value, className, error}) => {
   let val
-  if (fetching) {
-    val = '...'
-  } else if (error) {
+  if (error) {
     val = error
+  } else if (value == null) {
+    val = '...'
   } else {
     val = formatBalance(value)
   }
@@ -36,7 +36,6 @@ TokenBalance.propTypes = {
   title: PropTypes.string.isRequired,
   value: PropTypes.string,
   className: PropTypes.string,
-  fetching: PropTypes.bool,
   error: PropTypes.string
 }
 

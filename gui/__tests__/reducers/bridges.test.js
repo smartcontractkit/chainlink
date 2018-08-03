@@ -13,16 +13,14 @@ describe('bridges reducer', () => {
       items: [],
       currentPage: [],
       count: 0,
-      fetching: false,
       networkError: false
     })
   })
 
-  it('REQUEST_BRIDGES starts fetching and disables the network error', () => {
+  it('REQUEST_BRIDGES disables the network error', () => {
     const action = {type: REQUEST_BRIDGES}
     const state = reducer(undefined, action)
 
-    expect(state.bridges.fetching).toEqual(true)
     expect(state.bridges.networkError).toEqual(false)
   })
 
@@ -35,13 +33,12 @@ describe('bridges reducer', () => {
 
     expect(state.bridges.items).toEqual([{name: 'a'}, {name: 'b'}])
     expect(state.bridges.currentPage).toEqual(['a', 'b'])
-    expect(state.bridges.fetching).toEqual(false)
     expect(state.bridges.networkError).toEqual(false)
   })
 
-  it('RECEIVE_BRIDGES_ERROR stops fetching and updates the network error', () => {
+  it('RECEIVE_BRIDGES_ERROR updates the network error', () => {
     const previousState = {
-      bridges: {networkError: false, fetching: true}
+      bridges: {networkError: false}
     }
     const action = {
       type: RECEIVE_BRIDGES_ERROR,
@@ -49,7 +46,6 @@ describe('bridges reducer', () => {
     }
     const state = reducer(previousState, action)
 
-    expect(state.bridges.fetching).toEqual(false)
     expect(state.bridges.networkError).toEqual(true)
   })
 })

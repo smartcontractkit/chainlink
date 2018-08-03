@@ -10,7 +10,6 @@ import {
 } from 'actions'
 
 const defaultState = {
-  fetching: false,
   allowed: false,
   errors: [],
   networkError: false
@@ -29,10 +28,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: true,
-          networkError: false
-        }
+        {networkError: false}
       )
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SIGNIN_SUCCESS: {
@@ -43,7 +39,6 @@ export default (state = initialState, action = {}) => {
         state,
         allowed,
         {
-          fetching: false,
           errors: action.errors || [],
           networkError: false
         }
@@ -56,10 +51,7 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         allowed,
-        {
-          fetching: false,
-          errors: []
-        }
+        {errors: []}
       )
     }
     case RECEIVE_SIGNIN_ERROR:
@@ -71,7 +63,6 @@ export default (state = initialState, action = {}) => {
         state,
         allowed,
         {
-          fetching: false,
           errors: action.errors || [],
           networkError: action.networkError
         }

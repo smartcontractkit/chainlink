@@ -11,23 +11,20 @@ describe('configuration reducer', () => {
 
     expect(state.configuration).toEqual({
       config: {},
-      fetching: false,
       networkError: false
     })
   })
 
-  it('REQUEST_CONFIGURATION starts fetching and disables the network error', () => {
+  it('REQUEST_CONFIGURATION disables the network error', () => {
     const action = {type: REQUEST_CONFIGURATION}
     const state = reducer(undefined, action)
 
-    expect(state.configuration.fetching).toEqual(true)
     expect(state.configuration.networkError).toEqual(false)
   })
 
-  it('RECEIVE_CONFIGURATION_SUCCESS stops fetching and assigns the config', () => {
+  it('RECEIVE_CONFIGURATION_SUCCESS assigns the config', () => {
     const previousState = {
       configuration: {
-        fetching: true,
         networkError: true
       }
     }
@@ -39,14 +36,12 @@ describe('configuration reducer', () => {
     const state = reducer(previousState, action)
 
     expect(state.configuration.config).toEqual(configMap)
-    expect(state.configuration.fetching).toEqual(false)
     expect(state.configuration.networkError).toEqual(false)
   })
 
-  it('RECEIVE_CONFIGURATION_ERROR stops fetching and assigns a network error', () => {
+  it('RECEIVE_CONFIGURATION_ERROR assigns a network error', () => {
     const previousState = {
       configuration: {
-        fetching: true,
         networkError: false
       }
     }
@@ -56,7 +51,6 @@ describe('configuration reducer', () => {
     }
     const state = reducer(previousState, action)
 
-    expect(state.configuration.fetching).toEqual(false)
     expect(state.configuration.networkError).toEqual(true)
   })
 })

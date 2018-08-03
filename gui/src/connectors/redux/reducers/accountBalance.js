@@ -5,9 +5,8 @@ import {
 } from 'actions'
 
 const initialState = {
-  eth: '0',
-  link: '0',
-  fetching: false,
+  eth: null,
+  link: null,
   networkError: false
 }
 
@@ -17,10 +16,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: true,
-          networkError: false
-        }
+        {networkError: false}
       )
     case RECEIVE_ACCOUNT_BALANCE_SUCCESS:
       return Object.assign(
@@ -29,7 +25,6 @@ export default (state = initialState, action = {}) => {
         {
           eth: action.eth,
           link: action.link,
-          fetching: false,
           networkError: false
         }
       )
@@ -37,10 +32,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: false,
-          networkError: !!action.networkError
-        }
+        {networkError: !!action.networkError}
       )
     default:
       return state
