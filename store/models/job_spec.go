@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 	"time"
@@ -342,21 +343,50 @@ func NormalizeSpecJSON(s string) (string, error) {
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
-	ID        string `json:"id" storm:"id,unique"`
-	JobSpecID string `json:"jobSpecID"`
-	jobSpec   JobSpec
+	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
+	ID          string      `json:"id" storm:"id,unique"`
+	JobSpecID   string      `json:"jobSpecID"`
+	jobSpec     JobSpec
 }
 
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
-func NewServiceAgreementFromRequest(jsr JobSpecRequest) (ServiceAgreement, error) {
+func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreement, error) {
 	sa := ServiceAgreement{}
 
+	sa.Encumbrance = sar.Encumbrance
+	sa.jobSpec = sar.JobSpec
+	sa.ID = sar.Digest
+	return sa, nil
+}
+
+type ServiceAgreementRequest struct {
+	JobSpec     JobSpec
+	Encumbrance Encumbrance
+	Digest      string
+}
+
+func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
+	var jsr JobSpecRequest
+	if err := json.Unmarshal(input, &jsr); err != nil {
+		return err
+	}
 	js, err := NewJobFromRequest(jsr)
 	if err != nil {
-		return sa, err
+		return err
+	}
+	var en Encumbrance
+	if err := json.Unmarshal(input, &en); err != nil {
+		return err
 	}
 
-	sa.jobSpec = js
-	sa.ID = js.Digest
-	return sa, nil
+	sar.JobSpec = js
+	sar.Digest = js.Digest
+	sar.Encumbrance = en
+
+	return nil
+}
+
+// Encumbrance connects job specifications with on-chain encumbrances.
+type Encumbrance struct {
+	Payment *big.Int `json:"payment"`
 }
