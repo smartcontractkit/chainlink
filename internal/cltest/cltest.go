@@ -466,6 +466,14 @@ func FindServiceAgreement(s *store.Store, id string) models.ServiceAgreement {
 	return sa
 }
 
+func ServiceAgreementFromString(str string) models.ServiceAgreement {
+	var sar models.ServiceAgreementRequest
+	mustNotErr(json.Unmarshal([]byte(str), &sar))
+	sa, err := models.NewServiceAgreementFromRequest(sar)
+	mustNotErr(err)
+	return sa
+}
+
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	client := app.NewHTTPClient()
