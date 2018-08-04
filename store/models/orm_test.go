@@ -2,7 +2,6 @@ package models_test
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"math/big"
 	"net/url"
 	"testing"
@@ -98,12 +97,10 @@ func TestORM_SaveServiceAgreement(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var jsr models.JobSpecRequest
-			assert.NoError(t, json.Unmarshal([]byte(test.input), &jsr))
-			sa, err := models.NewServiceAgreementFromRequest(jsr)
-			assert.NoError(t, err)
+			sa := cltest.ServiceAgreementFromString(test.input)
 
 			assert.NoError(t, store.SaveServiceAgreement(&sa))
+			sa = cltest.FindServiceAgreement(store, sa.ID)
 			cltest.FindJob(store, sa.JobSpecID)
 		})
 	}
