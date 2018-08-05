@@ -36,7 +36,7 @@ func NewJobFromRequest(jsr JobSpecRequest) (JobSpec, error) {
 		Tasks:      jsr.Tasks,
 		StartAt:    jsr.StartAt,
 		EndAt:      jsr.EndAt,
-		Digest:     fmt.Sprintf("0x%x", digest.Sum(nil)),
+		Digest:     common.ToHex(digest),
 	}, nil
 }
 
