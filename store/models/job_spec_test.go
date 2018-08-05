@@ -235,7 +235,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 	}{
 		{"basic",
 			`{"payment":1,"initiators":[{"type":"web"}],"tasks":[{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
-			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865", 1},
+			"0xa0911e6d17e4b992e41a12a2dae111382c42328a895983894e1bb6912213d385", 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
