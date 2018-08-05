@@ -355,7 +355,17 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 
 	sa.Encumbrance = sar.Encumbrance
 	sa.jobSpec = sar.JobSpec
-	sa.ID = sar.Digest
+
+	b, err := utils.HexToBytes(sa.Encumbrance.ABI(), sar.Digest)
+	if err != nil {
+		return sa, err
+	}
+	digest, err := utils.Keccak256(b)
+	if err != nil {
+		return sa, err
+	}
+	sa.ID = common.ToHex(digest)
+
 	return sa, nil
 }
 
