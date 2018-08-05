@@ -391,3 +391,13 @@ type Encumbrance struct {
 	Payment    *big.Int `json:"payment"`
 	Expiration *big.Int `json:"expiration"`
 }
+
+func (e Encumbrance) ABI() string {
+	if e.Payment == nil {
+		e.Payment = big.NewInt(0)
+	}
+	if e.Expiration == nil {
+		e.Expiration = big.NewInt(0)
+	}
+	return fmt.Sprintf("%064x%064x", e.Payment, e.Expiration)
+}
