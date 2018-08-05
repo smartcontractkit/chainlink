@@ -388,5 +388,6 @@ func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
-	Payment *big.Int `json:"payment"`
+	Payment    *big.Int `json:"payment"`
+	Expiration *big.Int `json:"expiration"`
 }
