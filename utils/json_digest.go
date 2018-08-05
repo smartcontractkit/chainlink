@@ -4,30 +4,21 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"hash"
 	"io"
 	"sort"
 	"strings"
 
-	"golang.org/x/crypto/sha3"
 	"golang.org/x/text/unicode/norm"
 )
 
 // ObjectDigest produces a solidity compatible Keccak256 signature from a
 // consistent JSON encoding of any go object.
-func ObjectDigest(object interface{}) (hash.Hash, error) {
-	hash := sha3.NewLegacyKeccak256()
-
+func ObjectDigest(object interface{}) ([]byte, error) {
 	str, err := NormalizedJSON(object)
 	if err != nil {
 		return nil, err
 	}
-	_, err = io.Copy(hash, strings.NewReader(str))
-	if err != nil {
-		return nil, err
-	}
-
-	return hash, nil
+	return Keccak256([]byte(str))
 }
 
 // NormalizedJSON returns a JSON representation of an object that has been

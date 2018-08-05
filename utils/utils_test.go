@@ -186,3 +186,27 @@ func TestParseUintHex(t *testing.T) {
 		})
 	}
 }
+
+func TestKeccak256(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic", "f00b", "0x2433bb36d5f9b14e4fea87c2d32d79abfe34e56808b891e471f4400fca2a336c"},
+		{"long input", "f00b2433bb36d5f9b14e4fea87c2d32d79abfe34e56808b891e471f4400fca2a336c", "0x6b917c56ad7bea7d09132b9e1e29bb5d9aa7d32d067c638dfa886bbbf6874cdf"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input, err := utils.HexToBytes(test.input)
+			assert.NoError(t, err)
+			result, err := utils.Keccak256(input)
+			assert.NoError(t, err)
+
+			assert.Equal(t, test.want, common.ToHex(result))
+		})
+	}
+}
