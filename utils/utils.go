@@ -21,6 +21,7 @@ import (
 	"github.com/jpillora/backoff"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/sha3"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -363,4 +364,12 @@ func FileExists(name string) bool {
 		return false
 	}
 	return true
+}
+
+// Keccak256 is a simplified interface for the legacy SHA3 implementation that
+// Ethereum uses.
+func Keccak256(in []byte) ([]byte, error) {
+	hash := sha3.NewLegacyKeccak256()
+	_, err := hash.Write(in)
+	return hash.Sum(nil), err
 }

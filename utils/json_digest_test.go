@@ -5,10 +5,13 @@ import (
 	"math"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNormalizedJSON(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		object   interface{}
@@ -46,6 +49,8 @@ func TestNormalizedJSON(t *testing.T) {
 }
 
 func TestObjectDigest(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		object   interface{}
@@ -69,12 +74,14 @@ func TestObjectDigest(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.hash, fmt.Sprintf("0x%x", digest.Sum(nil)))
+			assert.Equal(t, test.hash, common.ToHex(digest))
 		})
 	}
 }
 
 func TestObjectDigest_ProducesDeterministicResult(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		objects []interface{}
@@ -117,7 +124,7 @@ func TestObjectDigest_ProducesDeterministicResult(t *testing.T) {
 				digest, err := ObjectDigest(object)
 				assert.NoError(t, err)
 
-				hash := fmt.Sprintf("0x%x", digest.Sum(nil))
+				hash := common.ToHex(digest)
 				if firstHash == "" {
 					firstHash = hash
 				}
@@ -129,6 +136,8 @@ func TestObjectDigest_ProducesDeterministicResult(t *testing.T) {
 }
 
 func TestObjectDigest_DifferentTypesProduceDifferentHashes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		firstObject  interface{}
@@ -149,11 +158,11 @@ func TestObjectDigest_DifferentTypesProduceDifferentHashes(t *testing.T) {
 
 			firstDigest, err := ObjectDigest(test.firstObject)
 			assert.NoError(t, err)
-			firstHash := fmt.Sprintf("0x%x", firstDigest.Sum(nil))
+			firstHash := common.ToHex(firstDigest)
 
 			secondDigest, err := ObjectDigest(test.secondObject)
 			assert.NoError(t, err)
-			secondHash := fmt.Sprintf("0x%x", secondDigest.Sum(nil))
+			secondHash := common.ToHex(secondDigest)
 
 			assert.NotEqual(t, firstHash, secondHash, fmt.Sprintf("%+v should not produce the same hash as %+v", test.firstObject, test.secondObject))
 		})
