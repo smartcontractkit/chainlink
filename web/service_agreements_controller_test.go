@@ -17,4 +17,5 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	assert.NotEqual(t, "", sa.ID)
 	cltest.FindJob(app.Store, sa.JobSpecID)
 	assert.Equal(t, big.NewInt(1), sa.Encumbrance.Payment)
+	assert.Equal(t, big.NewInt(2), sa.Encumbrance.Expiration)
 }
