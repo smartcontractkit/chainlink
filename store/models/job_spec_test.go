@@ -249,3 +249,28 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestEncumbrance_ABI(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		payment    *big.Int
+		expiration *big.Int
+		want       string
+	}{
+		{"basic", big.NewInt(1), big.NewInt(2), "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002"},
+		{"empty", nil, nil, "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			enc := models.Encumbrance{
+				Payment:    test.payment,
+				Expiration: test.expiration,
+			}
+
+			assert.Equal(t, test.want, enc.ABI())
+		})
+	}
+}
