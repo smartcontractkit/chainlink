@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"testing"
 
@@ -159,20 +160,29 @@ func TestBridgeController_Destroy(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 
-	bt := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges2"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
-	}
-	err := app.AddAdapter(bt)
+	bridgeJSON := cltest.LoadJSON("../internal/fixtures/web/create_random_number_bridge_type.json")
+	var bt models.BridgeType
+	err := json.Unmarshal(bridgeJSON, &bt)
 	assert.NoError(t, err)
+	assert.NoError(t, app.AddAdapter(&bt))
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	resp, cleanup = client.Get("/v2/bridge_types/testingbridges2")
+
+	resp, cleanup = client.Get("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
+
+	assert.NoError(t, app.AddAdapter(&bt))
+
+	js, _ := cltest.NewJobWithWebInitiator()
+	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
+	assert.NoError(t, app.Store.SaveJob(&js))
+
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	defer cleanup()
+	assert.Equal(t, 409, resp.StatusCode, "Response should be 409")
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
