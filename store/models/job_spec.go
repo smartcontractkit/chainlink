@@ -14,7 +14,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-// JobSpecRequest represents a job request as sent over the wire.
+// JobSpecRequest represents a job specification as requested over the wire.
 type JobSpecRequest struct {
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
@@ -369,12 +369,14 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 	return sa, nil
 }
 
+// ServiceAgreementRequest represents a service agreement as requested over the wire.
 type ServiceAgreementRequest struct {
 	JobSpec     JobSpec
 	Encumbrance Encumbrance
 	Digest      string
 }
 
+// UnmarshalJSON fulfills Go's built in JSON unmarshaling interface.
 func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 	var jsr JobSpecRequest
 	if err := json.Unmarshal(input, &jsr); err != nil {
@@ -402,6 +404,7 @@ type Encumbrance struct {
 	Expiration *big.Int `json:"expiration"`
 }
 
+// ABI returns the encumbrance ABI encoded as a hex string.
 func (e Encumbrance) ABI() string {
 	if e.Payment == nil {
 		e.Payment = big.NewInt(0)
