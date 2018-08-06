@@ -1,6 +1,8 @@
 package web
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -14,7 +16,9 @@ type ServiceAgreementsController struct {
 // Create builds and saves a new service agreement record.
 func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 	var sar models.ServiceAgreementRequest
-	if err := c.ShouldBindJSON(&sar); err != nil {
+	if !sac.App.Store.Config.Dev {
+		publicError(c, 500, errors.New("Service Agreements are currently under development and not yet usable outside of development mode"))
+	} else if err := c.ShouldBindJSON(&sar); err != nil {
 		publicError(c, 400, err)
 	} else if sa, err := models.NewServiceAgreementFromRequest(sar); err != nil {
 		publicError(c, 400, err)
