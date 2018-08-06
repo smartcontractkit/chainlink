@@ -160,6 +160,28 @@ func (orm *ORM) JobRunsWithStatus(statuses ...RunStatus) ([]JobRun, error) {
 	return runs, err
 }
 
+// AnyJobWithType returns true if there is at least one job associated with
+// the type name specified and false otherwise
+func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
+	jobs := []JobSpec{}
+	err := orm.All(&jobs)
+	if err != nil {
+		return false, err
+	}
+	ts, err := NewTaskType(taskTypeName)
+	if err != nil {
+		return false, err
+	}
+	for i := range jobs {
+		for j := range jobs[i].Tasks {
+			if jobs[i].Tasks[j].Type == ts {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // CreateTx saves the properties of an Ethereum transaction to the database.
 func (orm *ORM) CreateTx(
 	from common.Address,

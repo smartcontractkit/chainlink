@@ -85,6 +85,10 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
+	} else if jobFounds, err := btc.App.Store.AnyJobWithType(name); err != nil {
+		c.AbortWithError(500, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
+	} else if jobFounds {
+		c.AbortWithError(409, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
 	} else if err = btc.App.RemoveAdapter(&bt); err != nil {
 		c.AbortWithError(StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
 	} else {

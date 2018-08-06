@@ -112,6 +112,24 @@ func TestJobRunsWithStatus(t *testing.T) {
 	}
 }
 
+func TestAnyJobWithType(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	js, _ := cltest.NewJobWithWebInitiator()
+	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
+	assert.NoError(t, store.Save(&js))
+	found, err := store.AnyJobWithType("bridgetestname")
+	assert.NoError(t, err)
+	assert.Equal(t, found, true)
+	found, err = store.AnyJobWithType("somethingelse")
+	assert.NoError(t, err)
+	assert.Equal(t, found, false)
+
+}
+
 func TestJobRunsCountFor(t *testing.T) {
 	t.Parallel()
 
