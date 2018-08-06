@@ -57,6 +57,30 @@ func TestORMSaveJob(t *testing.T) {
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
 }
 
+func TestJobRunsFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, i := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.SaveJob(&job))
+	jr1 := job.NewRun(i)
+	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
+	require.NoError(t, store.Save(&jr1))
+	jr2 := job.NewRun(i)
+	jr2.CreatedAt = time.Now().AddDate(0, 0, 1)
+	require.NoError(t, store.Save(&jr2))
+	jr3 := job.NewRun(i)
+	jr3.CreatedAt = time.Now().AddDate(0, 0, -9)
+	require.NoError(t, store.Save(&jr3))
+
+	runs, err := store.JobRunsFor(job.ID)
+	assert.NoError(t, err)
+	actual := []string{runs[0].ID, runs[1].ID, runs[2].ID}
+	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
+}
+
 func TestJobRunsWithStatus(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
