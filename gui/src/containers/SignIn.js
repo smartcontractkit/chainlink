@@ -31,7 +31,7 @@ export class SignIn extends Component {
   onSubmit = (e) => {
     e.preventDefault()
     const { email, password } = this.state
-    this.props.submitSignIn({email: email, password: password}).then(e => console.log(e))
+    this.props.submitSignIn({email: email, password: password})
   }
 
   render () {
