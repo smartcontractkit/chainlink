@@ -110,7 +110,8 @@ const BridgeForm = withFormik({
 })(FormLayout)
 
 const mapStateToProps = state => ({
-  creating: state.create.fetching
+  creating: state.create.fetching,
+  errors: state.errors.messages
 })
 
 export const ConnectedBridgeForm = connect(
