@@ -7,6 +7,7 @@ import {
 const initialState = {
   fetching: false,
   errors: [],
+  successMessage: {},
   networkError: false
 }
 
@@ -27,7 +28,8 @@ export default (state = initialState, action = {}) => {
         state,
         {
           fetching: false,
-          errors: action.errors || [],
+          errors: action.error || [],
+          successMessage: action.response,
           networkError: false
         }
       )

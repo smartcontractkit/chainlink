@@ -12,6 +12,7 @@ describe('create reducer', () => {
     expect(state.create).toEqual({
       fetching: false,
       errors: [],
+      successMessage: {},
       networkError: false
     })
   })
@@ -32,10 +33,11 @@ describe('create reducer', () => {
           networkError: true
         }
       }
-      const action = {type: RECEIVE_CREATE_SUCCESS}
+      const action = {type: RECEIVE_CREATE_SUCCESS, response: {successful: 'success message'}}
       const state = reducer(previousState, action)
 
       expect(state.create.fetching).toEqual(false)
+      expect(state.create.successMessage).toEqual({successful: 'success message'})
       expect(state.create.networkError).toEqual(false)
     })
   })

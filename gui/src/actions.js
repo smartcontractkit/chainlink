@@ -198,11 +198,16 @@ export const REQUEST_CREATE = 'REQUEST_CREATE'
 export const RECEIVE_CREATE_SUCCESS = 'RECEIVE_CREATE_SUCCESS'
 export const RECEIVE_CREATE_ERROR = 'RECEIVE_CREATE_ERROR'
 
+const receiveCreateSuccess = (res) => ({
+  type: RECEIVE_CREATE_SUCCESS,
+  response: res
+})
+
 function sendCreate (endpoint, data) {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createObject(endpoint, data)
-      .then(() => dispatch(RECEIVE_CREATE_SUCCESS))
+      .then((res) => dispatch(receiveCreateSuccess(res)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
   }
 }

@@ -7,6 +7,7 @@ import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import Flash from './Flash'
+import { Link } from 'react-static'
 
 const styles = theme => ({
   textfield: {
@@ -26,7 +27,7 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success }) => (
   <Fragment>
     {
       errors.length > 0 &&
@@ -34,6 +35,11 @@ const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors }) =
         {errors.map((msg, i) => <p key={i}>{msg}</p>)}
       </Flash>
     }
+    {JSON.stringify(success) !== '{}' && (
+      <Flash success> className={classes.flash}
+        Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created.
+      </Flash>
+    )}
     <Form className={classes.form} noValidate>
       <Grid container justify='center' spacing={0}>
         <Grid item xs={2}>
@@ -105,13 +111,14 @@ const BridgeForm = withFormik({
   handleSubmit (values, { props }) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
-    props.submitCreate('v2/bridge_types', formattedValues).then(e => console.log(e))
+    props.submitCreate('v2/bridge_types', formattedValues)
   }
 })(FormLayout)
 
 const mapStateToProps = state => ({
   creating: state.create.fetching,
-  errors: state.errors.messages
+  success: state.create.successMessage,
+  errors: state.create.errors.messages
 })
 
 export const ConnectedBridgeForm = connect(
