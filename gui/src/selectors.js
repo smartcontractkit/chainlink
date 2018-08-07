@@ -38,3 +38,5 @@ export const configsSelector = state => (
     .sort()
     .map(key => [constantCase(key), state.configuration.config[key]])
 )
+
+export const isFetchingSelector = (state) => state.fetching.count > 0

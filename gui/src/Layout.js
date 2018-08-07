@@ -11,16 +11,16 @@ import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import Flash from 'components/Flash'
-import universal from 'react-universal-component'
 import PrivateRoute from './PrivateRoute'
+import Logo from 'components/Logo'
+import universal from 'react-universal-component'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { submitSignOut } from 'actions'
-
-import logoImg from './logo.svg'
+import { isFetchingSelector } from 'selectors'
 
 // Use universal-react-component for code-splitting non-static routes
 const Bridges = universal(import('./containers/Bridges'))
@@ -33,7 +33,7 @@ const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
 const JobSpecRun = universal(import('./containers/JobSpecRun'))
 const SignIn = universal(import('./containers/SignIn'))
 
-const appBarHeight = 64
+const appBarHeight = 70
 const drawerWidth = 240
 
 // Custom styles
@@ -92,7 +92,7 @@ class Layout extends Component {
   }
 
   render () {
-    const {classes, errors} = this.props
+    const {classes, errors, isFetching} = this.props
     const {drawerOpen} = this.state
 
     const drawer = (
@@ -146,7 +146,7 @@ class Layout extends Component {
               <Grid container alignItems='center' className={classes.appBarContent}>
                 <Grid item xs={9}>
                   <Link to='/'>
-                    <img src={logoImg} alt='Chainlink' width={121} height={44} />
+                    <Logo width={39} height={45} spin={isFetching} />
                   </Link>
                 </Grid>
                 <Grid item xs={3}>
@@ -208,7 +208,8 @@ Layout.defaultProps = {
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  errors: state.errors.messages
+  errors: state.errors.messages,
+  isFetching: isFetchingSelector(state)
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)
