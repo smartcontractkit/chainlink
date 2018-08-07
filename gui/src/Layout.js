@@ -119,7 +119,7 @@ class Layout extends Component {
               <ListItemText primary='Bridges' />
             </ListItem>
             <ListItem button component={Link} to='/create' className={classes.menuitem}>
-                <ListItemText primary="Create" />
+              <ListItemText primary='Create' />
             </ListItem>
             <ListItem button component={Link} to='/config' className={classes.menuitem}>
               <ListItemText primary='Configuration' />

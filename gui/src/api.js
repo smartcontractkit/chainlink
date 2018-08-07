@@ -56,7 +56,7 @@ const destroy = (path) => {
 }
 
 export const getJobs = (page, size) => get('/v2/specs', {page: page, size: size})
-}
+
 export const getJobSpec = (id) => get(`/v2/specs/${id}`)
 
 export const getJobSpecRuns = (id, page, size) => get(`/v2/specs/${id}/runs`, {page: page, size: size})
@@ -72,5 +72,7 @@ export const getBridges = (page, size) => get('/v2/bridge_types', {page: page, s
 export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
 
 export const createSession = (data) => post(`/sessions`, data)
+
+export const createObject = (endpoint, data) => post(`/${endpoint}`, data)
 
 export const destroySession = () => destroy(`/sessions`)
