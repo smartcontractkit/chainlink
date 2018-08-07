@@ -73,4 +73,6 @@ export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
 
 export const createSession = (data) => post(`/sessions`, data)
 
+export const createObject = (endpoint, data) => post(`/${endpoint}`, data)
+
 export const destroySession = () => destroy(`/sessions`)
