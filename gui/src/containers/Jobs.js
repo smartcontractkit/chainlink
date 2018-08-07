@@ -11,11 +11,16 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchJobs, fetchAccountBalance } from 'actions'
 import { jobsSelector } from 'selectors'
+import Button from '@material-ui/core/Button'
+import Link from 'components/Link'
 
 const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
+  },
+  createButtons: {
+    padding: theme.spacing.unit * 2
   }
 })
 
@@ -61,6 +66,12 @@ const renderSidebar = ({
   </Grid>
 )
 
+const CreateButton = ({tabValue, buttonText}) => (
+  <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: tabValue } }} >
+    {buttonText}
+  </Button>
+)
+
 export class Jobs extends Component {
   componentDidMount () {
     this.props.fetchAccountBalance()
@@ -70,17 +81,22 @@ export class Jobs extends Component {
     const { classes } = this.props
     return (
       <div>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Jobs
-        </Typography>
-
+        <Grid container spacing={8} xs={9} alignItems='center' >
+          <Grid item xs>
+            <Typography variant='display2' color='inherit' className={classes.title}>
+              Jobs
+            </Typography>
+          </Grid>
+          <Grid item>
+            <CreateButton tabValue={0} buttonText='Create Bridge' />
+          </Grid>
+          <Grid item>
+            <CreateButton tabValue={1} buttonText='Create Job' />
+          </Grid>
+        </Grid>
         <Grid container spacing={40}>
-          <Grid item xs={9}>
-            {renderJobsList(this.props)}
-          </Grid>
-          <Grid item xs={3}>
-            {renderSidebar(this.props)}
-          </Grid>
+          <Grid item xs={9}>{renderJobsList(this.props)}</Grid>
+          <Grid item xs={3}>{renderSidebar(this.props)}</Grid>
         </Grid>
         <Footer />
       </div>
