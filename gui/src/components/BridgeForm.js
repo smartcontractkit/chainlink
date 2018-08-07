@@ -27,7 +27,7 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success, networkError }) => (
   <Fragment>
     {
       errors.length > 0 &&
@@ -35,11 +35,18 @@ const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, suc
         {errors.map((msg, i) => <p key={i}>{msg}</p>)}
       </Flash>
     }
-    {JSON.stringify(success) !== '{}' && (
-      <Flash success> className={classes.flash}
+    {
+      !(errors.length > 0) && networkError &&
+      <Flash error className={classes.flash}>
+        Received a Network Error.
+      </Flash>
+    }
+    {
+      JSON.stringify(success) !== '{}' && 
+      <Flash success className={classes.flash}>
         Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created.
       </Flash>
-    )}
+    }
     <Form className={classes.form} noValidate>
       <Grid container justify='center' spacing={0}>
         <Grid item xs={2}>
@@ -118,7 +125,8 @@ const BridgeForm = withFormik({
 const mapStateToProps = state => ({
   creating: state.create.fetching,
   success: state.create.successMessage,
-  errors: state.create.errors.messages
+  errors: state.create.errors.messages,
+  networkError: state.create.networkError
 })
 
 export const ConnectedBridgeForm = connect(
