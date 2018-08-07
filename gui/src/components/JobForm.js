@@ -21,17 +21,19 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success, networkError }) => (
   <Fragment>
-    {errors.length > 0 && (
+    {errors.length > 0 && 
       <Flash error className={classes.flash}>
         {errors.map((msg, i) => <p key={i}>{msg}</p>)}
       </Flash>
-    )}
+    }
+    {!(errors.length > 0) && networkError && 
+      <Flash error className={classes.flash}>
+        Received a Network Error.
+      </Flash>}
     {JSON.stringify(success) !== '{}' && (
-      <Flash success>
-        {' '}
-        className={classes.flash}
+      <Flash success className={classes.flash}>
         Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created.
       </Flash>
     )}
@@ -83,7 +85,8 @@ const JobForm = withFormik({
 const mapStateToProps = state => ({
   creating: state.create.fetching,
   success: state.create.successMessage,
-  errors: state.create.errors.messages
+  errors: state.create.errors.messages,
+  networkError: state.create.networkError
 })
 
 export const ConnectedJobForm = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitCreate }))(JobForm)
