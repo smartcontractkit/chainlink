@@ -192,6 +192,19 @@ function sendSignOut () {
   }
 }
 
+export const REQUEST_CREATE = 'REQUEST_CREATE'
+export const RECEIVE_CREATE_SUCCESS = 'RECEIVE_CREATE_SUCCESS'
+export const RECEIVE_CREATE_ERROR = 'RECEIVE_CREATE_ERROR'
+
+function sendCreate (endpoint, data) {
+  return dispatch => {
+    dispatch(createAction(REQUEST_CREATE))
+    return api.createObject(endpoint, data)
+      .then(() => dispatch(RECEIVE_CREATE_SUCCESS))
+      .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
+  }
+}
+
 export const fetchJobs = (page, size) => sendFetchActions('jobs', page, size)
 export const fetchAccountBalance = () => sendFetchActions('accountBalance')
 export const fetchJobSpec = (id) => sendFetchActions('jobSpec', id)
@@ -203,3 +216,4 @@ export const fetchBridgeSpec = (name) => sendFetchActions('bridgeSpec', name)
 
 export const submitSignIn = (data) => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
+export const submitCreate = (data) => sendCreate(data)
