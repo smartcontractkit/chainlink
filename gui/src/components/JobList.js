@@ -10,7 +10,7 @@ import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
 import formatInitiators from 'utils/formatInitiators'
-import TableButtons from 'components/TableButtons'
+import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
 const renderFetching = () => (
   <TableRow>
@@ -61,8 +61,7 @@ export class JobList extends Component {
 
   componentDidMount () {
     const { pageSize, fetchJobs } = this.props
-    const firstPage = 1
-    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobPage) || firstPage) : firstPage
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobPage, 10) || FIRST_PAGE) : FIRST_PAGE
     this.setState({ page: queryPage })
     fetchJobs(queryPage, pageSize)
   }
