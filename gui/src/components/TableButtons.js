@@ -42,4 +42,5 @@ const TableButtons = props => {
   )
 }
 
+export const FIRST_PAGE = 1
 export default withStyles(styles)(TableButtons)
