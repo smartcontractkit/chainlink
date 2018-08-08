@@ -76,7 +76,6 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 			var sar models.ServiceAgreementRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
-			assert.Equal(t, test.wantDigest, sar.Digest)
 			assert.Equal(t, big.NewInt(test.wantPayment), sar.Encumbrance.Payment)
 		})
 	}
