@@ -1,7 +1,8 @@
 import {
   REQUEST_CREATE,
   RECEIVE_CREATE_SUCCESS,
-  RECEIVE_CREATE_ERROR
+  RECEIVE_CREATE_ERROR,
+  MATCH_ROUTE
 } from 'actions'
 
 const initialState = {
@@ -13,6 +14,14 @@ const initialState = {
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
+    case MATCH_ROUTE:
+      if (action.match && state.currentUrl !== action.match.url) {
+        return Object.assign(
+          {},
+          initialState
+        )
+      }
+      return state
     case REQUEST_CREATE:
       return Object.assign(
         {},
