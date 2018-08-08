@@ -194,7 +194,7 @@ func ExecuteRunAtBlock(
 	overrides models.RunResult,
 	bn *models.IndexableBlockNumber,
 ) (models.JobRun, error) {
-	jr, err := prepareJobRun(jr, store, bn)
+	jr, err := prepareJobRun(jr, store, overrides, bn)
 	if err != nil {
 		return jr, wrapError(jr, err)
 	}
@@ -204,13 +204,13 @@ func ExecuteRunAtBlock(
 		return jr, wrapError(jr, errors.New("No unfinished tasks to run"))
 	}
 	offset := len(jr.TaskRuns) - len(unfinished)
-	prevResult, err := unfinished[0].Result.Merge(overrides)
+	prevResult, err := unfinished[0].Result.Merge(jr.Overrides)
 	if err != nil {
 		return jr, wrapError(jr, err)
 	}
 
 	for i, taskRunTemplate := range unfinished {
-		nextTaskRun, err := taskRunTemplate.MergeTaskParams(overrides.Data)
+		nextTaskRun, err := taskRunTemplate.MergeTaskParams(jr.Overrides.Data)
 		if err != nil {
 			return jr, wrapError(jr, err)
 		}
@@ -233,11 +233,16 @@ func ExecuteRunAtBlock(
 	return jr, wrapError(jr, store.Save(&jr))
 }
 
-func prepareJobRun(jr models.JobRun, store *store.Store, bn *models.IndexableBlockNumber) (models.JobRun, error) {
+func prepareJobRun(jr models.JobRun, store *store.Store, overrides models.RunResult, bn *models.IndexableBlockNumber) (models.JobRun, error) {
 	if jr.Status.CanStart() {
 		jr.Status = models.RunStatusInProgress
 	}
-	if err := store.Save(&jr); err != nil {
+	var err error
+	jr.Overrides, err = jr.Overrides.Merge(overrides)
+	if err != nil {
+		return jr, err
+	}
+	if err = store.Save(&jr); err != nil {
 		return jr, err
 	}
 	if jr.Result.HasError() {
