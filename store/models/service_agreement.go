@@ -14,7 +14,8 @@ type ServiceAgreement struct {
 	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
 	ID          string      `json:"id" storm:"id,unique"`
 	JobSpecID   string      `json:"jobSpecID"`
-	jobSpec     JobSpec
+	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
+	// If needed later, it can be retrieved from the database with JobSpecID.
 }
 
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
