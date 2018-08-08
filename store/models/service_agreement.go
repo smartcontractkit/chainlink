@@ -24,7 +24,7 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 	sa.Encumbrance = sar.Encumbrance
 	sa.jobSpec = sar.JobSpec
 
-	b, err := utils.HexToBytes(sa.Encumbrance.ABI(), sar.Digest)
+	b, err := utils.HexToBytes(sa.Encumbrance.ABI(), sa.jobSpec.Digest)
 	if err != nil {
 		return sa, err
 	}
@@ -58,7 +58,6 @@ func (e Encumbrance) ABI() string {
 type ServiceAgreementRequest struct {
 	JobSpec     JobSpec
 	Encumbrance Encumbrance
-	Digest      string
 }
 
 // UnmarshalJSON fulfills Go's built in JSON unmarshaling interface.
@@ -67,17 +66,18 @@ func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 	if err := json.Unmarshal(input, &jsr); err != nil {
 		return err
 	}
+
 	js, err := NewJobFromRequest(jsr)
 	if err != nil {
 		return err
 	}
+
 	var en Encumbrance
 	if err := json.Unmarshal(input, &en); err != nil {
 		return err
 	}
 
 	sar.JobSpec = js
-	sar.Digest = js.Digest
 	sar.Encumbrance = en
 
 	return nil
