@@ -7,7 +7,6 @@ import TokenBalance from 'components/TokenBalance'
 import MetaInfo from 'components/MetaInfo'
 import Footer from 'components/Footer'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchJobs, fetchAccountBalance } from 'actions'
@@ -137,6 +136,5 @@ export const ConnectedJobs = connect(
   matchRouteAndMapDispatchToProps({fetchAccountBalance, fetchJobs})
 )(Jobs)
 
-export default withSiteData(
-  withStyles(styles)(ConnectedJobs)
-)
+export default withStyles(styles)(ConnectedJobs)
+
