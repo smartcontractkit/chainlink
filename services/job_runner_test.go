@@ -217,6 +217,25 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 }
 
+func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithLogInitiator()
+	job.Tasks = []models.TaskSpec{}
+	run := job.NewRun(initr)
+
+	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
+	overrides := models.RunResult{Data: initialData}
+	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
+	assert.Error(t, err)
+
+	store.One("ID", run.ID, &run)
+	assert.Equal(t, initialData, run.Overrides.Data)
+}
+
 func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 	t.Parallel()
 

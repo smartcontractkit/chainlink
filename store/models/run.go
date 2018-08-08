@@ -23,6 +23,7 @@ type JobRun struct {
 	CompletedAt    null.Time    `json:"completedAt"`
 	Initiator      Initiator    `json:"initiator"`
 	CreationHeight *hexutil.Big `json:"creationHeight"`
+	Overrides      RunResult    `json:"overrides"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
