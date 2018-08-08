@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -320,6 +321,12 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 	var respJSON CommonJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
+}
+
+func ParseJSON(body io.Reader) models.JSON {
+	b, err := ioutil.ReadAll(body)
+	mustNotErr(err)
+	return models.JSON{Result: gjson.ParseBytes(b)}
 }
 
 // ErrorsJSON has an errors attribute
