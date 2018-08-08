@@ -291,6 +291,8 @@ type BridgeType struct {
 	Name                 TaskType `json:"name" storm:"id,unique"`
 	URL                  WebURL   `json:"url"`
 	DefaultConfirmations uint64   `json:"defaultConfirmations"`
+	IncomingKey          string   `json:"incomingKey"`
+	OutgoingKey          string   `json:"outgoingKey"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -308,20 +310,6 @@ func (bt *BridgeType) SetID(value string) error {
 	name, err := NewTaskType(value)
 	bt.Name = name
 	return err
-}
-
-// UnmarshalJSON parses the given input and updates the BridgeType
-// Name and URL.
-func (bt *BridgeType) UnmarshalJSON(input []byte) error {
-	type Alias BridgeType
-	var aux Alias
-	if err := json.Unmarshal(input, &aux); err != nil {
-		return err
-	}
-	bt.Name = aux.Name
-	bt.URL = aux.URL
-	bt.DefaultConfirmations = aux.DefaultConfirmations
-	return nil
 }
 
 // NormalizeSpecJSON makes a string of JSON deterministically ordered and
