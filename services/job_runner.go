@@ -194,17 +194,7 @@ func ExecuteRunAtBlock(
 	overrides models.RunResult,
 	bn *models.IndexableBlockNumber,
 ) (models.JobRun, error) {
-	if jr.Status.CanStart() {
-		jr.Status = models.RunStatusInProgress
-	}
-	if err := store.Save(&jr); err != nil {
-		return jr, wrapError(jr, err)
-	}
-	if jr.Result.HasError() {
-		return jr, wrapError(jr, jr.Result)
-	}
-
-	jr, err := store.SaveCreationHeight(jr, bn)
+	jr, err := prepareJobRun(jr, store, bn)
 	if err != nil {
 		return jr, wrapError(jr, err)
 	}
@@ -214,35 +204,46 @@ func ExecuteRunAtBlock(
 		return jr, wrapError(jr, errors.New("No unfinished tasks to run"))
 	}
 	offset := len(jr.TaskRuns) - len(unfinished)
-	latestRun := unfinished[0]
-
-	merged, err := latestRun.Result.Merge(overrides)
+	prevResult, err := unfinished[0].Result.Merge(overrides)
 	if err != nil {
 		return jr, wrapError(jr, err)
 	}
-	latestRun.Result = merged
 
 	for i, taskRunTemplate := range unfinished {
-		taskRun, err := taskRunTemplate.MergeTaskParams(overrides.Data)
+		nextTaskRun, err := taskRunTemplate.MergeTaskParams(overrides.Data)
 		if err != nil {
 			return jr, wrapError(jr, err)
 		}
 
-		latestRun = markCompletedIfRunnable(startTask(jr, taskRun, latestRun.Result, bn, store))
-		jr.TaskRuns[i+offset] = latestRun
-		logTaskResult(latestRun, taskRun, i)
+		lastRun := markCompletedIfRunnable(startTask(jr, nextTaskRun, prevResult, bn, store))
+		jr.TaskRuns[i+offset] = lastRun
+		logTaskResult(lastRun, nextTaskRun, i)
+		prevResult = lastRun.Result
 
 		if err := store.Save(&jr); err != nil {
 			return jr, wrapError(jr, err)
 		}
-		if !latestRun.Status.Runnable() {
+		if !lastRun.Status.Runnable() {
 			break
 		}
 	}
 
-	jr = jr.ApplyResult(latestRun.Result)
+	jr = jr.ApplyResult(prevResult)
 	logger.Infow("Finished current job run execution", jr.ForLogger()...)
 	return jr, wrapError(jr, store.Save(&jr))
+}
+
+func prepareJobRun(jr models.JobRun, store *store.Store, bn *models.IndexableBlockNumber) (models.JobRun, error) {
+	if jr.Status.CanStart() {
+		jr.Status = models.RunStatusInProgress
+	}
+	if err := store.Save(&jr); err != nil {
+		return jr, err
+	}
+	if jr.Result.HasError() {
+		return jr, jr.Result
+	}
+	return store.SaveCreationHeight(jr, bn)
 }
 
 func logTaskResult(lr models.TaskRun, tr models.TaskRun, i int) {
