@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -107,6 +108,9 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 // will not be added.
 func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
 	store := app.GetStore()
+
+	bt.IncomingKey = utils.NewBytes32ID()
+	bt.OutgoingKey = utils.NewBytes32ID()
 
 	app.bridgeTypeMutex.Lock()
 	defer app.bridgeTypeMutex.Unlock()

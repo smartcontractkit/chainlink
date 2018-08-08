@@ -26,7 +26,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	} else if err = btc.App.AddAdapter(bt); err != nil {
 		publicError(c, StatusCodeForError(err), err)
 	} else {
-		c.JSON(200, bt)
+		c.JSON(200, presenters.BridgeType{BridgeType: *bt})
 	}
 }
 

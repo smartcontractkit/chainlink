@@ -97,7 +97,7 @@ func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeTy
 	return []*models.BridgeType{bt1, bt2}, err
 }
 
-func TestBridgeTypesController_Create(t *testing.T) {
+func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -110,13 +110,19 @@ func TestBridgeTypesController_Create(t *testing.T) {
 	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
-	btName := cltest.ParseCommonJSON(resp.Body).Name
+	respJSON := cltest.ParseJSON(resp.Body)
+	btName := respJSON.Get("name").String()
+
+	assert.NotEmpty(t, respJSON.Get("incomingKey").String())
+	assert.NotEmpty(t, respJSON.Get("outgoingKey").String())
 
 	bt, err := app.Store.FindBridge(btName)
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.DefaultConfirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
+	assert.NotEmpty(t, bt.IncomingKey)
+	assert.NotEmpty(t, bt.OutgoingKey)
 }
 
 func TestBridgeController_Show(t *testing.T) {

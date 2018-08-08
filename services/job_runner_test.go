@@ -174,7 +174,6 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 					input := cltest.JSONFromString(test.input)
 					for key, value := range input.Map() {
-						fmt.Println("key", key)
 						field := data.Get(key)
 						assert.True(t, field.Exists())
 						assert.Equal(t, value.String(), field.String())

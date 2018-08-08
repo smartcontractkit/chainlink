@@ -143,8 +143,10 @@ func TestBridgeType_MarshalJSON(t *testing.T) {
 		Name:                 models.MustNewTaskType("hapax"),
 		URL:                  cltest.WebURL("http://hap.ax"),
 		DefaultConfirmations: 0,
+		IncomingKey:          "123",
+		OutgoingKey:          "abc",
 	}
-	expected := []byte("{\"name\":\"hapax\",\"url\":\"http://hap.ax\",\"defaultConfirmations\":0}")
+	expected := []byte(`{"name":"hapax","url":"http://hap.ax","defaultConfirmations":0,"incomingKey":"123","outgoingKey":"abc"}`)
 	bt := presenters.BridgeType{BridgeType: input}
 	output, err := bt.MarshalJSON()
 	assert.NoError(t, err)
