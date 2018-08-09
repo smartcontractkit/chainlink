@@ -109,6 +109,7 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
+	v2.GET("/service_agreements/:SAID", sa.Show)
 
 	bt := BridgeTypesController{app}
 	v2.GET("/bridge_types", bt.Index)
