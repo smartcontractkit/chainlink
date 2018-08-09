@@ -137,7 +137,7 @@ func TestPresenter_FriendlyBigInt(t *testing.T) {
 	}
 }
 
-func TestBridgeTypeMarshalJSON(t *testing.T) {
+func TestBridgeType_MarshalJSON(t *testing.T) {
 	t.Parallel()
 	input := models.BridgeType{
 		Name:                 models.MustNewTaskType("hapax"),
@@ -149,4 +149,15 @@ func TestBridgeTypeMarshalJSON(t *testing.T) {
 	output, err := bt.MarshalJSON()
 	assert.NoError(t, err)
 	assert.Equal(t, output, expected)
+}
+
+func TestServiceAgreement_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	input := cltest.LoadJSON("../../internal/fixtures/web/hello_world_agreement.json")
+	sa := cltest.ServiceAgreementFromString(string(input))
+	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
+	output, err := psa.MarshalJSON()
+	assert.NoError(t, err)
+	assert.Equal(t, cltest.NormalizedJSONString(input), string(output))
 }
