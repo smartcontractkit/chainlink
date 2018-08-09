@@ -257,7 +257,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/specs/" + j.ID)
 	defer cleanup()
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	cltest.AssertServerResponse(t, resp, 200)
 
 	var respJob presenters.JobSpec
 	b, err := ioutil.ReadAll(resp.Body)
