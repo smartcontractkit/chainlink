@@ -41,29 +41,29 @@ class Create extends React.Component {
     value: 0
   };
 
-  componentDidMount() {
+  componentDidMount () {
     // Need to set int value because <Tabs/> component
     // will not focus on tab with strings
-    if(this.props.match) { 
+    if (this.props.match) {
       switch (this.props.match.params.structure) {
         case 'bridge':
           this.setState({value: 0})
-          break;
+          break
         case 'job':
           this.setState({value: 1})
           break
         default: this.setState({value: 0})
       }
-    } 
+    }
   }
 
   handleChange = (event, value) => {
     this.setState({ value })
-    if(this.props.history) { 
+    if (this.props.history) {
       switch (value) {
         case 0:
           this.props.history.replace('/create/bridge')
-          break;
+          break
         case 1:
           this.props.history.replace('/create/job')
           break
