@@ -202,6 +202,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
 			assert.JSONEq(t, test.wantData, run.Result.Data.String())
+			assert.Equal(t, input, run.Overrides)
 
 			tr1 := run.TaskRuns[0]
 			assert.Equal(t, test.wantStatus, tr1.Status)
@@ -232,7 +233,7 @@ func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
 	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
 	assert.Error(t, err)
 
-	store.One("ID", run.ID, &run)
+	assert.NoError(t, store.One("ID", run.ID, &run))
 	assert.Equal(t, initialData, run.Overrides.Data)
 }
 
