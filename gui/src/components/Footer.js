@@ -1,8 +1,8 @@
 import React from 'react'
 import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { withRouteData } from 'react-static'
 import Card from '@material-ui/core/Card'
+import extractBuildInfo from 'utils/extractBuildInfo'
 
 const styles = theme => ({
   style: {
@@ -15,7 +15,9 @@ const styles = theme => ({
   }
 })
 
-const Footnote = ({ classes, version, sha }) => {
+const {version, sha} = extractBuildInfo()
+
+const Footnote = ({classes}) => {
   return (
     <Card className={classes.style}>
       <Typography>
@@ -25,4 +27,4 @@ const Footnote = ({ classes, version, sha }) => {
   )
 }
 
-export default withRouteData(withStyles(styles)(Footnote))
+export default withStyles(styles)(Footnote)
