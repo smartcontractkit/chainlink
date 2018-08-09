@@ -59,6 +59,7 @@ func (e Encumbrance) ABI() string {
 type ServiceAgreementRequest struct {
 	JobSpec     JobSpec
 	Encumbrance Encumbrance
+	Normalized  string
 }
 
 // UnmarshalJSON fulfills Go's built in JSON unmarshaling interface.
@@ -78,8 +79,14 @@ func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
+	normalized, err := utils.NormalizedJSONString(input)
+	if err != nil {
+		return err
+	}
+
 	sar.JobSpec = js
 	sar.Encumbrance = en
+	sar.Normalized = normalized
 
 	return nil
 }
