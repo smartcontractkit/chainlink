@@ -2,7 +2,7 @@ import React from 'react'
 import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Card from '@material-ui/core/Card'
-import extractBuildInfo from 'utils/extractBuildInfo';
+import extractBuildInfo from 'utils/extractBuildInfo'
 
 const styles = theme => ({
   style: {
@@ -17,7 +17,7 @@ const styles = theme => ({
 
 const {version, sha} = extractBuildInfo()
 
-const Footnote = ({ classes}) => {
+const Footnote = ({classes}) => {
   return (
     <Card className={classes.style}>
       <Typography>

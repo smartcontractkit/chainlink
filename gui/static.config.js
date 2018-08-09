@@ -13,8 +13,8 @@ export default {
   }),
   getRoutes: async () => {
     return [
-      {path: '/',},
-      {path: '/jobs/page/_jobPage_',},
+      {path: '/'},
+      {path: '/jobs/page/_jobPage_'},
       {path: '/job_specs/_jobSpecId_'},
       {path: '/job_specs/_jobSpecId_/runs'},
       {path: '/job_specs/_jobSpecId_/runs/page/_jobRunsPage_'},
