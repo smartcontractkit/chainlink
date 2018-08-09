@@ -126,6 +126,8 @@ func TestJobRunner_Stop(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	jr := j.NewRun(initr)
 
+	require.NoError(t, rm.Start())
+
 	services.ExportedChannelForRun(rm, jr.ID)
 	assert.Equal(t, 1, services.ExportedWorkerCount(rm))
 

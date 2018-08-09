@@ -23,41 +23,47 @@ type JobRunner interface {
 }
 
 type jobRunner struct {
-	stopped      bool
-	done         chan struct{}
-	closingMutex sync.Mutex
-	store        *store.Store
-	workerMutex  sync.RWMutex
-	workers      map[string]chan store.RunRequest
-	wg           sync.WaitGroup
+	started     bool
+	done        chan struct{}
+	bootMutex   sync.Mutex
+	store       *store.Store
+	workerMutex sync.RWMutex
+	workers     map[string]chan store.RunRequest
+	wg          sync.WaitGroup
 }
 
 // NewJobRunner initializes a JobRunner.
 func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
 		store:   str,
-		done:    make(chan struct{}),
 		workers: make(map[string]chan store.RunRequest),
 	}
 }
 
 // Start reinitializes runs and starts the execution of the store's runs.
 func (rm *jobRunner) Start() error {
+	rm.bootMutex.Lock()
+	defer rm.bootMutex.Unlock()
+
+	if rm.started {
+		return errors.New("JobRunner already started")
+	}
 	rm.done = make(chan struct{})
-	rm.stopped = false
+	rm.started = true
 	go rm.demultiplexRuns()
 	return rm.resumeSleepingRuns()
 }
 
 // Stop closes all open worker channels.
 func (rm *jobRunner) Stop() {
-	rm.closingMutex.Lock()
-	defer rm.closingMutex.Unlock()
+	rm.bootMutex.Lock()
+	defer rm.bootMutex.Unlock()
 
-	if !rm.stopped {
-		rm.stopped = true
-		close(rm.done)
+	if !rm.started {
+		return
 	}
+	rm.started = false
+	close(rm.done)
 	rm.wg.Wait()
 }
 
