@@ -35,12 +35,12 @@ describe('create reducer', () => {
   })
 
   describe('RECEIVE_CREATE_ERROR', () => {
-    it('assigns a network error', () => {
-      const previousState = { create: { networkError: false } }
-      const action = {type: RECEIVE_CREATE_ERROR, networkError: true}
+    it('assigns correct object to error', () => {
+      const previousState = {  create: { }  }
+      const action = {type: RECEIVE_CREATE_ERROR, error : { message: { someErr: 'errored' } } }
       const state = reducer(previousState, action)
-
-      expect(state.create.networkError).toEqual(true)
+      console.log
+      expect(state.create.errors).toEqual({someErr: 'errored'})
     })
   })
 })

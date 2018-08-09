@@ -5,21 +5,28 @@ import { Provider } from 'react-redux'
 import { mount } from 'enzyme'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
+import { Switch, Route } from 'react-static'
+import { MemoryRouter } from 'react-router'
 
 const classes = {}
 
 const mountCreatePage = (store, props) =>
   mount(
     <Provider store={(store = createStore())}>
-      <Create classes={classes} />
+      <MemoryRouter initialEntries={['/create']}>
+        <Switch>
+          <Route exact path="/create" component={Create} classes={classes} />
+          <Route exact path="/create/bridge" component={Create} classes={classes} />
+          <Route exact path="/create/job" component={Create} classes={classes} />
+        </Switch>
+      </MemoryRouter>
     </Provider>
   )
 
 describe('containers/Create', () => {
-  it('renders the create page focused on bridge creation', async () => {
+  it('renders the bridge create page', async () => {
     expect.assertions(3)
-    const props = { location: { state: { tab: 0 } } }
-    let wrapper = mountCreatePage(props)
+    let wrapper = mountCreatePage()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Create Bridge')
@@ -27,10 +34,9 @@ describe('containers/Create', () => {
     expect(wrapper.text()).toContain('Type Confirmations')
   })
 
-  it('renders the create page focused on job creation', async () => {
+  it('renders the job create page', async () => {
     expect.assertions(3)
-    const props = { location: { state: { tab: 1 } } }
-    let wrapper = mountCreatePage(props)
+    let wrapper = mountCreatePage()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Create Job')
