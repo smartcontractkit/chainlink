@@ -14,8 +14,14 @@ type ServiceAgreement struct {
 	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
 	ID          string      `json:"id" storm:"id,unique"`
 	JobSpecID   string      `json:"jobSpecID"`
+	Normalized  string      `json:"normalizedRequest"`
 	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
 	// If needed later, it can be retrieved from the database with JobSpecID.
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (sa ServiceAgreement) GetID() string {
+	return sa.ID
 }
 
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
@@ -34,6 +40,7 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 		return sa, err
 	}
 	sa.ID = common.ToHex(digest)
+	sa.Normalized = sar.Normalized
 
 	return sa, nil
 }
