@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -68,7 +69,9 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 		wantPayment int64
 	}{
 		{"basic",
-			`{"payment":1,"initiators":[{"type":"web"}],"tasks":[{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			`{"payment":1,"initiators":[{"type":"web"}],"tasks":[{"type":"httpget",` +
+				`"url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse",` +
+				`"path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
 			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865", 1},
 	}
 	for _, test := range tests {
@@ -77,6 +80,7 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
 			assert.Equal(t, big.NewInt(test.wantPayment), sar.Encumbrance.Payment)
+			assert.Equal(t, cltest.NormalizedJSONString([]byte(test.input)), sar.Normalized)
 		})
 	}
 }

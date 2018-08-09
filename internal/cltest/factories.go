@@ -301,3 +301,11 @@ func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
 	rm := services.NewJobRunner(s)
 	return rm, func() { rm.Stop() }
 }
+
+func ServiceAgreementFromString(str string) models.ServiceAgreement {
+	var sar models.ServiceAgreementRequest
+	mustNotErr(json.Unmarshal([]byte(str), &sar))
+	sa, err := models.NewServiceAgreementFromRequest(sar)
+	mustNotErr(err)
+	return sa
+}
