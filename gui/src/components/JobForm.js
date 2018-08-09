@@ -71,7 +71,7 @@ const JobForm = withFormik({
     }
   },
   handleSubmit (values, { props }) {
-    props.submitCreate('v2/specs', values.json)
+    props.submitCreate('v2/specs', values.json, false)
   }
 })(FormLayout)
 

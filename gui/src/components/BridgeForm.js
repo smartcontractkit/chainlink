@@ -108,7 +108,7 @@ const BridgeForm = withFormik({
   handleSubmit (values, { props }) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
-    props.submitCreate('v2/bridge_types', formattedValues)
+    props.submitCreate('v2/bridge_types', formattedValues, true)
   }
 })(FormLayout)
 
