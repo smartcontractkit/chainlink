@@ -6,16 +6,12 @@ import React, { Component } from 'react'
 import Typography from '@material-ui/core/Typography'
 import TablePagination from '@material-ui/core/TablePagination'
 import Card from '@material-ui/core/Card'
-import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft'
-import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight'
-import FirstPageIcon from '@material-ui/icons/FirstPage'
-import LastPageIcon from '@material-ui/icons/LastPage'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
 import { withStyles } from '@material-ui/core/styles'
 import { jobRunsCountSelector, jobRunsSelector } from 'selectors'
-import { IconButton } from '@material-ui/core'
+import TableButtons from 'components/TableButtons'
 
 const styles = theme => ({
   breadcrumb: {
@@ -25,41 +21,8 @@ const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
-  },
-  customButtons: {
-    flexShrink: 0,
-    color: theme.palette.text.secondary,
-    marginLeft: theme.spacing.unit * 2.5
   }
 })
-
-const TableButtons = props => {
-  const lastPage = Math.ceil(props.count / props.rowsPerPage)
-  const firstPage = 1
-  const currentPage = props.page
-  const handlePage = page => e => {
-    page = Math.min(page, lastPage)
-    page = Math.max(page, firstPage)
-    if (props.history) { props.history.replace(`/job_specs/${props.specID}/runs/page/${page}`) }
-    props.onChangePage(e, page)
-  }
-  return (
-    <div className={props.classes.customButtons}>
-      <IconButton onClick={handlePage(firstPage)} disabled={currentPage === firstPage} aria-label='First Page'>
-        <FirstPageIcon />
-      </IconButton>
-      <IconButton onClick={handlePage(currentPage - 1)} disabled={currentPage === firstPage} aria-label='Previous Page'>
-        <KeyboardArrowLeft />
-      </IconButton>
-      <IconButton onClick={handlePage(currentPage + 1)} disabled={currentPage >= lastPage} aria-label='Next Page'>
-        <KeyboardArrowRight />
-      </IconButton>
-      <IconButton onClick={handlePage(lastPage)} disabled={currentPage >= lastPage} aria-label='Last Page'>
-        <LastPageIcon />
-      </IconButton>
-    </div>
-  )
-}
 
 export class JobSpecRuns extends Component {
   constructor (props) {
@@ -73,14 +36,9 @@ export class JobSpecRuns extends Component {
   componentDidMount () {
     const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
     const firstPage = 1
-    if (this.props.match.params.jobRunsPage) {
-      const START_PAGE = this.props.match.params.jobRunsPage
-      this.setState({ page: START_PAGE })
-      fetchJobSpecRuns(jobSpecId, START_PAGE, pageSize)
-    } else {
-      this.setState({ page: firstPage })
-      fetchJobSpecRuns(jobSpecId, firstPage, pageSize)
-    }
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobRunsPage, 10) || firstPage) : firstPage
+    this.setState({ page: queryPage })
+    fetchJobSpecRuns(jobSpecId, queryPage, pageSize)
   }
 
   handleChangePage (e, page) {
@@ -120,6 +78,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
       page={state.page}
       specID={jobSpecId}
       rowsPerPage={pageSize}
+      replaceWith={`/job_specs/${jobSpecId}/runs/page`}
     />
   )
   return (
@@ -133,7 +92,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
         page={state.page - 1}
         onChangePage={() => {} /* handler required by component, so make it a no-op */}
         onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
-        ActionsComponent={withStyles(styles)(TableButtonsWithProps)}
+        ActionsComponent={TableButtonsWithProps}
       />
     </Card>
   )

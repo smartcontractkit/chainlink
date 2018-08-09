@@ -10,6 +10,7 @@ import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
 import formatInitiators from 'utils/formatInitiators'
+import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
 const renderFetching = () => (
   <TableRow>
@@ -54,21 +55,35 @@ const renderBody = (jobs, fetching, error) => {
 export class JobList extends Component {
   constructor (props) {
     super(props)
-    this.state = {
-      page: 0
-    }
+    this.state = { page: 1 }
     this.handleChangePage = this.handleChangePage.bind(this)
+  }
+
+  componentDidMount () {
+    const { pageSize, fetchJobs } = this.props
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobPage, 10) || FIRST_PAGE) : FIRST_PAGE
+    this.setState({ page: queryPage })
+    fetchJobs(queryPage, pageSize)
   }
 
   handleChangePage (e, page) {
     const {fetchJobs, pageSize} = this.props
-
-    fetchJobs(page + 1, pageSize)
-    this.setState({page})
+    fetchJobs(page, pageSize)
+    this.setState({ page })
   }
 
   render () {
     const {jobs, jobCount, pageSize, fetching, error} = this.props
+    const TableButtonsWithProps = () => (
+      <TableButtons
+        {...this.props}
+        count={jobCount}
+        onChangePage={this.handleChangePage}
+        rowsPerPage={pageSize}
+        page={this.state.page}
+        replaceWith={`/jobs/page`}
+      />
+    )
 
     return (
       <Card>
@@ -95,11 +110,10 @@ export class JobList extends Component {
           count={jobCount}
           rowsPerPage={pageSize}
           rowsPerPageOptions={[pageSize]}
-          page={this.state.page}
-          backIconButtonProps={{'aria-label': 'Previous Page'}}
-          nextIconButtonProps={{'aria-label': 'Next Page'}}
-          onChangePage={this.handleChangePage}
+          page={this.state.page - 1}
+          onChangePage={() => {} /* handler required by component, so make it a no-op */}
           onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+          ActionsComponent={TableButtonsWithProps}
         />
       </Card>
     )
