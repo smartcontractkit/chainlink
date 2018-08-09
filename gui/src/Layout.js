@@ -13,6 +13,7 @@ import MenuIcon from '@material-ui/icons/Menu'
 import Flash from 'components/Flash'
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
+import Loading from 'components/Loading'
 import universal from 'react-universal-component'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
@@ -22,16 +23,18 @@ import { bindActionCreators } from 'redux'
 import { submitSignOut } from 'actions'
 import { isFetchingSelector } from 'selectors'
 
-// Use universal-react-component for code-splitting non-static routes
-const Bridges = universal(import('./containers/Bridges'))
-const BridgeSpec = universal(import('./containers/BridgeSpec'))
-const Configuration = universal(import('./containers/Configuration'))
-const About = universal(import('./containers/About'))
-const Jobs = universal(import('./containers/Jobs'))
-const JobSpec = universal(import('./containers/JobSpec'))
-const JobSpecRuns = universal(import('./containers/JobSpecRuns'))
-const JobSpecRun = universal(import('./containers/JobSpecRun'))
-const SignIn = universal(import('./containers/SignIn'))
+// Asynchronously load routes that are chunked via code-splitting
+// 'import' as a function must take a string. It can't take a variable.
+const uniOpts = {loading: Loading}
+const Bridges = universal(import('./containers/Bridges'), uniOpts)
+const BridgeSpec = universal(import('./containers/BridgeSpec'), uniOpts)
+const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const About = universal(import('./containers/About'), uniOpts)
+const Jobs = universal(import('./containers/Jobs'), uniOpts)
+const JobSpec = universal(import('./containers/JobSpec'), uniOpts)
+const JobSpecRuns = universal(import('./containers/JobSpecRuns'), uniOpts)
+const JobSpecRun = universal(import('./containers/JobSpecRun'), uniOpts)
+const SignIn = universal(import('./containers/SignIn'), uniOpts)
 
 const appBarHeight = 70
 const drawerWidth = 240
