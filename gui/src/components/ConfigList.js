@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { Component, Fragment } from 'react'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -26,13 +26,21 @@ const renderConfigs = configs => (
   configs.map(([k, v]) => (
     <TableRow key={k}>
       <TableCell>
-        <Typography variant='body1'>{k}</Typography>
+        <Typography variant='body1'>
+          <Fragment>
+            {k}
+          </Fragment>
+        </Typography>
       </TableCell>
-      <TableCell>
-        <Typography variant='body1'>{v}</Typography>
-      </TableCell>
-    </TableRow>)
-  )
+        <TableCell>
+          <Typography variant='body1'>
+            <Fragment>
+              {v}
+            </Fragment>
+          </Typography>
+        </TableCell>
+    </TableRow>
+  ))
 )
 
 const renderBody = (configs, error) => {
