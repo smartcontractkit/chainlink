@@ -16,7 +16,7 @@ WORKDIR /go/src/github.com/smartcontractkit/chainlink
 RUN make build
 
 # Final layer: ubuntu with aesm and chainlink binaries (executable + enclave)
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 # Install AESM
 ENV DEBIAN_FRONTEND noninteractive
