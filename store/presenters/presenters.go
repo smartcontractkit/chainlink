@@ -385,3 +385,13 @@ func (t TaskSpec) FriendlyParams() (string, string) {
 func FriendlyBigInt(n *big.Int) string {
 	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
 }
+
+// ServiceAgreement presents an API friendly version of the data.
+type ServiceAgreement struct {
+	models.ServiceAgreement
+}
+
+// MarshalJSON returns the JSON data of the ServiceAgreement.
+func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
+	return []byte(sa.ServiceAgreement.Normalized), nil
+}
