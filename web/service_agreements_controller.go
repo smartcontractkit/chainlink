@@ -3,9 +3,12 @@ package web
 import (
 	"errors"
 
+	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
 // ServiceAgreementsController manages service agreements.
@@ -26,5 +29,21 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, sa)
+	}
+}
+
+// Show returns the details of a ServiceAgreement.
+// Example:
+//  "<application>/service_agreements/:SAID"
+func (sac *ServiceAgreementsController) Show(c *gin.Context) {
+	id := c.Param("SAID")
+	if sa, err := sac.App.Store.FindServiceAgreement(id); err == storm.ErrNotFound {
+		publicError(c, 404, errors.New("ServiceAgreement not found"))
+	} else if err != nil {
+		c.AbortWithError(500, err)
+	} else if doc, err := jsonapi.MarshalToStruct(presenters.ServiceAgreement{ServiceAgreement: sa}, nil); err != nil {
+		c.AbortWithError(500, err)
+	} else {
+		c.JSON(200, doc)
 	}
 }
