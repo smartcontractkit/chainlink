@@ -8,6 +8,7 @@ import { Redirect } from 'react-router'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { submitSignIn } from 'actions'
+import { Grid } from '@material-ui/core'
 
 const styles = theme => ({
   title: {
@@ -28,46 +29,51 @@ export class SignIn extends Component {
     })
   }
 
-  onSubmit = (e) => {
+  onSubmit = e => {
     e.preventDefault()
     const { email, password } = this.state
-    this.props.submitSignIn({email: email, password: password})
+    this.props.submitSignIn({ email: email, password: password })
   }
 
   render () {
-    const {classes, fetching, authenticated} = this.props
+    const { classes, fetching, authenticated } = this.props
     const enabled = this.state.email.length > 0 && this.state.password.length > 0
     if (authenticated) {
       return <Redirect to='/' />
     }
     return (
-      <form className={classes.container}
-        noValidate
-        onSubmit={this.onSubmit}
-        align='center'>
-        <Typography variant='display2' color='inherit' align='center' className={classes.title}>
-          Sign In to Chainlink
-        </Typography>
-
-        <div>
-          <TextField id='email' label='Email' className={classes.textField} margin='normal'
-            value={this.state.email} onChange={this.handleChange('email')} />
-        </div>
-        <div>
-          <TextField id='password' label='Password' className={classes.textField} type='password'
-            autoComplete='password' margin='normal'
-            value={this.state.password} onChange={this.handleChange('password')} />
-        </div>
-        <div>
-          <Button type='submit' disabled={!enabled} variant='contained' color='primary' className={classes.button}>
-            Sign In
-          </Button>
-        </div>
-        { fetching &&
-        <Typography variant='body1' color='textSecondary'>
-          Signing in...
-        </Typography>
-        }
+      <form noValidate onSubmit={this.onSubmit}>
+        <Grid container alignItems='center' direction='column'>
+          <Typography variant='display2' color='inherit' className={classes.title}>
+            Sign In to Chainlink
+          </Typography>
+            <TextField
+              id='email'
+              label='Email'
+              className={classes.textField}
+              margin='normal'
+              value={this.state.email}
+              onChange={this.handleChange('email')}
+            />
+            <TextField
+              id='password'
+              label='Password'
+              className={classes.textField}
+              type='password'
+              autoComplete='password'
+              margin='normal'
+              value={this.state.password}
+              onChange={this.handleChange('password')}
+            />
+            <Button type='submit' disabled={!enabled} variant='contained' color='primary' className={classes.button}>
+              Sign In
+            </Button>
+          {fetching && (
+            <Typography variant='body1' color='textSecondary'>
+              Signing in...
+            </Typography>
+          )}
+        </Grid>
       </form>
     )
   }
@@ -82,9 +88,6 @@ const mapStateToProps = state => ({
   authenticated: state.authentication.allowed
 })
 
-export const ConnectedSignIn = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({submitSignIn})
-)(SignIn)
+export const ConnectedSignIn = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitSignIn }))(SignIn)
 
 export default withStyles(styles)(ConnectedSignIn)
