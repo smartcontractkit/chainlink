@@ -21,14 +21,14 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, errors, success, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, error, success, networkError }) => (
   <Fragment>
-    {errors.length > 0 &&
+    {error.length > 0 &&
       <Flash error className={classes.flash}>
-        {errors.map((msg, i) => <p key={i}>{msg}</p>)}
+        {error.map((msg, i) => <span key={i}>{msg}</span>)}
       </Flash>
     }
-    {!(errors.length > 0) && networkError &&
+    {!(error.length > 0) && networkError &&
       <Flash error className={classes.flash}>
         Received a Network Error.
       </Flash>}
@@ -77,7 +77,7 @@ const JobForm = withFormik({
 
 const mapStateToProps = state => ({
   success: state.create.successMessage,
-  errors: state.create.errors.messages,
+  error: state.create.errors,
   networkError: state.create.networkError
 })
 

@@ -36,7 +36,7 @@ const post = (path, body, shouldStringify = true) => {
       if (response.status === 401) {
         throw new AuthenticationError(response.statusText)
       } else if (response.status !== 200) {
-        throw new CreateError(response.statusText)
+        return response.json().then((json) => { throw new CreateError(json) })
       }
       return response.json()
     })

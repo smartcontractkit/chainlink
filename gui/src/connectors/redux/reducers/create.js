@@ -39,7 +39,7 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {
-          errors: action.error || [],
+          errors: action.error.message || [],
           networkError: action.networkError
         }
       )

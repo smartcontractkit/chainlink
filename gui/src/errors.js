@@ -3,5 +3,5 @@ export function AuthenticationError (message) {
 }
 
 export function CreateError (message) {
-  this.message = message
+  this.message = message.errors
 }
