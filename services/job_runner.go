@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"go.uber.org/multierr"
 )
 
 // JobRunner safely handles coordinating job runs.
@@ -22,25 +23,28 @@ type JobRunner interface {
 }
 
 type jobRunner struct {
-	closed       bool
-	closer       chan struct{}
+	stopped      bool
+	done         chan struct{}
 	closingMutex sync.Mutex
 	store        *store.Store
-	workerMutex  sync.Mutex
+	workerMutex  sync.RWMutex
 	workers      map[string]chan store.RunRequest
+	wg           sync.WaitGroup
 }
 
 // NewJobRunner initializes a JobRunner.
 func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
-		closer:  make(chan struct{}),
 		store:   str,
+		done:    make(chan struct{}),
 		workers: make(map[string]chan store.RunRequest),
 	}
 }
 
 // Start reinitializes runs and starts the execution of the store's runs.
 func (rm *jobRunner) Start() error {
+	rm.done = make(chan struct{})
+	rm.stopped = false
 	go rm.demultiplexRuns()
 	return rm.resumeSleepingRuns()
 }
@@ -50,10 +54,11 @@ func (rm *jobRunner) Stop() {
 	rm.closingMutex.Lock()
 	defer rm.closingMutex.Unlock()
 
-	if !rm.closed {
-		rm.closed = true
-		close(rm.closer)
+	if !rm.stopped {
+		rm.stopped = true
+		close(rm.done)
 	}
+	rm.wg.Wait()
 }
 
 func (rm *jobRunner) resumeSleepingRuns() error {
@@ -68,10 +73,15 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 }
 
 func (rm *jobRunner) demultiplexRuns() {
-	for rr := range rm.store.RunChannel.Receive() {
-		rm.channelForRun(rr.Input.JobRunID) <- rr
+	for {
+		select {
+		case <-rm.done:
+			logger.Debug("JobRunner demultiplexing of job runs finished")
+			return
+		case rr := <-rm.store.RunChannel.Receive():
+			rm.channelForRun(rr.Input.JobRunID) <- rr
+		}
 	}
-	logger.Debug("Run Manager Closed")
 }
 
 func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
@@ -83,9 +93,9 @@ func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
 		workerChannel = make(chan store.RunRequest, 1000)
 		rm.workers[runID] = workerChannel
 
-		rm.store.RunChannel.Add(1)
+		rm.wg.Add(1)
 		go func() {
-			defer rm.store.RunChannel.Done()
+			defer rm.wg.Done()
 			rm.workerLoop(runID, workerChannel)
 
 			rm.workerMutex.Lock()
@@ -115,15 +125,16 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 			if jr.Status.Finished() {
 				return
 			}
-		case <-rm.closer:
+		case <-rm.done:
+			logger.Debug("JobRunner worker loop", runID, "finished")
 			return
 		}
 	}
 }
 
 func (rm *jobRunner) workerCount() int {
-	rm.workerMutex.Lock()
-	defer rm.workerMutex.Unlock()
+	rm.workerMutex.RLock()
+	defer rm.workerMutex.RUnlock()
 
 	return len(rm.workers)
 }
@@ -236,11 +247,14 @@ func ExecuteRunAtBlock(
 func prepareJobRun(jr models.JobRun, store *store.Store, overrides models.RunResult, bn *models.IndexableBlockNumber) (models.JobRun, error) {
 	if jr.Status.CanStart() {
 		jr.Status = models.RunStatusInProgress
+	} else {
+		return jr, fmt.Errorf("Unable to start with status %v", jr.Status)
 	}
 	var err error
 	jr.Overrides, err = jr.Overrides.Merge(overrides)
 	if err != nil {
-		return jr, err
+		jr = jr.ApplyResult(jr.Result.WithError(err))
+		return jr, multierr.Append(err, store.Save(&jr))
 	}
 	if err = store.Save(&jr); err != nil {
 		return jr, err

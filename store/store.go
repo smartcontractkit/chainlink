@@ -21,7 +21,7 @@ type Store struct {
 	Config     Config
 	Clock      AfterNower
 	KeyStore   *KeyStore
-	RunChannel *RunChannel
+	RunChannel RunChannel
 	TxManager  *TxManager
 	closed     bool
 }
@@ -79,7 +79,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		Config:     config,
 		KeyStore:   keyStore,
 		ORM:        orm,
-		RunChannel: NewRunChannel(),
+		RunChannel: NewQueuedRunChannel(),
 		TxManager: &TxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
@@ -148,28 +148,35 @@ type RunRequest struct {
 	BlockNumber *models.IndexableBlockNumber
 }
 
-// RunChannel manages accepting a queue of incoming runs.
-type RunChannel struct {
-	sync.WaitGroup
+// RunChannel manages and dispatches incoming runs.
+type RunChannel interface {
+	Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error
+	Receive() <-chan RunRequest
+	Close()
+}
+
+// QueuedRunChannel manages incoming results and blocks by enqueuing them
+// in a queue per run.
+type QueuedRunChannel struct {
 	queue  chan RunRequest
 	closed bool
 	mutex  sync.Mutex
 }
 
-// NewRunChannel initializes a RunChannel.
-func NewRunChannel() *RunChannel {
-	return &RunChannel{
+// NewQueuedRunChannel initializes a QueuedRunChannel.
+func NewQueuedRunChannel() RunChannel {
+	return &QueuedRunChannel{
 		queue: make(chan RunRequest, 1000),
 	}
 }
 
 // Send adds another entry to the queue of runs.
-func (rq *RunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error {
+func (rq *QueuedRunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
 	if rq.closed {
-		return errors.New("RunChannel.Add: cannot add to a closed RunChannel")
+		return errors.New("QueuedRunChannel.Add: cannot add to a closed QueuedRunChannel")
 	}
 
 	rq.queue <- RunRequest{
@@ -179,18 +186,16 @@ func (rq *RunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber
 	return nil
 }
 
-// Receive returs a channel for listening to sent runs.
-func (rq *RunChannel) Receive() <-chan RunRequest {
+// Receive returns a channel for listening to sent runs.
+func (rq *QueuedRunChannel) Receive() <-chan RunRequest {
 	return rq.queue
 }
 
-// Close closes the RunChannel so that no runs can be added to it without
+// Close closes the QueuedRunChannel so that no runs can be added to it without
 // throwing an error.
-func (rq *RunChannel) Close() {
+func (rq *QueuedRunChannel) Close() {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
-
-	rq.Wait()
 
 	if !rq.closed {
 		rq.closed = true
