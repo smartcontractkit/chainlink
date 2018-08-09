@@ -2,7 +2,7 @@ import React, { Fragment } from 'react'
 import { withFormik, Form } from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
-import { TextField, Grid, Typography } from '@material-ui/core'
+import { TextField, Grid } from '@material-ui/core'
 import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -21,14 +21,14 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, errors, success, networkError }) => (
   <Fragment>
-    {errors.length > 0 && 
+    {errors.length > 0 &&
       <Flash error className={classes.flash}>
         {errors.map((msg, i) => <p key={i}>{msg}</p>)}
       </Flash>
     }
-    {!(errors.length > 0) && networkError && 
+    {!(errors.length > 0) && networkError &&
       <Flash error className={classes.flash}>
         Received a Network Error.
       </Flash>}
@@ -51,19 +51,12 @@ const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, suc
             type='json'
             name='json'
           />
-          <Grid container alignContent='center' direction='column'>
+          <Grid container justify='center'>
             <Grid item>
               <Button color='primary' type='submit' disabled={isSubmitting}>
                 Build Job
               </Button>
             </Grid>
-            {creating && (
-              <Grid item xs>
-                <Typography variant='body1' color='textSecondary' align='center'>
-                  Creating...
-                </Typography>
-              </Grid>
-            )}
           </Grid>
         </Form>
       </Grid>
@@ -83,7 +76,6 @@ const JobForm = withFormik({
 })(FormLayout)
 
 const mapStateToProps = state => ({
-  creating: state.create.fetching,
   success: state.create.successMessage,
   errors: state.create.errors.messages,
   networkError: state.create.networkError

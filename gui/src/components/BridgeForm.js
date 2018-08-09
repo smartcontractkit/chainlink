@@ -2,7 +2,7 @@ import React, { Fragment } from 'react'
 import { withFormik, Form } from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
-import { TextField, Grid, Typography } from '@material-ui/core'
+import { TextField, Grid } from '@material-ui/core'
 import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -27,7 +27,7 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, success, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, errors, success, networkError }) => (
   <Fragment>
     {
       errors.length > 0 &&
@@ -42,7 +42,7 @@ const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, suc
       </Flash>
     }
     {
-      JSON.stringify(success) !== '{}' && 
+      JSON.stringify(success) !== '{}' &&
       <Flash success className={classes.flash}>
         Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created.
       </Flash>
@@ -87,20 +87,10 @@ const FormLayout = ({ isSubmitting, classes, handleChange, creating, errors, suc
           />
         </Grid>
       </Grid>
-      <Grid container alignContent='center' direction='column'>
-        <Grid item>
-          <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting}>
-            Build Bridge
-          </Button>
-        </Grid>
-        {
-          creating &&
-          <Grid item xs>
-            <Typography variant='body1' color='textSecondary' align='center' >
-            Creating...
-            </Typography>
-          </Grid>
-        }
+      <Grid container justify='center'>
+        <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting}>
+          Build Bridge
+        </Button>
       </Grid>
     </Form>
   </Fragment>
@@ -123,7 +113,6 @@ const BridgeForm = withFormik({
 })(FormLayout)
 
 const mapStateToProps = state => ({
-  creating: state.create.fetching,
   success: state.create.successMessage,
   errors: state.create.errors.messages,
   networkError: state.create.networkError
