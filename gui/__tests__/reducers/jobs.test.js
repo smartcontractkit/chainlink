@@ -14,16 +14,14 @@ describe('jobs reducer', () => {
       items: {},
       currentPage: [],
       count: 0,
-      fetching: false,
       networkError: false
     })
   })
 
-  it('REQUEST_JOBS starts fetching and disables the network error', () => {
+  it('REQUEST_JOBS disables the network error', () => {
     const action = {type: REQUEST_JOBS}
     const state = reducer(undefined, action)
 
-    expect(state.jobs.fetching).toEqual(true)
     expect(state.jobs.networkError).toEqual(false)
   })
 
@@ -39,13 +37,12 @@ describe('jobs reducer', () => {
       'b': {id: 'b'}
     })
     expect(state.jobs.currentPage).toEqual(['a', 'b'])
-    expect(state.jobs.fetching).toEqual(false)
     expect(state.jobs.networkError).toEqual(false)
   })
 
-  it('RECEIVE_JOBS_ERROR stops fetching and updates the network error', () => {
+  it('RECEIVE_JOBS_ERROR updates the network error', () => {
     const previousState = {
-      jobs: {networkError: false, fetching: true}
+      jobs: {networkError: false}
     }
     const action = {
       type: RECEIVE_JOBS_ERROR,
@@ -53,7 +50,6 @@ describe('jobs reducer', () => {
     }
     const state = reducer(previousState, action)
 
-    expect(state.jobs.fetching).toEqual(false)
     expect(state.jobs.networkError).toEqual(true)
   })
 

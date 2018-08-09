@@ -9,7 +9,6 @@ describe('jobRuns reducer', () => {
     const state = reducer(undefined, {})
 
     expect(state.jobRuns).toEqual({
-      fetching: false,
       currentPage: [],
       items: {}
     })
@@ -26,7 +25,6 @@ describe('jobRuns reducer', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns).toEqual({
-      fetching: false,
       currentPage: ['a', 'b'],
       items: {
         'a': {id: 'a'},
@@ -45,7 +43,6 @@ describe('jobRuns reducer', () => {
     }
     const state = reducer(undefined, action)
     expect(state.jobRuns).toEqual({
-      fetching: false,
       currentPage: ['a', 'b'],
       items: {
         'a': {id: 'a'},
