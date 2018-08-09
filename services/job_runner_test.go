@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -214,6 +215,42 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 				tr2 := run.TaskRuns[1]
 				assert.JSONEq(t, test.wantData, tr2.Result.Data.String())
 				assert.True(t, run.CompletedAt.Valid)
+			}
+		})
+	}
+}
+
+func TestJobRunner_ExecuteRun_startingStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status    models.RunStatus
+		wantError bool
+	}{
+		{models.RunStatusUnstarted, false},
+		{models.RunStatusInProgress, true},
+		{models.RunStatusPendingConfirmations, false},
+		{models.RunStatusPendingSleep, false},
+		{models.RunStatusPendingBridge, false},
+		{models.RunStatusErrored, true},
+		{models.RunStatusCompleted, true},
+	}
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	for _, test := range tests {
+		t.Run(string(test.status), func(t *testing.T) {
+			job, initr := cltest.NewJobWithWebInitiator()
+			run := job.NewRun(initr)
+			run.Status = test.status
+
+			run, err := services.ExecuteRunAtBlock(run, store, models.RunResult{}, nil)
+			if test.wantError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "Unable to start with status")
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
