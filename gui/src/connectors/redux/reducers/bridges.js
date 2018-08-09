@@ -8,7 +8,6 @@ const initialState = {
   items: [],
   currentPage: [],
   count: 0,
-  fetching: false,
   networkError: false
 }
 
@@ -18,10 +17,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: true,
-          networkError: false
-        }
+        {networkError: false}
       )
     case RECEIVE_BRIDGES_SUCCESS: {
       return Object.assign(
@@ -31,7 +27,6 @@ export default (state = initialState, action = {}) => {
           items: Object.assign([], state.items, action.items),
           currentPage: action.items.map(b => b.name),
           count: action.count,
-          fetching: false,
           networkError: false
         }
       )
@@ -40,10 +35,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: false,
-          networkError: !!action.networkError
-        }
+        {networkError: !!action.networkError}
       )
     default:
       return state

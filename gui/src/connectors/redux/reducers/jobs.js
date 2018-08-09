@@ -10,7 +10,6 @@ const initialState = {
   items: {},
   currentPage: [],
   count: 0,
-  fetching: false,
   networkError: false
 }
 
@@ -20,10 +19,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: true,
-          networkError: false
-        }
+        {networkError: false}
       )
     case RECEIVE_JOB_SPEC_RUNS_SUCCESS: {
       const runs = (action.items || [])
@@ -70,7 +66,6 @@ export default (state = initialState, action = {}) => {
           items: Object.assign({}, state.items, newJobs),
           currentPage: action.items.map(j => j.id),
           count: action.count,
-          fetching: false,
           networkError: false
         }
       )
@@ -79,10 +74,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {
-          fetching: false,
-          networkError: !!action.networkError
-        }
+        {networkError: !!action.networkError}
       )
     default:
       return state

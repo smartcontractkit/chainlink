@@ -4,7 +4,7 @@ import TokenBalance from 'components/TokenBalance.js'
 
 describe('components/TokenBalance', () => {
   it('renders the title and a loading indicator when it is fetching', () => {
-    const wrapper = mount(<TokenBalance title='Ethereum' fetching />)
+    const wrapper = mount(<TokenBalance title='Ethereum' value={null} />)
 
     expect(wrapper.text()).toContain('Ethereum...')
   })
