@@ -11,7 +11,8 @@ import { Link } from 'react-static'
 
 const styles = theme => ({
   jsonfield: {
-    paddingTop: theme.spacing.unit * 1.25
+    paddingTop: theme.spacing.unit * 1.25,
+    width: theme.spacing.unit * 150
   },
   card: {
     paddingBottom: theme.spacing.unit * 2
@@ -23,44 +24,38 @@ const styles = theme => ({
 
 const FormLayout = ({ isSubmitting, classes, handleChange, error, success, networkError }) => (
   <Fragment>
-    {error.length > 0 &&
+    {error.length > 0 && (
       <Flash error className={classes.flash}>
         {error.map((msg, i) => <span key={i}>{msg}</span>)}
       </Flash>
-    }
-    {!(error.length > 0) && networkError &&
-      <Flash error className={classes.flash}>
-        Received a Network Error.
-      </Flash>}
+    )}
+    {!(error.length > 0) &&
+      networkError && (
+        <Flash error className={classes.flash}>
+          Received a Network Error.
+        </Flash>
+      )}
     {JSON.stringify(success) !== '{}' && (
       <Flash success className={classes.flash}>
         Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created.
       </Flash>
     )}
-    <Grid justify='center' container spacing={24}>
-      <Grid item xs={5}>
-        <Form noValidate>
-          <TextField
-            fullWidth
-            onChange={handleChange}
-            label='Paste JSON'
-            placeholder='Paste JSON'
-            multiline
-            className={classes.jsonfield}
-            margin='normal'
-            type='json'
-            name='json'
-          />
-          <Grid container justify='center'>
-            <Grid item>
-              <Button color='primary' type='submit' disabled={isSubmitting}>
-                Build Job
-              </Button>
-            </Grid>
-          </Grid>
-        </Form>
+    <Form noValidate>
+      <Grid container direction='column' alignItems='center'>
+        <TextField
+          onChange={handleChange}
+          label='Paste JSON'
+          placeholder='Paste JSON'
+          multiline
+          className={classes.jsonfield}
+          margin='normal'
+          name='json'
+        />
+        <Button color='primary' type='submit' disabled={isSubmitting}>
+          Build Job
+        </Button>
       </Grid>
-    </Grid>
+    </Form>
   </Fragment>
 )
 

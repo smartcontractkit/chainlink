@@ -11,7 +11,8 @@ import { Link } from 'react-static'
 
 const styles = theme => ({
   textfield: {
-    paddingTop: theme.spacing.unit * 1.25
+    paddingTop: theme.spacing.unit * 1.25,
+    width: theme.spacing.unit * 50
   },
   form: {
     paddingTop: theme.spacing.unit * 4
@@ -48,48 +49,33 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, netwo
       </Flash>
     }
     <Form className={classes.form} noValidate>
-      <Grid container justify='center' spacing={0}>
-        <Grid item xs={2}>
-          <TextField
-            fullWidth
-            onChange={handleChange}
-            className={classes.textfield}
-            label='Type Bridge Name'
-            type='name'
-            name='name'
-            placeholder='name'
-          />
-        </Grid>
-      </Grid>
-      <Grid container justify='center' spacing={0}>
-        <Grid item xs={2}>
-          <TextField
-            label='Type Bridge URL'
-            type='url'
-            name='url'
-            placeholder='url'
-            fullWidth
-            onChange={handleChange}
-            className={classes.textfield}
-          />
-        </Grid>
-      </Grid>
-      <Grid container justify='center' spacing={0}>
-        <Grid item xs={2}>
-          <TextField
-            onChange={handleChange}
-            className={classes.textfield}
-            fullWidth
-            type='confirmations'
-            name='confirmations'
-            placeholder='confirmations'
-            label='Type Confirmations'
-          />
-        </Grid>
-      </Grid>
-      <Grid container justify='center'>
+      <Grid container direction='column' alignItems='center'>
+        <TextField
+          onChange={handleChange}
+          className={classes.textfield}
+          label='Type Bridge Name'
+          type='name'
+          name='name'
+          placeholder='name'
+        />
+        <TextField
+          label='Type Bridge URL'
+          type='url'
+          name='url'
+          placeholder='url'
+          onChange={handleChange}
+          className={classes.textfield}
+        />
+        <TextField
+          onChange={handleChange}
+          className={classes.textfield}
+          type='confirmations'
+          name='confirmations'
+          placeholder='confirmations'
+          label='Type Confirmations'
+        />
         <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting}>
-          Build Bridge
+            Build Bridge
         </Button>
       </Grid>
     </Form>
