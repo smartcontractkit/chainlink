@@ -137,4 +137,3 @@ export const ConnectedJobs = connect(
 )(Jobs)
 
 export default withStyles(styles)(ConnectedJobs)
-
