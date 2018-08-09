@@ -66,8 +66,8 @@ const renderSidebar = ({
   </Grid>
 )
 
-const CreateButton = ({tabValue, buttonText}) => (
-  <Button variant='outlined' color='primary' component={Link} to={{ pathname: '/create', state: { tab: tabValue } }} >
+const CreateButton = ({construct, buttonText}) => (
+  <Button variant='outlined' color='primary' component={Link} to={`create/${construct}`}>
     {buttonText}
   </Button>
 )
@@ -88,10 +88,10 @@ export class Jobs extends Component {
             </Typography>
           </Grid>
           <Grid item>
-            <CreateButton tabValue={0} buttonText='Create Bridge' />
+            <CreateButton construct='bridge' buttonText='Create Bridge' />
           </Grid>
           <Grid item>
-            <CreateButton tabValue={1} buttonText='Create Job' />
+            <CreateButton construct='job' buttonText='Create Job' />
           </Grid>
         </Grid>
         <Grid container spacing={40}>

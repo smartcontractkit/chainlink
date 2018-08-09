@@ -37,21 +37,44 @@ TabContainer.propTypes = {
 
 class Create extends React.Component {
   state = {
+    structure: 'bridge',
     value: 0
   };
 
-  componentDidMount () {
-    if (this.props.location && this.props.location.state) { this.setState({ value: this.props.location.state.tab }) }
+  componentDidMount() {
+    // Need to set int value because <Tabs/> component
+    // will not focus on tab with strings
+    if(this.props.match) { 
+      switch (this.props.match.params.structure) {
+        case 'bridge':
+          this.setState({value: 0})
+          break;
+        case 'job':
+          this.setState({value: 1})
+          break
+        default: this.setState({value: 0})
+      }
+    } 
   }
 
   handleChange = (event, value) => {
     this.setState({ value })
+    if(this.props.history) { 
+      switch (value) {
+        case 0:
+          this.props.history.replace('/create/bridge')
+          break;
+        case 1:
+          this.props.history.replace('/create/job')
+          break
+      }
+    }
   };
 
   render () {
     const { classes } = this.props
+    const structure = this.props.match.params.structure || 'bridge'
     const { value } = this.state
-
     return (
       <div className={classes.root}>
         <Card className={classes.card}>
@@ -61,8 +84,8 @@ class Create extends React.Component {
               <Tab label='Create Job' />
             </Tabs>
           </AppBar>
-          {value === 0 && <TabContainer><BridgeForm /></TabContainer>}
-          {value === 1 && <TabContainer><JobForm /></TabContainer>}
+          {structure === 'bridge' && <TabContainer><BridgeForm /></TabContainer>}
+          {structure === 'job' && <TabContainer><JobForm /></TabContainer>}
         </Card>
       </div>
     )

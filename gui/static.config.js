@@ -24,6 +24,7 @@ export default {
       {path: '/config'},
       {path: '/signin'},
       {path: '/create'},
+      {path: '/create/_structure_'},
       {
         path: '/about',
         component: 'src/containers/About',
