@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -225,7 +226,7 @@ func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
 	defer cleanup()
 
 	job, initr := cltest.NewJobWithLogInitiator()
-	job.Tasks = []models.TaskSpec{}
+	job.Tasks = []models.TaskSpec{} // reason for error
 	run := job.NewRun(initr)
 
 	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
@@ -235,6 +236,26 @@ func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
 
 	assert.NoError(t, store.One("ID", run.ID, &run))
 	assert.Equal(t, initialData, run.Overrides.Data)
+}
+
+func TestExecuteRun_ExecuteRunAtBlock_errorsOnOverride(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithLogInitiator()
+	run := job.NewRun(initr)
+	run.Overrides = run.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
+
+	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldNotBeHere"}`)}
+	overrides := models.RunResult{Data: initialData}
+	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
+	assert.Error(t, err)
+
+	assert.NoError(t, store.One("ID", run.ID, &run))
+	assert.Equal(t, models.RunStatusErrored, run.Status)
+	assert.Contains(t, run.Result.ErrorMessage.String, "Cannot merge")
 }
 
 func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
