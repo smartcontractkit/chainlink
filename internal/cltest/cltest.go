@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -466,14 +467,6 @@ func FindServiceAgreement(s *store.Store, id string) models.ServiceAgreement {
 	return sa
 }
 
-func ServiceAgreementFromString(str string) models.ServiceAgreement {
-	var sar models.ServiceAgreementRequest
-	mustNotErr(json.Unmarshal([]byte(str), &sar))
-	sa, err := models.NewServiceAgreementFromRequest(sar)
-	mustNotErr(err)
-	return sa
-}
-
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	client := app.NewHTTPClient()
@@ -798,4 +791,10 @@ func MustGenerateSessionCookie(value string) *http.Cookie {
 		logger.Panic(err)
 	}
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
+}
+
+func NormalizedJSONString(input []byte) string {
+	normalized, err := utils.NormalizedJSONString(input)
+	mustNotErr(err)
+	return normalized
 }
