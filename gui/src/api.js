@@ -19,12 +19,12 @@ const get = (path, query) => (
     .then((data) => camelizeKeys(data))
 )
 
-const post = (path, body) => {
+const post = (path, body, shouldStringify = true) => {
   return global.fetch(
     formatURI(path),
     {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: shouldStringify ? JSON.stringify(body) : body,
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
@@ -74,6 +74,6 @@ export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
 
 export const createSession = (data) => post(`/sessions`, data)
 
-export const createObject = (endpoint, data) => post(`/${endpoint}`, data)
+export const createObject = (endpoint, data, shouldStringify) => post(`/${endpoint}`, data, shouldStringify)
 
 export const destroySession = () => destroy(`/sessions`)
