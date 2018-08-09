@@ -4,7 +4,7 @@ import JssProvider from 'react-jss/lib/JssProvider'
 import { MuiThemeProvider, createMuiTheme, createGenerateClassName } from '@material-ui/core/styles'
 import theme from './src/theme' // Custom Material UI theme
 import extractBuildInfo from './src/utils/extractBuildInfo'
-
+import BrotliGzipPlugin from 'brotli-gzip-webpack-plugin'
 const buildInfo = extractBuildInfo()
 
 export default {
@@ -30,6 +30,23 @@ export default {
       },
       {is404: true, component: 'src/containers/404'}
     ]
+  },
+  webpack: config => {
+    config.plugins.push(new BrotliGzipPlugin({
+      asset: '[path].br[query]',
+      algorithm: 'brotli',
+      test: /\.(js|css|html|svg)$/,
+      threshold: 10240,
+      minRatio: 0.8
+    })),
+    config.plugins.push(new BrotliGzipPlugin({
+      asset: '[path].gz[query]',
+      algorithm: 'gzip',
+      test: /\.(js|css|html|svg)$/,
+      threshold: 10240,
+      minRatio: 0.8
+  }))
+    return config
   },
   renderToHtml: (render, Comp, meta) => {
     const sheetsRegistry = new SheetsRegistry()
