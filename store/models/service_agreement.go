@@ -48,16 +48,13 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
 	Payment    *big.Int `json:"payment"`
-	Expiration *big.Int `json:"expiration"`
+	Expiration uint64   `json:"expiration"`
 }
 
 // ABI returns the encumbrance ABI encoded as a hex string.
 func (e Encumbrance) ABI() string {
 	if e.Payment == nil {
 		e.Payment = big.NewInt(0)
-	}
-	if e.Expiration == nil {
-		e.Expiration = big.NewInt(0)
 	}
 	return fmt.Sprintf("%064x%064x", e.Payment, e.Expiration)
 }
