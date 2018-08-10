@@ -54,7 +54,7 @@ func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 		}
 	}
 
-	body, err := postToExternalAdapter(ba.URL, input)
+	body, err := ba.postToExternalAdapter(input)
 	if err != nil {
 		return baRunResultError(input, "post to external adapter", err)
 	}
@@ -77,13 +77,21 @@ func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
 	return rr
 }
 
-func postToExternalAdapter(url models.WebURL, input models.RunResult) ([]byte, error) {
+func (ba *Bridge) postToExternalAdapter(input models.RunResult) ([]byte, error) {
 	in, err := json.Marshal(&bridgeOutgoing{input})
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request body: %v", err)
 	}
 
-	resp, err := http.Post(url.String(), "application/json", bytes.NewBuffer(in))
+	request, err := http.NewRequest("POST", ba.URL.String(), bytes.NewBuffer(in))
+	if err != nil {
+		return nil, fmt.Errorf("building outgoing bridge http post: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+ba.BridgeType.OutgoingToken)
+	request.Header.Set("Content-Type", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("POST request: %v", err)
 	}
