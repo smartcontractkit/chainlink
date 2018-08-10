@@ -393,5 +393,5 @@ type ServiceAgreement struct {
 
 // MarshalJSON returns the JSON data of the ServiceAgreement.
 func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
-	return []byte(sa.ServiceAgreement.Normalized), nil
+	return []byte(sa.ServiceAgreement.RecordedRequest), nil
 }
