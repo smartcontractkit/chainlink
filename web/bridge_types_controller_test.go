@@ -113,16 +113,16 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	respJSON := cltest.ParseJSON(resp.Body)
 	btName := respJSON.Get("name").String()
 
-	assert.NotEmpty(t, respJSON.Get("incomingKey").String())
-	assert.NotEmpty(t, respJSON.Get("outgoingKey").String())
+	assert.NotEmpty(t, respJSON.Get("incomingToken").String())
+	assert.NotEmpty(t, respJSON.Get("outgoingToken").String())
 
 	bt, err := app.Store.FindBridge(btName)
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.DefaultConfirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
-	assert.NotEmpty(t, bt.IncomingKey)
-	assert.NotEmpty(t, bt.OutgoingKey)
+	assert.NotEmpty(t, bt.IncomingToken)
+	assert.NotEmpty(t, bt.OutgoingToken)
 }
 
 func TestBridgeController_Show(t *testing.T) {

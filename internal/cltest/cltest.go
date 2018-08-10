@@ -561,7 +561,7 @@ func UpdateJobRunViaWeb(
 	bt, err := app.Store.PendingBridgeType(jr)
 	require.NoError(t, err)
 	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingKey}
+	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 
