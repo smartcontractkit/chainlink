@@ -170,12 +170,13 @@ func BeginRunAtBlock(
 	}
 	if input.Amount != nil &&
 		store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
-		msg := fmt.Sprintf(
+		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below minimum threshold (%s)",
 			job.ID,
 			input.Amount,
 			store.Config.MinimumContractPayment.Text(10))
-		run = run.ApplyResult(input.WithError(errors.New(msg)))
+		run = run.ApplyResult(input.WithError(err))
+		return run, multierr.Append(err, store.Save(&run))
 	}
 	return ExecuteRunAtBlock(run, store, input, bn)
 }
