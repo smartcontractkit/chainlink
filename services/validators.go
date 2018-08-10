@@ -123,5 +123,9 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, config store.Config) e
 		merr = multierr.Append(merr, NewValidationError("service agreement encumbrance error: Payment amount is below minimum %v", config.MinimumContractPayment.String()))
 	}
 
+	if sa.Encumbrance.Expiration < config.MinimumRequestExpiration {
+		merr = multierr.Append(merr, NewValidationError("service agreement encumbrance error: Expiration is below minimum %v", config.MinimumRequestExpiration))
+	}
+
 	return merr
 }
