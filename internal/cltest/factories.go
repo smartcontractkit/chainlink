@@ -202,6 +202,35 @@ func JSONFromString(body string, args ...interface{}) models.JSON {
 	return j
 }
 
+type EasyJSON struct {
+	models.JSON
+}
+
+func (ejs EasyJSON) Add(key string, val interface{}) EasyJSON {
+	ejs = ejs.Delete(key)
+
+	var err error
+	ejs.JSON, err = ejs.JSON.Add(key, val)
+	mustNotErr(err)
+
+	return ejs
+}
+
+func (ejs EasyJSON) Delete(key string) EasyJSON {
+	var err error
+	ejs.JSON, err = ejs.JSON.Delete(key)
+	mustNotErr(err)
+	return ejs
+}
+
+func EasyJSONFromFixture(path string) EasyJSON {
+	return EasyJSON{JSON: JSONFromFixture(path)}
+}
+
+func EasyJSONFromString(body string, args ...interface{}) EasyJSON {
+	return EasyJSON{JSON: JSONFromString(body, args...)}
+}
+
 // NewRunLog create ethtypes.Log for given jobid, address, block, and json
 func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes.Log {
 	return ethtypes.Log{
