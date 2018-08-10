@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
@@ -105,7 +106,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if bt, err := jrc.App.Store.PendingBridgeType(jr); err != nil {
 		c.AbortWithError(500, err)
-	} else if _, err := bt.Authenticate(brr.AccessToken); err != nil {
+	} else if _, err := bt.Authenticate(stripBearer(c.Request.Header.Get("Authorization"))); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else {
 		executeRun(jr, jrc.App.Store, brr.RunResult)
@@ -133,4 +134,8 @@ func executeRun(jr models.JobRun, s *store.Store, rr models.RunResult) {
 			logger.Error("Web initiator: ", err.Error())
 		}
 	}()
+}
+
+func stripBearer(headerStr string) string {
+	return strings.TrimPrefix(strings.TrimSpace(headerStr), "Bearer ")
 }
