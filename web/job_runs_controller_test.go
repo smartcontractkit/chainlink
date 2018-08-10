@@ -180,7 +180,6 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	client := app.NewHTTPClient()
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.Save(&bt))
@@ -192,8 +191,10 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
+	url := app.Config.ClientNodeURL + "/v2/runs/" + jr.ID
+	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
 	defer cleanup()
+
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	jrID := cltest.ParseCommonJSON(resp.Body).ID
 	assert.Equal(t, jr.ID, jrID)
