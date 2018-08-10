@@ -91,37 +91,39 @@ func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
-	v2.Use(authRequired(app.Store))
-
-	ab := AccountBalanceController{app}
-	v2.GET("/account_balance", ab.Show)
-
-	j := JobSpecsController{app}
-	v2.GET("/specs", j.Index)
-	v2.POST("/specs", j.Create)
-	v2.GET("/specs/:SpecID", j.Show)
-
 	jr := JobRunsController{app}
-	v2.GET("/specs/:SpecID/runs", jr.Index)
-	v2.POST("/specs/:SpecID/runs", jr.Create)
 	v2.PATCH("/runs/:RunID", jr.Update)
-	v2.GET("/runs/:RunID", jr.Show)
 
-	sa := ServiceAgreementsController{app}
-	v2.POST("/service_agreements", sa.Create)
-	v2.GET("/service_agreements/:SAID", sa.Show)
+	authv2 := engine.Group("/v2", authRequired(app.Store))
+	{
+		ab := AccountBalanceController{app}
+		authv2.GET("/account_balance", ab.Show)
 
-	bt := BridgeTypesController{app}
-	v2.GET("/bridge_types", bt.Index)
-	v2.POST("/bridge_types", bt.Create)
-	v2.GET("/bridge_types/:BridgeName", bt.Show)
-	v2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
+		j := JobSpecsController{app}
+		authv2.GET("/specs", j.Index)
+		authv2.POST("/specs", j.Create)
+		authv2.GET("/specs/:SpecID", j.Show)
 
-	backup := BackupController{app}
-	v2.GET("/backup", backup.Show)
+		authv2.GET("/specs/:SpecID/runs", jr.Index)
+		authv2.POST("/specs/:SpecID/runs", jr.Create)
+		authv2.GET("/runs/:RunID", jr.Show)
 
-	cc := ConfigController{app}
-	v2.GET("/config", cc.Show)
+		sa := ServiceAgreementsController{app}
+		authv2.POST("/service_agreements", sa.Create)
+		authv2.GET("/service_agreements/:SAID", sa.Show)
+
+		bt := BridgeTypesController{app}
+		authv2.GET("/bridge_types", bt.Index)
+		authv2.POST("/bridge_types", bt.Create)
+		authv2.GET("/bridge_types/:BridgeName", bt.Show)
+		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
+
+		backup := BackupController{app}
+		authv2.GET("/backup", backup.Show)
+
+		cc := ConfigController{app}
+		authv2.GET("/config", cc.Show)
+	}
 }
 
 func guiAssetRoutes(engine *gin.Engine) {

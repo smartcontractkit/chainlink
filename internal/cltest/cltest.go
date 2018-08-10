@@ -821,3 +821,16 @@ func ErrorPresence(t *testing.T, want bool, err error) {
 		assert.NoError(t, err)
 	}
 }
+
+func UnauthenticatedPatch(url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+	client := http.Client{}
+	request, err := http.NewRequest("PATCH", url, body)
+	mustNotErr(err)
+	request.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		request.Header.Add(key, value)
+	}
+	resp, err := client.Do(request)
+	mustNotErr(err)
+	return resp, func() { resp.Body.Close() }
+}
