@@ -28,19 +28,23 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, error, success, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError }) => (
   <Fragment>
     {
-      error.length > 0 &&
+      error.length > 0 && authenticated &&
       <Flash error className={classes.flash}>
-        {error.map((msg, i) => <span key={i}>{msg}</span>)}
+        {(Array.isArray(error) && error.map((msg, i) => <span key={i}>{msg}</span>)) || error}
+      </Flash>
+    }
+    {
+      !authenticated &&
+      <Flash warning className={classes.flash}>
+        Session expired. <Link to='/signin'>Please sign back in.</Link>
       </Flash>
     }
     {
       !(error.length > 0) && networkError &&
-      <Flash error className={classes.flash}>
-        Received a Network Error.
-      </Flash>
+      <Flash error className={classes.flash}> Received a Network Error. </Flash>
     }
     {
       JSON.stringify(success) !== '{}' &&
@@ -54,13 +58,11 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, netwo
           onChange={handleChange}
           className={classes.textfield}
           label='Type Bridge Name'
-          type='name'
           name='name'
           placeholder='name'
         />
         <TextField
           label='Type Bridge URL'
-          type='url'
           name='url'
           placeholder='url'
           onChange={handleChange}
@@ -69,7 +71,6 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, netwo
         <TextField
           onChange={handleChange}
           className={classes.textfield}
-          type='confirmations'
           name='confirmations'
           placeholder='confirmations'
           label='Type Confirmations'
@@ -101,7 +102,8 @@ const BridgeForm = withFormik({
 const mapStateToProps = state => ({
   success: state.create.successMessage,
   error: state.create.errors,
-  networkError: state.create.networkError
+  networkError: state.create.networkError,
+  authenticated: state.authentication.allowed
 })
 
 export const ConnectedBridgeForm = connect(

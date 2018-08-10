@@ -22,36 +22,44 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, error, success, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError }) => (
   <Fragment>
-    {error.length > 0 && (
+    {
+      error.length > 0 && 
       <Flash error className={classes.flash}>
         {error.map((msg, i) => <span key={i}>{msg}</span>)}
       </Flash>
-    )}
-    {!(error.length > 0) &&
-      networkError && (
+    }
+    {
+      !(error.length > 0) && networkError && 
         <Flash error className={classes.flash}>
           Received a Network Error.
         </Flash>
-      )}
-    {JSON.stringify(success) !== '{}' && (
+    }
+    {
+      !authenticated && 
+      <Flash warning className={classes.flash}>
+        Session expired. <Link to="/signin">Please sign back in.</Link>
+      </Flash>
+    }
+    {
+      JSON.stringify(success) !== '{}' &&
       <Flash success className={classes.flash}>
         Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created.
       </Flash>
-    )}
+    }
     <Form noValidate>
-      <Grid container direction='column' alignItems='center'>
+      <Grid container direction="column" alignItems="center">
         <TextField
           onChange={handleChange}
-          label='Paste JSON'
-          placeholder='Paste JSON'
+          label="Paste JSON"
+          placeholder="Paste JSON"
           multiline
           className={classes.jsonfield}
-          margin='normal'
-          name='json'
+          margin="normal"
+          name="json"
         />
-        <Button color='primary' type='submit' disabled={isSubmitting}>
+        <Button color="primary" type="submit" disabled={isSubmitting}>
           Build Job
         </Button>
       </Grid>
@@ -60,20 +68,21 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, netwo
 )
 
 const JobForm = withFormik({
-  mapPropsToValues ({ json }) {
+  mapPropsToValues({ json }) {
     return {
       json: json || ''
     }
   },
-  handleSubmit (values, { props }) {
-    props.submitCreate('v2/specs', values.json, false)
+  handleSubmit(values, { props }) {
+    props.submitCreate('v2/specs', values.json.trim(), false)
   }
 })(FormLayout)
 
 const mapStateToProps = state => ({
   success: state.create.successMessage,
   error: state.create.errors,
-  networkError: state.create.networkError
+  networkError: state.create.networkError,
+  authenticated: state.authentication.allowed
 })
 
 export const ConnectedJobForm = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitCreate }))(JobForm)

@@ -29,6 +29,7 @@ const uniOpts = {loading: Loading}
 const Bridges = universal(import('./containers/Bridges'), uniOpts)
 const BridgeSpec = universal(import('./containers/BridgeSpec'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const Create = universal(import('./containers/Create'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
 const Jobs = universal(import('./containers/Jobs'), uniOpts)
 const JobSpec = universal(import('./containers/JobSpec'), uniOpts)
