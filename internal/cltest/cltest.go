@@ -92,6 +92,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			MinIncomingConfirmations: 0,
 			MinOutgoingConfirmations: 6,
 			MinimumContractPayment:   *big.NewInt(MinimumContractPayment),
+			MinimumRequestExpiration: 300,
 			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
 		},
