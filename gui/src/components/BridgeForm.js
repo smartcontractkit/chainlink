@@ -24,7 +24,9 @@ const styles = theme => ({
     marginTop: theme.spacing.unit * 3
   },
   flash: {
-    textAlign: 'center'
+    textAlign: 'center',
+    paddingTop: theme.spacing.unit,
+    paddingBottom: theme.spacing.unit
   }
 })
 
