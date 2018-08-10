@@ -209,7 +209,7 @@ func TestBridgeType_Authenticate(t *testing.T) {
 		name, token string
 		wantError   bool
 	}{
-		{"correct", bt.IncomingKey, false},
+		{"correct", bt.IncomingToken, false},
 		{"incorrect", "gibberish", true},
 		{"empty incorrect", "", true},
 	}

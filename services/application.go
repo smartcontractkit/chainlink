@@ -109,8 +109,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
 	store := app.GetStore()
 
-	bt.IncomingKey = utils.NewBytes32ID()
-	bt.OutgoingKey = utils.NewBytes32ID()
+	bt.IncomingToken = utils.NewBytes32ID()
+	bt.OutgoingToken = utils.NewBytes32ID()
 
 	app.bridgeTypeMutex.Lock()
 	defer app.bridgeTypeMutex.Unlock()
