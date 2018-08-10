@@ -31,6 +31,8 @@ export default (state = initialState, action = {}) => {
           name: action.name,
           url: action.url,
           confirmations: action.confirmations,
+          incomingToken: action.incomingToken,
+          outgoingToken: action.outgoingToken,
           fetching: false,
           networkError: false
         }

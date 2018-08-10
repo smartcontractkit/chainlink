@@ -32,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -322,6 +324,12 @@ func ParseCommonJSON(body io.Reader) CommonJSON {
 	return respJSON
 }
 
+func ParseJSON(body io.Reader) models.JSON {
+	b, err := ioutil.ReadAll(body)
+	mustNotErr(err)
+	return models.JSON{Result: gjson.ParseBytes(b)}
+}
+
 // ErrorsJSON has an errors attribute
 type ErrorsJSON struct {
 	Errors []string `json:"errors"`
@@ -377,8 +385,8 @@ func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, f
 	return bodyCleaner(r.HTTPClient.Post(path, body))
 }
 
-func (r *HTTPClientCleaner) Patch(path string, body io.Reader) (*http.Response, func()) {
-	return bodyCleaner(r.HTTPClient.Patch(path, body))
+func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
+	return bodyCleaner(r.HTTPClient.Patch(path, body, headers...))
 }
 
 func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
@@ -550,8 +558,11 @@ func UpdateJobRunViaWeb(
 	body string,
 ) models.JobRun {
 	t.Helper()
+	bt, err := app.Store.PendingBridgeType(jr)
+	require.NoError(t, err)
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
+	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)

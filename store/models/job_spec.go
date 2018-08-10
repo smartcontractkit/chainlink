@@ -291,6 +291,8 @@ type BridgeType struct {
 	Name                 TaskType `json:"name" storm:"id,unique"`
 	URL                  WebURL   `json:"url"`
 	DefaultConfirmations uint64   `json:"defaultConfirmations"`
+	IncomingToken        string   `json:"incomingToken"`
+	OutgoingToken        string   `json:"outgoingToken"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -310,18 +312,13 @@ func (bt *BridgeType) SetID(value string) error {
 	return err
 }
 
-// UnmarshalJSON parses the given input and updates the BridgeType
-// Name and URL.
-func (bt *BridgeType) UnmarshalJSON(input []byte) error {
-	type Alias BridgeType
-	var aux Alias
-	if err := json.Unmarshal(input, &aux); err != nil {
-		return err
+// Authenticate returns true if the passed token matches its IncomingToken, or
+// returns false with an error.
+func (bt BridgeType) Authenticate(token string) (bool, error) {
+	if token == bt.IncomingToken {
+		return true, nil
 	}
-	bt.Name = aux.Name
-	bt.URL = aux.URL
-	bt.DefaultConfirmations = aux.DefaultConfirmations
-	return nil
+	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
 }
 
 // NormalizeSpecJSON makes a string of JSON deterministically ordered and

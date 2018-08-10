@@ -86,7 +86,7 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 type HTTPClient interface {
 	Get(string, ...map[string]string) (*http.Response, error)
 	Post(string, io.Reader) (*http.Response, error)
-	Patch(string, io.Reader) (*http.Response, error)
+	Patch(string, io.Reader, ...map[string]string) (*http.Response, error)
 	Delete(string) (*http.Response, error)
 }
 
@@ -117,8 +117,8 @@ func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Respo
 }
 
 // Patch performs an HTTP Patch using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Patch(path string, body io.Reader) (*http.Response, error) {
-	return h.doRequest("PATCH", path, body)
+func (h *authenticatedHTTPClient) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest("PATCH", path, body, headers...)
 }
 
 // Delete performs an HTTP Delete using the authenticated HTTP client's cookie.

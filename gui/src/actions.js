@@ -130,7 +130,9 @@ fetchActions.bridgeSpec = {
     type: RECEIVE_BRIDGESPEC_SUCCESS,
     name: json.data.attributes.name,
     url: json.data.attributes.url,
-    confirmations: json.data.attributes.defaultConfirmations
+    confirmations: json.data.attributes.defaultConfirmations,
+    incomingToken: json.data.attributes.incomingToken,
+    outgoingToken: json.data.attributes.outgoingToken
   }),
   receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGESPEC_ERROR, error)
 }

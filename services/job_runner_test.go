@@ -3,6 +3,7 @@ package services_test
 import (
 	"fmt"
 	"math/big"
+	"net/http"
 	"testing"
 	"time"
 
@@ -160,9 +161,13 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 
+			var bt models.BridgeType
 			var run models.JobRun
 			mockServer, _ := cltest.NewHTTPMockServer(t, 200, "POST", test.runResult,
-				func(b string) {
+				func(h http.Header, b string) {
+					token := utils.StripBearer(h.Get("Authorization"))
+					assert.Equal(t, bt.OutgoingToken, token)
+
 					body := cltest.JSONFromString(b)
 
 					id := body.Get("id")
@@ -174,13 +179,12 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 					input := cltest.JSONFromString(test.input)
 					for key, value := range input.Map() {
-						fmt.Println("key", key)
 						field := data.Get(key)
 						assert.True(t, field.Exists())
 						assert.Equal(t, value.String(), field.String())
 					}
 				})
-			bt := cltest.NewBridgeType(bridgeName, mockServer.URL)
+			bt = cltest.NewBridgeType(bridgeName, mockServer.URL)
 			assert.Nil(t, store.Save(&bt))
 
 			job, initr := cltest.NewJobWithWebInitiator()
@@ -304,7 +308,7 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 
 			run := job.NewRun(initr)
 			mockServer, _ := cltest.NewHTTPMockServer(t, 200, "POST", "{\"todo\": \"todo\"}",
-				func(b string) {
+				func(_ http.Header, b string) {
 					body := cltest.JSONFromString(b)
 
 					id := body.Get("id")

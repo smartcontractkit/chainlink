@@ -133,6 +133,9 @@ func NewBridgeType(info ...string) models.BridgeType {
 		bt.URL = WebURL("https://bridge.example.com/api")
 	}
 
+	bt.IncomingToken = utils.NewBytes32ID()
+	bt.OutgoingToken = utils.NewBytes32ID()
+
 	return bt
 }
 

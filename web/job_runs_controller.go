@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // JobRunsController manages JobRun requests in the node.
@@ -102,6 +104,10 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(405, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
 		c.AbortWithError(500, err)
+	} else if bt, err := jrc.App.Store.PendingBridgeType(jr); err != nil {
+		c.AbortWithError(500, err)
+	} else if _, err := bt.Authenticate(utils.StripBearer(c.Request.Header.Get("Authorization"))); err != nil {
+		publicError(c, http.StatusUnauthorized, err)
 	} else {
 		executeRun(jr, jrc.App.Store, brr.RunResult)
 		c.JSON(200, gin.H{"id": jr.ID})
