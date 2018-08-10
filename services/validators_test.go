@@ -120,3 +120,31 @@ func TestValidateInitiator(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateServiceAgreement(t *testing.T) {
+	t.Parallel()
+
+	testConfig, cleanup := cltest.NewConfig()
+	config := testConfig.Config
+	defer cleanup()
+
+	basic := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	tests := []struct {
+		name      string
+		input     cltest.EasyJSON
+		wantError bool
+	}{
+		{"basic", basic, false},
+		{"no payment", basic.Delete("payment"), true},
+		{"less than minimum payment", basic.Add("payment", 1), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sa := cltest.ServiceAgreementFromString(test.input.String())
+			result := services.ValidateServiceAgreement(sa, config)
+
+			cltest.ErrorPresence(t, test.wantError, result)
+		})
+	}
+}
