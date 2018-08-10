@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -191,11 +192,11 @@ func TestJobRunsCountFor(t *testing.T) {
 
 	assert.NotEqual(t, job.ID, job2.ID)
 
-	run1 := job.NewRun(initr)
+	completedRun := job.NewRun(initr)
 	run2 := job.NewRun(initr)
 	run3 := job2.NewRun(initr)
 
-	assert.NoError(t, store.Save(&run1))
+	assert.NoError(t, store.Save(&completedRun))
 	assert.NoError(t, store.Save(&run2))
 	assert.NoError(t, store.Save(&run3))
 
@@ -269,6 +270,43 @@ func TestFindBridge(t *testing.T) {
 			assert.Equal(t, test.errored, err != nil)
 		})
 	}
+}
+
+func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	bt := cltest.NewBridgeType()
+	assert.NoError(t, store.Save(&bt))
+
+	job, initr := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.SaveJob(&job))
+
+	completedRun := job.NewRun(initr)
+	completedRun, err := services.ExecuteRun(completedRun, store, models.RunResult{})
+	_, err = store.PendingBridgeType(completedRun)
+	assert.Error(t, err)
+}
+
+func TestORM_PendingBridgeType_success(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	bt := cltest.NewBridgeType()
+	assert.NoError(t, store.Save(&bt))
+
+	job, initr := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
+	assert.NoError(t, store.SaveJob(&job))
+
+	unfinishedRun := job.NewRun(initr)
+	retrievedBt, err := store.PendingBridgeType(unfinishedRun)
+	assert.NoError(t, err)
+	assert.Equal(t, bt, retrievedBt)
 }
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {

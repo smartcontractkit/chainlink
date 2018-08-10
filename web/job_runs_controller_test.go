@@ -190,7 +190,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","accessToken":"%v","data":{"value": "100"}}`, jr.ID, bt.IncomingKey)
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -201,6 +201,29 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	val, err := jr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
+}
+
+func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	app.Start()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.Save(&bt))
+	j, initr := cltest.NewJobWithWebInitiator()
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
+	assert.Nil(t, app.Store.Save(&j))
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	assert.Nil(t, app.Store.Save(&jr))
+
+	body := fmt.Sprintf(`{"id":"%v","accessToken":"%v","data":{"value": "100"}}`, jr.ID, "wrongAccessToken")
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
+	defer cleanup()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be unauthorized")
+	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
 }
 
 func TestJobRunsController_Update_NotPending(t *testing.T) {
@@ -218,7 +241,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	jr := j.NewRun(initr)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","accessToken":"%v","data":{"value": "100"}}`, jr.ID, bt.IncomingKey)
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
@@ -239,7 +262,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.Save(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow", "accessToken":"%v","data":{"value": "0"}}`, jr.ID, bt.IncomingKey)
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")

@@ -293,7 +293,8 @@ func (rr RunResult) Merge(in RunResult) (RunResult, error) {
 // BridgeRunResult handles the parsing of RunResults from external adapters.
 type BridgeRunResult struct {
 	RunResult
-	ExternalPending bool `json:"pending"`
+	ExternalPending bool   `json:"pending"`
+	AccessToken     string `json:"accessToken"`
 }
 
 // UnmarshalJSON parses the given input and updates the BridgeRunResult in the
