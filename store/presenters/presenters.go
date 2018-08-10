@@ -104,45 +104,47 @@ func (a *AccountBalance) SetID(value string) error {
 
 // ConfigWhitelist are the non-secret values of the node
 type ConfigWhitelist struct {
-	LogLevel                 store.LogLevel  `json:"logLevel"`
-	RootDir                  string          `json:"root"`
-	Port                     string          `json:"chainlinkPort"`
-	EthereumURL              string          `json:"ethUrl"`
+	AllowOrigins             string          `json:"allowOrigins"`
 	ChainID                  uint64          `json:"ethChainId"`
+	ChainlinkDev             bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
-	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
-	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
+	DatabaseTimeout          store.Duration  `json:"databaseTimeout"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
+	EthereumURL              string          `json:"ethUrl"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
+	LogLevel                 store.LogLevel  `json:"logLevel"`
+	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
+	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	MinimumContractPayment   *big.Int        `json:"minimumContractPayment"`
+	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
-	DatabaseTimeout          store.Duration  `json:"databaseTimeout"`
-	AllowOrigins             string          `json:"allowOrigins"`
-	ChainlinkDev             bool            `json:"chainlinkDev"`
+	Port                     string          `json:"chainlinkPort"`
+	RootDir                  string          `json:"root"`
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
 func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 	return ConfigWhitelist{
-		LogLevel:                 config.LogLevel,
-		RootDir:                  config.RootDir,
-		Port:                     config.Port,
-		EthereumURL:              config.EthereumURL,
+		AllowOrigins:             config.AllowOrigins,
 		ChainID:                  config.ChainID,
+		ChainlinkDev:             config.Dev,
 		ClientNodeURL:            config.ClientNodeURL,
-		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
-		MinIncomingConfirmations: config.MinIncomingConfirmations,
+		DatabaseTimeout:          config.DatabaseTimeout,
 		EthGasBumpThreshold:      config.EthGasBumpThreshold,
 		EthGasBumpWei:            &config.EthGasBumpWei,
 		EthGasPriceDefault:       &config.EthGasPriceDefault,
+		EthereumURL:              config.EthereumURL,
 		LinkContractAddress:      config.LinkContractAddress,
+		LogLevel:                 config.LogLevel,
+		MinIncomingConfirmations: config.MinIncomingConfirmations,
+		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		MinimumContractPayment:   &config.MinimumContractPayment,
+		MinimumRequestExpiration:   config.MinimumRequestExpiration,
 		OracleContractAddress:    config.OracleContractAddress,
-		DatabaseTimeout:          config.DatabaseTimeout,
-		AllowOrigins:             config.AllowOrigins,
-		ChainlinkDev:             config.Dev,
+		Port:                     config.Port,
+		RootDir:                  config.RootDir,
 	}
 }
 
