@@ -1,8 +1,8 @@
 package web_test
 
 import (
+	"bytes"
 	"io/ioutil"
-	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -11,17 +11,33 @@ import (
 
 func TestServiceAgreementsController_Create(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	client := app.NewHTTPClient()
+	base := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
 
-	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/hello_world_agreement.json")
-	assert.NotEqual(t, "", sa.ID)
-	js := cltest.FindJob(app.Store, sa.JobSpecID)
-	assert.Equal(t, "0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd", js.Digest)
+	tests := []struct {
+		name     string
+		input    string
+		wantCode int
+	}{
+		{"basic", base.String(), 200},
+		{"fails validation", base.Delete("payment").String(), 400},
+		{"invalid JSON", "{", 400},
+	}
 
-	assert.Equal(t, big.NewInt(100), sa.Encumbrance.Payment)
-	assert.Equal(t, big.NewInt(2), sa.Encumbrance.Expiration)
-	assert.Equal(t, "0x1d121fcb2f850b0a49018f12b26c110d87ce99fc7835608c237a88d944558fe0", sa.ID)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(test.input))
+			defer cleanup()
+
+			cltest.AssertServerResponse(t, resp, test.wantCode)
+			if test.wantCode == 200 {
+				cltest.FindServiceAgreement(app.Store, cltest.ParseCommonJSON(resp.Body).ID)
+			}
+		})
+	}
 }
 
 func TestServiceAgreementsController_Show(t *testing.T) {
