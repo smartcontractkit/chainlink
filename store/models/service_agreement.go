@@ -11,11 +11,11 @@ import (
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
-	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
-	ID          string      `json:"id" storm:"id,unique"`
-	JobSpecID   string      `json:"jobSpecID"`
-	Normalized  string      `json:"normalizedRequest"`
-	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
+	Encumbrance     Encumbrance `json:"encumbrance" storm:"inline"`
+	ID              string      `json:"id" storm:"id,unique"`
+	JobSpecID       string      `json:"jobSpecID"`
+	RecordedRequest string      `json:"recordedRequest"`
+	jobSpec         JobSpec     // jobSpec is used during the initial SA creation.
 	// If needed later, it can be retrieved from the database with JobSpecID.
 }
 
@@ -40,7 +40,7 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 		return sa, err
 	}
 	sa.ID = common.ToHex(digest)
-	sa.Normalized = sar.Normalized
+	sa.RecordedRequest = sar.Normalized
 
 	return sa, nil
 }
