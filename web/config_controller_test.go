@@ -40,7 +40,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, big.NewInt(5000000000), cwl.EthGasBumpWei)
 	assert.Equal(t, big.NewInt(20000000000), cwl.EthGasPriceDefault)
 	assert.Equal(t, "", cwl.LinkContractAddress)
-	assert.Equal(t, big.NewInt(0), cwl.MinimumContractPayment)
+	assert.Equal(t, big.NewInt(cltest.MinimumContractPayment), cwl.MinimumContractPayment)
 	assert.Equal(t, (*common.Address)(nil), cwl.OracleContractAddress)
 	assert.Equal(t, store.Duration{Duration: time.Millisecond * 500}, cwl.DatabaseTimeout)
 }
