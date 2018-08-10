@@ -55,6 +55,8 @@ const (
 
 var storeCounter uint64
 
+const MinimumContractPayment = 100
+
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
@@ -79,17 +81,18 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	config := TestConfig{
 		Config: store.Config{
-			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
-			RootDir:                  rootdir,
-			ChainID:                  3,
-			MinOutgoingConfirmations: 6,
-			MinIncomingConfirmations: 0,
-			EthGasBumpWei:            *big.NewInt(5000000000),
-			EthGasBumpThreshold:      3,
-			EthGasPriceDefault:       *big.NewInt(20000000000),
-			DatabaseTimeout:          store.Duration{Duration: time.Millisecond * 500},
 			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
+			ChainID:                  3,
+			DatabaseTimeout:          store.Duration{Duration: time.Millisecond * 500},
 			Dev:                      true,
+			EthGasBumpThreshold:      3,
+			EthGasBumpWei:            *big.NewInt(5000000000),
+			EthGasPriceDefault:       *big.NewInt(20000000000),
+			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
+			MinIncomingConfirmations: 0,
+			MinOutgoingConfirmations: 6,
+			MinimumContractPayment:   *big.NewInt(MinimumContractPayment),
+			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
 		},
 	}
