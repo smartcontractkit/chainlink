@@ -312,6 +312,8 @@ func (bt *BridgeType) SetID(value string) error {
 	return err
 }
 
+// Authenticate returns true if the passed token matches its IncomingToken, or
+// returns false with an error.
 func (bt BridgeType) Authenticate(token string) (bool, error) {
 	if token == bt.IncomingKey {
 		return true, nil
