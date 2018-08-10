@@ -19,12 +19,18 @@ const mountBridgeSpec = (props) => (
 
 describe('containers/BridgeSpec', () => {
   it('renders the details of the bridge spec', async () => {
-    expect.assertions(4)
+    expect.assertions(6)
     const bridgeName = 'TallBridge'
     const response = { data: {
       type: 'bridges',
       id: bridgeName,
-      attributes: {name: bridgeName, url: 'https://localhost.com:712/endpoint', defaultConfirmations: 9}
+      attributes: {
+        name: bridgeName,
+        url: 'https://localhost.com:712/endpoint',
+        defaultConfirmations: 9,
+        incomingToken: 'incomingToken',
+        outgoingToken: 'outgoingToken'
+      }
     }}
 
     global.fetch.getOnce(`/v2/bridge_types/${bridgeName}`, response)
@@ -36,6 +42,8 @@ describe('containers/BridgeSpec', () => {
     expect(wrapper.text()).toContain(bridgeName)
     expect(wrapper.text()).toContain('Confirmations')
     expect(wrapper.text()).toContain('https://localhost.com:712/endpoint')
+    expect(wrapper.text()).toContain('incomingToken')
+    expect(wrapper.text()).toContain('outgoingToken')
     expect(wrapper.text()).toContain('9')
   })
 })
