@@ -111,11 +111,13 @@ func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
 
 func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Name", "URL", "DefaultConfirmations"})
+	table.SetHeader([]string{"Name", "URL", "Default Confirmations", "Incoming Token", "Outgoing Token"})
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
 		strconv.FormatUint(bridge.DefaultConfirmations, 10),
+		bridge.IncomingToken,
+		bridge.OutgoingToken,
 	})
 	render("Bridge", table)
 	return nil
