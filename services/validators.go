@@ -11,6 +11,18 @@ import (
 	"go.uber.org/multierr"
 )
 
+// ValidationError is an error that occurs during validation.
+type ValidationError struct {
+	msg string
+}
+
+func (e *ValidationError) Error() string { return e.msg }
+
+// NewValidationError returns a validation error.
+func NewValidationError(msg string, values ...interface{}) error {
+	return &ValidationError{msg: fmt.Sprintf(msg, values...)}
+}
+
 // ValidateJob checks the job and its associated Initiators and Tasks for any
 // application logic errors.
 func ValidateJob(j models.JobSpec, store *store.Store) error {
@@ -101,14 +113,15 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 	return nil
 }
 
-// ValidationError is an error that occurs during validation.
-type ValidationError struct {
-	msg string
-}
+// ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.
+func ValidateServiceAgreement(sa models.ServiceAgreement, config store.Config) error {
+	var merr error
 
-func (e *ValidationError) Error() string { return e.msg }
+	if sa.Encumbrance.Payment == nil {
+		merr = multierr.Append(merr, NewValidationError("service agreement encumbrance error: No payment amount set"))
+	} else if sa.Encumbrance.Payment.Cmp(&config.MinimumContractPayment) == -1 {
+		merr = multierr.Append(merr, NewValidationError("service agreement encumbrance error: Payment amount is below minimum %v", config.MinimumContractPayment.String()))
+	}
 
-// NewValidationError returns a validation error.
-func NewValidationError(msg string) error {
-	return &ValidationError{msg}
+	return merr
 }
