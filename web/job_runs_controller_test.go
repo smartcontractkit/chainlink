@@ -191,7 +191,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingKey}
+	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -244,7 +244,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingKey}
+	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
@@ -266,7 +266,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingKey}
+	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")

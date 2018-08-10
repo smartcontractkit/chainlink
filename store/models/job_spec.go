@@ -291,8 +291,8 @@ type BridgeType struct {
 	Name                 TaskType `json:"name" storm:"id,unique"`
 	URL                  WebURL   `json:"url"`
 	DefaultConfirmations uint64   `json:"defaultConfirmations"`
-	IncomingKey          string   `json:"incomingKey"`
-	OutgoingKey          string   `json:"outgoingKey"`
+	IncomingToken        string   `json:"incomingToken"`
+	OutgoingToken        string   `json:"outgoingToken"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -315,7 +315,7 @@ func (bt *BridgeType) SetID(value string) error {
 // Authenticate returns true if the passed token matches its IncomingToken, or
 // returns false with an error.
 func (bt BridgeType) Authenticate(token string) (bool, error) {
-	if token == bt.IncomingKey {
+	if token == bt.IncomingToken {
 		return true, nil
 	}
 	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
