@@ -75,6 +75,16 @@ func (orm *ORM) FindBridge(name string) (BridgeType, error) {
 	return bt, err
 }
 
+// PendingBridgeType returns the bridge type of the current pending task,
+// or error if not pending bridge.
+func (orm *ORM) PendingBridgeType(jr JobRun) (BridgeType, error) {
+	unfinished := jr.UnfinishedTaskRuns()
+	if len(unfinished) == 0 {
+		return BridgeType{}, errors.New("Cannot find the pending bridge type of a job run with no unfinished tasks")
+	}
+	return orm.FindBridge(unfinished[0].Task.Type.String())
+}
+
 // FindJob looks up a Job by its ID.
 func (orm *ORM) FindJob(id string) (JobSpec, error) {
 	var job JobSpec

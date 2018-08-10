@@ -312,6 +312,13 @@ func (bt *BridgeType) SetID(value string) error {
 	return err
 }
 
+func (bt BridgeType) Authenticate(token string) (bool, error) {
+	if token == bt.IncomingKey {
+		return true, nil
+	}
+	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
+}
+
 // NormalizeSpecJSON makes a string of JSON deterministically ordered and
 // downcases the Chainlink type values.
 func NormalizeSpecJSON(s string) (string, error) {

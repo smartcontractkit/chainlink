@@ -399,7 +399,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	bt := cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
@@ -410,7 +410,8 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "", val)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"value":"100"}}`)
+	body := fmt.Sprintf(`{"accessToken":"%v","data":{"value":"100"}}`, bt.IncomingKey)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, body)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
