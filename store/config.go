@@ -39,6 +39,7 @@ type Config struct {
 	EthGasPriceDefault       big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
 	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	MinimumContractPayment   big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
+	MinimumRequestExpiration uint64          `env:"MINIMUM_REQUEST_EXPIRATION" envDefault:"300"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	DatabaseTimeout          Duration        `env:"DATABASE_TIMEOUT" envDefault:"500ms"`
 	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
