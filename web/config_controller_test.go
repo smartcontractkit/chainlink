@@ -37,6 +37,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint64(6), cwl.MinOutgoingConfirmations)
 	assert.Equal(t, uint64(0), cwl.MinIncomingConfirmations)
 	assert.Equal(t, uint64(3), cwl.EthGasBumpThreshold)
+	assert.Equal(t, uint64(300), cwl.MinimumRequestExpiration)
 	assert.Equal(t, big.NewInt(5000000000), cwl.EthGasBumpWei)
 	assert.Equal(t, big.NewInt(20000000000), cwl.EthGasPriceDefault)
 	assert.Equal(t, "", cwl.LinkContractAddress)
