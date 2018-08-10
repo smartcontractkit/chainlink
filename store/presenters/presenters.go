@@ -141,10 +141,10 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinIncomingConfirmations: config.MinIncomingConfirmations,
 		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		MinimumContractPayment:   &config.MinimumContractPayment,
-		MinimumRequestExpiration:   config.MinimumRequestExpiration,
+		MinimumRequestExpiration: config.MinimumRequestExpiration,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:                     config.Port,
-		RootDir:                  config.RootDir,
+		Port:    config.Port,
+		RootDir: config.RootDir,
 	}
 }
 
