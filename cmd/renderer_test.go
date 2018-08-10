@@ -12,21 +12,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRendererJSONRenderJobs(t *testing.T) {
+func TestRendererJSON_RenderJobs(t *testing.T) {
+	t.Parallel()
 	r := cmd.RendererJSON{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
 	assert.Nil(t, r.Render(&jobs))
 }
 
-func TestRendererTableRenderJobs(t *testing.T) {
+func TestRendererTable_RenderJobs(t *testing.T) {
+	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
 	assert.Nil(t, r.Render(&jobs))
 }
 
-func TestRendererTableRenderShowJob(t *testing.T) {
+func TestRendererTable_RenderShowJob(t *testing.T) {
+	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job, initr := cltest.NewJobWithWebInitiator()
 	run := job.NewRun(initr)
@@ -48,6 +51,7 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 }
 
 func TestRendererTable_RenderBridgeShow(t *testing.T) {
+	t.Parallel()
 	bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
 	bridge.DefaultConfirmations = 0
 
@@ -71,6 +75,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 }
 
 func TestRendererTable_RenderBridgeList(t *testing.T) {
+	t.Parallel()
 	bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
 	bridge.DefaultConfirmations = 0
 
@@ -94,7 +99,8 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 	}
 }
 
-func TestRendererTableRenderUnknown(t *testing.T) {
+func TestRendererTable_RenderUnknown(t *testing.T) {
+	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	anon := struct{ Name string }{"Romeo"}
 	assert.Error(t, r.Render(&anon))
