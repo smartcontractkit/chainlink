@@ -801,3 +801,11 @@ func NormalizedJSONString(input []byte) string {
 	mustNotErr(err)
 	return normalized
 }
+
+func ErrorPresence(t *testing.T, want bool, err error) {
+	if want {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
+}
