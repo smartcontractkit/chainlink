@@ -20,17 +20,23 @@ const styles = (theme) => {
     error: {
       backgroundColor: theme.palette.error.dark,
       color: theme.palette.error.contrastText
+    },
+    warning: {
+      backgroundColor: '#BDE5F8',
+      color: '#00529B'
     }
   })
 }
 
-const applyClass = ({base, success, error, classes, className}) => {
+const applyClass = ({base, success, error, warning, classes, className}) => {
   let type
 
   if (success) {
     type = classes.success
   } else if (error) {
     type = classes.error
+  } else if (warning) {
+    type = classes.warning
   }
 
   return classNames(base, className, type)
@@ -46,12 +52,14 @@ const Flash = (props) => (
 
 Flash.defaultProps = {
   success: false,
-  error: false
+  error: false,
+  warning: false
 }
 
 Flash.propTypes = {
   success: PropTypes.bool,
-  error: PropTypes.bool
+  error: PropTypes.bool,
+  warning: PropTypes.bool
 }
 
 export default withStyles(styles)(Flash)
