@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -50,7 +51,7 @@ func TestHttpGet_Perform(t *testing.T) {
 			t.Parallel()
 			input := cltest.RunResultWithValue("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
-				func(body string) { assert.Equal(t, ``, body) })
+				func(_ http.Header, body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
 
 			hga := adapters.HTTPGet{URL: cltest.MustParseWebURL(mock.URL)}
@@ -87,7 +88,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			input := cltest.RunResultWithValue("inputVal")
 			wantedBody := `{"value":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
-				func(body string) { assert.Equal(t, wantedBody, body) })
+				func(_ http.Header, body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()
 
 			hpa := adapters.HTTPPost{URL: cltest.MustParseWebURL(mock.URL)}

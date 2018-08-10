@@ -24,7 +24,7 @@ const styles = theme => ({
   }
 })
 
-const renderBridgeSpec = ({ classes, name, url, confirmations }) => (
+const renderBridgeSpec = ({ classes, name, url, confirmations, incomingToken, outgoingToken }) => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
@@ -40,6 +40,12 @@ const renderBridgeSpec = ({ classes, name, url, confirmations }) => (
 
           <Typography variant='subheading' color='textSecondary'>Confirmations</Typography>
           <Typography variant='body1' color='inherit'>{confirmations}</Typography>
+
+          <Typography variant='subheading' color='textSecondary'>Incoming Token</Typography>
+          <Typography variant='body1' color='inherit'>{incomingToken}</Typography>
+
+          <Typography variant='subheading' color='textSecondary'>Outgoing Token</Typography>
+          <Typography variant='body1' color='inherit'>{outgoingToken}</Typography>
         </Grid>
       </PaddedCard>
     </Grid>
@@ -93,7 +99,9 @@ const mapStateToProps = (state) => {
   return {
     name: state.bridgeSpec.name,
     url: state.bridgeSpec.url,
-    confirmations: state.bridgeSpec.confirmations
+    confirmations: state.bridgeSpec.confirmations,
+    incomingToken: state.bridgeSpec.incomingToken,
+    outgoingToken: state.bridgeSpec.outgoingToken
   }
 }
 

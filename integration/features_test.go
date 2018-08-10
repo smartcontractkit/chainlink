@@ -42,7 +42,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 func TestIntegration_HelloWorld(t *testing.T) {
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
-	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse, func(body string) {})
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
 
 	config, cleanup := cltest.NewConfig()
@@ -381,9 +381,10 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
+	var bt models.BridgeType
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
-		func(b string) {
+		func(h http.Header, b string) {
 			body := cltest.JSONFromString(b)
 
 			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -395,11 +396,14 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			data := body.Get("data")
 			assert.True(t, data.Exists())
 			assert.Equal(t, data.Type, gjson.JSON)
+
+			token := utils.StripBearer(h.Get("Authorization"))
+			assert.Equal(t, bt.OutgoingToken, token)
 		})
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	bt = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
@@ -434,7 +438,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
-		func(body string) {
+		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
 			assert.NoError(t, err)
 			assert.JSONEq(t, string(marshaledLog), body)
