@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -527,4 +528,19 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 
 	createCompletedJobRun(100, uint64(0x0100))
 	createCompletedJobRun(200, uint64(0x0101))
+}
+
+func TestIntegration_CreateServiceAgreement(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/hello_world_agreement.json")
+	assert.NotEqual(t, "", sa.ID)
+	js := cltest.FindJob(app.Store, sa.JobSpecID)
+	assert.Equal(t, "0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd", js.Digest)
+
+	assert.Equal(t, big.NewInt(100), sa.Encumbrance.Payment)
+	assert.Equal(t, big.NewInt(2), sa.Encumbrance.Expiration)
+	assert.Equal(t, "0x1d121fcb2f850b0a49018f12b26c110d87ce99fc7835608c237a88d944558fe0", sa.ID)
 }
