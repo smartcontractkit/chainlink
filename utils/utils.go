@@ -373,3 +373,8 @@ func Keccak256(in []byte) ([]byte, error) {
 	_, err := hash.Write(in)
 	return hash.Sum(nil), err
 }
+
+// StripBearer removes the 'Bearer: ' prefix from the HTTP Authorization header.
+func StripBearer(authorizationStr string) string {
+	return strings.TrimPrefix(strings.TrimSpace(authorizationStr), "Bearer ")
+}

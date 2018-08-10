@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -16,10 +17,12 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	defer cleanup()
 
 	data := ""
+	token := ""
 	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`,
-		func(b string) {
+		func(h http.Header, b string) {
 			body := cltest.JSONFromString(string(b))
 			data = body.Get("data").String()
+			token = h.Get("Authorization")
 		},
 	)
 	defer cleanup()
@@ -35,6 +38,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	ba.Perform(input, store)
 
 	assert.Equal(t, `{"bodyParam":true,"value":"100"}`, data)
+	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
@@ -103,7 +107,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			mock, ensureCalled := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
-				func(body string) {
+				func(_ http.Header, body string) {
 					assert.JSONEq(t, wantedBody, body)
 				})
 			defer ensureCalled()
