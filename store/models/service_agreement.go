@@ -11,11 +11,11 @@ import (
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
-	Encumbrance     Encumbrance `json:"encumbrance" storm:"inline"`
-	ID              string      `json:"id" storm:"id,unique"`
-	JobSpecID       string      `json:"jobSpecID"`
-	RecordedRequest string      `json:"recordedRequest"`
-	jobSpec         JobSpec     // jobSpec is used during the initial SA creation.
+	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
+	ID          string      `json:"id" storm:"id,unique"`
+	JobSpecID   string      `json:"jobSpecID"`
+	RequestBody string      `json:"requestBody"`
+	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
 	// If needed later, it can be retrieved from the database with JobSpecID.
 }
 
@@ -26,23 +26,23 @@ func (sa ServiceAgreement) GetID() string {
 
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
 func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreement, error) {
-	sa := ServiceAgreement{}
+	id, err := generateServiceAgreementID(sar.Encumbrance, sar.Digest)
 
-	sa.Encumbrance = sar.Encumbrance
-	sa.jobSpec = sar.JobSpec
+	return ServiceAgreement{
+		Encumbrance: sar.Encumbrance,
+		RequestBody: sar.NormalizedBody,
+		ID:          id,
+		jobSpec:     sar.JobSpec,
+	}, err
+}
 
-	b, err := utils.HexToBytes(sa.Encumbrance.ABI(), sa.jobSpec.Digest)
+func generateServiceAgreementID(e Encumbrance, digest string) (string, error) {
+	b, err := utils.HexToBytes(e.ABI(), digest)
 	if err != nil {
-		return sa, err
+		return "", err
 	}
-	digest, err := utils.Keccak256(b)
-	if err != nil {
-		return sa, err
-	}
-	sa.ID = common.ToHex(digest)
-	sa.RecordedRequest = sar.Normalized
-
-	return sa, nil
+	bytesID, err := utils.Keccak256(b)
+	return common.ToHex(bytesID), err
 }
 
 // Encumbrance connects job specifications with on-chain encumbrances.
@@ -61,9 +61,10 @@ func (e Encumbrance) ABI() string {
 
 // ServiceAgreementRequest represents a service agreement as requested over the wire.
 type ServiceAgreementRequest struct {
-	JobSpec     JobSpec
-	Encumbrance Encumbrance
-	Normalized  string
+	JobSpec        JobSpec
+	Encumbrance    Encumbrance
+	NormalizedBody string
+	Digest         string
 }
 
 // UnmarshalJSON fulfills Go's built in JSON unmarshaling interface.
@@ -82,12 +83,13 @@ func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 	if err != nil {
 		return err
 	}
+	requestDigest, err := utils.Keccak256([]byte(normalized))
 
 	sar.JobSpec = js
 	sar.Encumbrance = en
-	sar.Normalized = normalized
-
-	return nil
+	sar.NormalizedBody = normalized
+	sar.Digest = common.ToHex(requestDigest)
+	return err
 }
 
 func jobSpecFromSARequest(input []byte) (JobSpec, error) {
