@@ -6,8 +6,9 @@ import { TextField, Grid } from '@material-ui/core'
 import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import Flash from './Flash'
-import { Link, Prompt } from 'react-static'
+import { Prompt } from 'react-static'
+import { BridgeAndJobNotifications } from './FormNotifications';
+ './FormNotifications'
 
 const styles = theme => ({
   jsonfield: {
@@ -24,33 +25,29 @@ const styles = theme => ({
   }
 })
 
-const JobFormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
+const JobFormLayout = ({
+  isSubmitting,
+  classes,
+  handleChange,
+  error,
+  success,
+  authenticated,
+  networkError,
+  values
+}) => (
   <Fragment>
-      <Prompt when={values.json !== '' && !isSubmitting} message='You have not submitted the form, are you sure you want to leave?'/>
-    {
-      error.length > 0 &&
-      <Flash error className={classes.flash}>
-        {error.map((msg, i) => <span key={i}>{msg}</span>)}
-      </Flash>
-    }
-    {
-      !(error.length > 0) && networkError &&
-        <Flash error className={classes.flash}>
-          Received a Network Error.
-        </Flash>
-    }
-    {
-      !authenticated &&
-      <Flash warning className={classes.flash}>
-        Session expired. <Link to='/signin'>Please sign back in.</Link>
-      </Flash>
-    }
-    {
-      JSON.stringify(success) !== '{}' &&
-      <Flash success className={classes.flash}>
-        Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created.
-      </Flash>
-    }
+    <Prompt
+      when={values.json !== '' && !isSubmitting}
+      message='You have not submitted the form, are you sure you want to leave?'
+    />
+    <BridgeAndJobNotifications
+      error={error}
+      success={success}
+      networkError={networkError}
+      authenticated={authenticated}
+      classes={classes}
+      jobOrBridge='Job'
+    />
     <Form noValidate>
       <Grid container direction='column' alignItems='center'>
         <TextField
@@ -88,6 +85,9 @@ const mapStateToProps = state => ({
   authenticated: state.authentication.allowed
 })
 
-export const ConnectedJobForm = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitCreate }))(JobForm)
+export const ConnectedJobForm = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({ submitCreate })
+)(JobForm)
 
 export default withStyles(styles)(ConnectedJobForm)
