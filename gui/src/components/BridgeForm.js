@@ -6,9 +6,8 @@ import { TextField, Grid } from '@material-ui/core'
 import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import Flash from './Flash'
-import { Link, Prompt } from 'react-static'
-
+import { Prompt } from 'react-static'
+import { BridgeAndJobNotifications } from './FormNotifications';
 const styles = theme => ({
   textfield: {
     paddingTop: theme.spacing.unit * 1.25,
@@ -30,31 +29,29 @@ const styles = theme => ({
   }
 })
 
-const BridgeFormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
+const BridgeFormLayout = ({
+  isSubmitting,
+  classes,
+  handleChange,
+  error,
+  success,
+  authenticated,
+  networkError,
+  values
+}) => (
   <Fragment>
-    <Prompt when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && !isSubmitting} message='You have not submitted the form, are you sure you want to leave?'/>
-    {
-      error.length > 0 && authenticated &&
-      <Flash error className={classes.flash}>
-        {(Array.isArray(error) && error.map((msg, i) => <span key={i}>{msg}</span>)) || error}
-      </Flash>
-    }
-    {
-      !authenticated &&
-      <Flash warning className={classes.flash}>
-        Session expired. <Link to='/signin'>Please sign back in.</Link>
-      </Flash>
-    }
-    {
-      error.length === 0 && networkError &&
-      <Flash error className={classes.flash}> Received a Network Error. </Flash>
-    }
-    {
-      JSON.stringify(success) !== '{}' &&
-      <Flash success className={classes.flash}>
-          Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created.
-      </Flash>
-    }
+    <Prompt
+      when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && !isSubmitting}
+      message='You have not submitted the form, are you sure you want to leave?'
+    />
+    <BridgeAndJobNotifications
+      error={error}
+      success={success}
+      networkError={networkError}
+      authenticated={authenticated}
+      jobOrBridge='Bridge'
+      classes={classes}
+    />
     <Form className={classes.form} noValidate>
       <Grid container direction='column' alignItems='center'>
         <TextField
@@ -81,8 +78,12 @@ const BridgeFormLayout = ({ isSubmitting, classes, handleChange, error, success,
           id='confirmations'
           label='Type Confirmations'
         />
-        <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting || !values.name || !values.url}>
-            Build Bridge
+        <Button
+          color='primary'
+          type='submit'
+          className={classes.button}
+          disabled={isSubmitting || !values.name || !values.url}>
+          Build Bridge
         </Button>
       </Grid>
     </Form>
@@ -114,7 +115,7 @@ const mapStateToProps = state => ({
 
 export const ConnectedBridgeForm = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({submitCreate})
+  matchRouteAndMapDispatchToProps({ submitCreate })
 )(BridgeForm)
 
 export default withStyles(styles)(ConnectedBridgeForm)
