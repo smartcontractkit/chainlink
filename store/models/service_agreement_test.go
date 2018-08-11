@@ -20,7 +20,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 	}{
 		{"basic",
 			`{"payment":1,"initiators":[{"type":"web"}],"tasks":[{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
-			"0xa0911e6d17e4b992e41a12a2dae111382c42328a895983894e1bb6912213d385", 1},
+			"0x4b4c6936fde5823b3e5e6e6ec44ba5a0375f7c0de63d4b0d0236db13f8d76f2f", 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
 			assert.Equal(t, big.NewInt(test.wantPayment), sar.Encumbrance.Payment)
-			assert.Equal(t, cltest.NormalizedJSONString([]byte(test.input)), sar.Normalized)
+			assert.Equal(t, cltest.NormalizedJSONString([]byte(test.input)), sar.NormalizedBody)
 		})
 	}
 }
