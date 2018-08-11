@@ -23,11 +23,6 @@ type JobSpecRequest struct {
 
 // NewJobFromRequest initializes a new job from a JobSpecRequest.
 func NewJobFromRequest(jsr JobSpecRequest) (JobSpec, error) {
-	digest, err := utils.ObjectDigest(jsr)
-	if err != nil {
-		return JobSpec{}, err
-	}
-
 	return JobSpec{
 		ID:         utils.NewBytes32ID(),
 		CreatedAt:  Time{Time: time.Now()},
@@ -35,7 +30,6 @@ func NewJobFromRequest(jsr JobSpecRequest) (JobSpec, error) {
 		Tasks:      jsr.Tasks,
 		StartAt:    jsr.StartAt,
 		EndAt:      jsr.EndAt,
-		Digest:     common.ToHex(digest),
 	}, nil
 }
 
@@ -49,7 +43,6 @@ type JobSpec struct {
 	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
-	Digest     string      `json:"digest"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

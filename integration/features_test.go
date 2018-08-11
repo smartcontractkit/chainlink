@@ -541,8 +541,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/hello_world_agreement.json")
 	assert.NotEqual(t, "", sa.ID)
-	js := cltest.FindJob(app.Store, sa.JobSpecID)
-	assert.Equal(t, "0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd", js.Digest)
+	cltest.FindJob(app.Store, sa.JobSpecID)
 
 	assert.Equal(t, big.NewInt(100), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
