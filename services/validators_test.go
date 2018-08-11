@@ -145,7 +145,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 			sa := cltest.ServiceAgreementFromString(test.input.String())
 			result := services.ValidateServiceAgreement(sa, config)
 
-			cltest.ErrorPresence(t, test.wantError, result)
+			cltest.AssertError(t, test.wantError, result)
 		})
 	}
 }
