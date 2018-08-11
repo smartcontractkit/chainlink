@@ -104,7 +104,6 @@ func TestJobSpecsController_Create(t *testing.T) {
 
 	js := cltest.ParseCommonJSON(resp.Body)
 	j := cltest.FindJob(app.Store, js.ID)
-	assert.NotEqual(t, "", js.Digest)
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := cltest.UnwrapAdapter(adapter1).(*adapters.HTTPGet)
