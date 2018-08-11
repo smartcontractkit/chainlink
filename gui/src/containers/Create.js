@@ -73,7 +73,8 @@ class Create extends React.Component {
 
   render () {
     const { classes } = this.props
-    const structure = this.props.match.params.structure || 'bridge'
+    const matchExists = this.props.match && this.props.match.params
+    const structure = (matchExists && this.props.match.params.structure) || 'bridge'
     const { value } = this.state
     return (
       <div className={classes.root}>
