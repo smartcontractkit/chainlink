@@ -121,6 +121,7 @@ func TestJobSpecsController_Create(t *testing.T) {
 	var initr models.Initiator
 	app.Store.One("JobID", j.ID, &initr)
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
+	assert.NotEqual(t, models.Time{}, j.CreatedAt)
 }
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {

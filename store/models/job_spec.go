@@ -13,26 +13,6 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-// JobSpecRequest represents a job specification as requested over the wire.
-type JobSpecRequest struct {
-	Initiators []Initiator `json:"initiators"`
-	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
-	StartAt    null.Time   `json:"startAt" storm:"index"`
-	EndAt      null.Time   `json:"endAt" storm:"index"`
-}
-
-// NewJobFromRequest initializes a new job from a JobSpecRequest.
-func NewJobFromRequest(jsr JobSpecRequest) (JobSpec, error) {
-	return JobSpec{
-		ID:         utils.NewBytes32ID(),
-		CreatedAt:  Time{Time: time.Now()},
-		Initiators: jsr.Initiators,
-		Tasks:      jsr.Tasks,
-		StartAt:    jsr.StartAt,
-		EndAt:      jsr.EndAt,
-	}, nil
-}
-
 // JobSpec is the definition for all the work to be carried out by the node
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
@@ -312,20 +292,4 @@ func (bt BridgeType) Authenticate(token string) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
-}
-
-// NormalizeSpecJSON makes a string of JSON deterministically ordered and
-// downcases the Chainlink type values.
-func NormalizeSpecJSON(s string) (string, error) {
-	var jsr JobSpecRequest
-	if err := json.Unmarshal([]byte(s), &jsr); err != nil {
-		return "", err
-	}
-
-	js, err := json.Marshal(&jsr)
-	if err != nil {
-		return "", err
-	}
-
-	return utils.NormalizedJSONString(js)
 }
