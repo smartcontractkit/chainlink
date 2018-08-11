@@ -7,7 +7,7 @@ import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import Flash from './Flash'
-import { Link } from 'react-static'
+import { Link, Prompt } from 'react-static'
 
 const styles = theme => ({
   textfield: {
@@ -30,8 +30,9 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
+const BridgeFormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
   <Fragment>
+    <Prompt when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && !isSubmitting} message='You have not submitted the form, are you sure you want to leave?'/>
     {
       error.length > 0 && authenticated &&
       <Flash error className={classes.flash}>
@@ -102,7 +103,7 @@ const BridgeForm = withFormik({
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
     props.submitCreate('v2/bridge_types', formattedValues, true)
   }
-})(FormLayout)
+})(BridgeFormLayout)
 
 const mapStateToProps = state => ({
   success: state.create.successMessage,

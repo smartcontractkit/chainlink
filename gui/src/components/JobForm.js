@@ -7,7 +7,7 @@ import { connect } from 'react-redux'
 import { submitCreate } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import Flash from './Flash'
-import { Link } from 'react-static'
+import { Link, Prompt } from 'react-static'
 
 const styles = theme => ({
   jsonfield: {
@@ -24,8 +24,9 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
+const JobFormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
   <Fragment>
+      <Prompt when={values.json !== '' && !isSubmitting} message='You have not submitted the form, are you sure you want to leave?'/>
     {
       error.length > 0 &&
       <Flash error className={classes.flash}>
@@ -78,7 +79,7 @@ const JobForm = withFormik({
   handleSubmit (values, { props }) {
     props.submitCreate('v2/specs', values.json.trim(), false)
   }
-})(FormLayout)
+})(JobFormLayout)
 
 const mapStateToProps = state => ({
   success: state.create.successMessage,
