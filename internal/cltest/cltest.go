@@ -814,7 +814,7 @@ func NormalizedJSON(input []byte) string {
 	return normalized
 }
 
-func ErrorPresence(t *testing.T, want bool, err error) {
+func AssertError(t *testing.T, want bool, err error) {
 	if want {
 		assert.Error(t, err)
 	} else {

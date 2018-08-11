@@ -41,7 +41,7 @@ func TestNormalizedJSON(t *testing.T) {
 
 			str, err := utils.NormalizedJSON(jsonBytes)
 
-			cltest.ErrorPresence(t, test.didError, err)
+			cltest.AssertError(t, test.didError, err)
 			assert.Equal(t, test.output, str)
 		})
 	}
