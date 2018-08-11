@@ -12,11 +12,13 @@ import (
 func TestNormalizedJSON(t *testing.T) {
 	t.Parallel()
 
+	base := cltest.EasyJSONFromString(`{"a": "!", "A": "1"}`)
+
 	tests := []struct {
-		name     string
-		object   interface{}
-		output   string
-		didError bool
+		name      string
+		input     interface{}
+		want      string
+		wantError bool
 	}{
 		{"empty object", struct{}{}, "{}", false},
 		{"empty array", []string{}, "[]", false},
@@ -32,17 +34,25 @@ func TestNormalizedJSON(t *testing.T) {
 			"\"\u00c5\u0073\u0074\u0072\u00f6\u006d\"",
 			false,
 		},
+		{name: "reordering",
+			input:     base,
+			want:      `{"A":"1","a":"!"}`,
+			wantError: false},
+		{name: "more key reordering",
+			input:     base.Add("B", "@").Add("b", "?").Add("c", "..."),
+			want:      `{"A":"1","B":"@","a":"!","b":"?","c":"..."}`,
+			wantError: false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			jsonBytes, err := json.Marshal(test.object)
+			jsonBytes, err := json.Marshal(test.input)
 			assert.NoError(t, err)
 
 			str, err := utils.NormalizedJSON(jsonBytes)
 
-			cltest.AssertError(t, test.didError, err)
-			assert.Equal(t, test.output, str)
+			cltest.AssertError(t, test.wantError, err)
+			assert.Equal(t, test.want, str)
 		})
 	}
 }
