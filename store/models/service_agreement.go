@@ -69,8 +69,8 @@ type ServiceAgreementRequest struct {
 
 // UnmarshalJSON fulfills Go's built in JSON unmarshaling interface.
 func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
-	js, err := jobSpecFromSARequest(input)
-	if err != nil {
+	js := NewJob()
+	if err := json.Unmarshal(input, &js); err != nil {
 		return err
 	}
 
@@ -90,13 +90,4 @@ func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 	sar.NormalizedBody = normalized
 	sar.Digest = common.ToHex(requestDigest)
 	return err
-}
-
-func jobSpecFromSARequest(input []byte) (JobSpec, error) {
-	var jsr JobSpecRequest
-	if err := json.Unmarshal(input, &jsr); err != nil {
-		return JobSpec{}, err
-	}
-
-	return NewJobFromRequest(jsr)
 }

@@ -51,9 +51,9 @@ func TestORM_SaveJob(t *testing.T) {
 
 	j2, _ := store.FindJob(j1.ID)
 	assert.Equal(t, j1.ID, j2.ID)
-	assert.NotEqual(t, 0, j2.Initiators[0])
-	assert.Equal(t, j2.Initiators[0].ID, j1.Initiators[0].ID)
+	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
+
 	assert.NoError(t, store.One("JobID", j1.ID, &initr))
 	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
 }
