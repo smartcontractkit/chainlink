@@ -546,5 +546,5 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 
 	assert.Equal(t, big.NewInt(100), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
-	assert.Equal(t, "0x6b7067888797acf8f35d47f840107b35e8a4a572b2abdebdb2453b872859335a", sa.ID)
+	assert.Equal(t, "0xd955b37dd65d82f0163450f66ae1ab05231dd0cbab9fec1ae4167f7aeb5ca350", sa.ID)
 }
