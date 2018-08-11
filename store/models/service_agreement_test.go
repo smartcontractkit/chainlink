@@ -80,7 +80,7 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
 			assert.Equal(t, big.NewInt(test.wantPayment), sar.Encumbrance.Payment)
-			assert.Equal(t, cltest.NormalizedJSONString([]byte(test.input)), sar.NormalizedBody)
+			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sar.NormalizedBody)
 		})
 	}
 }
