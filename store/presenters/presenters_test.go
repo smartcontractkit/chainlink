@@ -161,5 +161,5 @@ func TestServiceAgreement_MarshalJSON(t *testing.T) {
 	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
 	output, err := psa.MarshalJSON()
 	assert.NoError(t, err)
-	assert.Equal(t, cltest.NormalizedJSONString(input), string(output))
+	assert.Equal(t, cltest.NormalizedJSON(input), string(output))
 }

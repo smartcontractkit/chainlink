@@ -56,7 +56,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
-	normalizedInput := cltest.NormalizedJSONString(input)
+	normalizedInput := cltest.NormalizedJSON(input)
 	saBody := cltest.JSONFromString(string(b)).Get("data").Get("attributes")
 	assert.Equal(t, normalizedInput, saBody.String())
 }

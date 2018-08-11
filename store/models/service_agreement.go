@@ -79,7 +79,7 @@ func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	normalized, err := utils.NormalizedJSONString(input)
+	normalized, err := utils.NormalizedJSON(input)
 	if err != nil {
 		return err
 	}

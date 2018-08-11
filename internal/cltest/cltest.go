@@ -810,8 +810,8 @@ func MustGenerateSessionCookie(value string) *http.Cookie {
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }
 
-func NormalizedJSONString(input []byte) string {
-	normalized, err := utils.NormalizedJSONString(input)
+func NormalizedJSON(input []byte) string {
+	normalized, err := utils.NormalizedJSON(input)
 	mustNotErr(err)
 	return normalized
 }
