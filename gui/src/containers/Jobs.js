@@ -67,7 +67,7 @@ const renderSidebar = ({
 )
 
 const CreateButton = ({construct, buttonText}) => (
-  <Button variant='outlined' color='primary' component={Link} to={`create/${construct}`}>
+  <Button variant='outlined' color='primary' component={Link} to={`/create/${construct}`}>
     {buttonText}
   </Button>
 )

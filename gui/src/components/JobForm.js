@@ -24,24 +24,24 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
   <Fragment>
     {
-      error.length > 0 && 
+      error.length > 0 &&
       <Flash error className={classes.flash}>
         {error.map((msg, i) => <span key={i}>{msg}</span>)}
       </Flash>
     }
     {
-      !(error.length > 0) && networkError && 
+      !(error.length > 0) && networkError &&
         <Flash error className={classes.flash}>
           Received a Network Error.
         </Flash>
     }
     {
-      !authenticated && 
+      !authenticated &&
       <Flash warning className={classes.flash}>
-        Session expired. <Link to="/signin">Please sign back in.</Link>
+        Session expired. <Link to='/signin'>Please sign back in.</Link>
       </Flash>
     }
     {
@@ -51,17 +51,17 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authe
       </Flash>
     }
     <Form noValidate>
-      <Grid container direction="column" alignItems="center">
+      <Grid container direction='column' alignItems='center'>
         <TextField
           onChange={handleChange}
-          label="Paste JSON"
-          placeholder="Paste JSON"
+          label='Paste JSON'
+          placeholder='Paste JSON'
           multiline
           className={classes.jsonfield}
-          margin="normal"
-          name="json"
+          margin='normal'
+          name='json'
         />
-        <Button color="primary" type="submit" disabled={isSubmitting}>
+        <Button color='primary' type='submit' disabled={isSubmitting || !values.json}>
           Build Job
         </Button>
       </Grid>
@@ -70,12 +70,12 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authe
 )
 
 const JobForm = withFormik({
-  mapPropsToValues({ json }) {
+  mapPropsToValues ({ json }) {
     return {
       json: json || ''
     }
   },
-  handleSubmit(values, { props }) {
+  handleSubmit (values, { props }) {
     props.submitCreate('v2/specs', values.json.trim(), false)
   }
 })(FormLayout)

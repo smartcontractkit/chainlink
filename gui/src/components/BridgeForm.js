@@ -30,7 +30,7 @@ const styles = theme => ({
   }
 })
 
-const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError }) => (
+const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authenticated, networkError, values }) => (
   <Fragment>
     {
       error.length > 0 && authenticated &&
@@ -45,7 +45,7 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authe
       </Flash>
     }
     {
-      !(error.length > 0) && networkError &&
+      error.length === 0 && networkError &&
       <Flash error className={classes.flash}> Received a Network Error. </Flash>
     }
     {
@@ -61,11 +61,13 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authe
           className={classes.textfield}
           label='Type Bridge Name'
           name='name'
+          id='name'
           placeholder='name'
         />
         <TextField
           label='Type Bridge URL'
           name='url'
+          id='url'
           placeholder='url'
           onChange={handleChange}
           className={classes.textfield}
@@ -75,9 +77,10 @@ const FormLayout = ({ isSubmitting, classes, handleChange, error, success, authe
           className={classes.textfield}
           name='confirmations'
           placeholder='confirmations'
+          id='confirmations'
           label='Type Confirmations'
         />
-        <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting}>
+        <Button color='primary' type='submit' className={classes.button} disabled={isSubmitting || !values.name || !values.url}>
             Build Bridge
         </Button>
       </Grid>
