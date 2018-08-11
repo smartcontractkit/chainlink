@@ -11,16 +11,6 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// ObjectDigest produces a solidity compatible Keccak256 signature from a
-// consistent JSON encoding of any go object.
-func ObjectDigest(object interface{}) ([]byte, error) {
-	str, err := NormalizedJSON(object)
-	if err != nil {
-		return nil, err
-	}
-	return Keccak256([]byte(str))
-}
-
 // NormalizedJSON returns a JSON representation of an object that has been
 // normalized to produce a consistent output for hashing.
 //
@@ -29,19 +19,7 @@ func ObjectDigest(object interface{}) ([]byte, error) {
 // function due to differences in JSON implementations and information loss.
 // e.g:
 // 	JSON does not have a requirement to respect object key ordering.
-func NormalizedJSON(object interface{}) (string, error) {
-	// First marshal into a JSON string
-	jsonBytes, err := json.Marshal(object)
-	if err != nil {
-		return "", err
-	}
-
-	return NormalizedJSONString(jsonBytes)
-}
-
-// NormalizedJSONString takes stirng of JSON representation and produces a
-// normalized version for consistent output for hashing.
-func NormalizedJSONString(val []byte) (string, error) {
+func NormalizedJSON(val []byte) (string, error) {
 	// Unmarshal into a generic interface{}
 	var data interface{}
 	if err := json.Unmarshal(val, &data); err != nil {
