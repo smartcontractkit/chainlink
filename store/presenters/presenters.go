@@ -415,3 +415,29 @@ func (sa ServiceAgreement) FriendlyExpiration() string {
 func (sa ServiceAgreement) FriendlyPayment() string {
 	return fmt.Sprintf("%v LINK", (*assets.Link)(sa.Encumbrance.Payment).String())
 }
+
+// Stats holds high level data from the store around node operation
+type Stats struct {
+	Account      AccountBalance `json:"-"`
+	JobSpecStats []JobSpecStats `json:"job_spec_stats"`
+}
+
+// JobSpecStats holds all the data for a single Job Spec
+type JobSpecStats struct {
+	ID           string                   `json:"id"`
+	RunCount     int                      `json:"run_count"`
+	AdaptorCount map[models.TaskType]int  `json:"adaptor_count"`
+	StatusCount  map[models.RunStatus]int `json:"status_count"`
+	URLCount     map[string]int           `json:"run_url"`
+}
+
+// GetID generates a new ID for jsonapi serialization.
+func (s Stats) GetID() string {
+	return s.Account.Address
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (s *Stats) SetID(value string) error {
+	return nil
+}
