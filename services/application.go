@@ -26,6 +26,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter          func(int)
 	HeadTracker     *HeadTracker
+	JobMetrics      JobMetrics
 	JobRunner       JobRunner
 	JobSubscriber   JobSubscriber
 	Scheduler       *Scheduler
@@ -44,6 +45,7 @@ func NewApplication(config store.Config) Application {
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
 		HeadTracker:   ht,
+		JobMetrics:    NewJobMetrics(store),
 		JobSubscriber: NewJobSubscriber(store),
 		JobRunner:     NewJobRunner(store),
 		Scheduler:     NewScheduler(store),
@@ -73,6 +75,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Store.Start(),
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
+		app.JobMetrics.Start(),
 		app.JobRunner.Start(),
 		app.Reaper.Start(),
 	)
@@ -106,6 +109,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
+	app.JobMetrics.Add(job)
 	return app.JobSubscriber.AddJob(job, app.HeadTracker.LastRecord())
 }
 

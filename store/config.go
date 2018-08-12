@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -48,6 +48,7 @@ type Config struct {
 	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" envDefault:"6689"`
 	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" envDefault:""`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
+	MetricsParam             []string        `env:"METRICS_PARAM" envDefault:"url"`
 	SecretGenerator          SecretGenerator
 	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`
 	TLSKeyPath               string   `env:"TLS_KEY_PATH" envDefault:""`
