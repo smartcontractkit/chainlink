@@ -101,6 +101,23 @@ func (a *AccountBalance) SetID(value string) error {
 	return nil
 }
 
+// JobSpecMetricsCollection holds the address and the
+type JobSpecMetricsCollection struct {
+	Address        string                  `json:"-"`
+	JobSpecMetrics []models.JobSpecMetrics `json:"jobSpecMetrics"`
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (a JobSpecMetricsCollection) GetID() string {
+	return a.Address
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (a *JobSpecMetricsCollection) SetID(value string) error {
+	a.Address = value
+	return nil
+}
+
 // ConfigWhitelist are the non-secret values of the node
 type ConfigWhitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
