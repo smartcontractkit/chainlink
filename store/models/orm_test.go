@@ -427,9 +427,6 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	user := cltest.MustUser("have@email", "password")
 	require.NoError(t, store.Save(&user))
 
-	session := models.NewSession()
-	require.NoError(t, store.Save(&session))
-
 	tests := []struct {
 		name            string
 		sessionID       string
@@ -437,19 +434,30 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		wantError       bool
 		wantEmail       string
 	}{
-		{"authorized", session.ID, cltest.MustParseDuration("15m"), false, "have@email"},
-		{"expired", session.ID, cltest.MustParseDuration("0m"), true, ""},
-		{"empty", "", cltest.MustParseDuration("15m"), true, ""},
+		{"authorized", "correctID", cltest.MustParseDuration("3m"), false, "have@email"},
+		{"expired", "correctID", cltest.MustParseDuration("0m"), true, ""},
+		{"incorrect", "wrong", cltest.MustParseDuration("3m"), true, ""},
+		{"empty", "", cltest.MustParseDuration("3m"), true, ""},
 	}
 
 	for _, test := range tests {
-		actual, err := store.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
-		assert.Equal(t, test.wantEmail, actual.Email)
-		if test.wantError {
-			require.Error(t, err)
-		} else {
-			require.NoError(t, err)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			session := cltest.NewSession("correctID")
+			session.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
+			require.NoError(t, store.Save(&session))
+
+			actual, err := store.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
+			assert.Equal(t, test.wantEmail, actual.Email)
+			if test.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				err = store.One("ID", session.ID, &session)
+				require.NoError(t, err)
+				expectedTime := models.Time{time.Now()}.HumanString()
+				assert.Equal(t, expectedTime, session.LastUsed.HumanString())
+			}
+		})
 	}
 }
 
