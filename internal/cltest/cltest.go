@@ -97,6 +97,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			MinimumRequestExpiration: 300,
 			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
+			SessionTimeout:           store.Duration{MustParseDuration("2m")},
 		},
 	}
 	config.SetEthereumServer(wsserver)
@@ -223,7 +224,9 @@ func (ta *TestApplication) Stop() error {
 func (ta *TestApplication) MustSeedUserSession() models.User {
 	mockUser := MustUser(APIEmail, Password)
 	mustNotErr(ta.Store.Save(&mockUser))
-	mustNotErr(ta.Store.Save(&models.Session{APISessionID}))
+	session := models.NewSession()
+	session.ID = APISessionID
+	mustNotErr(ta.Store.Save(&session))
 	return mockUser
 }
 
@@ -833,4 +836,10 @@ func UnauthenticatedPatch(url string, body io.Reader, headers map[string]string)
 	resp, err := client.Do(request)
 	mustNotErr(err)
 	return resp, func() { resp.Body.Close() }
+}
+
+func MustParseDuration(durationStr string) time.Duration {
+	duration, err := time.ParseDuration(durationStr)
+	mustNotErr(err)
+	return duration
 }
