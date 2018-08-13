@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -205,7 +206,7 @@ func uiCorsHandler(config store.Config) gin.HandlerFunc {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
+		MaxAge:           math.MaxInt32,
 	}
 	if config.AllowOrigins == "*" {
 		c.AllowAllOrigins = true
