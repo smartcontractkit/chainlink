@@ -264,13 +264,13 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 }
 
 // ISO8601 formats and returns the time in ISO 8601 standard.
-func (t *Time) ISO8601() string {
+func (t Time) ISO8601() string {
 	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
 }
 
 // DurationFromNow returns the amount of time since the Time
 // field was last updated.
-func (t *Time) DurationFromNow() time.Duration {
+func (t Time) DurationFromNow() time.Duration {
 	return t.Time.Sub(time.Now())
 }
 
