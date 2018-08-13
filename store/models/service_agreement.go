@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -11,6 +12,7 @@ import (
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
+	CreatedAt   Time        `json:"createdAt" storm:"index"`
 	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
 	ID          string      `json:"id" storm:"id,unique"`
 	JobSpecID   string      `json:"jobSpecID"`
@@ -29,9 +31,10 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreeme
 	id, err := generateServiceAgreementID(sar.Encumbrance, sar.Digest)
 
 	return ServiceAgreement{
+		CreatedAt:   Time{time.Now()},
 		Encumbrance: sar.Encumbrance,
-		RequestBody: sar.NormalizedBody,
 		ID:          id,
+		RequestBody: sar.NormalizedBody,
 		jobSpec:     sar.JobSpec,
 	}, err
 }
