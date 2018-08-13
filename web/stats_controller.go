@@ -78,12 +78,12 @@ func (sc *StatsController) jobStats(job models.JobSpec) (presenters.JobSpecStats
 	}
 
 	rc := make(map[models.RunStatus]int)
-	uc := make(map[string]int)
 	ac := make(map[models.TaskType]int)
+	pc := make(map[string][]presenters.ParamCount)
 	for _, jr := range jrs {
 		rc[jr.Status]++
-		if len(jr.TaskRuns) > 0 && jr.TaskRuns[0].Task.Params.Get("url").Exists() {
-			uc[jr.TaskRuns[0].Task.Params.Get("url").Str]++
+		if len(jr.TaskRuns) > 0 {
+			sc.trackParams(jr, pc)
 		}
 	}
 	for _, t := range job.Tasks {
@@ -94,6 +94,31 @@ func (sc *StatsController) jobStats(job models.JobSpec) (presenters.JobSpecStats
 		RunCount:     len(jrs),
 		AdaptorCount: ac,
 		StatusCount:  rc,
-		URLCount:     uc,
+		ParamCount:   pc,
 	}, nil
+}
+
+func (sc *StatsController) trackParams(jobRun models.JobRun, paramCount map[string][]presenters.ParamCount) {
+	tp := sc.App.Store.Config.StatsParam
+
+	for _, p := range tp {
+		trp := jobRun.TaskRuns[0].Task.Params.Get(p)
+		if trp.Exists() {
+			found := false
+			for i := range paramCount[p] {
+				if paramCount[p][i].Value == trp.String() {
+					found = true
+					paramCount[p][i].Count++
+					break
+				}
+			}
+
+			if !found {
+				paramCount[p] = append(paramCount[p], presenters.ParamCount{
+					Value: trp.String(),
+					Count: 1,
+				})
+			}
+		}
+	}
 }

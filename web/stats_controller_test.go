@@ -73,7 +73,8 @@ func TestStatsController_Index(t *testing.T) {
 	assert.Equal(t, stats.JobSpecStats[0].RunCount, 1, "Should have a single run")
 	assert.Equal(t, stats.JobSpecStats[0].StatusCount["completed"], 1, "Should have a single completed run")
 	assert.Equal(t, stats.JobSpecStats[0].AdaptorCount["noop"], 1, "Should have noop as an adaptor")
-	assert.Equal(t, stats.JobSpecStats[0].URLCount["https://chain.link"], 1, "Should include a url")
+	assert.Equal(t, stats.JobSpecStats[0].ParamCount["url"][0].Value, "https://chain.link", "Should include the same URL")
+	assert.Equal(t, stats.JobSpecStats[0].ParamCount["url"][0].Count, 1, "Should include a url")
 	assert.Equal(t, j2.ID, stats.JobSpecStats[0].ID, "should have the same ID")
 }
 

@@ -427,7 +427,13 @@ type JobSpecStats struct {
 	RunCount     int                      `json:"run_count"`
 	AdaptorCount map[models.TaskType]int  `json:"adaptor_count"`
 	StatusCount  map[models.RunStatus]int `json:"status_count"`
-	URLCount     map[string]int           `json:"run_url"`
+	ParamCount   map[string][]ParamCount  `json:"param_count"`
+}
+
+// ParamCount holds each parameter count in each Job Spec
+type ParamCount struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
 }
 
 // GetID generates a new ID for jsonapi serialization.
