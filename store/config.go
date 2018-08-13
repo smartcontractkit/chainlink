@@ -45,8 +45,9 @@ type Config struct {
 	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
 	SecretGenerator          SecretGenerator
-	TLSCertPath              string `env:"TLS_CERT_PATH" envDefault:""`
-	TLSKeyPath               string `env:"TLS_KEY_PATH" envDefault:""`
+	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`
+	TLSKeyPath               string   `env:"TLS_KEY_PATH" envDefault:""`
+	SessionTimeout           Duration `env:"SESSION_TIMEOUT" envDefault:"15m"`
 }
 
 // NewConfig returns the config with the environment variables set to their
