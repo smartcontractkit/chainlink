@@ -27,6 +27,8 @@ const (
 	SessionName = "clsession"
 	// SessionIDKey is the session ID key in the session map
 	SessionIDKey = "clsession_id"
+	// SessionLastUsedKey is the time at which this session ID last interacted with the server
+	SessionLastUsedKey = "clsession_last_used"
 )
 
 // Router listens and responds to requests to the node for valid paths.
@@ -57,12 +59,13 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 }
 
 func authRequired(store *store.Store) gin.HandlerFunc {
+	sessionDuration := store.Config.SessionTimeout.Duration
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		sessionID, ok := session.Get(SessionIDKey).(string)
 		if !ok {
 			c.AbortWithStatus(http.StatusUnauthorized)
-		} else if _, err := store.AuthorizedUserWithSession(sessionID); err != nil {
+		} else if _, err := store.AuthorizedUserWithSession(sessionID, sessionDuration); err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Next()

@@ -51,7 +51,7 @@ func TestSessionsController_create(t *testing.T) {
 				assert.Equal(t, 1, len(cookies))
 				decrypted, err := cltest.DecodeSessionCookie(cookies[0].Value)
 				require.NoError(t, err)
-				user, err := app.Store.AuthorizedUserWithSession(decrypted)
+				user, err := app.Store.AuthorizedUserWithSession(decrypted, app.Config.SessionTimeout.Duration)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 
@@ -78,7 +78,7 @@ func TestSessionsController_destroy(t *testing.T) {
 	err := app.Store.Save(&seedUser)
 	assert.NoError(t, err)
 
-	correctSession := models.Session{"ShouldBeDeleted"}
+	correctSession := models.NewSession()
 	require.NoError(t, app.Store.Save(&correctSession))
 	defer cleanup()
 
@@ -102,7 +102,7 @@ func TestSessionsController_destroy(t *testing.T) {
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
 
-			_, err = app.Store.AuthorizedUserWithSession(test.sessionID)
+			_, err = app.Store.AuthorizedUserWithSession(test.sessionID, app.Config.SessionTimeout.Duration)
 			assert.Error(t, err)
 			if test.success {
 				assert.Equal(t, 200, resp.StatusCode)

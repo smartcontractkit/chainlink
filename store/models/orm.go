@@ -386,8 +386,9 @@ func (orm *ORM) FindUser() (User, error) {
 	return users[0], nil
 }
 
-// AuthorizedUserWithSession will return the one API user if the Session ID exists.
-func (orm *ORM) AuthorizedUserWithSession(sessionID string) (User, error) {
+// AuthorizedUserWithSession will return the one API user if the Session ID exists
+// and hasn't expired.
+func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (User, error) {
 	if len(sessionID) == 0 {
 		return User{}, errors.New("Session ID cannot be empty")
 	}
@@ -396,6 +397,9 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string) (User, error) {
 	err := orm.One("ID", sessionID, &session)
 	if err != nil {
 		return User{}, err
+	}
+	if session.LastUsed.Time.Add(sessionDuration).Before(time.Now()) {
+		return User{}, errors.New("Session has expired")
 	}
 	return orm.FindUser()
 }
@@ -447,7 +451,7 @@ func (orm *ORM) CreateSession(sr SessionRequest) (string, error) {
 	}
 
 	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		session := Session{ID: utils.NewBytes32ID()}
+		session := NewSession()
 		return session.ID, orm.Save(&session)
 	}
 	return "", errors.New("Invalid password")
