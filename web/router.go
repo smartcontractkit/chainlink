@@ -27,8 +27,6 @@ const (
 	SessionName = "clsession"
 	// SessionIDKey is the session ID key in the session map
 	SessionIDKey = "clsession_id"
-	// SessionLastUsedKey is the time at which this session ID last interacted with the server
-	SessionLastUsedKey = "clsession_last_used"
 )
 
 // Router listens and responds to requests to the node for valid paths.
