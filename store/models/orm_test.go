@@ -418,18 +418,39 @@ func TestORM_FindUser(t *testing.T) {
 	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
 }
 
-func TestORM_AuthorizedUserWithSession_emptySession(t *testing.T) {
+func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	user := cltest.MustUser("test1@email1.net", "password1")
+	user := cltest.MustUser("have@email", "password")
 	require.NoError(t, store.Save(&user))
 
-	actual, err := store.AuthorizedUserWithSession("")
-	require.Error(t, err)
-	assert.Equal(t, "", actual.Email)
+	session := models.NewSession()
+	require.NoError(t, store.Save(&session))
+
+	tests := []struct {
+		name            string
+		sessionID       string
+		sessionDuration time.Duration
+		wantError       bool
+		wantEmail       string
+	}{
+		{"authorized", session.ID, cltest.MustParseDuration("15m"), false, "have@email"},
+		{"expired", session.ID, cltest.MustParseDuration("0m"), true, ""},
+		{"empty", "", cltest.MustParseDuration("15m"), true, ""},
+	}
+
+	for _, test := range tests {
+		actual, err := store.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
+		assert.Equal(t, test.wantEmail, actual.Email)
+		if test.wantError {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+	}
 }
 
 func TestORM_DeleteUser(t *testing.T) {
@@ -455,10 +476,10 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	user := cltest.MustUser("test1@email1.net", "password1")
 	require.NoError(t, store.Save(&user))
 
-	session := models.Session{"allowedSession"}
+	session := models.NewSession()
 	require.NoError(t, store.Save(&session))
 
-	err := store.DeleteUserSession("allowedSession")
+	err := store.DeleteUserSession(session.ID)
 	require.NoError(t, err)
 
 	user, err = store.FindUser()
