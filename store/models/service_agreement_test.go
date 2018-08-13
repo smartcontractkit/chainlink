@@ -31,6 +31,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantDigest, sa.ID)
 			assert.Equal(t, big.NewInt(test.wantPayment), sa.Encumbrance.Payment)
+			assert.NotEqual(t, models.Time{}, sa.CreatedAt)
 		})
 	}
 }
