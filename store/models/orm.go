@@ -387,7 +387,7 @@ func (orm *ORM) FindUser() (User, error) {
 }
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
-// and hasn't expired.
+// and hasn't expired, and update session's LastUsed field.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (User, error) {
 	if len(sessionID) == 0 {
 		return User{}, errors.New("Session ID cannot be empty")
@@ -400,6 +400,10 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 	}
 	if session.LastUsed.Time.Add(sessionDuration).Before(time.Now()) {
 		return User{}, errors.New("Session has expired")
+	}
+	session.LastUsed = Time{Time: time.Now()}
+	if err := orm.Save(&session); err != nil {
+		return User{}, err
 	}
 	return orm.FindUser()
 }

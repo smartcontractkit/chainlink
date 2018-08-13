@@ -275,7 +275,7 @@ func (t *Time) DurationFromNow() time.Duration {
 }
 
 // HumanString formats and returns the time in RFC 3339 standard.
-func (t *Time) HumanString() string {
+func (t Time) HumanString() string {
 	return utils.ISO8601UTC(t.Time)
 }
 
