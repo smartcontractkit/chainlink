@@ -147,40 +147,43 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestJobSubscriber_OnNewHead_OnlyRunPendingConfirmationsAndInProgress(t *testing.T) {
+func TestJobSubscriber_OnNewHead_OnlySendPendingConfirmationsAndInProgress(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		status     models.RunStatus
-		wantStatus models.RunStatus
+		status   models.RunStatus
+		wantSend bool
 	}{
-		{models.RunStatusPendingBridge, models.RunStatusPendingBridge},
-		{models.RunStatusPendingSleep, models.RunStatusPendingSleep},
-		{models.RunStatusPendingConfirmations, models.RunStatusCompleted},
-		{models.RunStatusInProgress, models.RunStatusCompleted},
+		{models.RunStatusPendingConfirmations, true},
+		{models.RunStatusInProgress, true},
+		{models.RunStatusPendingBridge, false},
+		{models.RunStatusPendingSleep, false},
+		{models.RunStatusCompleted, false},
 	}
 
 	for _, test := range tests {
 		t.Run(string(test.status), func(t *testing.T) {
 			store, js, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
-			rm, cleanup := cltest.NewJobRunner(store)
-			defer cleanup()
+
+			mockRunChannel := cltest.NewMockRunChannel()
+			store.RunChannel = mockRunChannel
 
 			job, initr := cltest.NewJobWithWebInitiator()
 			assert.Nil(t, store.SaveJob(&job))
 			run := job.NewRun(initr)
-			run.Status = test.status
+			run = run.ApplyResult(models.RunResult{Status: test.status, JobRunID: run.ID})
 			assert.Nil(t, store.Save(&run))
-			run.Result = models.RunResult{JobRunID: run.ID}
-			assert.Nil(t, store.Save(&run))
-			js.OnNewHead(cltest.NewBlockHeader(10))
 
-			run.Status = models.RunStatusUnstarted
-			assert.Nil(t, store.SaveJob(&job))
-			rm.Start()
-
-			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
+			block := cltest.NewBlockHeader(10)
+			js.OnNewHead(block)
+			if test.wantSend {
+				assert.Equal(t, 1, len(mockRunChannel.Runs))
+				assert.Equal(t, block.Number, mockRunChannel.BlockNumbers[0].Number)
+				assert.Equal(t, test.status, mockRunChannel.Runs[0].Status)
+			} else {
+				assert.Equal(t, 0, len(mockRunChannel.Runs))
+			}
 		})
 	}
 }

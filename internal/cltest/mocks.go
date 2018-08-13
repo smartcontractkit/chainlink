@@ -603,3 +603,28 @@ type mockSecretGenerator struct{}
 func (m mockSecretGenerator) Generate(store.Config) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
+
+type MockRunChannel struct {
+	Runs               []models.RunResult
+	BlockNumbers       []*models.IndexableBlockNumber
+	neverReturningChan chan store.RunRequest
+}
+
+func NewMockRunChannel() *MockRunChannel {
+	return &MockRunChannel{
+		neverReturningChan: make(chan store.RunRequest, 1),
+	}
+}
+
+func (m *MockRunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error {
+	m.Runs = append(m.Runs, rr)
+	copy := *ibn
+	m.BlockNumbers = append(m.BlockNumbers, &copy)
+	return nil
+}
+
+func (m *MockRunChannel) Receive() <-chan store.RunRequest {
+	return m.neverReturningChan
+}
+
+func (m *MockRunChannel) Close() {}

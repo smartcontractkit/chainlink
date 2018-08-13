@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -124,6 +126,8 @@ func TestJobRunner_Stop(t *testing.T) {
 	j, initr := cltest.NewJobWithWebInitiator()
 	jr := j.NewRun(initr)
 
+	require.NoError(t, rm.Start())
+
 	services.ExportedChannelForRun(rm, jr.ID)
 	assert.Equal(t, 1, services.ExportedWorkerCount(rm))
 
@@ -202,6 +206,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
 			assert.JSONEq(t, test.wantData, run.Result.Data.String())
+			assert.Equal(t, input, run.Overrides)
 
 			tr1 := run.TaskRuns[0]
 			assert.Equal(t, test.wantStatus, tr1.Status)
@@ -215,6 +220,81 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJobRunner_ExecuteRun_startingStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status    models.RunStatus
+		wantError bool
+	}{
+		{models.RunStatusUnstarted, false},
+		{models.RunStatusInProgress, true},
+		{models.RunStatusPendingConfirmations, false},
+		{models.RunStatusPendingSleep, false},
+		{models.RunStatusPendingBridge, false},
+		{models.RunStatusErrored, true},
+		{models.RunStatusCompleted, true},
+	}
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	for _, test := range tests {
+		t.Run(string(test.status), func(t *testing.T) {
+			job, initr := cltest.NewJobWithWebInitiator()
+			run := job.NewRun(initr)
+			run.Status = test.status
+
+			run, err := services.ExecuteRunAtBlock(run, store, models.RunResult{}, nil)
+			if test.wantError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "Unable to start with status")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithLogInitiator()
+	job.Tasks = []models.TaskSpec{} // reason for error
+	run := job.NewRun(initr)
+
+	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
+	overrides := models.RunResult{Data: initialData}
+	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
+	assert.Error(t, err)
+
+	assert.NoError(t, store.One("ID", run.ID, &run))
+	assert.Equal(t, initialData, run.Overrides.Data)
+}
+
+func TestExecuteRun_ExecuteRunAtBlock_errorsOnOverride(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, initr := cltest.NewJobWithLogInitiator()
+	run := job.NewRun(initr)
+	run.Overrides = run.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
+
+	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldNotBeHere"}`)}
+	overrides := models.RunResult{Data: initialData}
+	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
+	assert.Error(t, err)
+
+	assert.NoError(t, store.One("ID", run.ID, &run))
+	assert.Equal(t, models.RunStatusErrored, run.Status)
+	assert.Contains(t, run.Result.ErrorMessage.String, "Cannot merge")
 }
 
 func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
