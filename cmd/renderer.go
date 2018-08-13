@@ -52,6 +52,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderBridges(*typed)
 	case *presenters.AccountBalance:
 		rt.renderAccountBalance(*typed)
+	case *presenters.ServiceAgreement:
+		rt.renderServiceAgreement(*typed)
 	default:
 		return fmt.Errorf("Unable to render object: %v", typed)
 	}
@@ -210,5 +212,18 @@ func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error
 		ab.LinkBalance.String(),
 	})
 	render("Account Balance", table)
+	return nil
+}
+
+func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) error {
+	table := tablewriter.NewWriter(rt)
+	table.SetHeader([]string{"ID", "Created At", "Payment", "Expiration"})
+	table.Append([]string{
+		sa.ID,
+		sa.FriendlyCreatedAt(),
+		sa.FriendlyPayment(),
+		sa.FriendlyExpiration(),
+	})
+	render("Service Agreement", table)
 	return nil
 }

@@ -48,6 +48,7 @@ func ExampleRun() {
 	//      getbridges                List all bridges added to the node
 	//      showbridge                Show a specific bridge
 	//      removebridge              Removes a specific bridge
+	//      agree, csa, creatsa       Creates a service agreement
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
