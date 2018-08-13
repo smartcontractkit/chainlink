@@ -48,10 +48,10 @@ func TestStore_Close(t *testing.T) {
 	assert.False(t, open)
 }
 
-func TestRunChannel_Send(t *testing.T) {
+func TestQueuedRunChannel_Send(t *testing.T) {
 	t.Parallel()
 
-	rq := store.NewRunChannel()
+	rq := store.NewQueuedRunChannel()
 	input1 := models.RunResult{JobRunID: "first"}
 	ibn1 := cltest.IndexableBlockNumber(17)
 
@@ -61,10 +61,10 @@ func TestRunChannel_Send(t *testing.T) {
 	assert.Equal(t, ibn1, rr1.BlockNumber)
 }
 
-func TestRunChannel_Send_afterClose(t *testing.T) {
+func TestQueuedRunChannel_Send_afterClose(t *testing.T) {
 	t.Parallel()
 
-	rq := store.NewRunChannel()
+	rq := store.NewQueuedRunChannel()
 	input1 := models.RunResult{JobRunID: "first"}
 	ibn1 := cltest.IndexableBlockNumber(17)
 
