@@ -99,6 +99,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
 			SessionTimeout:           store.Duration{MustParseDuration("2m")},
+			StatsParam:               []string{"url"},
 		},
 	}
 	config.SetEthereumServer(wsserver)
