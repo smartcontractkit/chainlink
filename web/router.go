@@ -57,13 +57,12 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 }
 
 func authRequired(store *store.Store) gin.HandlerFunc {
-	sessionDuration := store.Config.SessionTimeout.Duration
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		sessionID, ok := session.Get(SessionIDKey).(string)
 		if !ok {
 			c.AbortWithStatus(http.StatusUnauthorized)
-		} else if _, err := store.AuthorizedUserWithSession(sessionID, sessionDuration); err != nil {
+		} else if _, err := store.AuthorizedUserWithSession(sessionID); err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Next()
