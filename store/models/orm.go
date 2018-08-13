@@ -398,10 +398,11 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 	if err != nil {
 		return User{}, err
 	}
-	if session.LastUsed.Time.Add(sessionDuration).Before(time.Now()) {
+	now := time.Now()
+	if session.LastUsed.Time.Add(sessionDuration).Before(now) {
 		return User{}, errors.New("Session has expired")
 	}
-	session.LastUsed = Time{Time: time.Now()}
+	session.LastUsed = Time{Time: now}
 	if err := orm.Save(&session); err != nil {
 		return User{}, err
 	}
