@@ -19,7 +19,10 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 		wantPayment int64
 	}{
 		{"basic",
-			`{"payment":1,"initiators":[{"type":"web"}],"tasks":[{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse","path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			`{"payment":1,"initiators":[{"type":"web"}],"tasks":[` +
+				`{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},` +
+				`{"type":"jsonparse","path":["last"]},` +
+				`{"type":"ethbytes32"},{"type":"ethtx"}]}`,
 			"0x4b4c6936fde5823b3e5e6e6ec44ba5a0375f7c0de63d4b0d0236db13f8d76f2f", 1},
 	}
 	for _, test := range tests {

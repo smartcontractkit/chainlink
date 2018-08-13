@@ -102,11 +102,10 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		set := flag.NewFlagSet("create", 0)
 		set.Parse([]string{test.input})
 		c := cli.NewContext(nil, set, nil)
-		if test.errored {
-			assert.Error(t, client.CreateJobSpec(c))
-		} else {
-			assert.Nil(t, client.CreateJobSpec(c))
-		}
+
+		err := client.CreateJobSpec(c)
+		cltest.AssertError(t, test.errored, err)
+
 		numberOfJobs, _ := app.Store.Jobs()
 		assert.Equal(t, test.nJobs, len(numberOfJobs))
 	}
