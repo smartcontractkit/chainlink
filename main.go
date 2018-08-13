@@ -148,6 +148,12 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:  "Removes a specific bridge",
 			Action: client.RemoveBridge,
 		},
+		{
+			Name:    "agree",
+			Aliases: []string{"csa", "creatsa"},
+			Usage:   "Creates a service agreement",
+			Action:  client.CreateServiceAgreement,
+		},
 	}
 	logger.WarnIf(app.Run(args))
 }

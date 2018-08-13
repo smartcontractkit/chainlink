@@ -397,3 +397,21 @@ type ServiceAgreement struct {
 func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
 	return []byte(sa.ServiceAgreement.RequestBody), nil
 }
+
+// FriendlyCreatedAt returns the ServiceAgreement's created at time in a human
+// readable format.
+func (sa ServiceAgreement) FriendlyCreatedAt() string {
+	return sa.CreatedAt.HumanString()
+}
+
+// FriendlyExpiration returns the ServiceAgreement's Encumbrance expiration time
+// in a human readable format.
+func (sa ServiceAgreement) FriendlyExpiration() string {
+	return fmt.Sprintf("%v seconds", sa.Encumbrance.Expiration)
+}
+
+// FriendlyPayment returns the ServiceAgreement's Encumbrance payment amount in
+// a human readable format.
+func (sa ServiceAgreement) FriendlyPayment() string {
+	return fmt.Sprintf("%v LINK", (*assets.Link)(sa.Encumbrance.Payment).String())
+}
