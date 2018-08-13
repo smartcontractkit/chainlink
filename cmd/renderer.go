@@ -62,8 +62,7 @@ func (rt RendererTable) Render(v interface{}) error {
 }
 
 func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created At", "Initiators", "Tasks"})
+	table := rt.newTable([]string{"ID", "Created At", "Initiators", "Tasks"})
 	for _, v := range jobs {
 		table.Append(jobRowToStrings(v))
 	}
@@ -101,8 +100,7 @@ func bridgeRowToStrings(bridge models.BridgeType) []string {
 }
 
 func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Name", "URL", "DefaultConfirmations"})
+	table := rt.newTable([]string{"Name", "URL", "DefaultConfirmations"})
 	for _, v := range bridges {
 		table.Append(bridgeRowToStrings(v))
 	}
@@ -112,8 +110,7 @@ func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
 }
 
 func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Name", "URL", "Default Confirmations", "Incoming Token", "Outgoing Token"})
+	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Incoming Token", "Outgoing Token"})
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
@@ -143,8 +140,7 @@ func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 }
 
 func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created At", "Start At", "End At"})
+	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At"})
 	table.Append([]string{
 		j.ID,
 		j.FriendlyCreatedAt(),
@@ -156,8 +152,7 @@ func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
 }
 
 func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Type", "Schedule", "Run At", "Address"})
+	table := rt.newTable([]string{"Type", "Schedule", "Run At", "Address"})
 	for _, i := range j.Initiators {
 		p := presenters.Initiator{Initiator: i}
 		table.Append([]string{
@@ -173,8 +168,7 @@ func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
 }
 
 func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Type", "Config", "Value"})
+	table := rt.newTable([]string{"Type", "Config", "Value"})
 	for _, t := range j.Tasks {
 		p := presenters.TaskSpec{TaskSpec: t}
 		keys, values := p.FriendlyParams()
@@ -186,8 +180,7 @@ func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 }
 
 func (rt RendererTable) renderJobRuns(j presenters.JobSpec) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
+	table := rt.newTable([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
 	for _, jr := range j.Runs {
 		table.Append([]string{
 			jr.ID,
@@ -204,8 +197,7 @@ func (rt RendererTable) renderJobRuns(j presenters.JobSpec) error {
 }
 
 func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"Address", "ETH", "LINK"})
+	table := rt.newTable([]string{"Address", "ETH", "LINK"})
 	table.Append([]string{
 		ab.Address,
 		ab.EthBalance.String(),
@@ -216,8 +208,7 @@ func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error
 }
 
 func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) error {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader([]string{"ID", "Created At", "Payment", "Expiration"})
+	table := rt.newTable([]string{"ID", "Created At", "Payment", "Expiration"})
 	table.Append([]string{
 		sa.ID,
 		sa.FriendlyCreatedAt(),
@@ -226,4 +217,10 @@ func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) e
 	})
 	render("Service Agreement", table)
 	return nil
+}
+
+func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
+	table := tablewriter.NewWriter(rt)
+	table.SetHeader(headers)
+	return table
 }
