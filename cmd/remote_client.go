@@ -41,6 +41,27 @@ func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
 	return cli.errorOut(cli.Render(&a))
 }
 
+// CreateServiceAgreement creates a ServiceAgreement based on JSON input
+func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
+	}
+
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := cli.HTTP.Post("/v2/service_agreements", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var sa presenters.ServiceAgreement
+	return cli.renderResponse(resp, &sa)
+}
+
 // ShowJobSpec returns the status of the given JobID.
 func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	if !c.Args().Present() {

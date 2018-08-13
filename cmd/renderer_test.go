@@ -99,6 +99,31 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 	}
 }
 
+func TestRendererTable_ServiceAgreementShow(t *testing.T) {
+	t.Parallel()
+
+	sa := cltest.ServiceAgreementFromString(string(cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")))
+	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
+
+	tests := []struct {
+		name, content string
+	}{
+		{"ID", "0xd7b66ba42e97935f456468de5a748990acebf0d9fbc638cf5485196cf7da3b05"},
+		{"payment amount", "1.000000000000000000 LINK"},
+		{"expiration", "300 seconds"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tw := &testWriter{test.content, t, false}
+			r := cmd.RendererTable{Writer: tw}
+
+			assert.Nil(t, r.Render(&psa))
+			assert.True(t, tw.found)
+		})
+	}
+}
+
 func TestRendererTable_RenderUnknown(t *testing.T) {
 	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}

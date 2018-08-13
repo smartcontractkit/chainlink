@@ -78,6 +78,37 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
+func TestClient_CreateServiceAgreement(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := app.NewClientAndRenderer()
+
+	tests := []struct {
+		input   string
+		nJobs   int
+		errored bool
+	}{
+		{"{bad son}", 0, true},
+		{"bad/filepath/", 0, true},
+		{string(cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")), 1, false},
+		{"../internal/fixtures/web/hello_world_agreement.json", 2, false},
+	}
+
+	for _, tt := range tests {
+		test := tt
+
+		set := flag.NewFlagSet("create", 0)
+		set.Parse([]string{test.input})
+		c := cli.NewContext(nil, set, nil)
+
+		err := client.CreateServiceAgreement(c)
+
+		cltest.AssertError(t, test.errored, err)
+		numberOfJobs, _ := app.Store.Jobs()
+		assert.Equal(t, test.nJobs, len(numberOfJobs))
+	}
+}
+
 func TestClient_CreateJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
