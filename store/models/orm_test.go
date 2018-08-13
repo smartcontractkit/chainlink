@@ -446,7 +446,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			session.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
 			require.NoError(t, store.Save(&session))
 
-			actual, err := store.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
+			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
 			assert.Equal(t, test.wantEmail, actual.Email)
 			if test.wantError {
 				require.Error(t, err)
