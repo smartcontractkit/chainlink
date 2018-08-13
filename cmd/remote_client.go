@@ -71,7 +71,7 @@ func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
 	return cli.errorOut(cli.Render(&jobs))
 }
 
-// CreateJobSpec creates job spec based on JSON input
+// CreateJobSpec creates a JobSpec based on JSON input
 func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
@@ -88,8 +88,8 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	var jobs presenters.JobSpec
-	return cli.renderResponse(resp, &jobs)
+	var js presenters.JobSpec
+	return cli.renderResponse(resp, &js)
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON

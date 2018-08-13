@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSessionsController_create(t *testing.T) {
+func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
 	user := cltest.MustUser("email@test.net", "password123")
