@@ -1,5 +1,5 @@
 pragma solidity ^0.4.24;
-pragma experimental ABIEncoderV2;
+pragma experimental ABIEncoderV2; //solium-disable-line
 
 // Coordinator handles oracle service aggreements between one or more oracles.
 contract Coordinator {
