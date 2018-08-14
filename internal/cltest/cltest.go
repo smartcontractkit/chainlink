@@ -58,7 +58,7 @@ const (
 
 var storeCounter uint64
 
-var MinimumContractPayment = assets.NewLink(100)
+var minimumContractPayment = assets.NewLink(100)
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -94,7 +94,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
 			MinIncomingConfirmations: 0,
 			MinOutgoingConfirmations: 6,
-			MinimumContractPayment:   *MinimumContractPayment,
+			MinimumContractPayment:   *minimumContractPayment,
 			MinimumRequestExpiration: 300,
 			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
