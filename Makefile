@@ -4,12 +4,12 @@
 
 ENVIRONMENT ?= release
 
-REPO := smartcontract/chainlink
+REPO ?= smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
 GO_LDFLAGS := $(shell internal/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
-DOCKERFILE := Dockerfile
+DOCKERFILE ?= Dockerfile
 DOCKER_TAG := $(REPO)
 
 # SGX is disabled by default, but turned on when building from Docker

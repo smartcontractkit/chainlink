@@ -1,0 +1,15 @@
+# Build Chainlink
+FROM smartcontract/builder:1.0.4 as builder
+
+# Have to reintroduce ENV vars from builder image
+ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+ARG COMMIT_SHA
+ARG ENVIRONMENT
+
+ADD . /go/src/github.com/smartcontractkit/chainlink
+WORKDIR /go/src/github.com/smartcontractkit/chainlink
+RUN make build
+
+EXPOSE 6688
+ENTRYPOINT ["/bin/bash"]

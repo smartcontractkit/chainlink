@@ -1,18 +1,19 @@
-language: go
-go:
-  - "1.10"
-fast_finish: true
+sudo: true
+dist: trusty
 
 env:
   global:
-    - DEP_VERSION="0.5.0"
+    - REPO="smartcontract/chainlink-tester"
+    - DOCKERFILE="Dockerfile.tester"
 
 jobs:
   include:
-    - stage: dependencies
-      script: ./internal/ci/install_dependencies
+    - stage: build docker image
+      script:
+      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - make docker dockerpush
     - stage: test
-      script: ./internal/ci/go_test
-      script: ./internal/ci/truffle_test
-      script: ./internal/ci/ethereum_test
-      script: ./internal/ci/gui_test
+      script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/go_test
+    - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/truffle_test
+    - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/ethereum_test
+    - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/gui_test
