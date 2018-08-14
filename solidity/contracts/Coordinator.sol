@@ -1,4 +1,5 @@
 pragma solidity ^0.4.24;
+pragma experimental ABIEncoderV2;
 
 // Coordinator handles oracle service aggreements between one or more oracles.
 contract Coordinator {
@@ -9,7 +10,7 @@ contract Coordinator {
     bytes32 jobSpecID;
   }
 
-  mapping(bytes32 => ServiceAgreement) internal serviceAgreements;
+  mapping(bytes32 => ServiceAgreement) public serviceAgreements;
 
   function getId(uint256 _payment, uint256 _expiration, bytes32 _jobSpecId)
     public pure returns (bytes32)
@@ -27,12 +28,5 @@ contract Coordinator {
       _expiration,
       _jobSpecId
     );
-  }
-
-  function getServiceAgreement(bytes32 _id)
-    public returns (bytes memory)
-  {
-    ServiceAgreement sa = serviceAgreements[_id];
-    return abi.encode(sa.payment, sa.expiration, sa.jobSpecID);
   }
 }
