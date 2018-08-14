@@ -1,38 +1,51 @@
-sudo: required
+sudo: false
+dist: trusty
+
+language: go
+go: "1.10"
+cache:
+  yarn: true
+  apt: true
+  directories:
+    - $GOPATH/src/github.com/smartcontractkit/chainlink/vendor
+
+addons:
+  apt:
+    update: true
+    sources:
+      - sourceline: 'deb http://dl.yarnpkg.com/debian/ stable main'
+        key_url: 'http://dl.yarnpkg.com/debian/pubkey.gpg'
+    packages:
+      - yarn
 
 env:
   global:
-    - DEP_VERSION="0.4.1"
-
-matrix:
-  include:
-    - language: go
-      go: "1.10"
-      env: COMMAND=./internal/ci/go_test
-    - language: go
-      go: "1.10"
-      env: COMMAND=./internal/ci/truffle_test
-    - language: go
-      go: "1.10"
-      env: COMMAND=./internal/ci/ethereum_test
-    - language: go
-      go: "1.10"
-      env: COMMAND=./internal/ci/gui_test
+    - DEP_VERSION="0.5.0"
 
 before_install:
   # Go dependency manager dep
   - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
   - chmod +x $GOPATH/bin/dep
-  - go get -u github.com/haya14busa/goverage
-  # Yarn
-  - sudo apt-key adv --fetch-keys http://dl.yarnpkg.com/debian/pubkey.gpg
-  - echo "deb http://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-  - sudo apt-get update -qq
-  - sudo apt-get install -y -qq yarn
+  # Code climate
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > $GOPATH/bin/cc-test-reporter
   - chmod +x $GOPATH/bin/cc-test-reporter
 
-install: ./internal/ci/install_dependencies
-
-script:
-  - bash $COMMAND
+jobs:
+  include:
+    - stage: Test
+      name: "Go Tests"
+      script:
+        - dep ensure
+        - ./internal/ci/go_test
+    - name: "Truffle Tests"
+      script:
+        - yarn install
+        - ./internal/ci/truffle_test
+    - name: "Ethereum Tests"
+      script:
+        - dep ensure
+        - ./internal/ci/ethereum_test
+    - name: "GUI Tests"
+      script:
+        - yarn install
+        - ./internal/ci/gui_test
