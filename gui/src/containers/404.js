@@ -1,10 +1,22 @@
 import React from 'react'
-import Typography from '@material-ui/core/Typography'
+import NotFoundSVG from 'images/four-oh-four.js'
+import { withStyles } from '@material-ui/core/styles'
 
-export default () => (
-  <div>
-    <Typography type='headline' align='center'>
-      404 - Oh no's! We couldn't find that page :(
-    </Typography>
+const styles = () => {
+  return {
+    logo: {
+      top: '30%',
+      left: '50%',
+      transform: 'translate(-50%, -30%)',
+      position: 'absolute'
+    }
+  }
+}
+
+const Logo = ({ classes }) => (
+  <div className={classes.logo}>
+      <NotFoundSVG/>    
   </div>
 )
+
+export default withStyles(styles)(Logo)
