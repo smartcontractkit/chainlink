@@ -23,6 +23,7 @@ env:
     - DEP_VERSION="0.5.0"
 
 before_install:
+  - yarn config set registry "http://registry.npmjs.org/"
   # Go dependency manager dep
   - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
   - chmod +x $GOPATH/bin/dep
@@ -34,18 +35,14 @@ jobs:
   include:
     - stage: Test
       name: "Go Tests"
-      script:
-        - dep ensure
-        - ./internal/ci/go_test
+      install: dep ensure
+      script: ./internal/ci/go_test
     - name: "Truffle Tests"
-      script:
-        - yarn install
-        - ./internal/ci/truffle_test
-    - name: "Ethereum Tests"
-      script:
-        - dep ensure
-        - ./internal/ci/ethereum_test
+      install: yarn install
+      script: ./internal/ci/truffle_test
+    - name: "Geth Integration Tests"
+      install: dep ensure
+      script: ./internal/ci/ethereum_test
     - name: "GUI Tests"
-      script:
-        - yarn install
-        - ./internal/ci/gui_test
+      install: yarn install
+      script: ./internal/ci/gui_test
