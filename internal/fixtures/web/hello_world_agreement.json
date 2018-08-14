@@ -10,6 +10,6 @@
       "functionSelector": "0x609ff1bd"
     }
   ],
-  "payment": 1000000000000000000,
+  "payment": "1000000000000000000",
   "expiration": 300
 }

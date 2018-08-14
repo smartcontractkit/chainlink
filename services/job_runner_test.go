@@ -3,7 +3,6 @@ package services_test
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -451,18 +451,18 @@ func TestJobRunner_ExecuteRun_ErrorsWithNoRuns(t *testing.T) {
 func TestJobRunner_BeginRunWithAmount(t *testing.T) {
 	tests := []struct {
 		name   string
-		amount *big.Int
+		amount *assets.Link
 		status models.RunStatus
 	}{
 		{"job with no amount", nil, models.RunStatusCompleted},
-		{"job with insufficient amount", big.NewInt(9), models.RunStatusErrored},
-		{"job with exact amount", big.NewInt(10), models.RunStatusCompleted},
-		{"job with valid amount", big.NewInt(11), models.RunStatusCompleted},
+		{"job with insufficient amount", assets.NewLink(9), models.RunStatusErrored},
+		{"job with exact amount", assets.NewLink(10), models.RunStatusCompleted},
+		{"job with valid amount", assets.NewLink(11), models.RunStatusCompleted},
 	}
 
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.MinimumContractPayment = *big.NewInt(10)
+	config.MinimumContractPayment = *assets.NewLink(10)
 
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -177,11 +178,11 @@ func (tr TaskRun) MarkPendingConfirmations() TaskRun {
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
 // Data and ErrorMessage, and contains a Pending field to track the status.
 type RunResult struct {
-	JobRunID     string      `json:"jobRunId"`
-	Data         JSON        `json:"data"`
-	Status       RunStatus   `json:"status"`
-	ErrorMessage null.String `json:"error"`
-	Amount       *big.Int    `json:"amount,omitempty"`
+	JobRunID     string       `json:"jobRunId"`
+	Data         JSON         `json:"data"`
+	Status       RunStatus    `json:"status"`
+	ErrorMessage null.String  `json:"error"`
+	Amount       *assets.Link `json:"amount,omitempty"`
 }
 
 // WithValue returns a copy of the RunResult, overriding the "value" field of
