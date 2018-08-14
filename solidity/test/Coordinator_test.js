@@ -14,7 +14,7 @@ contract('Coordinator', () => {
     checkPublicABI(artifacts.require(sourcePath), [
       'getId',
       'initiateServiceAgreement',
-      'getServiceAgreement'
+      'serviceAgreements'
     ])
   })
 
@@ -25,31 +25,28 @@ contract('Coordinator', () => {
     })
   })
 
-  describe('initiate a ServiceAgreement & return it', () => {
-    it('returns a previously saved agreement in abi encoding', async () => {
+  describe('#initiateServiceAgreement', () => {
+    it('saves a service agreement struct from the parameters', async () => {
       await coordinator.initiateServiceAgreement(
         1,
         2,
         '0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd'
       )
 
-      let sa = await coordinator.getServiceAgreement.call(
+      let sa = await coordinator.serviceAgreements.call(
         '0x220072871b41155e7e1a6c45246a6d18a8a25350917d2c6c6c49d5d79a6af5bf'
       )
       assert.equal(
-        sa,
-        '0x0000000000000000000000000000000000000000000000000000000000000001' +
-        '0000000000000000000000000000000000000000000000000000000000000002' +
-        '85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd'
+        sa[0].toString(),
+        bigNum(1).toString()
       )
-    })
-
-    it('returns 0 encoded hex value when it does not exist', async () => {
-      let sa = await coordinator.getServiceAgreement.call('0x220072871b41155e7e1a6c45246a6d18a8a25350917d2c6c6c49d5d79a6af5bf')
-
       assert.equal(
-        sa,
-        '0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+        sa[1].toString(),
+        bigNum(2).toString()
+      )
+      assert.equal(
+        sa[2],
+        '0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd'
       )
     })
   })
