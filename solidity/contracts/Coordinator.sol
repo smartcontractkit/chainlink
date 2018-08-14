@@ -4,9 +4,9 @@ pragma solidity ^0.4.24;
 contract Coordinator {
 
   function getId(uint256 _payment, uint256 _expiration, bytes32 _jobSpecId)
-    public returns (bytes32)
+    public pure returns (bytes32)
   {
-    return keccak256(_payment, _expiration, _jobSpecId);
+    return keccak256(abi.encodePacked(_payment, _expiration, _jobSpecId));
   }
 
 }
