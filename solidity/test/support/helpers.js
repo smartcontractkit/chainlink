@@ -1,16 +1,38 @@
-const Wallet = require('../../app/wallet.js');
-const Utils = require('../../app/utils.js');
-const Deployer = require('../../app/deployer.js');
+const Wallet = require('../../app/wallet.js')
+const Utils = require('../../app/utils.js')
+const Deployer = require('../../app/deployer.js')
 
-BigNumber = require('bignumber.js');
-moment = require('moment');
-abi = require('ethereumjs-abi');
-util = require('ethereumjs-util');
-cbor = require('cbor');
+const BigNumber = require('bignumber.js')
+const moment = require('moment')
+const abi = require('ethereumjs-abi')
+const util = require('ethereumjs-util')
+
+let _0x,
+  assertActionThrows,
+  bigNum,
+  checkPublicABI,
+  consumer,
+  decodeRunRequest,
+  decodeRunABI,
+  defaultAccount,
+  deploy,
+  eth,
+  functionSelector,
+  getEvents,
+  getLatestEvent,
+  hexToInt,
+  lPad,
+  oracleNode,
+  rPad,
+  requestDataBytes,
+  requestDataFrom,
+  stranger,
+  toHex,
+  toWei
 
 (() => {
   let utils, wallet, deployer
-  eth = web3.eth;
+  eth = web3.eth
 
   process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../solidity/contracts/examples/:../../contracts/:../../contracts/lib/:../../node_modules/:../../node_modules/linkToken/contracts'
 
@@ -45,7 +67,7 @@ cbor = require('cbor');
     // ==================
     // Mnemonic:      candy maple cake sugar pudding cream honey rich smooth crumble sweet treat
     // Base HD Path:  m/44'/60'/0'/0/{account_index}
-    accounts = eth.accounts
+    const accounts = eth.accounts
 
     defaultAccount = accounts[0]
     oracleNode = accounts[1]
@@ -56,262 +78,286 @@ cbor = require('cbor');
     utils = Utils(web3.currentProvider)
     wallet = Wallet(privateKey, utils)
     deployer = Deployer(wallet, utils)
-  });
+  })
 
   deploy = (filePath, ...args) => {
     return deployer.perform(filePath, ...args)
   }
 
-  Eth = function sendEth(method, params) {
+  const Eth = function sendEth (method, params) {
     params = params || []
 
     return new Promise((resolve, reject) => {
       web3.currentProvider.sendAsync({
-        jsonrpc: "2.0",
+        jsonrpc: '2.0',
         method: method,
         params: params || [],
         id: new Date().getTime()
-      }, function sendEthResponse(error, response) {
+      }, function sendEthResponse (error, response) {
         if (error) {
-          reject(error);
+          reject(error)
         } else {
-          resolve(response.result);
+          resolve(response.result)
         };
-      }, () => {}, () => {});
-    });
-  };
-
-  emptyAddress = '0x0000000000000000000000000000000000000000';
-
-  sealBlock = async function sealBlock() {
-    return Eth('evm_mine');
-  };
-
-  sendTransaction = async function sendTransaction(params) {
-    return await eth.sendTransaction(params);
+      }, () => {}, () => {})
+    })
   }
 
-  getBalance = async function getBalance(account) {
-    return bigNum(await eth.getBalance(account));
+  const emptyAddress = '0x0000000000000000000000000000000000000000'
+
+  const sealBlock = async function sealBlock () {
+    return Eth('evm_mine')
   }
 
-  bigNum = function bigNum(number) {
-    return web3.toBigNumber(number);
+  const sendTransaction = async function sendTransaction (params) {
+    return await eth.sendTransaction(params)
   }
 
-  toWei = function toWei(number) {
-    return bigNum(web3.toWei(number));
+  const getBalance = async function getBalance (account) {
+    return bigNum(await eth.getBalance(account))
   }
 
-  tokens = function tokens(number) {
-    return bigNum(number * 10**18);
+  bigNum = function bigNum (number) {
+    return web3.toBigNumber(number)
   }
 
-  intToHex = function intToHex(number) {
-    return '0x' + bigNum(number).toString(16);
+  toWei = number => {
+    return bigNum(web3.toWei(number))
   }
 
-  intToHexNoPrefix = function intToHex(number) {
-    return bigNum(number).toString(16);
+  const tokens = function tokens (number) {
+    return bigNum(number * 10 ** 18)
   }
 
-  hexToInt = function hexToInt(string) {
-    return web3.toBigNumber(string);
+  const intToHex = function intToHex (number) {
+    return '0x' + bigNum(number).toString(16)
   }
 
-  hexToAddress = function hexToAddress(string) {
-    return '0x' + string.slice(string.length - 40);
+  const intToHexNoPrefix = function intToHex (number) {
+    return bigNum(number).toString(16)
   }
 
-  unixTime = function unixTime(time) {
-    return moment(time).unix();
+  hexToInt = string => {
+    return web3.toBigNumber(string)
   }
 
-  seconds = function seconds(number) {
-    return number;
-  };
-
-  minutes = function minutes(number) {
-    return number * 60;
-  };
-
-  hours = function hours(number) {
-    return number * minutes(60);
-  };
-
-  days = function days(number) {
-    return number * hours(24);
-  };
-
-  keccak256 = function keccak256(string) {
-    return web3.sha3(string);
+  const hexToAddress = function hexToAddress (string) {
+    return '0x' + string.slice(string.length - 40)
   }
 
-  logTopic = function logTopic(string) {
-    let hash = keccak256(string);
-    return '0x' + hash.slice(26);
+  const unixTime = function unixTime (time) {
+    return moment(time).unix()
   }
 
-  getLatestBlock = async function getLatestBlock() {
-    return await eth.getBlock('latest', false);
-  };
+  const seconds = function seconds (number) {
+    return number
+  }
 
-  getLatestTimestamp = async function getLatestTimestamp () {
+  const minutes = function minutes (number) {
+    return number * 60
+  }
+
+  const hours = function hours (number) {
+    return number * minutes(60)
+  }
+
+  const days = function days (number) {
+    return number * hours(24)
+  }
+
+  const keccak256 = function keccak256 (string) {
+    return web3.sha3(string)
+  }
+
+  const logTopic = function logTopic (string) {
+    let hash = keccak256(string)
+    return '0x' + hash.slice(26)
+  }
+
+  const getLatestBlock = async function getLatestBlock () {
+    return await eth.getBlock('latest', false)
+  }
+
+  const getLatestTimestamp = async function getLatestTimestamp () {
     let latestBlock = await getLatestBlock()
-    return web3.toDecimal(latestBlock.timestamp);
-  };
+    return web3.toDecimal(latestBlock.timestamp)
+  }
 
-  fastForwardTo = async function fastForwardTo(target) {
-    let now = await getLatestTimestamp();
-    assert.isAbove(target, now, "Cannot fast forward to the past");
-    let difference = target - now;
-    await Eth("evm_increaseTime", [difference]);
-    await sealBlock();
-  };
+  const fastForwardTo = async function fastForwardTo (target) {
+    let now = await getLatestTimestamp()
+    assert.isAbove(target, now, 'Cannot fast forward to the past')
+    let difference = target - now
+    await Eth('evm_increaseTime', [difference])
+    await sealBlock()
+  }
 
-  getEvents = function getEvents(contract) {
+  getEvents = contract => {
     return new Promise((resolve, reject) => {
       contract.allEvents().get((error, events) => {
         if (error) {
-          reject(error);
+          reject(error)
         } else {
-          resolve(events);
+          resolve(events)
         };
-      });
-    });
-  };
+      })
+    })
+  }
 
-  eventsOfType = function eventsOfType(events, type) {
-    let filteredEvents = [];
+  const eventsOfType = function eventsOfType (events, type) {
+    let filteredEvents = []
     for (event of events) {
-      if (event.event === type) filteredEvents.push(event);
+      if (event.event === type) filteredEvents.push(event)
     }
-    return filteredEvents;
-  };
+    return filteredEvents
+  }
 
-  getEventsOfType = async function getEventsOfType(contract, type) {
-    return eventsOfType(await getEvents(contract), type);
-  };
+  const getEventsOfType = async function getEventsOfType (contract, type) {
+    return eventsOfType(await getEvents(contract), type)
+  }
 
-  getLatestEvent = async function getLatestEvent(contract) {
-    let events = await getEvents(contract);
-    return events[events.length - 1];
-  };
+  getLatestEvent = async (contract) => {
+    let events = await getEvents(contract)
+    return events[events.length - 1]
+  }
 
-  assertActionThrows = function assertActionThrows(action) {
+  assertActionThrows = action => {
     return Promise.resolve().then(action)
       .catch(error => {
-        assert(error, "Expected an error to be raised");
-        assert(error.message, "Expected an error to be raised");
-        return error.message;
+        assert(error, 'Expected an error to be raised')
+        assert(error.message, 'Expected an error to be raised')
+        return error.message
       })
       .then(errorMessage => {
-        assert(errorMessage, "Expected an error to be raised");
-        invalidOpcode = errorMessage.includes("invalid opcode")
-        reverted = errorMessage.includes("VM Exception while processing transaction: revert")
-        assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"');
+        assert(errorMessage, 'Expected an error to be raised')
+        const invalidOpcode = errorMessage.includes('invalid opcode')
+        const reverted = errorMessage.includes('VM Exception while processing transaction: revert')
+        assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"')
         // see https://github.com/ethereumjs/testrpc/issues/39
         // for why the "invalid JUMP" is the throw related error when using TestRPC
       })
-  };
-
-  encodeUint256 = function encodeUint256(int) {
-    let zeros = "0000000000000000000000000000000000000000000000000000000000000000";
-    let payload = int.toString(16);
-    return (zeros + payload).slice(payload.length);
   }
 
-  encodeAddress = function encodeAddress(address) {
-    return '000000000000000000000000' + address.slice(2);
+  const encodeUint256 = function encodeUint256 (int) {
+    let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
+    let payload = int.toString(16)
+    return (zeros + payload).slice(payload.length)
   }
 
-  encodeBytes = function encodeBytes(bytes) {
-    let zeros = "0000000000000000000000000000000000000000000000000000000000000000";
-    let padded = bytes.padEnd(64, 0);
-    let length = encodeUint256(bytes.length / 2);
-    return length + padded;
+  const encodeAddress = function encodeAddress (address) {
+    return '000000000000000000000000' + address.slice(2)
   }
 
-  checkPublicABI = function checkPublicABI(contract, expectedPublic) {
-    let actualPublic = [];
-    for (method of contract.abi) {
-      if (method.type == 'function') actualPublic.push(method.name);
+  const encodeBytes = function encodeBytes (bytes) {
+    let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
+    let padded = bytes.padEnd(64, 0)
+    let length = encodeUint256(bytes.length / 2)
+    return length + padded
+  }
+
+  checkPublicABI = function checkPublicABI (contract, expectedPublic) {
+    let actualPublic = []
+    for (const method of contract.abi) {
+      if (method.type === 'function') actualPublic.push(method.name)
     };
 
-    for (method of actualPublic) {
-      let index = expectedPublic.indexOf(method);
+    for (const method of actualPublic) {
+      let index = expectedPublic.indexOf(method)
       assert.isAtLeast(index, 0, (`#${method} is NOT expected to be public`))
     }
 
-    for (method of expectedPublic) {
-      let index = actualPublic.indexOf(method);
+    for (const method of expectedPublic) {
+      let index = actualPublic.indexOf(method)
       assert.isAtLeast(index, 0, (`#${method} is expected to be public`))
     }
-  };
+  }
 
-  functionSelector = function functionSelector(signature) {
-    return "0x" + web3.sha3(signature).slice(2).slice(0, 8);
-  };
+  functionSelector = (signature) => {
+    return '0x' + web3.sha3(signature).slice(2).slice(0, 8)
+  }
 
-  rPad = function rPad(string) {
-    let wordLen = parseInt((string.length + 31) / 32) * 32;
+  rPad = (string) => {
+    let wordLen = parseInt((string.length + 31) / 32) * 32
     for (let i = string.length; i < wordLen; i++) {
-      string = string + "\x00";
+      string = string + '\x00'
     }
     return string
-  };
+  }
 
-  lPad = function lPad(string) {
-    let wordLen = parseInt((string.length + 31) / 32) * 32;
+  lPad = (string) => {
+    let wordLen = parseInt((string.length + 31) / 32) * 32
     for (let i = string.length; i < wordLen; i++) {
-      string = "\x00" + string;
+      string = '\x00' + string
     }
     return string
-  };
+  }
 
-  lPadHex = function lPadHex(string) {
-    let wordLen = parseInt((string.length + 63) / 64) * 64;
+  const lPadHex = function lPadHex (string) {
+    let wordLen = parseInt((string.length + 63) / 64) * 64
     for (let i = string.length; i < wordLen; i++) {
-      string = "0" + string;
+      string = '0' + string
     }
     return string
-  };
+  }
 
-  toHex = function toHex(arg) {
+  toHex = arg => {
     if (arg instanceof Buffer) {
-      return arg.toString("hex");
+      return arg.toString('hex')
     } else {
-      return Buffer.from(arg, "ascii").toString("hex");
+      return Buffer.from(arg, 'ascii').toString('hex')
     }
-  };
+  }
 
-  decodeRunABI = function decodeRunABI(log) {
-    let runABI = util.toBuffer(log.data);
-    let types = ["bytes32", "address", "bytes4", "bytes"];
-    return abi.rawDecode(types, runABI);
-  };
+  decodeRunABI = log => {
+    let runABI = util.toBuffer(log.data)
+    let types = ['bytes32', 'address', 'bytes4', 'bytes']
+    return abi.rawDecode(types, runABI)
+  }
 
-  decodeRunRequest = function decodeRunRequest(log) {
-    let runABI = util.toBuffer(log.data);
-    let types = ["uint256", "bytes"];
-    let [version, data] = abi.rawDecode(types, runABI);
-    return [log.topics[1], log.topics[2], log.topics[3], version, data];
-  };
+  decodeRunRequest = log => {
+    let runABI = util.toBuffer(log.data)
+    let types = ['uint256', 'bytes']
+    let [version, data] = abi.rawDecode(types, runABI)
+    return [log.topics[1], log.topics[2], log.topics[3], version, data]
+  }
 
-  requestDataBytes = function requestDataBytes(specId, to, fHash, runId, data) {
-    let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
-    let values = [1, specId, to, fHash, runId, data];
-    let encoded = abi.rawEncode(types, values);
-    let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
-    return funcSelector + encoded.toString("hex");
-  };
+  requestDataBytes = (specId, to, fHash, runId, data) => {
+    let types = ['uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
+    let values = [1, specId, to, fHash, runId, data]
+    let encoded = abi.rawEncode(types, values)
+    let funcSelector = functionSelector('requestData(uint256,bytes32,address,bytes4,bytes32,bytes)')
+    return funcSelector + encoded.toString('hex')
+  }
 
-  requestDataFrom = function requestDataFrom(oc, link, amount, args) {
-    return link.transferAndCall(oc.address, amount, args);
-  };
+  requestDataFrom = (oc, link, amount, args) => {
+    return link.transferAndCall(oc.address, amount, args)
+  }
 
   _0x = (val) => {
     return `0x${toHex(val)}`
   }
+})()
 
-})();
+export {
+  _0x,
+  assertActionThrows,
+  bigNum,
+  checkPublicABI,
+  consumer,
+  decodeRunABI,
+  decodeRunRequest,
+  defaultAccount,
+  deploy,
+  eth,
+  functionSelector,
+  getEvents,
+  getLatestEvent,
+  hexToInt,
+  lPad,
+  oracleNode,
+  rPad,
+  requestDataBytes,
+  requestDataFrom,
+  stranger,
+  toHex,
+  toWei
+}
