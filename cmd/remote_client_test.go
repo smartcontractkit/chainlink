@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
 
@@ -28,7 +29,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.DisplayAccountBalance(c))
-	assert.Equal(t, 1, len(r.Renders))
+	require.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, account.Address.Hex(), r.Renders[0].(*presenters.AccountBalance).Address)
 }
 

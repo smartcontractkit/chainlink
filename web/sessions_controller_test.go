@@ -78,7 +78,7 @@ func TestSessionsController_destroy(t *testing.T) {
 	err := app.Store.Save(&seedUser)
 	assert.NoError(t, err)
 
-	correctSession := models.Session{"ShouldBeDeleted"}
+	correctSession := models.NewSession()
 	require.NoError(t, app.Store.Save(&correctSession))
 	defer cleanup()
 
