@@ -84,39 +84,6 @@ let _0x,
     return deployer.perform(filePath, ...args)
   }
 
-  const Eth = function sendEth (method, params) {
-    params = params || []
-
-    return new Promise((resolve, reject) => {
-      web3.currentProvider.sendAsync({
-        jsonrpc: '2.0',
-        method: method,
-        params: params || [],
-        id: new Date().getTime()
-      }, function sendEthResponse (error, response) {
-        if (error) {
-          reject(error)
-        } else {
-          resolve(response.result)
-        };
-      }, () => {}, () => {})
-    })
-  }
-
-  const emptyAddress = '0x0000000000000000000000000000000000000000'
-
-  const sealBlock = async function sealBlock () {
-    return Eth('evm_mine')
-  }
-
-  const sendTransaction = async function sendTransaction (params) {
-    return await eth.sendTransaction(params)
-  }
-
-  const getBalance = async function getBalance (account) {
-    return bigNum(await eth.getBalance(account))
-  }
-
   bigNum = function bigNum (number) {
     return web3.toBigNumber(number)
   }
@@ -125,70 +92,8 @@ let _0x,
     return bigNum(web3.toWei(number))
   }
 
-  const tokens = function tokens (number) {
-    return bigNum(number * 10 ** 18)
-  }
-
-  const intToHex = function intToHex (number) {
-    return '0x' + bigNum(number).toString(16)
-  }
-
-  const intToHexNoPrefix = function intToHex (number) {
-    return bigNum(number).toString(16)
-  }
-
   hexToInt = string => {
     return web3.toBigNumber(string)
-  }
-
-  const hexToAddress = function hexToAddress (string) {
-    return '0x' + string.slice(string.length - 40)
-  }
-
-  const unixTime = function unixTime (time) {
-    return moment(time).unix()
-  }
-
-  const seconds = function seconds (number) {
-    return number
-  }
-
-  const minutes = function minutes (number) {
-    return number * 60
-  }
-
-  const hours = function hours (number) {
-    return number * minutes(60)
-  }
-
-  const days = function days (number) {
-    return number * hours(24)
-  }
-
-  const keccak256 = function keccak256 (string) {
-    return web3.sha3(string)
-  }
-
-  const logTopic = function logTopic (string) {
-    let hash = keccak256(string)
-    return '0x' + hash.slice(26)
-  }
-
-  const getLatestBlock = async function getLatestBlock () {
-    return await eth.getBlock('latest', false)
-  }
-
-  const getLatestTimestamp = async function getLatestTimestamp () {
-    let latestBlock = await getLatestBlock()
-    return web3.toDecimal(latestBlock.timestamp)
-  }
-
-  const fastForwardTo = async function fastForwardTo (target) {
-    let now = await getLatestTimestamp()
-    assert.isAbove(target, now, 'Cannot fast forward to the past')
-    let difference = target - now
-    await Eth('evm_increaseTime', [difference])
-    await sealBlock()
   }
 
   getEvents = contract => {
@@ -201,18 +106,6 @@ let _0x,
         };
       })
     })
-  }
-
-  const eventsOfType = function eventsOfType (events, type) {
-    let filteredEvents = []
-    for (event of events) {
-      if (event.event === type) filteredEvents.push(event)
-    }
-    return filteredEvents
-  }
-
-  const getEventsOfType = async function getEventsOfType (contract, type) {
-    return eventsOfType(await getEvents(contract), type)
   }
 
   getLatestEvent = async (contract) => {
@@ -241,17 +134,6 @@ let _0x,
     let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
     let payload = int.toString(16)
     return (zeros + payload).slice(payload.length)
-  }
-
-  const encodeAddress = function encodeAddress (address) {
-    return '000000000000000000000000' + address.slice(2)
-  }
-
-  const encodeBytes = function encodeBytes (bytes) {
-    let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
-    let padded = bytes.padEnd(64, 0)
-    let length = encodeUint256(bytes.length / 2)
-    return length + padded
   }
 
   checkPublicABI = function checkPublicABI (contract, expectedPublic) {
@@ -287,14 +169,6 @@ let _0x,
     let wordLen = parseInt((string.length + 31) / 32) * 32
     for (let i = string.length; i < wordLen; i++) {
       string = '\x00' + string
-    }
-    return string
-  }
-
-  const lPadHex = function lPadHex (string) {
-    let wordLen = parseInt((string.length + 63) / 64) * 64
-    for (let i = string.length; i < wordLen; i++) {
-      string = '0' + string
     }
     return string
   }
