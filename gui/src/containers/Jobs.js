@@ -18,14 +18,11 @@ const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
-  },
-  createButtons: {
-    padding: theme.spacing.unit * 2
   }
 })
 
-const renderJobsList = (props) => {
-  const {jobs, jobCount, pageSize, jobsError, fetchJobs, history, match} = props
+const renderJobsList = props => {
+  const { jobs, jobCount, pageSize, jobsError, fetchJobs, history, match } = props
   return (
     <JobList
       jobs={jobs}
@@ -39,37 +36,18 @@ const renderJobsList = (props) => {
   )
 }
 
-const renderSidebar = ({
-  ethBalance,
-  linkBalance,
-  jobCount,
-  accountBalanceError
-}) => (
+const renderSidebar = ({ ethBalance, linkBalance, jobCount, accountBalanceError }) => (
   <Grid container spacing={24}>
     <Grid item xs={12}>
-      <TokenBalance
-        title='Ethereum'
-        value={ethBalance}
-        error={accountBalanceError}
-      />
+      <TokenBalance title='Ethereum' value={ethBalance} error={accountBalanceError} />
     </Grid>
     <Grid item xs={12}>
-      <TokenBalance
-        title='Link'
-        value={linkBalance}
-        error={accountBalanceError}
-      />
+      <TokenBalance title='Link' value={linkBalance} error={accountBalanceError} />
     </Grid>
     <Grid item xs={12}>
       <MetaInfo title='Jobs' value={jobCount} />
     </Grid>
   </Grid>
-)
-
-const CreateButton = ({construct, buttonText}) => (
-  <Button variant='outlined' color='primary' component={Link} to={`/create/${construct}`}>
-    {buttonText}
-  </Button>
 )
 
 export class Jobs extends Component {
@@ -81,22 +59,23 @@ export class Jobs extends Component {
     const { classes } = this.props
     return (
       <div>
-        <Grid container spacing={8} xs={9} alignItems='center' >
+        <Grid container alignItems='center'>
           <Grid item xs>
             <Typography variant='display2' color='inherit' className={classes.title}>
               Jobs
             </Typography>
           </Grid>
-          <Grid item>
-            <CreateButton construct='bridge' buttonText='Create Bridge' />
-          </Grid>
-          <Grid item>
-            <CreateButton construct='job' buttonText='Create Job' />
-          </Grid>
+          <Button variant='outlined' color='primary' component={Link} to={'/create/job'}>
+            Create Job
+          </Button>
         </Grid>
         <Grid container spacing={40}>
-          <Grid item xs={9}>{renderJobsList(this.props)}</Grid>
-          <Grid item xs={3}>{renderSidebar(this.props)}</Grid>
+          <Grid item xs={9}>
+            {renderJobsList(this.props)}
+          </Grid>
+          <Grid item xs={3}>
+            {renderSidebar(this.props)}
+          </Grid>
         </Grid>
         <Footer />
       </div>
@@ -141,7 +120,7 @@ const mapStateToProps = state => {
 
 export const ConnectedJobs = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchAccountBalance, fetchJobs})
+  matchRouteAndMapDispatchToProps({ fetchAccountBalance, fetchJobs })
 )(Jobs)
 
 export default withStyles(styles)(ConnectedJobs)

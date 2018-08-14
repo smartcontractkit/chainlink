@@ -22,8 +22,8 @@ const styles = (theme) => {
       color: theme.palette.error.contrastText
     },
     warning: {
-      backgroundColor: '#BDE5F8',
-      color: '#00529B'
+      backgroundColor: theme.palette.warning.contrastText,
+      color: theme.palette.warning.main
     }
   })
 }

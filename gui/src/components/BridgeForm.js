@@ -4,10 +4,10 @@ import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
 import { TextField, Grid } from '@material-ui/core'
 import { connect } from 'react-redux'
-import { submitCreate } from 'actions'
+import { submitBridgeType } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
-import { BridgeAndJobNotifications } from './FormNotifications';
+import { BridgeAndJobNotifications } from './FormNotifications'
 const styles = theme => ({
   textfield: {
     paddingTop: theme.spacing.unit * 1.25,
@@ -102,7 +102,7 @@ const BridgeForm = withFormik({
   handleSubmit (values, { props }) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
-    props.submitCreate('v2/bridge_types', formattedValues, true)
+    props.submitBridgeType(formattedValues, true)
   }
 })(BridgeFormLayout)
 
@@ -115,7 +115,7 @@ const mapStateToProps = state => ({
 
 export const ConnectedBridgeForm = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ submitCreate })
+  matchRouteAndMapDispatchToProps({ submitBridgeType })
 )(BridgeForm)
 
 export default withStyles(styles)(ConnectedBridgeForm)

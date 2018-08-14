@@ -4,11 +4,10 @@ import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
 import { TextField, Grid } from '@material-ui/core'
 import { connect } from 'react-redux'
-import { submitCreate } from 'actions'
+import { submitJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
-import { BridgeAndJobNotifications } from './FormNotifications';
- './FormNotifications'
+import { BridgeAndJobNotifications } from './FormNotifications'
 
 const styles = theme => ({
   jsonfield: {
@@ -74,7 +73,7 @@ const JobForm = withFormik({
     }
   },
   handleSubmit (values, { props }) {
-    props.submitCreate('v2/specs', values.json.trim(), false)
+    props.submitJobSpec(values.json.trim(), false)
   }
 })(JobFormLayout)
 
@@ -87,7 +86,7 @@ const mapStateToProps = state => ({
 
 export const ConnectedJobForm = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ submitCreate })
+  matchRouteAndMapDispatchToProps({ submitJobSpec })
 )(JobForm)
 
 export default withStyles(styles)(ConnectedJobForm)

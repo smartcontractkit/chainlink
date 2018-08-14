@@ -19,7 +19,7 @@ const styles = theme => ({
     paddingBottom: theme.spacing.unit * 2
   },
   tabPadding: {
-    padding: 24
+    padding: theme.spacing.unit * 3
   }
 })
 
@@ -45,15 +45,8 @@ class Create extends React.Component {
     // Need to set int value because <Tabs/> component
     // will not focus on tab with strings
     if (this.props.match) {
-      switch (this.props.match.params.structure) {
-        case 'bridge':
-          this.setState({value: 0})
-          break
-        case 'job':
-          this.setState({value: 1})
-          break
-        default: this.setState({value: 0})
-      }
+      const value = this.props.match.params.structure === 'job' ? 1 : 0
+      this.setState({ value: value })
     }
   }
 
@@ -62,10 +55,10 @@ class Create extends React.Component {
     if (this.props.history) {
       switch (value) {
         case 0:
-          this.props.history.replace('/create/bridge')
+          this.props.history.push('/create/bridge')
           break
         case 1:
-          this.props.history.replace('/create/job')
+          this.props.history.push('/create/job')
           break
       }
     }

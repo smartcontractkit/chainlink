@@ -74,6 +74,8 @@ export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
 
 export const createSession = (data) => post(`/sessions`, data)
 
-export const createObject = (endpoint, data, shouldStringify) => post(`/${endpoint}`, data, shouldStringify)
+export const createBridgeType = (data, shouldStringify) => post('/v2/bridge_types', data, shouldStringify)
+
+export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
 
 export const destroySession = () => destroy(`/sessions`)
