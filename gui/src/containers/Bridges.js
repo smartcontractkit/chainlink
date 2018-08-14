@@ -8,6 +8,8 @@ import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchBridges } from 'actions'
+import { Button } from '@material-ui/core'
+import Link from 'components/Link'
 
 const styles = theme => ({
   title: {
@@ -16,7 +18,7 @@ const styles = theme => ({
   }
 })
 
-const renderBridgeList = ({bridges, bridgeCount, pageSize, bridgesError, fetchBridges}) => (
+const renderBridgeList = ({ bridges, bridgeCount, pageSize, bridgesError, fetchBridges }) => (
   <BridgeList
     bridges={bridges}
     bridgeCount={bridgeCount}
@@ -36,10 +38,16 @@ export class Bridges extends Component {
 
     return (
       <div>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Bridges
-        </Typography>
-
+        <Grid container spacing={8} xs={12} alignItems='center'>
+          <Grid item xs>
+            <Typography variant='display2' color='inherit' className={classes.title}>
+              Bridges
+            </Typography>
+          </Grid>
+          <Button variant='outlined' color='primary' component={Link} to={'/create/bridge'}>
+            Create Bridge
+          </Button>
+        </Grid>
         <Grid container spacing={40}>
           <Grid item xs={12}>
             {renderBridgeList(this.props)}
@@ -75,9 +83,6 @@ const mapStateToProps = state => {
   }
 }
 
-export const ConnectedBridges = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchBridges})
-)(Bridges)
+export const ConnectedBridges = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ fetchBridges }))(Bridges)
 
 export default withSiteData(withStyles(styles)(ConnectedBridges))
