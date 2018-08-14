@@ -1,17 +1,21 @@
 sudo: true
 dist: trusty
+language: go
+install: true
+git:
+  depth: 1
 
 env:
   global:
     - REPO="smartcontract/chainlink-tester"
     - DOCKERFILE="Dockerfile.tester"
 
+before_script: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
 jobs:
   include:
     - stage: build docker image
-      script:
-      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-      - make docker dockerpush
+      script: make docker dockerpush
     - stage: test
       script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/go_test
     - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/truffle_test
