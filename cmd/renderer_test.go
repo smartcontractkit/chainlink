@@ -25,7 +25,7 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
-	assert.Nil(t, r.Render(&jobs))
+	assert.NoError(t, r.Render(&jobs))
 }
 
 func TestRendererTable_RenderShowJob(t *testing.T) {
@@ -118,7 +118,7 @@ func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&psa))
+			assert.NoError(t, r.Render(&psa))
 			assert.True(t, tw.found)
 		})
 	}
