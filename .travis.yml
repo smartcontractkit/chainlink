@@ -17,7 +17,7 @@ jobs:
     - stage: build docker image
       script: make docker dockerpush
     - stage: test
-      script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/go_test
-    - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/truffle_test
-    - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/ethereum_test
-    - script: docker run --rm $DOCKER_USERNAME/chainlink-tester ./internal/ci/gui_test
+      script: docker run --rm $REPO ./internal/ci/go_test
+    - script: docker run --rm $REPO ./internal/ci/truffle_test
+    - script: docker run --rm $REPO ./internal/ci/ethereum_test
+    - script: docker run --rm $REPO ./internal/ci/gui_test
