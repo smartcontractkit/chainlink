@@ -1,7 +1,5 @@
-'use strict'
-
-const { assertBigNum } = require('./support/matchers.js')
-require('./support/helpers.js')
+import { deploy, checkPublicABI, bigNum } from './support/helpers'
+import { assertBigNum } from './support/matchers'
 
 contract('Coordinator', () => {
   const sourcePath = 'Coordinator.sol'

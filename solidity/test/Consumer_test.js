@@ -1,6 +1,21 @@
-'use strict'
-
-require('./support/helpers.js')
+import cbor from 'cbor'
+import {
+  assertActionThrows,
+  consumer,
+  decodeRunRequest,
+  defaultAccount,
+  deploy,
+  eth,
+  functionSelector,
+  getLatestEvent,
+  hexToInt,
+  oracleNode,
+  rPad,
+  requestDataBytes,
+  requestDataFrom,
+  stranger,
+  toHex
+} from './support/helpers'
 
 contract('Consumer', () => {
   const sourcePath = 'examples/Consumer.sol'
