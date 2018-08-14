@@ -1,6 +1,16 @@
-'use strict'
-
-require('./support/helpers.js')
+import {
+  consumer,
+  defaultAccount,
+  deploy,
+  functionSelector,
+  oracleNode,
+  stranger,
+  toWei,
+  requestDataBytes,
+  checkPublicABI,
+  assertActionThrows,
+  requestDataFrom
+} from './support/helpers'
 
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'

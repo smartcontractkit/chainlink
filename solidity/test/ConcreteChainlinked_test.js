@@ -1,6 +1,14 @@
-'use strict'
-
-require('./support/helpers.js')
+import cbor from 'cbor'
+import {
+  assertActionThrows,
+  bigNum,
+  decodeRunABI,
+  deploy,
+  getEvents,
+  getLatestEvent,
+  toHex,
+  toWei
+} from './support/helpers'
 
 contract('ConcreteChainlinked', () => {
   const sourcePath = 'examples/ConcreteChainlinked.sol'

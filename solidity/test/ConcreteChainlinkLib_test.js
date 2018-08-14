@@ -1,6 +1,10 @@
-'use strict'
-
-require('./support/helpers.js')
+import cbor from 'cbor'
+import util from 'ethereumjs-util'
+import abi from 'ethereumjs-abi'
+import {
+  checkPublicABI,
+  deploy
+} from './support/helpers.js'
 
 contract('ConcreteChainlinkLib', () => {
   const sourcePath = 'examples/ConcreteChainlinkLib.sol'
