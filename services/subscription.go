@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -396,12 +397,12 @@ func (le InitiatorSubscriptionLogEvent) EthLogJSON() (models.JSON, error) {
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le InitiatorSubscriptionLogEvent) ContractPayment() (*big.Int, error) {
+func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) {
 	if !isRunLog(le.Log) {
 		return nil, nil
 	}
 	encodedAmount := le.Log.Topics[RunLogTopicAmount].Hex()
-	payment, ok := new(big.Int).SetString(encodedAmount, 0)
+	payment, ok := new(assets.Link).SetString(encodedAmount, 0)
 	if !ok {
 		return payment, fmt.Errorf("unable to decoded amount from RunLog: %s", encodedAmount)
 	}

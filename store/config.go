@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -39,7 +40,7 @@ type Config struct {
 	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
 	MinIncomingConfirmations uint64          `env:"MIN_INCOMING_CONFIRMATIONS" envDefault:"0"`
 	MinOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" envDefault:"12"`
-	MinimumContractPayment   big.Int         `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
+	MinimumContractPayment   assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
 	MinimumRequestExpiration uint64          `env:"MINIMUM_REQUEST_EXPIRATION" envDefault:"300"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
@@ -142,6 +143,7 @@ func parseEnv(cfg interface{}) error {
 	return env.ParseWithFuncs(cfg, env.CustomParsers{
 		reflect.TypeOf(&common.Address{}): addressParser,
 		reflect.TypeOf(big.Int{}):         bigIntParser,
+		reflect.TypeOf(assets.Link{}):     linkParser,
 		reflect.TypeOf(LogLevel{}):        levelParser,
 		reflect.TypeOf(Duration{}):        durationParser,
 	})
@@ -164,6 +166,14 @@ func bigIntParser(str string) (interface{}, error) {
 	i, ok := new(big.Int).SetString(str, 10)
 	if !ok {
 		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
+	}
+	return *i, nil
+}
+
+func linkParser(str string) (interface{}, error) {
+	i, ok := new(assets.Link).SetString(str, 10)
+	if !ok {
+		return i, fmt.Errorf("Unable to parse %v into *assets.Link(base 10)", str)
 	}
 	return *i, nil
 }

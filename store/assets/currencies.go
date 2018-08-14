@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/pad"
 )
 
@@ -33,10 +34,25 @@ func (l *Link) SetInt64(w int64) *Link {
 	return (*Link)((*big.Int)(l).SetInt64(w))
 }
 
+// ToHash returns a 32 byte representation of this value
+func (l *Link) ToHash() common.Hash {
+	return common.BigToHash((*big.Int)(l))
+}
+
 // SetString delegates to *big.Int.SetString
 func (l *Link) SetString(s string, base int) (*Link, bool) {
 	w, ok := (*big.Int)(l).SetString(s, base)
 	return (*Link)(w), ok
+}
+
+// Cmp defers to big.Int Cmp
+func (l *Link) Cmp(y *Link) int {
+	return (*big.Int)(l).Cmp((*big.Int)(y))
+}
+
+// Text defers to big.Int Text
+func (l *Link) Text(base int) string {
+	return (*big.Int)(l).Text(base)
 }
 
 // MarshalText implements the encoding.TextMarshaler interface.
