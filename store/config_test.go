@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -21,7 +22,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 	assert.Equal(t, uint64(0), config.ChainID)
 	assert.Equal(t, *big.NewInt(20000000000), config.EthGasPriceDefault)
 	assert.Equal(t, "0x514910771AF9Ca656af840dff83E8264EcF986CA", common.HexToAddress(config.LinkContractAddress).String())
-	assert.Equal(t, *big.NewInt(1000000000000000000), config.MinimumContractPayment)
+	assert.Equal(t, *assets.NewLink(1000000000000000000), config.MinimumContractPayment)
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout.Duration)
 }
 

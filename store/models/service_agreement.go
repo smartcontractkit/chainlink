@@ -3,10 +3,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
@@ -50,16 +50,17 @@ func generateServiceAgreementID(e Encumbrance, digest string) (string, error) {
 
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
-	Payment    *big.Int `json:"payment"`
-	Expiration uint64   `json:"expiration"`
+	Payment    *assets.Link `json:"payment"`
+	Expiration uint64       `json:"expiration"`
 }
 
 // ABI returns the encumbrance ABI encoded as a hex string.
 func (e Encumbrance) ABI() string {
-	if e.Payment == nil {
-		e.Payment = big.NewInt(0)
+	payment := e.Payment
+	if payment == nil {
+		payment = assets.NewLink(0)
 	}
-	return fmt.Sprintf("%064x%064x", e.Payment, e.Expiration)
+	return fmt.Sprintf("%064s%064x", payment.Text(16), e.Expiration)
 }
 
 // ServiceAgreementRequest represents a service agreement as requested over the wire.

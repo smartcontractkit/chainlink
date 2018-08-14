@@ -244,7 +244,7 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 			services.RunLogTopic,
 			StringToHash("internalID"),
 			StringToHash(jobID),
-			common.BigToHash(big.NewInt(MinimumContractPayment)),
+			minimumContractPayment.ToHash(),
 		},
 	}
 }
