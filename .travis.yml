@@ -8,7 +8,6 @@ cache:
   apt: true
   directories:
     - $GOPATH/src/github.com/smartcontractkit/chainlink/vendor
-    - $GOPATH/bin
 
 addons:
   apt:
