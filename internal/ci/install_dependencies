@@ -1,4 +1,5 @@
 #!/bin/bash
 
+echo '--- install_dependencies PWD: ' && pwd
 dep ensure
 yarn install
