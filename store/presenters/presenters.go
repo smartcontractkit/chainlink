@@ -117,7 +117,7 @@ type ConfigWhitelist struct {
 	LogLevel                 store.LogLevel  `json:"logLevel"`
 	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
 	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
-	MinimumContractPayment   *big.Int        `json:"minimumContractPayment"`
+	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     string          `json:"chainlinkPort"`
