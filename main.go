@@ -150,7 +150,7 @@ func Run(client *cmd.Client, args ...string) {
 		},
 		{
 			Name:    "agree",
-			Aliases: []string{"csa", "creatsa"},
+			Aliases: []string{"createsa"},
 			Usage:   "Creates a service agreement",
 			Action:  client.CreateServiceAgreement,
 		},
