@@ -53,5 +53,15 @@ type SessionRequest struct {
 
 // Session holds the unique id for the authenticated session.
 type Session struct {
-	ID string `json:"id" storm:"id,unique"`
+	ID       string `json:"id" storm:"id,unique"`
+	LastUsed Time   `json:"lastUsed"`
+}
+
+// NewSession returns a session instance with ID set to a random ID and
+// LastUsed to to now.
+func NewSession() Session {
+	return Session{
+		ID:       utils.NewBytes32ID(),
+		LastUsed: Time{Time: time.Now()},
+	}
 }

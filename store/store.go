@@ -105,6 +105,12 @@ func (s *Store) Close() error {
 	return s.ORM.Close()
 }
 
+// AuthorizedUserWithSession will return the one API user if the Session ID exists
+// and hasn't expired, and update session's LastUsed field.
+func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
+	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout.Duration)
+}
+
 // AfterNower is an interface that fulfills the `After()` and `Now()`
 // methods.
 type AfterNower interface {

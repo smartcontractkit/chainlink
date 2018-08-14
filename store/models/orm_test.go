@@ -418,18 +418,47 @@ func TestORM_FindUser(t *testing.T) {
 	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
 }
 
-func TestORM_AuthorizedUserWithSession_emptySession(t *testing.T) {
+func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	user := cltest.MustUser("test1@email1.net", "password1")
+	user := cltest.MustUser("have@email", "password")
 	require.NoError(t, store.Save(&user))
 
-	actual, err := store.AuthorizedUserWithSession("")
-	require.Error(t, err)
-	assert.Equal(t, "", actual.Email)
+	tests := []struct {
+		name            string
+		sessionID       string
+		sessionDuration time.Duration
+		wantError       bool
+		wantEmail       string
+	}{
+		{"authorized", "correctID", cltest.MustParseDuration("3m"), false, "have@email"},
+		{"expired", "correctID", cltest.MustParseDuration("0m"), true, ""},
+		{"incorrect", "wrong", cltest.MustParseDuration("3m"), true, ""},
+		{"empty", "", cltest.MustParseDuration("3m"), true, ""},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			session := cltest.NewSession("correctID")
+			session.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
+			require.NoError(t, store.Save(&session))
+
+			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
+			assert.Equal(t, test.wantEmail, actual.Email)
+			if test.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				err = store.One("ID", session.ID, &session)
+				require.NoError(t, err)
+				expectedTime := models.Time{time.Now()}.HumanString()
+				assert.Equal(t, expectedTime, session.LastUsed.HumanString())
+			}
+		})
+	}
 }
 
 func TestORM_DeleteUser(t *testing.T) {
@@ -455,10 +484,10 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	user := cltest.MustUser("test1@email1.net", "password1")
 	require.NoError(t, store.Save(&user))
 
-	session := models.Session{"allowedSession"}
+	session := models.NewSession()
 	require.NoError(t, store.Save(&session))
 
-	err := store.DeleteUserSession("allowedSession")
+	err := store.DeleteUserSession(session.ID)
 	require.NoError(t, err)
 
 	user, err = store.FindUser()
