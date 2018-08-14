@@ -136,7 +136,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 	}{
 		{"basic", basic, false},
 		{"no payment", basic.Delete("payment"), true},
-		{"less than minimum payment", basic.Add("payment", 1), true},
+		{"less than minimum payment", basic.Add("payment", "1"), true},
 		{"less than minimum expiration", basic.Add("expiration", 1), true},
 	}
 

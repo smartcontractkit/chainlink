@@ -236,6 +236,9 @@ func EasyJSONFromString(body string, args ...interface{}) EasyJSON {
 
 // NewRunLog create ethtypes.Log for given jobid, address, block, and json
 func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes.Log {
+	config, cleanup := NewConfig()
+	defer cleanup()
+
 	return ethtypes.Log{
 		Address:     addr,
 		BlockNumber: uint64(blk),
@@ -244,7 +247,7 @@ func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes
 			services.RunLogTopic,
 			StringToHash("internalID"),
 			StringToHash(jobID),
-			common.BigToHash(big.NewInt(MinimumContractPayment)),
+			config.MinimumContractPayment.ToHash(),
 		},
 	}
 }

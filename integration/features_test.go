@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -543,7 +543,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	assert.NotEqual(t, "", sa.ID)
 	cltest.FindJob(app.Store, sa.JobSpecID)
 
-	assert.Equal(t, big.NewInt(1000000000000000000), sa.Encumbrance.Payment)
+	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
-	assert.Equal(t, "0xd7b66ba42e97935f456468de5a748990acebf0d9fbc638cf5485196cf7da3b05", sa.ID)
+	assert.Equal(t, "0x8de92e4d6a2b527f1e3c39022ee0f1c177a6d874224fe54f5c4c0d5bcaa57d50", sa.ID)
 }

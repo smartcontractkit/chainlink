@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
@@ -56,8 +57,6 @@ const (
 )
 
 var storeCounter uint64
-
-const MinimumContractPayment = 100
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -93,7 +92,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
 			MinIncomingConfirmations: 0,
 			MinOutgoingConfirmations: 6,
-			MinimumContractPayment:   *big.NewInt(MinimumContractPayment),
+			MinimumContractPayment:   *assets.NewLink(100),
 			MinimumRequestExpiration: 300,
 			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
