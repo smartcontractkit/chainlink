@@ -2,8 +2,6 @@
 
 set -e
 
-go get -u github.com/smartcontractkit/goverage
-
 cc-test-reporter before-build
 goverage -v -parallel 2 --tags=test -coverprofile=c.out ./...
 result=$?
