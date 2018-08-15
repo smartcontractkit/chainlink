@@ -1,32 +1,20 @@
-import {
-  consumer,
-  defaultAccount,
-  deploy,
-  functionSelector,
-  oracleNode,
-  stranger,
-  toWei,
-  requestDataBytes,
-  checkPublicABI,
-  assertActionThrows,
-  requestDataFrom
-} from './support/helpers'
+import * as h from './support/helpers'
 
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'
-  const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
+  const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
   const specId = '4c7b7ffb66b344fbaa64995af81e355a'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link, oc
 
   beforeEach(async () => {
-    link = await deploy('linkToken/contracts/LinkToken.sol')
-    oc = await deploy(sourcePath, link.address)
-    await oc.transferOwnership(oracleNode, {from: defaultAccount})
+    link = await h.deploy('linkToken/contracts/LinkToken.sol')
+    oc = await h.deploy(sourcePath, link.address)
+    await oc.transferOwnership(h.oracleNode, {from: h.defaultAccount})
   })
 
   it('has a limited public interface', () => {
-    checkPublicABI(artifacts.require(sourcePath), [
+    h.checkPublicABI(artifacts.require(sourcePath), [
       'cancel',
       'fulfillData',
       'onTokenTransfer',
@@ -40,20 +28,20 @@ contract('Oracle', () => {
   describe('#transferOwnership', () => {
     context('when called by the owner', () => {
       beforeEach(async () => {
-        await oc.transferOwnership(stranger, {from: oracleNode})
+        await oc.transferOwnership(h.stranger, {from: h.oracleNode})
       })
 
       it('can change the owner', async () => {
         let owner = await oc.owner.call()
         assert.isTrue(web3.isAddress(owner))
-        assert.equal(stranger, owner)
+        assert.equal(h.stranger, owner)
       })
     })
 
     context('when called by a non-owner', () => {
       it('cannot change the owner', async () => {
-        await assertActionThrows(async () => {
-          await oc.transferOwnership(stranger, {from: stranger})
+        await h.assertActionThrows(async () => {
+          await oc.transferOwnership(h.stranger, {from: h.stranger})
         })
       })
     })
@@ -64,7 +52,7 @@ contract('Oracle', () => {
 
     context('when called from the LINK token', () => {
       it('triggers the intended method', async () => {
-        let callData = requestDataBytes(specId, to, fHash, 'id', '')
+        let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
 
         let tx = await link.transferAndCall(oc.address, 0, callData)
         assert.equal(3, tx.receipt.logs.length)
@@ -72,7 +60,7 @@ contract('Oracle', () => {
 
       context('with no data', () => {
         it('reverts', async () => {
-          await assertActionThrows(async () => {
+          await h.assertActionThrows(async () => {
             await link.transferAndCall(oc.address, 0, '')
           })
         })
@@ -81,10 +69,10 @@ contract('Oracle', () => {
 
     context('when called from any address but the LINK token', () => {
       it('triggers the intended method', async () => {
-        let callData = requestDataBytes(specId, to, fHash, 'id', '')
+        let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
 
-        await assertActionThrows(async () => {
-          let tx = await oc.onTokenTransfer(oracleNode, 0, callData)
+        await h.assertActionThrows(async () => {
+          let tx = await oc.onTokenTransfer(h.oracleNode, 0, callData)
         })
       })
     })
@@ -93,7 +81,7 @@ contract('Oracle', () => {
       const paymentAmount = 1
 
       beforeEach(async () => {
-        mock = await deploy('examples/MaliciousRequester.sol', link.address, oc.address)
+        mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
@@ -101,7 +89,7 @@ contract('Oracle', () => {
         const ocOriginalBalance = await link.balanceOf.call(oc.address)
         const mockOriginalBalance = await link.balanceOf.call(mock.address)
 
-        await assertActionThrows(async () => {
+        await h.assertActionThrows(async () => {
           await mock.maliciousWithdraw()
         })
 
@@ -118,8 +106,8 @@ contract('Oracle', () => {
     context('when called through the LINK token', () => {
       let log, tx
       beforeEach(async () => {
-        let args = requestDataBytes(specId, to, fHash, 'id', '')
-        tx = await requestDataFrom(oc, link, 0, args)
+        let args = h.requestDataBytes(specId, to, fHash, 'id', '')
+        tx = await h.requestDataFrom(oc, link, 0, args)
         assert.equal(3, tx.receipt.logs.length)
 
         log = tx.receipt.logs[2]
@@ -138,8 +126,8 @@ contract('Oracle', () => {
 
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
-        await assertActionThrows(async () => {
-          await oc.requestData(1, specId, to, fHash, 'id', '', {from: oracleNode})
+        await h.assertActionThrows(async () => {
+          await oc.requestData(1, specId, to, fHash, 'id', '', {from: h.oracleNode})
         })
       })
     })
@@ -151,30 +139,30 @@ contract('Oracle', () => {
 
     context('successful consumer', () => {
       beforeEach(async () => {
-        mock = await deploy('examples/GetterSetter.sol')
-        let fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
-        let args = requestDataBytes(specId, mock.address, fHash, requestId, '')
-        let req = await requestDataFrom(oc, link, 0, args)
+        mock = await h.deploy('examples/GetterSetter.sol')
+        let fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
+        let args = h.requestDataBytes(specId, mock.address, fHash, requestId, '')
+        let req = await h.requestDataFrom(oc, link, 0, args)
         internalId = req.receipt.logs[2].topics[1]
       })
 
       context('when called by a non-owner', () => {
         it('raises an error', async () => {
-          await assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'Hello World!', {from: stranger})
+          await h.assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'Hello World!', {from: h.stranger})
           })
         })
       })
 
       context('when called by an owner', () => {
         it('raises an error if the request ID does not exist', async () => {
-          await assertActionThrows(async () => {
-            await oc.fulfillData(0xdeadbeef, 'Hello World!', {from: oracleNode})
+          await h.assertActionThrows(async () => {
+            await oc.fulfillData(0xdeadbeef, 'Hello World!', {from: h.oracleNode})
           })
         })
 
         it('sets the value on the requested contract', async () => {
-          await oc.fulfillData(internalId, 'Hello World!', {from: oracleNode})
+          await oc.fulfillData(internalId, 'Hello World!', {from: h.oracleNode})
 
           let mockRequestId = await mock.requestId.call()
           assert.equal(requestId.toString(), web3.toUtf8(mockRequestId))
@@ -184,20 +172,20 @@ contract('Oracle', () => {
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await oc.fulfillData(internalId, 'First message!', {from: oracleNode})
-          await assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'Second message!!', {from: oracleNode})
+          await oc.fulfillData(internalId, 'First message!', {from: h.oracleNode})
+          await h.assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'Second message!!', {from: h.oracleNode})
           })
         })
       })
     })
 
     context('malicious consumer', () => {
-      const paymentAmount = toWei(1)
+      const paymentAmount = h.toWei(1)
 
       context('fails during fulfillment', () => {
         beforeEach(async () => {
-          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          mock = await h.deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
           await link.transfer(mock.address, paymentAmount)
 
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
@@ -205,27 +193,27 @@ contract('Oracle', () => {
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: h.oracleNode})
 
-          const balance = await link.balanceOf.call(oracleNode)
+          const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
-          const newBalance = await link.balanceOf.call(oracleNode)
+          await oc.withdraw(h.oracleNode, paymentAmount, {from: h.oracleNode})
+          const newBalance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
         it("can't fulfill the data again", async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
-          await assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'hack the planet 102', {from: oracleNode})
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: h.oracleNode})
+          await h.assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'hack the planet 102', {from: h.oracleNode})
           })
         })
       })
 
       context('calls selfdestruct', () => {
         beforeEach(async () => {
-          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          mock = await h.deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
           await link.transfer(mock.address, paymentAmount)
 
           const req = await mock.requestData('doesNothing(bytes32,bytes32)')
@@ -234,20 +222,20 @@ contract('Oracle', () => {
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: h.oracleNode})
 
-          const balance = await link.balanceOf.call(oracleNode)
+          const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
-          const newBalance = await link.balanceOf.call(oracleNode)
+          await oc.withdraw(h.oracleNode, paymentAmount, {from: h.oracleNode})
+          const newBalance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
       })
 
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
-          mock = await deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
+          mock = await h.deploy('examples/MaliciousConsumer.sol', link.address, oc.address)
           await link.transfer(mock.address, paymentAmount)
 
           const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
@@ -258,23 +246,23 @@ contract('Oracle', () => {
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: h.oracleNode})
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
 
-          const balance = await link.balanceOf.call(oracleNode)
+          const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(oracleNode, paymentAmount, {from: oracleNode})
-          const newBalance = await link.balanceOf.call(oracleNode)
+          await oc.withdraw(h.oracleNode, paymentAmount, {from: h.oracleNode})
+          const newBalance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
         it("can't fulfill the data again", async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', {from: oracleNode})
-          await assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'hack the planet 102', {from: oracleNode})
+          await oc.fulfillData(internalId, 'hack the planet 101', {from: h.oracleNode})
+          await h.assertActionThrows(async () => {
+            await oc.fulfillData(internalId, 'hack the planet 102', {from: h.oracleNode})
           })
         })
       })
@@ -284,12 +272,12 @@ contract('Oracle', () => {
   describe('#withdraw', () => {
     context('without reserving funds via requestData', () => {
       it('does nothing', async () => {
-        let balance = await link.balanceOf(oracleNode)
+        let balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
-        await assertActionThrows(async () => {
-          await oc.withdraw(oracleNode, toWei(1), {from: oracleNode})
+        await h.assertActionThrows(async () => {
+          await oc.withdraw(h.oracleNode, h.toWei(1), {from: h.oracleNode})
         })
-        balance = await link.balanceOf(oracleNode)
+        balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
       })
     })
@@ -298,9 +286,9 @@ contract('Oracle', () => {
       let log, tx, mock, internalId, amount
       beforeEach(async () => {
         amount = 15
-        mock = await deploy('examples/GetterSetter.sol')
-        let args = requestDataBytes(specId, mock.address, fHash, 'id', '')
-        tx = await requestDataFrom(oc, link, amount, args)
+        mock = await h.deploy('examples/GetterSetter.sol')
+        let args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
+        tx = await h.requestDataFrom(oc, link, amount, args)
         assert.equal(3, tx.receipt.logs.length)
 
         log = tx.receipt.logs[2]
@@ -309,31 +297,31 @@ contract('Oracle', () => {
 
       context('but not freeing funds w fulfillData', () => {
         it('does not transfer funds', async () => {
-          await assertActionThrows(async () => {
-            await oc.withdraw(oracleNode, amount, {from: oracleNode})
+          await h.assertActionThrows(async () => {
+            await oc.withdraw(h.oracleNode, amount, {from: h.oracleNode})
           })
-          let balance = await link.balanceOf(oracleNode)
+          let balance = await link.balanceOf(h.oracleNode)
           assert.equal(0, balance)
         })
       })
 
       context('and freeing funds', () => {
         beforeEach(async () => {
-          await oc.fulfillData(internalId, 'Hello World!', {from: oracleNode})
+          await oc.fulfillData(internalId, 'Hello World!', {from: h.oracleNode})
         })
 
         it('does not allow input greater than the balance', async () => {
           let originalOracleBalance = await link.balanceOf(oc.address)
-          let originalStrangerBalance = await link.balanceOf(stranger)
+          let originalStrangerBalance = await link.balanceOf(h.stranger)
           let withdrawAmount = amount + 1
 
           assert.isAbove(withdrawAmount, originalOracleBalance.toNumber())
-          await assertActionThrows(async () => {
-            await oc.withdraw(stranger, withdrawAmount, {from: oracleNode})
+          await h.assertActionThrows(async () => {
+            await oc.withdraw(h.stranger, withdrawAmount, {from: h.oracleNode})
           })
 
           let newOracleBalance = await link.balanceOf(oc.address)
-          let newStrangerBalance = await link.balanceOf(stranger)
+          let newStrangerBalance = await link.balanceOf(h.stranger)
 
           assert.equal(originalOracleBalance.toNumber(), newOracleBalance.toNumber())
           assert.equal(originalStrangerBalance.toNumber(), newStrangerBalance.toNumber())
@@ -342,24 +330,24 @@ contract('Oracle', () => {
         it('allows transfer of partial balance by owner to specified address', async () => {
           let partialAmount = 6
           let difference = amount - partialAmount
-          await oc.withdraw(stranger, partialAmount, {from: oracleNode})
-          let strangerBalance = await link.balanceOf(stranger)
+          await oc.withdraw(h.stranger, partialAmount, {from: h.oracleNode})
+          let strangerBalance = await link.balanceOf(h.stranger)
           let oracleBalance = await link.balanceOf(oc.address)
           assert.equal(partialAmount, strangerBalance)
           assert.equal(difference, oracleBalance)
         })
 
         it('allows transfer of entire balance by owner to specified address', async () => {
-          await oc.withdraw(stranger, amount, {from: oracleNode})
-          let balance = await link.balanceOf(stranger)
+          await oc.withdraw(h.stranger, amount, {from: h.oracleNode})
+          let balance = await link.balanceOf(h.stranger)
           assert.equal(amount, balance)
         })
 
         it('does not allow a transfer of funds by non-owner', async () => {
-          await assertActionThrows(async () => {
-            await oc.withdraw(stranger, amount, {from: stranger})
+          await h.assertActionThrows(async () => {
+            await oc.withdraw(h.stranger, amount, {from: h.stranger})
           })
-          let balance = await link.balanceOf(stranger)
+          let balance = await link.balanceOf(h.stranger)
           assert.equal(0, balance)
         })
       })
@@ -369,8 +357,8 @@ contract('Oracle', () => {
   describe('#cancel', () => {
     context('with no pending requests', () => {
       it('fails', async () => {
-        await assertActionThrows(async () => {
-          await oc.cancel(1337, {from: stranger})
+        await h.assertActionThrows(async () => {
+          await oc.cancel(1337, {from: h.stranger})
         })
       })
     })
@@ -382,11 +370,11 @@ contract('Oracle', () => {
         startingBalance = 100
         requestAmount = 20
 
-        mock = await deploy('examples/GetterSetter.sol')
-        await link.transfer(consumer, startingBalance)
+        mock = await h.deploy('examples/GetterSetter.sol')
+        await link.transfer(h.consumer, startingBalance)
 
-        let args = requestDataBytes(specId, consumer, fHash, requestId, '')
-        tx = await link.transferAndCall(oc.address, requestAmount, args, {from: consumer})
+        let args = h.requestDataBytes(specId, h.consumer, fHash, requestId, '')
+        tx = await link.transferAndCall(oc.address, requestAmount, args, {from: h.consumer})
         assert.equal(3, tx.receipt.logs.length)
       })
 
@@ -394,30 +382,30 @@ contract('Oracle', () => {
         let oracleBalance = await link.balanceOf(oc.address)
         assert.equal(requestAmount, oracleBalance)
 
-        let consumerAmount = await link.balanceOf(consumer)
+        let consumerAmount = await link.balanceOf(h.consumer)
         assert.equal(startingBalance - requestAmount, consumerAmount)
       })
 
       context('from a stranger', () => {
         it('fails', async () => {
-          await assertActionThrows(async () => {
-            await oc.cancel(requestId, {from: stranger})
+          await h.assertActionThrows(async () => {
+            await oc.cancel(requestId, {from: h.stranger})
           })
         })
       })
 
       context('from the requester', () => {
         it('refunds the correct amount', async () => {
-          await oc.cancel(requestId, {from: consumer})
-          let balance = await link.balanceOf(consumer)
+          await oc.cancel(requestId, {from: h.consumer})
+          let balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 
         context('canceling twice', () => {
           it('fails', async () => {
-            await oc.cancel(requestId, {from: consumer})
-            await assertActionThrows(async () => {
-              await oc.cancel(requestId, {from: consumer})
+            await oc.cancel(requestId, {from: h.consumer})
+            await h.assertActionThrows(async () => {
+              await oc.cancel(requestId, {from: h.consumer})
             })
           })
         })
