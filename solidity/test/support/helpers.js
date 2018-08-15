@@ -2,8 +2,6 @@ const Wallet = require('../../app/wallet.js')
 const Utils = require('../../app/utils.js')
 const Deployer = require('../../app/deployer.js')
 
-const BigNumber = require('bignumber.js')
-const moment = require('moment')
 const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
 
