@@ -32,3 +32,31 @@ func TestUnlockKey(t *testing.T) {
 	assert.Error(t, store.KeyStore.Unlock("wrong phrase"))
 	assert.NoError(t, store.KeyStore.Unlock(passphrase))
 }
+
+func TestKeyStore_SignSuccess(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	_, err := store.KeyStore.NewAccount(passphrase)
+	assert.NoError(t, err)
+	assert.NoError(t, store.KeyStore.Unlock(passphrase))
+
+	signature, err := store.KeyStore.Sign([]byte("abc123"))
+	assert.NoError(t, err)
+	assert.NotEqual(t, "", signature)
+}
+
+func TestKeyStore_SignAccountLocked(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	_, err := store.KeyStore.NewAccount(passphrase)
+	assert.NoError(t, err)
+
+	_, err = store.KeyStore.Sign([]byte("abc123"))
+	assert.Error(t, err)
+}
