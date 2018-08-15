@@ -1,6 +1,4 @@
-'use strict'
-
-require('./support/helpers.js')
+import { checkPublicABI } from './support/helpers'
 
 contract('Chainlinked', () => {
   const sourcePath = 'Chainlinked.sol'
