@@ -298,3 +298,35 @@ func (bt BridgeType) Authenticate(token string) (bool, error) {
 	}
 	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
 }
+
+// JobSpecStats holds high level data from the store around Job Specs and their Runs
+type JobSpecStats struct {
+	Address       string          `json:"-"`
+	JobSpecCounts []JobSpecCounts `json:"job_spec_stats"`
+}
+
+// JobSpecCounts holds all the data for a single Job Spec and its Runs
+type JobSpecCounts struct {
+	ID           string                  `json:"id"`
+	RunCount     int                     `json:"run_count"`
+	AdaptorCount map[TaskType]int        `json:"adaptor_count"`
+	StatusCount  map[RunStatus]int       `json:"status_count"`
+	ParamCount   map[string][]ParamCount `json:"param_count"`
+}
+
+// ParamCount holds each parameter count in each Job Spec
+type ParamCount struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (jss JobSpecStats) GetID() string {
+	return jss.Address
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (jss *JobSpecStats) SetID(value string) error {
+	jss.Address = value
+	return nil
+}
