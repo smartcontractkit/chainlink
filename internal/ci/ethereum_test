@@ -58,10 +58,11 @@ exit_handler() {
   fi
   # Clear all signal handlers to prevent handler loop
   trap - 1 2 3 15
-  # Kill all child subprocesses
-  kill -- -$$ || true
+  if [ -z "$CIRCLECI" ]; then
+    # Kill all child subprocesses
+    kill -- -$$ || true
+  fi
 }
-trap "exit_handler" EXIT SIGTERM SIGINT
 
 pushd $ROOT >/dev/null
 
