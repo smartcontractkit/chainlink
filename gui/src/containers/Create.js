@@ -39,14 +39,16 @@ class Create extends React.Component {
   state = {
     structure: 'bridge',
     value: 0
-  };
+  }
 
   componentDidMount () {
     // Need to set int value because <Tabs/> component
     // will not focus on tab with strings
+    const paramsExist = this.props.match && this.props.match.params
+    const matchParams = paramsExist && this.props.match.params.structure
     if (this.props.match) {
-      const value = this.props.match.params.structure === 'job' ? 1 : 0
-      this.setState({ value: value })
+      if (!matchParams) { this.setState({ value: 0 }) }
+      if (matchParams === 'job') { this.setState({ value: 1 }) }
     }
   }
 
@@ -62,7 +64,7 @@ class Create extends React.Component {
           break
       }
     }
-  };
+  }
 
   render () {
     const { classes } = this.props
@@ -78,8 +80,16 @@ class Create extends React.Component {
               <Tab label='Create Job' />
             </Tabs>
           </AppBar>
-          {structure === 'bridge' && <TabContainer><BridgeForm /></TabContainer>}
-          {structure === 'job' && <TabContainer><JobForm /></TabContainer>}
+          {structure === 'bridge' && (
+            <TabContainer>
+              <BridgeForm />
+            </TabContainer>
+          )}
+          {structure === 'job' && (
+            <TabContainer>
+              <JobForm />
+            </TabContainer>
+          )}
         </Card>
       </div>
     )
@@ -90,5 +100,4 @@ Create.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-export const withoutStyles = Create
 export default withStyles(styles)(Create)
