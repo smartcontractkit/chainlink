@@ -60,6 +60,7 @@ exit_handler() {
   trap - 1 2 3 15
   # Kill all child subprocesses
   kill -- -$$ || true
+  exit $errno
 }
 trap "exit_handler" EXIT SIGTERM SIGINT
 
@@ -180,7 +181,3 @@ jid=`echo $ethjob | jq .id | tr -d '"'`
 assert "EthLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
 
 printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
-
-# Return to caller's PWD
-popd >/dev/null
-popd >/dev/null
