@@ -1,0 +1,75 @@
+version: 2
+jobs:
+  go:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.5
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+      - run: dep ensure -vendor-only
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - ./vendor
+      - run: ./internal/ci/go_test
+  geth:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.5
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+      - run: dep ensure -vendor-only
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - ./vendor
+      - run: ./internal/ci/ethereum_test
+  truffle:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.5
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: ./internal/ci/truffle_test
+  gui:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.5
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: ./internal/ci/gui_test
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - go
+      - truffle
+      - geth
+      - gui
