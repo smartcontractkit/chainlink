@@ -7,7 +7,8 @@ import { withStyles } from '@material-ui/core/styles'
 
 const styles = (theme) => {
   const success = theme.palette.success || {}
-
+  const warning = theme.palette.warning || {}
+  
   return ({
     base: {
       padding: theme.spacing.unit,
@@ -22,8 +23,8 @@ const styles = (theme) => {
       color: theme.palette.error.contrastText
     },
     warning: {
-      backgroundColor: theme.palette.warning.contrastText,
-      color: theme.palette.warning.main
+      backgroundColor: warning.contrastText,
+      color: warning.main
     }
   })
 }
