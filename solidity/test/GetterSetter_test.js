@@ -1,6 +1,4 @@
-'use strict'
-
-require('./support/helpers.js')
+import { _0x, rPad, deploy, stranger } from './support/helpers'
 
 contract('GetterSetter', () => {
   const sourcePath = 'examples/GetterSetter.sol'
