@@ -15,7 +15,7 @@ const styles = () => {
 
 const Logo = ({ classes }) => (
   <div className={classes.logo}>
-      <NotFoundSVG/>    
+    <NotFoundSVG />
   </div>
 )
 
