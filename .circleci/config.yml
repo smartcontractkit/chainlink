@@ -3,7 +3,7 @@ jobs:
   go:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.5
+      - image: smartcontract/builder:1.0.6
     steps:
       - checkout
       - restore_cache:
@@ -19,7 +19,7 @@ jobs:
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.5
+      - image: smartcontract/builder:1.0.6
     steps:
       - checkout
       - restore_cache:
@@ -35,7 +35,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.5
+      - image: smartcontract/builder:1.0.6
     steps:
       - checkout
       - restore_cache:
@@ -51,7 +51,7 @@ jobs:
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.5
+      - image: smartcontract/builder:1.0.6
     steps:
       - checkout
       - restore_cache:
