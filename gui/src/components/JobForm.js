@@ -32,11 +32,12 @@ const JobFormLayout = ({
   success,
   authenticated,
   networkError,
-  values
+  values,
+  submitCount
 }) => (
   <Fragment>
     <Prompt
-      when={values.json !== '' && !isSubmitting}
+      when={values.json !== '' && submitCount === 0}
       message='You have not submitted the form, are you sure you want to leave?'
     />
     <BridgeAndJobNotifications
@@ -57,8 +58,9 @@ const JobFormLayout = ({
           className={classes.jsonfield}
           margin='normal'
           name='json'
+          id='json'
         />
-        <Button color='primary' type='submit' disabled={isSubmitting || !values.json}>
+        <Button variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
           Build Job
         </Button>
       </Grid>
@@ -72,8 +74,9 @@ const JobForm = withFormik({
       json: json || ''
     }
   },
-  handleSubmit (values, { props }) {
+  handleSubmit (values, { props, setSubmitting }) {
     props.submitJobSpec(values.json.trim(), false)
+    setTimeout(() => { setSubmitting(false) }, 1000)
   }
 })(JobFormLayout)
 

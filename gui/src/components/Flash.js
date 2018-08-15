@@ -8,7 +8,7 @@ import { withStyles } from '@material-ui/core/styles'
 const styles = (theme) => {
   const success = theme.palette.success || {}
   const warning = theme.palette.warning || {}
-  
+
   return ({
     base: {
       padding: theme.spacing.unit,
