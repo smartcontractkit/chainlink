@@ -4,7 +4,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/multierr"
@@ -49,37 +48,37 @@ func TestStatsController_Index(t *testing.T) {
 	assert.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
-	stats := presenters.Stats{}
+	stats := models.JobSpecStats{}
 	err = web.ParsePaginatedResponse(body, &stats, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	assert.Len(t, stats.JobSpecStats, 1)
-	assert.Equal(t, stats.JobSpecStats[0].AdaptorCount["noop"], 1, "Should have noop as an adaptor")
-	assert.Equal(t, j1.ID, stats.JobSpecStats[0].ID, "should have the same ID")
+	assert.Len(t, stats.JobSpecCounts, 1)
+	assert.Equal(t, stats.JobSpecCounts[0].AdaptorCount["noop"], 1, "Should have noop as an adaptor")
+	assert.Equal(t, j1.ID, stats.JobSpecCounts[0].ID, "should have the same ID")
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	stats = presenters.Stats{}
+	stats = models.JobSpecStats{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &stats, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 
-	assert.Len(t, stats.JobSpecStats, 1)
-	assert.Equal(t, stats.JobSpecStats[0].RunCount, 1, "Should have a single run")
-	assert.Equal(t, stats.JobSpecStats[0].StatusCount["completed"], 1, "Should have a single completed run")
-	assert.Equal(t, stats.JobSpecStats[0].AdaptorCount["noop"], 1, "Should have noop as an adaptor")
-	assert.Equal(t, stats.JobSpecStats[0].ParamCount["url"][0].Value, "https://chain.link", "Should include the same URL")
-	assert.Equal(t, stats.JobSpecStats[0].ParamCount["url"][0].Count, 1, "Should include a url")
-	assert.Equal(t, j2.ID, stats.JobSpecStats[0].ID, "should have the same ID")
+	assert.Len(t, stats.JobSpecCounts, 1)
+	assert.Equal(t, stats.JobSpecCounts[0].RunCount, 1, "Should have a single run")
+	assert.Equal(t, stats.JobSpecCounts[0].StatusCount["completed"], 1, "Should have a single completed run")
+	assert.Equal(t, stats.JobSpecCounts[0].AdaptorCount["noop"], 1, "Should have noop as an adaptor")
+	assert.Equal(t, stats.JobSpecCounts[0].ParamCount["url"][0].Value, "https://chain.link", "Should include the same URL")
+	assert.Equal(t, stats.JobSpecCounts[0].ParamCount["url"][0].Count, 1, "Should include a url")
+	assert.Equal(t, j2.ID, stats.JobSpecCounts[0].ID, "should have the same ID")
 }
 
 func setupStatsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, *models.JobSpec, error) {
-	j1, initr := cltest.NewJobWithWebInitiator()
+	j1, _ := cltest.NewJobWithWebInitiator()
 	j1.Initiators[0].Ran = true
 	merr := app.Store.SaveJob(&j1)
 	j2, initr := cltest.NewJobWithWebInitiator()
