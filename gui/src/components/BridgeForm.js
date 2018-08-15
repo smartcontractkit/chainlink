@@ -8,6 +8,7 @@ import { submitBridgeType } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
 import { BridgeAndJobNotifications } from './FormNotifications'
+
 const styles = theme => ({
   textfield: {
     paddingTop: theme.spacing.unit * 1.25,
@@ -37,11 +38,12 @@ const BridgeFormLayout = ({
   success,
   authenticated,
   networkError,
-  values
+  values,
+  submitCount
 }) => (
   <Fragment>
     <Prompt
-      when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && !isSubmitting}
+      when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && submitCount === 0}
       message='You have not submitted the form, are you sure you want to leave?'
     />
     <BridgeAndJobNotifications
@@ -57,16 +59,16 @@ const BridgeFormLayout = ({
         <TextField
           onChange={handleChange}
           className={classes.textfield}
-          label='Type Bridge Name'
+          label='Bridge Name'
           name='name'
           id='name'
           placeholder='name'
         />
         <TextField
-          label='Type Bridge URL'
+          label='Bridge URL'
           name='url'
-          id='url'
           placeholder='url'
+          id='url'
           onChange={handleChange}
           className={classes.textfield}
         />
@@ -76,9 +78,10 @@ const BridgeFormLayout = ({
           name='confirmations'
           placeholder='confirmations'
           id='confirmations'
-          label='Type Confirmations'
+          label='Confirmations'
         />
         <Button
+          variant='contained'
           color='primary'
           type='submit'
           className={classes.button}
@@ -99,10 +102,11 @@ const BridgeForm = withFormik({
       confirmations: confirmations || ''
     }
   },
-  handleSubmit (values, { props }) {
+  handleSubmit (values, { props, setSubmitting }) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
     props.submitBridgeType(formattedValues, true)
+    setTimeout(() => { setSubmitting(false) }, 1000)
   }
 })(BridgeFormLayout)
 
@@ -110,7 +114,8 @@ const mapStateToProps = state => ({
   success: state.create.successMessage,
   error: state.create.errors,
   networkError: state.create.networkError,
-  authenticated: state.authentication.allowed
+  authenticated: state.authentication.allowed,
+  fetching: state.fetching.count
 })
 
 export const ConnectedBridgeForm = connect(

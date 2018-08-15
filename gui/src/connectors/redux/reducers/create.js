@@ -27,9 +27,8 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_CREATE_SUCCESS:
       return Object.assign(
         {},
-        state,
+        initialState,
         {
-          errors: action.error || [],
           successMessage: action.response,
           networkError: false
         }
@@ -37,7 +36,7 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_CREATE_ERROR:
       return Object.assign(
         {},
-        state,
+        initialState,
         {
           errors: action.error.message || [],
           networkError: action.networkError
