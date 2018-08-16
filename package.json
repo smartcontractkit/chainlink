@@ -62,7 +62,7 @@
     "redux-mock-store": "^1.5.3",
     "redux-thunk": "^2.3.0",
     "request-promise": "^4.2.2",
-    "serve": "^6.5.0",
+    "serve": "^7.0.0",
     "snazzy": "^7.1.1",
     "solc": "^0.4.24",
     "solium": "^1.1.7",
