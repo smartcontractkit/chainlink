@@ -45,12 +45,9 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
 
-	config, cleanup := cltest.NewConfig()
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
-	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	app, cleanup := cltest.NewApplicationWithConfig(config)
-	defer cleanup()
-	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
 	eth := app.MockEthClient()
 
 	newHeads := make(chan models.BlockHeader, 10)
@@ -536,10 +533,8 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 
 func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfig()
-	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	app, cleanup := cltest.NewApplicationWithConfig(config)
-	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
 
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/hello_world_agreement.json")
