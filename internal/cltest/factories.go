@@ -334,10 +334,16 @@ func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
 	return rm, func() { rm.Stop() }
 }
 
+type MockSigner struct{}
+
+func (s MockSigner) Sign(input []byte) (string, error) {
+	return "0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381", nil
+}
+
 func ServiceAgreementFromString(str string) models.ServiceAgreement {
 	var sar models.ServiceAgreementRequest
 	mustNotErr(json.Unmarshal([]byte(str), &sar))
-	sa, err := models.NewServiceAgreementFromRequest(sar)
+	sa, err := models.NewServiceAgreementFromRequest(sar, MockSigner{})
 	mustNotErr(err)
 	return sa
 }

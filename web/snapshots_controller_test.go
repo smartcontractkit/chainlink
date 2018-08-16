@@ -65,10 +65,8 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
 
-	config, _ := cltest.NewConfig()
-	cltest.AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	app, cleanup := cltest.NewApplicationWithConfig(config)
-	assert.Nil(t, app.Store.KeyStore.Unlock(cltest.Password))
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	eth := app.MockEthClient()
 
 	newHeads := make(chan models.BlockHeader, 10)
