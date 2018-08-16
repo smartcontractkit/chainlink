@@ -12,19 +12,29 @@ import (
 func TestServiceAgreementsController_Create(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
+
 	client := app.NewHTTPClient()
 	base := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
 
 	tests := []struct {
-		name     string
-		input    string
-		wantCode int
+		name      string
+		input     string
+		wantCode  int
+		id        string
+		signature string
 	}{
-		{"basic", base.String(), 200},
-		{"fails validation", base.Delete("payment").String(), 400},
-		{"invalid JSON", "{", 400},
+		{
+			"basic",
+			base.String(),
+			200,
+			"0x8de92e4d6a2b527f1e3c39022ee0f1c177a6d874224fe54f5c4c0d5bcaa57d50",
+			"0xe86c1172d713c57b8df0d9f1ae91e4524cbb4e40719798ea48d3f777d2c893c000214b70376ddb661a8dc02fcadb911582f0e00e62eece65d3f9b8d0bfb6702201",
+		},
+		{"fails validation", base.Delete("payment").String(), 400, "", ""},
+		{"invalid JSON", "{", 400, "", ""},
 	}
 
 	for _, test := range tests {
@@ -34,7 +44,10 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 
 			cltest.AssertServerResponse(t, resp, test.wantCode)
 			if test.wantCode == 200 {
-				cltest.FindServiceAgreement(app.Store, cltest.ParseCommonJSON(resp.Body).ID)
+				id := cltest.ParseCommonJSON(resp.Body).ID
+				sa := cltest.FindServiceAgreement(app.Store, id)
+				assert.Equal(t, test.id, sa.ID)
+				assert.Equal(t, test.signature, sa.Signature)
 			}
 		})
 	}

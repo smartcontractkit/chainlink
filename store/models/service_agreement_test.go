@@ -33,7 +33,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			var sar models.ServiceAgreementRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
-			sa, err := models.NewServiceAgreementFromRequest(sar)
+			sa, err := models.NewServiceAgreementFromRequest(sar, cltest.MockSigner{})
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantDigest, sa.ID)
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
