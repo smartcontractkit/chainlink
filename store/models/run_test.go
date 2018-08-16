@@ -91,17 +91,19 @@ func TestTaskRun_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		input       string
-		want        string
-		wantErrored bool
+		name  string
+		input string
+		want  string
 	}{
-		{"replace field", `{"url":"https://NEW.example.com/api"}`,
-			`{"url":"https://NEW.example.com/api"}`, false},
-		{"add field", `{"extra":1}`,
-			`{"url":"https://OLD.example.com/api","extra":1}`, false},
-		{"replace and add field", `{"url":"https://NEW.example.com/api","extra":1}`,
-			`{"url":"https://NEW.example.com/api","extra":1}`, false},
+		{"preserves task field",
+			`{"url":"https://NEW.example.com/api"}`,
+			`{"url":"https://OLD.example.com/api"}`},
+		{"add field",
+			`{"extra":1}`,
+			`{"url":"https://OLD.example.com/api","extra":1}`},
+		{"preserves task field and adds new field",
+			`{"url":"https://NEW.example.com/api","extra":1}`,
+			`{"url":"https://OLD.example.com/api","extra":1}`},
 	}
 
 	for _, test := range tests {
@@ -116,7 +118,7 @@ func TestTaskRun_Merge(t *testing.T) {
 			input := cltest.JSONFromString(test.input)
 
 			merged, err := tr.MergeTaskParams(input)
-			assert.Equal(t, test.wantErrored, (err != nil))
+			assert.NoError(t, err)
 			assert.JSONEq(t, test.want, merged.Task.Params.String())
 			assert.JSONEq(t, orig, tr.Task.Params.String())
 		})
