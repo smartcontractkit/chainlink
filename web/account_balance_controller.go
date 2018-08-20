@@ -3,7 +3,6 @@ package web
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
@@ -26,7 +25,7 @@ func (jsc *AccountBalanceController) Show(c *gin.Context) {
 		publicError(c, 400, err)
 	} else if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
 		c.AbortWithError(500, err)
-	} else if linkBalance, err := txm.GetLinkBalance(account.Address, common.HexToAddress(store.Config.LinkContractAddress)); err != nil {
+	} else if linkBalance, err := txm.GetLinkBalance(account.Address); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		ab := presenters.AccountBalance{
