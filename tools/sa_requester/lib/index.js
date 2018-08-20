@@ -1,8 +1,11 @@
 const command = require('@oclif/command')
 const fs = require('fs')
+const URL = require('url').URL
 // Can't abort fetch on nodejs which results in a process that never exits
 // on network request timeout. Use axios instead until support is added to fetch.
 const axios = require('axios')
+// This overrides console.table in nodejs >= 9.x
+require('console.table')
 
 const CONTENT_TYPE_JSON = 'application/vnd.api+json'
 const FETCH_TIMEOUT = 5000
@@ -25,8 +28,8 @@ class SaRequester extends command.Command {
     createServiceAgreements(agreement, addresses, oracleURLs)
       .then(signatures =>
         console.table(
-          signatures,
-          ['address', 'signature']
+          ['address', 'signature'],
+          signatures
         )
       )
       .catch(e => console.log('Unable to create SA, got error:\n\n\t%s\n', e.message))
@@ -62,7 +65,7 @@ async function createServiceAgreements (agreement, addresses, oracleURLs) {
       const url = urlWithPath(u, SERVICE_AGREEMENTS_PATH)
       return axios.post(url, agreement, { timeout: FETCH_TIMEOUT })
         .then(parseResponse)
-        .then(data => ({signature: data.attributes.signature, address: addresses[i]}))
+        .then(data => ([addresses[i], data.attributes.signature]))
     })
   )
 }
