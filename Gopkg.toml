@@ -22,7 +22,7 @@
 
 [[constraint]]
   name = "github.com/asdine/storm"
-  version = "2.0.0-rc.1"
+  version = "2.1.1"
 
 [[constraint]]
   name = "github.com/gin-gonic/gin"
@@ -39,7 +39,7 @@
 
 [[constraint]]
   name = "github.com/stretchr/testify"
-  version = "1.1.4"
+  version = "1.2.2"
 
 [[constraint]]
   branch = "master"
