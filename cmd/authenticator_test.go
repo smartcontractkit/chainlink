@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTerminalAuthenticatorWithNoAcctNoPwdCreatesAccount(t *testing.T) {
+func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -18,20 +18,20 @@ func TestTerminalAuthenticatorWithNoAcctNoPwdCreatesAccount(t *testing.T) {
 		cltest.Password, "wrongconfirmation", cltest.Password, cltest.Password,
 	}}
 
-	auth := cmd.TerminalAuthenticator{Prompter: prompt}
+	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
 	assert.False(t, app.Store.KeyStore.HasAccounts())
 	assert.NoError(t, auth.Authenticate(app.Store, ""))
 	assert.Equal(t, 4, prompt.Count)
 	assert.Equal(t, 1, len(app.Store.KeyStore.Accounts()))
 }
 
-func TestTerminalAuthenticatorWithNoAcctWithInitialPwdCreatesAcct(t *testing.T) {
+func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
+	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
 
 	assert.Equal(t, 0, len(app.Store.KeyStore.Accounts()))
 	assert.NoError(t, auth.Authenticate(app.Store, "somepassword"))
@@ -39,7 +39,7 @@ func TestTerminalAuthenticatorWithNoAcctWithInitialPwdCreatesAcct(t *testing.T) 
 	assert.Equal(t, 1, len(app.Store.KeyStore.Accounts()))
 }
 
-func TestTerminalAuthenticatorWithAcctNoInitialPwdPromptLoop(t *testing.T) {
+func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -50,12 +50,12 @@ func TestTerminalAuthenticatorWithAcctNoInitialPwdPromptLoop(t *testing.T) {
 		EnteredStrings: []string{"wrongpassword", cltest.Password},
 	}
 
-	auth := cmd.TerminalAuthenticator{Prompter: prompt}
+	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
 	assert.NoError(t, auth.Authenticate(app.Store, ""))
 	assert.Equal(t, 2, prompt.Count)
 }
 
-func TestTerminalAuthenticatorWithAcctAndPwd(t *testing.T) {
+func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -71,7 +71,7 @@ func TestTerminalAuthenticatorWithAcctAndPwd(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.password, func(t *testing.T) {
-			auth := cmd.TerminalAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
+			auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
 			err := auth.Authenticate(app.Store, test.password)
 			assert.Equal(t, test.wantError, err != nil)
 		})

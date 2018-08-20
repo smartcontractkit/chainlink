@@ -168,7 +168,7 @@ func NewProductionClient() *cmd.Client {
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		Config:                         cfg,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:          cmd.TerminalAuthenticator{Prompter: prompter},
+		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                         cmd.ChainlinkRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
