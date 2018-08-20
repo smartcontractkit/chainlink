@@ -13,9 +13,9 @@ type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) error
 }
 
-// TerminalAuthenticator contains fields for prompting the user and an
+// TerminalKeyStoreAuthenticator contains fields for prompting the user and an
 // exit code.
-type TerminalAuthenticator struct {
+type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
@@ -23,7 +23,7 @@ type TerminalAuthenticator struct {
 // the KeyStore, and if there are none, a new account will be created
 // by prompting for a password. If there are accounts present, the
 // account which is unlocked by the given password will be used.
-func (auth TerminalAuthenticator) Authenticate(store *store.Store, pwd string) error {
+func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, pwd string) error {
 	if len(pwd) != 0 {
 		return auth.authenticateWithPwd(store, pwd)
 	} else if auth.Prompter.IsTerminal() {
@@ -33,14 +33,14 @@ func (auth TerminalAuthenticator) Authenticate(store *store.Store, pwd string) e
 	}
 }
 
-func (auth TerminalAuthenticator) authenticationPrompt(store *store.Store) error {
+func (auth TerminalKeyStoreAuthenticator) authenticationPrompt(store *store.Store) error {
 	if store.KeyStore.HasAccounts() {
 		return auth.promptAndCheckPasswordLoop(store)
 	}
 	return auth.promptAndCreateAccount(store)
 }
 
-func (auth TerminalAuthenticator) authenticateWithPwd(store *store.Store, pwd string) error {
+func (auth TerminalKeyStoreAuthenticator) authenticateWithPwd(store *store.Store, pwd string) error {
 	if !store.KeyStore.HasAccounts() {
 		fmt.Println("There are no accounts, creating a new account with the specified password")
 		return createAccount(store, pwd)
@@ -56,7 +56,7 @@ func checkPassword(store *store.Store, phrase string) error {
 	return nil
 }
 
-func (auth TerminalAuthenticator) promptAndCheckPasswordLoop(store *store.Store) error {
+func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) error {
 	for {
 		phrase := auth.Prompter.PasswordPrompt("Enter Password:")
 		if checkPassword(store, phrase) == nil {
@@ -67,7 +67,7 @@ func (auth TerminalAuthenticator) promptAndCheckPasswordLoop(store *store.Store)
 	return nil
 }
 
-func (auth TerminalAuthenticator) promptAndCreateAccount(store *store.Store) error {
+func (auth TerminalKeyStoreAuthenticator) promptAndCreateAccount(store *store.Store) error {
 	for {
 		phrase := auth.Prompter.PasswordPrompt("New Password: ")
 		clearLine()
@@ -82,5 +82,8 @@ func (auth TerminalAuthenticator) promptAndCreateAccount(store *store.Store) err
 
 func createAccount(store *store.Store, password string) error {
 	_, err := store.KeyStore.NewAccount(password)
-	return err
+	if err != nil {
+		return err
+	}
+	return checkPassword(store, password)
 }
