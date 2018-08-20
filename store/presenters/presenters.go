@@ -59,8 +59,7 @@ func ShowLinkBalance(store *store.Store) (string, error) {
 	}
 
 	address := account.Address
-	linkContractAddress := common.HexToAddress(store.Config.LinkContractAddress)
-	linkBalance, err := store.TxManager.GetLinkBalance(address, linkContractAddress)
+	linkBalance, err := store.TxManager.GetLinkBalance(address)
 	if err != nil {
 		return "", err
 	}
