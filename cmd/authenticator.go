@@ -82,5 +82,8 @@ func (auth TerminalAuthenticator) promptAndCreateAccount(store *store.Store) err
 
 func createAccount(store *store.Store, password string) error {
 	_, err := store.KeyStore.NewAccount(password)
-	return err
+	if err != nil {
+		return err
+	}
+	return checkPassword(store, password)
 }
