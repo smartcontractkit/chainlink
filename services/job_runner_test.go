@@ -149,13 +149,14 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 		runResult  string
 		wantStatus models.RunStatus
 		wantData   string
+		postBody   string
 	}{
-		{"success", bridgeName, `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"auctionBidding"}`},
-		{"errored", bridgeName, `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{"type":"auctionBidding"}`},
-		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99","type":"auctionBidding"}`},
-		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack","type":"auctionBidding"}`},
-		{"type parameter does not override", bridgeName, `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"0"}`},
-		{"non-existent bridge type", "non-existent", `{}`, `{}`, models.RunStatusErrored, `{}`},
+		{"success", bridgeName, `{}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"auctionBidding"}`, `{"type":"auctionBidding"}`},
+		{"errored", bridgeName, `{}`, `{"error":"too much"}`, models.RunStatusErrored, `{"type":"auctionBidding"}`, `{"type":"auctionBidding"}`},
+		{"errored with a value", bridgeName, `{}`, `{"error":"too much", "data":{"value":"99"}}`, models.RunStatusErrored, `{"value":"99","type":"auctionBidding"}`, `{"type":"auctionBidding"}`},
+		{"overriding bridge type params", bridgeName, `{"url":"hack"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","url":"hack","type":"auctionBidding"}`, `{"type":"auctionBidding","url":"hack"}`},
+		{"type parameter does not override", bridgeName, `{"type":"0"}`, `{"data":{"value":"100"}}`, models.RunStatusCompleted, `{"value":"100","type":"auctionBidding"}`, `{"type":"auctionBidding"}`},
+		{"non-existent bridge type", "non-existent", `{}`, `{}`, models.RunStatusErrored, `{}`, `{}`},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -181,12 +182,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 					data := body.Get("data")
 					assert.True(t, data.Exists())
 
-					input := cltest.JSONFromString(test.input)
-					for key, value := range input.Map() {
-						field := data.Get(key)
-						assert.True(t, field.Exists())
-						assert.Equal(t, value.String(), field.String())
-					}
+					assert.JSONEq(t, test.postBody, data.String())
 				})
 			bt = cltest.NewBridgeType(bridgeName, mockServer.URL)
 			assert.Nil(t, store.Save(&bt))
