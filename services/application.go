@@ -30,6 +30,7 @@ type ChainlinkApplication struct {
 	JobSubscriber   JobSubscriber
 	Scheduler       *Scheduler
 	Store           *store.Store
+	Reaper          Reaper
 	bridgeTypeMutex sync.Mutex
 	jobSubscriberID string
 }
@@ -47,6 +48,7 @@ func NewApplication(config store.Config) Application {
 		JobRunner:     NewJobRunner(store),
 		Scheduler:     NewScheduler(store),
 		Store:         store,
+		Reaper:        NewStoreReaper(store),
 		Exiter:        os.Exit,
 	}
 }
@@ -67,10 +69,13 @@ func (app *ChainlinkApplication) Start() error {
 
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
 
-	return multierr.Combine(app.Store.Start(),
+	return multierr.Combine(
+		app.Store.Start(),
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
-		app.JobRunner.Start())
+		app.JobRunner.Start(),
+		app.Reaper.Start(),
+	)
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -81,6 +86,7 @@ func (app *ChainlinkApplication) Stop() error {
 	app.Scheduler.Stop()
 	app.HeadTracker.Stop()
 	app.JobRunner.Stop()
+	app.Reaper.Stop()
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	return app.Store.Close()
 }

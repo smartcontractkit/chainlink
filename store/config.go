@@ -49,6 +49,7 @@ type Config struct {
 	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`
 	TLSKeyPath               string   `env:"TLS_KEY_PATH" envDefault:""`
 	SessionTimeout           Duration `env:"SESSION_TIMEOUT" envDefault:"15m"`
+	ReaperExpiration         Duration `env:"REAPER_EXPIRATION" envDefault:"240h"`
 }
 
 // NewConfig returns the config with the environment variables set to their

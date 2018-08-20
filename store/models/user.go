@@ -54,7 +54,7 @@ type SessionRequest struct {
 // Session holds the unique id for the authenticated session.
 type Session struct {
 	ID       string `json:"id" storm:"id,unique"`
-	LastUsed Time   `json:"lastUsed"`
+	LastUsed Time   `json:"lastUsed" storm:"index"`
 }
 
 // NewSession returns a session instance with ID set to a random ID and
