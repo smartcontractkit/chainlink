@@ -33,16 +33,25 @@ class SaRequester extends command.Command {
   }
 }
 
+const parseResponse = response => {
+  if (response.status === 200) {
+    const contentType = response.headers['content-type']
+    if (contentType === CONTENT_TYPE_JSON) {
+      return response.data.data
+    } else {
+      throw new Error(`Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`)
+    }
+  }
+  throw new Error(`Unexpected response: ${response.status} body: ${response.json()}`)
+}
+
 async function getOracleAddresses (oracleURLs) {
   return Promise.all(
     oracleURLs.map(baseURL => {
       const url = urlWithPath(baseURL, ACCOUNT_BALANCE_PATH)
-      return axios.get(url, { timeout: FETCH_TIMEOUT }).then(response => {
-        if (response.status === 200) {
-          return response.data.data
-        }
-        throw new Error(`Unexpected response: ${response.status} body: ${response.json()}`)
-      }).then(data => data.id)
+      return axios.get(url, { timeout: FETCH_TIMEOUT })
+        .then(parseResponse)
+        .then(data => data.id)
     })
   )
 }
@@ -51,17 +60,9 @@ async function createServiceAgreements (agreement, addresses, oracleURLs) {
   return Promise.all(
     oracleURLs.map((u, i) => {
       const url = urlWithPath(u, SERVICE_AGREEMENTS_PATH)
-      return axios.post(url, agreement, { timeout: FETCH_TIMEOUT }).then(response => {
-        if (response.status === 200) {
-          const contentType = response.headers['content-type']
-          if (contentType === CONTENT_TYPE_JSON) {
-            return response.data.data
-          } else {
-            throw new Error(`Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`)
-          }
-        }
-        throw new Error(`Unexpected response: ${response.status} body: ${response.json()}`)
-      }).then(data => ({signature: data.attributes.signature, address: addresses[i]}))
+      return axios.post(url, agreement, { timeout: FETCH_TIMEOUT })
+        .then(parseResponse)
+        .then(data => ({signature: data.attributes.signature, address: addresses[i]}))
     })
   )
 }
