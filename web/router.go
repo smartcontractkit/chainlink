@@ -125,6 +125,9 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
+
+		s := StatsController{app}
+		authv2.GET("/stats", s.Show)
 	}
 }
 
