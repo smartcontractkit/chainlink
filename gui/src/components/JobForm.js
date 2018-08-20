@@ -10,10 +10,6 @@ import { Prompt } from 'react-static'
 import { BridgeAndJobNotifications } from './FormNotifications'
 
 const styles = theme => ({
-  jsonfield: {
-    paddingTop: theme.spacing.unit * 1.25,
-    width: theme.spacing.unit * 150
-  },
   card: {
     paddingBottom: theme.spacing.unit * 2
   },
@@ -49,20 +45,25 @@ const JobFormLayout = ({
       jobOrBridge='Job'
     />
     <Form noValidate>
-      <Grid container direction='column' alignItems='center'>
-        <TextField
-          onChange={handleChange}
-          label='Paste JSON'
-          placeholder='Paste JSON'
-          multiline
-          className={classes.jsonfield}
-          margin='normal'
-          name='json'
-          id='json'
-        />
-        <Button variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
-          Build Job
-        </Button>
+      <Grid container alignItems='center' justify='center'>
+        <Grid item xl={8}>
+          <TextField
+            onChange={handleChange}
+            label='Paste JSON'
+            placeholder='Paste JSON'
+            multiline
+            rows={10}
+            fullWidth
+            margin='normal'
+            name='json'
+            id='json'
+          />
+        </Grid>
+        <Grid container justify='center'>
+          <Button variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
+              Build Job
+          </Button>
+        </Grid>
       </Grid>
     </Form>
   </Fragment>
