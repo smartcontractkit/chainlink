@@ -145,7 +145,7 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 
 // MergeTaskParams merges the existing parameters on a TaskRun with the given JSON.
 func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
-	merged, err := tr.Task.Params.Merge(j)
+	merged, err := j.Merge(tr.Task.Params)
 	if err != nil {
 		return tr, fmt.Errorf("TaskRun#Merge merging params: %v", err.Error())
 	}

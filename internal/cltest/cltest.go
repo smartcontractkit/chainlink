@@ -78,6 +78,13 @@ func NewConfig() (*TestConfig, func()) {
 	return NewConfigWithWSServer(wsserver), cleanup
 }
 
+func NewConfigWithPrivateKey() (*TestConfig, func()) {
+	wsserver, cleanup := newWSServer()
+	config := NewConfigWithWSServer(wsserver)
+	AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	return config, cleanup
+}
+
 // NewConfigWithWSServer return new config with specified wsserver
 func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
@@ -200,6 +207,14 @@ func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func
 	app, cleanup := NewApplicationWithConfig(tc)
 	_, err := app.Store.KeyStore.NewAccount(Password)
 	mustNotErr(err)
+	mustNotErr(app.Store.KeyStore.Unlock(Password))
+	return app, cleanup
+}
+
+// NewApplicationWithConfigAndUnlockedAccount creates a new TestApplication
+// with an unlocked account, expected to be used with NewConfigWithPrivateKey
+func NewApplicationWithConfigAndUnlockedAccount(tc *TestConfig) (*TestApplication, func()) {
+	app, cleanup := NewApplicationWithConfig(tc)
 	mustNotErr(app.Store.KeyStore.Unlock(Password))
 	return app, cleanup
 }

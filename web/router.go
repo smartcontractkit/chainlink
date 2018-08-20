@@ -93,6 +93,9 @@ func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
 	jr := JobRunsController{app}
+
+	sa := ServiceAgreementsController{app}
+	v2.POST("/service_agreements", sa.Create)
 	v2.PATCH("/runs/:RunID", jr.Update)
 
 	authv2 := engine.Group("/v2", authRequired(app.Store))
@@ -109,8 +112,6 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 		authv2.POST("/specs/:SpecID/runs", jr.Create)
 		authv2.GET("/runs/:RunID", jr.Show)
 
-		sa := ServiceAgreementsController{app}
-		authv2.POST("/service_agreements", sa.Create)
 		authv2.GET("/service_agreements/:SAID", sa.Show)
 
 		bt := BridgeTypesController{app}

@@ -21,6 +21,7 @@
   "devDependencies": {
     "@material-ui/core": "^1.4.0",
     "@material-ui/icons": "^1.1.0",
+    "axios": "^0.18.0",
     "babel-eslint": "^8.2.6",
     "babel-plugin-transform-es3-member-expression-literals": "^6.22.0",
     "babel-plugin-transform-es3-property-literals": "^6.22.0",
@@ -50,6 +51,7 @@
     "mock-local-storage": "^1.0.5",
     "moment": "^2.20.1",
     "numeral": "^2.0.6",
+    "oclif": "^1.9.0",
     "query-string": "^6.1.0",
     "react": "^16.0.0",
     "react-copy-to-clipboard": "^5.0.1",
@@ -63,7 +65,7 @@
     "redux-mock-store": "^1.5.3",
     "redux-thunk": "^2.3.0",
     "request-promise": "^4.2.2",
-    "serve": "^6.5.0",
+    "serve": "^7.0.0",
     "snazzy": "^7.1.1",
     "solc": "^0.4.24",
     "solium": "^1.1.7",
@@ -75,6 +77,10 @@
     "web3": "^1.0.0-beta.29",
     "wscat": "^2.1.1"
   },
+  "files": [
+    "/tools/sa_requester/bin",
+    "/tools/sa_requester/lib"
+  ],
   "standard": {
     "parser": "babel-eslint",
     "env": [

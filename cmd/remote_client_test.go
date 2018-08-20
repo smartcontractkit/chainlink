@@ -80,7 +80,8 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 }
 
 func TestClient_CreateServiceAgreement(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 

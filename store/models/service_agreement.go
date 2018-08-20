@@ -17,6 +17,7 @@ type ServiceAgreement struct {
 	ID          string      `json:"id" storm:"id,unique"`
 	JobSpecID   string      `json:"jobSpecID"`
 	RequestBody string      `json:"requestBody"`
+	Signature   string      `json:"signature"`
 	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
 	// If needed later, it can be retrieved from the database with JobSpecID.
 }
@@ -26,16 +27,30 @@ func (sa ServiceAgreement) GetID() string {
 	return sa.ID
 }
 
+// Signer is used to produce a HMAC signature from an input digest
+type Signer interface {
+	Sign(input []byte) (string, error)
+}
+
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
-func NewServiceAgreementFromRequest(sar ServiceAgreementRequest) (ServiceAgreement, error) {
+func NewServiceAgreementFromRequest(sar ServiceAgreementRequest, signer Signer) (ServiceAgreement, error) {
 	id, err := generateServiceAgreementID(sar.Encumbrance, sar.Digest)
+	if err != nil {
+		return ServiceAgreement{}, err
+	}
+
+	signature, err := signer.Sign([]byte(id))
+	if err != nil {
+		return ServiceAgreement{}, err
+	}
 
 	return ServiceAgreement{
 		CreatedAt:   Time{time.Now()},
 		Encumbrance: sar.Encumbrance,
 		ID:          id,
-		RequestBody: sar.NormalizedBody,
 		jobSpec:     sar.JobSpec,
+		RequestBody: sar.NormalizedBody,
+		Signature:   signature,
 	}, err
 }
 
