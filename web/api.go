@@ -65,6 +65,16 @@ func prevLink(url url.URL, size, page int) jsonapi.Link {
 	return paginationLink(url, size, page-1)
 }
 
+// NewJSONAPIResponse returns a JSONAPI response for a single resource.
+func NewJSONAPIResponse(resource interface{}) ([]byte, error) {
+	document, err := jsonapi.MarshalToStruct(resource, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
+	}
+
+	return json.Marshal(document)
+}
+
 // NewPaginatedResponse returns a jsonapi.Document with links to next and previous collection pages
 func NewPaginatedResponse(url url.URL, size, page, count int, resource interface{}) ([]byte, error) {
 	document, err := jsonapi.MarshalToStruct(resource, nil)
