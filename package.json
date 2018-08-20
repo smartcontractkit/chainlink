@@ -30,6 +30,7 @@
     "babel-register": "^6.26.0",
     "bignumber.js": "^7.2.1",
     "cbor": "^4.0.0",
+    "console.table": "^0.10.0",
     "enzyme": "^3.4.0",
     "enzyme-adapter-react-16": "^1.2.0",
     "enzyme-matchers": "^6.0.0",
