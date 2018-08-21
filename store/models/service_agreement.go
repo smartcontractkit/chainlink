@@ -3,6 +3,8 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -44,8 +46,29 @@ type Signer interface {
 }
 
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
-func NewServiceAgreementFromRequest(sar ServiceAgreementRequest, signer Signer) (ServiceAgreement, error) {
-	id, err := generateServiceAgreementID(sar.Encumbrance, sar.Digest)
+func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgreement, error) {
+	input, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return ServiceAgreement{}, err
+	}
+
+	var sar ServiceAgreementRequest
+	err = json.Unmarshal(input, &sar)
+	if err != nil {
+		return ServiceAgreement{}, err
+	}
+
+	normalized, err := utils.NormalizedJSON(input)
+	if err != nil {
+		return ServiceAgreement{}, err
+	}
+
+	requestDigest, err := utils.Keccak256([]byte(normalized))
+	digest := common.ToHex(requestDigest)
+
+	encumbrance := Encumbrance{Payment: sar.Payment, Expiration: sar.Expiration}
+
+	id, err := generateServiceAgreementID(encumbrance, digest)
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
@@ -55,14 +78,20 @@ func NewServiceAgreementFromRequest(sar ServiceAgreementRequest, signer Signer) 
 		return ServiceAgreement{}, err
 	}
 
+	jobSpec := NewJob()
+	jobSpec.Initiators = sar.Initiators
+	jobSpec.Tasks = sar.Tasks
+	jobSpec.EndAt = sar.EndAt
+	jobSpec.StartAt = sar.StartAt
+
 	return ServiceAgreement{
-		CreatedAt:   Time{time.Now()},
-		Encumbrance: sar.Encumbrance,
 		ID:          id,
-		jobSpec:     sar.JobSpec,
-		RequestBody: sar.NormalizedBody,
+		CreatedAt:   Time{time.Now()},
+		Encumbrance: encumbrance,
+		jobSpec:     jobSpec,
+		RequestBody: normalized,
 		Signature:   signature,
-	}, err
+	}, nil
 }
 
 func generateServiceAgreementID(e Encumbrance, digest string) (string, error) {
@@ -91,33 +120,7 @@ func (e Encumbrance) ABI() string {
 
 // ServiceAgreementRequest represents a service agreement as requested over the wire.
 type ServiceAgreementRequest struct {
-	JobSpec        JobSpec
-	Encumbrance    Encumbrance
-	NormalizedBody string
-	Digest         string
-}
-
-// UnmarshalJSON fulfills Go's built in JSON unmarshaling interface.
-func (sar *ServiceAgreementRequest) UnmarshalJSON(input []byte) error {
-	js := NewJob()
-	if err := json.Unmarshal(input, &js); err != nil {
-		return err
-	}
-
-	var en Encumbrance
-	if err := json.Unmarshal(input, &en); err != nil {
-		return err
-	}
-
-	normalized, err := utils.NormalizedJSON(input)
-	if err != nil {
-		return err
-	}
-	requestDigest, err := utils.Keccak256([]byte(normalized))
-
-	sar.JobSpec = js
-	sar.Encumbrance = en
-	sar.NormalizedBody = normalized
-	sar.Digest = common.ToHex(requestDigest)
-	return err
+	Payment    *assets.Link `json:"payment"`
+	Expiration uint64       `json:"expiration"`
+	JobSpecRequest
 }
