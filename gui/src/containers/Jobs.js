@@ -11,6 +11,8 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchJobs, fetchAccountBalance } from 'actions'
 import { jobsSelector } from 'selectors'
+import Button from '@material-ui/core/Button'
+import Link from 'components/Link'
 
 const styles = theme => ({
   title: {
@@ -19,8 +21,8 @@ const styles = theme => ({
   }
 })
 
-const renderJobsList = (props) => {
-  const {jobs, jobCount, pageSize, jobsError, fetchJobs, history, match} = props
+const renderJobsList = props => {
+  const { jobs, jobCount, pageSize, jobsError, fetchJobs, history, match } = props
   return (
     <JobList
       jobs={jobs}
@@ -34,26 +36,13 @@ const renderJobsList = (props) => {
   )
 }
 
-const renderSidebar = ({
-  ethBalance,
-  linkBalance,
-  jobCount,
-  accountBalanceError
-}) => (
+const renderSidebar = ({ ethBalance, linkBalance, jobCount, accountBalanceError }) => (
   <Grid container spacing={24}>
     <Grid item xs={12}>
-      <TokenBalance
-        title='Ethereum'
-        value={ethBalance}
-        error={accountBalanceError}
-      />
+      <TokenBalance title='Ethereum' value={ethBalance} error={accountBalanceError} />
     </Grid>
     <Grid item xs={12}>
-      <TokenBalance
-        title='Link'
-        value={linkBalance}
-        error={accountBalanceError}
-      />
+      <TokenBalance title='Link' value={linkBalance} error={accountBalanceError} />
     </Grid>
     <Grid item xs={12}>
       <MetaInfo title='Jobs' value={jobCount} />
@@ -70,10 +59,16 @@ export class Jobs extends Component {
     const { classes } = this.props
     return (
       <div>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Jobs
-        </Typography>
-
+        <Grid container alignItems='center'>
+          <Grid item xs>
+            <Typography variant='display2' color='inherit' className={classes.title}>
+              Jobs
+            </Typography>
+          </Grid>
+          <Button variant='outlined' color='primary' component={Link} to={'/create/job'}>
+            Create Job
+          </Button>
+        </Grid>
         <Grid container spacing={40}>
           <Grid item xs={9}>
             {renderJobsList(this.props)}
@@ -125,7 +120,7 @@ const mapStateToProps = state => {
 
 export const ConnectedJobs = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchAccountBalance, fetchJobs})
+  matchRouteAndMapDispatchToProps({ fetchAccountBalance, fetchJobs })
 )(Jobs)
 
 export default withStyles(styles)(ConnectedJobs)

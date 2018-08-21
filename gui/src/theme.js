@@ -22,6 +22,10 @@ export default {
       dark: green['700'],
       contrastText: common.white
     },
+    warning: {
+      main: '#00529B',
+      contrastText: '#BDE5F8'
+    },
     background: {
       default: common.white,
       paper: grey[50],
