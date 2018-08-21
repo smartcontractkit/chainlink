@@ -12,7 +12,6 @@ import { BridgeAndJobNotifications } from './FormNotifications'
 const styles = theme => ({
   textfield: {
     paddingTop: theme.spacing.unit * 1.25,
-    width: theme.spacing.unit * 50
   },
   form: {
     paddingTop: theme.spacing.unit * 4
@@ -44,48 +43,32 @@ const BridgeFormLayout = ({
   <Fragment>
     <Prompt
       when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && submitCount === 0}
-      message='You have not submitted the form, are you sure you want to leave?'
+      message="You have not submitted the form, are you sure you want to leave?"
     />
     <BridgeAndJobNotifications
       error={error}
       success={success}
       networkError={networkError}
       authenticated={authenticated}
-      jobOrBridge='Bridge'
+      jobOrBridge="Bridge"
       classes={classes}
     />
     <Form className={classes.form} noValidate>
-      <Grid container direction='column' alignItems='center'>
-        <TextField
-          onChange={handleChange}
-          className={classes.textfield}
-          label='Bridge Name'
-          name='name'
-          id='name'
-          placeholder='name'
-        />
-        <TextField
-          label='Bridge URL'
-          name='url'
-          placeholder='url'
-          id='url'
-          onChange={handleChange}
-          className={classes.textfield}
-        />
-        <TextField
-          onChange={handleChange}
-          className={classes.textfield}
-          name='confirmations'
-          placeholder='confirmations'
-          id='confirmations'
-          label='Confirmations'
-        />
-        <Button
-          variant='contained'
-          color='primary'
-          type='submit'
-          className={classes.button}
-          disabled={isSubmitting || !values.name || !values.url}>
+      <Grid container justify="center">
+        <Grid item sm={2}>
+          <TextField className={classes.textfield} onChange={handleChange} fullWidth label="Bridge Name" name="name" id="name" placeholder="name" />
+        </Grid>
+        <Grid container  justify="center">
+          <Grid item sm={2}>
+            <TextField className={classes.textfield} label="Bridge URL" name="url" fullWidth placeholder="url" id="url" onChange={handleChange} />
+          </Grid>
+        </Grid>
+        <Grid container  justify="center">
+          <Grid item sm={2}>
+            <TextField className={classes.textfield} onChange={handleChange} name="confirmations" fullWidth placeholder="confirmations" id="confirmations" label="Confirmations" />
+          </Grid>
+        </Grid>
+        <Button variant="contained" color="primary" type="submit" className={classes.button} disabled={isSubmitting || !values.name || !values.url}>
           Build Bridge
         </Button>
       </Grid>
@@ -94,7 +77,7 @@ const BridgeFormLayout = ({
 )
 
 const BridgeForm = withFormik({
-  mapPropsToValues (props) {
+  mapPropsToValues(props) {
     const { name, url, confirmations } = props
     return {
       name: name || '',
@@ -102,11 +85,13 @@ const BridgeForm = withFormik({
       confirmations: confirmations || ''
     }
   },
-  handleSubmit (values, { props, setSubmitting }) {
+  handleSubmit(values, { props, setSubmitting }) {
     const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
     formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
     props.submitBridgeType(formattedValues, true)
-    setTimeout(() => { setSubmitting(false) }, 1000)
+    setTimeout(() => {
+      setSubmitting(false)
+    }, 1000)
   }
 })(BridgeFormLayout)
 
@@ -118,9 +103,8 @@ const mapStateToProps = state => ({
   fetching: state.fetching.count
 })
 
-export const ConnectedBridgeForm = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ submitBridgeType })
-)(BridgeForm)
+export const ConnectedBridgeForm = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitBridgeType }))(
+  BridgeForm
+)
 
 export default withStyles(styles)(ConnectedBridgeForm)

@@ -17,6 +17,9 @@ const styles = theme => ({
     textAlign: 'center',
     paddingTop: theme.spacing.unit,
     paddingBottom: theme.spacing.unit
+  },
+  button: {
+    marginTop: theme.spacing.unit * 2,
   }
 })
 
@@ -45,25 +48,15 @@ const JobFormLayout = ({
       jobOrBridge='Job'
     />
     <Form noValidate>
-      <Grid container alignItems='center' justify='center'>
-        <Grid item xl={8}>
-          <TextField
-            onChange={handleChange}
-            label='Paste JSON'
-            placeholder='Paste JSON'
-            multiline
-            rows={10}
-            fullWidth
-            margin='normal'
-            name='json'
-            id='json'
-          />
-        </Grid>
-        <Grid container justify='center'>
-          <Button variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
-              Build Job
-          </Button>
-        </Grid>
+      <Grid container justify='center'>
+          <Grid container justify='center'>
+            <Grid item xl={7}>
+              <TextField onChange={handleChange} fullWidth={true} label='Paste JSON' rows={10} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
+            </Grid>
+          </Grid>
+        <Button className={classes.button} variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
+          Build Job
+        </Button>
       </Grid>
     </Form>
   </Fragment>
