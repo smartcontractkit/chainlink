@@ -100,8 +100,8 @@ const renderLatestRuns = (props, state, handleChangePage) => {
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
         page={state.page - 1}
-        onChangePage={() => {} /* handler required by component, so make it a no-op */}
-        onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+        onChangePage={() => { } /* handler required by component, so make it a no-op */}
+        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
         ActionsComponent={TableButtonsWithProps}
       />
     </Card>

@@ -29,6 +29,8 @@ const uniOpts = {loading: Loading}
 const Bridges = universal(import('./containers/Bridges'), uniOpts)
 const BridgeSpec = universal(import('./containers/BridgeSpec'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const CreateBridgeType = universal(import('./containers/CreateBridgeType'), uniOpts)
+const CreateJobSpec = universal(import('./containers/CreateJobSpec'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
 const Jobs = universal(import('./containers/Jobs'), uniOpts)
 const JobSpec = universal(import('./containers/JobSpec'), uniOpts)
@@ -120,6 +122,12 @@ class Layout extends Component {
             <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
               <ListItemText primary='Bridges' />
             </ListItem>
+            <ListItem button component={Link} to='/create/job' className={classes.menuitem}>
+              <ListItemText primary='Create Job' />
+            </ListItem>
+            <ListItem button component={Link} to='/create/bridge' className={classes.menuitem}>
+              <ListItemText primary='Create Bridge' />
+            </ListItem>
             <ListItem button component={Link} to='/config' className={classes.menuitem}>
               <ListItemText primary='Configuration' />
             </ListItem>
@@ -185,6 +193,8 @@ class Layout extends Component {
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
                   <PrivateRoute exact path='/about' component={About} />
                   <PrivateRoute exact path='/config' component={Configuration} />
+                  <PrivateRoute exact path='/create/job' component={CreateJobSpec} />
+                  <PrivateRoute exact path='/create/bridge' component={CreateBridgeType} />
                   <PrivateRoute exact path='/bridges' component={Bridges} />
                   <PrivateRoute exact path='/bridges/:bridgeName' component={BridgeSpec} />
                   <PrivateRoute exact path='/' component={Jobs} />

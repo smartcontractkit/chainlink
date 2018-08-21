@@ -32,13 +32,13 @@ const renderConfigs = configs => (
           </Fragment>
         </Typography>
       </TableCell>
-        <TableCell>
-          <Typography variant='body1'>
-            <Fragment>
-              {v}
-            </Fragment>
-          </Typography>
-        </TableCell>
+      <TableCell>
+        <Typography variant='body1'>
+          <Fragment>
+            {v}
+          </Fragment>
+        </Typography>
+      </TableCell>
     </TableRow>
   ))
 )

@@ -1,6 +1,6 @@
 import 'isomorphic-unfetch'
 import formatRequestURI from 'utils/formatRequestURI'
-import { AuthenticationError } from './errors'
+import { AuthenticationError, CreateError } from './errors'
 import { camelizeKeys } from 'humps'
 
 const formatURI = (path, query = {}) => {
@@ -19,12 +19,12 @@ const get = (path, query) => (
     .then((data) => camelizeKeys(data))
 )
 
-const post = (path, body) => {
+const post = (path, body, shouldStringify = true) => {
   return global.fetch(
     formatURI(path),
     {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: shouldStringify ? JSON.stringify(body) : body,
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
@@ -35,8 +35,9 @@ const post = (path, body) => {
     .then(response => {
       if (response.status === 401) {
         throw new AuthenticationError(response.statusText)
+      } else if (response.status !== 200) {
+        return response.json().then((json) => { throw new CreateError(json) })
       }
-
       return response.json()
     })
     .then((data) => camelizeKeys(data))
@@ -72,5 +73,9 @@ export const getBridges = (page, size) => get('/v2/bridge_types', {page: page, s
 export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
 
 export const createSession = (data) => post(`/sessions`, data)
+
+export const createBridgeType = (data, shouldStringify) => post('/v2/bridge_types', data, shouldStringify)
+
+export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
 
 export const destroySession = () => destroy(`/sessions`)
