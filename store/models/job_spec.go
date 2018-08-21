@@ -17,8 +17,13 @@ import (
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string      `json:"id" storm:"id,unique"`
-	CreatedAt  Time        `json:"createdAt" storm:"index"`
+	ID        string `json:"id" storm:"id,unique"`
+	CreatedAt Time   `json:"createdAt" storm:"index"`
+	JobSpecRequest
+}
+
+// JobSpecRequest represents a schema for the incoming job spec request as used by the API.
+type JobSpecRequest struct {
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
