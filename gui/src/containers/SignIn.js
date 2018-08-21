@@ -47,27 +47,27 @@ export class SignIn extends Component {
           <Typography variant='display2' color='inherit' className={classes.title}>
             Sign In to Chainlink
           </Typography>
-            <TextField
-              id='email'
-              label='Email'
-              className={classes.textField}
-              margin='normal'
-              value={this.state.email}
-              onChange={this.handleChange('email')}
-            />
-            <TextField
-              id='password'
-              label='Password'
-              className={classes.textField}
-              type='password'
-              autoComplete='password'
-              margin='normal'
-              value={this.state.password}
-              onChange={this.handleChange('password')}
-            />
-            <Button type='submit' disabled={!enabled} variant='contained' color='primary' className={classes.button}>
+          <TextField
+            id='email'
+            label='Email'
+            className={classes.textField}
+            margin='normal'
+            value={this.state.email}
+            onChange={this.handleChange('email')}
+          />
+          <TextField
+            id='password'
+            label='Password'
+            className={classes.textField}
+            type='password'
+            autoComplete='password'
+            margin='normal'
+            value={this.state.password}
+            onChange={this.handleChange('password')}
+          />
+          <Button type='submit' disabled={!enabled} variant='contained' color='primary' className={classes.button}>
               Sign In
-            </Button>
+          </Button>
           {fetching && (
             <Typography variant='body1' color='textSecondary'>
               Signing in...

@@ -59,10 +59,10 @@ export class JobList extends Component {
   }
 
   componentDidUpdate (prevProps) {
-    if(prevProps.match && this.props.match){
+    if (prevProps.match && this.props.match) {
       const prevJobPage = prevProps.match.params.jobPage
       const currentJobPage = this.props.match.params.jobPage
-  
+
       if (prevJobPage !== currentJobPage) {
         const { pageSize, fetchJobs } = this.props
         fetchJobs(currentJobPage, pageSize)
@@ -71,13 +71,13 @@ export class JobList extends Component {
   }
 
   handleChangePage (e, page) {
-    const {fetchJobs, pageSize} = this.props
+    const { fetchJobs, pageSize } = this.props
     fetchJobs(page, pageSize)
     this.setState({ page })
   }
 
   render () {
-    const {jobs, jobCount, pageSize, error} = this.props
+    const { jobs, jobCount, pageSize, error } = this.props
     const TableButtonsWithProps = () => (
       <TableButtons
         {...this.props}
@@ -115,8 +115,8 @@ export class JobList extends Component {
           rowsPerPage={pageSize}
           rowsPerPageOptions={[pageSize]}
           page={this.state.page - 1}
-          onChangePage={() => {} /* handler required by component, so make it a no-op */}
-          onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+          onChangePage={() => { } /* handler required by component, so make it a no-op */}
+          onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
           ActionsComponent={TableButtonsWithProps}
         />
       </Card>
