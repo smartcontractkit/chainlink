@@ -40,7 +40,7 @@ const JobFormLayout = ({
         <Grid container justify='center'>
           <Grid container justify='center'>
             <Grid item lg={7}>
-              <TextField onChange={handleChange} fullWidth label='Paste JSON' rows={10} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
+              <TextField value={values.json} onChange={handleChange} fullWidth label='Paste JSON' rows={10} rowsMax={25} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
             </Grid>
           </Grid>
           <Button className={classes.button} variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
@@ -53,9 +53,9 @@ const JobFormLayout = ({
 }
 
 const JobForm = withFormik({
-  mapPropsToValues ({ json }) {
+  mapPropsToValues ({ fromJson }) {
     return {
-      json: json || ''
+      json: JSON.stringify(fromJson, null, '\t') || ''
     }
   },
   handleSubmit (values, { props, setSubmitting }) {
