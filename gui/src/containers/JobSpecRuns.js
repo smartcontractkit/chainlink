@@ -11,7 +11,7 @@ import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
 import { withStyles } from '@material-ui/core/styles'
 import { jobRunsCountSelector, jobRunsSelector } from 'selectors'
-import TableButtons from 'components/TableButtons'
+import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
 const styles = theme => ({
   breadcrumb: {
@@ -35,8 +35,7 @@ export class JobSpecRuns extends Component {
 
   componentDidMount () {
     const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
-    const firstPage = 1
-    const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || firstPage : firstPage
+    const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
     this.setState({ page: queryPage })
     fetchJobSpecRuns(jobSpecId, queryPage, pageSize)
   }
@@ -46,8 +45,9 @@ export class JobSpecRuns extends Component {
     const currentJobRunsPage = this.props.match.params.jobRunsPage
 
     if (prevJobRunsPage !== currentJobRunsPage) {
-      const { pageSize, fetchJobs } = this.props
-      fetchJobs(currentJobRunsPage, pageSize)
+      const { pageSize, fetchJobSpecRuns, jobSpecId } = this.props
+      this.setState({ page: parseInt(currentJobRunsPage, 10) || FIRST_PAGE })
+      fetchJobSpecRuns(jobSpecId, parseInt(currentJobRunsPage, 10) || FIRST_PAGE, pageSize)
     }
   }
 
