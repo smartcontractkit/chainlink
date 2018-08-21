@@ -36,9 +36,19 @@ export class JobSpecRuns extends Component {
   componentDidMount () {
     const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
     const firstPage = 1
-    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobRunsPage, 10) || firstPage) : firstPage
+    const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || firstPage : firstPage
     this.setState({ page: queryPage })
     fetchJobSpecRuns(jobSpecId, queryPage, pageSize)
+  }
+
+  componentDidUpdate (prevProps) {
+    const prevJobRunsPage = prevProps.match.params.jobRunsPage
+    const currentJobRunsPage = this.props.match.params.jobRunsPage
+
+    if (prevJobRunsPage !== currentJobRunsPage) {
+      const { pageSize, fetchJobs } = this.props
+      fetchJobs(currentJobRunsPage, pageSize)
+    }
   }
 
   handleChangePage (e, page) {
@@ -132,9 +142,8 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-export const ConnectedJobSpecRuns = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobSpecRuns})
-)(JobSpecRuns)
+export const ConnectedJobSpecRuns = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ fetchJobSpecRuns }))(
+  JobSpecRuns
+)
 
 export default withStyles(styles)(ConnectedJobSpecRuns)

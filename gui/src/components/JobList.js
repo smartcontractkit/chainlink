@@ -58,6 +58,18 @@ export class JobList extends Component {
     fetchJobs(queryPage, pageSize)
   }
 
+  componentDidUpdate (prevProps) {
+    if(prevProps.match && this.props.match){
+      const prevJobPage = prevProps.match.params.jobPage
+      const currentJobPage = this.props.match.params.jobPage
+  
+      if (prevJobPage !== currentJobPage) {
+        const { pageSize, fetchJobs } = this.props
+        fetchJobs(currentJobPage, pageSize)
+      }
+    }
+  }
+
   handleChangePage (e, page) {
     const {fetchJobs, pageSize} = this.props
     fetchJobs(page, pageSize)
