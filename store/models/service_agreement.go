@@ -27,6 +27,17 @@ func (sa ServiceAgreement) GetID() string {
 	return sa.ID
 }
 
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (sa ServiceAgreement) GetName() string {
+	return "service_agreements"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (sa *ServiceAgreement) SetID(value string) error {
+	sa.ID = value
+	return nil
+}
+
 // Signer is used to produce a HMAC signature from an input digest
 type Signer interface {
 	Sign(input []byte) (string, error)

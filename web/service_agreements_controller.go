@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
@@ -29,8 +30,10 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		c.AbortWithError(400, err)
 	} else if err = sac.App.Store.SaveServiceAgreement(&sa); err != nil {
 		c.AbortWithError(500, err)
+	} else if buffer, err := NewJSONAPIResponse(&sa); err != nil {
+		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
-		c.JSON(200, sa)
+		c.Data(200, MediaType, buffer)
 	}
 }
 

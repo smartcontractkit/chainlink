@@ -4,6 +4,8 @@ const fs = require('fs')
 // on network request timeout. Use axios instead until support is added to fetch.
 const axios = require('axios')
 
+const CONTENT_TYPE_JSON = 'application/vnd.api+json'
+
 class SaRequester extends command.Command {
   async run () {
     const { args, flags } = this.parse(SaRequester)
@@ -26,10 +28,15 @@ async function createServiceAgreements (agreement, oracleURLs) {
     oracleURLs.map(url => {
       return axios.post(url, agreement, { timeout: 5000 }).then(response => {
         if (response.status === 200) {
-          return response.data
+          const contentType = response.headers['content-type']
+          if (contentType === CONTENT_TYPE_JSON) {
+            return response.data.data
+          } else {
+            throw new Error(`Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`)
+          }
         }
         throw new Error(`Unexpected response: ${response.status} body: ${response.json()}`)
-      }).then(data => data.signature)
+      }).then(data => data.attributes.signature)
     })
   )
 }

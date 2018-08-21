@@ -517,7 +517,12 @@ func FixtureCreateServiceAgreementViaWeb(
 	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBuffer(LoadJSON(path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	return FindServiceAgreement(app.Store, ParseCommonJSON(resp.Body).ID)
+	responseSA := models.ServiceAgreement{}
+	body := ParseResponseBody(resp)
+	err := web.ParseJSONAPIResponse(body, &responseSA)
+	assert.NoError(t, err)
+
+	return FindServiceAgreement(app.Store, responseSA.ID)
 }
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
