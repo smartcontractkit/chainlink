@@ -23,6 +23,7 @@ import {
 } from 'selectors'
 import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
 import { Divider, Button } from '@material-ui/core'
+import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 
 const styles = theme => ({
   title: {
@@ -49,6 +50,9 @@ const styles = theme => ({
     marginTop: theme.spacing.unit * 3,
     marginLeft: theme.spacing.unit * 3,
     display: 'block'
+  },
+  duplicate: {
+    margin: theme.spacing.unit
   }
 })
 
@@ -73,6 +77,16 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, submitJobSpecRun, fetch
                   Run
                 </Button>
               )}
+            </Grid>
+            <Grid item>
+              <Button
+                to={{ pathname: `/create/job`, state: { fromJson: jobSpecDefinition(jobSpec) } }}
+                component={ReactStaticLinkComponent}
+                color='primary'
+                className={classes.duplicate}
+                variant='outlined'>
+                Duplicate
+              </Button>
             </Grid>
             <Grid item>
               <CopyJobSpec JobSpec={jobSpecDefinition(jobSpec)} />

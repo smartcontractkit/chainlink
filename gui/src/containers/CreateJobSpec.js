@@ -33,6 +33,7 @@ TabContainer.propTypes = {
 
 const CreateJobSpec = props => {
   const { classes } = props
+  const passJsonState = props.location && props.location.state
   return (
     <div className={classes.root}>
       <Card className={classes.card}>
@@ -42,7 +43,7 @@ const CreateJobSpec = props => {
           </Tabs>
         </AppBar>
         <TabContainer>
-          <JobForm />
+          <JobForm {...passJsonState} />
         </TabContainer>
       </Card>
     </div>
