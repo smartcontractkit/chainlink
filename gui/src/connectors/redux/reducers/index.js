@@ -6,6 +6,7 @@ import bridges from './bridges'
 import bridgeSpec from './bridgeSpec'
 import jobs from './jobs'
 import jobRuns from './jobRuns'
+import create from './create'
 import configuration from './configuration'
 import authentication from './authentication'
 
@@ -17,6 +18,7 @@ const reducer = combineReducers({
   bridgeSpec,
   jobs,
   jobRuns,
+  create,
   configuration,
   authentication
 })
