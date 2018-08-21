@@ -543,5 +543,5 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 
 	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
-	assert.Equal(t, "0x8de92e4d6a2b527f1e3c39022ee0f1c177a6d874224fe54f5c4c0d5bcaa57d50", sa.ID)
+	cltest.AssertValidHash(t, 32, sa.ID)
 }

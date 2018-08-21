@@ -11,6 +11,5 @@
     }
   ],
   "payment": "1000000000000000000",
-  "expiration": 300,
-  "oracles": ["0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f", "0xa0788fC17B1dEE36F057C42B6F373a34B014687e"]
+  "expiration": 300
 }

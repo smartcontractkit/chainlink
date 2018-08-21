@@ -108,7 +108,7 @@ func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	tests := []struct {
 		name, content string
 	}{
-		{"ID", "0x8de92e4d6a2b527f1e3c39022ee0f1c177a6d874224fe54f5c4c0d5bcaa57d50"},
+		{"ID", "0x6354bbcc68a4bb1acfc915ad248b9f9752bd2888ce61dd351d9447b3158364af"},
 		{"payment amount", "1.000000000000000000 LINK"},
 		{"expiration", "300 seconds"},
 	}

@@ -55,7 +55,8 @@ func (ks *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transa
 
 	return ks.KeyStore.SignTx(
 		account,
-		tx, big.NewInt(int64(chainID)),
+		tx,
+		big.NewInt(int64(chainID)),
 	)
 }
 

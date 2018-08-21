@@ -21,7 +21,7 @@ function urlWithPath (t, path) {
 class SaRequester extends command.Command {
   async run () {
     const { args, flags } = this.parse(SaRequester)
-    const agreement = fs.readFileSync(flags.agreement, 'utf8')
+    const agreement = JSON.parse(fs.readFileSync(flags.agreement, 'utf8'))
     const oracleURLs = args.file.split(/\s+/)
     const addresses = await getOracleAddresses(oracleURLs)
 
@@ -36,6 +36,14 @@ class SaRequester extends command.Command {
   }
 }
 
+const parseError = ({response}) => {
+  if (response.status === 422) {
+    throw new Error(response.data.errors)
+  }
+
+  throw new Error(`Unexpected response: ${response.status}`)
+}
+
 const parseResponse = response => {
   if (response.status === 200) {
     const contentType = response.headers['content-type']
@@ -45,7 +53,8 @@ const parseResponse = response => {
       throw new Error(`Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`)
     }
   }
-  throw new Error(`Unexpected response: ${response.status} body: ${response.json()}`)
+
+  throw new Error(`Unexpected response: ${response.status}`)
 }
 
 async function getOracleAddresses (oracleURLs) {
@@ -55,17 +64,25 @@ async function getOracleAddresses (oracleURLs) {
       return axios.get(url, { timeout: FETCH_TIMEOUT })
         .then(parseResponse)
         .then(data => data.id)
+        .catch(parseError)
     })
   )
 }
 
-async function createServiceAgreements (agreement, addresses, oracleURLs) {
+async function createServiceAgreements (baseAgreement, addresses, oracleURLs) {
   return Promise.all(
     oracleURLs.map((u, i) => {
       const url = urlWithPath(u, SERVICE_AGREEMENTS_PATH)
-      return axios.post(url, agreement, { timeout: FETCH_TIMEOUT })
+      const serviceAgreementRequest = Object.assign(
+        {},
+        baseAgreement,
+        {oracles: addresses}
+      )
+
+      return axios.post(url, serviceAgreementRequest, { timeout: FETCH_TIMEOUT })
         .then(parseResponse)
         .then(data => ([addresses[i], data.attributes.signature]))
+        .catch(parseError)
     })
   )
 }
