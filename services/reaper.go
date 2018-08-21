@@ -2,7 +2,6 @@ package services
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/asdine/storm"
@@ -11,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
-// Reaper interface is a gateway to an instance that can reap stale objects such as sessions.
+// Reaper interface defines the methods used to reap stale objects such as sessions.
 type Reaper interface {
 	Start() error
 	Stop() error
@@ -19,64 +18,55 @@ type Reaper interface {
 }
 
 type storeReaper struct {
-	store     *store.Store
-	config    store.Config
-	bootMutex sync.Mutex
-	started   bool
-	listener  chan struct{}
-	semaphore singleSemaphore
+	store   *store.Store
+	config  store.Config
+	cond    *sync.Cond
+	started bool
 }
 
 // NewStoreReaper creates a reaper that cleans stale objects from the store.
 func NewStoreReaper(store *store.Store) Reaper {
+	var m sync.Mutex
 	return &storeReaper{
-		store:    store,
-		config:   store.Config,
-		listener: make(chan struct{}, 1),
+		store:  store,
+		config: store.Config,
+		cond:   sync.NewCond(&m),
 	}
 }
 
 // Start starts the reaper instance so that it can listen for cleanup asynchronously.
 func (sr *storeReaper) Start() error {
-	sr.bootMutex.Lock()
-	defer sr.bootMutex.Unlock()
-
-	sr.listener = make(chan struct{}, 1)
-	go sr.listenForReaps()
+	sr.cond.L.Lock()
 	sr.started = true
+	sr.cond.L.Unlock()
+	go sr.listenForReaps()
 	return nil
 }
 
 // Stop stops the reaper from listening to clean up messages asynchronously.
 func (sr *storeReaper) Stop() error {
-	sr.bootMutex.Lock()
-	defer sr.bootMutex.Unlock()
-
-	if sr.started {
-		close(sr.listener)
-		sr.started = false
-	}
-
+	sr.cond.L.Lock()
+	sr.started = false
+	sr.cond.Signal()
+	sr.cond.L.Unlock()
 	return nil
 }
 
 // ReapSessions signals the reaper to clean up sessions asynchronously.
 func (sr *storeReaper) ReapSessions() {
-	if sr.semaphore.CanRun() {
-		sr.listener <- struct{}{}
-	}
+	sr.cond.Signal()
 }
 
 func (sr *storeReaper) listenForReaps() {
 	for {
-		select {
-		case _, ok := <-sr.listener:
-			defer sr.semaphore.Done()
-			if !ok {
-				return
-			}
-			sr.deleteStaleSessions()
+		sr.cond.L.Lock()
+		sr.cond.Wait()
+		if sr.started == false {
+			sr.cond.L.Unlock()
+			return
 		}
+		sr.deleteStaleSessions()
+		sr.cond.L.Unlock()
 	}
 }
 
@@ -96,16 +86,4 @@ func (sr *storeReaper) deleteStaleSessions() {
 			logger.Error("unable to delete stale session: ", err)
 		}
 	}
-}
-
-// singleSemaphore constrains consumption to a single consumer.
-type singleSemaphore struct {
-	semaphore int32
-}
-
-func (l *singleSemaphore) CanRun() bool {
-	return atomic.CompareAndSwapInt32(&l.semaphore, 0, 1)
-}
-func (l *singleSemaphore) Done() {
-	atomic.CompareAndSwapInt32(&l.semaphore, 1, 0)
 }
