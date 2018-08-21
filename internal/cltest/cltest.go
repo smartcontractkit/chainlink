@@ -805,6 +805,42 @@ func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
 }
 
+func hasHexPrefix(str string) bool {
+	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
+}
+
+func isHexCharacter(c byte) bool {
+	return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
+}
+
+func isHex(str string) bool {
+	if len(str)%2 != 0 {
+		return false
+	}
+	for _, c := range []byte(str) {
+		if !isHexCharacter(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// AssertValidHash checks that a string matches a specific hash format,
+// includes a leading 0x and has a specific length (in bytes)
+func AssertValidHash(t *testing.T, length int, hash string) {
+	if !hasHexPrefix(hash) {
+		assert.FailNowf(t, "Missing hash prefix", `"%+v" is missing hash prefix`, hash)
+	}
+	hash = hash[2:]
+	hashlen := len(hash) / 2
+	if hashlen != length {
+		assert.FailNowf(t, "Wrong hash length", `"%+v" represents %d bytes, want %d`, hash, hashlen, length)
+	}
+	if !isHex(hash) {
+		assert.FailNowf(t, "Invalid character", `"%+v" contains a non hexadecimal character`, hash)
+	}
+}
+
 // AssertServerResponse is used to match against a client response, will print
 // any errors returned if the request fails.
 func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode int) {
