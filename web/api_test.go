@@ -133,3 +133,22 @@ func TestPagination_ParsePaginatedResponse(t *testing.T) {
 	err = ParsePaginatedResponse([]byte(`{"links":[],"data":[{"type":"testResources","id":"1","attributes":{}}]}`), &docs, &links)
 	assert.Error(t, err)
 }
+
+type DummyResource struct {
+	ID string
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (d DummyResource) GetID() string {
+	return d.ID
+}
+
+func TestNewJSONAPIResponse(t *testing.T) {
+	buffer, err := NewJSONAPIResponse(12981)
+	assert.Error(t, err)
+
+	r := DummyResource{ID: "782"}
+	buffer, err = NewJSONAPIResponse(&r)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"data":{"type":"dummyResources","id":"782","attributes":{"ID":"782"}}}`, string(buffer))
+}
