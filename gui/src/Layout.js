@@ -25,10 +25,11 @@ import { isFetchingSelector } from 'selectors'
 
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
-const uniOpts = {loading: Loading}
+const uniOpts = { loading: Loading }
 const Bridges = universal(import('./containers/Bridges'), uniOpts)
 const BridgeSpec = universal(import('./containers/BridgeSpec'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const Create = universal(import('./containers/Create'), uniOpts)
 const CreateBridgeType = universal(import('./containers/CreateBridgeType'), uniOpts)
 const CreateJobSpec = universal(import('./containers/CreateJobSpec'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
@@ -83,13 +84,13 @@ const styles = theme => {
 class Layout extends Component {
   constructor (props) {
     super(props)
-    this.state = {drawerOpen: false}
+    this.state = { drawerOpen: false }
     this.toggleDrawer = this.toggleDrawer.bind(this)
     this.signOut = this.signOut.bind(this)
   }
 
   toggleDrawer () {
-    this.setState({drawerOpen: !this.state.drawerOpen})
+    this.setState({ drawerOpen: !this.state.drawerOpen })
   }
 
   signOut () {
@@ -97,8 +98,8 @@ class Layout extends Component {
   }
 
   render () {
-    const {classes, errors, isFetching} = this.props
-    const {drawerOpen} = this.state
+    const { classes, errors, isFetching } = this.props
+    const { drawerOpen } = this.state
 
     const drawer = (
       <Drawer
@@ -107,14 +108,9 @@ class Layout extends Component {
         classes={{
           paper: classes.drawerPaper
         }}
-        onClose={this.toggleDrawer}
-      >
+        onClose={this.toggleDrawer}>
         <div className={classes.toolbar} />
-        <div
-          tabIndex={0}
-          role='button'
-          onClick={this.toggleDrawer}
-        >
+        <div tabIndex={0} role='button' onClick={this.toggleDrawer}>
           <List className={classes.drawerList}>
             <ListItem button component={Link} to='/' className={classes.menuitem}>
               <ListItemText primary='Jobs' />
@@ -122,23 +118,20 @@ class Layout extends Component {
             <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
               <ListItemText primary='Bridges' />
             </ListItem>
-            <ListItem button component={Link} to='/create/job' className={classes.menuitem}>
-              <ListItemText primary='Create Job' />
-            </ListItem>
-            <ListItem button component={Link} to='/create/bridge' className={classes.menuitem}>
-              <ListItemText primary='Create Bridge' />
-            </ListItem>
             <ListItem button component={Link} to='/config' className={classes.menuitem}>
               <ListItemText primary='Configuration' />
+            </ListItem>
+            <ListItem button component={Link} to='/create' className={classes.menuitem}>
+              <ListItemText primary='Create' />
             </ListItem>
             <ListItem button component={Link} to='/about' className={classes.menuitem}>
               <ListItemText primary='About' />
             </ListItem>
-            { this.props.authenticated &&
-            <ListItem button onClick={this.signOut} className={classes.menuitem}>
-              <ListItemText primary='Sign Out' />
-            </ListItem>
-            }
+            {this.props.authenticated && (
+              <ListItem button onClick={this.signOut} className={classes.menuitem}>
+                <ListItemText primary='Sign Out' />
+              </ListItem>
+            )}
           </List>
         </div>
       </Drawer>
@@ -149,11 +142,7 @@ class Layout extends Component {
         <Grid container>
           <CssBaseline />
           <Grid item xs={12}>
-            <AppBar
-              className={classes.appBar}
-              color='default'
-              position='absolute'
-            >
+            <AppBar className={classes.appBar} color='default' position='absolute'>
               <Grid container alignItems='center' className={classes.appBarContent}>
                 <Grid item xs={9}>
                   <Link to='/'>
@@ -162,11 +151,7 @@ class Layout extends Component {
                 </Grid>
                 <Grid item xs={3}>
                   <div align='right'>
-                    <IconButton
-                      aria-label='open drawer'
-                      onClick={this.toggleDrawer}
-                      className={classes.menuButton}
-                    >
+                    <IconButton aria-label='open drawer' onClick={this.toggleDrawer} className={classes.menuButton}>
                       <MenuIcon />
                     </IconButton>
                   </div>
@@ -177,12 +162,11 @@ class Layout extends Component {
             <div>
               <div className={classes.toolbar} />
 
-              {
-                errors.length > 0 &&
+              {errors.length > 0 && (
                 <Flash error className={classes.flash}>
                   {errors.map((msg, i) => <p key={i}>{msg}</p>)}
                 </Flash>
-              }
+              )}
 
               <div className={classes.content}>
                 <Switch>
@@ -193,6 +177,7 @@ class Layout extends Component {
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
                   <PrivateRoute exact path='/about' component={About} />
                   <PrivateRoute exact path='/config' component={Configuration} />
+                  <PrivateRoute exact path='/create' component={Create} />
                   <PrivateRoute exact path='/create/job' component={CreateJobSpec} />
                   <PrivateRoute exact path='/create/bridge' component={CreateBridgeType} />
                   <PrivateRoute exact path='/bridges' component={Bridges} />
@@ -226,7 +211,7 @@ const mapStateToProps = state => ({
   isFetching: isFetchingSelector(state)
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)
+const mapDispatchToProps = dispatch => bindActionCreators({ submitSignOut }, dispatch)
 
 export const ConnectedLayout = connect(mapStateToProps, mapDispatchToProps)(Layout)
 
