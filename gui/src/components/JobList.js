@@ -59,10 +59,10 @@ export class JobList extends Component {
   }
 
   componentDidUpdate (prevProps) {
-    if(prevProps.match && this.props.match){
+    if (prevProps.match && this.props.match) {
       const prevJobPage = prevProps.match.params.jobPage
       const currentJobPage = this.props.match.params.jobPage
-  
+
       if (prevJobPage !== currentJobPage) {
         const { pageSize, fetchJobs } = this.props
         fetchJobs(currentJobPage, pageSize)
