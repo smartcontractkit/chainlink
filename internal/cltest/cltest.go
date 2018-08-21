@@ -106,6 +106,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			RootDir:                  rootdir,
 			SecretGenerator:          mockSecretGenerator{},
 			SessionTimeout:           store.Duration{MustParseDuration("2m")},
+			ReaperExpiration:         store.Duration{MustParseDuration("240h")},
 		},
 	}
 	config.SetEthereumServer(wsserver)
@@ -865,4 +866,9 @@ func NewSession(optionalSessionID ...string) models.Session {
 		session.ID = optionalSessionID[0]
 	}
 	return session
+}
+
+func ResetBucket(store *store.Store, bucket interface{}) {
+	mustNotErr(store.Drop(bucket))
+	mustNotErr(store.Init(bucket))
 }
