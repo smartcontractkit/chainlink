@@ -65,7 +65,8 @@ export class JobList extends Component {
 
       if (prevJobPage !== currentJobPage) {
         const { pageSize, fetchJobs } = this.props
-        fetchJobs(currentJobPage, pageSize)
+        this.setState({page: parseInt(currentJobPage, 10) || FIRST_PAGE})
+        fetchJobs(parseInt(currentJobPage, 10) || FIRST_PAGE, pageSize)
       }
     }
   }
