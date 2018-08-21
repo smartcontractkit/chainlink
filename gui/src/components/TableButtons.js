@@ -20,7 +20,7 @@ const TableButtons = props => {
   const handlePage = page => e => {
     page = Math.min(page, lastPage)
     page = Math.max(page, firstPage)
-    if (props.history) props.history.replace(`${props.replaceWith}/${page}`)
+    if (props.history) props.history.push(`${props.replaceWith}/${page}`)
     props.onChangePage(e, page)
   }
 
