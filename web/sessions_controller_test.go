@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
@@ -69,7 +71,34 @@ func TestSessionsController_Create(t *testing.T) {
 	}
 }
 
-func TestSessionsController_destroy(t *testing.T) {
+func TestSessionsController_Create_ReapSessions(t *testing.T) {
+	t.Parallel()
+
+	user := cltest.MustUser("email@test.net", "password123")
+	app, cleanup := cltest.NewApplication()
+	app.Start()
+	err := app.Store.Save(&user)
+	assert.NoError(t, err)
+	defer cleanup()
+
+	staleSession := cltest.NewSession()
+	staleSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("241h"))}
+	require.NoError(t, app.Store.Save(&staleSession))
+
+	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
+	resp, err := http.Post(app.Config.ClientNodeURL+"/sessions", "application/json", bytes.NewBufferString(body))
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, 200, resp.StatusCode)
+	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
+		sessions := []models.Session{}
+		assert.Nil(t, app.Store.All(&sessions))
+		return sessions
+	}).Should(gomega.HaveLen(1))
+}
+
+func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
 	seedUser := cltest.MustUser("email@test.net", "password123")
@@ -111,4 +140,39 @@ func TestSessionsController_destroy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
+	t.Parallel()
+
+	client := http.Client{}
+	user := cltest.MustUser("email@test.net", "password123")
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	app.Start()
+	err := app.Store.Save(&user)
+	assert.NoError(t, err)
+
+	correctSession := models.NewSession()
+	require.NoError(t, app.Store.Save(&correctSession))
+	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
+
+	staleSession := cltest.NewSession()
+	staleSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("241h"))}
+	require.NoError(t, app.Store.Save(&staleSession))
+
+	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL+"/sessions", nil)
+	assert.NoError(t, err)
+	request.AddCookie(cookie)
+
+	resp, err := client.Do(request)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 200, resp.StatusCode)
+	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
+		sessions := []models.Session{}
+		assert.Nil(t, app.Store.All(&sessions))
+		return sessions
+	}).Should(gomega.HaveLen(0))
 }
