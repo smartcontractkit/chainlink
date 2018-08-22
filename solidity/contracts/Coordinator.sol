@@ -12,21 +12,21 @@ contract Coordinator {
 
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
 
-  function getId(uint256 _payment, uint256 _expiration, bytes32 _requestDigest)
+  function getId(uint256 _payment, uint256 _expiration, bytes32 _jobSpecID)
     public pure returns (bytes32)
   {
-    return keccak256(abi.encodePacked(_payment, _expiration, _requestDigest));
+    return keccak256(abi.encodePacked(_payment, _expiration, _jobSpecID));
   }
 
-  function initiateServiceAgreement(uint256 _payment, uint256 _expiration, bytes32 _requestDigest)
+  function initiateServiceAgreement(uint256 _payment, uint256 _expiration, bytes32 _jobSpecID)
     public
   {
-    bytes32 id = getId(_payment, _expiration, _requestDigest);
+    bytes32 id = getId(_payment, _expiration, _jobSpecID);
 
     serviceAgreements[id] = ServiceAgreement(
       _payment,
       _expiration,
-      _requestDigest
+      _jobSpecID
     );
   }
 }
