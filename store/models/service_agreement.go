@@ -109,9 +109,9 @@ func generateServiceAgreementID(e Encumbrance, digest string) (string, error) {
 
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
-	Payment    *assets.Link `json:"payment"`
-	Expiration uint64       `json:"expiration"`
-	Oracles    []string     `json:"oracles"`
+	Payment    *assets.Link              `json:"payment"`
+	Expiration uint64                    `json:"expiration"`
+	Oracles    []common.MixedcaseAddress `json:"oracles"`
 }
 
 // ABI returns the encumbrance ABI encoded as a hex string.
@@ -123,14 +123,10 @@ func (e Encumbrance) ABI() string {
 	return fmt.Sprintf("%064s%064x", payment.Text(16), e.Expiration)
 }
 
-type oracles struct {
-	Oracles []string `json:"oracles"`
-}
-
 // ServiceAgreementRequest represents a service agreement as requested over the wire.
 type ServiceAgreementRequest struct {
-	Payment    *assets.Link `json:"payment"`
-	Expiration uint64       `json:"expiration"`
-	Oracles    []string     `json:"oracles"`
+	Payment    *assets.Link              `json:"payment"`
+	Expiration uint64                    `json:"expiration"`
+	Oracles    []common.MixedcaseAddress `json:"oracles"`
 	JobSpecRequest
 }

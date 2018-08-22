@@ -3,6 +3,7 @@ package services_test
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -144,17 +145,27 @@ func TestValidateInitiator(t *testing.T) {
 func TestValidateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
-	testConfig, cleanup := cltest.NewConfig()
-	config := testConfig.Config
+	store, cleanup := cltest.NewStore()
+	_, err := store.KeyStore.NewAccount("password") // matches correct_password.txt
+	assert.NoError(t, err)
+	err = store.KeyStore.Unlock("password")
+	assert.NoError(t, err)
 	defer cleanup()
 
 	basic := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	account, err := store.KeyStore.GetAccount()
+	assert.NoError(t, err)
+
+	oracles := []string{account.Address.Hex()}
+	oraclesWithoutChecksum := []string{strings.ToLower(account.Address.Hex())}
+
 	tests := []struct {
 		name      string
 		input     cltest.EasyJSON
 		wantError bool
 	}{
-		{"basic", basic, false},
+		{"basic", basic.Add("oracles", oracles), false},
+		{"oracle checksum mismatch", basic.Add("oracles", oraclesWithoutChecksum), true},
 		{"no payment", basic.Delete("payment"), true},
 		{"less than minimum payment", basic.Add("payment", "1"), true},
 		{"less than minimum expiration", basic.Add("expiration", 1), true},
@@ -163,7 +174,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sa := cltest.ServiceAgreementFromString(test.input.String())
-			result := services.ValidateServiceAgreement(sa, config)
+			result := services.ValidateServiceAgreement(sa, store)
 
 			cltest.AssertError(t, test.wantError, result)
 		})
