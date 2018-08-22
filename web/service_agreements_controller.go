@@ -19,12 +19,9 @@ type ServiceAgreementsController struct {
 
 // Create builds and saves a new service agreement record.
 func (sac *ServiceAgreementsController) Create(c *gin.Context) {
-	var sar models.ServiceAgreementRequest
 	if !sac.App.Store.Config.Dev {
 		publicError(c, 500, errors.New("Service Agreements are currently under development and not yet usable outside of development mode"))
-	} else if err := c.ShouldBindJSON(&sar); err != nil {
-		publicError(c, 400, err)
-	} else if sa, err := models.NewServiceAgreementFromRequest(sar, sac.App.Store.KeyStore); err != nil {
+	} else if sa, err := models.NewServiceAgreementFromRequest(c.Request.Body, sac.App.Store.KeyStore); err != nil {
 		publicError(c, 400, err)
 	} else if err = services.ValidateServiceAgreement(sa, sac.App.Store.Config); err != nil {
 		c.AbortWithError(400, err)

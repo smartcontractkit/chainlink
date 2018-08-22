@@ -341,9 +341,7 @@ func (s MockSigner) Sign(input []byte) (string, error) {
 }
 
 func ServiceAgreementFromString(str string) models.ServiceAgreement {
-	var sar models.ServiceAgreementRequest
-	mustNotErr(json.Unmarshal([]byte(str), &sar))
-	sa, err := models.NewServiceAgreementFromRequest(sar, MockSigner{})
+	sa, err := models.NewServiceAgreementFromRequest(strings.NewReader(str), MockSigner{})
 	mustNotErr(err)
 	return sa
 }

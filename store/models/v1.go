@@ -108,11 +108,13 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 	initiators = appendCronInitiator(initiators, s)
 
 	j := JobSpec{
-		ID:         utils.NewBytes32ID(),
-		CreatedAt:  Time{Time: time.Now()},
-		Tasks:      tasks,
-		EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
-		Initiators: initiators,
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: Time{Time: time.Now()},
+		JobSpecRequest: JobSpecRequest{
+			Tasks:      tasks,
+			EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
+			Initiators: initiators,
+		},
 	}
 	if j.EndAt.Time.IsZero() {
 		j.EndAt.Valid = false
