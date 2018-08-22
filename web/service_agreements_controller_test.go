@@ -21,20 +21,18 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	client := app.NewHTTPClient()
 	base := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
 
+	account, err := app.Store.KeyStore.GetAccount()
+	assert.NoError(t, err)
+	base = base.Add("oracles", []string{account.Address.Hex()})
+
 	tests := []struct {
 		name     string
 		input    string
 		wantCode int
-		oracles  []string
 	}{
-		{
-			"success",
-			base.String(),
-			200,
-			[]string{"0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f", "0xa0788fC17B1dEE36F057C42B6F373a34B014687e"},
-		},
-		{"fails validation without payment", base.Delete("payment").String(), 422, []string{""}},
-		{"invalid JSON", "{", 422, []string{""}},
+		{"success", base.String(), 200},
+		{"fails validation", base.Delete("payment").String(), 422},
+		{"invalid JSON", "{", 422},
 	}
 
 	for _, test := range tests {
@@ -51,12 +49,10 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				assert.NoError(t, err)
 				cltest.AssertValidHash(t, 32, responseSA.ID)
 				cltest.AssertValidHash(t, 65, responseSA.Signature)
-				assert.Equal(t, test.oracles, responseSA.Encumbrance.Oracles)
 
 				createdSA := cltest.FindServiceAgreement(app.Store, responseSA.ID)
 				cltest.AssertValidHash(t, 32, createdSA.ID)
 				cltest.AssertValidHash(t, 65, createdSA.Signature)
-				assert.Equal(t, test.oracles, createdSA.Encumbrance.Oracles)
 			}
 		})
 	}

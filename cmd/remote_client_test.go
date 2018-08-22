@@ -85,30 +85,69 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
+	sa := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+
 	tests := []struct {
-		input   string
-		nJobs   int
-		errored bool
+		name        string
+		input       string
+		jobsCreated bool
+		errored     bool
 	}{
-		{"{bad son}", 0, true},
-		{"bad/filepath/", 0, true},
-		{string(cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")), 1, false},
-		{"../internal/fixtures/web/hello_world_agreement.json", 2, false},
+		{"invalid json", "{bad son}", false, true},
+		{"bad file path", "bad/filepath/", false, true},
+		{"valid service agreement", sa.String(), true, false},
+		{"service agreement specified as path", "../internal/fixtures/web/hello_world_agreement.json", true, false},
 	}
 
 	for _, tt := range tests {
 		test := tt
+		t.Run(test.name, func(t *testing.T) {
 
-		set := flag.NewFlagSet("create", 0)
-		set.Parse([]string{test.input})
-		c := cli.NewContext(nil, set, nil)
+			set := flag.NewFlagSet("create", 0)
+			set.Parse([]string{test.input})
+			c := cli.NewContext(nil, set, nil)
 
-		err := client.CreateServiceAgreement(c)
+			err := client.CreateServiceAgreement(c)
 
-		cltest.AssertError(t, test.errored, err)
-		numberOfJobs, _ := app.Store.Jobs()
-		assert.Equal(t, test.nJobs, len(numberOfJobs))
+			cltest.AssertError(t, test.errored, err)
+			jobs, _ := app.Store.Jobs()
+			if test.jobsCreated {
+				assert.True(t, len(jobs) > 0)
+			} else {
+				assert.Equal(t, 0, len(jobs))
+			}
+		})
 	}
+}
+
+func TestClient_CreateServiceAgreementMultipleTimes(t *testing.T) {
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+	defer cleanup()
+	client, _ := app.NewClientAndRenderer()
+
+	sa := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+
+	set := flag.NewFlagSet("create", 0)
+	set.Parse([]string{sa.String()})
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.CreateServiceAgreement(c)
+
+	assert.NoError(t, err)
+	numberOfJobs, _ := app.Store.Jobs()
+	assert.Equal(t, 1, len(numberOfJobs))
+
+	set.Parse([]string{sa.String()})
+	set = flag.NewFlagSet("create", 0)
+	set.Parse([]string{"../internal/fixtures/web/hello_world_agreement.json"})
+	c = cli.NewContext(nil, set, nil)
+
+	err = client.CreateServiceAgreement(c)
+
+	assert.NoError(t, err)
+	numberOfJobs, _ = app.Store.Jobs()
+	assert.Equal(t, 2, len(numberOfJobs))
 }
 
 func TestClient_CreateJobSpec(t *testing.T) {

@@ -522,12 +522,21 @@ func FixtureCreateServiceAgreementViaWeb(
 	path string,
 ) models.ServiceAgreement {
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBuffer(LoadJSON(path)))
+
+	agreementWithoutOracle := EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	account, err := app.Store.KeyStore.GetAccount()
+	assert.NoError(t, err)
+	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{account.Address.Hex()})
+
+	b, err := json.Marshal(agreementWithOracle)
+	assert.NoError(t, err)
+	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewReader(b))
 	defer cleanup()
+
 	AssertServerResponse(t, resp, 200)
 	responseSA := models.ServiceAgreement{}
 	body := ParseResponseBody(resp)
-	err := web.ParseJSONAPIResponse(body, &responseSA)
+	err = web.ParseJSONAPIResponse(body, &responseSA)
 	assert.NoError(t, err)
 
 	return FindServiceAgreement(app.Store, responseSA.ID)

@@ -23,7 +23,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		publicError(c, 500, errors.New("Service Agreements are currently under development and not yet usable outside of development mode"))
 	} else if sa, err := models.NewServiceAgreementFromRequest(c.Request.Body, sac.App.Store.KeyStore); err != nil {
 		publicError(c, 422, err)
-	} else if err = services.ValidateServiceAgreement(sa, sac.App.Store.Config); err != nil {
+	} else if err = services.ValidateServiceAgreement(sa, sac.App.Store); err != nil {
 		publicError(c, 422, err)
 	} else if err = sac.App.Store.SaveServiceAgreement(&sa); err != nil {
 		c.AbortWithError(500, err)
