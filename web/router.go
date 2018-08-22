@@ -94,15 +94,15 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
 	jr := JobRunsController{app}
 
+	ab := AccountBalanceController{app}
+	v2.GET("/account_balance", ab.Show)
+
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
 	v2.PATCH("/runs/:RunID", jr.Update)
 
 	authv2 := engine.Group("/v2", authRequired(app.Store))
 	{
-		ab := AccountBalanceController{app}
-		authv2.GET("/account_balance", ab.Show)
-
 		j := JobSpecsController{app}
 		authv2.GET("/specs", j.Index)
 		authv2.POST("/specs", j.Create)
