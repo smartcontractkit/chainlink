@@ -359,18 +359,6 @@ func (orm *ORM) MarkRan(i *Initiator) error {
 	return dbtx.Commit()
 }
 
-// DatabaseAccessError is an error that occurs during database access.
-type DatabaseAccessError struct {
-	msg string
-}
-
-func (e *DatabaseAccessError) Error() string { return e.msg }
-
-// NewDatabaseAccessError returns a database access error.
-func NewDatabaseAccessError(msg string) error {
-	return &DatabaseAccessError{msg}
-}
-
 // FindUser will return the one API user, or an error.
 func (orm *ORM) FindUser() (User, error) {
 	var users []User
