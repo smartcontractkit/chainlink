@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func BenchmarkStatsController_Index(b *testing.B) {
+func BenchmarkMetricsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -18,13 +18,13 @@ func BenchmarkStatsController_Index(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := client.Get("/v2/stats")
+		resp, cleanup := client.Get("/v2/metrics")
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
 }
 
-func TestStatsController_Index(t *testing.T) {
+func TestMetricsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -34,11 +34,11 @@ func TestStatsController_Index(t *testing.T) {
 	j1, j2, err := setupStatsControllerIndex(app)
 	assert.NoError(t, err)
 
-	resp, cleanup := client.Get("/v2/stats?size=x")
+	resp, cleanup := client.Get("/v2/metrics?size=x")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = client.Get("/v2/stats?size=1")
+	resp, cleanup = client.Get("/v2/metrics?size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	body := cltest.ParseResponseBody(resp)
@@ -48,7 +48,7 @@ func TestStatsController_Index(t *testing.T) {
 	assert.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
-	stats := models.JobSpecStats{}
+	stats := models.JobSpecMetrics{}
 	err = web.ParsePaginatedResponse(body, &stats, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
@@ -62,7 +62,7 @@ func TestStatsController_Index(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	stats = models.JobSpecStats{}
+	stats = models.JobSpecMetrics{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &stats, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"])

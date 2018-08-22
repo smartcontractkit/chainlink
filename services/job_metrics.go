@@ -6,11 +6,11 @@ import (
 	"go.uber.org/multierr"
 )
 
-// AllJobSpecStats returns all Job Spec Stat data for the Job Spec inputs
-func AllJobSpecStats(store *store.Store, jobs []models.JobSpec) (models.JobSpecStats, error) {
+// AllJobSpecMetrics returns all Job Spec Stat data for the Job Spec inputs
+func AllJobSpecMetrics(store *store.Store, jobs []models.JobSpec) (models.JobSpecMetrics, error) {
 	var merr error
 
-	s := models.JobSpecStats{}
+	s := models.JobSpecMetrics{}
 	if a, err := store.KeyStore.GetAccount(); err != nil {
 		merr = multierr.Append(merr, err)
 	} else {

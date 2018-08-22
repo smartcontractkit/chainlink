@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v3"
+	"gopkg.in/guregu/null.v3"
 )
 
 // JobSpec is the definition for all the work to be carried out by the node
@@ -299,8 +299,8 @@ func (bt BridgeType) Authenticate(token string) (bool, error) {
 	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
 }
 
-// JobSpecStats holds high level data from the store around Job Specs and their Runs
-type JobSpecStats struct {
+// JobSpecMetrics holds high level data from the store around Job Specs and their Runs
+type JobSpecMetrics struct {
 	Address       string          `json:"-"`
 	JobSpecCounts []JobSpecCounts `json:"job_spec_stats"`
 }
@@ -321,12 +321,12 @@ type ParamCount struct {
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (jss JobSpecStats) GetID() string {
+func (jss JobSpecMetrics) GetID() string {
 	return jss.Address
 }
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (jss *JobSpecStats) SetID(value string) error {
+func (jss *JobSpecMetrics) SetID(value string) error {
 	jss.Address = value
 	return nil
 }

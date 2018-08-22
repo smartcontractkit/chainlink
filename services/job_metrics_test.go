@@ -32,7 +32,7 @@ func TestJobStats_AllJobSpecStats(t *testing.T) {
 	err = app.Store.Save(&jr)
 	assert.NoError(t, err)
 
-	jss, err := services.AllJobSpecStats(app.Store, []models.JobSpec{j1, j2})
+	jss, err := services.AllJobSpecMetrics(app.Store, []models.JobSpec{j1, j2})
 	assert.NoError(t, err)
 
 	assert.Len(t, jss.JobSpecCounts, 2)
@@ -55,6 +55,6 @@ func TestJobStats_NoAccount(t *testing.T) {
 	err := store.SaveJob(&j)
 	assert.NoError(t, err)
 
-	_, err = services.AllJobSpecStats(store, []models.JobSpec{j})
+	_, err = services.AllJobSpecMetrics(store, []models.JobSpec{j})
 	assert.Error(t, err)
 }
