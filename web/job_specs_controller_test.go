@@ -162,7 +162,7 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["job validation: task validation: idonotexist is not a supported adapter type"]}`
+	expected := `{"errors":[{"detail":"idonotexist is not a supported adapter type"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
@@ -178,7 +178,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["job validation: initiator validation: runat must have a time"]}`
+	expected := `{"errors":[{"detail":"RunAt must have a time"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
@@ -194,7 +194,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"]}`
+	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
@@ -210,7 +210,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["job validation: Must have at least one Initiator and one Task"]}`
+	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 
@@ -226,7 +226,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":["job validation: Must have at least one Initiator and one Task"]}`
+	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
 }
 

@@ -18,9 +18,9 @@ func TestAccountBalanceController_IndexError(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/account_balance")
 	defer cleanup()
-	body := cltest.ParseErrorsJSON(resp.Body)
+	errors := cltest.ParseJSONAPIErrors(resp.Body)
 	assert.Equal(t, 400, resp.StatusCode)
-	assert.Equal(t, "No Ethereum Accounts configured", body.Errors[0])
+	assert.Equal(t, "No Ethereum Accounts configured", errors.Errors[0].Detail)
 }
 
 func TestAccountBalanceController_Index(t *testing.T) {
