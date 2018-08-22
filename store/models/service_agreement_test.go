@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -33,10 +34,11 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			var sar models.ServiceAgreementRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
-			sa, err := models.NewServiceAgreementFromRequest(sar, cltest.MockSigner{})
+			sa, err := models.NewServiceAgreementFromRequest(strings.NewReader(test.input), cltest.MockSigner{})
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantDigest, sa.ID)
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
+			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sa.RequestBody)
 			assert.NotEqual(t, models.Time{}, sa.CreatedAt)
 		})
 	}
@@ -90,8 +92,7 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 			var sar models.ServiceAgreementRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
-			assert.Equal(t, test.wantPayment, sar.Encumbrance.Payment)
-			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sar.NormalizedBody)
+			assert.Equal(t, test.wantPayment, sar.Payment)
 		})
 	}
 }
