@@ -363,6 +363,14 @@ func ParseErrorsJSON(body io.Reader) ErrorsJSON {
 	return respJSON
 }
 
+func ParseJSONAPIErrors(body io.Reader) *models.JSONAPIErrors {
+	b, err := ioutil.ReadAll(body)
+	mustNotErr(err)
+	var respJSON models.JSONAPIErrors
+	json.Unmarshal(b, &respJSON)
+	return &respJSON
+}
+
 // LoadJSON loads json from file and returns a byte slice
 func LoadJSON(file string) []byte {
 	content, err := ioutil.ReadFile(file)

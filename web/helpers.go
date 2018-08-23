@@ -2,13 +2,13 @@ package web
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store/models"
 )
 
 // StatusCodeForError returns an http status code for an error type.
 func StatusCodeForError(err interface{}) int {
 	switch err.(type) {
-	case *services.ValidationError:
+	case *models.ValidationError:
 		return 400
 	default:
 		return 500
@@ -19,5 +19,10 @@ func StatusCodeForError(err interface{}) int {
 // the JSON value of errors.
 func publicError(c *gin.Context, statusCode int, err error) {
 	c.Error(err).SetType(gin.ErrorTypePublic)
-	c.JSON(statusCode, gin.H{"errors": []string{err.Error()}})
+	switch v := err.(type) {
+	case *models.JSONAPIErrors:
+		c.JSON(statusCode, v)
+	default:
+		c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
+	}
 }

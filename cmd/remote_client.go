@@ -312,7 +312,9 @@ func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("Try logging in")))
 	}
 	if err != nil {
-		return nil, cli.errorOut(err)
+		jae := models.JSONAPIErrors{}
+		unmarshalErr := json.Unmarshal(b, &jae)
+		return nil, cli.errorOut(multierr.Combine(err, unmarshalErr, &jae))
 	}
 	return b, err
 }
