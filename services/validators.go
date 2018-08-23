@@ -114,7 +114,6 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	for _, oracle := range sa.Encumbrance.Oracles {
 		if oracle.Address() == account.Address {
 			found = true
-			break
 		}
 	}
 	if !found {

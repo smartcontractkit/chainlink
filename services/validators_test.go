@@ -3,7 +3,6 @@ package services_test
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -157,7 +156,6 @@ func TestValidateServiceAgreement(t *testing.T) {
 	assert.NoError(t, err)
 
 	oracles := []string{account.Address.Hex()}
-	oraclesWithoutChecksum := []string{strings.ToLower(account.Address.Hex())}
 
 	tests := []struct {
 		name      string
@@ -165,7 +163,6 @@ func TestValidateServiceAgreement(t *testing.T) {
 		wantError bool
 	}{
 		{"basic", basic.Add("oracles", oracles), false},
-		{"oracle checksum mismatch", basic.Add("oracles", oraclesWithoutChecksum), true},
 		{"no payment", basic.Delete("payment"), true},
 		{"less than minimum payment", basic.Add("payment", "1"), true},
 		{"less than minimum expiration", basic.Add("expiration", 1), true},
@@ -173,7 +170,8 @@ func TestValidateServiceAgreement(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sa := cltest.ServiceAgreementFromString(test.input.String())
+			sa, err := cltest.ServiceAgreementFromString(test.input.String())
+			assert.NoError(t, err)
 			result := services.ValidateServiceAgreement(sa, store)
 
 			cltest.AssertError(t, test.wantError, result)

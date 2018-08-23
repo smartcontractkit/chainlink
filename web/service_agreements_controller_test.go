@@ -21,10 +21,6 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	client := app.NewHTTPClient()
 	base := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
 
-	account, err := app.Store.KeyStore.GetAccount()
-	assert.NoError(t, err)
-	base = base.Add("oracles", []string{account.Address.Hex()})
-
 	tests := []struct {
 		name     string
 		input    string
@@ -65,7 +61,8 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	input := cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")
-	sa := cltest.ServiceAgreementFromString(string(input))
+	sa, err := cltest.ServiceAgreementFromString(string(input))
+	assert.NoError(t, err)
 	assert.NoError(t, app.Store.SaveServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
