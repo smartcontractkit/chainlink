@@ -29,14 +29,18 @@ func NewValidationError(msg string, values ...interface{}) error {
 	return &ValidationError{msg: fmt.Sprintf(msg, values...)}
 }
 
+// JSONAPIErrors holds errors conforming to the JSONAPI spec.
 type JSONAPIErrors struct {
 	Errors []JSONAPIError `json:"errors"`
 }
 
+// JSONAPIError is an individual JSONAPI Error.
 type JSONAPIError struct {
 	Detail string `json:"detail"`
 }
 
+// NewJSONAPIErrors creates an instance of JSONAPIErrors, with the intention
+// of managing a collection of them.
 func NewJSONAPIErrors() *JSONAPIErrors {
 	fe := JSONAPIErrors{
 		Errors: []JSONAPIError{},
@@ -44,36 +48,44 @@ func NewJSONAPIErrors() *JSONAPIErrors {
 	return &fe
 }
 
+// NewJSONAPIErrorsWith creates an instance of JSONAPIErrors populated with this
+// single detail.
 func NewJSONAPIErrorsWith(detail string) *JSONAPIErrors {
 	fe := NewJSONAPIErrors()
 	fe.Errors = append(fe.Errors, JSONAPIError{Detail: detail})
 	return fe
 }
 
-func (errors *JSONAPIErrors) Error() string {
+// Error collapses the collection of errors into a collection of comma separated
+// strings.
+func (jae *JSONAPIErrors) Error() string {
 	var messages []string
-	for _, e := range errors.Errors {
+	for _, e := range jae.Errors {
 		messages = append(messages, e.Detail)
 	}
 	return strings.Join(messages, ",")
 }
 
-func (e *JSONAPIErrors) Add(detail string) {
-	e.Errors = append(e.Errors, JSONAPIError{Detail: detail})
+// Add adds a new error to JSONAPIErrors with the passed detail.
+func (jae *JSONAPIErrors) Add(detail string) {
+	jae.Errors = append(jae.Errors, JSONAPIError{Detail: detail})
 }
 
-func (errors *JSONAPIErrors) Merge(e error) {
+// Merge combines the arrays of the passed error if it is of type JSONAPIErrors,
+// otherwise simply adds a single error with the error string as detail.
+func (jae *JSONAPIErrors) Merge(e error) {
 	switch typed := e.(type) {
 	case *JSONAPIErrors:
-		errors.Errors = append(errors.Errors, typed.Errors...)
+		jae.Errors = append(jae.Errors, typed.Errors...)
 	default:
-		errors.Add(e.Error())
+		jae.Add(e.Error())
 	}
 }
 
-func (e *JSONAPIErrors) CoerceEmptyToNil() error {
-	if len(e.Errors) == 0 {
+// CoerceEmptyToNil will return nil if JSONAPIErrors has no errors.
+func (jae *JSONAPIErrors) CoerceEmptyToNil() error {
+	if len(jae.Errors) == 0 {
 		return nil
 	}
-	return e
+	return jae
 }
