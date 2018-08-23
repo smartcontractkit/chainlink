@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -24,12 +23,21 @@ func TestValidateJob(t *testing.T) {
 		want  error
 	}{
 		{"base case", cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json"), nil},
-		{"error in job", cltest.LoadJSON("../internal/fixtures/web/invalid_endat_job.json"),
-			errors.New(`job validation: startat cannot be before endat`)},
-		{"error in runat initr", cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
-			errors.New(`job validation: initiator validation: runat must have a time`)},
-		{"error in task", cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
-			errors.New(`job validation: task validation: idonotexist is not a supported adapter type`)},
+		{
+			"error in job",
+			cltest.LoadJSON("../internal/fixtures/web/invalid_endat_job.json"),
+			models.NewJSONAPIErrorsWith("StartAt cannot be before EndAt"),
+		},
+		{
+			"error in runat initr",
+			cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json"),
+			models.NewJSONAPIErrorsWith("RunAt must have a time"),
+		},
+		{
+			"error in task",
+			cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json"),
+			models.NewJSONAPIErrorsWith("idonotexist is not a supported adapter type"),
+		},
 	}
 
 	store, cleanup := cltest.NewStore()
@@ -63,14 +71,26 @@ func TestValidateAdapter(t *testing.T) {
 		name        string
 		want        error
 	}{
-		{"existing external adapter", "solargridreporting",
-			errors.New("adapter validation: adapter solargridreporting exists")},
-		{"existing core adapter", "ethtx",
-			errors.New("adapter validation: adapter ethtx exists")},
-		{"no adapter name", "",
-			errors.New("adapter validation: no name specified")},
-		{"invalid adapter name", "invalid/adapter",
-			errors.New("adapter validation error: Task Type validation: name invalid/adapter contains invalid characters")},
+		{
+			"existing external adapter",
+			"solargridreporting",
+			models.NewJSONAPIErrorsWith("Adapter solargridreporting already exists"),
+		},
+		{
+			"existing core adapter",
+			"ethtx",
+			models.NewJSONAPIErrorsWith("Adapter ethtx already exists"),
+		},
+		{
+			"no adapter name",
+			"",
+			models.NewJSONAPIErrorsWith("No name specified"),
+		},
+		{
+			"invalid adapter name",
+			"invalid/adapter",
+			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
+		},
 		{"new external adapter", "gdaxprice", nil},
 	}
 

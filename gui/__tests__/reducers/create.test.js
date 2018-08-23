@@ -33,9 +33,10 @@ describe('create reducer', () => {
   describe('RECEIVE_CREATE_ERROR', () => {
     it('assigns correct object to error', () => {
       const previousState = { create: {} }
-      const action = { type: RECEIVE_CREATE_ERROR, error: { message: { someErr: 'errored' } } }
+      const error = { errors: [{detail: 'errored'}] }
+      const action = { type: RECEIVE_CREATE_ERROR, error: error }
       const state = reducer(previousState, action)
-      expect(state.create.errors).toEqual({ someErr: 'errored' })
+      expect(state.create.errors).toEqual(['errored'])
     })
   })
 })

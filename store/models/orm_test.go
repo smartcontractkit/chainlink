@@ -446,6 +446,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			prevSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
 			require.NoError(t, store.Save(&prevSession))
 
+			expectedTime := models.Time{time.Now()}.HumanString()
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
 			assert.Equal(t, test.wantEmail, actual.Email)
 			if test.wantError {
@@ -455,8 +456,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 				var bumpedSession models.Session
 				err = store.One("ID", prevSession.ID, &bumpedSession)
 				require.NoError(t, err)
-				expectedTime := models.Time{time.Now()}.HumanString()
-				assert.Equal(t, expectedTime, bumpedSession.LastUsed.HumanString())
+				assert.Equal(t, expectedTime[0:13], bumpedSession.LastUsed.HumanString()[0:13]) // only compare up to the hour
 			}
 		})
 	}

@@ -122,7 +122,7 @@ func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
 	defer app.bridgeTypeMutex.Unlock()
 
 	if err := ValidateAdapter(bt, store); err != nil {
-		return NewValidationError(err.Error())
+		return models.NewValidationError(err.Error())
 	}
 
 	if err := store.Save(bt); err != nil {
