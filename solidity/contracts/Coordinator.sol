@@ -7,26 +7,37 @@ contract Coordinator {
   struct ServiceAgreement {
     uint256 payment;
     uint256 expiration;
+    address[] oracles;
     bytes32 jobSpecID;
   }
 
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
 
-  function getId(uint256 _payment, uint256 _expiration, bytes32 _requestDigest)
+  function getId(
+    uint256 _payment,
+    uint256 _expiration,
+    address[] _oracles,
+    bytes32 _jobSpecID
+  )
     public pure returns (bytes32)
   {
-    return keccak256(abi.encodePacked(_payment, _expiration, _requestDigest));
+    return keccak256(abi.encodePacked(_payment, _expiration, _oracles, _jobSpecID));
   }
 
-  function initiateServiceAgreement(uint256 _payment, uint256 _expiration, bytes32 _requestDigest)
-    public
+  function initiateServiceAgreement(
+    uint256 _payment,
+    uint256 _expiration,
+    address[] _oracles,
+    bytes32 _jobSpecID
+  ) public
   {
-    bytes32 id = getId(_payment, _expiration, _requestDigest);
+    bytes32 id = getId(_payment, _expiration, _oracles, _jobSpecID);
 
     serviceAgreements[id] = ServiceAgreement(
       _payment,
       _expiration,
-      _requestDigest
+      _oracles,
+      _jobSpecID
     );
   }
 }
