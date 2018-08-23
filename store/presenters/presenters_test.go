@@ -157,7 +157,8 @@ func TestServiceAgreement_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	input := cltest.LoadJSON("../../internal/fixtures/web/hello_world_agreement.json")
-	sa := cltest.ServiceAgreementFromString(string(input))
+	sa, err := cltest.ServiceAgreementFromString(string(input))
+	assert.NoError(t, err)
 	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
 	output, err := psa.MarshalJSON()
 	assert.NoError(t, err)

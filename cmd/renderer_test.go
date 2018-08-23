@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"bytes"
 	"io/ioutil"
+	"regexp"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -102,26 +103,18 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	t.Parallel()
 
-	sa := cltest.ServiceAgreementFromString(string(cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")))
+	sa, err := cltest.ServiceAgreementFromString(string(cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")))
+	assert.NoError(t, err)
 	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
 
-	tests := []struct {
-		name, content string
-	}{
-		{"ID", "0x8de92e4d6a2b527f1e3c39022ee0f1c177a6d874224fe54f5c4c0d5bcaa57d50"},
-		{"payment amount", "1.000000000000000000 LINK"},
-		{"expiration", "300 seconds"},
-	}
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			tw := &testWriter{test.content, t, false}
-			r := cmd.RendererTable{Writer: tw}
-
-			assert.NoError(t, r.Render(&psa))
-			assert.True(t, tw.found)
-		})
-	}
+	assert.NoError(t, r.Render(&psa))
+	output := buffer.String()
+	assert.Regexp(t, regexp.MustCompile("0x[0-9a-zA-Z]{64}"), output)
+	assert.Regexp(t, regexp.MustCompile("1.000000000000000000 LINK"), output)
+	assert.Regexp(t, regexp.MustCompile("300 seconds"), output)
 }
 
 func TestRendererTable_RenderUnknown(t *testing.T) {

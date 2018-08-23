@@ -98,7 +98,8 @@ func TestORM_SaveServiceAgreement(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sa := cltest.ServiceAgreementFromString(test.input)
+			sa, err := cltest.ServiceAgreementFromString(test.input)
+			assert.NoError(t, err)
 
 			assert.NoError(t, store.SaveServiceAgreement(&sa))
 			sa = cltest.FindServiceAgreement(store, sa.ID)

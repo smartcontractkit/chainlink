@@ -91,8 +91,9 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 }
 
 // ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.
-func ValidateServiceAgreement(sa models.ServiceAgreement, config store.Config) error {
+func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
+	config := store.Config
 
 	if sa.Encumbrance.Payment == nil {
 		fe.Add("Service agreement encumbrance error: No payment amount set")
@@ -102,6 +103,21 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, config store.Config) e
 
 	if sa.Encumbrance.Expiration < config.MinimumRequestExpiration {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Expiration is below minimum %v", config.MinimumRequestExpiration))
+	}
+
+	account, err := store.KeyStore.GetAccount()
+	if err != nil {
+		return err // 500
+	}
+
+	found := false
+	for _, oracle := range sa.Encumbrance.Oracles {
+		if oracle.Address() == account.Address {
+			found = true
+		}
+	}
+	if !found {
+		fe.Add("Service agreement encumbrance error: This node must be listed in the participating oracles")
 	}
 
 	return fe.CoerceEmptyToNil()

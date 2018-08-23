@@ -40,6 +40,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
 			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sa.RequestBody)
 			assert.NotEqual(t, models.Time{}, sa.CreatedAt)
+			cltest.AssertValidHash(t, 32, sa.Signature)
 		})
 	}
 }

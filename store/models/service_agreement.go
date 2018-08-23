@@ -66,7 +66,11 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 	requestDigest, err := utils.Keccak256([]byte(normalized))
 	digest := common.ToHex(requestDigest)
 
-	encumbrance := Encumbrance{Payment: sar.Payment, Expiration: sar.Expiration}
+	encumbrance := Encumbrance{
+		Payment:    sar.Payment,
+		Expiration: sar.Expiration,
+		Oracles:    sar.Oracles,
+	}
 
 	id, err := generateServiceAgreementID(encumbrance, digest)
 	if err != nil {
@@ -105,8 +109,9 @@ func generateServiceAgreementID(e Encumbrance, digest string) (string, error) {
 
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
-	Payment    *assets.Link `json:"payment"`
-	Expiration uint64       `json:"expiration"`
+	Payment    *assets.Link   `json:"payment"`
+	Expiration uint64         `json:"expiration"`
+	Oracles    []EIP55Address `json:"oracles"`
 }
 
 // ABI returns the encumbrance ABI encoded as a hex string.
@@ -120,7 +125,8 @@ func (e Encumbrance) ABI() string {
 
 // ServiceAgreementRequest represents a service agreement as requested over the wire.
 type ServiceAgreementRequest struct {
-	Payment    *assets.Link `json:"payment"`
-	Expiration uint64       `json:"expiration"`
+	Payment    *assets.Link   `json:"payment"`
+	Expiration uint64         `json:"expiration"`
+	Oracles    []EIP55Address `json:"oracles"`
 	JobSpecRequest
 }

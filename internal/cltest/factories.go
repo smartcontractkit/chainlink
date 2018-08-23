@@ -340,8 +340,6 @@ func (s MockSigner) Sign(input []byte) (string, error) {
 	return "0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381", nil
 }
 
-func ServiceAgreementFromString(str string) models.ServiceAgreement {
-	sa, err := models.NewServiceAgreementFromRequest(strings.NewReader(str), MockSigner{})
-	mustNotErr(err)
-	return sa
+func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
+	return models.NewServiceAgreementFromRequest(strings.NewReader(str), MockSigner{})
 }

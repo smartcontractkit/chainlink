@@ -22,21 +22,13 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	base := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
 
 	tests := []struct {
-		name      string
-		input     string
-		wantCode  int
-		id        string
-		signature string
+		name     string
+		input    string
+		wantCode int
 	}{
-		{
-			"basic",
-			base.String(),
-			200,
-			"0x8de92e4d6a2b527f1e3c39022ee0f1c177a6d874224fe54f5c4c0d5bcaa57d50",
-			"0xe86c1172d713c57b8df0d9f1ae91e4524cbb4e40719798ea48d3f777d2c893c000214b70376ddb661a8dc02fcadb911582f0e00e62eece65d3f9b8d0bfb6702201",
-		},
-		{"fails validation", base.Delete("payment").String(), 400, "", ""},
-		{"invalid JSON", "{", 400, "", ""},
+		{"success", base.String(), 200},
+		{"fails validation", base.Delete("payment").String(), 422},
+		{"invalid JSON", "{", 422},
 	}
 
 	for _, test := range tests {
@@ -51,10 +43,12 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				body := cltest.ParseResponseBody(resp)
 				err := web.ParseJSONAPIResponse(body, &responseSA)
 				assert.NoError(t, err)
+				cltest.AssertValidHash(t, 32, responseSA.ID)
+				cltest.AssertValidHash(t, 65, responseSA.Signature)
 
 				createdSA := cltest.FindServiceAgreement(app.Store, responseSA.ID)
-				assert.Equal(t, test.id, createdSA.ID)
-				assert.Equal(t, test.signature, createdSA.Signature)
+				cltest.AssertValidHash(t, 32, createdSA.ID)
+				cltest.AssertValidHash(t, 65, createdSA.Signature)
 			}
 		})
 	}
@@ -67,7 +61,8 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	input := cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")
-	sa := cltest.ServiceAgreementFromString(string(input))
+	sa, err := cltest.ServiceAgreementFromString(string(input))
+	assert.NoError(t, err)
 	assert.NoError(t, app.Store.SaveServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
