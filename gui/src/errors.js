@@ -2,6 +2,6 @@ export function AuthenticationError (message) {
   this.message = message
 }
 
-export function CreateError (message) {
-  this.message = message.errors
+export function CreateError (error) {
+  this.errors = error.errors
 }
