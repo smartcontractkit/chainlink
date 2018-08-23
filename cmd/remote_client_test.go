@@ -117,30 +117,44 @@ func TestClient_CreateJobSpec(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
-		input   string
-		nJobs   int
-		errored bool
+		name, input string
+		nJobs       int
+		errored     bool
 	}{
-		{"{bad son}", 0, true},
-		{"bad/filepath/", 0, true},
-		{`{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
-		{`{"initiators":[{"type":"runAt","time":"2018-01-08T18:12:01.103Z"}],"tasks":[{"type":"NoOp"}]}`, 2, false},
-		{"../internal/fixtures/web/end_at_job.json", 3, false},
+		{"bad json", "{bad son}", 0, true},
+		{"bad filepath", "bad/filepath/", 0, true},
+		{"web", `{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
+		{"runAt", `{"initiators":[{"type":"runAt","time":"2018-01-08T18:12:01.103Z"}],"tasks":[{"type":"NoOp"}]}`, 2, false},
+		{"file", "../internal/fixtures/web/end_at_job.json", 3, false},
 	}
 
-	for _, tt := range tests {
-		test := tt
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			set := flag.NewFlagSet("create", 0)
+			set.Parse([]string{test.input})
+			c := cli.NewContext(nil, set, nil)
 
-		set := flag.NewFlagSet("create", 0)
-		set.Parse([]string{test.input})
-		c := cli.NewContext(nil, set, nil)
+			err := client.CreateJobSpec(c)
+			cltest.AssertError(t, test.errored, err)
 
-		err := client.CreateJobSpec(c)
-		cltest.AssertError(t, test.errored, err)
-
-		numberOfJobs, _ := app.Store.Jobs()
-		assert.Equal(t, test.nJobs, len(numberOfJobs))
+			numberOfJobs, _ := app.Store.Jobs()
+			assert.Equal(t, test.nJobs, len(numberOfJobs))
+		})
 	}
+}
+
+func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("create", 0)
+	set.Parse([]string{`{"initiators":[{"type":"runAt"}],"tasks":[{"type":"NoOp"}]}`})
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.CreateJobSpec(c)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must have a time")
 }
 
 func TestClient_CreateJobRun(t *testing.T) {
