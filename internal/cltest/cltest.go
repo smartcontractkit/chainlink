@@ -522,12 +522,21 @@ func FixtureCreateServiceAgreementViaWeb(
 	path string,
 ) models.ServiceAgreement {
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBuffer(LoadJSON(path)))
+
+	agreementWithoutOracle := EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	account, err := app.Store.KeyStore.GetAccount()
+	assert.NoError(t, err)
+	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{account.Address.Hex()})
+
+	b, err := json.Marshal(agreementWithOracle)
+	assert.NoError(t, err)
+	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewReader(b))
 	defer cleanup()
+
 	AssertServerResponse(t, resp, 200)
 	responseSA := models.ServiceAgreement{}
 	body := ParseResponseBody(resp)
-	err := web.ParseJSONAPIResponse(body, &responseSA)
+	err = web.ParseJSONAPIResponse(body, &responseSA)
 	assert.NoError(t, err)
 
 	return FindServiceAgreement(app.Store, responseSA.ID)
@@ -803,6 +812,42 @@ func GetAccountAddress(store *store.Store) common.Address {
 // StringToHash give Keccak256 hash of string
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
+}
+
+func hasHexPrefix(str string) bool {
+	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
+}
+
+func isHexCharacter(c byte) bool {
+	return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
+}
+
+func isHex(str string) bool {
+	if len(str)%2 != 0 {
+		return false
+	}
+	for _, c := range []byte(str) {
+		if !isHexCharacter(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// AssertValidHash checks that a string matches a specific hash format,
+// includes a leading 0x and has a specific length (in bytes)
+func AssertValidHash(t *testing.T, length int, hash string) {
+	if !hasHexPrefix(hash) {
+		assert.FailNowf(t, "Missing hash prefix", `"%+v" is missing hash prefix`, hash)
+	}
+	hash = hash[2:]
+	hashlen := len(hash) / 2
+	if hashlen != length {
+		assert.FailNowf(t, "Wrong hash length", `"%+v" represents %d bytes, want %d`, hash, hashlen, length)
+	}
+	if !isHex(hash) {
+		assert.FailNowf(t, "Invalid character", `"%+v" contains a non hexadecimal character`, hash)
+	}
 }
 
 // AssertServerResponse is used to match against a client response, will print
