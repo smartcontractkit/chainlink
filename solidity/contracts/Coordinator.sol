@@ -8,7 +8,7 @@ contract Coordinator {
     uint256 payment;
     uint256 expiration;
     address[] oracles;
-    bytes32 jobSpecID;
+    bytes32 requestDigest;
   }
 
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
@@ -17,27 +17,27 @@ contract Coordinator {
     uint256 _payment,
     uint256 _expiration,
     address[] _oracles,
-    bytes32 _jobSpecID
+    bytes32 _requestDigest
   )
     public pure returns (bytes32)
   {
-    return keccak256(abi.encodePacked(_payment, _expiration, _oracles, _jobSpecID));
+    return keccak256(abi.encodePacked(_payment, _expiration, _oracles, _requestDigest));
   }
 
   function initiateServiceAgreement(
     uint256 _payment,
     uint256 _expiration,
     address[] _oracles,
-    bytes32 _jobSpecID
+    bytes32 _requestDigest
   ) public
   {
-    bytes32 id = getId(_payment, _expiration, _oracles, _jobSpecID);
+    bytes32 id = getId(_payment, _expiration, _oracles, _requestDigest);
 
     serviceAgreements[id] = ServiceAgreement(
       _payment,
       _expiration,
       _oracles,
-      _jobSpecID
+      _requestDigest
     );
   }
 }
