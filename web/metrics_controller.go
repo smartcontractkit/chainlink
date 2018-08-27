@@ -6,7 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web/metric"
+	"net/http"
 	"strings"
 )
 
@@ -19,22 +21,26 @@ type MetricsController struct {
 // Example:
 //  "<application>/metrics"
 func (sc *MetricsController) Show(c *gin.Context) {
-	f := false
-	for _, mp := range metric.Controllers {
-		if strings.Contains(c.GetHeader("User-Agent"), mp.UserAgent()) {
-			f = true
-			if j, err := sc.App.Store.Jobs(); err != nil {
-				c.AbortWithError(500, fmt.Errorf("error getting all jobs: %+v", err))
-			} else if jsm, err := services.AllJobSpecMetrics(sc.App.Store, j); err != nil {
-				c.AbortWithError(500, fmt.Errorf("error job spec stats: %+v", err))
-			} else {
-				mp.Show(&jsm, c.Writer, c.Request)
+	if utils.StripBearer(c.Request.Header.Get("Authorization")) != sc.App.Store.Config.MetricsBearerToken {
+		publicError(c, http.StatusUnauthorized, fmt.Errorf("incorrect access token for metrics"))
+	} else {
+		f := false
+		for _, mp := range metric.Controllers {
+			if strings.Contains(c.GetHeader("User-Agent"), mp.UserAgent()) {
+				f = true
+				if j, err := sc.App.Store.Jobs(); err != nil {
+					c.AbortWithError(500, fmt.Errorf("error getting all jobs: %+v", err))
+				} else if jsm, err := services.AllJobSpecMetrics(sc.App.Store, j); err != nil {
+					c.AbortWithError(500, fmt.Errorf("error job spec stats: %+v", err))
+				} else {
+					mp.Show(&jsm, c.Writer, c.Request)
+				}
+				break
 			}
-			break
 		}
-	}
-	if !f {
-		sc.ShowRaw(c)
+		if !f {
+			sc.ShowRaw(c)
+		}
 	}
 }
 

@@ -18,7 +18,8 @@ func BenchmarkMetricsController_Index(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := client.Get("/v2/metrics")
+		headers := map[string]string{"Authorization": "Bearer " + app.Config.MetricsBearerToken}
+		resp, cleanup := client.Get("/v2/metrics", headers)
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
@@ -31,14 +32,16 @@ func TestMetricsController_Index(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
+	headers := map[string]string{"Authorization": "Bearer " + app.Config.MetricsBearerToken}
+
 	j1, j2, err := setupStatsControllerIndex(app)
 	assert.NoError(t, err)
 
-	resp, cleanup := client.Get("/v2/metrics?size=x")
+	resp, cleanup := client.Get("/v2/metrics?size=x", headers)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = client.Get("/v2/metrics?size=1")
+	resp, cleanup = client.Get("/v2/metrics?size=1", headers)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	body := cltest.ParseResponseBody(resp)
@@ -58,7 +61,7 @@ func TestMetricsController_Index(t *testing.T) {
 	assert.Equal(t, stats.JobSpecCounts[0].AdaptorCount["noop"], 1, "Should have noop as an adaptor")
 	assert.Equal(t, j1.ID, stats.JobSpecCounts[0].ID, "should have the same ID")
 
-	resp, cleanup = client.Get(links["next"].Href)
+	resp, cleanup = client.Get(links["next"].Href, headers)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -75,6 +78,20 @@ func TestMetricsController_Index(t *testing.T) {
 	assert.Equal(t, stats.JobSpecCounts[0].ParamCount["url"][0].Value, "https://chain.link", "Should include the same URL")
 	assert.Equal(t, stats.JobSpecCounts[0].ParamCount["url"][0].Count, 1, "Should include a url")
 	assert.Equal(t, j2.ID, stats.JobSpecCounts[0].ID, "should have the same ID")
+}
+
+func TestMetricsController_Index_WrongAccessToken(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	headers := map[string]string{"Authorization": "Bearer incorrect"}
+
+	resp, cleanup := client.Get("/v2/metrics", headers)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 401)
 }
 
 func setupStatsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, *models.JobSpec, error) {

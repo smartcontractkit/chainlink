@@ -16,7 +16,10 @@ func BenchmarkPromController_Show(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := client.Get("/v2/metrics", map[string]string{"User-Agent": "Prometheus"})
+		resp, cleanup := client.Get("/v2/metrics", map[string]string{
+			"User-Agent": "Prometheus",
+			"Authorization": "Bearer " + app.Config.MetricsBearerToken,
+		})
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
@@ -32,7 +35,10 @@ func TestPromController_Show(t *testing.T) {
 	_, _, err := setupPromControllerShow(app)
 	assert.NoError(t, err)
 
-	resp, cleanup := client.Get("/v2/metrics", map[string]string{"User-Agent": "Prometheus"})
+	resp, cleanup := client.Get("/v2/metrics", map[string]string{
+		"User-Agent": "Prometheus",
+		"Authorization": "Bearer " + app.Config.MetricsBearerToken,
+	})
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 }

@@ -107,7 +107,8 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			SecretGenerator:          mockSecretGenerator{},
 			SessionTimeout:           store.Duration{MustParseDuration("2m")},
 			ReaperExpiration:         store.Duration{MustParseDuration("240h")},
-			StatsParam:               []string{"url"},
+			MetricsParam:             []string{"url"},
+			MetricsBearerToken:       utils.NewBytes32ID(),
 		},
 	}
 	config.SetEthereumServer(wsserver)

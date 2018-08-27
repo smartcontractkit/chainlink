@@ -55,7 +55,7 @@ func jobSpecCounts(store *store.Store, job models.JobSpec) (models.JobSpecCounts
 }
 
 func countParams(store *store.Store, jobRun models.JobRun, paramCount map[string][]models.ParamCount) {
-	tp := store.Config.StatsParam
+	tp := store.Config.MetricsParam
 
 	for _, p := range tp {
 		trp := jobRun.TaskRuns[0].Task.Params.Get(p)
