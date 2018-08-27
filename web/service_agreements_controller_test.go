@@ -43,12 +43,12 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				body := cltest.ParseResponseBody(resp)
 				err := web.ParseJSONAPIResponse(body, &responseSA)
 				assert.NoError(t, err)
-				cltest.AssertValidHash(t, 32, responseSA.ID)
-				cltest.AssertValidHash(t, 65, responseSA.Signature)
+				assert.NotEqual(t, "", responseSA.ID.String())
+				assert.NotEqual(t, "", responseSA.Signature.String())
 
 				createdSA := cltest.FindServiceAgreement(app.Store, responseSA.ID)
-				cltest.AssertValidHash(t, 32, createdSA.ID)
-				cltest.AssertValidHash(t, 65, createdSA.Signature)
+				assert.NotEqual(t, "", createdSA.ID.String())
+				assert.NotEqual(t, "", createdSA.Signature.String())
 			}
 		})
 	}
@@ -65,7 +65,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, app.Store.SaveServiceAgreement(&sa))
 
-	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
+	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID.String())
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 

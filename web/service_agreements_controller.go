@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/asdine/storm"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
@@ -38,7 +39,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 // Example:
 //  "<application>/service_agreements/:SAID"
 func (sac *ServiceAgreementsController) Show(c *gin.Context) {
-	id := c.Param("SAID")
+	id := common.HexToHash(c.Param("SAID"))
 	if sa, err := sac.App.Store.FindServiceAgreement(id); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("ServiceAgreement not found"))
 	} else if err != nil {

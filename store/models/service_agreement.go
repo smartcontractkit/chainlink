@@ -16,17 +16,17 @@ import (
 type ServiceAgreement struct {
 	CreatedAt   Time        `json:"createdAt" storm:"index"`
 	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
-	ID          string      `json:"id" storm:"id,unique"`
+	ID          common.Hash `json:"id" storm:"id,unique"`
 	JobSpecID   string      `json:"jobSpecID"`
 	RequestBody string      `json:"requestBody"`
-	Signature   string      `json:"signature"`
+	Signature   common.Hash `json:"signature"`
 	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
 	// If needed later, it can be retrieved from the database with JobSpecID.
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
 func (sa ServiceAgreement) GetID() string {
-	return sa.ID
+	return sa.ID.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
@@ -36,13 +36,13 @@ func (sa ServiceAgreement) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (sa *ServiceAgreement) SetID(value string) error {
-	sa.ID = value
+	sa.ID.SetString(value)
 	return nil
 }
 
 // Signer is used to produce a HMAC signature from an input digest
 type Signer interface {
-	Sign(input []byte) (string, error)
+	Sign(input []byte) ([]byte, error)
 }
 
 // NewServiceAgreementFromRequest builds a new ServiceAgreement.
@@ -64,6 +64,8 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 	}
 
 	requestDigest, err := utils.Keccak256([]byte(normalized))
+	//logger.Debug("SA requestDigest", requestDigest)
+	fmt.Println("SA requestDigest", requestDigest)
 	digest := common.ToHex(requestDigest)
 
 	encumbrance := Encumbrance{
@@ -77,7 +79,10 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 		return ServiceAgreement{}, err
 	}
 
-	signature, err := signer.Sign([]byte(id))
+	//logger.Debug("SAID", id)
+	fmt.Println("SAID", id)
+
+	signature, err := signer.Sign(id.Bytes())
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
@@ -94,17 +99,17 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 		Encumbrance: encumbrance,
 		jobSpec:     jobSpec,
 		RequestBody: normalized,
-		Signature:   signature,
+		Signature:   common.BytesToHash(signature),
 	}, nil
 }
 
-func generateServiceAgreementID(e Encumbrance, digest string) (string, error) {
+func generateServiceAgreementID(e Encumbrance, digest string) (common.Hash, error) {
 	b, err := utils.HexToBytes(e.ABI(), digest)
 	if err != nil {
-		return "", err
+		return common.Hash{}, err
 	}
-	bytesID, err := utils.Keccak256(b)
-	return common.ToHex(bytesID), err
+	bytes, err := utils.Keccak256(b)
+	return common.BytesToHash(bytes), err
 }
 
 // Encumbrance connects job specifications with on-chain encumbrances.

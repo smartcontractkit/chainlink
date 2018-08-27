@@ -210,7 +210,7 @@ func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error
 func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) error {
 	table := rt.newTable([]string{"ID", "Created At", "Payment", "Expiration"})
 	table.Append([]string{
-		sa.ID,
+		sa.ID.String(),
 		sa.FriendlyCreatedAt(),
 		sa.FriendlyPayment(),
 		sa.FriendlyExpiration(),

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -16,7 +17,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
-		wantDigest  string
+		wantDigest  common.Hash
 		wantPayment *assets.Link
 	}{
 		{
@@ -25,7 +26,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 				`{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},` +
 				`{"type":"jsonparse","path":["last"]},` +
 				`{"type":"ethbytes32"},{"type":"ethtx"}]}`,
-			"0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381",
+			common.HexToHash("0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381"),
 			assets.NewLink(1),
 		},
 	}
@@ -40,7 +41,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
 			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sa.RequestBody)
 			assert.NotEqual(t, models.Time{}, sa.CreatedAt)
-			cltest.AssertValidHash(t, 32, sa.Signature)
+			assert.NotEqual(t, "", sa.Signature.String())
 		})
 	}
 }

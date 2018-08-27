@@ -499,7 +499,7 @@ func FindJobRun(s *store.Store, id string) models.JobRun {
 	return j
 }
 
-func FindServiceAgreement(s *store.Store, id string) models.ServiceAgreement {
+func FindServiceAgreement(s *store.Store, id common.Hash) models.ServiceAgreement {
 	sa, err := s.FindServiceAgreement(id)
 	mustNotErr(err)
 

@@ -100,9 +100,9 @@ func (orm *ORM) FindJobRun(id string) (JobRun, error) {
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
-func (orm *ORM) FindServiceAgreement(id string) (ServiceAgreement, error) {
+func (orm *ORM) FindServiceAgreement(id common.Hash) (ServiceAgreement, error) {
 	var sa ServiceAgreement
-	return sa, orm.One("ID", id, &sa)
+	return sa, orm.One("ID", id.String(), &sa)
 }
 
 // InitBucket initializes buckets and indexes before saving an object.
