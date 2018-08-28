@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react'
-import Button from '@material-ui/core/Button'
+import LinkButton from 'components/LinkButton'
 import { connect } from 'react-redux'
 import Flash from './Flash'
 import { Link } from 'react-static'
@@ -22,9 +22,9 @@ export class FormNotifications extends React.Component {
                 if (err.status === 401) {
                   return (<span key={i}>
                     <span>{err.detail}</span>
-                    <Button onClick={this.signOutLocally}>
+                    <LinkButton onClick={this.signOutLocally}>
                       Log back in
-                    </Button>
+                    </LinkButton>
                   </span>)
                 }
                 return <span key={i}>{err.detail}</span>
