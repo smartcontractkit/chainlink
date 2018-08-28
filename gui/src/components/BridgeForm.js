@@ -7,7 +7,7 @@ import { connect } from 'react-redux'
 import { submitBridgeType } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
-import { BridgeAndJobNotifications } from './FormNotifications'
+import FormNotifications from './FormNotifications'
 
 const styles = theme => ({
   textfield: {
@@ -33,7 +33,7 @@ const BridgeFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  error,
+  networkErrors,
   success,
   authenticated,
   networkError,
@@ -45,8 +45,8 @@ const BridgeFormLayout = ({
       when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && submitCount === 0}
       message='You have not submitted the form, are you sure you want to leave?'
     />
-    <BridgeAndJobNotifications
-      error={error}
+    <FormNotifications
+      errors={networkErrors}
       success={success}
       networkError={networkError}
       authenticated={authenticated}
@@ -97,7 +97,7 @@ const BridgeForm = withFormik({
 
 const mapStateToProps = state => ({
   success: state.create.successMessage,
-  error: state.create.errors,
+  networkErrors: state.create.errors,
   networkError: state.create.networkError,
   authenticated: state.authentication.allowed,
   fetching: state.fetching.count

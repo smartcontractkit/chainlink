@@ -4,7 +4,7 @@ import {
 } from 'actions'
 
 const initialState = {
-  messages: [],
+  errors: [],
   currentUrl: null
 }
 const SIGN_IN_FAIL_MSG = 'Your email or password is incorrect. Please try again'
@@ -16,7 +16,7 @@ export default (state = initialState, action = {}) => {
         return Object.assign(
           {},
           state,
-          {messages: [], currentUrl: action.match.url}
+          {errors: [], currentUrl: action.match.url}
         )
       }
 
@@ -26,7 +26,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {messages: [SIGN_IN_FAIL_MSG]}
+        {errors: [{detail: SIGN_IN_FAIL_MSG}]}
       )
     default:
       return state
