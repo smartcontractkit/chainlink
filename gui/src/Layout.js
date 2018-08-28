@@ -180,7 +180,7 @@ class Layout extends Component {
               {
                 errors.length > 0 &&
                 <Flash error className={classes.flash}>
-                  {errors.map((msg, i) => <p key={i}>{msg}</p>)}
+                  {errors.map((err, i) => <p key={i}>{err.detail}</p>)}
                 </Flash>
               }
 
@@ -222,7 +222,7 @@ Layout.defaultProps = {
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  errors: state.errors.messages,
+  errors: state.routing.errors,
   isFetching: isFetchingSelector(state)
 })
 

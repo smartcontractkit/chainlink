@@ -63,7 +63,7 @@ describe('containers/CreateBridgeType', () => {
   it('displays error notification', async () => {
     const state = {
       authentication: { allowed: true },
-      create: { errors: ['bridge validation: ', 'not allowed'], successMessage: {}, networkError: false },
+      create: { errors: [{detail: 'bridge validation: not allowed'}], successMessage: {}, networkError: false },
       fetching: { count: 0 }
     }
     const store = mockStore(state)
@@ -82,6 +82,19 @@ describe('containers/CreateBridgeType', () => {
     let wrapper = mountCreatePage(store)
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Network Error')
+  })
+
+  it('displays forbidden error notification', async () => {
+    const state = {
+      authentication: { allowed: true },
+      create: { errors: [{status: 401, detail: 'Unauthorized'}], successMessage: {}, networkError: false },
+      fetching: { count: 0 }
+    }
+    const store = mockStore(state)
+    let wrapper = mountCreatePage(store)
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('Unauthorized')
+    expect(wrapper.text()).toContain('Log back in')
   })
 
   it('makes sure all needed fields are entered', async () => {

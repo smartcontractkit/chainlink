@@ -121,6 +121,8 @@ type ConfigWhitelist struct {
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     string          `json:"chainlinkPort"`
 	RootDir                  string          `json:"root"`
+	SessionTimeout           store.Duration  `json:"sessionTimeout"`
+	ReaperExpiration         store.Duration  `json:"reaperExpiration"`
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
@@ -142,8 +144,10 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinimumContractPayment:   &config.MinimumContractPayment,
 		MinimumRequestExpiration: config.MinimumRequestExpiration,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:    config.Port,
-		RootDir: config.RootDir,
+		Port:             config.Port,
+		RootDir:          config.RootDir,
+		SessionTimeout:   config.SessionTimeout,
+		ReaperExpiration: config.ReaperExpiration,
 	}
 }
 
@@ -165,7 +169,9 @@ func (c ConfigWhitelist) String() string {
 		"ORACLE_CONTRACT_ADDRESS: %s\n" +
 		"DATABASE_POLL_INTERVAL: %s\n" +
 		"ALLOW_ORIGINS: %s\n" +
-		"CHAINLINK_DEV: %v\n"
+		"CHAINLINK_DEV: %v\n" +
+		"SESSION_TIMEOUT: %v\n" +
+		"REAPER_EXPIRATION: %v\n"
 
 	oracleContractAddress := ""
 	if c.OracleContractAddress != nil {
@@ -191,6 +197,8 @@ func (c ConfigWhitelist) String() string {
 		c.DatabaseTimeout,
 		c.AllowOrigins,
 		c.ChainlinkDev,
+		c.SessionTimeout,
+		c.ReaperExpiration,
 	)
 }
 

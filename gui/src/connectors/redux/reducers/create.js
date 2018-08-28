@@ -34,12 +34,11 @@ export default (state = initialState, action = {}) => {
         }
       )
     case RECEIVE_CREATE_ERROR:
-      const messages = action.error.errors.map(e => e.detail)
       return Object.assign(
         {},
         initialState,
         {
-          errors: messages,
+          errors: action.error.errors,
           networkError: action.networkError
         }
       )

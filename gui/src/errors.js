@@ -1,5 +1,8 @@
-export function AuthenticationError (message) {
-  this.message = message
+export function AuthenticationError (response) {
+  this.errors = [{
+    status: response.status,
+    detail: response.statusText
+  }]
 }
 
 export function CreateError ({errors}) {
