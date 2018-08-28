@@ -30,6 +30,7 @@ const renderBridgeList = ({ bridges, bridgeCount, pageSize, bridgesError, fetchB
 
 export class Bridges extends Component {
   componentDidMount () {
+    console.log('=== STORE: %o', this.props)
     this.props.fetchBridges(1, this.props.pageSize)
   }
 

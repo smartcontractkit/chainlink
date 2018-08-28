@@ -11,7 +11,7 @@ module.exports = function Deployer (wallet, utils) {
     contract.setProvider(utils.provider)
     contract.defaults({
       from: wallet.address,
-      gas: 2500000,
+      gas: 3500000,
       gasPrice: 10000000000
     })
     return contract.at(address)

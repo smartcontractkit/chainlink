@@ -3,7 +3,6 @@ const fs = require('fs')
 const path = require('path')
 
 const INCLUDE_PATHS = ['./']
-const SCRIPT_PATH = path.dirname(process.argv[1])
 
 function solidityCompile (filename, lookupIncludeFile) {
   const inputBasename = path.basename(filename).toString()
@@ -37,7 +36,7 @@ function compile (filename) {
   function lookupIncludeFile (includeFile) {
     for (let lookupPath of lookupPaths) {
       // Do all path lookups relative to the script
-      const fullPath = path.resolve(SCRIPT_PATH, lookupPath, includeFile)
+      const fullPath = path.resolve(__dirname, lookupPath, includeFile)
       if (fs.existsSync(fullPath)) {
         return {contents: fs.readFileSync(fullPath).toString()}
       }
