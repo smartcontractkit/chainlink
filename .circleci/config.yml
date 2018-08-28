@@ -3,7 +3,7 @@ jobs:
   go:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.6
+      - image: smartcontract/builder:1.0.8
     steps:
       - checkout
       - restore_cache:
@@ -19,7 +19,7 @@ jobs:
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.6
+      - image: smartcontract/builder:1.0.8
     steps:
       - checkout
       - restore_cache:
@@ -35,7 +35,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.6
+      - image: smartcontract/builder:1.0.8
     steps:
       - checkout
       - restore_cache:
@@ -51,7 +51,7 @@ jobs:
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.6
+      - image: smartcontract/builder:1.0.8
     steps:
       - checkout
       - restore_cache:
@@ -64,6 +64,32 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run: ./internal/ci/gui_test
+  deploy:
+    docker:
+      - image: smartcontract/deployer:latest
+    environment:
+      ENVIRONMENT: release
+      DOCKER_TAG: staging
+    steps:
+      - run:
+          name: Store Service Account
+          command: echo $GCLOUD_SERVICE_KEY > ${HOME}/gcloud-service-key.json
+      - run: |
+          gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+          gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+          gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+          gcloud --quiet container clusters get-credentials ${GOOGLE_CLUSTER_NAME}
+      - checkout
+      - setup_remote_docker
+      - run: echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin
+      - run: make docker
+      - run: make dockerpush
+      - run: |
+          docker inspect --format='{{index .RepoDigests 0}}' "smartcontract/chainlink:staging" \
+            | awk -F'@' '{print$2}' \
+            | xargs -I'%' kubectl set image deployment.apps/chainlink-deploy \
+                "chainlink=smartcontract/chainlink:staging@%"
+
 
 workflows:
   version: 2
@@ -73,3 +99,12 @@ workflows:
       - truffle
       - geth
       - gui
+      - deploy:
+          requires:
+            - go
+            - truffle
+            - geth
+            - gui
+          filters:
+            branches:
+              only: master

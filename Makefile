@@ -10,7 +10,7 @@ VERSION = $(shell cat VERSION)
 GO_LDFLAGS := $(shell internal/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := Dockerfile
-DOCKER_TAG := $(REPO)
+DOCKER_TAG ?= latest
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
@@ -22,10 +22,12 @@ ifeq ($(SGX_ENABLED),yes)
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
 	DOCKERFILE := Dockerfile-sgx
-	DOCKER_TAG := $(REPO)-sgx
+	REPO := $(REPO)-sgx
 else
 	SGX_BUILD_ENCLAVE :=
 endif
+
+TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 
 godep: ## Ensure chainlink's go dependencies are installed.
 	dep ensure -vendor-only
@@ -47,12 +49,12 @@ docker: ## Build the docker image.
 		--build-arg ENVIRONMENT \
 		--build-arg COMMIT_SHA \
 		--build-arg SGX_SIMULATION \
-		-t $(DOCKER_TAG) \
+		-t $(TAGGED_REPO) \
 		-f $(DOCKERFILE) \
 		.
 
 dockerpush: ## Push the docker image to dockerhub
-	docker push $(REPO)
+	docker push $(TAGGED_REPO)
 
 chainlink: $(SGX_BUILD_ENCLAVE)
 	go build $(GOFLAGS) -o chainlink
