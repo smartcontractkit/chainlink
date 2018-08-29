@@ -238,7 +238,7 @@ Layout.defaultProps = {
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  errors: state.routing.errors,
+  errors: state.errors.errors,
   isFetching: isFetchingSelector(state)
 })
 
