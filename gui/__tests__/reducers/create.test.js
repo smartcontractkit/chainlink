@@ -6,7 +6,6 @@ describe('create reducer', () => {
     const state = reducer(undefined, {})
 
     expect(state.create).toEqual({
-      errors: [],
       successMessage: {},
       networkError: false
     })
@@ -31,12 +30,12 @@ describe('create reducer', () => {
   })
 
   describe('RECEIVE_CREATE_ERROR', () => {
-    it('assigns correct object to error', () => {
+    it('does nothing because that\'s handled by global errors', () => {
       const previousState = { create: {} }
       const error = { errors: [{detail: 'errored'}] }
       const action = { type: RECEIVE_CREATE_ERROR, error: error }
       const state = reducer(previousState, action)
-      expect(state.create.errors).toEqual([{detail: 'errored'}])
+      expect(state.create.errors).toEqual(undefined)
     })
   })
 })

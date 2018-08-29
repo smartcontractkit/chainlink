@@ -33,7 +33,6 @@ const BridgeFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  networkErrors,
   success,
   authenticated,
   networkError,
@@ -46,7 +45,6 @@ const BridgeFormLayout = ({
       message='You have not submitted the form, are you sure you want to leave?'
     />
     <FormNotifications
-      errors={networkErrors}
       success={success}
       networkError={networkError}
       authenticated={authenticated}
@@ -97,7 +95,6 @@ const BridgeForm = withFormik({
 
 const mapStateToProps = state => ({
   success: state.create.successMessage,
-  networkErrors: state.create.errors,
   networkError: state.create.networkError,
   authenticated: state.authentication.allowed,
   fetching: state.fetching.count

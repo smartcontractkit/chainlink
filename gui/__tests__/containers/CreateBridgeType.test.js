@@ -42,59 +42,16 @@ describe('containers/CreateBridgeType', () => {
     expect(wrapper.contains(<BridgeForm />)).toBe(true)
   })
 
-  it('displays warning notification with expired session', async () => {
-    expect.assertions(1)
-    let wrapper = mountCreatePage(createStore())
-    expect(wrapper.text()).toContain('Session expired. Please sign back in')
-  })
-
   it('displays success notification', async () => {
     const state = {
       authentication: { allowed: true },
-      create: { errors: [], successMessage: { name: 'randombridgename' }, networkError: false },
+      create: {successMessage: { name: 'randombridgename' }, networkError: false},
       fetching: { count: 0 }
     }
     const store = mockStore(state)
     let wrapper = mountCreatePage(store)
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Bridge randombridgename was successfully created')
-  })
-
-  it('displays error notification', async () => {
-    const state = {
-      authentication: { allowed: true },
-      create: { errors: [{detail: 'bridge validation: not allowed'}], successMessage: {}, networkError: false },
-      fetching: { count: 0 }
-    }
-    const store = mockStore(state)
-    let wrapper = mountCreatePage(store)
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('bridge validation: not allowed')
-  })
-
-  it('displays network error notification', async () => {
-    const state = {
-      authentication: { allowed: true },
-      create: { errors: [], successMessage: {}, networkError: true },
-      fetching: { count: 0 }
-    }
-    const store = mockStore(state)
-    let wrapper = mountCreatePage(store)
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Network Error')
-  })
-
-  it('displays forbidden error notification', async () => {
-    const state = {
-      authentication: { allowed: true },
-      create: { errors: [{status: 401, detail: 'Unauthorized'}], successMessage: {}, networkError: false },
-      fetching: { count: 0 }
-    }
-    const store = mockStore(state)
-    let wrapper = mountCreatePage(store)
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Unauthorized')
-    expect(wrapper.text()).toContain('Sign In Again')
   })
 
   it('makes sure all needed fields are entered', async () => {

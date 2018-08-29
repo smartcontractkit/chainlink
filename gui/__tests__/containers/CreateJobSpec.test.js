@@ -41,7 +41,7 @@ describe('containers/CreateJobSpec', () => {
   it('displays success notification', async () => {
     const state = {
       authentication: { allowed: true },
-      create: {errors: [], successMessage: {id: '83bd80df93f249ef9c8dc8d5a20b34c3'}, networkError: false},
+      create: {successMessage: {id: '83bd80df93f249ef9c8dc8d5a20b34c3'}, networkError: false},
       fetching: {count: 0}
     }
     const store = mockStore(state)
