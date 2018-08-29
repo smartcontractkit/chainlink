@@ -23,7 +23,7 @@ export class FormNotifications extends React.Component {
                   return (<span key={i}>
                     <span>{err.detail}</span>
                     <LinkButton onClick={this.signOutLocally}>
-                      Log back in
+                      Sign In Again
                     </LinkButton>
                   </span>)
                 }

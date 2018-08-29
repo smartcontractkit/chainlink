@@ -94,7 +94,7 @@ describe('containers/CreateBridgeType', () => {
     let wrapper = mountCreatePage(store)
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Unauthorized')
-    expect(wrapper.text()).toContain('Log back in')
+    expect(wrapper.text()).toContain('Sign In Again')
   })
 
   it('makes sure all needed fields are entered', async () => {
