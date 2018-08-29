@@ -27,7 +27,6 @@ const JobFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  networkErrors,
   success,
   authenticated,
   networkError,
@@ -41,7 +40,6 @@ const JobFormLayout = ({
         message='You have not submitted the form, are you sure you want to leave?'
       />
       <FormNotifications
-        errors={networkErrors}
         success={success}
         networkError={networkError}
         authenticated={authenticated}
@@ -79,7 +77,6 @@ const JobForm = withFormik({
 const mapStateToProps = state => {
   return {
     success: state.create.successMessage,
-    networkErrors: state.create.errors,
     networkError: state.create.networkError,
     authenticated: state.authentication.allowed
   }

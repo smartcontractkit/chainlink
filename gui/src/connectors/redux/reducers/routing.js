@@ -1,6 +1,7 @@
 import {
   MATCH_ROUTE,
-  RECEIVE_SIGNIN_FAIL
+  RECEIVE_SIGNIN_FAIL,
+  RECEIVE_CREATE_ERROR
 } from 'actions'
 
 const initialState = {
@@ -27,6 +28,12 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {errors: [{detail: SIGN_IN_FAIL_MSG}]}
+      )
+    case RECEIVE_CREATE_ERROR:
+      return Object.assign(
+        {},
+        state,
+        {errors: action.error.errors}
       )
     default:
       return state

@@ -4,6 +4,7 @@ import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Drawer from '@material-ui/core/Drawer'
+import LinkButton from 'components/LinkButton'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemText from '@material-ui/core/ListItemText'
@@ -20,7 +21,7 @@ import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { submitSignOut } from 'actions'
+import { submitSignOut, receiveSignoutSuccess } from 'actions'
 import { isFetchingSelector } from 'selectors'
 
 // Asynchronously load routes that are chunked via code-splitting
@@ -86,6 +87,7 @@ class Layout extends Component {
     this.state = {drawerOpen: false}
     this.toggleDrawer = this.toggleDrawer.bind(this)
     this.signOut = this.signOut.bind(this)
+    this.signOutLocally = this.signOutLocally.bind(this)
   }
 
   toggleDrawer () {
@@ -94,6 +96,10 @@ class Layout extends Component {
 
   signOut () {
     this.props.submitSignOut()
+  }
+
+  signOutLocally () {
+    this.props.receiveSignoutSuccess()
   }
 
   render () {
@@ -180,7 +186,17 @@ class Layout extends Component {
               {
                 errors.length > 0 &&
                 <Flash error className={classes.flash}>
-                  {errors.map((err, i) => <p key={i}>{err.detail}</p>)}
+                  {errors.map((err, i) => {
+                    if (err.status === 401) {
+                      return <p key={i}>
+                        {err.detail}
+                        <LinkButton onClick={this.signOutLocally}>
+                          Sign In Again
+                        </LinkButton>
+                      </p>
+                    }
+                    return <p key={i}>{err.detail}</p>
+                  })}
                 </Flash>
               }
 
@@ -226,7 +242,7 @@ const mapStateToProps = state => ({
   isFetching: isFetchingSelector(state)
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)
+const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut, receiveSignoutSuccess}, dispatch)
 
 export const ConnectedLayout = connect(mapStateToProps, mapDispatchToProps)(Layout)
 
