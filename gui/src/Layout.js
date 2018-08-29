@@ -82,23 +82,17 @@ const styles = theme => {
 }
 
 class Layout extends Component {
-  constructor (props) {
-    super(props)
-    this.state = {drawerOpen: false}
-    this.toggleDrawer = this.toggleDrawer.bind(this)
-    this.signOut = this.signOut.bind(this)
-    this.signOutLocally = this.signOutLocally.bind(this)
-  }
+  state = {drawerOpen: false}
 
-  toggleDrawer () {
+  toggleDrawer = () => {
     this.setState({drawerOpen: !this.state.drawerOpen})
   }
 
-  signOut () {
+  signOut = () => {
     this.props.submitSignOut()
   }
 
-  signOutLocally () {
+  signOutLocally = () => {
     this.props.receiveSignoutSuccess()
   }
 
