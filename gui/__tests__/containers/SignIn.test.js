@@ -61,6 +61,7 @@ describe('containers/SignIn', () => {
     const newState = store.getState()
     expect(newState.errors).toEqual({
       errors: [{detail: 'Your email or password is incorrect. Please try again'}],
+      successes: [],
       currentUrl: '/signin'
     })
     expect(newState.authentication.allowed).toEqual(false)
