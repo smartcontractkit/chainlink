@@ -6,11 +6,11 @@ import {
   RECEIVE_CREATE_ERROR
 } from 'actions'
 
-describe('errors reducer', () => {
+describe('notifications reducer', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 
-    expect(state.errors).toEqual({
+    expect(state.notifications).toEqual({
       errors: [],
       successes: [],
       currentUrl: null
@@ -19,7 +19,7 @@ describe('errors reducer', () => {
 
   it('MATCH_ROUTE clears errors when currentUrl changes', () => {
     const previousState = {
-      errors: {
+      notifications: {
         errors: [{detail: 'error 1'}],
         successes: [{id: '123'}],
         currentUrl: null
@@ -29,7 +29,7 @@ describe('errors reducer', () => {
     const sameUrlAction = {type: MATCH_ROUTE, match: {url: null}}
     let state = reducer(previousState, sameUrlAction)
 
-    expect(state.errors).toEqual({
+    expect(state.notifications).toEqual({
       errors: [{detail: 'error 1'}],
       successes: [{id: '123'}],
       currentUrl: null
@@ -37,7 +37,7 @@ describe('errors reducer', () => {
 
     const changedUrlAction = {type: MATCH_ROUTE, match: {url: '/'}}
     state = reducer(previousState, changedUrlAction)
-    expect(state.errors).toEqual({
+    expect(state.notifications).toEqual({
       errors: [],
       successes: [],
       currentUrl: '/'
@@ -48,7 +48,7 @@ describe('errors reducer', () => {
     const action = {type: RECEIVE_SIGNIN_FAIL}
     const state = reducer(undefined, action)
 
-    expect(state.errors).toEqual({
+    expect(state.notifications).toEqual({
       errors: [{detail: 'Your email or password is incorrect. Please try again'}],
       successes: [],
       currentUrl: null
@@ -59,7 +59,7 @@ describe('errors reducer', () => {
     const action = {type: RECEIVE_CREATE_ERROR, error: {errors: [{detail: 'Invalid name'}]}}
     const state = reducer(undefined, action)
 
-    expect(state.errors).toEqual({
+    expect(state.notifications).toEqual({
       errors: [{detail: 'Invalid name'}],
       successes: [],
       currentUrl: null
@@ -71,7 +71,7 @@ describe('errors reducer', () => {
     const action = {type: RECEIVE_CREATE_SUCCESS, response: response}
     const state = reducer(undefined, action)
 
-    expect(state.errors).toEqual({
+    expect(state.notifications).toEqual({
       errors: [],
       successes: [response],
       currentUrl: null
