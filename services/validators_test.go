@@ -151,27 +151,31 @@ func TestValidateServiceAgreement(t *testing.T) {
 	assert.NoError(t, err)
 	defer cleanup()
 
-	basic := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
 	account, err := store.KeyStore.GetAccount()
 	assert.NoError(t, err)
 
 	oracles := []string{account.Address.Hex()}
+
+	basic := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	basic = basic.Add("oracles", oracles)
 
 	tests := []struct {
 		name      string
 		input     cltest.EasyJSON
 		wantError bool
 	}{
-		{"basic", basic.Add("oracles", oracles), false},
+		{"basic", basic, false},
 		{"no payment", basic.Delete("payment"), true},
 		{"less than minimum payment", basic.Add("payment", "1"), true},
 		{"less than minimum expiration", basic.Add("expiration", 1), true},
+		{"without being listed as an oracle", basic.Add("oracles", []string{}), true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sa, err := cltest.ServiceAgreementFromString(test.input.String())
 			assert.NoError(t, err)
+
 			result := services.ValidateServiceAgreement(sa, store)
 
 			cltest.AssertError(t, test.wantError, result)
