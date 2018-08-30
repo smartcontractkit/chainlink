@@ -24,7 +24,7 @@ const post = (path, body, shouldStringify = true) => {
     formatURI(path),
     {
       method: 'POST',
-      body: shouldStringify ? JSON.stringify(body) : body,
+      body: shouldStringify ? JSON.stringify(body || '') : body || '',
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
@@ -77,5 +77,7 @@ export const createSession = (data) => post(`/sessions`, data)
 export const createBridgeType = (data, shouldStringify) => post('/v2/bridge_types', data, shouldStringify)
 
 export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
+
+export const createJobSpecRun = (id) => post(`/v2/specs/${id}/runs`, '')
 
 export const destroySession = () => destroy(`/sessions`)

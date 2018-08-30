@@ -222,6 +222,15 @@ function sendBridgeType (data, shouldStringify) {
   }
 }
 
+function sendJobSpecRun (id) {
+  return dispatch => {
+    dispatch(createAction(REQUEST_CREATE))
+    return api.createJobSpecRun(id)
+      .then((res) => dispatch(receiveCreateSuccess(res)))
+      .catch((error) => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
+  }
+}
+
 export const fetchJobs = (page, size) => sendFetchActions('jobs', page, size)
 export const fetchAccountBalance = () => sendFetchActions('accountBalance')
 export const fetchJobSpec = (id) => sendFetchActions('jobSpec', id)
@@ -235,3 +244,4 @@ export const submitSignIn = (data) => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 export const submitBridgeType = (data, shouldStringify) => sendBridgeType(data, shouldStringify)
 export const submitJobSpec = (data, shouldStringify) => sendJobSpec(data, shouldStringify)
+export const submitJobSpecRun = (id) => sendJobSpecRun(id)

@@ -9,7 +9,7 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
-import formatInitiators from 'utils/formatInitiators'
+import { formatInitiators } from 'utils/jobSpecInitiators'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
 const renderError = error => (
