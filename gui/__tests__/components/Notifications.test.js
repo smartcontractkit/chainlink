@@ -24,7 +24,7 @@ const mountNotifications = (store, props) => {
 describe('components/Notifications', () => {
   it('displays unauthorized errors', async () => {
     const state = {
-      errors: {
+      notifications: {
         successes: [],
         errors: [{detail: 'Unauthorized', status: 401}],
         currentUrl: null
@@ -39,7 +39,7 @@ describe('components/Notifications', () => {
 
   it('displays other errors', async () => {
     const state = {
-      errors: {
+      notifications: {
         successes: [],
         errors: [{detail: 'Something unexpected happened'}],
         currentUrl: null
@@ -57,7 +57,7 @@ describe('components/Notifications', () => {
       id: 'MYJOBID'
     }
     const state = {
-      errors: {
+      notifications: {
         successes: [jobResponse],
         errors: [],
         currentUrl: null
@@ -74,7 +74,7 @@ describe('components/Notifications', () => {
       name: 'randombridgename'
     }
     const state = {
-      errors: {
+      notifications: {
         successes: [bridgeResponse],
         errors: [],
         currentUrl: null

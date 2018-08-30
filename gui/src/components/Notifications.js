@@ -26,8 +26,7 @@ export class Notifications extends React.Component {
     const { errors, successes, classes } = this.props
     return (
       <Fragment>
-        {
-          errors.length > 0 &&
+        {errors.length > 0 &&
           <Flash error className={classes.flash}>
             {errors.map((err, i) => this.errorPresenter(err, i))}
           </Flash>
@@ -56,8 +55,8 @@ const successPresenter = (success, i) => {
 }
 
 const mapStateToProps = state => ({
-  errors: state.errors.errors,
-  successes: state.errors.successes
+  errors: state.notifications.errors,
+  successes: state.notifications.successes
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators({receiveSignoutSuccess}, dispatch)
