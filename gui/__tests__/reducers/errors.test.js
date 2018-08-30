@@ -1,7 +1,9 @@
 import reducer from 'connectors/redux/reducers'
 import {
   MATCH_ROUTE,
-  RECEIVE_SIGNIN_FAIL
+  RECEIVE_SIGNIN_FAIL,
+  RECEIVE_CREATE_SUCCESS,
+  RECEIVE_CREATE_ERROR
 } from 'actions'
 
 describe('errors reducer', () => {
@@ -10,16 +12,7 @@ describe('errors reducer', () => {
 
     expect(state.errors).toEqual({
       errors: [],
-      currentUrl: null
-    })
-  })
-
-  it('RECEIVE_SIGNIN_FAIL adds a failure', () => {
-    const action = {type: RECEIVE_SIGNIN_FAIL}
-    const state = reducer(undefined, action)
-
-    expect(state.errors).toEqual({
-      errors: [{detail: 'Your email or password is incorrect. Please try again'}],
+      successes: [],
       currentUrl: null
     })
   })
@@ -28,6 +21,7 @@ describe('errors reducer', () => {
     const previousState = {
       errors: {
         errors: [{detail: 'error 1'}],
+        successes: [{id: '123'}],
         currentUrl: null
       }
     }
@@ -37,6 +31,7 @@ describe('errors reducer', () => {
 
     expect(state.errors).toEqual({
       errors: [{detail: 'error 1'}],
+      successes: [{id: '123'}],
       currentUrl: null
     })
 
@@ -44,7 +39,42 @@ describe('errors reducer', () => {
     state = reducer(previousState, changedUrlAction)
     expect(state.errors).toEqual({
       errors: [],
+      successes: [],
       currentUrl: '/'
+    })
+  })
+
+  it('RECEIVE_SIGNIN_FAIL adds a failure', () => {
+    const action = {type: RECEIVE_SIGNIN_FAIL}
+    const state = reducer(undefined, action)
+
+    expect(state.errors).toEqual({
+      errors: [{detail: 'Your email or password is incorrect. Please try again'}],
+      successes: [],
+      currentUrl: null
+    })
+  })
+
+  it('RECEIVE_CREATE_ERROR adds a failure', () => {
+    const action = {type: RECEIVE_CREATE_ERROR, error: {errors: [{detail: 'Invalid name'}]}}
+    const state = reducer(undefined, action)
+
+    expect(state.errors).toEqual({
+      errors: [{detail: 'Invalid name'}],
+      successes: [],
+      currentUrl: null
+    })
+  })
+
+  it('RECEIVE_CREATE_SUCCESS adds a success', () => {
+    const response = {id: 'SOMEID', name: 'SOMENAME'}
+    const action = {type: RECEIVE_CREATE_SUCCESS, response: response}
+    const state = reducer(undefined, action)
+
+    expect(state.errors).toEqual({
+      errors: [],
+      successes: [response],
+      currentUrl: null
     })
   })
 })

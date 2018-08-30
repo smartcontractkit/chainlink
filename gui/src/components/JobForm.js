@@ -7,7 +7,6 @@ import { connect } from 'react-redux'
 import { submitJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
-import FormNotifications from './FormNotifications'
 
 const styles = theme => ({
   card: {
@@ -27,8 +26,6 @@ const JobFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  success,
-  authenticated,
   networkError,
   values,
   submitCount
@@ -38,13 +35,6 @@ const JobFormLayout = ({
       <Prompt
         when={values.json !== '' && submitCount === 0}
         message='You have not submitted the form, are you sure you want to leave?'
-      />
-      <FormNotifications
-        success={success}
-        networkError={networkError}
-        authenticated={authenticated}
-        classes={classes}
-        jobOrBridge='Job'
       />
       <Form noValidate>
         <Grid container justify='center'>
@@ -76,9 +66,7 @@ const JobForm = withFormik({
 
 const mapStateToProps = state => {
   return {
-    success: state.create.successMessage,
-    networkError: state.create.networkError,
-    authenticated: state.authentication.allowed
+    networkError: state.create.networkError
   }
 }
 

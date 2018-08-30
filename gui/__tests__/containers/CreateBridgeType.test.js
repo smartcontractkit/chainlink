@@ -4,14 +4,12 @@ import CreateBridgeType from 'containers/CreateBridgeType'
 import { Provider } from 'react-redux'
 import { mount } from 'enzyme'
 import createStore from 'connectors/redux'
-import configureStore from 'redux-mock-store'
 import syncFetch from 'test-helpers/syncFetch'
 import BridgeForm from 'components/BridgeForm'
 import { MemoryRouter } from 'react-router'
 import { Switch, Route } from 'react-static'
 
 const classes = {}
-const mockStore = configureStore()
 
 const TestPrompt = () => <div>Shouldn't be rendered</div>
 
@@ -40,18 +38,6 @@ describe('containers/CreateBridgeType', () => {
 
     await syncFetch(wrapper)
     expect(wrapper.contains(<BridgeForm />)).toBe(true)
-  })
-
-  it('displays success notification', async () => {
-    const state = {
-      authentication: { allowed: true },
-      create: {successMessage: { name: 'randombridgename' }, networkError: false},
-      fetching: { count: 0 }
-    }
-    const store = mockStore(state)
-    let wrapper = mountCreatePage(store)
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Bridge randombridgename was successfully created')
   })
 
   it('makes sure all needed fields are entered', async () => {

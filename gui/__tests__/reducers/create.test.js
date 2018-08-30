@@ -6,7 +6,6 @@ describe('create reducer', () => {
     const state = reducer(undefined, {})
 
     expect(state.create).toEqual({
-      successMessage: {},
       networkError: false
     })
   })
@@ -24,7 +23,6 @@ describe('create reducer', () => {
       const action = { type: RECEIVE_CREATE_SUCCESS, response: { successful: 'success message' } }
       const state = reducer(previousState, action)
 
-      expect(state.create.successMessage).toEqual({ successful: 'success message' })
       expect(state.create.networkError).toEqual(false)
     })
   })

@@ -1,27 +1,25 @@
 import React, { Component } from 'react'
-import PropTypes from 'prop-types'
 import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Drawer from '@material-ui/core/Drawer'
-import LinkButton from 'components/LinkButton'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemText from '@material-ui/core/ListItemText'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
-import Flash from 'components/Flash'
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
 import Loading from 'components/Loading'
+import Notifications from 'components/Notifications'
 import universal from 'react-universal-component'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { submitSignOut, receiveSignoutSuccess } from 'actions'
+import { submitSignOut } from 'actions'
 import { isFetchingSelector } from 'selectors'
 
 // Asynchronously load routes that are chunked via code-splitting
@@ -92,12 +90,8 @@ class Layout extends Component {
     this.props.submitSignOut()
   }
 
-  signOutLocally = () => {
-    this.props.receiveSignoutSuccess()
-  }
-
   render () {
-    const {classes, errors, isFetching} = this.props
+    const {classes, isFetching} = this.props
     const {drawerOpen} = this.state
 
     const drawer = (
@@ -177,22 +171,7 @@ class Layout extends Component {
             <div>
               <div className={classes.toolbar} />
 
-              {
-                errors.length > 0 &&
-                <Flash error className={classes.flash}>
-                  {errors.map((err, i) => {
-                    if (err.status === 401) {
-                      return <p key={i}>
-                        {err.detail}
-                        <LinkButton onClick={this.signOutLocally}>
-                          Sign In Again
-                        </LinkButton>
-                      </p>
-                    }
-                    return <p key={i}>{err.detail}</p>
-                  })}
-                </Flash>
-              }
+              <Notifications classes={classes} />
 
               <div className={classes.content}>
                 <Switch>
@@ -222,21 +201,12 @@ class Layout extends Component {
   }
 }
 
-Layout.propTypes = {
-  errors: PropTypes.array
-}
-
-Layout.defaultProps = {
-  errors: []
-}
-
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  errors: state.errors.errors,
   isFetching: isFetchingSelector(state)
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut, receiveSignoutSuccess}, dispatch)
+const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)
 
 export const ConnectedLayout = connect(mapStateToProps, mapDispatchToProps)(Layout)
 

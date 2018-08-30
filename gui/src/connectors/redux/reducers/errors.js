@@ -1,11 +1,13 @@
 import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
+  RECEIVE_CREATE_SUCCESS,
   RECEIVE_CREATE_ERROR
 } from 'actions'
 
 const initialState = {
   errors: [],
+  successes: [],
   currentUrl: null
 }
 const SIGN_IN_FAIL_MSG = 'Your email or password is incorrect. Please try again'
@@ -17,7 +19,7 @@ export default (state = initialState, action = {}) => {
         return Object.assign(
           {},
           state,
-          {errors: [], currentUrl: action.match.url}
+          {errors: [], successes: [], currentUrl: action.match.url}
         )
       }
 
@@ -34,6 +36,12 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {errors: action.error.errors}
+      )
+    case RECEIVE_CREATE_SUCCESS:
+      return Object.assign(
+        {},
+        initialState,
+        {successes: [action.response]}
       )
     default:
       return state

@@ -5,7 +5,6 @@ import {
 } from 'actions'
 
 const initialState = {
-  successMessage: {},
   networkError: false
 }
 
@@ -27,7 +26,6 @@ export default (state = initialState, action = {}) => {
         {},
         initialState,
         {
-          successMessage: action.response,
           networkError: false
         }
       )
