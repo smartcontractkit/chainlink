@@ -186,8 +186,7 @@ type TaskSpec struct {
 
 // UnmarshalJSON parses the given input and updates the TaskSpec.
 func (t *TaskSpec) UnmarshalJSON(input []byte) error {
-	type Alias TaskSpec
-	var aux Alias
+	var aux caseSensitiveTaskSpec
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
 	}
@@ -262,6 +261,9 @@ func (t TaskType) MarshalJSON() ([]byte, error) {
 func (t TaskType) String() string {
 	return string(t)
 }
+
+//easyjson:json
+type caseSensitiveTaskSpec TaskSpec
 
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
