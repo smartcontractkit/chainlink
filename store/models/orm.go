@@ -179,11 +179,11 @@ func (orm *ORM) SaveServiceAgreement(sa *ServiceAgreement) error {
 	}
 	defer tx.Rollback()
 
-	if err := saveJobSpec(&sa.jobSpec, tx); err != nil {
+	if err := saveJobSpec(&sa.JobSpec, tx); err != nil {
 		return fmt.Errorf("error saving service agreement: %+v", err)
 	}
 
-	sa.JobSpecID = sa.jobSpec.ID
+	sa.JobSpecID = sa.JobSpec.ID
 	if err := tx.Save(sa); err != nil {
 		return fmt.Errorf("error saving service agreement: %+v", err)
 	}
