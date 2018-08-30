@@ -22,6 +22,19 @@ export class Notifications extends React.Component {
     return <p key={i}>{err.detail}</p>
   }
 
+  successPresenter = (success, i) => {
+    // TODO: Update backend to have JSONAPI responses on Create to better discern between types.
+    const isJob = success => success.initiators
+    if (isJob(success)) {
+      return <p key={i}>
+        Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created
+      </p>
+    }
+    return <p key={i}>
+      Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created
+    </p>
+  }
+
   render () {
     const { errors, successes, classes } = this.props
     return (
@@ -33,25 +46,12 @@ export class Notifications extends React.Component {
         }
         {successes.length > 0 && (
           <Flash success className={classes.flash}>
-            {successes.map((succ, i) => successPresenter(succ, i))}
+            {successes.map((succ, i) => this.successPresenter(succ, i))}
           </Flash>
         )}
       </Fragment>
     )
   }
-}
-
-const successPresenter = (success, i) => {
-  // TODO: Update backend to have JSONAPI responses on Create to better discern between types.
-  const isJob = success => success.initiators
-  if (isJob(success)) {
-    return <p key={i}>
-      Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created
-    </p>
-  }
-  return <p key={i}>
-    Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created
-  </p>
 }
 
 const mapStateToProps = state => ({
