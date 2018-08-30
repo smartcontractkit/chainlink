@@ -120,5 +120,9 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 		fe.Add("Service agreement encumbrance error: This node must be listed in the participating oracles")
 	}
 
+	if err := ValidateJob(sa.JobSpec, store); err != nil {
+		fe.Add(fmt.Sprintf("Service agreement job spec error: Job spec validation: %v", err))
+	}
+
 	return fe.CoerceEmptyToNil()
 }
