@@ -20,7 +20,7 @@ type ServiceAgreement struct {
 	JobSpecID   string      `json:"jobSpecID"`
 	RequestBody string      `json:"requestBody"`
 	Signature   string      `json:"signature"`
-	jobSpec     JobSpec     // jobSpec is used during the initial SA creation.
+	JobSpec     JobSpec     // JobSpec is used during the initial SA creation.
 	// If needed later, it can be retrieved from the database with JobSpecID.
 }
 
@@ -92,7 +92,7 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 		ID:          id,
 		CreatedAt:   Time{time.Now()},
 		Encumbrance: encumbrance,
-		jobSpec:     jobSpec,
+		JobSpec:     jobSpec,
 		RequestBody: normalized,
 		Signature:   signature,
 	}, nil
