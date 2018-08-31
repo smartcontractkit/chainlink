@@ -76,6 +76,11 @@ func NewEth(w int64) *Eth {
 	return (*Eth)(big.NewInt(w))
 }
 
+// Cmp delegates to *big.Int.Cmp
+func (e *Eth) Cmp(y *Eth) int {
+	return (*big.Int)(e).Cmp((*big.Int)(y))
+}
+
 func (e *Eth) String() string {
 	return format((*big.Int)(e), 18)
 }

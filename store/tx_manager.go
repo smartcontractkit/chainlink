@@ -16,6 +16,7 @@ import (
 )
 
 const defaultGasLimit uint64 = 500000
+const withdrawFuncSelectorID string = "f3fef3a3" // withdraw(address _recipient, uint256 _amount)
 
 // TxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.

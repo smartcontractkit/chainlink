@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -255,6 +257,39 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return cli.errorOut(err)
 }
 
+// Withdraw will withdraw LINK to an address authorized by the node
+func (cli *Client) Withdraw(c *clipkg.Context) error {
+	if len(c.Args()) < 2 {
+		return cli.errorOut(errors.New("withdrawal needs an amount and address"))
+	}
+
+	i, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
+
+	if err != nil {
+		return err
+	}
+
+	wR := models.WithdrawalRequest{
+		Address: common.HexToAddress(c.Args().First()),
+		Amount:  assets.NewLink(i),
+	}
+
+	requestData, err := json.Marshal(wR)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+
+	resp, err := cli.HTTP.Post("/v2/withdraw", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.printResponseBody(resp)
+}
+
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
@@ -330,6 +365,16 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errors.New(resp.Status)
 	}
 	return b, err
+}
+
+func (cli *Client) printResponseBody(resp *http.Response) error {
+	b, err := parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	fmt.Println(string(b))
+	return nil
 }
 
 func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
