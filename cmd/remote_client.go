@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -257,14 +259,19 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 
 // Withdraw will withdraw LINK to an address authorized by the node
 func (cli *Client) Withdraw(c *clipkg.Context) error {
-	cfg := cli.Config
 	if len(c.Args()) < 2 {
-		return cli.errorOut(errors.New("withdraw amount address"))
+		return cli.errorOut(errors.New("withdrawal needs an amount and address"))
+	}
+
+	i, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
+
+	if err != nil {
+		return err
 	}
 
 	wR := models.WithdrawalRequest{
-		Address: c.Args().First(),
-		Amount:  c.Args().Get(1),
+		Address: common.HexToAddress(c.Args().First()),
+		Amount:  assets.NewLink(i),
 	}
 
 	requestData, err := json.Marshal(wR)
@@ -272,35 +279,15 @@ func (cli *Client) Withdraw(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	body := bytes.NewBuffer(requestData)
+	buf := bytes.NewBuffer(requestData)
 
-	resp, err := utils.BasicAuthPost(
-		cfg.BasicAuthUsername,
-		cfg.BasicAuthPassword,
-		cfg.ClientNodeURL+"/v2/withdraw",
-		"application/json",
-		body,
-	)
+	resp, err := cli.HTTP.Post("/v2/withdraw", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 
 	return cli.printResponseBody(resp)
-}
-
-func isDirEmpty(dir string) (bool, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true, nil
-	}
-
-	return false, fmt.Errorf("Account already present in keystore: %s", dir)
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
