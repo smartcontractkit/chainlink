@@ -3,10 +3,12 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"net/url"
 	"time"
 
 	"github.com/araddon/dateparse"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
@@ -309,7 +311,8 @@ func (c Cron) String() string {
 	return string(c)
 }
 
+// WithdrawalRequest request to withdraw LINK
 type WithdrawalRequest struct {
-	Address string `json:"address"`
-	Amount  string `json:"amount"`
+	Address common.Address `json:"address"`
+	Amount  *assets.Link   `json:"amount"`
 }
