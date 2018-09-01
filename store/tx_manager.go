@@ -16,7 +16,6 @@ import (
 )
 
 const defaultGasLimit uint64 = 500000
-const withdrawFuncSelectorID string = "f3fef3a3" // withdraw(address _recipient, uint256 _amount)
 
 // TxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
@@ -97,6 +96,24 @@ func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 		}
 	}
 	return false, merr
+}
+
+// WithdrawLink withdraws the given amount of LINK to the configured withdrawal address
+func (txm *TxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error) {
+	functionSelector := models.HexToFunctionSelector("f3fef3a3") // withdraw(address _recipient, uint256 _amount)
+
+	amount := (*big.Int)(wr.Amount)
+	data, err := utils.HexToBytes(
+		functionSelector.String(),
+		common.ToHex(common.LeftPadBytes(wr.Address.Bytes(), utils.EVMWordByteLen)),
+		utils.EVMHexNumber(amount),
+	)
+	tx, err := txm.CreateTx(*txm.config.OracleContractAddress, data)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	return tx.Hash, nil
 }
 
 func (txm *TxManager) createAttempt(

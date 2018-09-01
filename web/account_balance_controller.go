@@ -52,7 +52,6 @@ func (abc *AccountBalanceController) Withdraw(c *gin.Context) {
 	store := abc.App.Store
 	txm := store.TxManager
 	wr := models.WithdrawalRequest{}
-	oca := *store.Config.OracleContractAddress
 
 	if err := c.ShouldBindJSON(&wr); err != nil {
 		publicError(c, 400, err)
@@ -66,11 +65,9 @@ func (abc *AccountBalanceController) Withdraw(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if linkBalance.Cmp(wr.Amount) < 0 {
 		publicError(c, 400, fmt.Errorf("Insufficient link balance. Withdrawal Amount: %v Link Balance: %v", wr.Amount.String(), linkBalance.String()))
-	} else if tx, err := txm.CreateTx(oca, nil); err != nil {
+	} else if hash, err := txm.WithdrawLink(wr); err != nil {
 		c.AbortWithError(500, err)
-		// functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
-		// data, err := utils.HexToBytes(functionSelector.String(), common.ToHex(common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen)))
 	} else {
-		c.JSON(200, tx.Hash)
+		c.JSON(200, hash)
 	}
 }
