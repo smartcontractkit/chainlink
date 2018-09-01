@@ -61,6 +61,7 @@ func TestAccountBalanceController_Withdraw(t *testing.T) {
 	config.OracleContractAddress = &oca
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
+	hash := cltest.NewHash()
 	client := app.NewHTTPClient()
 
 	ethMock := app.MockEthClient()
@@ -73,6 +74,7 @@ func TestAccountBalanceController_Withdraw(t *testing.T) {
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
+		ethMock.Register("eth_sendRawTransaction", hash)
 		ethMock.Register("eth_blockNumber", sentAt)
 	})
 
