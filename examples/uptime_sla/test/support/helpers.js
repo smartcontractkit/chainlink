@@ -217,9 +217,9 @@ util = require('ethereumjs-util');
   };
 
   requestDataBytes = function requestDataBytes(jobId, to, fHash, runId, data) {
-    let types = ["uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
-    let values = [1, jobId, to, fHash, runId, data];
-    let funcSelector = functionSelector("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)");
+    let types = ["address", "uint256", "uint256", "bytes32", "address", "bytes4", "bytes32", "bytes"];
+    let values = [0, 0 ,1, jobId, to, fHash, runId, data];
+    let funcSelector = functionSelector("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)");
     let encoded = abi.rawEncode(types, values);
     return funcSelector + encoded.toString("hex");
   };

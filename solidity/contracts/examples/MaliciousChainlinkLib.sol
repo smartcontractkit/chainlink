@@ -3,7 +3,7 @@ pragma solidity ^0.4.24;
 import "solidity-cborutils/contracts/CBOR.sol";
 
 library MaliciousChainlinkLib {
-  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
+  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
   bytes4 internal constant oracleWithdrawFid = bytes4(keccak256("withdraw(address)"));
 
   using CBOR for Buffer.buffer;
@@ -56,9 +56,11 @@ library MaliciousChainlinkLib {
   function encodeForOracle(
     Run memory self,
     uint256 _clArgsVersion
-  ) internal pure returns (bytes memory) {
+  ) internal view returns (bytes memory) {
     return abi.encodeWithSelector(
       oracleRequestDataFid,
+      address(this), // overridden by onTokenTransfer
+      1 ether,       // overridden by onTokenTransfer
       _clArgsVersion,
       self.specId,
       self.callbackAddress,
@@ -98,7 +100,7 @@ library MaliciousChainlinkLib {
     self.buf.encodeString(_key);
     self.buf.encodeInt(_value);
   }
-  
+
   function addUint(Run memory self, string _key, uint256 _value)
     internal pure
   {
