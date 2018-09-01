@@ -19,8 +19,6 @@ contract Oracle is Ownable {
   // does not cost more gas.
   uint256 constant private oneForConsistentGasCost = 1;
   uint256 private withdrawableWei = oneForConsistentGasCost;
-  uint256 private currentAmount = oneForConsistentGasCost;
-  address private currentSender;
 
   mapping(uint256 => Callback) private callbacks;
 
@@ -44,13 +42,15 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    currentAmount = _wei;
-    currentSender = _sender;
+    // solium-disable-next-line security/no-low-level-calls
+    assembly { calldatacopy(add(_data, 36), 4, 64) } // ensures correct sender and amount are passed
     // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
   }
 
   function requestData(
+    address _currentSender,
+    uint256 _currentAmount,
     uint256 _version,
     bytes32 _specId,
     address _callbackAddress,
@@ -61,13 +61,13 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(currentSender, _externalId)));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(_currentSender, _externalId)));
     callbacks[internalId] = Callback(
       _externalId,
-      currentAmount,
+      _currentAmount,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(internalId, _specId, currentAmount, _version, _data);
+    emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
   }
 
   function fulfillData(
