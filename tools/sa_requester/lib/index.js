@@ -81,7 +81,11 @@ async function createServiceAgreements (baseAgreement, addresses, oracleURLs) {
 
       return axios.post(url, serviceAgreementRequest, { timeout: FETCH_TIMEOUT })
         .then(parseResponse)
-        .then(data => ([addresses[i], data.attributes.signature]))
+        // .then(data => ([addresses[i], data.attributes.signature]))
+        .then(data => {
+          console.log(data.attributes)
+          return [addresses[i], data.attributes.signature]
+        })
         .catch(parseError)
     })
   )

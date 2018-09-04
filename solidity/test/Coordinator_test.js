@@ -33,13 +33,7 @@ contract('Coordinator', () => {
 
   describe('#initiateServiceAgreement', () => {
     it('saves a service agreement struct from the parameters', async () => {
-      // let oracles = [
-      // '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
-      // ]
       const account = web3.eth.accounts[0]
-      // let oracles = [
-      //   '0x627306090abab3a6e1400e9345bc60c78a8bef57'
-      // ]
       let oracles = [account]
       // let said = '0xbad5b00f4179c750e8431f4b62c00ab2e633a9c4eefb6dd5d668a545eccfe1e8'
       // --SAID from truffle-develop
@@ -58,7 +52,6 @@ contract('Coordinator', () => {
       const hexMsg = '0x' + msg.toString('hex')
       let signature = web3.eth.sign(account, hexMsg)
       const res = utils.fromRpcSig(signature)
-      let signatureWithoutHex = signature.slice(2)
 
       console.log('account: %o', account)
       console.log('msg: %o', msg.toString())
@@ -82,9 +75,75 @@ contract('Coordinator', () => {
       const addrBuf = utils.pubToAddress(pubKey)
       const addr = utils.bufferToHex(addrBuf)
 
-      console.log('== COMPARE signatures [%o] = [%o]', account, addr)
+      console.log('== COMPARE "hello world" signatures [%o] = [%o]', account, addr)
       // TODO: Delete this assertion once it's using the requestId
       assert.equal(account, addr)
+
+      // =============================================================== USING REAL VALUES INSTEAD OF 'hello world'
+      console.log('\n\n\n')
+      // const foo = OrigBuffer.from('85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd')
+      // const requestDigest = '0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd'
+      // const foo = OrigBuffer.from('126b1bc415a0fea64618d500d36ea390230fc9ea82f217d8f06c80ae024d19ba')
+      // const requestDigest = '0x126b1bc415a0fea64618d500d36ea390230fc9ea82f217d8f06c80ae024d19ba'
+      // ---
+      // const s = '{' +
+      // '"payment":"1000000000000000000",' +
+      // '"expiration":300,' +
+      // '"oracles":["0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"]' +
+      // '}'
+      // const e = '0xDE0B6B3A76400000xabc'
+      // const j = '{' +
+      //   '"initiators":[{"type":"web"}],' +
+      //   '"tasks":[' +
+      //     '{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},' +
+      //     '{"path :["last"],"type":"JsonParse"},' +
+      //     '{"type":"EthBytes32"},' +
+      //     '{"address":"0x356a04bce728ba4c62a30294a55e6a8600a320b3","functionSelector":"0x609ff1bd","type":"EthTx"}' +
+      //   ']' +
+      // '}'
+
+      const normalized = '0000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000012c9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8'
+      const keccakNormalized = web3.sha3(normalized)
+      console.log('keccakNormalized: %o', keccakNormalized)
+      // const normalizedJson = '{' +
+      // '"expiration":3.000000e+02,' +
+      // '"initiators":[{"type":"web"}],' +
+      // '"oracles":["0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"],' +
+      // '"payment":"1000000000000000000",' +
+      // '"tasks":[' +
+      // '{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},' +
+      // '{"path":["last"],"type":"JsonParse"},' +
+      // '{"type":"EthBytes32"},' +
+      // '{"address":"0x356a04bce728ba4c62a30294a55e6a8600a320b3","functionSelector":"0x609ff1bd","type":"EthTx"}' +
+      // ']' +
+      // '}'
+
+      const foo = OrigBuffer.from(keccakNormalized)
+      const fooWithHex = '0x' + foo.toString('hex')
+      // ---
+      let requestDigestSignature = web3.eth.sign(account, fooWithHex)
+      console.log('requestDigestSignature: %o', requestDigestSignature)
+
+      const requestDigestRes = utils.fromRpcSig(requestDigestSignature)
+      console.log('requestDigestRes: %o', requestDigestRes)
+      console.log('requestDigestRes.r: %o', requestDigestRes.r.toString('hex'))
+      console.log('requestDigestRes.s: %o', requestDigestRes.s.toString('hex'))
+
+      const requestDigestPrefix = new OrigBuffer('\x19Ethereum Signed Message:\n')
+      const requestDigestPrefixedMsg = utils.sha3(
+        // TODO: Need to figure out what we should use instead of msg here
+        // Buffer.concat([requestDigestPrefix, new OrigBuffer(String(msg.length)), msg])
+        Buffer.concat([requestDigestPrefix, new OrigBuffer(String(foo.length)), foo])
+      )
+
+      console.log('requestDigestPrefixedMsg: %o', requestDigestPrefixedMsg)
+
+      const requestDigestPubKey = utils.ecrecover(requestDigestPrefixedMsg, requestDigestRes.v, requestDigestRes.r, requestDigestRes.s)
+      const requestDigestAddrBuf = utils.pubToAddress(requestDigestPubKey)
+      const requestDigestAddr = utils.bufferToHex(requestDigestAddrBuf)
+
+      console.log('== COMPARE requestDigest signatures [%o] = [%o]', account, requestDigestAddr)
+      assert.equal(account, requestDigestAddr)
 
       // let requestDigest = '0xd9eba16ed0ecae432b71fe008c98cc872bb4cc214d3220a36f365326cf807d68'
       // let requestDigest = '0xbad5b00f4179c750e8431f4b62c00ab2e633a9c4eefb6dd5d668a545eccfe1e8'
@@ -100,7 +159,9 @@ contract('Coordinator', () => {
         [res.v],
         ['0x' + res.r.toString('hex')],
         ['0x' + res.s.toString('hex')],
-        msg.toString()
+        msg.toString(),
+        // requestDigest
+        keccakNormalized
       )
 
       // NOTE: This id will change when it's using the requestId
@@ -112,9 +173,14 @@ contract('Coordinator', () => {
       assertBigNum(sa[1], bigNum(2))
       assert.equal(
         sa[2],
-        // NOTE: This should be the requestId
+        // NOTE: This should be the requestId. So delete this assertion once it should be working!
         // '0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd'
         'hello world'
+      )
+      assert.equal(
+        sa[2],
+        // requestDigest
+        keccakNormalized
       )
       /// / TODO:
       /// / Web3.js doesn't support generating an artifact for arrays within a struct.

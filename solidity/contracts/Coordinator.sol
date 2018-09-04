@@ -7,7 +7,8 @@ contract Coordinator {
     uint256 payment;
     uint256 expiration;
     address[] oracles;
-    string requestDigest;
+    string strRequestDigest;
+    bytes32 requestDigest;
   }
 
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
@@ -47,82 +48,45 @@ contract Coordinator {
     // XXX: no nested structs in web3
     // bytes[][] _signatures,
     // Signature[] _signatures,
-    string _msg
+    string _msg,
+    bytes32 _requestDigest
   ) public
   {
-    //require(_oracles.length == _signatures.length);
-
     bytes32 id = getId(_payment, _expiration, _oracles, _msg);
-    emit EmitString("ID");
-    emit EmitID(id);
 
     for (uint i = 0; i < _oracles.length; i++) {
-      emit EmitString("!!! SHOULD verify each participant");
-      emit EmitString(_msg);
-
-      //bytes[] signature = _signatures[i];
-
-      uint8 v = _vs[i];
-      bytes32 r = _rs[i];
-      bytes32 s = _ss[i];
-
-      emit EmitV(v);
-      emit EmitR(r);
-      emit EmitS(s);
-
-      address signer = getOracleAddressFromSASignature(_msg, v, r, s);// signature);
+      emit EmitString("Oracle at index");
+      emit EmitAddress(_oracles[i]);
+      emit EmitString("Signers...");
+      address strSigner = getOracleAddressFromSASignatureStr(_msg, _vs[i], _rs[i], _ss[i]);
+      emit EmitAddress(strSigner);
+      address signer = getOracleAddressFromSASignature(_requestDigest, _vs[i], _rs[i], _ss[i]);
       emit EmitAddress(signer);
 
-      // memory said = _payment + _expiration + _oracles + keccack256(_normalizedJSON)
-      // signature = sign(said)
-
-      address oracle = _oracles[i];
-      emit EmitAddress(oracle);
       // require(
-      //   oracle == signer,
+      //   // _oracles[i] == strSigner,
+      //   _oracles[i] == signer,
       //   "!!! oracle is not the signer: TODO: can it do string interpolation of the addresses???"
       // );
     }
-
-    // bytes32 id = getId(_payment, _expiration, _oracles, _msg);
 
     serviceAgreements[id] = ServiceAgreement(
       _payment,
       _expiration,
       _oracles,
-      _msg
+      _msg,
+      _requestDigest
     );
   }
 
-  //function getOracleAddressFromSASignature(bytes32 _hash, bytes32 _sig) returns (address) {
-  //function getOracleAddressFromSASignature(bytes32 _hash, bytes[] _sig) returns (address) {
-  function getOracleAddressFromSASignature(string _msg, uint8 _v, bytes32 _r, bytes32 _s) private pure returns (address) {
-    //bytes32 r;
-    //bytes32 s;
-    //uint8 v;
+  function getOracleAddressFromSASignature(bytes32 _requestDigest, uint8 _v, bytes32 _r, bytes32 _s) private pure returns (address) {
+    bytes memory prefix = "\x19Ethereum Signed Message:\n11";
+    bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, _requestDigest));
 
-    //if (sig.length != 65) {
-      //return 0;
-    //}
+    return ecrecover(prefixedHash, _v, _r, _s);
+  }
 
-    //assembly {
-      //v := byte(0, sig)
-      //r := and(sig, 0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-      ////s := mload(add(sig, 33))
-    //}
-
-    // https://github.com/ethereum/go-ethereum/issues/2053
-    // if (_v < 27) {
-      // _v += 27;
-    // }
-
-    //if (v != 27 && v != 28) {
-      //return 0;
-    //}
-
-    ///* prefix might be needed for geth only
-     //* https://github.com/ethereum/go-ethereum/issues/3731
-     //*/
+  function getOracleAddressFromSASignatureStr(string _msg, uint8 _v, bytes32 _r, bytes32 _s) private pure returns (address) {
     bytes memory prefix = "\x19Ethereum Signed Message:\n11";
     bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, _msg));
 

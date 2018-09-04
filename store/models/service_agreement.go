@@ -59,6 +59,8 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 	}
 
 	normalized, err := utils.NormalizedJSON(input)
+	fmt.Println("=== NORMALIZED JSON: ", normalized)
+
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
@@ -104,6 +106,10 @@ func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgr
 }
 
 func generateServiceAgreementID(e Encumbrance, digest string) (common.Hash, error) {
+	tmp := utils.RemoveHexPrefix(utils.HexConcat(e.ABI(), digest))
+	fmt.Println("=== generateServiceAgreementID - encumberance + digest as string before string decoded to bytes")
+	fmt.Println("=== tmp: ", tmp)
+
 	b, err := utils.HexToBytes(e.ABI(), digest)
 	if err != nil {
 		return common.Hash{}, err
@@ -127,6 +133,15 @@ func (e Encumbrance) ABI() string {
 	}
 	return fmt.Sprintf("%064s%064x", payment.Text(16), e.Expiration)
 }
+
+// ABI =>
+// "000000000000000000000000000000000DE0B6B3A7640000000000000000000000000000000000000000000000000000000000000000012c"
+// [0x30, 0x30, 0x30, ..., 0x44, 0x45.. ]
+// 128 bytes
+//
+// 64 bytes
+// [0x0, ..., 0xDE, 0x0B, ]
+// [0x0, ..., 0x64, 0xA7, ]
 
 // ServiceAgreementRequest represents a service agreement as requested over the wire.
 type ServiceAgreementRequest struct {
