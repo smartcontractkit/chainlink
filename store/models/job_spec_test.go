@@ -111,23 +111,42 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 		name          string
 		taskType      string
 		confirmations uint64
+		wantError     bool
 		json          string
 		output        string
 	}{
-		{"noop", "noop", 0, `{"type":"noOp"}`, `{"type":"noop","confirmations":0}`},
+		{"noop", "noop", 0, false,
+			`{"type":"noOp"}`,
+			`{"type":"noop","confirmations":0}`,
+		},
 		{
-			"httpget",
-			"httpget",
-			0,
+			"httpget", "httpget", 0, false,
 			`{"type":"httpget","url":"http://www.no.com"}`,
 			`{"type":"httpget","url":"http://www.no.com","confirmations":0}`,
 		},
-		{
-			"with confirmations",
-			"noop",
-			10,
+		{"with confirmations", "noop", 10, false,
 			`{"type":"noop","confirmations":10}`,
 			`{"type":"noop","confirmations":10}`,
+		},
+		{"with variations in key name casing for 'type'", "", 10, true,
+			`{"TYPE":"noop","confirmations":10}`,
+			`{"TYPE":"noop","confirmations":10,"type":""}`,
+		},
+		{"with variations in key name casing for 'confirmations'", "noop", 0, false,
+			`{"type":"noop","CONFIRMATIONS":10}`,
+			`{"type":"noop","CONFIRMATIONS":10,"confirmations":0}`,
+		},
+		{"with variations in key name casing for other keys", "noop", 0, false,
+			`{"type":"noop","CONFIRMATIONS":10,"foo":"bar","Foo":"baz","FOO":3}`,
+			`{"type":"noop","CONFIRMATIONS":10,"foo":"bar","Foo":"baz","FOO":3,"confirmations":0}`,
+		},
+		{"with multiple keys with variations in key name casing", "nooppend", 10, false,
+			`{"TYPE":"noop","confirmations":10,"type":"noopPend"}`,
+			`{"TYPE":"noop","confirmations":10,"type":"nooppend"}`,
+		},
+		{"with multiple keys with variations in key name casing with off caps later", "nooppend", 10, false,
+			`{"type":"noopPend","TYPE":"noop","confirmations":10}`,
+			`{"type":"nooppend","TYPE":"noop","confirmations":10}`,
 		},
 	}
 
@@ -140,7 +159,7 @@ func TestTaskSpec_UnmarshalJSON(t *testing.T) {
 
 			assert.Equal(t, test.taskType, task.Type.String())
 			_, err = adapters.For(task, store)
-			assert.NoError(t, err)
+			cltest.AssertError(t, test.wantError, err)
 
 			s, err := json.Marshal(task)
 			assert.NoError(t, err)
