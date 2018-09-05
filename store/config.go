@@ -46,7 +46,6 @@ type Config struct {
 	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
 	MetricsParam             []string        `env:"METRICS_PARAM" envDefault:"url"`
-	MetricsBearerToken       string          `env:"METRICS_BEARER_TOKEN"`
 	SecretGenerator          SecretGenerator
 	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`
 	TLSKeyPath               string   `env:"TLS_KEY_PATH" envDefault:""`
@@ -67,9 +66,6 @@ func NewConfig() Config {
 	}
 	if err = os.MkdirAll(dir, os.FileMode(0700)); err != nil {
 		log.Fatal(fmt.Errorf("error creating %s: %+v", dir, err))
-	}
-	if config.MetricsBearerToken == "" {
-		config.MetricsBearerToken = utils.NewBytes32ID()
 	}
 	config.RootDir = dir
 	config.SecretGenerator = filePersistedSecretGenerator{}

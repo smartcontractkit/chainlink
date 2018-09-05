@@ -101,9 +101,6 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2.POST("/service_agreements", sa.Create)
 	v2.PATCH("/runs/:RunID", jr.Update)
 
-	m := MetricsController{app}
-	v2.GET("/metrics", m.Show)
-
 	authv2 := engine.Group("/v2", authRequired(app.Store))
 	{
 		j := JobSpecsController{app}
@@ -128,6 +125,9 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
+
+		m := MetricsController{app}
+		v2.GET("/metrics", m.Show)
 	}
 }
 

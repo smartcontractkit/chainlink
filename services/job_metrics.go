@@ -7,30 +7,24 @@ import (
 )
 
 // AllJobSpecMetrics returns all Job Spec Stat data for the Job Spec inputs
-func AllJobSpecMetrics(store *store.Store, jobs []models.JobSpec) (models.JobSpecMetrics, error) {
+func AllJobSpecMetrics(store *store.Store, jobs []models.JobSpec) ([]models.JobSpecMetrics, error) {
 	var merr error
 
-	s := models.JobSpecMetrics{}
-	if a, err := store.KeyStore.GetAccount(); err != nil {
-		merr = multierr.Append(merr, err)
-	} else {
-		s.Address = a.Address.Hex()
-	}
-
+	jsm := []models.JobSpecMetrics{}
 	for _, j := range jobs {
-		if jobStats, err := jobSpecCounts(store, j); err != nil {
+		if jobMetrics, err := jobSpecMetrics(store, j); err != nil {
 			merr = multierr.Append(merr, err)
 		} else {
-			s.JobSpecCounts = append(s.JobSpecCounts, jobStats)
+			jsm = append(jsm, jobMetrics)
 		}
 	}
-	return s, merr
+	return jsm, merr
 }
 
-func jobSpecCounts(store *store.Store, job models.JobSpec) (models.JobSpecCounts, error) {
+func jobSpecMetrics(store *store.Store, job models.JobSpec) (models.JobSpecMetrics, error) {
 	jrs, err := store.JobRunsFor(job.ID)
 	if err != nil {
-		return models.JobSpecCounts{}, err
+		return models.JobSpecMetrics{}, err
 	}
 
 	rc := make(map[models.RunStatus]int)
@@ -45,7 +39,7 @@ func jobSpecCounts(store *store.Store, job models.JobSpec) (models.JobSpecCounts
 	for _, t := range job.Tasks {
 		ac[t.Type]++
 	}
-	return models.JobSpecCounts{
+	return models.JobSpecMetrics{
 		ID:           job.ID,
 		RunCount:     len(jrs),
 		AdaptorCount: ac,

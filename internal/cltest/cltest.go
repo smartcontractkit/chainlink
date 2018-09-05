@@ -108,7 +108,6 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			SessionTimeout:           store.Duration{MustParseDuration("2m")},
 			ReaperExpiration:         store.Duration{MustParseDuration("240h")},
 			MetricsParam:             []string{"url"},
-			MetricsBearerToken:       utils.NewBytes32ID(),
 		},
 	}
 	config.SetEthereumServer(wsserver)

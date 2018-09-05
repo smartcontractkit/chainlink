@@ -32,29 +32,16 @@ func TestJobStats_AllJobSpecStats(t *testing.T) {
 	err = app.Store.Save(&jr)
 	assert.NoError(t, err)
 
-	jss, err := services.AllJobSpecMetrics(app.Store, []models.JobSpec{j1, j2})
+	jsm, err := services.AllJobSpecMetrics(app.Store, []models.JobSpec{j1, j2})
 	assert.NoError(t, err)
 
-	assert.Len(t, jss.JobSpecCounts, 2)
+	assert.Len(t, jsm, 2)
 
-	assert.Equal(t, jss.JobSpecCounts[0].ID, j1.ID)
-	assert.Equal(t, jss.JobSpecCounts[0].AdaptorCount["noop"], 1)
+	assert.Equal(t, jsm[0].ID, j1.ID)
+	assert.Equal(t, jsm[0].AdaptorCount["noop"], 1)
 
-	assert.Equal(t, jss.JobSpecCounts[1].ID, j2.ID)
-	assert.Equal(t, jss.JobSpecCounts[1].AdaptorCount["noop"], 1)
-	assert.Equal(t, jss.JobSpecCounts[1].ParamCount["url"][0].Value, "https://chain.link")
-	assert.Equal(t, jss.JobSpecCounts[1].ParamCount["url"][0].Count, 1)
-}
-
-func TestJobStats_NoAccount(t *testing.T) {
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	j, _ := cltest.NewJobWithWebInitiator()
-	j.Initiators[0].Ran = true
-	err := store.SaveJob(&j)
-	assert.NoError(t, err)
-
-	_, err = services.AllJobSpecMetrics(store, []models.JobSpec{j})
-	assert.Error(t, err)
+	assert.Equal(t, jsm[1].ID, j2.ID)
+	assert.Equal(t, jsm[1].AdaptorCount["noop"], 1)
+	assert.Equal(t, jsm[1].ParamCount["url"][0].Value, "https://chain.link")
+	assert.Equal(t, jsm[1].ParamCount["url"][0].Count, 1)
 }
