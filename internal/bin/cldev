@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Runs a Chainlink node preconfigured to communicate with gethnet.
+# Runs a Chainlink (CL) node preconfigured to communicate with gethnet.
 # Steps:
 # 1. ./internal/bin/gethnet
 # 2. yarn install
@@ -20,6 +20,7 @@ mainexec() {
 }
 
 if [ "$#" == 0 ]; then
+  ## Build React GUI and then run CL node
   CHAINLINK_VERSION="$(mainexec --version)"
   export CHAINLINK_VERSION
 
@@ -28,11 +29,17 @@ if [ "$#" == 0 ]; then
   yarn build | cat
   popd >/dev/null
   mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials
-elif [ "$1" == "node" ]; then
-  mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
-elif [ "$1" == "clean" ]; then
-  rm -f $ROOT/db.bolt $ROOT/log.jsonl
-else
-  mainexec $@
+  exit
 fi
-popd >/dev/null
+
+case "$1" in
+  node)
+    mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
+    ;;
+  clean)
+    rm -f $ROOT/db.bolt $ROOT/log.jsonl
+    ;;
+  *)
+    mainexec $@
+    ;;
+esac
