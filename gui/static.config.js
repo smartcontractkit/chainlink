@@ -23,6 +23,7 @@ export default {
       {path: '/bridges/_bridgeName_'},
       {path: '/config'},
       {path: '/signin'},
+      {path: '/create'},
       {path: '/create/job'},
       {path: '/create/bridge'},
       {
