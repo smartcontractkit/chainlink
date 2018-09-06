@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -432,6 +433,17 @@ func ParseResponseBody(resp *http.Response) []byte {
 	return b
 }
 
+// ParseJSONAPIResponse parses the response and returns the JSONAPI resource.
+func ParseJSONAPIResponse(resp *http.Response, resource interface{}) error {
+	input := ParseResponseBody(resp)
+	err := jsonapi.Unmarshal(input, resource)
+	if err != nil {
+		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
+	}
+
+	return nil
+}
+
 // ParseJSONAPIResponseMeta parses the bytes of the root document and returns a
 // map of *json.RawMessage's within the 'meta' key.
 func ParseJSONAPIResponseMeta(input []byte) (map[string]*json.RawMessage, error) {
@@ -535,8 +547,7 @@ func FixtureCreateServiceAgreementViaWeb(
 
 	AssertServerResponse(t, resp, 200)
 	responseSA := models.ServiceAgreement{}
-	body := ParseResponseBody(resp)
-	err = web.ParseJSONAPIResponse(body, &responseSA)
+	err = ParseJSONAPIResponse(resp, &responseSA)
 	assert.NoError(t, err)
 
 	return FindServiceAgreement(app.Store, responseSA.ID)
@@ -564,16 +575,11 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bodyBuffer)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	jrID := ParseCommonJSON(resp.Body).ID
+	var jr models.JobRun
+	err := ParseJSONAPIResponse(resp, &jr)
+	require.NoError(t, err)
 
-	jrs := []models.JobRun{}
-	gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
-		assert.Nil(t, app.Store.Where("ID", jrID, &jrs))
-		return jrs
-	}).Should(gomega.HaveLen(1))
-	jr := jrs[0]
 	assert.Equal(t, j.ID, jr.JobID)
-
 	return jr
 }
 
@@ -625,9 +631,9 @@ func CreateBridgeTypeViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	name := ParseCommonJSON(resp.Body).Name
-	bt, err := app.Store.FindBridge(name)
-	assert.NoError(t, err)
+	var bt models.BridgeType
+	err := ParseJSONAPIResponse(resp, &bt)
+	require.NoError(t, err)
 
 	return bt
 }
