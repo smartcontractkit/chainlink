@@ -184,7 +184,7 @@ contract('Oracle', () => {
       })
     })
 
-    context('malicious consumer', () => {
+    context('with a malicious consumer/requester', () => {
       const paymentAmount = h.toWei(1)
 
       beforeEach(async () => {
@@ -267,8 +267,8 @@ contract('Oracle', () => {
         })
       })
 
-      context('lies about amount sent', () => {
-        it('reports the correct amount of LINK paid', async () => {
+      context('requester lies about amount of LINK sent', () => {
+        it('the oracle uses the amount of LINK actually paid', async () => {
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
           const log = req.receipt.logs[2]
 

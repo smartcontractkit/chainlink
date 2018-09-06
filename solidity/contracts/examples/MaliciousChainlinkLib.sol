@@ -60,7 +60,7 @@ library MaliciousChainlinkLib {
     return abi.encodeWithSelector(
       oracleRequestDataFid,
       address(this), // overridden by onTokenTransfer
-      1 ether,       // overridden by onTokenTransfer
+      100 ether,     // overridden by onTokenTransfer
       _clArgsVersion,
       self.specId,
       self.callbackAddress,
