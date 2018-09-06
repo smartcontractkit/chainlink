@@ -159,6 +159,7 @@ const receiveSignInSuccess = (json) => ({
   authenticated: json.authenticated,
   errors: json.errors
 })
+
 const receiveSignInFail = () => ({type: RECEIVE_SIGNIN_FAIL})
 
 function sendSignIn (data) {
@@ -180,9 +181,9 @@ export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
 export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'
 export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
 
-const receiveSignoutSuccess = (json) => ({
+export const receiveSignoutSuccess = () => ({
   type: RECEIVE_SIGNOUT_SUCCESS,
-  authenticated: json.authenticated
+  authenticated: false
 })
 
 function sendSignOut () {

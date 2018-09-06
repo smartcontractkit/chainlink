@@ -38,8 +38,8 @@ export class Bridges extends Component {
 
     return (
       <div>
-        <Grid container spacing={8} xs={12} alignItems='center'>
-          <Grid item xs>
+        <Grid container spacing={8} alignItems='center'>
+          <Grid item xs={12}>
             <Typography variant='display2' color='inherit' className={classes.title}>
               Bridges
             </Typography>
