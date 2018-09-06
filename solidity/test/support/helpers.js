@@ -1,3 +1,7 @@
+process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../solidity/contracts/examples/:../../contracts/:../../contracts/lib/:../../node_modules/:../../node_modules/linkToken/contracts'
+
+const PRIVATE_KEY = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
+
 const Wallet = require('../../app/wallet.js')
 const Utils = require('../../app/utils.js')
 const Deployer = require('../../app/deployer.js')
@@ -7,42 +11,11 @@ const util = require('ethereumjs-util')
 
 const HEX_BASE = 16
 
-let _0x,
-  assertActionThrows,
-  bigNum,
-  checkPublicABI,
-  concatTypedArrays,
-  consumer,
-  decodeRunABI,
-  decodeRunRequest,
-  defaultAccount,
-  deploy,
-  eth,
-  functionSelector,
-  getEvents,
-  getLatestEvent,
-  hexToInt,
-  lengthTypedArrays,
-  newAddress,
-  newHash,
-  newSignature,
-  newUint8Array,
-  newUint8ArrayFromStr,
-  oracleNode,
-  requestDataBytes,
-  requestDataFrom,
-  splitRPCSignature,
-  stranger,
-  toBuffer,
-  toHex,
-  toHexWithoutPrefix,
-  toWei
+let consumer, defaultAccount, eth, oracleNode, stranger
+let deployer, utils, wallet
 
 (() => {
-  let utils, wallet, deployer
   eth = web3.eth
-
-  process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../solidity/contracts/examples/:../../contracts/:../../contracts/lib/:../../node_modules/:../../node_modules/linkToken/contracts'
 
   before(async function () {
     // Default hard coded truffle accounts:
@@ -82,233 +55,205 @@ let _0x,
     stranger = accounts[2]
     consumer = accounts[3]
 
-    const privateKey = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
     utils = Utils(web3.currentProvider)
-    wallet = Wallet(privateKey, utils)
+    wallet = Wallet(PRIVATE_KEY, utils)
     deployer = Deployer(wallet, utils)
   })
-
-  deploy = (filePath, ...args) => {
-    return deployer.perform(filePath, ...args)
-  }
-
-  bigNum = function bigNum (number) {
-    return web3.toBigNumber(number)
-  }
-
-  toWei = number => {
-    return bigNum(web3.toWei(number))
-  }
-
-  hexToInt = string => {
-    return web3.toBigNumber(string)
-  }
-
-  getEvents = contract => {
-    return new Promise((resolve, reject) => {
-      contract.allEvents().get((error, events) => {
-        if (error) {
-          reject(error)
-        } else {
-          resolve(events)
-        };
-      })
-    })
-  }
-
-  getLatestEvent = async (contract) => {
-    let events = await getEvents(contract)
-    return events[events.length - 1]
-  }
-
-  assertActionThrows = action => {
-    return Promise.resolve().then(action)
-      .catch(error => {
-        assert(error, 'Expected an error to be raised')
-        assert(error.message, 'Expected an error to be raised')
-        return error.message
-      })
-      .then(errorMessage => {
-        assert(errorMessage, 'Expected an error to be raised')
-        const invalidOpcode = errorMessage.includes('invalid opcode')
-        const reverted = errorMessage.includes('VM Exception while processing transaction: revert')
-        assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"')
-        // see https://github.com/ethereumjs/testrpc/issues/39
-        // for why the "invalid JUMP" is the throw related error when using TestRPC
-      })
-  }
-
-  const encodeUint256 = function encodeUint256 (int) {
-    let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
-    let payload = int.toString(16)
-    return (zeros + payload).slice(payload.length)
-  }
-
-  checkPublicABI = function checkPublicABI (contract, expectedPublic) {
-    let actualPublic = []
-    for (const method of contract.abi) {
-      if (method.type === 'function') actualPublic.push(method.name)
-    };
-
-    for (const method of actualPublic) {
-      let index = expectedPublic.indexOf(method)
-      assert.isAtLeast(index, 0, (`#${method} is NOT expected to be public`))
-    }
-
-    for (const method of expectedPublic) {
-      let index = actualPublic.indexOf(method)
-      assert.isAtLeast(index, 0, (`#${method} is expected to be public`))
-    }
-  }
-
-  functionSelector = (signature) => {
-    return '0x' + web3.sha3(signature).slice(2).slice(0, 8)
-  }
-
-  decodeRunABI = log => {
-    let runABI = util.toBuffer(log.data)
-    let types = ['bytes32', 'address', 'bytes4', 'bytes']
-    return abi.rawDecode(types, runABI)
-  }
-
-  decodeRunRequest = log => {
-    let runABI = util.toBuffer(log.data)
-    let types = ['uint256', 'bytes']
-    let [version, data] = abi.rawDecode(types, runABI)
-    return [log.topics[1], log.topics[2], log.topics[3], version, data]
-  }
-
-  requestDataBytes = (specId, to, fHash, runId, data) => {
-    let types = ['uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
-    let values = [1, specId, to, fHash, runId, data]
-    let encoded = abi.rawEncode(types, values)
-    let funcSelector = functionSelector('requestData(uint256,bytes32,address,bytes4,bytes32,bytes)')
-    return funcSelector + encoded.toString('hex')
-  }
-
-  requestDataFrom = (oc, link, amount, args) => {
-    return link.transferAndCall(oc.address, amount, args)
-  }
-
-  newUint8ArrayFromStr = (str) => {
-    const codePoints = Array.prototype.map.call(str, c => c.charCodeAt(0))
-    return Uint8Array.from(codePoints)
-  }
-
-  // newUint8Array returns a uint8array of count bytes from either a hex or
-  // decimal string, hex strings must begin with 0x
-  newUint8Array = (str, count) => {
-    let result = new Uint8Array(count)
-
-    if (str.startsWith('0x') || str.startsWith('0X')) {
-      const hexStr = str.slice(2).padStart(count * 2, '0')
-      for (let i = result.length; i >= 0; i--) {
-        const offset = i * 2
-        result[i] = parseInt(hexStr[offset] + hexStr[offset + 1], HEX_BASE)
-      }
-    } else {
-      const num = bigNum(str)
-      result = newHash('0x' + num.toString(HEX_BASE))
-    }
-
-    return result
-  }
-
-  // newSignature returns a 65 byte Uint8Array for representing a signature
-  newSignature = (str) => {
-    return newUint8Array(str, 65)
-  }
-
-  // newHash returns a 65 byte Uint8Array for representing a hash
-  newHash = (str) => {
-    return newUint8Array(str, 32)
-  }
-
-  // newAddress returns a 20 byte Uint8Array for representing an address
-  newAddress = (str) => {
-    return newUint8Array(str, 20)
-  }
-
-  // lengthTypedArrays sums the length of all specified TypedArrays
-  lengthTypedArrays = (...arrays) => {
-    return arrays.reduce((a, v) => a + v.length, 0)
-  }
-
-  toBuffer = (uint8a) => {
-    return Buffer.from(uint8a)
-  }
-
-  // concatTypedArrays recursively concatenates TypedArrays into one big
-  // TypedArray
-  // TODO: Does not work recursively
-  concatTypedArrays = (...arrays) => {
-    let size = lengthTypedArrays(...arrays)
-    let result = new arrays[0].constructor(size)
-    let offset = 0
-    arrays.forEach((a) => {
-      result.set(a, offset)
-      offset += a.length
-    })
-    return result
-  }
-
-  toHexWithoutPrefix = arg => {
-    if (arg instanceof Buffer) {
-      return arg.toString('hex')
-    } else if (arg instanceof Uint8Array) {
-      return Array.prototype.reduce.call(arg, (a, v) => a + v.toString('16').padStart(2, '0'), '')
-    } else {
-      return Buffer.from(arg, 'ascii').toString('hex')
-    }
-  }
-
-  toHex = (value) => {
-    return `0x${toHexWithoutPrefix(value)}`
-  }
-
-  splitRPCSignature = (oracleSignature) => {
-    let v = oracleSignature[64]
-    if (v < 27) {
-      v += 27
-    }
-    return {
-      v: v,
-      r: oracleSignature.slice(0, 32),
-      s: oracleSignature.slice(32, 64)
-    }
-}
-
 })()
 
 export {
-  _0x,
-  assertActionThrows,
-  bigNum,
-  checkPublicABI,
-  concatTypedArrays,
   consumer,
-  decodeRunABI,
-  decodeRunRequest,
   defaultAccount,
-  deploy,
   eth,
-  functionSelector,
-  getEvents,
-  getLatestEvent,
-  hexToInt,
-  lengthTypedArrays,
-  newAddress,
-  newHash,
-  newSignature,
-  newUint8Array,
-  newUint8ArrayFromStr,
   oracleNode,
-  requestDataBytes,
-  requestDataFrom,
-  splitRPCSignature,
-  stranger,
-  toBuffer,
-  toHex,
-  toHexWithoutPrefix,
-  toWei
+  stranger
+}
+
+export const _0x = val => `0x${toHex(val)}`
+
+export const bigNum = number => web3.toBigNumber(number)
+
+export const toWei = number => bigNum(web3.toWei(number))
+
+export const hexToInt = string => web3.toBigNumber(string)
+
+export const toHexWithoutPrefix = arg => {
+  if (arg instanceof Buffer) {
+    return arg.toString('hex')
+  } else if (arg instanceof Uint8Array) {
+    return Array.prototype.reduce.call(arg, (a, v) => a + v.toString('16').padStart(2, '0'), '')
+  } else {
+    return Buffer.from(arg, 'ascii').toString('hex')
+  }
+}
+
+export const toHex = value => {
+  return `0x${toHexWithoutPrefix(value)}`
+}
+
+export const deploy = (filePath, ...args) => deployer.perform(filePath, ...args)
+
+export const getEvents = contract => (
+  new Promise(
+    (resolve, reject) =>
+      contract
+        .allEvents()
+        .get((error, events) => (error ? reject(error) : resolve(events)))
+  )
+)
+
+export const lPad = s => {
+  let wordLen = parseInt((s.length + 31) / 32) * 32
+  for (let i = s.length; i < wordLen; i++) {
+    s = '\x00' + s
+  }
+  return s
+}
+
+export const rPad = s => {
+  let worldLen = parseInt((s.length + 31) / 32) * 32
+  for (let i = s.length; i < worldLen; i++) {
+    s = s + '\x00'
+  }
+  return s
+}
+
+export const getLatestEvent = async (contract) => {
+  let events = await getEvents(contract)
+  return events[events.length - 1]
+}
+
+export const requestDataFrom = (oc, link, amount, args) => link.transferAndCall(oc.address, amount, args)
+
+export const functionSelector = signature => '0x' + web3.sha3(signature).slice(2).slice(0, 8)
+
+export const assertActionThrows = action => (
+  Promise
+    .resolve()
+    .then(action)
+    .catch(error => {
+      assert(error, 'Expected an error to be raised')
+      assert(error.message, 'Expected an error to be raised')
+      return error.message
+    })
+    .then(errorMessage => {
+      assert(errorMessage, 'Expected an error to be raised')
+      const invalidOpcode = errorMessage.includes('invalid opcode')
+      const reverted = errorMessage.includes('VM Exception while processing transaction: revert')
+      assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"')
+      // see https://github.com/ethereumjs/testrpc/issues/39
+      // for why the "invalid JUMP" is the throw related error when using TestRPC
+    })
+)
+
+export const checkPublicABI = (contract, expectedPublic) => {
+  let actualPublic = []
+  for (const method of contract.abi) {
+    if (method.type === 'function') actualPublic.push(method.name)
+  };
+
+  for (const method of actualPublic) {
+    let index = expectedPublic.indexOf(method)
+    assert.isAtLeast(index, 0, (`#${method} is NOT expected to be public`))
+  }
+
+  for (const method of expectedPublic) {
+    let index = actualPublic.indexOf(method)
+    assert.isAtLeast(index, 0, (`#${method} is expected to be public`))
+  }
+}
+
+export const decodeRunABI = log => {
+  let runABI = util.toBuffer(log.data)
+  let types = ['bytes32', 'address', 'bytes4', 'bytes']
+  return abi.rawDecode(types, runABI)
+}
+
+export const decodeRunRequest = log => {
+  let runABI = util.toBuffer(log.data)
+  let types = ['uint256', 'bytes']
+  let [version, data] = abi.rawDecode(types, runABI)
+  return [log.topics[1], log.topics[2], log.topics[3], version, data]
+}
+
+export const requestDataBytes = (specId, to, fHash, runId, data) => {
+  let types = ['uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
+  let values = [1, specId, to, fHash, runId, data]
+  let encoded = abi.rawEncode(types, values)
+  let funcSelector = functionSelector('requestData(uint256,bytes32,address,bytes4,bytes32,bytes)')
+  return funcSelector + encoded.toString('hex')
+}
+
+export const newUint8ArrayFromStr = (str) => {
+  const codePoints = Array.prototype.map.call(str, c => c.charCodeAt(0))
+  return Uint8Array.from(codePoints)
+}
+
+// newUint8Array returns a uint8array of count bytes from either a hex or
+// decimal string, hex strings must begin with 0x
+export const newUint8Array = (str, count) => {
+  let result = new Uint8Array(count)
+
+  if (str.startsWith('0x') || str.startsWith('0X')) {
+    const hexStr = str.slice(2).padStart(count * 2, '0')
+    for (let i = result.length; i >= 0; i--) {
+      const offset = i * 2
+      result[i] = parseInt(hexStr[offset] + hexStr[offset + 1], HEX_BASE)
+    }
+  } else {
+    const num = bigNum(str)
+    result = newHash('0x' + num.toString(HEX_BASE))
+  }
+
+  return result
+}
+
+// newSignature returns a 65 byte Uint8Array for representing a signature
+export const newSignature = str => {
+  return newUint8Array(str, 65)
+}
+
+// newHash returns a 65 byte Uint8Array for representing a hash
+export const newHash = str => {
+  return newUint8Array(str, 32)
+}
+
+// newAddress returns a 20 byte Uint8Array for representing an address
+export const newAddress = str => {
+  return newUint8Array(str, 20)
+}
+
+// lengthTypedArrays sums the length of all specified TypedArrays
+export const lengthTypedArrays = (...arrays) => {
+  return arrays.reduce((a, v) => a + v.length, 0)
+}
+
+export const toBuffer = uint8a => {
+  return Buffer.from(uint8a)
+}
+
+// concatTypedArrays recursively concatenates TypedArrays into one big
+// TypedArray
+// TODO: Does not work recursively
+export const concatTypedArrays = (...arrays) => {
+  let size = lengthTypedArrays(...arrays)
+  let result = new arrays[0].constructor(size)
+  let offset = 0
+  arrays.forEach((a) => {
+    result.set(a, offset)
+    offset += a.length
+  })
+  return result
+}
+
+export const splitRPCSignature = oracleSignature => {
+  let v = oracleSignature[64]
+  if (v < 27) {
+    v += 27
+  }
+  return {
+    v: v,
+    r: oracleSignature.slice(0, 32),
+    s: oracleSignature.slice(32, 64)
+  }
 }
