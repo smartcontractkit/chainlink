@@ -29,19 +29,28 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {errors: [{detail: SIGN_IN_FAIL_MSG}]}
+        {
+          successes: [],
+          errors: [{detail: SIGN_IN_FAIL_MSG}]
+        }
       )
     case RECEIVE_CREATE_ERROR:
       return Object.assign(
         {},
         state,
-        {errors: action.error.errors}
+        {
+          successes: [],
+          errors: action.error.errors
+        }
       )
     case RECEIVE_CREATE_SUCCESS:
       return Object.assign(
         {},
         initialState,
-        {successes: [action.response]}
+        {
+          successes: [action.response],
+          errors: []
+        }
       )
     default:
       return state

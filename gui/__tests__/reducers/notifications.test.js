@@ -55,9 +55,17 @@ describe('notifications reducer', () => {
     })
   })
 
-  it('RECEIVE_CREATE_ERROR adds a failure', () => {
+  it('RECEIVE_CREATE_ERROR adds a failure and clears successes', () => {
+    const previousState = {
+      notifications: {
+        errors: [],
+        successes: [{id: '123'}],
+        currentUrl: null
+      }
+    }
+
     const action = {type: RECEIVE_CREATE_ERROR, error: {errors: [{detail: 'Invalid name'}]}}
-    const state = reducer(undefined, action)
+    const state = reducer(previousState, action)
 
     expect(state.notifications).toEqual({
       errors: [{detail: 'Invalid name'}],
@@ -66,10 +74,18 @@ describe('notifications reducer', () => {
     })
   })
 
-  it('RECEIVE_CREATE_SUCCESS adds a success', () => {
+  it('RECEIVE_CREATE_SUCCESS adds a success and clears errors', () => {
+    const previousState = {
+      notifications: {
+        errors: [{detail: 'error 1'}],
+        successes: [],
+        currentUrl: null
+      }
+    }
+
     const response = {id: 'SOMEID', name: 'SOMENAME'}
     const action = {type: RECEIVE_CREATE_SUCCESS, response: response}
-    const state = reducer(undefined, action)
+    const state = reducer(previousState, action)
 
     expect(state.notifications).toEqual({
       errors: [],
