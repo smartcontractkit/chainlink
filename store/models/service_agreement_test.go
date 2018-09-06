@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -40,7 +41,7 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
 			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sa.RequestBody)
 			assert.NotEqual(t, models.Time{}, sa.CreatedAt)
-			cltest.AssertValidHash(t, 32, sa.Signature)
+			assert.NotEqual(t, "", sa.Signature.String())
 		})
 	}
 }
@@ -52,11 +53,13 @@ func TestEncumbrance_ABI(t *testing.T) {
 		name       string
 		payment    *assets.Link
 		expiration int
+		oracles    []models.EIP55Address
 		want       string
 	}{
-		{"basic", assets.NewLink(1), 2, "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002"},
-		{"basic", assets.NewLink(3735928559), 2, "00000000000000000000000000000000000000000000000000000000deadbeef0000000000000000000000000000000000000000000000000000000000000002"},
-		{"empty", nil, 0, "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
+		{"basic", assets.NewLink(1), 2, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002"},
+		{"basic", assets.NewLink(3735928559), 2, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000deadbeef0000000000000000000000000000000000000000000000000000000000000002"},
+		{"empty", nil, 0, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
+		{"oracle address", nil, 0, []models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
 	}
 
 	for _, test := range tests {
@@ -64,9 +67,12 @@ func TestEncumbrance_ABI(t *testing.T) {
 			enc := models.Encumbrance{
 				Payment:    test.payment,
 				Expiration: uint64(test.expiration),
+				Oracles:    test.oracles,
 			}
 
-			assert.Equal(t, test.want, enc.ABI())
+			ebytes, err := enc.ABI()
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, common.ToHex(ebytes))
 		})
 	}
 }

@@ -336,8 +336,8 @@ func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
 
 type MockSigner struct{}
 
-func (s MockSigner) Sign(input []byte) (string, error) {
-	return "0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381", nil
+func (s MockSigner) Sign(input []byte) (models.Signature, error) {
+	return models.NewSignature("0xb7a987222fc36c4c8ed1b91264867a422769998aadbeeb1c697586a04fa2b616025b5ca936ec5bdb150999e298b6ecf09251d3c4dd1306dedec0692e7037584800")
 }
 
 func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
