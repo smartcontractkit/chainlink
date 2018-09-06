@@ -1,16 +1,16 @@
+import {
+  eth,
+  functionSelector,
+  getEvents
+} from '../../../../solidity/test/support/helpers'
+
 const BigNumber = require('bignumber.js')
 const abi = require('ethereumjs-abi')
 const cbor = require('cbor')
 const moment = require('moment')
 const util = require('ethereumjs-util')
 
-let eth,
-  Eth,
-  accounts,
-  Accounts,
-  oracleNode,
-  stranger,
-  consumer,
+let Eth,
   emptyAddress,
   sealBlock,
   sendTransaction,
@@ -31,33 +31,16 @@ let eth,
   getLatestBlock,
   getLatestTimestamp,
   fastForwardTo,
-  getEvents,
   eventsOfType,
   getEventsOfType,
-  getLatestEvent,
-  assertActionThrows,
   encodeUint256,
   encodeAddress,
   encodeBytes,
   checkPublicABI,
-  functionSelector,
   randomHex,
-  newAddress,
-  requestDataBytes,
-  requestDataFrom
+  newAddress
 
 (() => {
-  eth = web3.eth
-
-  before(async function () {
-    accounts = await eth.accounts
-    Accounts = accounts.slice(1)
-
-    oracleNode = Accounts[0]
-    stranger = Accounts[1]
-    consumer = Accounts[2]
-  })
-
   Eth = function sendEth (method, params) {
     params = params || []
 
@@ -161,18 +144,6 @@ let eth,
     await sealBlock()
   }
 
-  getEvents = function (contract) {
-    return new Promise((resolve, reject) => {
-      contract.allEvents().get((error, events) => {
-        if (error) {
-          reject(error)
-        } else {
-          resolve(events)
-        };
-      })
-    })
-  }
-
   eventsOfType = function (events, type) {
     let filteredEvents = []
     for (event of events) {
@@ -183,28 +154,6 @@ let eth,
 
   getEventsOfType = async function (contract, type) {
     return eventsOfType(await getEvents(contract), type)
-  }
-
-  getLatestEvent = async function (contract) {
-    let events = await getEvents(contract)
-    return events[events.length - 1]
-  }
-
-  assertActionThrows = function (action) {
-    return Promise.resolve().then(action)
-      .catch(error => {
-        assert(error, 'Expected an error to be raised')
-        assert(error.message, 'Expected an error to be raised')
-        return error.message
-      })
-      .then(errorMessage => {
-        assert(errorMessage, 'Expected an error to be raised')
-        const invalidOpcode = errorMessage.includes('invalid opcode')
-        const reverted = errorMessage.includes('VM Exception while processing transaction: revert')
-        assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"')
-        // see https://github.com/ethereumjs/testrpc/issues/39
-        // for why the "invalid JUMP" is the throw related error when using TestRPC
-      })
   }
 
   encodeUint256 = function (int) {
@@ -241,10 +190,6 @@ let eth,
     }
   }
 
-  functionSelector = function (signature) {
-    return '0x' + web3.sha3(signature).slice(2).slice(0, 8)
-  }
-
   // https://codepen.io/code_monk/pen/FvpfI
   randomHex = function (len) {
     var maxlen = 8
@@ -261,42 +206,22 @@ let eth,
   newAddress = () => {
     return '0x' + randomHex(40)
   }
-
-  requestDataBytes = function requestDataBytes (jobId, to, fHash, runId, data) {
-    let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
-    let values = [0, 0, 1, jobId, to, fHash, runId, data]
-    let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
-    let encoded = abi.rawEncode(types, values)
-    return funcSelector + encoded.toString('hex')
-  }
-
-  requestDataFrom = function requestDataFrom (oc, link, amount, args) {
-    return link.transferAndCall(oc.address, amount, args)
-  }
 })()
 
 export {
-  Accounts,
   Eth,
-  accounts,
-  assertActionThrows,
   bigNum,
   checkPublicABI,
-  consumer,
   days,
   emptyAddress,
   encodeAddress,
   encodeBytes,
   encodeUint256,
-  eth,
   eventsOfType,
   fastForwardTo,
-  functionSelector,
   getBalance,
-  getEvents,
   getEventsOfType,
   getLatestBlock,
-  getLatestEvent,
   getLatestTimestamp,
   hexToAddress,
   hexToInt,
@@ -306,14 +231,10 @@ export {
   logTopic,
   minutes,
   newAddress,
-  oracleNode,
   randomHex,
-  requestDataBytes,
-  requestDataFrom,
   sealBlock,
   seconds,
   sendTransaction,
-  stranger,
   toWei,
   tokens,
   unixTime

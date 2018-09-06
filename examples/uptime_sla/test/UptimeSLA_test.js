@@ -1,19 +1,21 @@
 import cbor from 'cbor'
 import util from 'ethereumjs-util'
 import {
-  assertActionThrows,
   days,
-  eth,
   fastForwardTo,
+  getLatestTimestamp,
+  newAddress
+} from './support/helpers'
+import {
+  assertActionThrows,
+  eth,
   functionSelector,
   getEvents,
   getLatestEvent,
-  getLatestTimestamp,
-  newAddress,
   oracleNode,
   requestDataBytes,
   requestDataFrom
-} from './support/helpers'
+} from '../../../solidity/test/support/helpers'
 
 contract('UptimeSLA', () => {
   let Link = artifacts.require('../../../solidity/contracts/LinkToken.sol')
