@@ -1,5 +1,4 @@
 import React, { Component } from 'react'
-import PropTypes from 'prop-types'
 import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -10,10 +9,10 @@ import ListItemText from '@material-ui/core/ListItemText'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
-import Flash from 'components/Flash'
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
 import Loading from 'components/Loading'
+import Notifications from 'components/Notifications'
 import universal from 'react-universal-component'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
@@ -81,23 +80,18 @@ const styles = theme => {
 }
 
 class Layout extends Component {
-  constructor (props) {
-    super(props)
-    this.state = {drawerOpen: false}
-    this.toggleDrawer = this.toggleDrawer.bind(this)
-    this.signOut = this.signOut.bind(this)
-  }
+  state = {drawerOpen: false}
 
-  toggleDrawer () {
+  toggleDrawer = () => {
     this.setState({drawerOpen: !this.state.drawerOpen})
   }
 
-  signOut () {
+  signOut = () => {
     this.props.submitSignOut()
   }
 
   render () {
-    const {classes, errors, isFetching} = this.props
+    const {classes, isFetching} = this.props
     const {drawerOpen} = this.state
 
     const drawer = (
@@ -177,12 +171,7 @@ class Layout extends Component {
             <div>
               <div className={classes.toolbar} />
 
-              {
-                errors.length > 0 &&
-                <Flash error className={classes.flash}>
-                  {errors.map((msg, i) => <p key={i}>{msg}</p>)}
-                </Flash>
-              }
+              <Notifications classes={classes} />
 
               <div className={classes.content}>
                 <Switch>
@@ -212,17 +201,8 @@ class Layout extends Component {
   }
 }
 
-Layout.propTypes = {
-  errors: PropTypes.array
-}
-
-Layout.defaultProps = {
-  errors: []
-}
-
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  errors: state.errors.messages,
   isFetching: isFetchingSelector(state)
 })
 

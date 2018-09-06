@@ -11,7 +11,7 @@ import { Card } from '@material-ui/core'
 const styles = theme => ({
   root: {
     flexGrow: 1,
-    backgroundColor: theme.palette.background.paper,
+    backgroundColor: 'transparent',
     paddingTop: theme.spacing.unit * 2
   },
   card: {

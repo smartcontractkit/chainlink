@@ -7,7 +7,6 @@ import { connect } from 'react-redux'
 import { submitJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
-import { BridgeAndJobNotifications } from './FormNotifications'
 
 const styles = theme => ({
   card: {
@@ -27,40 +26,31 @@ const JobFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  error,
-  success,
-  authenticated,
   networkError,
   values,
   submitCount
-}) => (
-  <Fragment>
-    <Prompt
-      when={values.json !== '' && submitCount === 0}
-      message='You have not submitted the form, are you sure you want to leave?'
-    />
-    <BridgeAndJobNotifications
-      error={error}
-      success={success}
-      networkError={networkError}
-      authenticated={authenticated}
-      classes={classes}
-      jobOrBridge='Job'
-    />
-    <Form noValidate>
-      <Grid container justify='center'>
+}) => {
+  return (
+    <Fragment>
+      <Prompt
+        when={values.json !== '' && submitCount === 0}
+        message='You have not submitted the form, are you sure you want to leave?'
+      />
+      <Form noValidate>
         <Grid container justify='center'>
-          <Grid item lg={7}>
-            <TextField onChange={handleChange} fullWidth label='Paste JSON' rows={10} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
+          <Grid container justify='center'>
+            <Grid item lg={7}>
+              <TextField onChange={handleChange} fullWidth label='Paste JSON' rows={10} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
+            </Grid>
           </Grid>
+          <Button className={classes.button} variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
+            Build Job
+          </Button>
         </Grid>
-        <Button className={classes.button} variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
-          Build Job
-        </Button>
-      </Grid>
-    </Form>
-  </Fragment>
-)
+      </Form>
+    </Fragment>
+  )
+}
 
 const JobForm = withFormik({
   mapPropsToValues ({ json }) {
@@ -74,12 +64,11 @@ const JobForm = withFormik({
   }
 })(JobFormLayout)
 
-const mapStateToProps = state => ({
-  success: state.create.successMessage,
-  error: state.create.errors,
-  networkError: state.create.networkError,
-  authenticated: state.authentication.allowed
-})
+const mapStateToProps = state => {
+  return {
+    networkError: state.create.networkError
+  }
+}
 
 export const ConnectedJobForm = connect(
   mapStateToProps,

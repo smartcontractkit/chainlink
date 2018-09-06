@@ -1,13 +1,10 @@
 import {
   REQUEST_CREATE,
   RECEIVE_CREATE_SUCCESS,
-  RECEIVE_CREATE_ERROR,
   MATCH_ROUTE
 } from 'actions'
 
 const initialState = {
-  errors: [],
-  successMessage: {},
   networkError: false
 }
 
@@ -29,18 +26,7 @@ export default (state = initialState, action = {}) => {
         {},
         initialState,
         {
-          successMessage: action.response,
           networkError: false
-        }
-      )
-    case RECEIVE_CREATE_ERROR:
-      const messages = action.error.errors.map(e => e.detail)
-      return Object.assign(
-        {},
-        initialState,
-        {
-          errors: messages,
-          networkError: action.networkError
         }
       )
     default:
