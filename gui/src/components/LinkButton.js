@@ -10,6 +10,11 @@ const styles = theme => ({
     textDecoration: 'underline',
     textTransform: 'capitalize',
     fontSize: 'inherit',
+    verticalAlign: 'top',
+    minHeight: 0,
+    padding: 0,
+    paddingLeft: theme.spacing.unit,
+    paddingRight: theme.spacing.unit,
     lineHeight: 'inherit',
     '&:hover': {
       backgroundColor: 'transparent',
