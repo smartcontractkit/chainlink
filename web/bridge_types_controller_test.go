@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -111,10 +110,10 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	respJSON := cltest.ParseJSON(resp.Body)
-	btName := respJSON.Get("name").String()
+	btName := respJSON.Get("data.attributes.name").String()
 
-	assert.NotEmpty(t, respJSON.Get("incomingToken").String())
-	assert.NotEmpty(t, respJSON.Get("outgoingToken").String())
+	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
+	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
 	bt, err := app.Store.FindBridge(btName)
 	assert.NoError(t, err)
@@ -144,9 +143,7 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respBridge presenters.BridgeType
-	b, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.NoError(t, web.ParseJSONAPIResponse(b, &respBridge))
+	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &respBridge))
 	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
 	assert.Equal(t, respBridge.DefaultConfirmations, bt.DefaultConfirmations, "should have the same DefaultConfirmations")

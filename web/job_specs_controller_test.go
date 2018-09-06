@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -260,9 +259,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var respJob presenters.JobSpec
-	b, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	assert.NoError(t, web.ParseJSONAPIResponse(b, &respJob))
+	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJob))
 	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, respJob.Runs[0].ID, jr[0].ID, "should have job runs ordered by created at(descending)")
 	assert.Equal(t, respJob.Runs[1].ID, jr[1].ID, "should have job runs ordered by created at(descending)")

@@ -60,8 +60,10 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if jr, err := startJob(j, jrc.App.Store, data); err != nil {
 		c.AbortWithError(500, err)
+	} else if doc, err := jsonapi.Marshal(presenters.JobRun{jr}); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		c.JSON(200, gin.H{"id": jr.ID})
+		c.Data(200, MediaType, doc)
 	}
 }
 
