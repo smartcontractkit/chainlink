@@ -6,7 +6,7 @@ import {
   deploy,
   getEvents,
   getLatestEvent,
-  toHex,
+  toHexWithoutPrefix,
   toWei
 } from './support/helpers'
 
@@ -35,7 +35,7 @@ contract('ConcreteChainlinked', () => {
 
       assert.equal(specId, jId)
       assert.equal(gs.address, `0x${cbAddr}`)
-      assert.equal('ed53e511', toHex(cbFId))
+      assert.equal('ed53e511', toHexWithoutPrefix(cbFId))
       assert.deepEqual({}, params)
     })
   })

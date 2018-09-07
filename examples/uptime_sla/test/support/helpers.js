@@ -65,10 +65,6 @@ util = require('ethereumjs-util');
     return '0x' + bigNum(number).toString(16);
   }
 
-  hexToInt = function hexToInt(string) {
-    return web3.toBigNumber(string);
-  }
-
   hexToAddress = function hexToAddress(string) {
     return '0x' + string.slice(string.length - 40);
   }

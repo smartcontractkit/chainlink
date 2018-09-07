@@ -102,8 +102,11 @@ func TestORM_SaveServiceAgreement(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.NoError(t, store.SaveServiceAgreement(&sa))
-			sa = cltest.FindServiceAgreement(store, sa.ID)
-			cltest.FindJob(store, sa.JobSpecID)
+
+			sa, err = store.FindServiceAgreement(sa.ID)
+			assert.NoError(t, err)
+			_, err = store.FindJob(sa.JobSpecID)
+			assert.NoError(t, err)
 		})
 	}
 }
