@@ -492,7 +492,10 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 
-	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
+	var job models.JobSpec
+	err := ParseJSONAPIResponse(resp, &job)
+	mustNotErr(err)
+	return job
 }
 
 // FindJob returns JobSpec for given JobID
@@ -561,7 +564,11 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(marshaled))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
+
+	var createdJob models.JobSpec
+	err = ParseJSONAPIResponse(resp, &createdJob)
+	mustNotErr(err)
+	return createdJob
 }
 
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
