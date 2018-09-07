@@ -7,8 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
@@ -61,22 +61,23 @@ func (ks *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transa
 }
 
 // Sign creates an HMAC from some input data using the account's private key
-func (ks *KeyStore) Sign(input []byte) (string, error) {
+func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
 	account, err := ks.GetAccount()
 	if err != nil {
-		return "", err
+		return models.Signature{}, err
 	}
 	hash, err := utils.Keccak256(input)
 	if err != nil {
-		return "", err
+		return models.Signature{}, err
 	}
 
 	output, err := ks.KeyStore.SignHash(account, hash)
-
 	if err != nil {
-		return "", err
+		return models.Signature{}, err
 	}
-	return common.ToHex(output), nil
+	var signature models.Signature
+	signature.SetBytes(output)
+	return signature, nil
 }
 
 // GetAccount returns the unlocked account in the KeyStore object. The client

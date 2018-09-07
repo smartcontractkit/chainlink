@@ -1,8 +1,8 @@
-import { _0x, rPad, deploy, stranger } from './support/helpers'
+import { deploy, stranger } from './support/helpers'
 
 contract('GetterSetter', () => {
   const sourcePath = 'examples/GetterSetter.sol'
-  const requestId = _0x(rPad('5432'))
+  const requestId = '0x3bd198932d9cc01e2950ffc518fd38a303812200000000000000000000000000'
   const bytes32 = 'Hi Mom!'
   const uint256 = 645746535432
   let gs

@@ -5,13 +5,16 @@ const Deployer = require('../../app/deployer.js')
 const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
 
+const HEX_BASE = 16
+
 let _0x,
   assertActionThrows,
   bigNum,
   checkPublicABI,
+  concatTypedArrays,
   consumer,
-  decodeRunRequest,
   decodeRunABI,
+  decodeRunRequest,
   defaultAccount,
   deploy,
   eth,
@@ -19,13 +22,20 @@ let _0x,
   getEvents,
   getLatestEvent,
   hexToInt,
-  lPad,
+  lengthTypedArrays,
+  newAddress,
+  newHash,
+  newSignature,
+  newUint8Array,
+  newUint8ArrayFromStr,
   oracleNode,
-  rPad,
   requestDataBytes,
   requestDataFrom,
+  splitRPCSignature,
   stranger,
+  toBuffer,
   toHex,
+  toHexWithoutPrefix,
   toWei
 
 (() => {
@@ -155,30 +165,6 @@ let _0x,
     return '0x' + web3.sha3(signature).slice(2).slice(0, 8)
   }
 
-  rPad = (string) => {
-    let wordLen = parseInt((string.length + 31) / 32) * 32
-    for (let i = string.length; i < wordLen; i++) {
-      string = string + '\x00'
-    }
-    return string
-  }
-
-  lPad = (string) => {
-    let wordLen = parseInt((string.length + 31) / 32) * 32
-    for (let i = string.length; i < wordLen; i++) {
-      string = '\x00' + string
-    }
-    return string
-  }
-
-  toHex = arg => {
-    if (arg instanceof Buffer) {
-      return arg.toString('hex')
-    } else {
-      return Buffer.from(arg, 'ascii').toString('hex')
-    }
-  }
-
   decodeRunABI = log => {
     let runABI = util.toBuffer(log.data)
     let types = ['bytes32', 'address', 'bytes4', 'bytes']
@@ -204,9 +190,94 @@ let _0x,
     return link.transferAndCall(oc.address, amount, args)
   }
 
-  _0x = (val) => {
-    return `0x${toHex(val)}`
+  newUint8ArrayFromStr = (str) => {
+    const codePoints = Array.prototype.map.call(str, c => c.charCodeAt(0))
+    return Uint8Array.from(codePoints)
   }
+
+  // newUint8Array returns a uint8array of count bytes from either a hex or
+  // decimal string, hex strings must begin with 0x
+  newUint8Array = (str, count) => {
+    let result = new Uint8Array(count)
+
+    if (str.startsWith('0x') || str.startsWith('0X')) {
+      const hexStr = str.slice(2).padStart(count * 2, '0')
+      for (let i = result.length; i >= 0; i--) {
+        const offset = i * 2
+        result[i] = parseInt(hexStr[offset] + hexStr[offset + 1], HEX_BASE)
+      }
+    } else {
+      const num = bigNum(str)
+      result = newHash('0x' + num.toString(HEX_BASE))
+    }
+
+    return result
+  }
+
+  // newSignature returns a 65 byte Uint8Array for representing a signature
+  newSignature = (str) => {
+    return newUint8Array(str, 65)
+  }
+
+  // newHash returns a 65 byte Uint8Array for representing a hash
+  newHash = (str) => {
+    return newUint8Array(str, 32)
+  }
+
+  // newAddress returns a 20 byte Uint8Array for representing an address
+  newAddress = (str) => {
+    return newUint8Array(str, 20)
+  }
+
+  // lengthTypedArrays sums the length of all specified TypedArrays
+  lengthTypedArrays = (...arrays) => {
+    return arrays.reduce((a, v) => a + v.length, 0)
+  }
+
+  toBuffer = (uint8a) => {
+    return Buffer.from(uint8a)
+  }
+
+  // concatTypedArrays recursively concatenates TypedArrays into one big
+  // TypedArray
+  // TODO: Does not work recursively
+  concatTypedArrays = (...arrays) => {
+    let size = lengthTypedArrays(...arrays)
+    let result = new arrays[0].constructor(size)
+    let offset = 0
+    arrays.forEach((a) => {
+      result.set(a, offset)
+      offset += a.length
+    })
+    return result
+  }
+
+  toHexWithoutPrefix = arg => {
+    if (arg instanceof Buffer) {
+      return arg.toString('hex')
+    } else if (arg instanceof Uint8Array) {
+      return Array.prototype.reduce.call(arg, (a, v) => a + v.toString('16').padStart(2, '0'), '')
+    } else {
+      return Buffer.from(arg, 'ascii').toString('hex')
+    }
+  }
+
+  toHex = (value) => {
+    return `0x${toHexWithoutPrefix(value)}`
+  }
+
+  splitRPCSignature = (oracleSignature) => {
+    let v = oracleSignature[64]
+    if (v < 27) {
+      v += 27
+    }
+    return {
+      v: v,
+      r: oracleSignature.slice(0, 32),
+      s: oracleSignature.slice(32, 64)
+    }
+}
+
 })()
 
 export {
@@ -214,6 +285,7 @@ export {
   assertActionThrows,
   bigNum,
   checkPublicABI,
+  concatTypedArrays,
   consumer,
   decodeRunABI,
   decodeRunRequest,
@@ -224,12 +296,19 @@ export {
   getEvents,
   getLatestEvent,
   hexToInt,
-  lPad,
+  lengthTypedArrays,
+  newAddress,
+  newHash,
+  newSignature,
+  newUint8Array,
+  newUint8ArrayFromStr,
   oracleNode,
-  rPad,
   requestDataBytes,
   requestDataFrom,
+  splitRPCSignature,
   stranger,
+  toBuffer,
   toHex,
+  toHexWithoutPrefix,
   toWei
 }
