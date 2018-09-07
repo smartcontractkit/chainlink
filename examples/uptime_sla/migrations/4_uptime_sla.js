@@ -28,7 +28,7 @@ module.exports = clmigration(async function(truffleDeployer) {
   await request.post(sessionsUrl, {json: credentials});
   let body = await request.post(specsUrl, {json: job});
   console.log(`Deploying UptimeSLA:`)
-  console.log(`\tjob: ${body.id}`);
+  console.log(`\tjob: ${body.data.id}`);
   console.log(`\tclient: ${client}`);
   console.log(`\tservice provider: ${serviceProvider}`);
 
