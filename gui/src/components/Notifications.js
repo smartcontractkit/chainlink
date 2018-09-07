@@ -23,22 +23,23 @@ export class Notifications extends React.Component {
   }
 
   successPresenter = (success, i) => {
-    const isJob = success => success.initiators
+    const isJob = success => success.data && success.data.type === 'specs'
     const isJobRun = success => success.data && success.data.type === 'runs'
     const isBridge = success => success.data && success.data.type === 'bridges'
+    const attributes = success.data.attributes
     if (isJob(success)) {
       return <p key={i}>
-        Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created
+        Job <Link to={`/job_specs/${attributes.id}`}>{attributes.id}</Link> was successfully created
       </p>
     }
     if (isJobRun(success)) {
       return <p key={i}>
-        Job <Link to={`/job_specs/${success.data.attributes.jobId}/runs/id/${success.data.id}`}>{success.data.id}</Link> was successfully run
+        Job <Link to={`/job_specs/${attributes.jobId}/runs/id/${attributes.id}`}>{attributes.id}</Link> was successfully run
       </p>
     }
     if (isBridge(success)) {
       return <p key={i}>
-        Bridge <Link to={`/bridges/${success.data.attributes.name}`}>{success.data.attributes.name}</Link> was successfully created
+        Bridge <Link to={`/bridges/${attributes.name}`}>{attributes.name}</Link> was successfully created
       </p>
     }
   }
