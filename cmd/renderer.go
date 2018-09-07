@@ -46,6 +46,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderJobs(*typed)
 	case *presenters.JobSpec:
 		rt.renderJob(*typed)
+	case *presenters.JobRun:
+		rt.renderJobRun(*typed)
 	case *models.BridgeType:
 		rt.renderBridge(*typed)
 	case *[]models.BridgeType:
@@ -135,7 +137,12 @@ func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 		return err
 	}
 
-	err := rt.renderJobRuns(job)
+	err := rt.renderJobRuns(job.Runs)
+	return err
+}
+
+func (rt RendererTable) renderJobRun(run presenters.JobRun) error {
+	err := rt.renderJobRuns([]presenters.JobRun{run})
 	return err
 }
 
@@ -179,9 +186,9 @@ func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobRuns(j presenters.JobSpec) error {
+func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	table := rt.newTable([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
-	for _, jr := range j.Runs {
+	for _, jr := range runs {
 		table.Append([]string{
 			jr.ID,
 			string(jr.Status),

@@ -110,7 +110,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var js presenters.JobSpec
-	return cli.renderResponse(resp, &js)
+	return cli.renderAPIResponse(resp, &js)
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON
@@ -133,8 +133,8 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
-	var jobs presenters.JobSpec
-	return cli.renderResponse(resp, &jobs)
+	var run presenters.JobRun
+	return cli.renderAPIResponse(resp, &run)
 }
 
 // BackupDatabase streams a backup of the node's db to the passed filepath.
@@ -178,7 +178,7 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var bridge models.BridgeType
-	return cli.deserializeResponse(resp, &bridge)
+	return cli.renderAPIResponse(resp, &bridge)
 }
 
 // GetBridges returns all bridges.
