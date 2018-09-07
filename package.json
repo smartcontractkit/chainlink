@@ -70,6 +70,7 @@
     "snazzy": "^7.1.1",
     "solc": "^0.4.24",
     "solium": "^1.1.8",
+    "solium-plugin-zeppelin": "^0.0.2",
     "standard": "^11.0.1",
     "truffle": "^4.1.14",
     "truffle-contract": "^3.0.6",

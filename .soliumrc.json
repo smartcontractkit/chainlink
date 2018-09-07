@@ -1,12 +1,33 @@
 {
   "extends": "solium:recommended",
-  "plugins": ["security"],
+  "plugins": ["security", "zeppelin"],
   "rules": {
     "indentation": ["error", 2],
     "no-experimental": "error",
     "quotes": ["error", "double"],
     "security/no-block-members": "off",
     "security/no-inline-assembly": "off",
-    "security/no-low-level-calls": "error"
+    "security/no-low-level-calls": "error",
+    "zeppelin/constant-candidates": [
+      "warning"
+    ],
+    "zeppelin/highlight-comments": [
+      "warning"
+    ],
+    "zeppelin/missing-natspec-comments": [
+      "off"
+    ],
+    "zeppelin/no-arithmetic-operations": [
+      "error"
+    ],
+    "zeppelin/no-state-variable-shadowing": [
+      "warning"
+    ],
+    "zeppelin/no-unchecked-send": [
+      "error"
+    ],
+    "zeppelin/no-unused-imports": [
+      "error"
+    ]
   }
 }
