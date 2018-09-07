@@ -53,8 +53,13 @@ describe('components/Notifications', () => {
 
   it('displays successful job creation notification', async () => {
     const jobResponse = {
-      initiators: [],
-      id: 'MYJOBID'
+      data: {
+        attributes: {
+          initiators: [],
+          id: 'MYJOBID'
+        },
+        type: 'specs'
+      }
     }
     const state = {
       notifications: {
@@ -88,7 +93,7 @@ describe('components/Notifications', () => {
 
   it('displays successful web job run', async () => {
     const jobRunResponse = {
-      data: {attributes: {jobId: 'secret'}, type: 'runs', id: 'commitment'}
+      data: {attributes: {jobId: 'secret', id: 'commitment'}, type: 'runs'}
     }
     const state = {
       notifications: {
