@@ -157,7 +157,9 @@ type TxReceipt struct {
 	Hash        common.Hash `json:"transactionHash"`
 }
 
+var emptyHash = common.Hash{}
+
 // Unconfirmed returns true if the transaction is not confirmed.
 func (txr *TxReceipt) Unconfirmed() bool {
-	return common.EmptyHash(txr.Hash)
+	return txr.Hash == emptyHash
 }

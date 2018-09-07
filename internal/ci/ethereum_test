@@ -78,7 +78,7 @@ else
   go get -d $ethpkg
   pushd "$ethpath" >/dev/null
 fi
-git checkout v1.8.8 2>/dev/null
+git checkout v1.8.15 2>/dev/null
 popd >/dev/null
 go install $ethpkg/cmd/geth
 

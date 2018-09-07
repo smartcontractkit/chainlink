@@ -63,6 +63,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/deckarep/golang-set"
+  packages = ["."]
+  revision = "1d4478f51bed434f1dadf96dcd9b43aabac66795"
+  version = "v1.7"
+
+[[projects]]
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -74,7 +80,6 @@
     "common/mclock",
     "core/types",
     "crypto",
-    "crypto/randentropy",
     "crypto/secp256k1",
     "crypto/sha3",
     "ethdb",
@@ -87,8 +92,8 @@
     "rpc",
     "trie"
   ]
-  revision = "2688dab48c9b8ae71b8d95c7678817eaa17f2b53"
-  version = "v1.8.8"
+  revision = "89451f7c382ad2185987ee369f16416f89c28a7d"
+  version = "v1.8.15"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -478,12 +483,6 @@
   version = "v0.3.0"
 
 [[projects]]
-  name = "gopkg.in/fatih/set.v0"
-  packages = ["."]
-  revision = "57907de300222151a123d29255ed17f5ed43fad3"
-  version = "v0.1.0"
-
-[[projects]]
   name = "gopkg.in/go-playground/validator.v8"
   packages = ["."]
   revision = "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
@@ -516,6 +515,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c10e79b2998f8eedeadb12922db3d7625fc9c1f4b2502f8807e4f5a466d578f3"
+  inputs-digest = "ee3c7dbb8294576af156b4ea8aa23b6d048fead5237ce726314516b100c7a22b"
   solver-name = "gps-cdcl"
   solver-version = 1
