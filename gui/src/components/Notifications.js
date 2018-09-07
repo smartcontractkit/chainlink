@@ -23,9 +23,9 @@ export class Notifications extends React.Component {
   }
 
   successPresenter = (success, i) => {
-    // TODO: Update backend to have JSONAPI responses on Create to better discern between types.
     const isJob = success => success.initiators
-    const isJobRun = success => success.id
+    const isJobRun = success => success.data && success.data.type === 'runs'
+    const isBridge = success => success.data && success.data.type === 'bridges'
     if (isJob(success)) {
       return <p key={i}>
         Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully created
@@ -33,11 +33,12 @@ export class Notifications extends React.Component {
     }
     if (isJobRun(success)) {
       return <p key={i}>
-        Job <Link to={`/job_specs/${success.id}`}>{success.id}</Link> was successfully run
+        Job <Link to={`/job_specs/${success.data.attributes.jobId}/runs/id/${success.data.id}`}>{success.data.id}</Link> was successfully run
       </p>
-    } else {
+    }
+    if (isBridge(success)) {
       return <p key={i}>
-        Bridge <Link to={`/bridges/${success.name}`}>{success.name}</Link> was successfully created
+        Bridge <Link to={`/bridges/${success.data.attributes.name}`}>{success.data.attributes.name}</Link> was successfully created
       </p>
     }
   }

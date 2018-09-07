@@ -71,7 +71,7 @@ describe('components/Notifications', () => {
 
   it('displays successful bridge creation notification', async () => {
     const bridgeResponse = {
-      name: 'randombridgename'
+      data: {attributes: {name: 'randombridgename'}}
     }
     const state = {
       notifications: {

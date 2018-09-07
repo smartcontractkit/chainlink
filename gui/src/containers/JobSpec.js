@@ -195,7 +195,6 @@ const mapStateToProps = (state, ownProps) => {
   const jobSpec = jobSpecSelector(state, jobSpecId)
   const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
   const latestJobRuns = jobRunsSelector(state)
-  const success = state.create.successMessage
   const fetching = state.fetching.count
 
   return {
@@ -203,7 +202,6 @@ const mapStateToProps = (state, ownProps) => {
     jobSpec,
     latestJobRuns,
     jobRunsCount,
-    success,
     fetching
   }
 }
