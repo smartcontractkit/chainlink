@@ -19,7 +19,7 @@ contract UptimeSLA is Chainlinked {
   ) public payable {
     client = _client;
     serviceProvider = _serviceProvider;
-    endAt = block.timestamp + 30 days;
+    endAt = block.timestamp.add(30 days);
     jobId = _jobId;
 
     setLinkToken(_link);
