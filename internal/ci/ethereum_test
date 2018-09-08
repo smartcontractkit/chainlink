@@ -177,7 +177,7 @@ cldev login --file internal/clroot/apicredentials
 assert "Jobs count" "cldev -j j | jq length" 2
 
 ## Check job runs
-jid=`echo $ethjob | jq .id | tr -d '"'`
+jid=`echo $ethjob | jq .data.id | tr -d '"'`
 assert "EthLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
 
 printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
