@@ -78,6 +78,6 @@ export const createBridgeType = (data, shouldStringify) => post('/v2/bridge_type
 
 export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
 
-export const createJobSpecRun = (id) => post(`/v2/specs/${id}/runs`, '')
+export const createJobSpecRun = (id) => post(`/v2/specs/${id}/runs`)
 
 export const destroySession = () => destroy(`/sessions`)
