@@ -98,7 +98,7 @@ func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	return false, merr
 }
 
-// WithdrawLink withdraws the given amount of LINK to the configured withdrawal address
+// WithdrawLink withdraws the given amount of LINK from the contract to the configured withdrawal address
 func (txm *TxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error) {
 	functionSelector := models.HexToFunctionSelector("f3fef3a3") // withdraw(address _recipient, uint256 _amount)
 

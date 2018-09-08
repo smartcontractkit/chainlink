@@ -37,7 +37,7 @@ func MockEthOnStore(s *store.Store) *EthMock {
 	return mock
 }
 
-// EthMock is a mock etheruem client
+// EthMock is a mock ethereum client
 type EthMock struct {
 	Responses      []MockResponse
 	Subscriptions  []MockSubscription
