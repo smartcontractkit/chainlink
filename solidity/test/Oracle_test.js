@@ -19,6 +19,7 @@ contract('Oracle', () => {
       'fulfillData',
       'onTokenTransfer',
       'owner',
+      'renounceOwnership',
       'requestData',
       'transferOwnership',
       'withdraw'

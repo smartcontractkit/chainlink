@@ -33,7 +33,7 @@ contract('Consumer', () => {
 
   it('has a predictable gas price', async () => {
     const rec = await eth.getTransactionReceipt(cc.transactionHash)
-    assert.isBelow(rec.gasUsed, 1600000)
+    assert.isBelow(rec.gasUsed, 1700000)
   })
 
   describe('#requestEthereumPrice', () => {

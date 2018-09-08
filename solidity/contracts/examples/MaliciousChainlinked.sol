@@ -2,7 +2,7 @@ pragma solidity ^0.4.24;
 
 import "./MaliciousChainlinkLib.sol";
 import "../Oracle.sol";
-import "../lib/LinkToken.sol";
+import "linkToken/contracts/LinkToken.sol";
 
 contract MaliciousChainlinked {
   using MaliciousChainlinkLib for MaliciousChainlinkLib.Run;
