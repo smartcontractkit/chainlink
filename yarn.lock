@@ -4343,7 +4343,7 @@ eslint-visitor-keys@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/eslint-visitor-keys/-/eslint-visitor-keys-1.0.0.tgz#3f3180fb2e291017716acb4c9d6d5b5c34a6a81d"
 
-eslint@^4.19.1:
+eslint@^4.13.1, eslint@^4.19.1:
   version "4.19.1"
   resolved "https://registry.yarnpkg.com/eslint/-/eslint-4.19.1.tgz#32d1d653e1d90408854bfb296f076ec7e186a300"
   dependencies:
@@ -11733,6 +11733,14 @@ solium-plugin-security@0.1.1:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/solium-plugin-security/-/solium-plugin-security-0.1.1.tgz#2a87bcf8f8c3abf7d198e292e4ac080284e3f3f6"
 
+solium-plugin-zeppelin@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.npmjs.org/solium-plugin-zeppelin/-/solium-plugin-zeppelin-0.0.2.tgz#da9ab8f2657a2d65fd07e4436245d045e4bcf59a"
+  dependencies:
+    eslint "^4.13.1"
+    solparse "^2.2.2"
+    util-deprecate "^1.0.2"
+
 solium@^1.1.8:
   version "1.1.8"
   resolved "https://registry.npmjs.org/solium/-/solium-1.1.8.tgz#35d30a15c572a233ce8a90226d6cfccb762fadb7"
@@ -11750,7 +11758,7 @@ solium@^1.1.8:
     solparse "2.2.5"
     text-table "^0.2.0"
 
-solparse@2.2.5:
+solparse@2.2.5, solparse@^2.2.2:
   version "2.2.5"
   resolved "https://registry.yarnpkg.com/solparse/-/solparse-2.2.5.tgz#72709c867cd6bfc50ec2325f4b81d2b3ea365d99"
   dependencies:
@@ -12887,7 +12895,7 @@ utf8@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmjs.org/utf8/-/utf8-3.0.0.tgz#f052eed1364d696e769ef058b183df88c87f69d1"
 
-util-deprecate@~1.0.1:
+util-deprecate@^1.0.2, util-deprecate@~1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/util-deprecate/-/util-deprecate-1.0.2.tgz#450d4dc9fa70de732762fbd2d4a28981419a0ccf"
 
@@ -13871,6 +13879,10 @@ yargs@~3.10.0:
     cliui "^2.1.0"
     decamelize "^1.0.0"
     window-size "0.1.0"
+
+yarn@^1.9.4:
+  version "1.9.4"
+  resolved "https://registry.npmjs.org/yarn/-/yarn-1.9.4.tgz#3b82d8446b652775723900b470d966861976924b"
 
 yauzl@^2.4.2:
   version "2.9.2"
