@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-import "../lib/ENS.sol";
+import {Registry as ENS} from "../lib/ens/Registry.sol";
 
 /**
 ** The ENS registry contract.
