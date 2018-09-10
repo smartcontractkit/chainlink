@@ -26,7 +26,6 @@ const JobFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  networkError,
   values,
   submitCount
 }) => {
@@ -39,7 +38,7 @@ const JobFormLayout = ({
       <Form noValidate>
         <Grid container justify='center'>
           <Grid container justify='center'>
-            <Grid item lg={7}>
+            <Grid item sm={8}>
               <TextField value={values.json} onChange={handleChange} fullWidth label='Paste JSON' rows={10} rowsMax={25} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
             </Grid>
           </Grid>
