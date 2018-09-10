@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -346,9 +345,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respJobRun presenters.JobRun
-	b, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	assert.NoError(t, web.ParseJSONAPIResponse(b, &respJobRun))
+	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))
 	assert.Equal(t, jr.Initiator.Schedule, respJobRun.Initiator.Schedule, "should have the same schedule")
 	assert.Equal(t, jr.ID, respJobRun.ID, "should have job run id")
 }

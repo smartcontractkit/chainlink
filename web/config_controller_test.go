@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/presenters"
-	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +25,7 @@ func TestConfigController_Show(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	cwl := presenters.ConfigWhitelist{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(resp), &cwl)
+	err := cltest.ParseJSONAPIResponse(resp, &cwl)
 	assert.NoError(t, err)
 
 	assert.Equal(t, store.LogLevel{Level: -1}, cwl.LogLevel)

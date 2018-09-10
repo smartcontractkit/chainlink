@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,8 +39,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 			if test.wantCode == 200 {
 				responseSA := models.ServiceAgreement{}
 
-				body := cltest.ParseResponseBody(resp)
-				err := web.ParseJSONAPIResponse(body, &responseSA)
+				err := cltest.ParseJSONAPIResponse(resp, &responseSA)
 				assert.NoError(t, err)
 				assert.NotEqual(t, "", responseSA.ID)
 				assert.NotEqual(t, "", responseSA.Signature.String())

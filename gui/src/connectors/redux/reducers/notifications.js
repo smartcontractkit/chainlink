@@ -46,7 +46,7 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_CREATE_SUCCESS:
       return Object.assign(
         {},
-        initialState,
+        state,
         {
           successes: [action.response],
           errors: []

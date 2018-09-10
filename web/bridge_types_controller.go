@@ -25,8 +25,10 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if err = btc.App.AddAdapter(bt); err != nil {
 		publicError(c, StatusCodeForError(err), err)
+	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: *bt}); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		c.JSON(200, presenters.BridgeType{BridgeType: *bt})
+		c.Data(200, MediaType, doc)
 	}
 }
 
