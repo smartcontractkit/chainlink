@@ -3,6 +3,8 @@ pragma solidity ^0.4.24;
 import "./ChainlinkLib.sol";
 import "./Oracle.sol";
 import "linkToken/contracts/LinkToken.sol";
+import "./lib/ENS.sol";
+import "./lib/ENSResolver.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
@@ -14,6 +16,9 @@ contract Chainlinked {
   Oracle internal oracle;
   uint256 internal requests = 1;
   mapping(bytes32 => bool) internal unfulfilledRequests;
+
+  ENS internal ens;
+  bytes32 internal ensNode;
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
@@ -59,6 +64,15 @@ contract Chainlinked {
 
   function setLinkToken(address _link) internal {
     link = LinkToken(_link);
+  }
+
+  event Addrs(address resolver, address oracle);
+  function newChainlinkWithENS(address _ens, bytes32 _node) internal {
+    ens = ENS(_ens);
+    ensNode = _node;
+    ENSResolver resolver = ENSResolver(ens.resolver(_node));
+    setOracle(resolver.addr(_node));
+    emit Addrs(address(resolver), resolver.addr(_node));
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
