@@ -69,8 +69,6 @@ export {
   stranger
 }
 
-export const _0x = val => `0x${toHex(val)}`
-
 export const bigNum = number => web3.toBigNumber(number)
 
 export const toWei = number => bigNum(web3.toWei(number))
@@ -101,22 +99,6 @@ export const getEvents = contract => (
         .get((error, events) => (error ? reject(error) : resolve(events)))
   )
 )
-
-export const lPad = s => {
-  let wordLen = parseInt((s.length + 31) / 32) * 32
-  for (let i = s.length; i < wordLen; i++) {
-    s = '\x00' + s
-  }
-  return s
-}
-
-export const rPad = s => {
-  let worldLen = parseInt((s.length + 31) / 32) * 32
-  for (let i = s.length; i < worldLen; i++) {
-    s = s + '\x00'
-  }
-  return s
-}
 
 export const getLatestEvent = async (contract) => {
   let events = await getEvents(contract)
