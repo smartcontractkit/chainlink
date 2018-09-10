@@ -81,7 +81,8 @@
   },
   "files": [
     "/tools/sa_requester/bin",
-    "/tools/sa_requester/lib"
+    "/tools/sa_requester/lib",
+    "/solidity"
   ],
   "standard": {
     "parser": "babel-eslint",
