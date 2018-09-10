@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/models/migrations"
+	"github.com/smartcontractkit/chainlink/store/models/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -360,8 +362,10 @@ func TestClient_BackupDatabase(t *testing.T) {
 	err := client.BackupDatabase(c)
 	assert.NoError(t, err)
 
-	restored, err := models.NewORM(path, 1*time.Second)
+	restored, err := orm.NewORM(path, 1*time.Second)
 	assert.NoError(t, err)
+	err = migrations.Migrate(restored)
+	require.NoError(t, err)
 	restoredJob, err := restored.FindJob(job.ID)
 	assert.NoError(t, err)
 

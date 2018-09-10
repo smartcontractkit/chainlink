@@ -1,4 +1,4 @@
-package models_test
+package orm_test
 
 import (
 	"encoding/hex"
