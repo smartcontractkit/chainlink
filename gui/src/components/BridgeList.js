@@ -36,7 +36,7 @@ const renderBridges = bridges => (
         <Typography variant='body1'>{bridge.url}</Typography>
       </TableCell>
       <TableCell>
-        <Typography variant='body1'>{bridge.defaultConfirmations}</Typography>
+        <Typography variant='body1'>{bridge.confirmations}</Typography>
       </TableCell>
     </TableRow>
   ))
