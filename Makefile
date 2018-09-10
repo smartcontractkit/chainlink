@@ -1,4 +1,3 @@
-.EXPORT_ALL_VARIABLES:
 .DEFAULT_GOAL := build
 .PHONY: godep yarndep build install gui docker dockerpush
 
@@ -46,9 +45,9 @@ gui: yarndep ## Install GUI
 
 docker: ## Build the docker image.
 	docker build \
-		--build-arg ENVIRONMENT \
-		--build-arg COMMIT_SHA \
-		--build-arg SGX_SIMULATION \
+		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
+		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+		--build-arg SGX_SIMULATION=$(SGX_SIMULATION) \
 		-t $(TAGGED_REPO) \
 		-f $(DOCKERFILE) \
 		.
@@ -61,7 +60,7 @@ chainlink: $(SGX_BUILD_ENCLAVE)
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):
-	@make -C sgx/
+	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C sgx/
 	@ln -f $(SGX_TARGET)/libadapters.so sgx/target/libadapters.so
 
 help:
