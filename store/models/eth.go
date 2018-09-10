@@ -118,9 +118,11 @@ type BlockHeader struct {
 	ParityHash  common.Hash      `json:"hash"`
 }
 
+var emptyHash = common.Hash{}
+
 // Hash will return GethHash if it exists otherwise it returns the ParityHash
 func (h BlockHeader) Hash() common.Hash {
-	if !common.EmptyHash(h.GethHash) {
+	if h.GethHash != emptyHash {
 		return h.GethHash
 	}
 	return h.ParityHash
