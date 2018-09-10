@@ -1,12 +1,12 @@
 pragma solidity ^0.4.24;
 
-import "../lib/ENS.sol";
+import {Registry as ENS} from "../lib/ens/Registry.sol";
 
 /**
  * A simple resolver anyone can use; only allows the owner of a node to set its
  * address.
  */
-contract PublicResolver {
+contract ENSResolver {
 
     bytes4 constant INTERFACE_META_ID = 0x01ffc9a7;
     bytes4 constant ADDR_INTERFACE_ID = 0x3b3b57de;
