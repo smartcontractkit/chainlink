@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -269,6 +270,47 @@ func TestTxManager_ActivateAccount(t *testing.T) {
 	aa := txm.GetActiveAccount()
 	assert.Equal(t, account.Address, aa.Address)
 	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
+}
+
+func TestTxManager_WithdrawLink(t *testing.T) {
+	t.Parallel()
+	config, configCleanup := cltest.NewConfig()
+	defer configCleanup()
+	oca := common.HexToAddress("0xDEADB3333333F")
+	config.OracleContractAddress = &oca
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+
+	txm := app.Store.TxManager
+
+	to := cltest.NewAddress()
+	hash := cltest.NewHash()
+	sentAt := uint64(23456)
+	nonce := uint64(256)
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+	})
+	assert.NoError(t, app.Start())
+
+	ethMock.Context("txm.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", hash)
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
+
+	wr := models.WithdrawalRequest{
+		Address: to,
+		Amount:  assets.NewLink(10),
+	}
+
+	hash, err := txm.WithdrawLink(wr)
+	assert.NoError(t, err)
+	assert.True(t, ethMock.AllCalled(), "Not Called")
+
+	var tx models.Tx
+
+	assert.NoError(t, app.Store.One("Nonce", nonce, &tx))
+	assert.Equal(t, hash, tx.Hash)
 }
 
 func TestActiveAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {

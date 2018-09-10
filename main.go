@@ -154,6 +154,12 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:   "Creates a service agreement",
 			Action:  client.CreateServiceAgreement,
 		},
+		{
+			Name:    "withdraw",
+			Aliases: []string{"w"},
+			Usage:   "Withdraw LINK to an authorized address",
+			Action:  client.Withdraw,
+		},
 	}
 	logger.WarnIf(app.Run(args))
 }

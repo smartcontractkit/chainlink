@@ -408,6 +408,10 @@ func TestClient_RemoteLogin(t *testing.T) {
 	}
 }
 
+func TestClient_Withdraw(t *testing.T) {
+	t.Parallel()
+}
+
 func first(a models.JobSpec, b interface{}) models.JobSpec {
 	return a
 }
