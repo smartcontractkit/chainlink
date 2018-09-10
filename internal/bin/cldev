@@ -39,6 +39,17 @@ case "$1" in
   clean)
     rm -f $ROOT/db.bolt $ROOT/log.jsonl
     ;;
+  migration)
+    if [ "$#" != 2 ]; then
+      echo Please pass in the name of the migration
+      exit 1
+    fi
+    timestamp=$(date +%s)
+    filename="${timestamp}_$2.go"
+    echo $filename
+    mkdir -p store/models/migrations
+    touch store/models/migrations/$filename
+    ;;
   *)
     mainexec $@
     ;;

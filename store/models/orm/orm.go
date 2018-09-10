@@ -1,4 +1,4 @@
-package models
+package orm
 
 import (
 	"errors"
@@ -13,6 +13,7 @@ import (
 	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
@@ -27,9 +28,7 @@ func NewORM(path string, duration time.Duration) (*ORM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
-	orm := &ORM{db}
-	orm.migrate()
-	return orm, nil
+	return &ORM{db}, nil
 }
 
 func initializeDatabase(path string, duration time.Duration) (*storm.DB, error) {
@@ -63,10 +62,10 @@ func emptySlice(to interface{}) {
 }
 
 // FindBridge looks up a Bridge by its Name.
-func (orm *ORM) FindBridge(name string) (BridgeType, error) {
-	var bt BridgeType
+func (orm *ORM) FindBridge(name string) (models.BridgeType, error) {
+	var bt models.BridgeType
 
-	tt, err := NewTaskType(name)
+	tt, err := models.NewTaskType(name)
 	if err != nil {
 		return bt, err
 	}
@@ -77,31 +76,31 @@ func (orm *ORM) FindBridge(name string) (BridgeType, error) {
 
 // PendingBridgeType returns the bridge type of the current pending task,
 // or error if not pending bridge.
-func (orm *ORM) PendingBridgeType(jr JobRun) (BridgeType, error) {
+func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 	unfinished := jr.UnfinishedTaskRuns()
 	if len(unfinished) == 0 {
-		return BridgeType{}, errors.New("Cannot find the pending bridge type of a job run with no unfinished tasks")
+		return models.BridgeType{}, errors.New("Cannot find the pending bridge type of a job run with no unfinished tasks")
 	}
 	return orm.FindBridge(unfinished[0].Task.Type.String())
 }
 
 // FindJob looks up a Job by its ID.
-func (orm *ORM) FindJob(id string) (JobSpec, error) {
-	var job JobSpec
+func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
+	var job models.JobSpec
 	err := orm.One("ID", id, &job)
 	return job, err
 }
 
 // FindJobRun looks up a JobRun by its ID.
-func (orm *ORM) FindJobRun(id string) (JobRun, error) {
-	var jr JobRun
+func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
+	var jr models.JobRun
 	err := orm.One("ID", id, &jr)
 	return jr, err
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
-func (orm *ORM) FindServiceAgreement(id string) (ServiceAgreement, error) {
-	var sa ServiceAgreement
+func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
+	var sa models.ServiceAgreement
 	return sa, orm.One("ID", id, &sa)
 }
 
@@ -111,25 +110,25 @@ func (orm *ORM) InitBucket(model interface{}) error {
 }
 
 // Jobs fetches all jobs.
-func (orm *ORM) Jobs() ([]JobSpec, error) {
-	var jobs []JobSpec
+func (orm *ORM) Jobs() ([]models.JobSpec, error) {
+	var jobs []models.JobSpec
 	err := orm.All(&jobs)
 	return jobs, err
 }
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
 // sorted by their created at time.
-func (orm *ORM) JobRunsFor(jobID string) ([]JobRun, error) {
-	runs := []JobRun{}
+func (orm *ORM) JobRunsFor(jobID string) ([]models.JobRun, error) {
+	runs := []models.JobRun{}
 	err := orm.Find("JobID", jobID, &runs) // Use Find to leverage db index
 	if err == storm.ErrNotFound {
-		return []JobRun{}, nil
+		return []models.JobRun{}, nil
 	}
 	sort.Sort(jobRunSorterAscending(runs))
 	return runs, err
 }
 
-type jobRunSorterAscending []JobRun
+type jobRunSorterAscending []models.JobRun
 
 func (jrs jobRunSorterAscending) Len() int      { return len(jrs) }
 func (jrs jobRunSorterAscending) Swap(i, j int) { jrs[i], jrs[j] = jrs[j], jrs[i] }
@@ -140,11 +139,11 @@ func (jrs jobRunSorterAscending) Less(i, j int) bool {
 // JobRunsCountFor returns the current number of runs for the job
 func (orm *ORM) JobRunsCountFor(jobID string) (int, error) {
 	query := orm.Select(q.Eq("JobID", jobID))
-	return query.Count(&JobRun{})
+	return query.Count(&models.JobRun{})
 }
 
 // SaveJob saves a job to the database and adds IDs to associated tables.
-func (orm *ORM) SaveJob(job *JobSpec) error {
+func (orm *ORM) SaveJob(job *models.JobSpec) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %+v", err)
@@ -157,7 +156,7 @@ func (orm *ORM) SaveJob(job *JobSpec) error {
 	return tx.Commit()
 }
 
-func saveJobSpec(job *JobSpec, tx storm.Node) error {
+func saveJobSpec(job *models.JobSpec, tx storm.Node) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobID = job.ID
 		if err := tx.Save(&job.Initiators[i]); err != nil {
@@ -172,7 +171,7 @@ func saveJobSpec(job *JobSpec, tx storm.Node) error {
 
 // SaveServiceAgreement saves a service agreement and it's associations to the
 // database.
-func (orm *ORM) SaveServiceAgreement(sa *ServiceAgreement) error {
+func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %+v", err)
@@ -193,7 +192,7 @@ func (orm *ORM) SaveServiceAgreement(sa *ServiceAgreement) error {
 
 // SaveCreationHeight stores the JobRun in the database with the given
 // block number.
-func (orm *ORM) SaveCreationHeight(jr JobRun, bn *IndexableBlockNumber) (JobRun, error) {
+func (orm *ORM) SaveCreationHeight(jr models.JobRun, bn *models.IndexableBlockNumber) (models.JobRun, error) {
 	if jr.CreationHeight != nil || bn == nil {
 		return jr, nil
 	}
@@ -204,11 +203,11 @@ func (orm *ORM) SaveCreationHeight(jr JobRun, bn *IndexableBlockNumber) (JobRun,
 }
 
 // JobRunsWithStatus returns the JobRuns which have the passed statuses.
-func (orm *ORM) JobRunsWithStatus(statuses ...RunStatus) ([]JobRun, error) {
-	runs := []JobRun{}
+func (orm *ORM) JobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
+	runs := []models.JobRun{}
 	err := orm.Select(q.In("Status", statuses)).Find(&runs)
 	if err == storm.ErrNotFound {
-		return []JobRun{}, nil
+		return []models.JobRun{}, nil
 	}
 
 	return runs, err
@@ -217,12 +216,12 @@ func (orm *ORM) JobRunsWithStatus(statuses ...RunStatus) ([]JobRun, error) {
 // AnyJobWithType returns true if there is at least one job associated with
 // the type name specified and false otherwise
 func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
-	jobs := []JobSpec{}
+	jobs := []models.JobSpec{}
 	err := orm.All(&jobs)
 	if err != nil {
 		return false, err
 	}
-	ts, err := NewTaskType(taskTypeName)
+	ts, err := models.NewTaskType(taskTypeName)
 	if err != nil {
 		return false, err
 	}
@@ -244,8 +243,8 @@ func (orm *ORM) CreateTx(
 	data []byte,
 	value *big.Int,
 	gasLimit uint64,
-) (*Tx, error) {
-	tx := Tx{
+) (*models.Tx, error) {
+	tx := models.Tx{
 		From:     from,
 		To:       to,
 		Nonce:    nonce,
@@ -258,7 +257,7 @@ func (orm *ORM) CreateTx(
 
 // ConfirmTx updates the database for the given transaction to
 // show that the transaction has been confirmed on the blockchain.
-func (orm *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
+func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
 	dbtx, err := orm.Begin(true)
 	if err != nil {
 		return err
@@ -278,8 +277,8 @@ func (orm *ORM) ConfirmTx(tx *Tx, txat *TxAttempt) error {
 
 // AttemptsFor returns the Transaction Attempts (TxAttempt) for a
 // given Transaction ID (TxID).
-func (orm *ORM) AttemptsFor(id uint64) ([]TxAttempt, error) {
-	attempts := []TxAttempt{}
+func (orm *ORM) AttemptsFor(id uint64) ([]models.TxAttempt, error) {
+	attempts := []models.TxAttempt{}
 	if err := orm.Where("TxID", id, &attempts); err != nil {
 		return attempts, err
 	}
@@ -289,15 +288,15 @@ func (orm *ORM) AttemptsFor(id uint64) ([]TxAttempt, error) {
 // AddAttempt creates a new transaction attempt and stores it
 // in the database.
 func (orm *ORM) AddAttempt(
-	tx *Tx,
+	tx *models.Tx,
 	etx *types.Transaction,
 	blkNum uint64,
-) (*TxAttempt, error) {
+) (*models.TxAttempt, error) {
 	hex, err := utils.EncodeTxToHex(etx)
 	if err != nil {
 		return nil, err
 	}
-	attempt := &TxAttempt{
+	attempt := &models.TxAttempt{
 		Hash:     etx.Hash(),
 		GasPrice: etx.GasPrice(),
 		Hex:      hex,
@@ -324,7 +323,7 @@ func (orm *ORM) AddAttempt(
 
 // GetLastNonce retrieves the last known nonce in the database for an account
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
-	var transactions []Tx
+	var transactions []models.Tx
 	query := orm.Select(q.Eq("From", address))
 	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == storm.ErrNotFound {
 		return 0, nil
@@ -336,14 +335,14 @@ func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 }
 
 // MarkRan will set Ran to true for a given initiator
-func (orm *ORM) MarkRan(i *Initiator) error {
+func (orm *ORM) MarkRan(i *models.Initiator) error {
 	dbtx, err := orm.Begin(true)
 	if err != nil {
 		return err
 	}
 	defer dbtx.Rollback()
 
-	var ir Initiator
+	var ir models.Initiator
 	if err := orm.One("ID", i.ID, &ir); err != nil {
 		return err
 	}
@@ -360,15 +359,15 @@ func (orm *ORM) MarkRan(i *Initiator) error {
 }
 
 // FindUser will return the one API user, or an error.
-func (orm *ORM) FindUser() (User, error) {
-	var users []User
+func (orm *ORM) FindUser() (models.User, error) {
+	var users []models.User
 	err := orm.AllByIndex("CreatedAt", &users, storm.Limit(1), storm.Reverse())
 	if err != nil {
-		return User{}, err
+		return models.User{}, err
 	}
 
 	if len(users) == 0 {
-		return User{}, storm.ErrNotFound
+		return models.User{}, storm.ErrNotFound
 	}
 
 	return users[0], nil
@@ -376,29 +375,29 @@ func (orm *ORM) FindUser() (User, error) {
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
-func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (User, error) {
+func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (models.User, error) {
 	if len(sessionID) == 0 {
-		return User{}, errors.New("Session ID cannot be empty")
+		return models.User{}, errors.New("Session ID cannot be empty")
 	}
 
-	var session Session
+	var session models.Session
 	err := orm.One("ID", sessionID, &session)
 	if err != nil {
-		return User{}, err
+		return models.User{}, err
 	}
 	now := time.Now()
 	if session.LastUsed.Time.Add(sessionDuration).Before(now) {
-		return User{}, errors.New("Session has expired")
+		return models.User{}, errors.New("Session has expired")
 	}
-	session.LastUsed = Time{Time: now}
+	session.LastUsed = models.Time{Time: now}
 	if err := orm.Save(&session); err != nil {
-		return User{}, err
+		return models.User{}, err
 	}
 	return orm.FindUser()
 }
 
 // DeleteUser will delete the API User in the db.
-func (orm *ORM) DeleteUser() (User, error) {
+func (orm *ORM) DeleteUser() (models.User, error) {
 	user, err := orm.FindUser()
 	if err != nil {
 		return user, err
@@ -414,11 +413,11 @@ func (orm *ORM) DeleteUser() (User, error) {
 	if err != nil {
 		return user, err
 	}
-	err = tx.Drop(&Session{})
+	err = tx.Drop(&models.Session{})
 	if err != nil {
 		return user, err
 	}
-	err = tx.Init(&Session{})
+	err = tx.Init(&models.Session{})
 	if err != nil {
 		return user, err
 	}
@@ -427,13 +426,13 @@ func (orm *ORM) DeleteUser() (User, error) {
 
 // DeleteUserSession will erase the session ID for the sole API User.
 func (orm *ORM) DeleteUserSession(sessionID string) error {
-	session := Session{ID: sessionID}
+	session := models.Session{ID: sessionID}
 	return orm.DeleteStruct(&session)
 }
 
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
-func (orm *ORM) CreateSession(sr SessionRequest) (string, error) {
+func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 	user, err := orm.FindUser()
 	if err != nil {
 		return "", err
@@ -444,8 +443,12 @@ func (orm *ORM) CreateSession(sr SessionRequest) (string, error) {
 	}
 
 	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		session := NewSession()
+		session := models.NewSession()
 		return session.ID, orm.Save(&session)
 	}
 	return "", errors.New("Invalid password")
+}
+
+func (orm *ORM) InitializeModel(klass interface{}) error {
+	return orm.InitBucket(klass)
 }
