@@ -96,6 +96,7 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 	ab := AccountBalanceController{app}
 	v2.GET("/account_balance", ab.Show)
+	v2.POST("/withdraw", ab.Withdraw)
 
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
