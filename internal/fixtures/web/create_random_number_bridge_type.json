@@ -1,5 +1,5 @@
 {
   "name": "randomNumber",
   "url": "https://example.com/randomNumber",
-  "defaultConfirmations": 10
+  "confirmations": 10
 }

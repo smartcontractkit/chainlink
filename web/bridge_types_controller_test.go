@@ -58,7 +58,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Len(t, bridges, 1)
 	assert.Equal(t, bt[0].Name, bridges[0].Name, "should have the same Name")
 	assert.Equal(t, bt[0].URL.String(), bridges[0].URL.String(), "should have the same URL")
-	assert.Equal(t, bt[0].DefaultConfirmations, bridges[0].DefaultConfirmations, "should have the same DefaultConfirmations")
+	assert.Equal(t, bt[0].Confirmations, bridges[0].Confirmations, "should have the same Confirmations")
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
@@ -72,15 +72,15 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Len(t, bridges, 1)
 	assert.Equal(t, bt[1].Name, bridges[0].Name, "should have the same Name")
 	assert.Equal(t, bt[1].URL.String(), bridges[0].URL.String(), "should have the same URL")
-	assert.Equal(t, bt[1].DefaultConfirmations, bridges[0].DefaultConfirmations, "should have the same DefaultConfirmations")
+	assert.Equal(t, bt[1].Confirmations, bridges[0].Confirmations, "should have the same Confirmations")
 }
 
 func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeType, error) {
 
 	bt1 := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges1"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges1"),
+		URL:           cltest.WebURL("https://testing.com/bridges"),
+		Confirmations: 0,
 	}
 	err := app.AddAdapter(bt1)
 	if err != nil {
@@ -88,9 +88,9 @@ func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeTy
 	}
 
 	bt2 := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges2"),
-		URL:                  cltest.WebURL("https://testing.com/tari"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges2"),
+		URL:           cltest.WebURL("https://testing.com/tari"),
+		Confirmations: 0,
 	}
 	err = app.AddAdapter(bt2)
 
@@ -119,7 +119,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	bt, err := app.Store.FindBridge(btName)
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
-	assert.Equal(t, uint64(10), bt.DefaultConfirmations)
+	assert.Equal(t, uint64(10), bt.Confirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
 	assert.NotEmpty(t, bt.IncomingToken)
 	assert.NotEmpty(t, bt.OutgoingToken)
@@ -133,9 +133,9 @@ func TestBridgeController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges1"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges1"),
+		URL:           cltest.WebURL("https://testing.com/bridges"),
+		Confirmations: 0,
 	}
 	assert.NoError(t, app.AddAdapter(bt))
 
@@ -149,7 +149,7 @@ func TestBridgeController_Show(t *testing.T) {
 	require.NoError(t, web.ParseJSONAPIResponse(b, &respBridge))
 	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
-	assert.Equal(t, respBridge.DefaultConfirmations, bt.DefaultConfirmations, "should have the same DefaultConfirmations")
+	assert.Equal(t, respBridge.Confirmations, bt.Confirmations, "should have the same Confirmations")
 
 	resp, cleanup = client.Get("/v2/bridge_types/nosuchbridge")
 	defer cleanup()

@@ -139,10 +139,10 @@ func NewBridgeType(info ...string) models.BridgeType {
 	return bt
 }
 
-// NewBridgeTypeWithDefaultConfirmations creates a new bridge type with given default confs and info slice
-func NewBridgeTypeWithDefaultConfirmations(defaultConfirmations uint64, info ...string) models.BridgeType {
+// NewBridgeTypeWithConfirmations creates a new bridge type with given default confs and info slice
+func NewBridgeTypeWithConfirmations(confirmations uint64, info ...string) models.BridgeType {
 	bt := NewBridgeType(info...)
-	bt.DefaultConfirmations = defaultConfirmations
+	bt.Confirmations = confirmations
 
 	return bt
 }

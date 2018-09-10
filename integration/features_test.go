@@ -272,7 +272,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	mockServer, ensureRequest := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
 	defer ensureRequest()
 
-	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","defaultConfirmations":10}`, mockServer.URL)
+	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","confirmations":10}`, mockServer.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/log_initiated_bridge_type_job.json")
 

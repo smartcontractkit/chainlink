@@ -130,7 +130,7 @@ fetchActions.bridgeSpec = {
     type: RECEIVE_BRIDGESPEC_SUCCESS,
     name: json.data.attributes.name,
     url: json.data.attributes.url,
-    confirmations: json.data.attributes.defaultConfirmations,
+    confirmations: json.data.attributes.confirmations,
     incomingToken: json.data.attributes.incomingToken,
     outgoingToken: json.data.attributes.outgoingToken
   }),

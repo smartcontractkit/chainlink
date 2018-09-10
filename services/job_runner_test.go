@@ -395,7 +395,7 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 					assert.True(t, data.Exists())
 					assert.Equal(t, data.Type, gjson.JSON)
 				})
-			bt := cltest.NewBridgeTypeWithDefaultConfirmations(uint64(test.bridgeTypeConfirmations), "randomNumber", mockServer.URL)
+			bt := cltest.NewBridgeTypeWithConfirmations(uint64(test.bridgeTypeConfirmations), "randomNumber", mockServer.URL)
 			assert.Nil(t, store.Save(&bt))
 
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
