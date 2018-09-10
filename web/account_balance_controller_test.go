@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/presenters"
-	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,7 +41,7 @@ func TestAccountBalanceController_Index(t *testing.T) {
 	assert.NoError(t, err)
 
 	ab := presenters.AccountBalance{}
-	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(resp), &ab)
+	err = cltest.ParseJSONAPIResponse(resp, &ab)
 	assert.NoError(t, err)
 
 	assert.Equal(t, account.Address.Hex(), ab.Address)

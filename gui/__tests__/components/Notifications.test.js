@@ -53,8 +53,13 @@ describe('components/Notifications', () => {
 
   it('displays successful job creation notification', async () => {
     const jobResponse = {
-      initiators: [],
-      id: 'MYJOBID'
+      data: {
+        attributes: {
+          initiators: [],
+          id: 'MYJOBID'
+        },
+        type: 'specs'
+      }
     }
     const state = {
       notifications: {
@@ -71,7 +76,7 @@ describe('components/Notifications', () => {
 
   it('displays successful bridge creation notification', async () => {
     const bridgeResponse = {
-      name: 'randombridgename'
+      data: {attributes: {name: 'randombridgename'}, type: 'bridges'}
     }
     const state = {
       notifications: {
@@ -84,5 +89,22 @@ describe('components/Notifications', () => {
     let wrapper = mountNotifications(store)
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Bridge randombridgename was successfully created')
+  })
+
+  it('displays successful web job run', async () => {
+    const jobRunResponse = {
+      data: {attributes: {jobId: 'secret', id: 'commitment'}, type: 'runs'}
+    }
+    const state = {
+      notifications: {
+        successes: [jobRunResponse],
+        errors: [],
+        currentUrl: null
+      }
+    }
+    const store = mockStore(state)
+    let wrapper = mountNotifications(store)
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('Job commitment was successfully run')
   })
 })

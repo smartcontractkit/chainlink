@@ -27,7 +27,7 @@ const main = async () => {
   let Job = await request.post(specsUrl, {json: job})
     .catch(abort('Error creating Job'))
 
-  let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS, Job.id)
+  let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS, Job.data.id)
     .catch(abort('Error deploying RunLog.sol'))
   console.log(`Deployed RunLog at: ${RunLog.address}`)
 

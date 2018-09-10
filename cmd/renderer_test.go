@@ -38,6 +38,34 @@ func TestRendererTable_RenderShowJob(t *testing.T) {
 	assert.Nil(t, r.Render(&p))
 }
 
+func TestRenderer_RenderJobRun(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		renderer cmd.Renderer
+	}{
+		{"json", cmd.RendererJSON{Writer: ioutil.Discard}},
+		{"table", cmd.RendererTable{Writer: ioutil.Discard}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job, i := cltest.NewJobWithWebInitiator()
+			run := job.NewRun(i)
+			assert.Nil(t, test.renderer.Render(&presenters.JobRun{run}))
+		})
+	}
+}
+
+func TestRendererTable_RenderJobRun(t *testing.T) {
+	t.Parallel()
+	r := cmd.RendererTable{Writer: ioutil.Discard}
+	job := cltest.NewJob()
+	jobs := []models.JobSpec{job}
+	assert.NoError(t, r.Render(&jobs))
+}
+
 type testWriter struct {
 	expected string
 	t        testing.TB

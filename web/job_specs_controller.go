@@ -61,8 +61,10 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		publicError(c, 400, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
 		c.AbortWithError(500, err)
+	} else if doc, err := jsonapi.Marshal(presenters.JobSpec{JobSpec: js, Runs: []presenters.JobRun{}}); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		c.JSON(200, presenters.JobSpec{JobSpec: js})
+		c.Data(200, MediaType, doc)
 	}
 }
 
