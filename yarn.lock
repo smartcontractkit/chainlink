@@ -869,15 +869,15 @@ async-sema@^1.4.1:
   dependencies:
     double-ended-queue "2.1.0-0"
 
-async@^1.4.0, async@^1.5.0, async@^1.5.2:
-  version "1.5.2"
-  resolved "https://registry.yarnpkg.com/async/-/async-1.5.2.tgz#ec6a61ae56480c0c3cb241c95618e20892f9672a"
-
-async@^2.1.2, async@^2.1.4, async@^2.4.1, async@^2.5.0, async@^2.6.0:
+async@2.6.1, async@^2.1.2, async@^2.1.4, async@^2.4.1, async@^2.5.0, async@^2.6.0:
   version "2.6.1"
   resolved "https://registry.yarnpkg.com/async/-/async-2.6.1.tgz#b245a23ca71930044ec53fa46aa00a3e87c6a610"
   dependencies:
     lodash "^4.17.10"
+
+async@^1.4.0, async@^1.5.0, async@^1.5.2:
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/async/-/async-1.5.2.tgz#ec6a61ae56480c0c3cb241c95618e20892f9672a"
 
 asynckit@^0.4.0:
   version "0.4.0"
@@ -4343,7 +4343,7 @@ eslint-visitor-keys@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/eslint-visitor-keys/-/eslint-visitor-keys-1.0.0.tgz#3f3180fb2e291017716acb4c9d6d5b5c34a6a81d"
 
-eslint@^4.19.1:
+eslint@^4.13.1, eslint@^4.19.1:
   version "4.19.1"
   resolved "https://registry.yarnpkg.com/eslint/-/eslint-4.19.1.tgz#32d1d653e1d90408854bfb296f076ec7e186a300"
   dependencies:
@@ -7860,13 +7860,13 @@ lodash.without@~4.4.0:
   version "4.4.0"
   resolved "https://registry.yarnpkg.com/lodash.without/-/lodash.without-4.4.0.tgz#3cd4574a00b67bae373a94b748772640507b7aac"
 
+lodash@4.17.10, lodash@^4.13.1, lodash@^4.14.2, lodash@^4.15.0, lodash@^4.17.10, lodash@^4.17.2, lodash@^4.17.3, lodash@^4.17.4, lodash@^4.17.5, lodash@^4.2.0, lodash@^4.3.0, lodash@^4.5.1:
+  version "4.17.10"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.10.tgz#1b7793cf7259ea38fb3661d4d38b3260af8ae4e7"
+
 lodash@^3.10.1:
   version "3.10.1"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-3.10.1.tgz#5bf45e8e49ba4189e17d482789dfd15bd140b7b6"
-
-lodash@^4.13.1, lodash@^4.14.2, lodash@^4.15.0, lodash@^4.17.10, lodash@^4.17.2, lodash@^4.17.3, lodash@^4.17.4, lodash@^4.17.5, lodash@^4.2.0, lodash@^4.3.0, lodash@^4.5.1:
-  version "4.17.10"
-  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.10.tgz#1b7793cf7259ea38fb3661d4d38b3260af8ae4e7"
 
 log-symbols@^1.0.2:
   version "1.0.2"
@@ -11729,9 +11729,21 @@ solc@0.4.24, solc@^0.4.11, solc@^0.4.24:
   dependencies:
     cbor ">=4.0.0"
 
+solidity-parser-antlr@^0.3.1:
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/solidity-parser-antlr/-/solidity-parser-antlr-0.3.2.tgz#1cf9d019280550a31299dc380e87a310dc4ca154"
+
 solium-plugin-security@0.1.1:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/solium-plugin-security/-/solium-plugin-security-0.1.1.tgz#2a87bcf8f8c3abf7d198e292e4ac080284e3f3f6"
+
+solium-plugin-zeppelin@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/solium-plugin-zeppelin/-/solium-plugin-zeppelin-0.0.2.tgz#da9ab8f2657a2d65fd07e4436245d045e4bcf59a"
+  dependencies:
+    eslint "^4.13.1"
+    solparse "^2.2.2"
+    util-deprecate "^1.0.2"
 
 solium@^1.1.8:
   version "1.1.8"
@@ -11750,7 +11762,7 @@ solium@^1.1.8:
     solparse "2.2.5"
     text-table "^0.2.0"
 
-solparse@2.2.5:
+solparse@2.2.5, solparse@^2.2.2:
   version "2.2.5"
   resolved "https://registry.yarnpkg.com/solparse/-/solparse-2.2.5.tgz#72709c867cd6bfc50ec2325f4b81d2b3ea365d99"
   dependencies:
@@ -12527,6 +12539,16 @@ truffle-config@^1.0.0:
     truffle-error "^0.0.2"
     truffle-provider "^0.0.4"
 
+truffle-config@^1.0.6:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/truffle-config/-/truffle-config-1.0.6.tgz#181da7d319c0c55eb2781d5c1886a9c7f32fa470"
+  dependencies:
+    find-up "^2.1.0"
+    lodash "4.17.10"
+    original-require "1.0.1"
+    truffle-error "^0.0.3"
+    truffle-provider "^0.0.6"
+
 truffle-contract-schema@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/truffle-contract-schema/-/truffle-contract-schema-2.0.1.tgz#9bf821d32e26e674ba15eb5d40f96b10b1c9d568"
@@ -12553,12 +12575,49 @@ truffle-error@^0.0.3:
   version "0.0.3"
   resolved "https://registry.yarnpkg.com/truffle-error/-/truffle-error-0.0.3.tgz#4bf55242e14deee1c7194932709182deff2c97ca"
 
+truffle-expect@^0.0.4:
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/truffle-expect/-/truffle-expect-0.0.4.tgz#d5b27adea4c552f43b70dc00877236b7b68c75c8"
+
+truffle-flattener@^1.2.8:
+  version "1.2.8"
+  resolved "https://registry.yarnpkg.com/truffle-flattener/-/truffle-flattener-1.2.8.tgz#51335c0fa8778bccd4e6c25114e90d004df14e2a"
+  dependencies:
+    chalk "^2.4.1"
+    find-up "^2.1.0"
+    mkdirp "^0.5.1"
+    semver "^5.4.1"
+    solidity-parser-antlr "^0.3.1"
+    truffle-config "^1.0.6"
+    truffle-resolver "^4.0.4"
+    tsort "0.0.1"
+
 truffle-provider@^0.0.4:
   version "0.0.4"
   resolved "https://registry.yarnpkg.com/truffle-provider/-/truffle-provider-0.0.4.tgz#910937a163c47208b65b21befda60ddbd0404a3c"
   dependencies:
     truffle-error "^0.0.2"
     web3 "^0.20.1"
+
+truffle-provider@^0.0.6:
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/truffle-provider/-/truffle-provider-0.0.6.tgz#71a92ed67636ada5e78905690d72ea922ad4a613"
+  dependencies:
+    truffle-error "^0.0.3"
+    web3 "0.20.6"
+
+truffle-provisioner@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/truffle-provisioner/-/truffle-provisioner-0.1.1.tgz#5a8327d62511ef23c950d3aa862610a7c377e2aa"
+
+truffle-resolver@^4.0.4:
+  version "4.0.4"
+  resolved "https://registry.yarnpkg.com/truffle-resolver/-/truffle-resolver-4.0.4.tgz#dfd9a8dbca5c5873d7792d1444473d0770ac97d4"
+  dependencies:
+    async "2.6.1"
+    truffle-contract "^3.0.6"
+    truffle-expect "^0.0.4"
+    truffle-provisioner "^0.1.1"
 
 truffle@^4.0.4:
   version "4.1.11"
@@ -12587,6 +12646,10 @@ tslib@^1, tslib@^1.9.3:
 tslib@^1.9.0:
   version "1.9.1"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-1.9.1.tgz#a5d1f0532a49221c87755cfcc89ca37197242ba7"
+
+tsort@0.0.1:
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/tsort/-/tsort-0.0.1.tgz#e2280f5e817f8bf4275657fd0f9aebd44f5a2786"
 
 tty-browserify@0.0.0:
   version "0.0.0"
@@ -12887,7 +12950,7 @@ utf8@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmjs.org/utf8/-/utf8-3.0.0.tgz#f052eed1364d696e769ef058b183df88c87f69d1"
 
-util-deprecate@~1.0.1:
+util-deprecate@^1.0.2, util-deprecate@~1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/util-deprecate/-/util-deprecate-1.0.2.tgz#450d4dc9fa70de732762fbd2d4a28981419a0ccf"
 

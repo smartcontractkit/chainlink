@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24;
 
 import "../Chainlinked.sol";
-import "../lib/Ownable.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract Consumer is Chainlinked, Ownable {
   bytes32 internal specId;

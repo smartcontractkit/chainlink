@@ -74,6 +74,7 @@
     "standard": "^11.0.1",
     "truffle": "^4.1.14",
     "truffle-contract": "^3.0.6",
+    "truffle-flattener": "^1.2.8",
     "url": "^0.11.0",
     "uuid": "^3.3.2",
     "web3": "^1.0.0-beta.35",
