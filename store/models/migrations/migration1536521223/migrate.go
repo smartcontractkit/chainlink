@@ -1,4 +1,4 @@
-package migrations
+package migration1536521223
 
 import (
 	"math/big"
@@ -12,17 +12,13 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func init() {
-	registerMigration(Migration1536521223{})
-}
+type Migration struct{}
 
-type Migration1536521223 struct{}
-
-func (m Migration1536521223) Timestamp() string {
+func (m Migration) Timestamp() string {
 	return "1536521223"
 }
 
-func (m Migration1536521223) Migrate(orm *orm.ORM) error {
+func (m Migration) Migrate(orm *orm.ORM) error {
 	orm.InitializeModel(&JobSpec{})
 	orm.InitializeModel(&JobRun{})
 	orm.InitializeModel(&Initiator{})
@@ -44,11 +40,11 @@ type JobSpec struct {
 type RunStatus string
 
 type RunResult struct {
-	JobRunID     string       `json:"jobRunId"`
-	Data         models.JSON  `json:"data"`
-	Status       RunStatus    `json:"status"`
-	ErrorMessage null.String  `json:"error"`
-	Amount       *assets.Link `json:"amount,omitempty"`
+	JobRunID     string      `json:"jobRunId"`
+	Data         models.JSON `json:"data"`
+	Status       RunStatus   `json:"status"`
+	ErrorMessage null.String `json:"error"`
+	Amount       *big.Int    `json:"amount,omitempty"`
 }
 
 type TaskType string
