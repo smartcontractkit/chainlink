@@ -39,7 +39,7 @@ waitForResponse ()
 }
 
 GIT_ROOT=`git rev-parse --show-toplevel`
-ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
+ROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
 PATH=$ROOT/internal/bin:./node_modules/.bin:$PATH
 
 # Script cleanup and failure diagnosis helpers
@@ -56,13 +56,15 @@ exit_handler() {
       cat $log
     done
   fi
-  # Clear all signal handlers to prevent handler loop
-  trap - 1 2 3 15
   if [ -z "$CIRCLECI" ]; then
+    # Clear all signal handlers to prevent handler loop
+    trap - 1 2 3 15
     # Kill all child subprocesses
     kill -- -$$ || true
   fi
 }
+
+trap "exit_handler" EXIT SIGTERM SIGINT
 
 pushd $ROOT >/dev/null
 
