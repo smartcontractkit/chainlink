@@ -27,7 +27,7 @@ describe('containers/BridgeSpec', () => {
       attributes: {
         name: bridgeName,
         url: 'https://localhost.com:712/endpoint',
-        defaultConfirmations: 9,
+        confirmations: 9,
         incomingToken: 'incomingToken',
         outgoingToken: 'outgoingToken'
       }

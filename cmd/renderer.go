@@ -97,12 +97,12 @@ func bridgeRowToStrings(bridge models.BridgeType) []string {
 	return []string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.DefaultConfirmations, 10),
+		strconv.FormatUint(bridge.Confirmations, 10),
 	}
 }
 
 func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
-	table := rt.newTable([]string{"Name", "URL", "DefaultConfirmations"})
+	table := rt.newTable([]string{"Name", "URL", "Confirmations"})
 	for _, v := range bridges {
 		table.Append(bridgeRowToStrings(v))
 	}
@@ -116,7 +116,7 @@ func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.DefaultConfirmations, 10),
+		strconv.FormatUint(bridge.Confirmations, 10),
 		bridge.IncomingToken,
 		bridge.OutgoingToken,
 	})

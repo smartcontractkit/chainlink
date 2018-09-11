@@ -74,9 +74,8 @@ const BridgeForm = withFormik({
     }
   },
   handleSubmit (values, { props, setSubmitting }) {
-    const formattedValues = JSON.parse(JSON.stringify(values).replace('confirmations', 'defaultConfirmations'))
-    formattedValues.defaultConfirmations = parseInt(formattedValues.defaultConfirmations) || 0
-    props.submitBridgeType(formattedValues, true)
+    values.confirmations = parseInt(values.confirmations) || 0
+    props.submitBridgeType(values, true)
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)

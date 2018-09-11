@@ -281,16 +281,16 @@ func TestClient_GetBridges(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bt1 := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges1"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges1"),
+		URL:           cltest.WebURL("https://testing.com/bridges"),
+		Confirmations: 0,
 	}
 	app.AddAdapter(bt1)
 
 	bt2 := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges2"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges2"),
+		URL:           cltest.WebURL("https://testing.com/bridges"),
+		Confirmations: 0,
 	}
 	app.AddAdapter(bt2)
 
@@ -306,9 +306,9 @@ func TestClient_ShowBridge(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bt := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges1"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges1"),
+		URL:           cltest.WebURL("https://testing.com/bridges"),
+		Confirmations: 0,
 	}
 	app.AddAdapter(bt)
 
@@ -326,9 +326,9 @@ func TestClient_RemoveBridge(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bt := &models.BridgeType{
-		Name:                 models.MustNewTaskType("testingbridges1"),
-		URL:                  cltest.WebURL("https://testing.com/bridges"),
-		DefaultConfirmations: 0,
+		Name:          models.MustNewTaskType("testingbridges1"),
+		URL:           cltest.WebURL("https://testing.com/bridges"),
+		Confirmations: 0,
 	}
 	app.AddAdapter(bt)
 
