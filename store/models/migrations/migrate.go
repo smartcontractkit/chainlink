@@ -4,8 +4,15 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/store/models/migrations/migration1536521223"
+	"github.com/smartcontractkit/chainlink/store/models/migrations/migration1536696950"
 	"github.com/smartcontractkit/chainlink/store/models/orm"
 )
+
+func init() {
+	registerMigration(migration1536521223.Migration{})
+	registerMigration(migration1536696950.Migration{})
+}
 
 type migration interface {
 	Migrate(orm *orm.ORM) error
