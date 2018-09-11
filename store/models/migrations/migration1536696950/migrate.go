@@ -20,8 +20,12 @@ func (m Migration) Timestamp() string {
 
 func (m Migration) Migrate(orm *orm.ORM) error {
 	var jrs []migration1536521223.JobRun
+	var latestJrs []JobRun
 	if err := orm.All(&jrs); err != nil {
-		return err
+		if err := orm.All(&latestJrs); err != nil {
+			return fmt.Errorf("failed migration1536696950: %v", err)
+		}
+		return nil
 	}
 
 	tx, err := orm.Begin(true)
