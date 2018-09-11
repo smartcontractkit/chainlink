@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/models/migrations"
-	"github.com/smartcontractkit/chainlink/store/models/orm"
+	"github.com/smartcontractkit/chainlink/store/migrations"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -11,9 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/models/migrations"
-	"github.com/smartcontractkit/chainlink/store/models/orm"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
