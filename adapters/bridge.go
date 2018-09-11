@@ -37,7 +37,7 @@ func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResu
 // needed for the Bridge to run. This method enables the Bridge to meet the
 // adapters.AdapterWithMinConfs interface.
 func (ba *Bridge) MinConfs() uint64 {
-	return ba.DefaultConfirmations
+	return ba.Confirmations
 }
 
 func resumeBridge(input models.RunResult) models.RunResult {
