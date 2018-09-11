@@ -1,6 +1,7 @@
 package migration1536696950
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -22,13 +23,21 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	if err := orm.All(&jrs); err != nil {
 		return err
 	}
+
+	tx, err := orm.Begin(true)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %+v", err)
+	}
+	defer tx.Rollback()
+
 	for _, jr := range jrs {
 		jr2 := m.Convert(jr)
-		if err := orm.Save(&jr2); err != nil {
+		if err := tx.Save(&jr2); err != nil {
 			return err
 		}
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 func (m Migration) Convert(jr migration1536521223.JobRun) JobRun {
