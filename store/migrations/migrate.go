@@ -4,9 +4,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/store/models/migrations/migration1536521223"
-	"github.com/smartcontractkit/chainlink/store/models/migrations/migration1536696950"
-	"github.com/smartcontractkit/chainlink/store/models/orm"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1536521223"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 func init() {

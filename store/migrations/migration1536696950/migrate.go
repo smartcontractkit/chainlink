@@ -6,9 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store/assets"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1536521223"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/models/migrations/migration1536521223"
-	"github.com/smartcontractkit/chainlink/store/models/orm"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	null "gopkg.in/guregu/null.v3"
 )
 
