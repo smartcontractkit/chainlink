@@ -40,15 +40,25 @@ case "$1" in
     rm -f $ROOT/db.bolt $ROOT/log.jsonl
     ;;
   migration)
-    if [ "$#" != 2 ]; then
-      echo Please pass in the name of the migration
-      exit 1
-    fi
     timestamp=$(date +%s)
-    filename="${timestamp}_$2.go"
-    echo $filename
-    mkdir -p store/models/migrations
-    touch store/models/migrations/$filename
+    pkg="store/models/migrations/migration${timestamp}"
+    echo Creating migration package $pkg
+    mkdir -p $pkg
+    echo package migration${timestamp}_test > $pkg/migrate_test.go
+    cat > $pkg/migrate.go <<-EOF
+package migration$timestamp
+
+import "github.com/smartcontractkit/chainlink/store/models/orm"
+
+type Migration struct{}
+
+func (m Migration) Timestamp() string {
+    return "$timestamp"
+}
+
+func (m Migration) Migrate(orm *orm.ORM) error {
+}
+EOF
     ;;
   *)
     mainexec $@
