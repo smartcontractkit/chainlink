@@ -63,10 +63,24 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 }
 ```
 
+### Add to global registry
+
+`store/migrations/migrate.go`
+
+```golang
+func init() {
+	registerMigration(migration1.Migration{})
+	registerMigration(migration2.Migration{})
+	registerMigration(migration<newMigration>.Migration{})
+}
+```
+
 ### Helpers
 
 Run `cldev migration` to generate a migration template, prepopulated with a current
 timestamp.
+
+* Be sure to add your new migration to the list of migrations in `migrate.go`:
 
 
 ```golang
