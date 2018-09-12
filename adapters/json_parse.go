@@ -3,6 +3,7 @@ package adapters
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"strconv"
 
 	simplejson "github.com/bitly/go-simplejson"
@@ -103,15 +104,19 @@ func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) 
 }
 
 func arrayGet(js *simplejson.Json, key string) (*simplejson.Json, bool) {
-	i, err := strconv.ParseUint(key, 10, 64)
+	input, err := strconv.ParseUint(key, 10, 64)
 	if err != nil {
 		return js, false
 	}
-	a, err := js.Array()
-	if err != nil || len(a) < int(i-1) {
+	if input > math.MaxInt32 {
 		return js, false
 	}
-	return js.GetIndex(int(i)), true
+	index := int(input)
+	a, err := js.Array()
+	if err != nil || len(a) < index-1 {
+		return js, false
+	}
+	return js.GetIndex(index), true
 }
 
 func isArray(js *simplejson.Json, key string) bool {
