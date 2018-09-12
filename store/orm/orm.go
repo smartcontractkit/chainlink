@@ -449,6 +449,8 @@ func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 	return "", errors.New("Invalid password")
 }
 
+// InitializeModel uses reflection on the passed klass to generate a bucket
+// of the same type name.
 func (orm *ORM) InitializeModel(klass interface{}) error {
 	return orm.InitBucket(klass)
 }
