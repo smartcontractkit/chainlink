@@ -1,23 +1,34 @@
 import React, { Fragment } from 'react'
 import { Link } from 'react-static'
-import LinkButton from 'components/LinkButton'
 import Flash from './Flash'
 import { receiveSignoutSuccess } from 'actions'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
+
+const styles = theme => ({
+  signInAgain: {
+    color: theme.palette.common.white
+  },
+  flash: {
+    textAlign: 'center'
+  }
+})
 
 export class Notifications extends React.Component {
   signOutLocally = () => {
     this.props.receiveSignoutSuccess()
   }
 
-  errorPresenter = (err, i) => {
+  errorPresenter = (err, i, classes) => {
     if (err.status === 401) {
-      return <p key={i}> {err.detail}
-        <LinkButton onClick={this.signOutLocally}>
-          Sign In Again
-        </LinkButton>
-      </p>
+      return (
+        <p key={i}>
+          {err.detail} <Link to='/signin?forceSignout=1' className={classes.signInAgain}>
+            Sign In Again
+          </Link>
+        </p>
+      )
     }
     return <p key={i}>{err.detail}</p>
   }
@@ -50,7 +61,7 @@ export class Notifications extends React.Component {
       <Fragment>
         {errors.length > 0 &&
           <Flash error className={classes.flash}>
-            {errors.map((err, i) => this.errorPresenter(err, i))}
+            {errors.map((err, i) => this.errorPresenter(err, i, classes))}
           </Flash>
         }
         {successes.length > 0 && (
@@ -72,4 +83,4 @@ const mapDispatchToProps = dispatch => bindActionCreators({receiveSignoutSuccess
 
 export const ConnectedNotifications = connect(mapStateToProps, mapDispatchToProps)(Notifications)
 
-export default ConnectedNotifications
+export default withStyles(styles)(ConnectedNotifications)

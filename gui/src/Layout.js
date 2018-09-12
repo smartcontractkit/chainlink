@@ -72,9 +72,6 @@ const styles = theme => {
     },
     toolbar: {
       minHeight: appBarHeight
-    },
-    flash: {
-      textAlign: 'center'
     }
   }
 }
@@ -171,7 +168,7 @@ class Layout extends Component {
             <div>
               <div className={classes.toolbar} />
 
-              <Notifications classes={classes} />
+              <Notifications />
 
               <div className={classes.content}>
                 <Switch>
