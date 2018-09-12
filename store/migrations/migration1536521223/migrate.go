@@ -1,7 +1,11 @@
 package migration1536521223
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -49,10 +54,70 @@ type RunResult struct {
 
 type TaskType string
 
+func NewTaskType(val string) (TaskType, error) {
+	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
+	if !re.MatchString(val) {
+		return TaskType(""), fmt.Errorf("Task Type validation: name %v contains invalid characters", val)
+	}
+
+	return TaskType(strings.ToLower(val)), nil
+}
+
+func (t *TaskType) UnmarshalJSON(input []byte) error {
+	var aux string
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+	tt, err := NewTaskType(aux)
+	*t = tt
+	return err
+}
+
+func (t TaskType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(t))
+}
+
 type TaskSpec struct {
 	Type          TaskType    `json:"type" storm:"index"`
 	Confirmations uint64      `json:"confirmations"`
 	Params        models.JSON `json:"-"`
+}
+
+// UnmarshalJSON parses the given input and updates the TaskSpec.
+func (t *TaskSpec) UnmarshalJSON(input []byte) error {
+	type Alias TaskSpec
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+
+	t.Confirmations = aux.Confirmations
+	t.Type = aux.Type
+	var params json.RawMessage
+	if err := json.Unmarshal(input, &params); err != nil {
+		return err
+	}
+
+	t.Params = models.JSON{gjson.ParseBytes(params)}
+	return nil
+}
+
+// MarshalJSON returns the JSON-encoded TaskSpec Params.
+func (t TaskSpec) MarshalJSON() ([]byte, error) {
+	type Alias TaskSpec
+	var aux Alias
+	aux = Alias(t)
+	b, err := json.Marshal(aux)
+	if err != nil {
+		return b, err
+	}
+
+	js := gjson.ParseBytes(b)
+	merged, err := t.Params.Merge(models.JSON{js})
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(merged)
 }
 
 type TaskRun struct {
@@ -85,6 +150,18 @@ type Initiator struct {
 	Time     models.Time    `json:"time,omitempty"`
 	Ran      bool           `json:"ran,omitempty"`
 	Address  common.Address `json:"address,omitempty" storm:"index"`
+}
+
+func (i *Initiator) UnmarshalJSON(input []byte) error {
+	type Alias Initiator
+	var aux Alias
+	if err := json.Unmarshal(input, &aux); err != nil {
+		return err
+	}
+
+	*i = Initiator(aux)
+	i.Type = strings.ToLower(aux.Type)
+	return nil
 }
 
 type Tx struct {
