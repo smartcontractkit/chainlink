@@ -7,7 +7,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { Redirect } from 'react-router'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { submitSignIn } from 'actions'
+import { receiveSignoutSuccess, submitSignIn } from 'actions'
 import { Grid } from '@material-ui/core'
 
 const styles = theme => ({
@@ -33,6 +33,14 @@ export class SignIn extends Component {
     e.preventDefault()
     const { email, password } = this.state
     this.props.submitSignIn({ email: email, password: password })
+  }
+
+  componentWillMount () {
+    const params = new URLSearchParams(this.props.location.search)
+
+    if (parseInt(params.get('forceSignout'), 10) === 1) {
+      this.props.receiveSignoutSuccess()
+    }
   }
 
   render () {
@@ -65,8 +73,14 @@ export class SignIn extends Component {
             value={this.state.password}
             onChange={this.handleChange('password')}
           />
-          <Button type='submit' disabled={!enabled} variant='contained' color='primary' className={classes.button}>
-              Sign In
+          <Button
+            type='submit'
+            disabled={!enabled}
+            variant='contained'
+            color='primary'
+            className={classes.button}
+          >
+            Sign In
           </Button>
           {fetching && (
             <Typography variant='body1' color='textSecondary'>
@@ -88,6 +102,9 @@ const mapStateToProps = state => ({
   authenticated: state.authentication.allowed
 })
 
-export const ConnectedSignIn = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitSignIn }))(SignIn)
+export const ConnectedSignIn = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({ submitSignIn, receiveSignoutSuccess })
+)(SignIn)
 
 export default withStyles(styles)(ConnectedSignIn)
