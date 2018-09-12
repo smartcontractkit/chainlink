@@ -44,6 +44,14 @@ func TestJsonParse_Perform(t *testing.T) {
 			false,
 		},
 		{
+			"very large index array",
+			`{"data": [0, 1]}`,
+			[]string{"data", "9223372036854775808"},
+			`{"value":null}`,
+			false,
+			false,
+		},
+		{
 			"return array",
 			`{"data": [[0, 1]]}`,
 			[]string{"data", "0"},
