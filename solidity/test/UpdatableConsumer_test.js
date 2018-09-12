@@ -19,8 +19,8 @@ contract('UpdatableConsumer', () => {
   beforeEach(async () => {
     link = await deploy('LinkToken.sol')
     oc = await deploy('Oracle.sol', link.address)
-    ens = await deploy('examples/ENSRegistry.sol')
-    ensResolver = await deploy('examples/ENSResolver.sol', ens.address)
+    ens = await deploy('ENSRegistry.sol')
+    ensResolver = await deploy('PublicResolver.sol', ens.address)
 
     await ens.setSubnodeOwner('', domainName, oracleNode)
     await ens.setResolver(domainHash.toString(), ensResolver.address, {from: oracleNode})
