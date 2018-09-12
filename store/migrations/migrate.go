@@ -4,6 +4,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536521223"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -19,10 +20,13 @@ type migration interface {
 	Timestamp() string
 }
 
+// MigrationTimestamp tracks already run and available migrations.
 type MigrationTimestamp struct {
 	Timestamp string `json:"timestamp" storm:"id"`
 }
 
+// Migrate iterates through available migrations, running and tracking
+// migrations that have not been run.
 func Migrate(orm *orm.ORM) error {
 	err := orm.InitBucket(&MigrationTimestamp{})
 	if err != nil {
@@ -44,6 +48,7 @@ func Migrate(orm *orm.ORM) error {
 	for _, ts := range sortedTimestamps {
 		_, already := alreadyMigratedSet[ts]
 		if !already {
+			logger.Debug("Migrating ", ts)
 			err = availableMigrations[ts].Migrate(orm)
 			if err != nil {
 				return err
