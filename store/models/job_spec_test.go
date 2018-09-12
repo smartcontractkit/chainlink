@@ -1,7 +1,6 @@
 package models_test
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -98,53 +97,6 @@ func TestJobSpec_Started(t *testing.T) {
 			job.StartAt = test.startAt
 
 			assert.Equal(t, test.want, job.Started(test.current))
-		})
-	}
-}
-
-func TestTaskSpec_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	tests := []struct {
-		name          string
-		taskType      string
-		confirmations uint64
-		json          string
-		output        string
-	}{
-		{"noop", "noop", 0, `{"type":"noOp"}`, `{"type":"noop","confirmations":0}`},
-		{
-			"httpget",
-			"httpget",
-			0,
-			`{"type":"httpget","url":"http://www.no.com"}`,
-			`{"type":"httpget","url":"http://www.no.com","confirmations":0}`,
-		},
-		{
-			"with confirmations",
-			"noop",
-			10,
-			`{"type":"noop","confirmations":10}`,
-			`{"type":"noop","confirmations":10}`,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var task models.TaskSpec
-			err := json.Unmarshal([]byte(test.json), &task)
-			assert.NoError(t, err)
-			assert.Equal(t, test.confirmations, task.Confirmations)
-
-			assert.Equal(t, test.taskType, task.Type.String())
-			_, err = adapters.For(task, store)
-			assert.NoError(t, err)
-
-			s, err := json.Marshal(task)
-			assert.NoError(t, err)
-			assert.JSONEq(t, test.output, string(s))
 		})
 	}
 }

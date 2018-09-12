@@ -1,11 +1,12 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
-    { "type": "HttpGet", "url": "https://api.coinmarketcap.com/v2/ticker/1027/?structure=array" },
-    { "type": "JsonParse", "path": ["data", "0", "quotes", "USD", "price"] },
+    { "type": "HttpGet", "params": { "url": "https://api.coinmarketcap.com/v2/ticker/1027/?structure=array" } },
+    { "type": "JsonParse", "params": { "path": ["data", "0", "quotes", "USD", "price"] } },
     {
-      "type": "Wasm",
-      "wasm": "AGFzbQEAAAABBgFgAX4BfwMCAQAHCwEHcGVyZm9ybQAACgoBCABCwgMgAFML"
+      "type": "Wasm", "params": {
+        "wasm": "AGFzbQEAAAABBgFgAX4BfwMCAQAHCwEHcGVyZm9ybQAACgoBCABCwgMgAFML"
+      }
     }
   ]
 }

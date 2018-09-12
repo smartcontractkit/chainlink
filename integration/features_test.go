@@ -346,9 +346,6 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 		bodyParam := data.Get("bodyParam")
 		assert.True(t, bodyParam.Exists())
 		assert.Equal(t, true, bodyParam.Bool())
-		typeParam := data.Get("type")
-		assert.True(t, typeParam.Exists())
-		assert.Equal(t, "assetprice", typeParam.String())
 
 		w.WriteHeader(200)
 		io.WriteString(w, eaResponse)
