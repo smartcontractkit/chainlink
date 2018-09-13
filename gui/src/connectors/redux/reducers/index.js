@@ -1,26 +1,28 @@
 import { combineReducers } from 'redux'
-import notifications from './notifications'
-import fetching from './fetching'
 import accountBalance from './accountBalance'
-import bridges from './bridges'
-import bridgeSpec from './bridgeSpec'
-import jobs from './jobs'
-import jobRuns from './jobRuns'
-import create from './create'
-import configuration from './configuration'
 import authentication from './authentication'
+import bridgeSpec from './bridgeSpec'
+import bridges from './bridges'
+import configuration from './configuration'
+import create from './create'
+import fetching from './fetching'
+import jobRuns from './jobRuns'
+import jobs from './jobs'
+import notifications from './notifications'
+import redirect from './redirect'
 
 const reducer = combineReducers({
-  notifications,
-  fetching,
   accountBalance,
-  bridges,
+  authentication,
   bridgeSpec,
-  jobs,
-  jobRuns,
-  create,
+  bridges,
   configuration,
-  authentication
+  create,
+  fetching,
+  jobRuns,
+  jobs,
+  notifications,
+  redirect
 })
 
 export default reducer

@@ -12,6 +12,21 @@ const requestNetworkError = (type, error) => ({
   networkError: true
 })
 
+const handleError = (dispatch, receiveNetworkError) => error => {
+  if (error instanceof AuthenticationError) {
+    dispatch(redirectToSignOut())
+  } else {
+    dispatch(receiveNetworkError(error))
+  }
+}
+
+export const REDIRECT = 'REDIRECT'
+
+const redirectToSignOut = () => ({
+  type: REDIRECT,
+  to: '/signout'
+})
+
 export const MATCH_ROUTE = 'MATCH_ROUTE'
 
 export const matchRoute = match => ({
@@ -28,7 +43,7 @@ fetchActions.jobs = {
   receiveSuccess: json => ({
     type: RECEIVE_JOBS_SUCCESS,
     count: json.meta.count,
-    items: json.data.map((j) => (
+    items: json.data.map(j => (
       {
         id: j.id,
         createdAt: j.attributes.createdAt,
@@ -145,7 +160,7 @@ function sendFetchActions (type, ...getArgs) {
     dispatch(createAction(requestActionType))
     return apiGet(...getArgs)
       .then(json => dispatch(receiveSuccess(json)))
-      .catch(error => dispatch(receiveNetworkError(error)))
+      .catch(handleError(dispatch, receiveNetworkError))
   }
 }
 
@@ -166,7 +181,7 @@ function sendSignIn (data) {
   return dispatch => {
     dispatch(createAction(REQUEST_SIGNIN))
     return api.createSession(data)
-      .then((json) => dispatch(receiveSignInSuccess(json)))
+      .then(json => dispatch(receiveSignInSuccess(json)))
       .catch(error => {
         if (error instanceof AuthenticationError) {
           dispatch(receiveSignInFail())
@@ -190,7 +205,7 @@ function sendSignOut () {
   return dispatch => {
     dispatch(createAction(REQUEST_SIGNOUT))
     return api.destroySession()
-      .then((json) => dispatch(receiveSignoutSuccess(json)))
+      .then(json => dispatch(receiveSignoutSuccess(json)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_SIGNOUT_ERROR, error)))
   }
 }
@@ -208,7 +223,7 @@ function sendJobSpec (data, shouldStringify) {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpec(data, shouldStringify)
-      .then((res) => dispatch(receiveCreateSuccess(res)))
+      .then(res => dispatch(receiveCreateSuccess(res)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
   }
 }
@@ -217,7 +232,7 @@ function sendBridgeType (data, shouldStringify) {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createBridgeType(data, shouldStringify)
-      .then((res) => dispatch(receiveCreateSuccess(res)))
+      .then(res => dispatch(receiveCreateSuccess(res)))
       .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
   }
 }
@@ -226,22 +241,22 @@ function sendJobSpecRun (id) {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpecRun(id)
-      .then((res) => dispatch(receiveCreateSuccess(res)))
-      .catch((error) => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
+      .then(res => dispatch(receiveCreateSuccess(res)))
+      .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
   }
 }
 
 export const fetchJobs = (page, size) => sendFetchActions('jobs', page, size)
 export const fetchAccountBalance = () => sendFetchActions('accountBalance')
-export const fetchJobSpec = (id) => sendFetchActions('jobSpec', id)
+export const fetchJobSpec = id => sendFetchActions('jobSpec', id)
 export const fetchJobSpecRuns = (id, page, size) => sendFetchActions('jobSpecRuns', id, page, size)
-export const fetchJobSpecRun = (id) => sendFetchActions('jobSpecRun', id)
+export const fetchJobSpecRun = id => sendFetchActions('jobSpecRun', id)
 export const fetchConfiguration = () => sendFetchActions('configuration')
 export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
-export const fetchBridgeSpec = (name) => sendFetchActions('bridgeSpec', name)
+export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
 
-export const submitSignIn = (data) => sendSignIn(data)
+export const submitSignIn = data => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 export const submitBridgeType = (data, shouldStringify) => sendBridgeType(data, shouldStringify)
 export const submitJobSpec = (data, shouldStringify) => sendJobSpec(data, shouldStringify)
-export const submitJobSpecRun = (id) => sendJobSpecRun(id)
+export const submitJobSpecRun = id => sendJobSpecRun(id)

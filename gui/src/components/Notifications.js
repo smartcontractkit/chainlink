@@ -7,7 +7,7 @@ import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 
 const styles = theme => ({
-  signInAgain: {
+  signOut: {
     color: theme.palette.common.white
   },
   flash: {
@@ -24,7 +24,7 @@ export class Notifications extends React.Component {
     if (err.status === 401) {
       return (
         <p key={i}>
-          {err.detail} <Link to='/signin?forceSignout=1' className={classes.signInAgain}>
+          {err.detail} <Link to='/signout' className={classes.signOut}>
             Sign In Again
           </Link>
         </p>
