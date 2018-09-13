@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536521223"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -64,7 +63,7 @@ func convertRunResult(rr migration1536521223.RunResult) RunResult {
 		Data:         rr.Data,
 		Status:       rr.Status,
 		ErrorMessage: rr.ErrorMessage,
-		Amount:       (*assets.Link)(rr.Amount),
+		Amount:       (*migration1536521223.Link)(rr.Amount),
 	}
 }
 
@@ -106,5 +105,5 @@ type RunResult struct {
 	Data         models.JSON                   `json:"data"`
 	Status       migration1536521223.RunStatus `json:"status"`
 	ErrorMessage null.String                   `json:"error"`
-	Amount       *assets.Link                  `json:"amount,omitempty"`
+	Amount       *migration1536521223.Link     `json:"amount,omitempty"`
 }

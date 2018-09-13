@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"regexp"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/tidwall/gjson"
@@ -37,9 +37,25 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	return nil
 }
 
+type Time struct {
+	time.Time
+}
+
+// UnmarshalJSON parses the raw time stored in JSON-encoded
+// data and stores it to the Time field.
+func (t *Time) UnmarshalJSON(b []byte) error {
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	newTime, err := dateparse.ParseAny(n.String())
+	t.Time = newTime.UTC()
+	return err
+}
+
 type JobSpec struct {
-	ID        string      `json:"id" storm:"id,unique"`
-	CreatedAt models.Time `json:"createdAt" storm:"index"`
+	ID        string `json:"id" storm:"id,unique"`
+	CreatedAt Time   `json:"createdAt" storm:"index"`
 	JobSpecRequest
 }
 
@@ -62,29 +78,6 @@ type RunResult struct {
 }
 
 type TaskType string
-
-func NewTaskType(val string) (TaskType, error) {
-	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
-	if !re.MatchString(val) {
-		return TaskType(""), fmt.Errorf("Task Type validation: name %v contains invalid characters", val)
-	}
-
-	return TaskType(strings.ToLower(val)), nil
-}
-
-func (t *TaskType) UnmarshalJSON(input []byte) error {
-	var aux string
-	if err := json.Unmarshal(input, &aux); err != nil {
-		return err
-	}
-	tt, err := NewTaskType(aux)
-	*t = tt
-	return err
-}
-
-func (t TaskType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(t))
-}
 
 type TaskSpec struct {
 	Type          TaskType    `json:"type" storm:"index"`
@@ -156,7 +149,7 @@ type Initiator struct {
 	JobID    string         `json:"jobId" storm:"index"`
 	Type     string         `json:"type" storm:"index"`
 	Schedule Cron           `json:"schedule,omitempty"`
-	Time     models.Time    `json:"time,omitempty"`
+	Time     Time           `json:"time,omitempty"`
 	Ran      bool           `json:"ran,omitempty"`
 	Address  common.Address `json:"address,omitempty" storm:"index"`
 }
@@ -194,11 +187,11 @@ type TxAttempt struct {
 }
 
 type BridgeType struct {
-	Name                 TaskType      `json:"name" storm:"id,unique"`
-	URL                  models.WebURL `json:"url"`
-	DefaultConfirmations uint64        `json:"defaultConfirmations"`
-	IncomingToken        string        `json:"incomingToken"`
-	OutgoingToken        string        `json:"outgoingToken"`
+	Name                 TaskType `json:"name" storm:"id,unique"`
+	URL                  WebURL   `json:"url"`
+	DefaultConfirmations uint64   `json:"defaultConfirmations"`
+	IncomingToken        string   `json:"incomingToken"`
+	OutgoingToken        string   `json:"outgoingToken"`
 }
 
 type IndexableBlockNumber struct {
@@ -208,28 +201,94 @@ type IndexableBlockNumber struct {
 }
 
 type User struct {
-	Email          string      `json:"email" storm:"id,unique"`
-	HashedPassword string      `json:"hashedPassword"`
-	CreatedAt      models.Time `json:"createdAt" storm:"index"`
+	Email          string `json:"email" storm:"id,unique"`
+	HashedPassword string `json:"hashedPassword"`
+	CreatedAt      Time   `json:"createdAt" storm:"index"`
 }
 
 type Session struct {
-	ID       string      `json:"id" storm:"id,unique"`
-	LastUsed models.Time `json:"lastUsed" storm:"index"`
+	ID       string `json:"id" storm:"id,unique"`
+	LastUsed Time   `json:"lastUsed" storm:"index"`
 }
+
+type EIP55Address string
 
 type Encumbrance struct {
-	Payment    *assets.Link          `json:"payment"`
-	Expiration uint64                `json:"expiration"`
-	Oracles    []models.EIP55Address `json:"oracles"`
+	Payment    *Link          `json:"payment"`
+	Expiration uint64         `json:"expiration"`
+	Oracles    []EIP55Address `json:"oracles"`
 }
 
+const SignatureLength = 65
+
+type Signature [SignatureLength]byte
+
 type ServiceAgreement struct {
-	CreatedAt   models.Time      `json:"createdAt" storm:"index"`
-	Encumbrance Encumbrance      `json:"encumbrance" storm:"inline"`
-	ID          string           `json:"id" storm:"id,unique"`
-	JobSpecID   string           `json:"jobSpecID"`
-	RequestBody string           `json:"requestBody"`
-	Signature   models.Signature `json:"signature"`
+	CreatedAt   Time        `json:"createdAt" storm:"index"`
+	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
+	ID          string      `json:"id" storm:"id,unique"`
+	JobSpecID   string      `json:"jobSpecID"`
+	RequestBody string      `json:"requestBody"`
+	Signature   Signature   `json:"signature"`
 	JobSpec     JobSpec
+}
+
+// WebURL contains the URL of the endpoint.
+type WebURL struct {
+	*url.URL
+}
+
+// UnmarshalJSON parses the raw URL stored in JSON-encoded
+// data to a URL structure and sets it to the URL field.
+func (w *WebURL) UnmarshalJSON(j []byte) error {
+	var v string
+	err := json.Unmarshal(j, &v)
+	if err != nil {
+		return err
+	}
+	u, err := url.ParseRequestURI(v)
+	if err != nil {
+		return err
+	}
+	w.URL = u
+	return nil
+}
+
+// MarshalJSON returns the JSON-encoded string of the given data.
+func (w *WebURL) MarshalJSON() ([]byte, error) {
+	return json.Marshal(w.String())
+}
+
+// String delegates to the wrapped URL struct or an empty string when it is nil
+func (w *WebURL) String() string {
+	if w.URL == nil {
+		return ""
+	}
+	return w.URL.String()
+}
+
+type Link big.Int
+
+func (l *Link) ToBig() *big.Int {
+	copy := *l
+	return (*big.Int)(&copy)
+}
+
+// SetString delegates to *big.Int.SetString
+func (l *Link) SetString(s string, base int) (*Link, bool) {
+	w, ok := (*big.Int)(l).SetString(s, base)
+	return (*Link)(w), ok
+}
+
+// MarshalText implements the encoding.TextMarshaler interface.
+func (l *Link) MarshalText() ([]byte, error) {
+	return (*big.Int)(l).MarshalText()
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+func (l *Link) UnmarshalText(text []byte) error {
+	if _, ok := l.SetString(string(text), 10); !ok {
+		return fmt.Errorf("assets: cannot unmarshal %q into a *Link", text)
+	}
+	return nil
 }
