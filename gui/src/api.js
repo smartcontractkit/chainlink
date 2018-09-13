@@ -1,6 +1,11 @@
 import 'isomorphic-unfetch'
 import formatRequestURI from 'utils/formatRequestURI'
-import { AuthenticationError, BadRequestError, UnknownResponseError } from './errors'
+import {
+  AuthenticationError,
+  BadRequestError,
+  ServerError,
+  UnknownResponseError
+} from './errors'
 import { camelizeKeys } from 'humps'
 
 const formatURI = (path, query = {}) => {
@@ -17,6 +22,8 @@ const parseResponse = response => {
     return response.json().then(json => { throw new BadRequestError(json) })
   } else if (response.status === 401) {
     throw new AuthenticationError(response)
+  } else if (response.status >= 500 && response.status < 600) {
+    throw new ServerError(response)
   } else {
     throw new UnknownResponseError(response)
   }
