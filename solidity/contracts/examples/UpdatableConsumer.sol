@@ -16,4 +16,8 @@ contract UpdatableConsumer is Chainlinked {
     return link;
   }
 
+  function updateOracle() public {
+    updateOracleWithENS();
+  }
+
 }

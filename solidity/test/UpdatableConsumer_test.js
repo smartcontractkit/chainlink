@@ -57,14 +57,42 @@ contract('UpdatableConsumer', () => {
   it('has a limited public interface', () => {
     checkPublicABI(artifacts.require(sourcePath), [
       'publicLinkToken',
-      'publicOracle'
+      'publicOracle',
+      'updateOracle'
     ])
   })
 
   describe('constructor', () => {
-    it('pulls the oracle contract address from the resolver', async () => {
+    it('pulls the token contract address from the resolver', async () => {
       assert.equal(link.address, await uc.publicLinkToken.call())
+    })
+
+    it('pulls the oracle contract address from the resolver', async () => {
       assert.equal(oc.address, await uc.publicOracle.call())
+    })
+  })
+
+  describe("#updateOracle", () => {
+    describe("when the ENS resolver has been updated", () => {
+      const newOracleAddress = "0xf000000000000000000000000000000000000ba7"
+
+      beforeEach(async () => {
+        await ensResolver.setAddr(oracleHash, newOracleAddress, {from: oracleNode})
+      })
+
+      it("updates the contract's oracle address", async () => {
+        await uc.updateOracle()
+
+        assert.equal(newOracleAddress, await uc.publicOracle.call())
+      })
+    })
+
+    describe("when the ENS resolver has not been updated", () => {
+      it("keeps the same oracle address", async () => {
+        await uc.updateOracle()
+
+        assert.equal(oc.address, await uc.publicOracle.call())
+      })
     })
   })
 })
