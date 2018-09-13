@@ -22,7 +22,7 @@ const parseResponse = response => {
     return response.json().then(json => { throw new BadRequestError(json) })
   } else if (response.status === 401) {
     throw new AuthenticationError(response)
-  } else if (response.status >= 500 && response.status < 600) {
+  } else if (response.status >= 500) {
     throw new ServerError(response)
   } else {
     throw new UnknownResponseError(response)
