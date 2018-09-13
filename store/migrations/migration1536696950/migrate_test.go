@@ -6,14 +6,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/assets"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536521223"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMigrate_ConvertRunResultAmount(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/bolt/jobrun_bigint_amount.json")
-	var jr migration1536521223.JobRun
+	var jr migration0.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr))
 
 	migration := migration1536696950.Migration{}
@@ -25,7 +25,7 @@ func TestMigrate_ConvertRunResultAmount(t *testing.T) {
 
 func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/bolt/jobrun_bigint_amount.json")
-	var jr migration1536521223.JobRun
+	var jr migration0.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr))
 
 	store, cleanup := cltest.NewStore()

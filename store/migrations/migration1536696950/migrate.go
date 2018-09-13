@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536521223"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	null "gopkg.in/guregu/null.v3"
@@ -18,7 +18,7 @@ func (m Migration) Timestamp() string {
 }
 
 func (m Migration) Migrate(orm *orm.ORM) error {
-	var jrs []migration1536521223.JobRun
+	var jrs []migration0.JobRun
 	if err := orm.All(&jrs); err != nil {
 		var latestJrs []JobRun
 		if err := orm.All(&latestJrs); err != nil {
@@ -43,7 +43,7 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	return tx.Commit()
 }
 
-func (m Migration) Convert(jr migration1536521223.JobRun) JobRun {
+func (m Migration) Convert(jr migration0.JobRun) JobRun {
 	return JobRun{
 		ID:             jr.ID,
 		JobID:          jr.JobID,
@@ -57,17 +57,17 @@ func (m Migration) Convert(jr migration1536521223.JobRun) JobRun {
 	}
 }
 
-func convertRunResult(rr migration1536521223.RunResult) RunResult {
+func convertRunResult(rr migration0.RunResult) RunResult {
 	return RunResult{
 		JobRunID:     rr.JobRunID,
 		Data:         rr.Data,
 		Status:       rr.Status,
 		ErrorMessage: rr.ErrorMessage,
-		Amount:       (*migration1536521223.Link)(rr.Amount),
+		Amount:       (*migration0.Link)(rr.Amount),
 	}
 }
 
-func convertTaskRuns(oldTRs []migration1536521223.TaskRun) []TaskRun {
+func convertTaskRuns(oldTRs []migration0.TaskRun) []TaskRun {
 	var trs []TaskRun
 	for _, otr := range oldTRs {
 		trs = append(trs, TaskRun{
@@ -81,29 +81,29 @@ func convertTaskRuns(oldTRs []migration1536521223.TaskRun) []TaskRun {
 }
 
 type JobRun struct {
-	ID             string                        `json:"id" storm:"id,unique"`
-	JobID          string                        `json:"jobId" storm:"index"`
-	Result         RunResult                     `json:"result" storm:"inline"`
-	Status         migration1536521223.RunStatus `json:"status" storm:"index"`
-	TaskRuns       []TaskRun                     `json:"taskRuns" storm:"inline"`
-	CreatedAt      time.Time                     `json:"createdAt" storm:"index"`
-	CompletedAt    null.Time                     `json:"completedAt"`
-	Initiator      migration1536521223.Initiator `json:"initiator"`
-	CreationHeight *hexutil.Big                  `json:"creationHeight"`
-	Overrides      RunResult                     `json:"overrides"`
+	ID             string               `json:"id" storm:"id,unique"`
+	JobID          string               `json:"jobId" storm:"index"`
+	Result         RunResult            `json:"result" storm:"inline"`
+	Status         migration0.RunStatus `json:"status" storm:"index"`
+	TaskRuns       []TaskRun            `json:"taskRuns" storm:"inline"`
+	CreatedAt      time.Time            `json:"createdAt" storm:"index"`
+	CompletedAt    null.Time            `json:"completedAt"`
+	Initiator      migration0.Initiator `json:"initiator"`
+	CreationHeight *hexutil.Big         `json:"creationHeight"`
+	Overrides      RunResult            `json:"overrides"`
 }
 
 type TaskRun struct {
-	ID     string                        `json:"id" storm:"id,unique"`
-	Result RunResult                     `json:"result"`
-	Status migration1536521223.RunStatus `json:"status"`
-	Task   migration1536521223.TaskSpec  `json:"task"`
+	ID     string               `json:"id" storm:"id,unique"`
+	Result RunResult            `json:"result"`
+	Status migration0.RunStatus `json:"status"`
+	Task   migration0.TaskSpec  `json:"task"`
 }
 
 type RunResult struct {
-	JobRunID     string                        `json:"jobRunId"`
-	Data         models.JSON                   `json:"data"`
-	Status       migration1536521223.RunStatus `json:"status"`
-	ErrorMessage null.String                   `json:"error"`
-	Amount       *migration1536521223.Link     `json:"amount,omitempty"`
+	JobRunID     string               `json:"jobRunId"`
+	Data         models.JSON          `json:"data"`
+	Status       migration0.RunStatus `json:"status"`
+	ErrorMessage null.String          `json:"error"`
+	Amount       *migration0.Link     `json:"amount,omitempty"`
 }

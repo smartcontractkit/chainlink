@@ -1,4 +1,4 @@
-package migration1536521223
+package migration0
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ import (
 type Migration struct{}
 
 func (m Migration) Timestamp() string {
-	return "1536521223"
+	return "0"
 }
 
 func (m Migration) Migrate(orm *orm.ORM) error {
