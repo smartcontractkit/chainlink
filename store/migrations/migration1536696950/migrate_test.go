@@ -19,8 +19,8 @@ func TestMigrate_ConvertRunResultAmount(t *testing.T) {
 	migration := migration1536696950.Migration{}
 	jr2 := migration.Convert(jr)
 
-	require.Equal(t, jr2.Result.Amount, assets.NewLink(1000000000000000000))
-	require.Equal(t, jr2.TaskRuns[0].Result.Amount, assets.NewLink(1000000000000000000))
+	require.Equal(t, jr2.Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
+	require.Equal(t, jr2.TaskRuns[0].Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
 }
 
 func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
@@ -38,8 +38,8 @@ func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
 
 	var jr2 migration1536696950.JobRun
 	require.NoError(t, store.One("ID", jr.ID, &jr2))
-	require.Equal(t, jr2.Result.Amount, assets.NewLink(1000000000000000000))
-	require.Equal(t, jr2.TaskRuns[0].Result.Amount, assets.NewLink(1000000000000000000))
+	require.Equal(t, jr2.Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
+	require.Equal(t, jr2.TaskRuns[0].Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
 }
 
 func TestMigrate_MigrateRunResultAmount1536521223_asString(t *testing.T) {
@@ -57,6 +57,6 @@ func TestMigrate_MigrateRunResultAmount1536521223_asString(t *testing.T) {
 
 	var jr2 migration1536696950.JobRun
 	require.NoError(t, store.One("ID", jr.ID, &jr2))
-	require.Equal(t, jr2.Result.Amount, assets.NewLink(1000000000000000000))
-	require.Equal(t, jr2.TaskRuns[0].Result.Amount, assets.NewLink(1000000000000000000))
+	require.Equal(t, jr2.Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
+	require.Equal(t, jr2.TaskRuns[0].Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
 }

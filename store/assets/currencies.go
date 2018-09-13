@@ -25,6 +25,7 @@ func NewLink(w int64) *Link {
 	return (*Link)(big.NewInt(w))
 }
 
+// String returns Link formatted as a string.
 func (l *Link) String() string {
 	return format((*big.Int)(l), 18)
 }
@@ -37,6 +38,12 @@ func (l *Link) SetInt64(w int64) *Link {
 // ToHash returns a 32 byte representation of this value
 func (l *Link) ToHash() common.Hash {
 	return common.BigToHash((*big.Int)(l))
+}
+
+// ToBig returns a *big.Int copy of this value.
+func (l *Link) ToBig() *big.Int {
+	copy := *l
+	return (*big.Int)(&copy)
 }
 
 // SetString delegates to *big.Int.SetString
