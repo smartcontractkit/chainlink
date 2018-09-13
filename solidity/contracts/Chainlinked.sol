@@ -10,7 +10,7 @@ contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using SafeMath for uint256;
 
-  uint256 constant clArgsVersion = 1;
+  uint256 constant internal clArgsVersion = 1;
 
   LinkToken internal link;
   Oracle internal oracle;
@@ -19,6 +19,8 @@ contract Chainlinked {
 
   ENS internal ens;
   bytes32 internal ensNode;
+  bytes32 constant internal ensTokenSubname = "link";
+  bytes32 constant internal ensOracleSubname = "oracle";
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
@@ -69,8 +71,16 @@ contract Chainlinked {
   function newChainlinkWithENS(address _ens, bytes32 _node) internal {
     ens = ENS(_ens);
     ensNode = _node;
-    ENSResolver resolver = ENSResolver(ens.resolver(_node));
-    setOracle(resolver.addr(_node));
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
+    setLinkToken(resolver.addr(linkSubnode));
+    updateOracleWithENS();
+  }
+
+  function updateOracleWithENS() internal {
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
+    setOracle(resolver.addr(oracleSubnode));
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
