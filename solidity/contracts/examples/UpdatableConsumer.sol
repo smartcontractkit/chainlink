@@ -4,8 +4,7 @@ import "../Chainlinked.sol";
 
 contract UpdatableConsumer is Chainlinked {
 
-  constructor(address _link, address _ens, bytes32 _ensNode) public {
-    setLinkToken(_link);
+  constructor(address _ens, bytes32 _ensNode) public {
     newChainlinkWithENS(_ens, _ensNode);
   }
 
