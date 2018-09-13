@@ -119,7 +119,8 @@ type ConfigWhitelist struct {
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
-	Port                     string          `json:"chainlinkPort"`
+	Port                     uint16          `json:"chainlinkPort"`
+	RedirectorPort           uint16          `json:"chainlinkRedirectorPort"`
 	RootDir                  string          `json:"root"`
 	SessionTimeout           store.Duration  `json:"sessionTimeout"`
 	ReaperExpiration         store.Duration  `json:"reaperExpiration"`
@@ -145,6 +146,7 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinimumRequestExpiration: config.MinimumRequestExpiration,
 		OracleContractAddress:    config.OracleContractAddress,
 		Port:             config.Port,
+		RedirectorPort:   config.RedirectorPort,
 		RootDir:          config.RootDir,
 		SessionTimeout:   config.SessionTimeout,
 		ReaperExpiration: config.ReaperExpiration,
@@ -155,7 +157,8 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 func (c ConfigWhitelist) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
-		"CHAINLINK_PORT: %s\n" +
+		"CHAINLINK_PORT: %d\n" +
+		"REDIRECTOR_PORT: %d\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
 		"CLIENT_NODE_URL: %s\n" +
@@ -183,6 +186,7 @@ func (c ConfigWhitelist) String() string {
 		c.LogLevel,
 		c.RootDir,
 		c.Port,
+		c.RedirectorPort,
 		c.EthereumURL,
 		c.ChainID,
 		c.ClientNodeURL,
