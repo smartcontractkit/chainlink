@@ -72,17 +72,18 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 	config := app.GetStore().Config
 	var g errgroup.Group
 
-	url := fmt.Sprintf(":%d", config.Port)
-	if config.Dev {
+	if config.Port != 0 {
+		url := fmt.Sprintf(":%d", config.Port)
 		g.Go(func() error { return server.Run(url) })
-	} else {
+	}
+
+	if config.TLSPort != 0 {
 		certFile := config.CertFile()
 		keyFile := config.KeyFile()
+		url := fmt.Sprintf(":%d", config.TLSPort)
 		g.Go(func() error { return server.RunTLS(url, certFile, keyFile) })
-		if config.RedirectorPort != 0 {
-			g.Go(func() error { return web.Redirector(config.RedirectorPort) })
-		}
 	}
+
 	return g.Wait()
 }
 

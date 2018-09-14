@@ -45,7 +45,8 @@ type Config struct {
 	MinimumRequestExpiration uint64          `env:"MINIMUM_REQUEST_EXPIRATION" envDefault:"300"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	Port                     uint16          `env:"CHAINLINK_PORT" envDefault:"6688"`
-	RedirectorPort           uint16          `env:"REDIRECTOR_PORT" envDefault:"0"`
+	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" envDefault:"6689"`
+	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" envDefault:""`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
 	SecretGenerator          SecretGenerator
 	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`

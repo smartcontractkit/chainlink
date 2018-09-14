@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/unrolled/secure"
 )
 
 const (
@@ -46,6 +48,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		gin.Recovery(),
 		cors,
 		sessions.Sessions(SessionName, sessionStore),
+		secureMiddleware(app.Store.Config),
 	)
 
 	sessionRoutes(app, engine)
@@ -54,6 +57,55 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 	guiAssetRoutes(engine)
 
 	return engine
+}
+
+// secureOptions configure security options for the secure middleware, mostly
+// for TLS redirection
+func secureOptions(config store.Config) secure.Options {
+	options := secure.Options{
+		IsDevelopment: config.Dev,
+		SSLRedirect:   config.TLSPort != 0,
+	}
+
+	if config.TLSHost != "" {
+		if config.TLSPort != 0 && config.TLSPort != 443 {
+			options.SSLHost = fmt.Sprintf("%s:%d", config.TLSHost, config.TLSPort)
+		} else {
+			options.SSLHost = config.TLSHost
+		}
+	} else if options.SSLRedirect && !options.IsDevelopment {
+		if config.TLSPort != 0 && config.TLSPort != 443 {
+			options.SSLHost = fmt.Sprintf("localhost:%d", config.TLSPort)
+		}
+	} else if !options.IsDevelopment {
+		log.Fatalf("A TLSHost must be configured when TLS redirection is enabled for a non standard port")
+	}
+
+	return options
+}
+
+// secureMiddleware adds a TLS handler and redirector, to button up security
+// for this node
+func secureMiddleware(config store.Config) gin.HandlerFunc {
+	secureMiddleware := secure.New(secureOptions(config))
+	secureFunc := func() gin.HandlerFunc {
+		return func(c *gin.Context) {
+			err := secureMiddleware.Process(c.Writer, c.Request)
+
+			// If there was an error, do not continue.
+			if err != nil {
+				c.Abort()
+				return
+			}
+
+			// Avoid header rewrite if response is a redirection.
+			if status := c.Writer.Status(); status > 300 && status < 399 {
+				c.Abort()
+			}
+		}
+	}()
+
+	return secureFunc
 }
 
 func authRequired(store *store.Store) gin.HandlerFunc {
