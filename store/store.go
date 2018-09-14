@@ -11,13 +11,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
-	*models.ORM
+	*orm.ORM
 	Config     Config
 	Clock      AfterNower
 	KeyStore   *KeyStore
@@ -131,11 +133,15 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func initializeORM(config Config) (*models.ORM, error) {
+func initializeORM(config Config) (*orm.ORM, error) {
 	path := path.Join(config.RootDir, "db.bolt")
 	duration := config.DatabaseTimeout.Duration
 	logger.Infof("Waiting %s for lock on db file %s", friendlyDuration(duration), path)
-	return models.NewORM(path, duration)
+	orm, err := orm.NewORM(path, duration)
+	if err != nil {
+		return nil, err
+	}
+	return orm, migrations.Migrate(orm)
 }
 
 const zeroDuration = time.Duration(0)
