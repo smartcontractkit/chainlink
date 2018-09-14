@@ -22,22 +22,7 @@ const mountNotifications = (store, props) => {
 }
 
 describe('components/Notifications', () => {
-  it('displays unauthorized errors', async () => {
-    const state = {
-      notifications: {
-        successes: [],
-        errors: [{detail: 'Unauthorized', status: 401}],
-        currentUrl: null
-      }
-    }
-    const store = mockStore(state)
-    let wrapper = mountNotifications(store)
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Unauthorized')
-    expect(wrapper.text()).toContain('Sign In Again')
-  })
-
-  it('displays other errors', async () => {
+  it('displays errors', async () => {
     const state = {
       notifications: {
         successes: [],
