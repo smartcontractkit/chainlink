@@ -254,19 +254,6 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON-encoded string of the given data.
-func (w *WebURL) MarshalJSON() ([]byte, error) {
-	return json.Marshal(w.String())
-}
-
-// String delegates to the wrapped URL struct or an empty string when it is nil
-func (w *WebURL) String() string {
-	if w.URL == nil {
-		return ""
-	}
-	return w.URL.String()
-}
-
 type Link big.Int
 
 // SetString delegates to *big.Int.SetString
@@ -283,7 +270,7 @@ func (l *Link) MarshalText() ([]byte, error) {
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (l *Link) UnmarshalText(text []byte) error {
 	if _, ok := l.SetString(string(text), 10); !ok {
-		return fmt.Errorf("assets: cannot unmarshal %q into a *Link", text)
+		return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
 	}
 	return nil
 }
