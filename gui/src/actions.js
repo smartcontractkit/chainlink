@@ -24,7 +24,7 @@ export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
 export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
 
 fetchActions.jobs = {
-  action: createAction(REQUEST_JOBS),
+  requestActionType: REQUEST_JOBS,
   receiveSuccess: json => ({
     type: RECEIVE_JOBS_SUCCESS,
     count: json.meta.count,
@@ -44,7 +44,7 @@ export const RECEIVE_ACCOUNT_BALANCE_SUCCESS = 'RECEIVE_ACCOUNT_BALANCE_SUCCESS'
 export const RECEIVE_ACCOUNT_BALANCE_ERROR = 'RECEIVE_ACCOUNT_BALANCE_ERROR'
 
 fetchActions.accountBalance = {
-  action: createAction(REQUEST_ACCOUNT_BALANCE),
+  requestActionType: REQUEST_ACCOUNT_BALANCE,
   receiveSuccess: json => ({
     type: RECEIVE_ACCOUNT_BALANCE_SUCCESS,
     eth: json.data.attributes.ethBalance,
@@ -58,7 +58,7 @@ export const RECEIVE_JOB_SPEC_SUCCESS = 'RECEIVE_JOB_SPEC_SUCCESS'
 export const RECEIVE_JOB_SPEC_ERROR = 'RECEIVE_JOB_SPEC_ERROR'
 
 fetchActions.jobSpec = {
-  action: createAction(REQUEST_JOB_SPEC),
+  requestActionType: REQUEST_JOB_SPEC,
   receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_SUCCESS,
     item: json.data.attributes
@@ -71,7 +71,7 @@ export const RECEIVE_JOB_SPEC_RUNS_SUCCESS = 'RECEIVE_JOB_SPEC_RUNS_SUCCESS'
 export const RECEIVE_JOB_SPEC_RUNS_ERROR = 'RECEIVE_JOB_SPEC_RUNS_ERROR'
 
 fetchActions.jobSpecRuns = {
-  action: createAction(REQUEST_JOB_SPEC_RUNS),
+  requestActionType: REQUEST_JOB_SPEC_RUNS,
   receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
     items: json.data.map(j => j.attributes),
@@ -85,7 +85,7 @@ export const RECEIVE_JOB_SPEC_RUN_SUCCESS = 'RECEIVE_JOB_SPEC_RUN_SUCCESS'
 export const RECEIVE_JOB_SPEC_RUN_ERROR = 'RECEIVE_JOB_SPEC_RUN_ERROR'
 
 fetchActions.jobSpecRun = {
-  action: createAction(REQUEST_JOB_SPEC_RUN),
+  requestActionType: REQUEST_JOB_SPEC_RUN,
   receiveSuccess: json => ({
     type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
     item: json.data.attributes
@@ -98,7 +98,7 @@ export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
 export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
 
 fetchActions.configuration = {
-  action: createAction(REQUEST_CONFIGURATION),
+  requestActionType: REQUEST_CONFIGURATION,
   receiveSuccess: json => ({
     type: RECEIVE_CONFIGURATION_SUCCESS,
     config: json.data.attributes
@@ -111,7 +111,7 @@ export const RECEIVE_BRIDGES_SUCCESS = 'RECEIVE_BRIDGES_SUCCESS'
 export const RECEIVE_BRIDGES_ERROR = 'RECEIVE_BRIDGES_ERROR'
 
 fetchActions.bridges = {
-  action: createAction(REQUEST_BRIDGES),
+  requestActionType: REQUEST_BRIDGES,
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGES_SUCCESS,
     count: json.meta.count,
@@ -125,7 +125,7 @@ export const RECEIVE_BRIDGESPEC_SUCCESS = 'RECEIVE_BRIDGESPEC_SUCCESS'
 export const RECEIVE_BRIDGESPEC_ERROR = 'RECEIVE_BRIDGESPEC_ERROR'
 
 fetchActions.bridgeSpec = {
-  action: createAction(REQUEST_BRIDGESPEC),
+  requestActionType: REQUEST_BRIDGESPEC,
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGESPEC_SUCCESS,
     name: json.data.attributes.name,
@@ -139,10 +139,10 @@ fetchActions.bridgeSpec = {
 
 function sendFetchActions (type, ...getArgs) {
   return dispatch => {
-    const {action, receiveSuccess, receiveNetworkError} = fetchActions[type]
+    const {requestActionType, receiveSuccess, receiveNetworkError} = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
 
-    dispatch(action)
+    dispatch(createAction(requestActionType))
     return apiGet(...getArgs)
       .then(json => dispatch(receiveSuccess(json)))
       .catch(error => dispatch(receiveNetworkError(error)))
