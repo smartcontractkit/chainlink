@@ -40,12 +40,6 @@ func (l *Link) ToHash() common.Hash {
 	return common.BigToHash((*big.Int)(l))
 }
 
-// ToBig returns a *big.Int copy of this value.
-func (l *Link) ToBig() *big.Int {
-	copy := *l
-	return (*big.Int)(&copy)
-}
-
 // SetString delegates to *big.Int.SetString
 func (l *Link) SetString(s string, base int) (*Link, bool) {
 	w, ok := (*big.Int)(l).SetString(s, base)

@@ -269,11 +269,6 @@ func (w *WebURL) String() string {
 
 type Link big.Int
 
-func (l *Link) ToBig() *big.Int {
-	copy := *l
-	return (*big.Int)(&copy)
-}
-
 // SetString delegates to *big.Int.SetString
 func (l *Link) SetString(s string, base int) (*Link, bool) {
 	w, ok := (*big.Int)(l).SetString(s, base)
