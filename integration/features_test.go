@@ -59,7 +59,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	unconfirmedReceipt := store.TxReceipt{}
 	confirmedReceipt := store.TxReceipt{
 		Hash:        attempt1Hash,
-		BlockNumber: cltest.BigHexInt(confirmed),
+		BlockNumber: cltest.Int(confirmed),
 	}
 
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -506,7 +506,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 
 			eth.Register("eth_getTransactionReceipt", store.TxReceipt{
 				Hash:        hash,
-				BlockNumber: cltest.BigHexInt(blockNumber),
+				BlockNumber: cltest.Int(blockNumber),
 			})
 			confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations
 			eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))

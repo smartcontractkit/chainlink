@@ -130,10 +130,15 @@ func HexConcat(strs ...string) string {
 
 // RemoveHexPrefix removes the prefix (0x) of a given hex string.
 func RemoveHexPrefix(str string) string {
-	if len(str) > 1 && strings.ToLower(str[0:2]) == "0x" {
+	if IsHex(str) {
 		return str[2:]
 	}
 	return str
+}
+
+// IsHex returns true if the string starts with 0x.
+func IsHex(str string) bool {
+	return len(str) > 1 && strings.ToLower(str[0:2]) == "0x"
 }
 
 // DecodeEthereumTx takes an RLP hex encoded Ethereum transaction and

@@ -146,9 +146,9 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 		{"< gas bump threshold", (gasThreshold - 1), strpkg.TxReceipt{}, false, false, 1},
 		{"== gas bump threshold", gasThreshold, strpkg.TxReceipt{}, true, false, 2},
 		{"> gas bump threshold", (gasThreshold + 1), strpkg.TxReceipt{}, true, false, 2},
-		{"confirmed && < min confs", (gasThreshold + minConfs - 1), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.BigHexInt(gasThreshold)}, false, false, 1},
-		{"confirmed && == min confs", (gasThreshold + minConfs), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.BigHexInt(gasThreshold)}, false, true, 1},
-		{"confirmed && > min confs", (gasThreshold + minConfs + 1), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.BigHexInt(gasThreshold)}, false, true, 1},
+		{"confirmed && < min confs", (gasThreshold + minConfs - 1), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, false, 1},
+		{"confirmed && == min confs", (gasThreshold + minConfs), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, true, 1},
+		{"confirmed && > min confs", (gasThreshold + minConfs + 1), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, true, 1},
 	}
 
 	for _, test := range tests {
@@ -189,7 +189,7 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 	safeAt := confirmedAt + config.MinOutgoingConfirmations
 
 	nonConfedReceipt := strpkg.TxReceipt{}
-	confedReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.BigHexInt(confirmedAt)}
+	confedReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
 
 	tests := []struct {
 		name          string

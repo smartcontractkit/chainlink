@@ -286,6 +286,20 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
+func Int(val interface{}) *models.Int {
+	switch val.(type) {
+	case int:
+		return (*models.Int)(big.NewInt(int64(val.(int))))
+	case uint64:
+		return (*models.Int)(big.NewInt(int64(val.(uint64))))
+	case int64:
+		return (*models.Int)(big.NewInt(val.(int64)))
+	default:
+		logger.Panicf("Could not convert %v of type %T to models.Int", val, val)
+		return &models.Int{}
+	}
+}
+
 // NewBigHexInt creates new BigHexInt from value
 func NewBigHexInt(val interface{}) *hexutil.Big {
 	rval := BigHexInt(val)

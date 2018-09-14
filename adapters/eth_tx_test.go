@@ -45,7 +45,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.BigHexInt(confirmed)}
+	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
@@ -150,7 +150,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
 		Hash:        cltest.NewHash(),
-		BlockNumber: cltest.BigHexInt(sentAt),
+		BlockNumber: cltest.Int(sentAt),
 	})
 	confirmedAt := sentAt + config.MinOutgoingConfirmations - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
