@@ -1,13 +1,16 @@
 package store_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEthClient_GetTxReceipt(t *testing.T) {
@@ -24,7 +27,14 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 	receipt, err := ec.GetTxReceipt(hash)
 	assert.NoError(t, err)
 	assert.Equal(t, hash, receipt.Hash)
-	assert.Equal(t, cltest.BigHexInt(uint64(11)), receipt.BlockNumber)
+	assert.Equal(t, cltest.Int(uint64(11)), receipt.BlockNumber)
+}
+
+func TestTxReceipt_UnmarshalJSON(t *testing.T) {
+	jsonStr := `{"blockNumber":3857489,"transactionHash":"0x6941ab7592a5f8ec5158b0de17129939170db06675b10c8b3e4e9f6ca2d0882b"}`
+	var receipt store.TxReceipt
+	err := json.Unmarshal([]byte(jsonStr), &receipt)
+	require.NoError(t, err)
 }
 
 func TestEthClient_GetNonce(t *testing.T) {
