@@ -2,10 +2,10 @@ package migration1536696950_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
 	"github.com/stretchr/testify/require"
@@ -19,8 +19,8 @@ func TestMigrate_ConvertRunResultAmount(t *testing.T) {
 	migration := migration1536696950.Migration{}
 	jr2 := migration.Convert(jr)
 
-	require.Equal(t, jr2.Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
-	require.Equal(t, jr2.TaskRuns[0].Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
+	require.Equal(t, toBig(jr2.Result.Amount), big.NewInt(1000000000000000000))
+	require.Equal(t, toBig(jr2.TaskRuns[0].Result.Amount), big.NewInt(1000000000000000000))
 }
 
 func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
@@ -38,8 +38,8 @@ func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
 
 	var jr2 migration1536696950.JobRun
 	require.NoError(t, store.One("ID", jr.ID, &jr2))
-	require.Equal(t, jr2.Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
-	require.Equal(t, jr2.TaskRuns[0].Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
+	require.Equal(t, toBig(jr2.Result.Amount), big.NewInt(1000000000000000000))
+	require.Equal(t, toBig(jr2.TaskRuns[0].Result.Amount), big.NewInt(1000000000000000000))
 }
 
 func TestMigrate_MigrateRunResultAmount1536521223_asString(t *testing.T) {
@@ -57,6 +57,11 @@ func TestMigrate_MigrateRunResultAmount1536521223_asString(t *testing.T) {
 
 	var jr2 migration1536696950.JobRun
 	require.NoError(t, store.One("ID", jr.ID, &jr2))
-	require.Equal(t, jr2.Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
-	require.Equal(t, jr2.TaskRuns[0].Result.Amount.ToBig(), assets.NewLink(1000000000000000000).ToBig())
+	require.Equal(t, toBig(jr2.Result.Amount), big.NewInt(1000000000000000000))
+	require.Equal(t, toBig(jr2.TaskRuns[0].Result.Amount), big.NewInt(1000000000000000000))
+}
+
+func toBig(l *migration0.Link) *big.Int {
+	copy := *l
+	return (*big.Int)(&copy)
 }
