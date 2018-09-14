@@ -25,6 +25,7 @@ func NewLink(w int64) *Link {
 	return (*Link)(big.NewInt(w))
 }
 
+// String returns Link formatted as a string.
 func (l *Link) String() string {
 	return format((*big.Int)(l), 18)
 }

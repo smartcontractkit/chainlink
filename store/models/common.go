@@ -3,9 +3,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"net/url"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/store/assets"
 
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
