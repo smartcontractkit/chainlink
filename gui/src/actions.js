@@ -2,21 +2,19 @@ import * as api from 'api'
 import { AuthenticationError } from 'errors'
 import { pascalCase } from 'change-case'
 
-const fetchActions = {}
+const createAction = type => ({type: type})
 
-const createAction = (type) => ({type: type})
-
-const requestNetworkError = (type, error) => ({
+const createErrorAction = (error, type) => ({
   type: type,
   error: error,
   networkError: true
 })
 
-const handleError = (dispatch, receiveNetworkError) => error => {
+const createErrorHandler = (dispatch, type) => error => {
   if (error instanceof AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
-    dispatch(receiveNetworkError(error))
+    dispatch(createErrorAction(error, type))
   }
 }
 
@@ -33,6 +31,8 @@ export const matchRoute = match => ({
   type: MATCH_ROUTE,
   match: match
 })
+
+const fetchActions = {}
 
 export const REQUEST_JOBS = 'REQUEST_JOBS'
 export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
@@ -51,7 +51,7 @@ fetchActions.jobs = {
       }
     ))
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_JOBS_ERROR, error)
+  receiveErrorType: RECEIVE_JOBS_ERROR
 }
 
 export const REQUEST_ACCOUNT_BALANCE = 'REQUEST_ACCOUNT_BALANCE'
@@ -65,7 +65,7 @@ fetchActions.accountBalance = {
     eth: json.data.attributes.ethBalance,
     link: json.data.attributes.linkBalance
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_ACCOUNT_BALANCE_ERROR, error)
+  receiveErrorType: RECEIVE_ACCOUNT_BALANCE_ERROR
 }
 
 export const REQUEST_JOB_SPEC = 'REQUEST_JOB_SPEC'
@@ -78,7 +78,7 @@ fetchActions.jobSpec = {
     type: RECEIVE_JOB_SPEC_SUCCESS,
     item: json.data.attributes
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_JOB_SPEC_ERROR, error)
+  receiveErrorType: RECEIVE_JOB_SPEC_ERROR
 }
 
 export const REQUEST_JOB_SPEC_RUNS = 'REQUEST_JOB_SPEC_RUNS'
@@ -92,7 +92,7 @@ fetchActions.jobSpecRuns = {
     items: json.data.map(j => j.attributes),
     runsCount: json.meta.count
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_JOB_SPEC_RUNS_ERROR, error)
+  receiveErrorType: RECEIVE_JOB_SPEC_RUNS_ERROR
 }
 
 export const REQUEST_JOB_SPEC_RUN = 'REQUEST_JOB_SPEC_RUN'
@@ -105,7 +105,7 @@ fetchActions.jobSpecRun = {
     type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
     item: json.data.attributes
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_JOB_SPEC_RUN_ERROR, error)
+  receiveErrorType: RECEIVE_JOB_SPEC_RUN_ERROR
 }
 
 export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
@@ -118,7 +118,7 @@ fetchActions.configuration = {
     type: RECEIVE_CONFIGURATION_SUCCESS,
     config: json.data.attributes
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_CONFIGURATION_ERROR, error)
+  receiveErrorType: RECEIVE_CONFIGURATION_ERROR
 }
 
 export const REQUEST_BRIDGES = 'REQUEST_BRIDGES'
@@ -132,7 +132,7 @@ fetchActions.bridges = {
     count: json.meta.count,
     items: json.data.map(b => b.attributes)
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGES_ERROR, error)
+  receiveErrorType: RECEIVE_BRIDGES_ERROR
 }
 
 export const REQUEST_BRIDGESPEC = 'REQUEST_BRIDGESPEC'
@@ -149,18 +149,18 @@ fetchActions.bridgeSpec = {
     incomingToken: json.data.attributes.incomingToken,
     outgoingToken: json.data.attributes.outgoingToken
   }),
-  receiveNetworkError: error => requestNetworkError(RECEIVE_BRIDGESPEC_ERROR, error)
+  receiveErrorType: RECEIVE_BRIDGESPEC_ERROR
 }
 
 function sendFetchActions (type, ...getArgs) {
   return dispatch => {
-    const {requestActionType, receiveSuccess, receiveNetworkError} = fetchActions[type]
+    const {requestActionType, receiveSuccess, receiveErrorType} = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
 
     dispatch(createAction(requestActionType))
     return apiGet(...getArgs)
       .then(json => dispatch(receiveSuccess(json)))
-      .catch(handleError(dispatch, receiveNetworkError))
+      .catch(createErrorHandler(dispatch, receiveErrorType))
   }
 }
 
@@ -186,7 +186,7 @@ function sendSignIn (data) {
         if (error instanceof AuthenticationError) {
           dispatch(receiveSignInFail())
         } else {
-          dispatch(requestNetworkError(RECEIVE_SIGNIN_ERROR, error))
+          dispatch(createErrorAction(error, RECEIVE_SIGNIN_ERROR))
         }
       })
   }
@@ -206,7 +206,7 @@ function sendSignOut () {
     dispatch(createAction(REQUEST_SIGNOUT))
     return api.destroySession()
       .then(json => dispatch(receiveSignoutSuccess(json)))
-      .catch(error => dispatch(requestNetworkError(RECEIVE_SIGNOUT_ERROR, error)))
+      .catch(createErrorHandler(dispatch, RECEIVE_SIGNIN_ERROR))
   }
 }
 
@@ -214,9 +214,9 @@ export const REQUEST_CREATE = 'REQUEST_CREATE'
 export const RECEIVE_CREATE_SUCCESS = 'RECEIVE_CREATE_SUCCESS'
 export const RECEIVE_CREATE_ERROR = 'RECEIVE_CREATE_ERROR'
 
-const receiveCreateSuccess = (res) => ({
+const receiveCreateSuccess = response => ({
   type: RECEIVE_CREATE_SUCCESS,
-  response: res
+  response: response
 })
 
 function sendJobSpec (data, shouldStringify) {
@@ -224,7 +224,7 @@ function sendJobSpec (data, shouldStringify) {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpec(data, shouldStringify)
       .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
+      .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
 }
 
@@ -233,7 +233,7 @@ function sendBridgeType (data, shouldStringify) {
     dispatch(createAction(REQUEST_CREATE))
     return api.createBridgeType(data, shouldStringify)
       .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
+      .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
 }
 
@@ -242,7 +242,7 @@ function sendJobSpecRun (id) {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpecRun(id)
       .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(error => dispatch(requestNetworkError(RECEIVE_CREATE_ERROR, error)))
+      .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
 }
 
