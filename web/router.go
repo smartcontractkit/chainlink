@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/expvar"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -48,6 +49,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		sessions.Sessions(SessionName, sessionStore),
 	)
 
+	metricRoutes(app, engine)
 	sessionRoutes(app, engine)
 	v1Routes(app, engine)
 	v2Routes(app, engine)
@@ -68,6 +70,11 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 			c.Next()
 		}
 	}
+}
+
+func metricRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
+	auth := engine.Group("/", authRequired(app.Store))
+	auth.GET("/debug/vars", expvar.Handler())
 }
 
 func sessionRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
@@ -125,9 +132,6 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
-
-		m := MetricsController{app}
-		v2.GET("/metrics", m.Show)
 	}
 }
 

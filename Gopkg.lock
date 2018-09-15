@@ -147,6 +147,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:1619928673f97241f6746e8dce1ec97a4e477514c9d5f4fdb1a6239bb7e50300"
+  name = "github.com/gin-contrib/expvar"
+  packages = ["."]
+  pruneopts = ""
+  revision = "251166f58ff2b8410d1f8b41905c2ee608c6dfdc"
+
+[[projects]]
+  branch = "master"
   digest = "1:1120f960f5c334f0f94bad29eefaf73d52d226893369693686148f66c1993f15"
   name = "github.com/gin-contrib/sse"
   packages = ["."]
@@ -665,6 +673,7 @@
     "github.com/ethereum/go-ethereum/rpc",
     "github.com/fatih/color",
     "github.com/gin-contrib/cors",
+    "github.com/gin-contrib/expvar",
     "github.com/gin-gonic/contrib/sessions",
     "github.com/gin-gonic/gin",
     "github.com/gobuffalo/packr",

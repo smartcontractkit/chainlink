@@ -89,7 +89,7 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 	}
 }
 
-// Update allows external adapters to resume a JobRun, reporting the result of
+// Add allows external adapters to resume a JobRun, reporting the result of
 // the task and marking it no longer pending.
 // Example:
 //  "<application>/runs/:RunID"

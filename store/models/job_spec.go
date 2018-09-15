@@ -308,6 +308,11 @@ type JobSpecMetrics struct {
 	ParamCount   map[string][]ParamCount `json:"paramCount"`
 }
 
+func (jsm JobSpecMetrics) String() string {
+	str, _ := json.Marshal(jsm)
+	return string(str)
+}
+
 // ParamCount holds each parameter count in each Job Spec
 type ParamCount struct {
 	Value string `json:"value"`

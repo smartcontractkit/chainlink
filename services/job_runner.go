@@ -26,6 +26,7 @@ type jobRunner struct {
 	started     bool
 	done        chan struct{}
 	bootMutex   sync.Mutex
+	jobMetrics  *jobMetrics
 	store       *store.Store
 	workerMutex sync.RWMutex
 	workers     map[string]chan store.RunRequest
@@ -33,9 +34,10 @@ type jobRunner struct {
 }
 
 // NewJobRunner initializes a JobRunner.
-func NewJobRunner(str *store.Store) JobRunner {
+func NewJobRunner(str *store.Store, jm *jobMetrics) JobRunner {
 	return &jobRunner{
 		store:   str,
+		jobMetrics: jm,
 		workers: make(map[string]chan store.RunRequest),
 	}
 }
