@@ -51,8 +51,8 @@ func ParsePaginatedRequest(sizeParam, pageParam string) (int, int, int, error) {
 
 func paginationLink(url url.URL, size, page int) jsonapi.Link {
 	query := url.Query()
-	query.Add("size", strconv.Itoa(size))
-	query.Add("page", strconv.Itoa(page))
+	query.Set("size", strconv.Itoa(size))
+	query.Set("page", strconv.Itoa(page))
 	url.RawQuery = query.Encode()
 	return jsonapi.Link{Href: url.String()}
 }
