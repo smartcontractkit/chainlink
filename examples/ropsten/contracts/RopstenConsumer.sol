@@ -206,7 +206,7 @@ library CBOR {
 // File: ../solidity/contracts/ChainlinkLib.sol
 
 library ChainlinkLib {
-  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
+  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
 
   using CBOR for Buffer.buffer;
 
@@ -238,6 +238,8 @@ library ChainlinkLib {
   ) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(
       oracleRequestDataFid,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
       _clArgsVersion,
       self.specId,
       self.callbackAddress,
@@ -266,7 +268,7 @@ library ChainlinkLib {
     self.buf.encodeString(_key);
     self.buf.encodeInt(_value);
   }
-  
+
   function addUint(Run memory self, string _key, uint256 _value)
     internal pure
   {
@@ -682,8 +684,6 @@ contract Oracle is Ownable {
   // does not cost more gas.
   uint256 constant private oneForConsistentGasCost = 1;
   uint256 private withdrawableWei = oneForConsistentGasCost;
-  uint256 private currentAmount = oneForConsistentGasCost;
-  address private currentSender;
 
   mapping(uint256 => Callback) private callbacks;
 
@@ -707,13 +707,15 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    currentAmount = _wei;
-    currentSender = _sender;
+    // solium-disable-next-line security/no-low-level-calls
+    assembly { calldatacopy(add(_data, 36), 4, 64) } // ensures correct sender and amount are passed
     // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
   }
 
   function requestData(
+    address _currentSender,
+    uint256 _currentAmount,
     uint256 _version,
     bytes32 _specId,
     address _callbackAddress,
@@ -724,13 +726,13 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(currentSender, _externalId)));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(_currentSender, _externalId)));
     callbacks[internalId] = Callback(
       _externalId,
-      currentAmount,
+      _currentAmount,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(internalId, _specId, currentAmount, _version, _data);
+    emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
   }
 
   function fulfillData(
@@ -863,11 +865,11 @@ contract RopstenConsumer is Chainlinked, Ownable {
   bytes32 public lastMarket;
 
   address constant ROPSTEN_LINK_ADDRESS = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
-  address constant ROPSTEN_ORACLE_ADDRESS = 0xB68145133973411b7B3F2726A625FE3f3808240D;
+  address constant ROPSTEN_ORACLE_ADDRESS = 0x18170370BceC331F31d41B9b83DE772F5Bd47D82;
 
-  bytes32 constant PRICE_SPEC_ID = bytes32("8b05126a278f4f0abe02dd482aa802f8");
-  bytes32 constant CHANGE_SPEC_ID = bytes32("69cf308f8cee429c88eb25644d9f1c1d");
-  bytes32 constant MARKET_SPEC_ID = bytes32("ae18a03a2f5746ca967c403cf53e1318");
+  bytes32 constant PRICE_SPEC_ID = bytes32("3e775111aac649068669b192533490a6");
+  bytes32 constant CHANGE_SPEC_ID = bytes32("fa7d9b1c502f4f9684661679623638fc");
+  bytes32 constant MARKET_SPEC_ID = bytes32("626250ee99b74b68b8e2a27843d6a575");
   
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
