@@ -12,12 +12,6 @@ contract Consumer is Chainlinked, Ownable {
     bytes32 indexed price
   );
 
-  constructor(address _link, address _oracle, bytes32 _specId) Ownable() public {
-    setLinkToken(_link);
-    setOracle(_oracle);
-    specId = _specId;
-  }
-
   function requestEthereumPrice(string _currency) public {
     ChainlinkLib.Run memory run = newRun(specId, this, "fulfill(bytes32,bytes32)");
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");

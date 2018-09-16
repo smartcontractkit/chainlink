@@ -17,8 +17,8 @@ import {
   toHex
 } from './support/helpers'
 
-contract('Consumer', () => {
-  const sourcePath = 'examples/Consumer.sol'
+contract('BasicConsumer', () => {
+  const sourcePath = 'examples/BasicConsumer.sol'
   let specId = newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
   let currency = 'USD'
   let link, oc, cc
