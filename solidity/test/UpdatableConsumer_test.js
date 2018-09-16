@@ -4,15 +4,11 @@ import {
   deploy,
   lPad,
   rPad,
+  newHash,
   oracleNode,
   toHex,
-  toHexWithoutPrefix,
-  newUint8ArrayFromStr,
+  toHexWithoutPrefix
 } from './support/helpers'
-import utils from 'ethereumjs-util'
-
-
-const ensRoot = toHex(lPad("\x00"))
 
 const ensSubnodeHash = (node, name) => {
   let label = toHexWithoutPrefix(rPad(name))
@@ -20,15 +16,17 @@ const ensSubnodeHash = (node, name) => {
   return combo.toString()
 }
 
-const rootDomain = 'domainlink'
-const rootHash = ensSubnodeHash(ensRoot, rPad(rootDomain))
-const tokenDomain = 'link'
-const tokenHash = ensSubnodeHash(rootHash, tokenDomain)
-const oracleDomain = 'oracle'
-const oracleHash = ensSubnodeHash(rootHash, oracleDomain)
-
 contract('UpdatableConsumer', () => {
   const sourcePath = 'examples/UpdatableConsumer.sol'
+
+  const ensRoot = toHex(lPad('\x00'))
+  const rootDomain = 'domainlink'
+  const rootHash = ensSubnodeHash(ensRoot, rPad(rootDomain))
+  const tokenDomain = 'link'
+  const tokenHash = ensSubnodeHash(rootHash, tokenDomain)
+  const oracleDomain = 'oracle'
+  const oracleHash = ensSubnodeHash(rootHash, oracleDomain)
+  const specId = newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
 
   let ens, ensResolver, link, oc, uc
 
@@ -51,15 +49,7 @@ contract('UpdatableConsumer', () => {
     await ens.setSubnodeOwner(rootHash, oracleDomain, oracleNode, {from: oracleNode})
     await ensResolver.setAddr(oracleHash, oc.address, {from: oracleNode})
 
-    uc = await deploy(sourcePath, ens.address, rootHash)
-  })
-
-  it('has a limited public interface', () => {
-    checkPublicABI(artifacts.require(sourcePath), [
-      'publicLinkToken',
-      'publicOracle',
-      'updateOracle'
-    ])
+    uc = await deploy(sourcePath, toHex(specId), ens.address, rootHash)
   })
 
   describe('constructor', () => {
@@ -72,9 +62,9 @@ contract('UpdatableConsumer', () => {
     })
   })
 
-  describe("#updateOracle", () => {
-    describe("when the ENS resolver has been updated", () => {
-      const newOracleAddress = "0xf000000000000000000000000000000000000ba7"
+  describe('#updateOracle', () => {
+    describe('when the ENS resolver has been updated', () => {
+      const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
       beforeEach(async () => {
         await ensResolver.setAddr(oracleHash, newOracleAddress, {from: oracleNode})
