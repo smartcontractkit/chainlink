@@ -1,20 +1,5 @@
 import { eth } from '../../../../solidity/test/support/helpers'
 
-// https://codepen.io/code_monk/pen/FvpfI
-const randomHex = len => {
-  const maxlen = 8
-  const min = Math.pow(16, Math.min(len, maxlen) - 1)
-  const max = Math.pow(16, Math.min(len, maxlen)) - 1
-  const n = Math.floor(Math.random() * (max - min + 1)) + min
-  let r = n.toString(16)
-  while (r.length < len) {
-    r = r + randomHex(len - maxlen)
-  }
-  return r
-}
-
-export const newAddress = () => ('0x' + randomHex(40))
-
 export const getLatestTimestamp = async () => {
   const latestBlock = await eth.getBlock('latest', false)
   return web3.toDecimal(latestBlock.timestamp)
