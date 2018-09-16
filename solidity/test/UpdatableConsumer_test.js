@@ -1,11 +1,11 @@
 import {
-  checkPublicABI,
   defaultAccount,
   deploy,
+  getLatestEvent,
   lPad,
-  rPad,
   newHash,
   oracleNode,
+  rPad,
   toHex,
   toHexWithoutPrefix
 } from './support/helpers'
@@ -26,13 +26,16 @@ contract('UpdatableConsumer', () => {
   const tokenHash = ensSubnodeHash(rootHash, tokenDomain)
   const oracleDomain = 'oracle'
   const oracleHash = ensSubnodeHash(rootHash, oracleDomain)
-  const specId = newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
+  const specId = newHash('0x123')
+  const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
+  const currency = 'USD'
 
   let ens, ensResolver, link, oc, uc
 
   beforeEach(async () => {
     link = await deploy('LinkToken.sol')
     oc = await deploy('Oracle.sol', link.address)
+    await oc.transferOwnership(oracleNode, {from: defaultAccount})
     ens = await deploy('ENSRegistry.sol')
     ensResolver = await deploy('PublicResolver.sol', ens.address)
 
@@ -64,8 +67,6 @@ contract('UpdatableConsumer', () => {
 
   describe('#updateOracle', () => {
     describe('when the ENS resolver has been updated', () => {
-      const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
-
       beforeEach(async () => {
         await ensResolver.setAddr(oracleHash, newOracleAddress, {from: oracleNode})
       })
@@ -82,6 +83,40 @@ contract('UpdatableConsumer', () => {
         await uc.updateOracle()
 
         assert.equal(oc.address, await uc.publicOracle.call())
+      })
+    })
+  })
+
+  describe('#fulfillData', () => {
+    const response = '1,000,000.00'
+    let internalId
+
+    beforeEach(async () => {
+      await link.transfer(uc.address, web3.toWei('1', 'ether'))
+      await uc.requestEthereumPrice(currency)
+      const event = await getLatestEvent(oc)
+      internalId = event.args.internalId
+    })
+
+    it('records the data given to it by the oracle', async () => {
+      await oc.fulfillData(internalId, response, {from: oracleNode})
+
+      const currentPrice = await uc.currentPrice.call()
+      assert.equal(web3.toUtf8(currentPrice), response)
+    })
+
+    context('when the oracle address is updated before a request is fulfilled', () => {
+      beforeEach(async () => {
+        await ensResolver.setAddr(oracleHash, newOracleAddress, {from: oracleNode})
+        await uc.updateOracle()
+        assert.equal(newOracleAddress, await uc.publicOracle.call())
+      })
+
+      it('records the data given to it by the old oracle contract', async () => {
+        await oc.fulfillData(internalId, response, {from: oracleNode})
+
+        const currentPrice = await uc.currentPrice.call()
+        assert.equal(web3.toUtf8(currentPrice), response)
       })
     })
   })
