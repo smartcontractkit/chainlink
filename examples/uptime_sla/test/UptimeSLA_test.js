@@ -4,7 +4,6 @@ import {
   days,
   fastForwardTo,
   getLatestTimestamp,
-  newAddress
 } from './support/helpers'
 import {
   assertActionThrows,
@@ -16,6 +15,7 @@ import {
   requestDataBytes,
   requestDataFrom
 } from '../../../solidity/test/support/helpers'
+import { assertBigNum } from '../../../solidity/test/support/matchers'
 
 contract('UptimeSLA', () => {
   let Link = artifacts.require('../../../solidity/contracts/LinkToken.sol')
@@ -26,8 +26,8 @@ contract('UptimeSLA', () => {
   let link, oc, sla, client, serviceProvider, startAt
 
   beforeEach(async () => {
-    client = newAddress()
-    serviceProvider = newAddress()
+    client = "0xf000000000000000000000000000000000000001"
+    serviceProvider = "0xf000000000000000000000000000000000000002"
     link = await Link.new()
     oc = await Oracle.new(link.address, {from: oracleNode})
     sla = await SLA.new(client, serviceProvider, link.address, oc.address, specId, {
@@ -47,15 +47,15 @@ contract('UptimeSLA', () => {
 
   describe("#updateUptime", () => {
     it("triggers a log event in the Oracle contract", async () => {
-      let tx = await sla.updateUptime("0")
+      const tx = await sla.updateUptime("0")
 
-      let events = await getEvents(oc)
+      const events = await getEvents(oc)
       assert.equal(1, events.length)
 
-      let event = events[0]
+      const event = events[0]
       assert.equal(web3.toUtf8(event.args.specId), specId)
 
-      let decoded = cbor.decodeFirstSync(util.toBuffer(event.args.data))
+      const decoded = cbor.decodeFirstSync(util.toBuffer(event.args.data))
       assert.deepEqual(
         decoded,
         {'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation']}
@@ -64,17 +64,17 @@ contract('UptimeSLA', () => {
   })
 
   describe('#fulfillData', () => {
-    let response = '0x00000000000000000000000000000000000000000000000000000000000f8c4c'
+    const response = '0x00000000000000000000000000000000000000000000000000000000000f8c4c'
     let requestId
 
     beforeEach(async () => {
       await sla.updateUptime('0')
-      let event = await getLatestEvent(oc)
+      const event = await getLatestEvent(oc)
       requestId = event.args.internalId
     })
 
     context("when the value is below 9999", async () => {
-      let response = "0x000000000000000000000000000000000000000000000000000000000000270e"
+      const response = "0x000000000000000000000000000000000000000000000000000000000000270e"
 
       it('sends the deposit to the client', async () => {
         await oc.fulfillData(requestId, response, {from: oracleNode})
@@ -86,14 +86,19 @@ contract('UptimeSLA', () => {
     })
 
     context("when the value is 9999 or above", () => {
-      let response = "0x000000000000000000000000000000000000000000000000000000000000270f"
+      const response = "0x000000000000000000000000000000000000000000000000000000000000270f"
+      let originalClientBalance
+
+      beforeEach(async () => {
+        originalClientBalance = await eth.getBalance(client)
+      })
 
       it('does not move the money', async () => {
         await oc.fulfillData(requestId, response, {from: oracleNode})
 
-        assert.equal(await eth.getBalance(sla.address), deposit)
-        assert.equal(await eth.getBalance(client), 0)
-        assert.equal(await eth.getBalance(serviceProvider), 0)
+        assertBigNum(await eth.getBalance(sla.address), deposit)
+        assertBigNum(await eth.getBalance(client), originalClientBalance)
+        assertBigNum(await eth.getBalance(serviceProvider), 0)
       })
 
       context('and a month has passed', () => {
@@ -104,9 +109,9 @@ contract('UptimeSLA', () => {
         it('gives the money back to the service provider', async () => {
           await oc.fulfillData(requestId, response, {from: oracleNode})
 
-          assert.equal(await eth.getBalance(sla.address), 0)
-          assert.equal(await eth.getBalance(client), 0)
-          assert.equal(await eth.getBalance(serviceProvider), deposit)
+          assertBigNum(await eth.getBalance(sla.address), 0)
+          assertBigNum(await eth.getBalance(client), originalClientBalance)
+          assertBigNum(await eth.getBalance(serviceProvider), deposit)
         })
       })
     })
