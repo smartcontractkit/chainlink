@@ -273,16 +273,30 @@ func StringToVersionedLogData(str string) hexutil.Bytes {
 
 // BigHexInt create hexutil.Big value from given value
 func BigHexInt(val interface{}) hexutil.Big {
-	switch val.(type) {
+	switch x := val.(type) {
 	case int:
-		return hexutil.Big(*big.NewInt(int64(val.(int))))
+		return hexutil.Big(*big.NewInt(int64(x)))
 	case uint64:
-		return hexutil.Big(*big.NewInt(int64(val.(uint64))))
+		return hexutil.Big(*big.NewInt(int64(x)))
 	case int64:
-		return hexutil.Big(*big.NewInt(val.(int64)))
+		return hexutil.Big(*big.NewInt(x))
 	default:
 		logger.Panicf("Could not convert %v of type %T to hexutil.Big", val, val)
 		return hexutil.Big{}
+	}
+}
+
+func Int(val interface{}) *models.Int {
+	switch x := val.(type) {
+	case int:
+		return (*models.Int)(big.NewInt(int64(x)))
+	case uint64:
+		return (*models.Int)(big.NewInt(int64(x)))
+	case int64:
+		return (*models.Int)(big.NewInt(x))
+	default:
+		logger.Panicf("Could not convert %v of type %T to models.Int", val, val)
+		return &models.Int{}
 	}
 }
 
