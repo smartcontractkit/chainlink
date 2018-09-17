@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/url"
 	"time"
 
@@ -312,8 +313,43 @@ func (c Cron) String() string {
 	return string(c)
 }
 
-// WithdrawalRequest request to withdraw LINK
+// WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
 	Address common.Address `json:"address"`
 	Amount  *assets.Link   `json:"amount"`
+}
+
+// Int stores large integers and can deserialize a variety of inputs.
+type Int big.Int
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (i *Int) UnmarshalText(input []byte) error {
+	input = utils.RemoveQuotes(input)
+	str := string(input)
+	var ok bool
+	if utils.IsHex(str) {
+		i, ok = i.setString(utils.RemoveHexPrefix(str), 16)
+	} else {
+		i, ok = i.setString(str, 10)
+	}
+
+	if !ok {
+		return fmt.Errorf("could not unmarshal %s to Int", str)
+	}
+	return nil
+}
+
+// UnmarshalJSON implements encoding.JSONUnmarshaler.
+func (i *Int) UnmarshalJSON(input []byte) error {
+	return i.UnmarshalText(input)
+}
+
+// ToBig converts *Int to *big.Int.
+func (i *Int) ToBig() *big.Int {
+	return (*big.Int)(i)
+}
+
+func (i *Int) setString(s string, base int) (*Int, bool) {
+	w, ok := (*big.Int)(i).SetString(s, base)
+	return (*Int)(w), ok
 }

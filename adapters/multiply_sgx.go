@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // Multiplier represents the number to multiply by in Multiply adapter.
@@ -24,10 +25,7 @@ type Multiplier float64
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (m *Multiplier) UnmarshalJSON(input []byte) error {
-	if isString(input) {
-		input = input[1 : len(input)-1]
-	}
-
+	input = utils.RemoveQuotes(input)
 	times, err := strconv.ParseFloat(string(input), 64)
 	if err != nil {
 		return fmt.Errorf("cannot parse into float: %s", input)
@@ -36,10 +34,6 @@ func (m *Multiplier) UnmarshalJSON(input []byte) error {
 	*m = Multiplier(times)
 
 	return nil
-}
-
-func isString(input []byte) bool {
-	return len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"'
 }
 
 // Multiply holds the a number to multiply the given value by.

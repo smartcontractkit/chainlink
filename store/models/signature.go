@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 const (
@@ -73,10 +74,7 @@ func (s Signature) MarshalText() ([]byte, error) {
 
 // UnmarshalJSON parses a signature from a JSON string
 func (s *Signature) UnmarshalJSON(input []byte) error {
-	if isString(input) {
-		input = input[1 : len(input)-1]
-	}
-
+	input = utils.RemoveQuotes(input)
 	return s.UnmarshalText([]byte(input))
 }
 

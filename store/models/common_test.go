@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"net/url"
 	"reflect"
 	"testing"
@@ -307,4 +308,32 @@ func TestTime_DurationFromNow(t *testing.T) {
 	future := models.Time{Time: time.Now().Add(time.Second)}
 	duration := future.DurationFromNow()
 	assert.True(t, 0 < duration)
+}
+
+func TestInt_UnmarshalText(t *testing.T) {
+	t.Parallel()
+
+	i := &models.Int{}
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+		want      *big.Int
+	}{
+		{"number", `1234`, false, big.NewInt(1234)},
+		{"string", `"1234"`, false, big.NewInt(1234)},
+		{"hex number", `0x1234`, false, big.NewInt(4660)},
+		{"hex string", `"0x1234"`, false, big.NewInt(4660)},
+		{"single quoted", `'1234'`, false, big.NewInt(1234)},
+		{"quoted word", `"word"`, true, big.NewInt(0)},
+		{"word", `word`, true, big.NewInt(0)},
+		{"empty", ``, true, big.NewInt(0)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := i.UnmarshalText([]byte(test.input))
+			cltest.AssertError(t, test.wantError, err)
+			assert.Equal(t, test.want, i.ToBig())
+		})
+	}
 }
