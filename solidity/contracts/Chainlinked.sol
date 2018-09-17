@@ -15,8 +15,7 @@ contract Chainlinked {
   LinkToken internal link;
   Oracle internal oracle;
   uint256 internal requests = 1;
-  mapping(bytes32 => bool) internal unfulfilledRequests;
-  mapping(address => bool) internal pastOracles;
+  mapping(bytes32 => address) internal unfulfilledRequests;
 
   ENS internal ens;
   bytes32 internal ensNode;
@@ -40,12 +39,12 @@ contract Chainlinked {
     internal
     returns(bytes32)
   {
-    requests += 1;
     _run.requestId = bytes32(requests);
     _run.close();
     require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
-    unfulfilledRequests[_run.requestId] = true;
+    unfulfilledRequests[_run.requestId] = oracle;
+    requests += 1;
     return _run.requestId;
   }
 
@@ -53,7 +52,7 @@ contract Chainlinked {
     internal
   {
     oracle.cancel(_requestId);
-    unfulfilledRequests[_requestId] = false;
+    unfulfilledRequests[_requestId] = 0x0;
     emit ChainlinkCancelled(_requestId);
   }
 
@@ -82,14 +81,12 @@ contract Chainlinked {
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
     setOracle(resolver.addr(oracleSubnode));
-    pastOracles[oracle] = true;
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == address(oracle) || pastOracles[msg.sender]);
-    require(unfulfilledRequests[_requestId], "Source must be oracle with a valid requestId");
+    require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
     _;
-    unfulfilledRequests[_requestId] = false;
+    unfulfilledRequests[_requestId] = 0x0;
     emit ChainlinkFulfilled(_requestId);
   }
 }

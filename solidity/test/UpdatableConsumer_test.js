@@ -1,4 +1,5 @@
 import {
+  assertActionThrows,
   defaultAccount,
   deploy,
   getLatestEvent,
@@ -89,13 +90,16 @@ contract('UpdatableConsumer', () => {
 
   describe('#fulfillData', () => {
     const response = '1,000,000.00'
-    let internalId
+    let internalId, requestId
 
     beforeEach(async () => {
       await link.transfer(uc.address, web3.toWei('1', 'ether'))
       await uc.requestEthereumPrice(currency)
       const event = await getLatestEvent(oc)
       internalId = event.args.internalId
+
+      const event2 = await getLatestEvent(uc)
+      requestId = event2.args.id
     })
 
     it('records the data given to it by the oracle', async () => {
@@ -117,6 +121,24 @@ contract('UpdatableConsumer', () => {
 
         const currentPrice = await uc.currentPrice.call()
         assert.equal(web3.toUtf8(currentPrice), response)
+      })
+
+      it('does not accept responses from the new oracle for the old requests', async () => {
+        await assertActionThrows(async () => {
+          await uc.fulfill(requestId, response, {from: oracleNode})
+        })
+
+        const currentPrice = await uc.currentPrice.call()
+        assert.equal(web3.toUtf8(currentPrice), '')
+      })
+
+      it('does not accept responses from the new oracle for the old requests', async () => {
+        await assertActionThrows(async () => {
+          await uc.fulfill(requestId, response, {from: oracleNode})
+        })
+
+        const currentPrice = await uc.currentPrice.call()
+        assert.equal(web3.toUtf8(currentPrice), '')
       })
     })
   })
