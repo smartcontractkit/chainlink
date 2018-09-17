@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1537223654"
 	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
@@ -15,6 +16,7 @@ func init() {
 	registerMigration(migration0.Migration{})
 	registerMigration(migration1536696950.Migration{})
 	registerMigration(migration1536764911.Migration{})
+	registerMigration(migration1537223654.Migration{})
 }
 
 type migration interface {
