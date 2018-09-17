@@ -38,16 +38,13 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 }
 
 func (m Migration) Convert(js migration0.JobSpec) JobSpec {
-	jsr := js.JobSpecRequest
 	return JobSpec{
-		ID:        js.ID,
-		CreatedAt: js.CreatedAt,
-		JobSpecRequest: JobSpecRequest{
-			Initiators: jsr.Initiators,
-			Tasks:      convertTaskSpecs(jsr.Tasks),
-			StartAt:    jsr.StartAt,
-			EndAt:      jsr.EndAt,
-		},
+		ID:         js.ID,
+		CreatedAt:  js.CreatedAt,
+		Initiators: js.Initiators,
+		Tasks:      convertTaskSpecs(js.Tasks),
+		StartAt:    js.StartAt,
+		EndAt:      js.EndAt,
 	}
 }
 
@@ -66,13 +63,8 @@ type TaskSpec struct {
 }
 
 type JobSpec struct {
-	ID        string          `json:"id" storm:"id,unique"`
-	CreatedAt migration0.Time `json:"createdAt" storm:"index"`
-	JobSpecRequest
-}
-
-// JobSpecRequest represents a schema for the incoming job spec request as used by the API.
-type JobSpecRequest struct {
+	ID         string                 `json:"id" storm:"id,unique"`
+	CreatedAt  migration0.Time        `json:"createdAt" storm:"index"`
 	Initiators []migration0.Initiator `json:"initiators"`
 	Tasks      []TaskSpec             `json:"tasks" storm:"inline"`
 	StartAt    null.Time              `json:"startAt" storm:"index"`
