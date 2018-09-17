@@ -94,7 +94,7 @@ func secureMiddleware(config store.Config) gin.HandlerFunc {
 
 			// If there was an error, do not continue.
 			if err != nil {
-				c.Abort()
+				c.AbortWithError(500, err)
 				return
 			}
 
