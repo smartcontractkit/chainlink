@@ -9,7 +9,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchBridges } from 'actions'
 import { Button } from '@material-ui/core'
-import Link from 'components/Link'
+import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 
 const styles = theme => ({
   title: {
@@ -44,7 +44,7 @@ export class Bridges extends Component {
               Bridges
             </Typography>
           </Grid>
-          <Button variant='outlined' color='primary' component={Link} to={'/create/bridge'}>
+          <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/create/bridge'}>
             Create Bridge
           </Button>
         </Grid>
