@@ -118,11 +118,11 @@ func TestValidateInitiator(t *testing.T) {
 		{"web", `{"type":"web"}`, false},
 		{"ethlog", `{"type":"ethlog"}`, false},
 		{"runlog", `{"type":"runlog"}`, false},
-		{"runat", fmt.Sprintf(`{"type":"runat","time":"%v"}`, utils.ISO8601UTC(startAt)), false},
+		{"runat", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, utils.ISO8601UTC(startAt)), false},
 		{"runat w/o time", `{"type":"runat"}`, true},
-		{"runat w time before start at", fmt.Sprintf(`{"type":"runat","time":"%v"}`, startAt.Add(-1*time.Second).Unix()), true},
-		{"runat w time after end at", fmt.Sprintf(`{"type":"runat","time":"%v"}`, endAt.Add(time.Second).Unix()), true},
-		{"cron", `{"type":"cron","schedule":"* * * * * *"}`, false},
+		{"runat w time before start at", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, startAt.Add(-1*time.Second).Unix()), true},
+		{"runat w time after end at", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, endAt.Add(time.Second).Unix()), true},
+		{"cron", `{"type":"cron","params": {"schedule":"* * * * * *"}}`, false},
 		{"cron w/o schedule", `{"type":"cron"}`, true},
 		{"non-existent initiator", `{"type":"doesntExist"}`, true},
 	}
@@ -132,11 +132,8 @@ func TestValidateInitiator(t *testing.T) {
 			var initr models.Initiator
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &initr))
 			result := services.ValidateInitiator(initr, job)
-			if test.wantError {
-				assert.Error(t, result)
-			} else {
-				assert.NoError(t, result)
-			}
+
+			cltest.AssertError(t, test.wantError, result)
 		})
 	}
 }

@@ -296,47 +296,36 @@ type Initiator struct {
 // MarshalJSON returns the JSON data of the Initiator based
 // on its Initiator Type.
 func (i Initiator) MarshalJSON() ([]byte, error) {
+	p, err := initiatorParams(i)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return json.Marshal(&struct {
+		Type   string      `json:"type"`
+		Params interface{} `json:"params"`
+	}{i.Type, p})
+}
+
+func initiatorParams(i Initiator) (interface{}, error) {
 	switch i.Type {
 	case models.InitiatorWeb:
-		return json.Marshal(&struct {
-			Type string `json:"type"`
-		}{
-			models.InitiatorWeb,
-		})
+		return struct{}{}, nil
 	case models.InitiatorCron:
-		return json.Marshal(&struct {
-			Type     string      `json:"type"`
+		return struct {
 			Schedule models.Cron `json:"schedule"`
-		}{
-			models.InitiatorCron,
-			i.Schedule,
-		})
+		}{i.Schedule}, nil
 	case models.InitiatorRunAt:
-		return json.Marshal(&struct {
-			Type string      `json:"type"`
+		return struct {
 			Time models.Time `json:"time"`
 			Ran  bool        `json:"ran"`
-		}{
-			models.InitiatorRunAt,
-			i.Time,
-			i.Ran,
-		})
+		}{i.Time, i.Ran}, nil
 	case models.InitiatorEthLog:
-		return json.Marshal(&struct {
-			Type    string         `json:"type"`
-			Address common.Address `json:"address"`
-		}{
-			models.InitiatorEthLog,
-			i.Address,
-		})
+		fallthrough
 	case models.InitiatorRunLog:
-		return json.Marshal(&struct {
-			Type    string         `json:"type"`
+		return struct {
 			Address common.Address `json:"address"`
-		}{
-			models.InitiatorRunLog,
-			i.Address,
-		})
+		}{i.Address}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type %v", i.Type)
 	}

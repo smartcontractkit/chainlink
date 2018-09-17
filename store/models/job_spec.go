@@ -146,9 +146,13 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID       int            `json:"id" storm:"id,increment"`
-	JobID    string         `json:"jobId" storm:"index"`
-	Type     string         `json:"type" storm:"index"`
+	ID              int    `json:"id" storm:"id,increment"`
+	JobID           string `json:"jobId" storm:"index"`
+	Type            string `json:"type" storm:"index"`
+	InitiatorParams `json:"params,omitempty"`
+}
+
+type InitiatorParams struct {
 	Schedule Cron           `json:"schedule,omitempty"`
 	Time     Time           `json:"time,omitempty"`
 	Ran      bool           `json:"ran,omitempty"`
