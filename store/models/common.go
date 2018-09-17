@@ -324,10 +324,7 @@ type Int big.Int
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (i *Int) UnmarshalText(input []byte) error {
-	if quoted(input) {
-		input = input[1 : len(input)-1]
-	}
-
+	input = utils.RemoveQuotes(input)
 	str := string(input)
 	var ok bool
 	if utils.IsHex(str) {
@@ -355,10 +352,4 @@ func (i *Int) ToBig() *big.Int {
 func (i *Int) setString(s string, base int) (*Int, bool) {
 	w, ok := (*big.Int)(i).SetString(s, base)
 	return (*Int)(w), ok
-}
-
-func quoted(input []byte) bool {
-	return len(input) >= 2 &&
-		((input[0] == '"' && input[len(input)-1] == '"') ||
-			(input[0] == '\'' && input[len(input)-1] == '\''))
 }
