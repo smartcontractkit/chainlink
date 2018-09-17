@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// WithdrawController can send LINK tokens to another address
-type WithdrawController struct {
+// WithdrawalsController can send LINK tokens to another address
+type WithdrawalsController struct {
 	App *services.ChainlinkApplication
 }
 
@@ -20,8 +20,8 @@ var naz = assets.NewLink(1)
 
 // Create sends LINK from the configured oracle contract to the given address
 // Example:
-//  "<application>/withdraw"
-func (abc *WithdrawController) Create(c *gin.Context) {
+//  "<application>/withdrawals"
+func (abc *WithdrawalsController) Create(c *gin.Context) {
 	store := abc.App.Store
 	txm := store.TxManager
 	wr := models.WithdrawalRequest{}
