@@ -96,7 +96,6 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 	ab := AccountBalanceController{app}
 	v2.GET("/account_balance", ab.Show)
-	v2.POST("/withdraw", ab.Withdraw)
 
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
@@ -120,6 +119,9 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 		authv2.POST("/bridge_types", bt.Create)
 		authv2.GET("/bridge_types/:BridgeName", bt.Show)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
+
+		w := WithdrawalsController{app}
+		authv2.POST("/withdrawals", w.Create)
 
 		backup := BackupController{app}
 		authv2.GET("/backup", backup.Show)
