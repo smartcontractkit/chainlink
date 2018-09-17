@@ -12,7 +12,7 @@ import { connect } from 'react-redux'
 import { fetchJobs, fetchAccountBalance } from 'actions'
 import { jobsSelector } from 'selectors'
 import Button from '@material-ui/core/Button'
-import Link from 'components/Link'
+import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 
 const styles = theme => ({
   title: {
@@ -65,7 +65,7 @@ export class Jobs extends Component {
               Jobs
             </Typography>
           </Grid>
-          <Button variant='outlined' color='primary' component={Link} to={'/create/job'}>
+          <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/create/job'}>
             Create Job
           </Button>
         </Grid>

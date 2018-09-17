@@ -32,7 +32,6 @@ const BridgeFormLayout = ({
   isSubmitting,
   classes,
   handleChange,
-  networkError,
   values,
   submitCount
 }) => (
