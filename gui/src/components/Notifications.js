@@ -7,29 +7,13 @@ import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 
 const styles = theme => ({
-  signInAgain: {
-    color: theme.palette.common.white
-  },
   flash: {
     textAlign: 'center'
   }
 })
 
 export class Notifications extends React.Component {
-  signOutLocally = () => {
-    this.props.receiveSignoutSuccess()
-  }
-
-  errorPresenter = (err, i, classes) => {
-    if (err.status === 401) {
-      return (
-        <p key={i}>
-          {err.detail} <Link to='/signin?forceSignout=1' className={classes.signInAgain}>
-            Sign In Again
-          </Link>
-        </p>
-      )
-    }
+  errorPresenter = (err, i) => {
     return <p key={i}>{err.detail}</p>
   }
 
@@ -61,7 +45,7 @@ export class Notifications extends React.Component {
       <Fragment>
         {errors.length > 0 &&
           <Flash error className={classes.flash}>
-            {errors.map((err, i) => this.errorPresenter(err, i, classes))}
+            {errors.map((err, i) => this.errorPresenter(err, i))}
           </Flash>
         }
         {successes.length > 0 && (

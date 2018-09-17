@@ -1,6 +1,6 @@
 import 'isomorphic-unfetch'
 import formatRequestURI from 'utils/formatRequestURI'
-import { AuthenticationError, CreateError } from './errors'
+import { AuthenticationError, BadRequestError, UnknownResponseError } from './errors'
 import { camelizeKeys } from 'humps'
 
 const formatURI = (path, query = {}) => {
@@ -10,13 +10,24 @@ const formatURI = (path, query = {}) => {
   })
 }
 
+const parseResponse = response => {
+  if (response.status >= 200 && response.status < 300) {
+    return response.json().then(data => camelizeKeys(data))
+  } else if (response.status === 400) {
+    return response.json().then(json => { throw new BadRequestError(json) })
+  } else if (response.status === 401) {
+    throw new AuthenticationError(response)
+  } else {
+    throw new UnknownResponseError(response)
+  }
+}
+
 const get = (path, query) => (
   global.fetch(
     formatURI(path, query),
     {credentials: 'include'}
   )
-    .then(response => response.json())
-    .then((data) => camelizeKeys(data))
+    .then(parseResponse)
 )
 
 const post = (path, body, shouldStringify = true) => {
@@ -32,19 +43,11 @@ const post = (path, body, shouldStringify = true) => {
       }
     }
   )
-    .then(response => {
-      if (response.status === 401) {
-        throw new AuthenticationError(response)
-      } else if (response.status !== 200) {
-        return response.json().then((json) => { throw new CreateError(json) })
-      }
-      return response.json()
-    })
-    .then((data) => camelizeKeys(data))
+    .then(parseResponse)
 }
 
-const destroy = (path) => {
-  return global.fetch(
+const destroy = (path) => (
+  global.fetch(
     formatURI(path),
     {
       method: 'DELETE',
@@ -52,17 +55,16 @@ const destroy = (path) => {
       headers: { 'Accept': 'application/json' }
     }
   )
-    .then(response => response.json())
-    .then((data) => camelizeKeys(data))
-}
+    .then(parseResponse)
+)
 
 export const getJobs = (page, size) => get('/v2/specs', {page: page, size: size})
 
-export const getJobSpec = (id) => get(`/v2/specs/${id}`)
+export const getJobSpec = id => get(`/v2/specs/${id}`)
 
 export const getJobSpecRuns = (id, page, size) => get(`/v2/specs/${id}/runs`, {page: page, size: size})
 
-export const getJobSpecRun = (id) => get(`/v2/runs/${id}`)
+export const getJobSpecRun = id => get(`/v2/runs/${id}`)
 
 export const getAccountBalance = () => get('/v2/account_balance')
 
@@ -70,14 +72,14 @@ export const getConfiguration = () => get('/v2/config')
 
 export const getBridges = (page, size) => get('/v2/bridge_types', {page: page, size: size})
 
-export const getBridgeSpec = (name) => get(`/v2/bridge_types/${name}`)
+export const getBridgeSpec = name => get(`/v2/bridge_types/${name}`)
 
-export const createSession = (data) => post(`/sessions`, data)
+export const createSession = data => post(`/sessions`, data)
 
 export const createBridgeType = (data, shouldStringify) => post('/v2/bridge_types', data, shouldStringify)
 
 export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
 
-export const createJobSpecRun = (id) => post(`/v2/specs/${id}/runs`)
+export const createJobSpecRun = id => post(`/v2/specs/${id}/runs`)
 
 export const destroySession = () => destroy(`/sessions`)

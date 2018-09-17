@@ -14,6 +14,7 @@ import Logo from 'components/Logo'
 import Loading from 'components/Loading'
 import Notifications from 'components/Notifications'
 import universal from 'react-universal-component'
+import { Redirect } from 'react-router'
 import { Link, Router, Route, Switch } from 'react-static'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
@@ -36,6 +37,7 @@ const JobSpec = universal(import('./containers/JobSpec'), uniOpts)
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'), uniOpts)
 const JobSpecRun = universal(import('./containers/JobSpecRun'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
+const SignOut = universal(import('./containers/SignOut'), uniOpts)
 
 const appBarHeight = 70
 const drawerWidth = 240
@@ -88,7 +90,7 @@ class Layout extends Component {
   }
 
   render () {
-    const {classes, isFetching} = this.props
+    const {classes, isFetching, redirectTo} = this.props
     const {drawerOpen} = this.state
 
     const drawer = (
@@ -173,6 +175,8 @@ class Layout extends Component {
               <div className={classes.content}>
                 <Switch>
                   <Route exact path='/signin' component={SignIn} />
+                  <PrivateRoute exact path='/signout' component={SignOut} />
+                  {redirectTo && <Redirect to={redirectTo} />}
                   <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobSpec} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
@@ -200,7 +204,8 @@ class Layout extends Component {
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  isFetching: isFetchingSelector(state)
+  isFetching: isFetchingSelector(state),
+  redirectTo: state.redirect.to
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators({submitSignOut}, dispatch)
