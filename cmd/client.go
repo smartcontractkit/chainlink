@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -71,6 +72,10 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 	server := web.Router(app.(*services.ChainlinkApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group
+
+	if config.Port == 0 && config.TLSPort == 0 {
+		log.Fatal("You must specify at least one port to listen on")
+	}
 
 	if config.Port != 0 {
 		url := fmt.Sprintf(":%d", config.Port)
