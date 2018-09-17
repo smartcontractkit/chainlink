@@ -120,8 +120,8 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 		authv2.GET("/bridge_types/:BridgeName", bt.Show)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
-		w := WithdrawController{app}
-		authv2.POST("/withdraw", w.Create)
+		w := WithdrawalsController{app}
+		authv2.POST("/withdrawals", w.Create)
 
 		backup := BackupController{app}
 		authv2.GET("/backup", backup.Show)

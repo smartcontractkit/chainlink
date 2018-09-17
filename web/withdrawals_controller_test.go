@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWithdrawController_CreateSuccess(t *testing.T) {
+func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfigWithPrivateKey()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.OracleContractAddress = &oca
@@ -45,7 +45,7 @@ func TestWithdrawController_CreateSuccess(t *testing.T) {
 	body, err := json.Marshal(&wr)
 	assert.NoError(t, err)
 
-	resp, cleanup := client.Post("/v2/withdraw", bytes.NewBuffer(body))
+	resp, cleanup := client.Post("/v2/withdrawals", bytes.NewBuffer(body))
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, 200)
