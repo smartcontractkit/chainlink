@@ -5,6 +5,13 @@ export function AuthenticationError (response) {
   }]
 }
 
-export function CreateError ({errors}) {
+export function BadRequestError ({errors}) {
   this.errors = errors
+}
+
+export function UnknownResponseError (response) {
+  this.errors = [{
+    status: response.status,
+    detail: response.statusText
+  }]
 }
