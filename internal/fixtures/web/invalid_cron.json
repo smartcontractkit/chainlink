@@ -1,4 +1,4 @@
 {
-  "initiators": [{ "type": "cron", "schedule": "! * * * *" }],
+  "initiators": [{ "type": "cron", "params": { "schedule": "! * * * *" }}],
   "tasks": [{ "type": "HttpGet", "params": { "url": "https://example.com/api" } }]
 }

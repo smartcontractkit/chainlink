@@ -262,9 +262,9 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	var respJob presenters.JobSpec
 	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJob))
-	assert.Equal(t, respJob.Initiators[0].Schedule, j.Initiators[0].Schedule, "should have the same schedule")
-	assert.Equal(t, respJob.Runs[0].ID, jr[0].ID, "should have job runs ordered by created at(descending)")
-	assert.Equal(t, respJob.Runs[1].ID, jr[1].ID, "should have job runs ordered by created at(descending)")
+	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, jr[0].ID, respJob.Runs[0].ID, "should have job runs ordered by created at(descending)")
+	assert.Equal(t, jr[1].ID, respJob.Runs[1].ID, "should have job runs ordered by created at(descending)")
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
