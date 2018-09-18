@@ -67,18 +67,16 @@ func secureOptions(config store.Config) secure.Options {
 		SSLRedirect:   config.TLSPort != 0,
 	}
 
-	if config.TLSHost != "" {
-		if config.TLSPort != 0 && config.TLSPort != 443 {
-			options.SSLHost = fmt.Sprintf("%s:%d", config.TLSHost, config.TLSPort)
+	if options.SSLRedirect && !options.IsDevelopment {
+		if config.TLSHost != "" {
+			if config.TLSPort != 443 {
+				options.SSLHost = fmt.Sprintf("%s:%d", config.TLSHost, config.TLSPort)
+			} else {
+				options.SSLHost = config.TLSHost
+			}
 		} else {
-			options.SSLHost = config.TLSHost
+			log.Fatalf("A TLSHost must be configured when TLS redirection is enabled for a non standard port")
 		}
-	} else if options.SSLRedirect && !options.IsDevelopment {
-		if config.TLSPort != 0 && config.TLSPort != 443 {
-			options.SSLHost = fmt.Sprintf("localhost:%d", config.TLSPort)
-		}
-	} else if !options.IsDevelopment {
-		log.Fatalf("A TLSHost must be configured when TLS redirection is enabled for a non standard port")
 	}
 
 	return options
@@ -94,7 +92,7 @@ func secureMiddleware(config store.Config) gin.HandlerFunc {
 
 			// If there was an error, do not continue.
 			if err != nil {
-				c.AbortWithError(500, err)
+				c.Abort()
 				return
 			}
 
