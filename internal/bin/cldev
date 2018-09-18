@@ -44,6 +44,7 @@ case "$1" in
     pkg="store/migrations/migration${timestamp}"
     echo Creating migration package $pkg
     mkdir -p $pkg
+    mkdir -p $pkg/old
     echo package migration${timestamp}_test > $pkg/migrate_test.go
     cat > $pkg/migrate.go <<-EOF
 package migration$timestamp
@@ -60,6 +61,20 @@ func (m Migration) Migrate(orm *orm.ORM) error {
     return nil
 }
 EOF
+    cat > $pkg/migrate_test.go <<-EOF
+package migration${timestamp}_test
+
+import (
+  "testing"
+
+  "github.com/stretchr/testify/assert"
+)
+
+func TestMigrate${timestamp}(t *testing.T) {
+    assert.Equal(t, 1, 2)
+}
+EOF
+    echo package old > $pkg/old/types.go
     ;;
   *)
     mainexec $@

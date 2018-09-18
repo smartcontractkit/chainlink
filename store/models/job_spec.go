@@ -152,6 +152,8 @@ type Initiator struct {
 	InitiatorParams `json:"params,omitempty"`
 }
 
+// InitiatorParams is a collection of the possible parameters that different
+// Initiators may require.
 type InitiatorParams struct {
 	Schedule Cron           `json:"schedule,omitempty"`
 	Time     Time           `json:"time,omitempty"`
