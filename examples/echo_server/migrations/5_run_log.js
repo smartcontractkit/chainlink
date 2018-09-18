@@ -11,7 +11,7 @@ let job = {
   "_comment": "A runlog has a jobid baked into the contract so chainlink knows which job to run.",
   "initiators": [{ "type": "runlog" }],
   "tasks": [
-    { "type": "HttpPost", "url": "http://localhost:6690" }
+    { "type": "HttpPost", "params": { "url": "http://localhost:6690" } }
   ]
 };
 

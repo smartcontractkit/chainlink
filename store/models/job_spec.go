@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/utils"
-	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -181,44 +180,7 @@ func (i Initiator) IsLogInitiated() bool {
 type TaskSpec struct {
 	Type          TaskType `json:"type" storm:"index"`
 	Confirmations uint64   `json:"confirmations"`
-	Params        JSON     `json:"-"`
-}
-
-// UnmarshalJSON parses the given input and updates the TaskSpec.
-func (t *TaskSpec) UnmarshalJSON(input []byte) error {
-	type Alias TaskSpec
-	var aux Alias
-	if err := json.Unmarshal(input, &aux); err != nil {
-		return err
-	}
-
-	t.Confirmations = aux.Confirmations
-	t.Type = aux.Type
-	var params json.RawMessage
-	if err := json.Unmarshal(input, &params); err != nil {
-		return err
-	}
-
-	t.Params = JSON{gjson.ParseBytes(params)}
-	return nil
-}
-
-// MarshalJSON returns the JSON-encoded TaskSpec Params.
-func (t TaskSpec) MarshalJSON() ([]byte, error) {
-	type Alias TaskSpec
-	var aux Alias
-	aux = Alias(t)
-	b, err := json.Marshal(aux)
-	if err != nil {
-		return b, err
-	}
-
-	js := gjson.ParseBytes(b)
-	merged, err := t.Params.Merge(JSON{js})
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(merged)
+	Params        JSON     `json:"params"`
 }
 
 // TaskType defines what Adapter a TaskSpec will use.

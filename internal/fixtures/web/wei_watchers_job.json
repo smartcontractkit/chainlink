@@ -4,7 +4,8 @@
     "address": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
   }],
   "tasks": [{
-    "type": "httpPost",
-    "url": "https://weiwatchers.com/api"
+    "type": "httpPost", "params": {
+      "url": "https://weiwatchers.com/api"
+    }
   }]
 }

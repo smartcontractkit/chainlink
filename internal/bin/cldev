@@ -57,6 +57,7 @@ func (m Migration) Timestamp() string {
 }
 
 func (m Migration) Migrate(orm *orm.ORM) error {
+    return nil
 }
 EOF
     ;;
