@@ -28,7 +28,6 @@ contract('BasicConsumer', () => {
     oc = await deploy('Oracle.sol', link.address)
     await oc.transferOwnership(oracleNode, {from: defaultAccount})
     cc = await deploy(sourcePath, link.address, oc.address, toHex(specId))
-    await cc.transferOwnership(consumer, {from: defaultAccount})
   })
 
   it('has a predictable gas price', async () => {
@@ -141,18 +140,8 @@ contract('BasicConsumer', () => {
       requestId = (await getLatestEvent(cc)).args.id
     })
 
-    context('when called by a non-owner', () => {
-      it('cannot cancel a request', async () => {
-        await assertActionThrows(async () => {
-          await cc.cancelRequest(requestId, {from: stranger})
-        })
-      })
-    })
-
-    context('when called by the owner', () => {
-      it('can cancel the request', async () => {
-        await cc.cancelRequest(requestId, {from: consumer})
-      })
+    it('can cancel the request', async () => {
+      await cc.cancelRequest(requestId, {from: consumer})
     })
   })
 })
