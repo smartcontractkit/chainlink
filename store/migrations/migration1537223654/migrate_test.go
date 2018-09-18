@@ -5,10 +5,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1537223654"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1537223654/old"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +18,7 @@ func TestMigrate_updatesJobSpecsBucket(t *testing.T) {
 	defer cleanup()
 
 	input := cltest.LoadJSON("../../../internal/fixtures/bolt/old_job_without_initiator_params.json")
-	var js1 migration1536764911.JobSpec
+	var js1 old.JobSpec
 	require.NoError(t, json.Unmarshal(input, &js1))
 	require.NoError(t, store.Save(&js1))
 
@@ -30,13 +28,7 @@ func TestMigrate_updatesJobSpecsBucket(t *testing.T) {
 	var js2 migration1537223654.JobSpec
 	require.NoError(t, store.One("ID", js1.ID, &js2))
 
-	originalInitiators := []migration0.Initiator{}
-	for _, uc := range js1.Initiators.([]interface{}) {
-		ti, err := migration1537223654.UnchangedToInitiator(uc.(migration0.Unchanged))
-		assert.NoError(t, err)
-		originalInitiators = append(originalInitiators, ti)
-	}
-	assert.Equal(t, originalInitiators[0].Schedule, js2.Initiators[0].Schedule)
+	assert.Equal(t, js1.Initiators[0].Schedule, js2.Initiators[0].Schedule)
 }
 
 func TestMigrate_updatesInitiatorsBucket(t *testing.T) {
@@ -46,7 +38,7 @@ func TestMigrate_updatesInitiatorsBucket(t *testing.T) {
 	defer cleanup()
 
 	input := cltest.LoadJSON("../../../internal/fixtures/bolt/old_initiator_without_params.json")
-	var i1 migration0.Initiator
+	var i1 old.Initiator
 	require.NoError(t, json.Unmarshal(input, &i1))
 	require.NoError(t, store.Save(&i1))
 
@@ -67,7 +59,7 @@ func TestMigrate_updatesJobRunsBucket(t *testing.T) {
 	defer cleanup()
 
 	input := cltest.LoadJSON("../../../internal/fixtures/bolt/old_jobrun_without_initiator_params.json")
-	var jr1 migration1536696950.JobRun
+	var jr1 old.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr1))
 	require.NoError(t, store.Save(&jr1))
 
@@ -78,9 +70,7 @@ func TestMigrate_updatesJobRunsBucket(t *testing.T) {
 	require.NoError(t, store.One("ID", jr1.ID, &jr2))
 
 	assert.Equal(t, jr1.ID, jr2.ID)
-	oi, err := migration1537223654.UnchangedToInitiator(jr1.Initiator.(migration0.Unchanged))
-	assert.NoError(t, err)
-	assert.Equal(t, oi.ID, jr2.Initiator.ID)
-	assert.Equal(t, oi.JobID, jr2.Initiator.JobID)
-	assert.Equal(t, oi.Schedule, jr2.Initiator.Schedule)
+	assert.Equal(t, jr1.Initiator.ID, jr2.Initiator.ID)
+	assert.Equal(t, jr1.Initiator.JobID, jr2.Initiator.JobID)
+	assert.Equal(t, jr1.Initiator.Schedule, jr2.Initiator.Schedule)
 }
