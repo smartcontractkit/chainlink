@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911/old"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMigration_ConvertTaskSpec(t *testing.T) {
+func TestMigration1536764911_ConvertTaskSpec(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536764911_job_without_task_params.json")
-	var js migration0.JobSpec
+	var js old.JobSpec
 	require.NoError(t, json.Unmarshal(input, &js))
 
 	migration := migration1536764911.Migration{}
@@ -25,4 +25,23 @@ func TestMigration_ConvertTaskSpec(t *testing.T) {
 		path = append(path, r.String())
 	}
 	require.Equal(t, []string{"last"}, path)
+}
+
+func TestMigrate1536764911_JobRun(t *testing.T) {
+	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536764911_jobrun_without_task_params.json")
+	var jr old.JobRun
+	require.NoError(t, json.Unmarshal(input, &jr))
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	require.NoError(t, store.Save(&jr))
+
+	migration := migration1536764911.Migration{}
+	require.NoError(t, migration.Migrate(store.ORM))
+
+	var jr2 migration1536764911.JobRun
+	require.NoError(t, store.One("ID", jr.ID, &jr2))
+	require.Equal(t, jr.TaskRuns[0].Task.Params.Get("address").String(), jr2.TaskRuns[0].Task.Params.Get("address").String())
+	require.Equal(t, jr.TaskRuns[0].Task.Params.Get("times").Int(), jr2.TaskRuns[0].Task.Params.Get("times").Int())
 }
