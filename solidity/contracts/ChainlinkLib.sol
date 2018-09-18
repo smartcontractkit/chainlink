@@ -3,7 +3,7 @@ pragma solidity ^0.4.24;
 import "solidity-cborutils/contracts/CBOR.sol";
 
 library ChainlinkLib {
-  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
+  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
 
   using CBOR for Buffer.buffer;
 
@@ -35,6 +35,8 @@ library ChainlinkLib {
   ) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(
       oracleRequestDataFid,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
       _clArgsVersion,
       self.specId,
       self.callbackAddress,
@@ -63,7 +65,7 @@ library ChainlinkLib {
     self.buf.encodeString(_key);
     self.buf.encodeInt(_value);
   }
-  
+
   function addUint(Run memory self, string _key, uint256 _value)
     internal pure
   {

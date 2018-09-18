@@ -33,7 +33,7 @@ contract Coordinator {
     bytes32 _requestDigest
   ) public
   {
-    require((_oracles.length == _vs.length) && (_vs.length == _rs.length) && (_rs.length == _ss.length), "Must pass in as many signatures as oracles");
+    require(_oracles.length == _vs.length && _vs.length == _rs.length && _rs.length == _ss.length, "Must pass in as many signatures as oracles");
 
     bytes32 serviceAgreementID = getId(_payment, _expiration, _oracles, _requestDigest);
 
