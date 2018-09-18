@@ -1,13 +1,9 @@
 package migration1537223654
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1537223654/old"
 	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
@@ -18,21 +14,18 @@ func (m Migration) Timestamp() string {
 }
 
 func (m Migration) Migrate(orm *orm.ORM) error {
-	var oldJobs []migration1536764911.JobSpec
-	err := orm.All(&oldJobs)
-	if err != nil {
+	var oldJobs []old.JobSpec
+	if err := orm.All(&oldJobs); err != nil {
 		return err
 	}
 
-	var oldInits []migration0.Initiator
-	err = orm.All(&oldInits)
-	if err != nil {
+	var oldInits []old.Initiator
+	if err := orm.All(&oldInits); err != nil {
 		return err
 	}
 
-	var oldRuns []migration1536696950.JobRun
-	err = orm.All(&oldRuns)
-	if err != nil {
+	var oldRuns []old.JobRun
+	if err := orm.All(&oldRuns); err != nil {
 		return err
 	}
 
@@ -43,34 +36,22 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	defer tx.Rollback()
 
 	for _, oj := range oldJobs {
-		newJob, err := convert(oj)
-		if err != nil {
-			return err
-		}
-		err = tx.Save(&newJob)
-		if err != nil {
+		newJob := convert(oj)
+		if err := tx.Save(&newJob); err != nil {
 			return err
 		}
 	}
 
 	for _, oi := range oldInits {
-		newInit, err := convertInitiator(oi)
-		if err != nil {
-			return err
-		}
-		err = tx.Save(&newInit)
-		if err != nil {
+		newInit := convertInitiator(oi)
+		if err := tx.Save(&newInit); err != nil {
 			return err
 		}
 	}
 
 	for _, oldRun := range oldRuns {
-		newRun, err := convertJobRun(oldRun)
-		if err != nil {
-			return err
-		}
-		err = tx.Save(&newRun)
-		if err != nil {
+		newRun := convertJobRun(oldRun)
+		if err := tx.Save(&newRun); err != nil {
 			return err
 		}
 	}
@@ -78,49 +59,26 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	return tx.Commit()
 }
 
-func convert(oj migration1536764911.JobSpec) (JobSpec, error) {
-	newInits, err := convertInitiators(oj.Initiators)
+func convert(oj old.JobSpec) JobSpec {
 	return JobSpec{
 		ID:         oj.ID,
 		CreatedAt:  oj.CreatedAt,
-		Initiators: newInits,
+		Initiators: convertInitiators(oj.Initiators),
 		Tasks:      oj.Tasks,
 		StartAt:    oj.StartAt,
 		EndAt:      oj.EndAt,
-	}, err
+	}
 }
 
-func convertInitiators(unchanged migration0.Unchanged) ([]Initiator, error) {
-	oldInits, ok := unchanged.([]interface{})
-	if !ok {
-		return []Initiator{}, fmt.Errorf("convertInitiators: Unable to convert %v of type %T to []migration0.interface{}", unchanged, unchanged)
-	}
-
+func convertInitiators(oldInits []old.Initiator) []Initiator {
 	newInits := []Initiator{}
 	for _, oi := range oldInits {
-		ni, err := convertInitiator(migration0.Unchanged(oi))
-		if err != nil {
-			return newInits, err
-		}
-		newInits = append(newInits, ni)
+		newInits = append(newInits, convertInitiator(oi))
 	}
-	return newInits, nil
+	return newInits
 }
 
-func UnchangedToInitiator(uc migration0.Unchanged) (migration0.Initiator, error) {
-	b, err := json.Marshal(uc)
-	if err != nil {
-		return migration0.Initiator{}, err
-	}
-	var ti migration0.Initiator
-	if err = json.Unmarshal(b, &ti); err != nil {
-		return migration0.Initiator{}, err
-	}
-	return ti, nil
-}
-
-func convertInitiator(uc migration0.Unchanged) (Initiator, error) {
-	ti, err := UnchangedToInitiator(uc)
+func convertInitiator(ti old.Initiator) Initiator {
 	return Initiator{
 		ID:    ti.ID,
 		JobID: ti.JobID,
@@ -131,11 +89,11 @@ func convertInitiator(uc migration0.Unchanged) (Initiator, error) {
 			Ran:      ti.Ran,
 			Address:  ti.Address,
 		},
-	}, err
+	}
 }
 
-func convertJobRun(or migration1536696950.JobRun) (JobRun, error) {
-	ni, err := convertInitiator(or.Initiator)
+func convertJobRun(or old.JobRun) JobRun {
+	ni := convertInitiator(or.Initiator)
 	return JobRun{
 		ID:             or.ID,
 		JobID:          or.JobID,
@@ -147,7 +105,7 @@ func convertJobRun(or migration1536696950.JobRun) (JobRun, error) {
 		Initiator:      ni,
 		CreationHeight: or.CreationHeight,
 		Overrides:      or.Overrides,
-	}, err
+	}
 }
 
 type JobSpec struct {
