@@ -11,7 +11,6 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
@@ -66,7 +65,7 @@ type RunStatus string
 
 type RunResult struct {
 	JobRunID     string      `json:"jobRunId"`
-	Data         models.JSON `json:"data"`
+	Data         JSON        `json:"data"`
 	Status       RunStatus   `json:"status"`
 	ErrorMessage null.String `json:"error"`
 	Amount       *big.Int    `json:"amount,omitempty"`
@@ -75,9 +74,9 @@ type RunResult struct {
 type TaskType string
 
 type TaskSpec struct {
-	Type          TaskType    `json:"type" storm:"index"`
-	Confirmations uint64      `json:"confirmations"`
-	Params        models.JSON `json:"-"`
+	Type          TaskType `json:"type" storm:"index"`
+	Confirmations uint64   `json:"confirmations"`
+	Params        JSON     `json:"-"`
 }
 
 // UnmarshalJSON parses the given input and updates the TaskSpec.
@@ -95,7 +94,7 @@ func (t *TaskSpec) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	t.Params = models.JSON{gjson.ParseBytes(params)}
+	t.Params = JSON{gjson.ParseBytes(params)}
 	return nil
 }
 
@@ -110,7 +109,7 @@ func (t TaskSpec) MarshalJSON() ([]byte, error) {
 	}
 
 	js := gjson.ParseBytes(b)
-	merged, err := t.Params.Merge(models.JSON{js})
+	merged, err := t.Params.Merge(JSON{js})
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +227,10 @@ type ServiceAgreement struct {
 	JobSpec     JobSpec
 }
 
-// WebURL contains the URL of the endpoint.
 type WebURL struct {
 	*url.URL
 }
 
-// UnmarshalJSON parses the raw URL stored in JSON-encoded
-// data to a URL structure and sets it to the URL field.
 func (w *WebURL) UnmarshalJSON(j []byte) error {
 	var v string
 	err := json.Unmarshal(j, &v)
@@ -251,23 +247,64 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 
 type Link big.Int
 
-// SetString delegates to *big.Int.SetString
 func (l *Link) SetString(s string, base int) (*Link, bool) {
 	w, ok := (*big.Int)(l).SetString(s, base)
 	return (*Link)(w), ok
 }
 
-// MarshalText implements the encoding.TextMarshaler interface.
 func (l *Link) MarshalText() ([]byte, error) {
 	return (*big.Int)(l).MarshalText()
 }
 
-// UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (l *Link) UnmarshalText(text []byte) error {
 	if _, ok := l.SetString(string(text), 10); !ok {
 		return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
 	}
 	return nil
+}
+
+type JSON struct {
+	gjson.Result
+}
+
+func (j *JSON) UnmarshalJSON(b []byte) error {
+	str := string(b)
+	if !gjson.Valid(str) {
+		return fmt.Errorf("invalid JSON: %v", str)
+	}
+	*j = JSON{gjson.Parse(str)}
+	return nil
+}
+
+func (j JSON) MarshalJSON() ([]byte, error) {
+	if j.Exists() {
+		return j.Bytes(), nil
+	}
+	return []byte("{}"), nil
+}
+
+func (j JSON) Bytes() []byte {
+	return []byte(j.String())
+}
+
+func (j JSON) Merge(j2 JSON) (JSON, error) {
+	body := j.Map()
+	for key, value := range j2.Map() {
+		body[key] = value
+	}
+
+	cleaned := map[string]interface{}{}
+	for k, v := range body {
+		cleaned[k] = v.Value()
+	}
+
+	b, err := json.Marshal(cleaned)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	var rval JSON
+	return rval, gjson.Unmarshal(b, &rval)
 }
 
 type Unchanged interface{}

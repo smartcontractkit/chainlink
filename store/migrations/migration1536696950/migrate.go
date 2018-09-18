@@ -2,11 +2,8 @@ package migration1536696950
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -81,28 +78,28 @@ func convertTaskRuns(oldTRs []migration0.TaskRun) []TaskRun {
 }
 
 type JobRun struct {
-	ID             string               `json:"id" storm:"id,unique"`
-	JobID          string               `json:"jobId" storm:"index"`
+	ID             migration0.Unchanged `json:"id" storm:"id,unique"`
+	JobID          migration0.Unchanged `json:"jobId" storm:"index"`
 	Result         RunResult            `json:"result" storm:"inline"`
-	Status         migration0.RunStatus `json:"status" storm:"index"`
+	Status         migration0.Unchanged `json:"status" storm:"index"`
 	TaskRuns       []TaskRun            `json:"taskRuns" storm:"inline"`
-	CreatedAt      time.Time            `json:"createdAt" storm:"index"`
-	CompletedAt    null.Time            `json:"completedAt"`
-	Initiator      migration0.Initiator `json:"initiator"`
-	CreationHeight *hexutil.Big         `json:"creationHeight"`
+	CreatedAt      migration0.Unchanged `json:"createdAt" storm:"index"`
+	CompletedAt    migration0.Unchanged `json:"completedAt"`
+	Initiator      migration0.Unchanged `json:"initiator"`
+	CreationHeight migration0.Unchanged `json:"creationHeight"`
 	Overrides      RunResult            `json:"overrides"`
 }
 
 type TaskRun struct {
-	ID     string               `json:"id" storm:"id,unique"`
+	ID     migration0.Unchanged `json:"id" storm:"id,unique"`
 	Result RunResult            `json:"result"`
-	Status migration0.RunStatus `json:"status"`
-	Task   migration0.TaskSpec  `json:"task"`
+	Status migration0.Unchanged `json:"status"`
+	Task   migration0.Unchanged `json:"task"`
 }
 
 type RunResult struct {
 	JobRunID     string               `json:"jobRunId"`
-	Data         models.JSON          `json:"data"`
+	Data         migration0.JSON      `json:"data"`
 	Status       migration0.RunStatus `json:"status"`
 	ErrorMessage null.String          `json:"error"`
 	Amount       *migration0.Link     `json:"amount,omitempty"`
