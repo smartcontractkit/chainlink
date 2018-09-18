@@ -1,15 +1,14 @@
 package migration1537223654
 
 import (
-	"time"
+	"encoding/json"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"
 	"github.com/smartcontractkit/chainlink/store/orm"
-	null "gopkg.in/guregu/null.v3"
 )
 
 type Migration struct{}
@@ -44,24 +43,33 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	defer tx.Rollback()
 
 	for _, oj := range oldJobs {
-		newJob := convert(oj)
-		err := tx.Save(&newJob)
+		newJob, err := convert(oj)
+		if err != nil {
+			return err
+		}
+		err = tx.Save(&newJob)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, oi := range oldInits {
-		newInit := convertInitiator(oi)
-		err := tx.Save(&newInit)
+		newInit, err := convertInitiator(oi)
+		if err != nil {
+			return err
+		}
+		err = tx.Save(&newInit)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, oldRun := range oldRuns {
-		newRun := convertJobRun(oldRun)
-		err := tx.Save(&newRun)
+		newRun, err := convertJobRun(oldRun)
+		if err != nil {
+			return err
+		}
+		err = tx.Save(&newRun)
 		if err != nil {
 			return err
 		}
@@ -70,40 +78,64 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	return tx.Commit()
 }
 
-func convert(oj migration1536764911.JobSpec) JobSpec {
+func convert(oj migration1536764911.JobSpec) (JobSpec, error) {
+	newInits, err := convertInitiators(oj.Initiators)
 	return JobSpec{
 		ID:         oj.ID,
 		CreatedAt:  oj.CreatedAt,
-		Initiators: convertInitiators(oj.Initiators),
+		Initiators: newInits,
 		Tasks:      oj.Tasks,
 		StartAt:    oj.StartAt,
 		EndAt:      oj.EndAt,
-	}
+	}, err
 }
 
-func convertInitiators(oldInits []migration0.Initiator) []Initiator {
+func convertInitiators(unchanged migration0.Unchanged) ([]Initiator, error) {
+	oldInits, ok := unchanged.([]interface{})
+	if !ok {
+		return []Initiator{}, fmt.Errorf("convertInitiators: Unable to convert %v of type %T to []migration0.interface{}", unchanged, unchanged)
+	}
+
 	newInits := []Initiator{}
 	for _, oi := range oldInits {
-		newInits = append(newInits, convertInitiator(oi))
+		ni, err := convertInitiator(migration0.Unchanged(oi))
+		if err != nil {
+			return newInits, err
+		}
+		newInits = append(newInits, ni)
 	}
-	return newInits
+	return newInits, nil
 }
 
-func convertInitiator(oi migration0.Initiator) Initiator {
+func UnchangedToInitiator(uc migration0.Unchanged) (migration0.Initiator, error) {
+	b, err := json.Marshal(uc)
+	if err != nil {
+		return migration0.Initiator{}, err
+	}
+	var ti migration0.Initiator
+	if err = json.Unmarshal(b, &ti); err != nil {
+		return migration0.Initiator{}, err
+	}
+	return ti, nil
+}
+
+func convertInitiator(uc migration0.Unchanged) (Initiator, error) {
+	ti, err := UnchangedToInitiator(uc)
 	return Initiator{
-		ID:    oi.ID,
-		JobID: oi.JobID,
-		Type:  oi.Type,
+		ID:    ti.ID,
+		JobID: ti.JobID,
+		Type:  ti.Type,
 		InitiatorParams: InitiatorParams{
-			Schedule: oi.Schedule,
-			Time:     oi.Time,
-			Ran:      oi.Ran,
-			Address:  oi.Address,
+			Schedule: ti.Schedule,
+			Time:     ti.Time,
+			Ran:      ti.Ran,
+			Address:  ti.Address,
 		},
-	}
+	}, err
 }
 
-func convertJobRun(or migration1536696950.JobRun) JobRun {
+func convertJobRun(or migration1536696950.JobRun) (JobRun, error) {
+	ni, err := convertInitiator(or.Initiator)
 	return JobRun{
 		ID:             or.ID,
 		JobID:          or.JobID,
@@ -112,19 +144,19 @@ func convertJobRun(or migration1536696950.JobRun) JobRun {
 		TaskRuns:       or.TaskRuns,
 		CreatedAt:      or.CreatedAt,
 		CompletedAt:    or.CompletedAt,
-		Initiator:      convertInitiator(or.Initiator),
+		Initiator:      ni,
 		CreationHeight: or.CreationHeight,
 		Overrides:      or.Overrides,
-	}
+	}, err
 }
 
 type JobSpec struct {
-	ID         string                         `json:"id" storm:"id,unique"`
-	CreatedAt  migration0.Time                `json:"createdAt" storm:"index"`
-	Initiators []Initiator                    `json:"initiators"`
-	Tasks      []migration1536764911.TaskSpec `json:"tasks" storm:"inline"`
-	StartAt    null.Time                      `json:"startAt" storm:"index"`
-	EndAt      null.Time                      `json:"endAt" storm:"index"`
+	ID         migration0.Unchanged `json:"id" storm:"id,unique"`
+	CreatedAt  migration0.Unchanged `json:"createdAt" storm:"index"`
+	Initiators []Initiator          `json:"initiators"`
+	Tasks      migration0.Unchanged `json:"tasks" storm:"inline"`
+	StartAt    migration0.Unchanged `json:"startAt" storm:"index"`
+	EndAt      migration0.Unchanged `json:"endAt" storm:"index"`
 }
 
 type Initiator struct {
@@ -142,14 +174,14 @@ type InitiatorParams struct {
 }
 
 type JobRun struct {
-	ID             string                        `json:"id" storm:"id,unique"`
-	JobID          string                        `json:"jobId" storm:"index"`
-	Result         migration1536696950.RunResult `json:"result" storm:"inline"`
-	Status         migration0.RunStatus          `json:"status" storm:"index"`
-	TaskRuns       []migration1536696950.TaskRun `json:"taskRuns" storm:"inline"`
-	CreatedAt      time.Time                     `json:"createdAt" storm:"index"`
-	CompletedAt    null.Time                     `json:"completedAt"`
-	Initiator      Initiator                     `json:"initiator"`
-	CreationHeight *hexutil.Big                  `json:"creationHeight"`
-	Overrides      migration1536696950.RunResult `json:"overrides"`
+	ID             migration0.Unchanged `json:"id" storm:"id,unique"`
+	JobID          migration0.Unchanged `json:"jobId" storm:"index"`
+	Result         migration0.Unchanged `json:"result" storm:"inline"`
+	Status         migration0.Unchanged `json:"status" storm:"index"`
+	TaskRuns       migration0.Unchanged `json:"taskRuns" storm:"inline"`
+	CreatedAt      migration0.Unchanged `json:"createdAt" storm:"index"`
+	CompletedAt    migration0.Unchanged `json:"completedAt"`
+	Initiator      Initiator            `json:"initiator"`
+	CreationHeight migration0.Unchanged `json:"creationHeight"`
+	Overrides      migration0.Unchanged `json:"overrides"`
 }

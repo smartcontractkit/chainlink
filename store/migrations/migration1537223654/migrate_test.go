@@ -30,7 +30,13 @@ func TestMigrate_updatesJobSpecsBucket(t *testing.T) {
 	var js2 migration1537223654.JobSpec
 	require.NoError(t, store.One("ID", js1.ID, &js2))
 
-	assert.Equal(t, js1.Initiators[0].Schedule, js2.Initiators[0].Schedule)
+	originalInitiators := []migration0.Initiator{}
+	for _, uc := range js1.Initiators.([]interface{}) {
+		ti, err := migration1537223654.UnchangedToInitiator(uc.(migration0.Unchanged))
+		assert.NoError(t, err)
+		originalInitiators = append(originalInitiators, ti)
+	}
+	assert.Equal(t, originalInitiators[0].Schedule, js2.Initiators[0].Schedule)
 }
 
 func TestMigrate_updatesInitiatorsBucket(t *testing.T) {
@@ -72,7 +78,9 @@ func TestMigrate_updatesJobRunsBucket(t *testing.T) {
 	require.NoError(t, store.One("ID", jr1.ID, &jr2))
 
 	assert.Equal(t, jr1.ID, jr2.ID)
-	assert.Equal(t, jr1.Initiator.ID, jr2.Initiator.ID)
-	assert.Equal(t, jr1.Initiator.JobID, jr2.Initiator.JobID)
-	assert.Equal(t, jr1.Initiator.Schedule, jr2.Initiator.Schedule)
+	oi, err := migration1537223654.UnchangedToInitiator(jr1.Initiator.(migration0.Unchanged))
+	assert.NoError(t, err)
+	assert.Equal(t, oi.ID, jr2.Initiator.ID)
+	assert.Equal(t, oi.JobID, jr2.Initiator.JobID)
+	assert.Equal(t, oi.Schedule, jr2.Initiator.Schedule)
 }
