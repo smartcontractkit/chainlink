@@ -48,7 +48,12 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 // NewJobWithSchedule create new job with the given schedule
 func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 	j := NewJob()
-	j.Initiators = []models.Initiator{{Type: models.InitiatorCron, Schedule: models.Cron(sched)}}
+	j.Initiators = []models.Initiator{{
+		Type: models.InitiatorCron,
+		InitiatorParams: models.InitiatorParams{
+			Schedule: models.Cron(sched),
+		},
+	}}
 	return j, j.Initiators[0]
 }
 
@@ -63,8 +68,10 @@ func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type:    models.InitiatorEthLog,
-		Address: NewAddress(),
+		Type: models.InitiatorEthLog,
+		InitiatorParams: models.InitiatorParams{
+			Address: NewAddress(),
+		},
 	}}
 	return j, j.Initiators[0]
 }
@@ -74,7 +81,9 @@ func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		Type: models.InitiatorRunAt,
-		Time: models.Time{Time: t},
+		InitiatorParams: models.InitiatorParams{
+			Time: models.Time{Time: t},
+		},
 	}}
 	return j, j.Initiators[0]
 }

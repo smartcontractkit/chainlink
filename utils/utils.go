@@ -89,24 +89,6 @@ func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
-// GetStringKeys returns an array of strings from the keys of
-// Unmarshalled JSON given as input.
-// For example, if `j` were our JSON:
-//  var value map[string]interface{}
-//  err = json.Unmarshal(j, &value)
-//  keys := utils.GetStringKeys(value)
-func GetStringKeys(v map[string]interface{}) []string {
-	keys := make([]string, len(v))
-
-	i := 0
-	for k := range v {
-		keys[i] = k
-		i++
-	}
-
-	return keys
-}
-
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {

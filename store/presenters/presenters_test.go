@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 type MI = models.Initiator
+type MIP = models.InitiatorParams
 
 func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 	t.Parallel()
@@ -25,13 +27,13 @@ func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		i    models.Initiator
-		keys []string
+		i      models.Initiator
+		params []string
 	}{
-		{MI{Type: models.InitiatorWeb}, []string{"type"}},
-		{MI{Type: models.InitiatorCron, Schedule: models.Cron("* * * * *")}, []string{"type", "schedule"}},
-		{MI{Type: models.InitiatorRunAt, Time: models.Time{Time: now}}, []string{"type", "time", "ran"}},
-		{MI{Type: models.InitiatorEthLog, Address: address}, []string{"type", "address"}},
+		{MI{Type: models.InitiatorWeb}, []string{}},
+		{MI{Type: models.InitiatorCron, InitiatorParams: MIP{Schedule: models.Cron("* * * * *")}}, []string{"schedule"}},
+		{MI{Type: models.InitiatorRunAt, InitiatorParams: MIP{Time: models.Time{Time: now}}}, []string{"time", "ran"}},
+		{MI{Type: models.InitiatorEthLog, InitiatorParams: MIP{Address: address}}, []string{"address"}},
 	}
 
 	for _, test := range tests {
@@ -39,14 +41,18 @@ func TestPresenterInitiatorHasCorrectKeys(t *testing.T) {
 			j, err := json.Marshal(presenters.Initiator{Initiator: test.i})
 			assert.NoError(t, err)
 
-			var value map[string]interface{}
-			err = json.Unmarshal(j, &value)
-			assert.NoError(t, err)
+			js := gjson.Parse(string(j))
+			require.Equal(t, test.i.Type, js.Get("type").String())
 
-			keys := utils.GetStringKeys(value)
+			params := js.Get("params").Map()
+			keys := []string{}
+			for k := range params {
+				keys = append(keys, k)
+			}
+
 			sort.Strings(keys)
-			sort.Strings(test.keys)
-			assert.Equal(t, test.keys, keys)
+			sort.Strings(test.params)
+			assert.Equal(t, test.params, keys)
 		})
 	}
 }
