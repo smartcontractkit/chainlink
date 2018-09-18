@@ -42,8 +42,12 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    // solium-disable-next-line security/no-low-level-calls
-    assembly { calldatacopy(add(_data, 36), 4, 64) } // ensures correct sender and amount are passed
+    assembly {
+      // solium-disable security/no-low-level-calls
+      mstore(add(_data, 36), _sender) // ensure correct sender is passed
+      // solium-disable security/no-low-level-calls
+      mstore(add(_data, 68), _wei)    // ensure correct amount is passed
+    }
     // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
   }
