@@ -53,7 +53,7 @@ contract Chainlinked {
     internal
   {
     oracle.cancel(_requestId);
-    unfulfilledRequests[_requestId] = 0x0;
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
   }
 
@@ -87,7 +87,7 @@ contract Chainlinked {
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
     require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
     _;
-    unfulfilledRequests[_requestId] = 0x0;
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
   }
 }
