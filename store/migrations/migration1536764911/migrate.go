@@ -4,7 +4,6 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
-	null "gopkg.in/guregu/null.v3"
 )
 
 type Migration struct{}
@@ -49,24 +48,29 @@ func (m Migration) Convert(js migration0.JobSpec) JobSpec {
 }
 
 func convertTaskSpecs(oldSpecs []migration0.TaskSpec) []TaskSpec {
-	var ts []TaskSpec
+	ts := []TaskSpec{}
 	for _, old := range oldSpecs {
-		ts = append(ts, TaskSpec(old))
+		new := TaskSpec{
+			Type:          old.Type,
+			Confirmations: old.Confirmations,
+			Params:        old.Params,
+		}
+		ts = append(ts, new)
 	}
 	return ts
 }
 
 type TaskSpec struct {
-	Type          migration0.TaskType `json:"type" storm:"index"`
-	Confirmations uint64              `json:"confirmations"`
-	Params        models.JSON         `json:"params"`
+	Type          migration0.Unchanged `json:"type" storm:"index"`
+	Confirmations migration0.Unchanged `json:"confirmations"`
+	Params        models.JSON          `json:"params"`
 }
 
 type JobSpec struct {
-	ID         string                 `json:"id" storm:"id,unique"`
-	CreatedAt  migration0.Time        `json:"createdAt" storm:"index"`
-	Initiators []migration0.Initiator `json:"initiators"`
-	Tasks      []TaskSpec             `json:"tasks" storm:"inline"`
-	StartAt    null.Time              `json:"startAt" storm:"index"`
-	EndAt      null.Time              `json:"endAt" storm:"index"`
+	ID         migration0.Unchanged `json:"id" storm:"id,unique"`
+	CreatedAt  migration0.Unchanged `json:"createdAt" storm:"index"`
+	Initiators migration0.Unchanged `json:"initiators"`
+	Tasks      []TaskSpec           `json:"tasks" storm:"inline"`
+	StartAt    migration0.Unchanged `json:"startAt" storm:"index"`
+	EndAt      migration0.Unchanged `json:"endAt" storm:"index"`
 }

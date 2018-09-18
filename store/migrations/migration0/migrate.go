@@ -269,3 +269,5 @@ func (l *Link) UnmarshalText(text []byte) error {
 	}
 	return nil
 }
+
+type Unchanged interface{}
