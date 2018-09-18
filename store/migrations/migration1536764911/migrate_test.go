@@ -11,7 +11,7 @@ import (
 )
 
 func TestMigration_ConvertTaskSpec(t *testing.T) {
-	input := cltest.LoadJSON("../../../internal/fixtures/bolt/old_job_without_task_params.json")
+	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536764911_job_without_task_params.json")
 	var js migration0.JobSpec
 	require.NoError(t, json.Unmarshal(input, &js))
 

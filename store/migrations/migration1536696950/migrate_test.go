@@ -12,7 +12,7 @@ import (
 )
 
 func TestMigrate_ConvertRunResultAmount(t *testing.T) {
-	input := cltest.LoadJSON("../../../internal/fixtures/bolt/jobrun_bigint_amount.json")
+	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536696950_jobrun_bigint_amount.json")
 	var jr migration0.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr))
 
@@ -24,7 +24,7 @@ func TestMigrate_ConvertRunResultAmount(t *testing.T) {
 }
 
 func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
-	input := cltest.LoadJSON("../../../internal/fixtures/bolt/jobrun_bigint_amount.json")
+	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536696950_jobrun_bigint_amount.json")
 	var jr migration0.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr))
 
@@ -43,7 +43,7 @@ func TestMigrate_MigrateRunResultAmount1536521223(t *testing.T) {
 }
 
 func TestMigrate_MigrateRunResultAmount1536521223_asString(t *testing.T) {
-	input := cltest.LoadJSON("../../../internal/fixtures/bolt/jobrun_string_amount.json")
+	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536696950_jobrun_string_amount.json")
 	var jr migration1536696950.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr))
 
