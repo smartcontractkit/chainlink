@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/store/assets"
 
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
@@ -260,7 +261,7 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 // Withdraw will withdraw LINK to an address authorized by the node
 func (cli *Client) Withdraw(c *clipkg.Context) error {
 	if len(c.Args()) < 2 {
-		return cli.errorOut(errors.New("withdrawal needs an amount and address"))
+		return cli.errorOut(errors.New("withdrawal requires an address and amount"))
 	}
 
 	i, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
@@ -281,7 +282,7 @@ func (cli *Client) Withdraw(c *clipkg.Context) error {
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := cli.HTTP.Post("/v2/withdraw", buf)
+	resp, err := cli.HTTP.Post("/v2/withdrawals", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
