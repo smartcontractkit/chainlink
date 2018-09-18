@@ -8,7 +8,8 @@ library Buffer {
         uint capacity;
     }
 
-    function init(buffer memory buf, uint capacity) internal pure {
+    function init(buffer memory buf, uint _capacity) internal pure {
+        uint capacity = _capacity;
         if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
         // Allocate space for the buffer data
         buf.capacity = capacity;
@@ -206,7 +207,7 @@ library CBOR {
 // File: ../solidity/contracts/ChainlinkLib.sol
 
 library ChainlinkLib {
-  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(uint256,bytes32,address,bytes4,bytes32,bytes)"));
+  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
 
   using CBOR for Buffer.buffer;
 
@@ -238,6 +239,8 @@ library ChainlinkLib {
   ) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(
       oracleRequestDataFid,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
       _clArgsVersion,
       self.specId,
       self.callbackAddress,
@@ -266,7 +269,7 @@ library ChainlinkLib {
     self.buf.encodeString(_key);
     self.buf.encodeInt(_value);
   }
-  
+
   function addUint(Run memory self, string _key, uint256 _value)
     internal pure
   {
@@ -287,6 +290,70 @@ library ChainlinkLib {
 
   function close(Run memory self) internal pure {
     self.buf.endSequence();
+  }
+}
+
+// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+  address public owner;
+
+
+  event OwnershipRenounced(address indexed previousOwner);
+  event OwnershipTransferred(
+    address indexed previousOwner,
+    address indexed newOwner
+  );
+
+
+  /**
+   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+   * account.
+   */
+  constructor() public {
+    owner = msg.sender;
+  }
+
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  /**
+   * @dev Allows the current owner to relinquish control of the contract.
+   * @notice Renouncing to ownership will leave the contract without an owner.
+   * It will not be possible to call the functions with the `onlyOwner`
+   * modifier anymore.
+   */
+  function renounceOwnership() public onlyOwner {
+    emit OwnershipRenounced(owner);
+    owner = address(0);
+  }
+
+  /**
+   * @dev Allows the current owner to transfer control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function transferOwnership(address _newOwner) public onlyOwner {
+    _transferOwnership(_newOwner);
+  }
+
+  /**
+   * @dev Transfers control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function _transferOwnership(address _newOwner) internal {
+    require(_newOwner != address(0));
+    emit OwnershipTransferred(owner, _newOwner);
+    owner = _newOwner;
   }
 }
 
@@ -600,70 +667,6 @@ contract LinkToken is StandardToken, ERC677Token {
 
 }
 
-// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
-
-/**
- * @title Ownable
- * @dev The Ownable contract has an owner address, and provides basic authorization control
- * functions, this simplifies the implementation of "user permissions".
- */
-contract Ownable {
-  address public owner;
-
-
-  event OwnershipRenounced(address indexed previousOwner);
-  event OwnershipTransferred(
-    address indexed previousOwner,
-    address indexed newOwner
-  );
-
-
-  /**
-   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-   * account.
-   */
-  constructor() public {
-    owner = msg.sender;
-  }
-
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-
-  /**
-   * @dev Allows the current owner to relinquish control of the contract.
-   * @notice Renouncing to ownership will leave the contract without an owner.
-   * It will not be possible to call the functions with the `onlyOwner`
-   * modifier anymore.
-   */
-  function renounceOwnership() public onlyOwner {
-    emit OwnershipRenounced(owner);
-    owner = address(0);
-  }
-
-  /**
-   * @dev Allows the current owner to transfer control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function transferOwnership(address _newOwner) public onlyOwner {
-    _transferOwnership(_newOwner);
-  }
-
-  /**
-   * @dev Transfers control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function _transferOwnership(address _newOwner) internal {
-    require(_newOwner != address(0));
-    emit OwnershipTransferred(owner, _newOwner);
-    owner = _newOwner;
-  }
-}
-
 // File: ../solidity/contracts/Oracle.sol
 
 contract Oracle is Ownable {
@@ -682,8 +685,6 @@ contract Oracle is Ownable {
   // does not cost more gas.
   uint256 constant private oneForConsistentGasCost = 1;
   uint256 private withdrawableWei = oneForConsistentGasCost;
-  uint256 private currentAmount = oneForConsistentGasCost;
-  address private currentSender;
 
   mapping(uint256 => Callback) private callbacks;
 
@@ -707,13 +708,19 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    currentAmount = _wei;
-    currentSender = _sender;
+    assembly {
+      // solium-disable security/no-low-level-calls
+      mstore(add(_data, 36), _sender) // ensure correct sender is passed
+      // solium-disable security/no-low-level-calls
+      mstore(add(_data, 68), _wei)    // ensure correct amount is passed
+    }
     // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
   }
 
   function requestData(
+    address _currentSender,
+    uint256 _currentAmount,
     uint256 _version,
     bytes32 _specId,
     address _callbackAddress,
@@ -724,13 +731,13 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(currentSender, _externalId)));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(_currentSender, _externalId)));
     callbacks[internalId] = Callback(
       _externalId,
-      currentAmount,
+      _currentAmount,
       _callbackAddress,
       _callbackFunctionId);
-    emit RunRequest(internalId, _specId, currentAmount, _version, _data);
+    emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
   }
 
   function fulfillData(
@@ -863,11 +870,11 @@ contract RopstenConsumer is Chainlinked, Ownable {
   bytes32 public lastMarket;
 
   address constant ROPSTEN_LINK_ADDRESS = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
-  address constant ROPSTEN_ORACLE_ADDRESS = 0xB68145133973411b7B3F2726A625FE3f3808240D;
+  address constant ROPSTEN_ORACLE_ADDRESS = 0x18170370BceC331F31d41B9b83DE772F5Bd47D82;
 
-  bytes32 constant PRICE_SPEC_ID = bytes32("8b05126a278f4f0abe02dd482aa802f8");
-  bytes32 constant CHANGE_SPEC_ID = bytes32("69cf308f8cee429c88eb25644d9f1c1d");
-  bytes32 constant MARKET_SPEC_ID = bytes32("ae18a03a2f5746ca967c403cf53e1318");
+  bytes32 constant PRICE_SPEC_ID = bytes32("3e775111aac649068669b192533490a6");
+  bytes32 constant CHANGE_SPEC_ID = bytes32("fa7d9b1c502f4f9684661679623638fc");
+  bytes32 constant MARKET_SPEC_ID = bytes32("626250ee99b74b68b8e2a27843d6a575");
   
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
