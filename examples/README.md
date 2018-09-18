@@ -7,7 +7,7 @@ Please click on each folder for more information.
 
 - Go 1.10+
 - Node JS
-- Docker (for [DevNet](https://github.com/smartcontractkit/devnet))
+- Docker (for [DevNet](https://github.com/smartcontractkit/infrastructure/tree/master/image))
 
 ## Run Chainlink Development Environment
 
