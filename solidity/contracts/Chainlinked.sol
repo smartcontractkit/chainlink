@@ -11,6 +11,7 @@ contract Chainlinked {
   using SafeMath for uint256;
 
   uint256 constant internal clArgsVersion = 1;
+  uint256 constant internal linkDivisibility = 10**18;
 
   LinkToken internal link;
   Oracle internal oracle;
@@ -41,7 +42,7 @@ contract Chainlinked {
   {
     _run.requestId = bytes32(requests);
     _run.close();
-    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
     unfulfilledRequests[_run.requestId] = oracle;
     requests += 1;
@@ -57,7 +58,7 @@ contract Chainlinked {
   }
 
   function LINK(uint256 _amount) internal view returns (uint256) {
-    return _amount.mul(10**18);
+    return _amount.mul(linkDivisibility);
   }
 
   function setOracle(address _oracle) internal {

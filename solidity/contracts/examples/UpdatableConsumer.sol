@@ -1,6 +1,5 @@
 pragma solidity ^0.4.24;
 
-//import "../Chainlinked.sol";
 import "./Consumer.sol";
 
 contract UpdatableConsumer is Consumer {
