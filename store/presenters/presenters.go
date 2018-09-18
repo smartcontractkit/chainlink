@@ -160,8 +160,8 @@ func (c ConfigWhitelist) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
 		"ROOT: %s\n" +
 		"CHAINLINK_PORT: %d\n" +
-		"TLS_PORT: %d\n" +
-		"TLS_HOST: %s\n" +
+		"CHAINLINK_TLS_PORT: %d\n" +
+		"CHAINLINK_TLS_HOST: %s\n" +
 		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
 		"CLIENT_NODE_URL: %s\n" +
