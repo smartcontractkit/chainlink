@@ -2,7 +2,6 @@ package migration1536764911
 
 import (
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
@@ -63,7 +62,7 @@ func convertTaskSpecs(oldSpecs []migration0.TaskSpec) []TaskSpec {
 type TaskSpec struct {
 	Type          migration0.Unchanged `json:"type" storm:"index"`
 	Confirmations migration0.Unchanged `json:"confirmations"`
-	Params        models.JSON          `json:"params"`
+	Params        migration0.JSON      `json:"params"`
 }
 
 type JobSpec struct {
