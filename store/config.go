@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/caarlos0/env"
@@ -43,7 +44,9 @@ type Config struct {
 	MinimumContractPayment   assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
 	MinimumRequestExpiration uint64          `env:"MINIMUM_REQUEST_EXPIRATION" envDefault:"300"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
-	Port                     string          `env:"CHAINLINK_PORT" envDefault:"6688"`
+	Port                     uint16          `env:"CHAINLINK_PORT" envDefault:"6688"`
+	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" envDefault:"6689"`
+	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" envDefault:""`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
 	SecretGenerator          SecretGenerator
 	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`
@@ -147,6 +150,7 @@ func parseEnv(cfg interface{}) error {
 		reflect.TypeOf(assets.Link{}):     linkParser,
 		reflect.TypeOf(LogLevel{}):        levelParser,
 		reflect.TypeOf(Duration{}):        durationParser,
+		reflect.TypeOf(uint16(0)):         portParser,
 	})
 }
 
@@ -188,6 +192,11 @@ func levelParser(str string) (interface{}, error) {
 func durationParser(str string) (interface{}, error) {
 	d, err := time.ParseDuration(str)
 	return Duration{Duration: d}, err
+}
+
+func portParser(str string) (interface{}, error) {
+	d, err := strconv.ParseUint(str, 10, 16)
+	return uint16(d), err
 }
 
 // LogLevel determines the verbosity of the events to be logged.

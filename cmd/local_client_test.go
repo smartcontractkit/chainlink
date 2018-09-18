@@ -16,7 +16,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	config, configCleanup := cltest.NewConfig()
 	defer configCleanup()
 	config.LinkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
-	config.Port = "6688"
+	config.Port = 6688
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
