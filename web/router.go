@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -62,24 +61,12 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
 func secureOptions(config store.Config) secure.Options {
-	options := secure.Options{
+	return secure.Options{
+		FrameDeny:     true,
 		IsDevelopment: config.Dev,
 		SSLRedirect:   config.TLSPort != 0,
+		SSLHost:       config.TLSHost,
 	}
-
-	if options.SSLRedirect && !options.IsDevelopment {
-		if config.TLSHost != "" {
-			if config.TLSPort != 443 {
-				options.SSLHost = fmt.Sprintf("%s:%d", config.TLSHost, config.TLSPort)
-			} else {
-				options.SSLHost = config.TLSHost
-			}
-		} else {
-			log.Fatalf("A TLSHost must be configured when TLS redirection is enabled for a non standard port")
-		}
-	}
-
-	return options
 }
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
