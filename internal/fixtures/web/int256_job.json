@@ -1,7 +1,7 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
-    { "type": "Multiply", "times": 100 },
+    { "type": "Multiply", "params": { "times": 100 } },
     { "type": "EthInt256" }
   ]
 }

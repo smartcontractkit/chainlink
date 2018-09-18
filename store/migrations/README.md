@@ -1,12 +1,13 @@
 ## Migrations
 
-Every migration is encapsulated in its own package to prevent type
-collisions now and for the future.
+Every migration is encapsulated to prevent type collisions now and in the future.
 
-It serves as a snapshot in time of the schema for bolt db.
+Each migration contains two packages, the root package which includes the definitions
+of the types being moved to, and the `old` package which contains the previous
+definition of each type.
 
-As a result, future migrations can reference the types of previous migrations
-to assist deserializing, transforming, and saving new types.
+Fields that remain unchanged during a migration can be easily handled by marking
+their type as `migration0.Unchanged` in both the old and new definition of each type.
 
 When introducing a new type, be sure to include its JSON Marshaling and Unmarshaling
 behavior if it is customized.
@@ -14,34 +15,36 @@ behavior if it is customized.
 ### Example
 
 ```golang
-package migration1 // previous existing migration
+package old // previous type structure
 
 type RunResult struct {
-	JobRunID     string      `json:"jobRunId" storm:"id"`
-	Amount       *big.Int    `json:"amount,omitempty"` // old type
+	JobRunID     migration0.Unchanged `json:"jobRunId" storm:"id"`
+	Amount       *big.Int             `json:"amount,omitempty"` // old type
 }
 ```
 
 ```golang
-package migration2
+package migration1
 
 type RunResult struct {
-	JobRunID     string          `json:"jobRunId" storm:"id"`
-	Amount       *assets.Link    `json:"amount,omitempty"` // new type
+	JobRunID     migration0.Unchanged `json:"jobRunId" storm:"id"`
+	Amount       *assets.Link         `json:"amount,omitempty"` // new type
 }
 ```
 
-One can now deserialize `migration1.RunResult`, convert to `migration2.RunResult`, and then
-persist the new instance to bolt. When updating a model, you must always refer to the most
-recently used migration version of that model for correct extraction.
+One can now deserialize `old.RunResult`, convert to `migration1.RunResult`, and then
+persist the new instance to bolt.
 
 ```golang
-package migration2
+package migration1
 
-...
+type RunResult struct {
+	JobRunID     migration0.Unchanged `json:"jobRunId" storm:"id"`
+	Amount       *assets.Link         `json:"amount,omitempty"` // new type
+}
 
 func (m Migration) Migrate(orm *orm.ORM) error {
-	var jrs []migration1.JobRun
+	var jrs []old.JobRun
 	if err := orm.All(&jrs); err != nil {
 		return fmt.Errorf("failed migration1: %v", err)
 	}
@@ -63,23 +66,21 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 }
 ```
 
+### Add to global registry
+
+`store/migrations/migrate.go`
+
+```golang
+func init() {
+	registerMigration(migration1.Migration{})
+	registerMigration(migration2.Migration{})
+	registerMigration(migration<newMigration>.Migration{})
+}
+```
+
 ### Helpers
 
 Run `cldev migration` to generate a migration template, prepopulated with a current
 timestamp.
 
-
-```golang
-package migration1536766540
-
-import "github.com/smartcontractkit/chainlink/store/orm"
-
-type Migration struct{}
-
-func (m Migration) Timestamp() string {
-	return "1536766540"
-}
-
-func (m Migration) Migrate(orm *orm.ORM) error {
-}
-```
+* Be sure to add your new migration to the list of migrations in `store/migrations/migrate.go`:

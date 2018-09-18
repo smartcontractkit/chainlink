@@ -15,7 +15,7 @@ let job = {
   "tasks": [
     {"type": "httpGet"},
     {"type": "jsonParse"},
-    {"type": "multiply", "times": 10000},
+    {"type": "multiply", "params": { "times": 10000 }},
     {"type": "ethuint256"},
     {"type": "ethtx"}
   ]
