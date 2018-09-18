@@ -8,7 +8,8 @@ library Buffer {
         uint capacity;
     }
 
-    function init(buffer memory buf, uint capacity) internal pure {
+    function init(buffer memory buf, uint _capacity) internal pure {
+        uint capacity = _capacity;
         if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
         // Allocate space for the buffer data
         buf.capacity = capacity;
@@ -289,6 +290,70 @@ library ChainlinkLib {
 
   function close(Run memory self) internal pure {
     self.buf.endSequence();
+  }
+}
+
+// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+  address public owner;
+
+
+  event OwnershipRenounced(address indexed previousOwner);
+  event OwnershipTransferred(
+    address indexed previousOwner,
+    address indexed newOwner
+  );
+
+
+  /**
+   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+   * account.
+   */
+  constructor() public {
+    owner = msg.sender;
+  }
+
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  /**
+   * @dev Allows the current owner to relinquish control of the contract.
+   * @notice Renouncing to ownership will leave the contract without an owner.
+   * It will not be possible to call the functions with the `onlyOwner`
+   * modifier anymore.
+   */
+  function renounceOwnership() public onlyOwner {
+    emit OwnershipRenounced(owner);
+    owner = address(0);
+  }
+
+  /**
+   * @dev Allows the current owner to transfer control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function transferOwnership(address _newOwner) public onlyOwner {
+    _transferOwnership(_newOwner);
+  }
+
+  /**
+   * @dev Transfers control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function _transferOwnership(address _newOwner) internal {
+    require(_newOwner != address(0));
+    emit OwnershipTransferred(owner, _newOwner);
+    owner = _newOwner;
   }
 }
 
@@ -602,70 +667,6 @@ contract LinkToken is StandardToken, ERC677Token {
 
 }
 
-// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
-
-/**
- * @title Ownable
- * @dev The Ownable contract has an owner address, and provides basic authorization control
- * functions, this simplifies the implementation of "user permissions".
- */
-contract Ownable {
-  address public owner;
-
-
-  event OwnershipRenounced(address indexed previousOwner);
-  event OwnershipTransferred(
-    address indexed previousOwner,
-    address indexed newOwner
-  );
-
-
-  /**
-   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-   * account.
-   */
-  constructor() public {
-    owner = msg.sender;
-  }
-
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-
-  /**
-   * @dev Allows the current owner to relinquish control of the contract.
-   * @notice Renouncing to ownership will leave the contract without an owner.
-   * It will not be possible to call the functions with the `onlyOwner`
-   * modifier anymore.
-   */
-  function renounceOwnership() public onlyOwner {
-    emit OwnershipRenounced(owner);
-    owner = address(0);
-  }
-
-  /**
-   * @dev Allows the current owner to transfer control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function transferOwnership(address _newOwner) public onlyOwner {
-    _transferOwnership(_newOwner);
-  }
-
-  /**
-   * @dev Transfers control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function _transferOwnership(address _newOwner) internal {
-    require(_newOwner != address(0));
-    emit OwnershipTransferred(owner, _newOwner);
-    owner = _newOwner;
-  }
-}
-
 // File: ../solidity/contracts/Oracle.sol
 
 contract Oracle is Ownable {
@@ -707,8 +708,12 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    // solium-disable-next-line security/no-low-level-calls
-    assembly { calldatacopy(add(_data, 36), 4, 64) } // ensures correct sender and amount are passed
+    assembly {
+      // solium-disable security/no-low-level-calls
+      mstore(add(_data, 36), _sender) // ensure correct sender is passed
+      // solium-disable security/no-low-level-calls
+      mstore(add(_data, 68), _wei)    // ensure correct amount is passed
+    }
     // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
   }
