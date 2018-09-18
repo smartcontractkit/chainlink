@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -412,8 +413,60 @@ func TestClient_RemoteLogin(t *testing.T) {
 	}
 }
 
-func TestClient_Withdraw(t *testing.T) {
-	t.Parallel()
+func TestClient_WithdrawSuccess(t *testing.T) {
+	app, cleanup := setupWithdrawalsApplication()
+	defer cleanup()
+
+	assert.NoError(t, app.Start())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("withdraw", 0)
+	set.Parse([]string{"0x342156c8d3ba54abc67920d35ba1d1e67201ac9c", "1"})
+
+	c := cli.NewContext(nil, set, nil)
+
+	assert.Nil(t, client.Withdraw(c))
+}
+
+func TestClient_WithdrawNoArgs(t *testing.T) {
+	app, cleanup := setupWithdrawalsApplication()
+	defer cleanup()
+
+	assert.NoError(t, app.Start())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("withdraw", 0)
+	set.Parse([]string{})
+
+	c := cli.NewContext(nil, set, nil)
+
+	wr := client.Withdraw(c)
+	assert.Error(t, wr)
+	assert.Equal(t, "withdrawal requires an address and amount", wr.Error())
+}
+
+func setupWithdrawalsApplication() (*cltest.TestApplication, func()) {
+	config, _ := cltest.NewConfigWithPrivateKey()
+	oca := common.HexToAddress("0xDEADB3333333F")
+	config.OracleContractAddress = &oca
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+
+	hash := cltest.NewHash()
+	sentAt := "0x5BA0"
+	nonce := "0x100"
+	ethMock := app.MockEthClient()
+
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", nonce)
+	})
+
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
+		ethMock.Register("eth_sendRawTransaction", hash)
+		ethMock.Register("eth_blockNumber", sentAt)
+	})
+
+	return app, cleanup
 }
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {
