@@ -293,91 +293,27 @@ library ChainlinkLib {
   }
 }
 
-// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
-
-/**
- * @title Ownable
- * @dev The Ownable contract has an owner address, and provides basic authorization control
- * functions, this simplifies the implementation of "user permissions".
- */
-contract Ownable {
-  address public owner;
-
-
-  event OwnershipRenounced(address indexed previousOwner);
-  event OwnershipTransferred(
-    address indexed previousOwner,
-    address indexed newOwner
-  );
-
-
-  /**
-   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-   * account.
-   */
-  constructor() public {
-    owner = msg.sender;
-  }
-
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-
-  /**
-   * @dev Allows the current owner to relinquish control of the contract.
-   * @notice Renouncing to ownership will leave the contract without an owner.
-   * It will not be possible to call the functions with the `onlyOwner`
-   * modifier anymore.
-   */
-  function renounceOwnership() public onlyOwner {
-    emit OwnershipRenounced(owner);
-    owner = address(0);
-  }
-
-  /**
-   * @dev Allows the current owner to transfer control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function transferOwnership(address _newOwner) public onlyOwner {
-    _transferOwnership(_newOwner);
-  }
-
-  /**
-   * @dev Transfers control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function _transferOwnership(address _newOwner) internal {
-    require(_newOwner != address(0));
-    emit OwnershipTransferred(owner, _newOwner);
-    owner = _newOwner;
-  }
-}
-
-// File: linkToken/contracts/token/ERC20Basic.sol
+// File: linkToken/contracts/token/linkERC20Basic.sol
 
 /**
  * @title ERC20Basic
  * @dev Simpler version of ERC20 interface
  * @dev see https://github.com/ethereum/EIPs/issues/179
  */
-contract ERC20Basic {
+contract linkERC20Basic {
   uint256 public totalSupply;
   function balanceOf(address who) constant returns (uint256);
   function transfer(address to, uint256 value) returns (bool);
   event Transfer(address indexed from, address indexed to, uint256 value);
 }
 
-// File: linkToken/contracts/token/ERC20.sol
+// File: linkToken/contracts/token/linkERC20.sol
 
 /**
  * @title ERC20 interface
  * @dev see https://github.com/ethereum/EIPs/issues/20
  */
-contract ERC20 is ERC20Basic {
+contract linkERC20 is linkERC20Basic {
   function allowance(address owner, address spender) constant returns (uint256);
   function transferFrom(address from, address to, uint256 value) returns (bool);
   function approve(address spender, uint256 value) returns (bool);
@@ -386,7 +322,7 @@ contract ERC20 is ERC20Basic {
 
 // File: linkToken/contracts/token/ERC677.sol
 
-contract ERC677 is ERC20 {
+contract ERC677 is linkERC20 {
   function transferAndCall(address to, uint value, bytes data) returns (bool success);
 
   event Transfer(address indexed from, address indexed to, uint value, bytes data);
@@ -441,13 +377,13 @@ contract ERC677Token is ERC677 {
 
 }
 
-// File: linkToken/contracts/math/SafeMath.sol
+// File: linkToken/contracts/math/linkSafeMath.sol
 
 /**
  * @title SafeMath
  * @dev Math operations with safety checks that throw on error
  */
-library SafeMath {
+library linkSafeMath {
   function mul(uint256 a, uint256 b) internal constant returns (uint256) {
     uint256 c = a * b;
     assert(a == 0 || c / a == b);
@@ -473,14 +409,14 @@ library SafeMath {
   }
 }
 
-// File: linkToken/contracts/token/BasicToken.sol
+// File: linkToken/contracts/token/linkBasicToken.sol
 
 /**
  * @title Basic token
  * @dev Basic version of StandardToken, with no allowances. 
  */
-contract BasicToken is ERC20Basic {
-  using SafeMath for uint256;
+contract linkBasicToken is linkERC20Basic {
+  using linkSafeMath for uint256;
 
   mapping(address => uint256) balances;
 
@@ -507,7 +443,7 @@ contract BasicToken is ERC20Basic {
 
 }
 
-// File: linkToken/contracts/token/StandardToken.sol
+// File: linkToken/contracts/token/linkStandardToken.sol
 
 /**
  * @title Standard ERC20 token
@@ -516,7 +452,7 @@ contract BasicToken is ERC20Basic {
  * @dev https://github.com/ethereum/EIPs/issues/20
  * @dev Based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
-contract StandardToken is ERC20, BasicToken {
+contract linkStandardToken is linkERC20, linkBasicToken {
 
   mapping (address => mapping (address => uint256)) allowed;
 
@@ -590,7 +526,7 @@ contract StandardToken is ERC20, BasicToken {
 
 // File: linkToken/contracts/LinkToken.sol
 
-contract LinkToken is StandardToken, ERC677Token {
+contract LinkToken is linkStandardToken, ERC677Token {
 
   uint public constant totalSupply = 10**27;
   string public constant name = 'ChainLink Token';
@@ -665,6 +601,122 @@ contract LinkToken is StandardToken, ERC677Token {
     _;
   }
 
+}
+
+// File: openzeppelin-solidity/contracts/math/SafeMath.sol
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error
+ */
+library SafeMath {
+
+  /**
+  * @dev Multiplies two numbers, throws on overflow.
+  */
+  function mul(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
+    // Gas optimization: this is cheaper than asserting 'a' not being zero, but the
+    // benefit is lost if 'b' is also tested.
+    // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+    if (_a == 0) {
+      return 0;
+    }
+
+    c = _a * _b;
+    assert(c / _a == _b);
+    return c;
+  }
+
+  /**
+  * @dev Integer division of two numbers, truncating the quotient.
+  */
+  function div(uint256 _a, uint256 _b) internal pure returns (uint256) {
+    // assert(_b > 0); // Solidity automatically throws when dividing by 0
+    // uint256 c = _a / _b;
+    // assert(_a == _b * c + _a % _b); // There is no case in which this doesn't hold
+    return _a / _b;
+  }
+
+  /**
+  * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+  */
+  function sub(uint256 _a, uint256 _b) internal pure returns (uint256) {
+    assert(_b <= _a);
+    return _a - _b;
+  }
+
+  /**
+  * @dev Adds two numbers, throws on overflow.
+  */
+  function add(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
+    c = _a + _b;
+    assert(c >= _a);
+    return c;
+  }
+}
+
+// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+  address public owner;
+
+
+  event OwnershipRenounced(address indexed previousOwner);
+  event OwnershipTransferred(
+    address indexed previousOwner,
+    address indexed newOwner
+  );
+
+
+  /**
+   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+   * account.
+   */
+  constructor() public {
+    owner = msg.sender;
+  }
+
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  /**
+   * @dev Allows the current owner to relinquish control of the contract.
+   * @notice Renouncing to ownership will leave the contract without an owner.
+   * It will not be possible to call the functions with the `onlyOwner`
+   * modifier anymore.
+   */
+  function renounceOwnership() public onlyOwner {
+    emit OwnershipRenounced(owner);
+    owner = address(0);
+  }
+
+  /**
+   * @dev Allows the current owner to transfer control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function transferOwnership(address _newOwner) public onlyOwner {
+    _transferOwnership(_newOwner);
+  }
+
+  /**
+   * @dev Transfers control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function _transferOwnership(address _newOwner) internal {
+    require(_newOwner != address(0));
+    emit OwnershipTransferred(owner, _newOwner);
+    owner = _newOwner;
+  }
 }
 
 // File: ../solidity/contracts/Oracle.sol
