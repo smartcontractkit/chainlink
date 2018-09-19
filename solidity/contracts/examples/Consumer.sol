@@ -20,7 +20,7 @@ contract Consumer is Chainlinked {
     chainlinkRequest(run, LINK(1));
   }
 
-  function cancelRequest(bytes32 _requestId) {
+  function cancelRequest(bytes32 _requestId) public {
     cancelChainlinkRequest(_requestId);
   }
 
