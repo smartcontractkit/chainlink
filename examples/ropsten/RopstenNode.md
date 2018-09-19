@@ -2,7 +2,7 @@
 
 ## Syncing a Ropsten Ethereum Node
 
-### [DevNet](https://github.com/smartcontractkit/devnet)
+### [DevNet](https://github.com/smartcontractkit/infrastructure/tree/master/image)
 
 - Clone the ropository
 
