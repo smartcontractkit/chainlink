@@ -3,31 +3,21 @@ import {
   defaultAccount,
   deploy,
   getLatestEvent,
-  lPad,
-  newHash,
   oracleNode,
-  rPad,
-  toHex,
-  toHexWithoutPrefix
 } from './support/helpers'
-
-const ensSubnodeHash = (node, name) => {
-  let label = toHexWithoutPrefix(rPad(name))
-  let combo = web3.sha3(node + label, {encoding: 'hex'})
-  return combo.toString()
-}
+import namehash from 'eth-ens-namehash'
 
 contract('UpdatableConsumer', () => {
   const sourcePath = 'examples/UpdatableConsumer.sol'
 
-  const ensRoot = toHex(lPad('\x00'))
-  const rootDomain = 'domainlink'
-  const rootHash = ensSubnodeHash(ensRoot, rPad(rootDomain))
+  const ensRoot = namehash.hash()
+  const tld = 'test'
+  const tldSubnode = namehash.hash(tld)
   const tokenDomain = 'link'
-  const tokenHash = ensSubnodeHash(rootHash, tokenDomain)
+  const tokenHash = namehash.hash(`${tokenDomain}.${tld}`)
   const oracleDomain = 'oracle'
-  const oracleHash = ensSubnodeHash(rootHash, oracleDomain)
-  const specId = newHash('0x123')
+  const oracleHash = namehash.hash(`${oracleDomain}.${tld}`)
+  const specId = web3.sha3('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
   const currency = 'USD'
 
@@ -41,19 +31,19 @@ contract('UpdatableConsumer', () => {
     ensResolver = await deploy('PublicResolver.sol', ens.address)
 
     // register domain
-    await ens.setSubnodeOwner('', rootDomain, oracleNode)
-    await ens.setResolver(rootHash, ensResolver.address, {from: oracleNode})
-    await ensResolver.setAddr(rootHash, oc.address, {from: oracleNode})
+    await ens.setSubnodeOwner(ensRoot, web3.sha3(tld), oracleNode)
+    await ens.setResolver(tldSubnode, ensResolver.address, {from: oracleNode})
+    await ensResolver.setAddr(tldSubnode, oc.address, {from: oracleNode})
 
-    // register token subdomain
-    await ens.setSubnodeOwner(rootHash, tokenDomain, oracleNode, {from: oracleNode})
+     // register token subdomain
+    await ens.setSubnodeOwner(tldSubnode, web3.sha3(tokenDomain), oracleNode, {from: oracleNode})
     await ensResolver.setAddr(tokenHash, link.address, {from: oracleNode})
 
     // register oracle subdomain
-    await ens.setSubnodeOwner(rootHash, oracleDomain, oracleNode, {from: oracleNode})
+    await ens.setSubnodeOwner(tldSubnode, web3.sha3(oracleDomain), oracleNode, {from: oracleNode})
     await ensResolver.setAddr(oracleHash, oc.address, {from: oracleNode})
 
-    uc = await deploy(sourcePath, toHex(specId), ens.address, rootHash)
+    uc = await deploy(sourcePath, specId, ens.address, tldSubnode)
   })
 
   describe('constructor', () => {

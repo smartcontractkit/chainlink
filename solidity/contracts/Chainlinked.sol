@@ -20,8 +20,8 @@ contract Chainlinked {
 
   ENS internal ens;
   bytes32 internal ensNode;
-  bytes32 constant internal ensTokenSubname = "link";
-  bytes32 constant internal ensOracleSubname = "oracle";
+  bytes32 constant internal ensTokenSubname = keccak256("link");
+  bytes32 constant internal ensOracleSubname = keccak256("oracle");
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
@@ -45,6 +45,7 @@ contract Chainlinked {
     require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
     unfulfilledRequests[_run.requestId] = oracle;
+
     requests += 1;
     return _run.requestId;
   }
