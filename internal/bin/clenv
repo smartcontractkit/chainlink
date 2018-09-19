@@ -11,3 +11,6 @@ export MINIMUM_CONTRACT_PAYMENT=1000000000000
 if [ -z "$CHAINLINK_DEV" ]; then
   export CHAINLINK_DEV=true
 fi
+if [ -z "$CHAINLINK_TLS_PORT" ]; then
+  export CHAINLINK_TLS_PORT=0
+fi
