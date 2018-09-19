@@ -161,5 +161,5 @@ var emptyHash = common.Hash{}
 
 // Unconfirmed returns true if the transaction is not confirmed.
 func (txr *TxReceipt) Unconfirmed() bool {
-	return txr.Hash == emptyHash
+	return txr.Hash == emptyHash || txr.BlockNumber == nil
 }
