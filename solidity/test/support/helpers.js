@@ -214,34 +214,6 @@ export const toBuffer = uint8a => {
   return Buffer.from(uint8a)
 }
 
-export const splitRPCSignature = (oracleSignature) => {
-  let v = oracleSignature[64]
-  if (v < 27) {
-    v += 27
-  }
-  return {
-    v: v,
-    r: oracleSignature.slice(0, 32),
-    s: oracleSignature.slice(32, 64)
-  }
-}
-
-export const lPad = (string) => {
-  const wordLen = parseInt((string.length + 31) / 32) * 32
-  for (let i = string.length; i < wordLen; i++) {
-    string = '\x00' + string
-  }
-  return string
-}
-
-export const rPad = (string) => {
-  const wordLen = parseInt((string.length + 31) / 32) * 32
-  for (let i = string.length; i < wordLen; i++) {
-    string = string + '\x00'
-  }
-  return string
-}
-
 // concatTypedArrays recursively concatenates TypedArrays into one big
 // TypedArray
 // TODO: Does not work recursively
@@ -254,4 +226,16 @@ export const concatTypedArrays = (...arrays) => {
     offset += a.length
   })
   return result
+}
+
+export const splitRPCSignature = oracleSignature => {
+  let v = oracleSignature[64]
+  if (v < 27) {
+    v += 27
+  }
+  return {
+    v: v,
+    r: oracleSignature.slice(0, 32),
+    s: oracleSignature.slice(32, 64)
+  }
 }
