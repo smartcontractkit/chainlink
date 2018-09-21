@@ -84,7 +84,11 @@ func (rm *jobRunner) demultiplexRuns() {
 		case <-rm.done:
 			logger.Debug("JobRunner demultiplexing of job runs finished")
 			return
-		case rr := <-rm.store.RunChannel.Receive():
+		case rr, ok := <-rm.store.RunChannel.Receive():
+			if !ok {
+				logger.Warn("JobRunner RunChannel closed, demultiplexing of job runs finished")
+				return
+			}
 			rm.channelForRun(rr.Input.JobRunID) <- rr
 		}
 	}
@@ -132,7 +136,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 				return
 			}
 		case <-rm.done:
-			logger.Debug("JobRunner worker loop", runID, "finished")
+			logger.Debug("JobRunner worker loop for ", runID, " finished")
 			return
 		}
 	}

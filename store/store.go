@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"go.uber.org/multierr"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -98,7 +99,46 @@ func (s *Store) Start() error {
 	if err != nil {
 		return err
 	}
-	return s.TxManager.ActivateAccount(acc)
+
+	err = s.TxManager.ActivateAccount(acc)
+	if err != nil {
+		return err
+	}
+
+	return s.cleanUpAbruptShutdown()
+}
+
+func (s *Store) cleanUpAbruptShutdown() error {
+	runs, err := s.recoverInProgress()
+	if err != nil {
+		return err
+	}
+
+	return s.resumeInProgress(runs)
+}
+
+func (s *Store) recoverInProgress() ([]models.JobRun, error) {
+	runs, err := s.JobRunsWithStatus(models.RunStatusInProgress, models.RunStatusUnstarted)
+	if err != nil {
+		return runs, err
+	}
+
+	var merr error
+	for _, jr := range runs {
+		jr.Status = models.RunStatusUnstarted
+		multierr.Append(merr, s.Save(&jr))
+	}
+	return runs, merr
+}
+
+func (s *Store) resumeInProgress(runs []models.JobRun) error {
+	for _, run := range runs {
+		rr := models.RunResult{JobRunID: run.ID}
+		if err := s.RunChannel.Send(rr, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close shuts down all of the working parts of the store.
