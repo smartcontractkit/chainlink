@@ -23,13 +23,14 @@ type JobRunner interface {
 }
 
 type jobRunner struct {
-	started     bool
-	done        chan struct{}
-	bootMutex   sync.Mutex
-	store       *store.Store
-	workerMutex sync.RWMutex
-	workers     map[string]chan store.RunRequest
-	wg          sync.WaitGroup
+	started              bool
+	done                 chan struct{}
+	bootMutex            sync.Mutex
+	store                *store.Store
+	workerMutex          sync.RWMutex
+	workers              map[string]chan store.RunRequest
+	wg                   sync.WaitGroup
+	demultiplexStopperWg sync.WaitGroup
 }
 
 // NewJobRunner initializes a JobRunner.
@@ -50,6 +51,7 @@ func (rm *jobRunner) Start() error {
 	}
 	rm.done = make(chan struct{})
 	rm.started = true
+
 	go rm.demultiplexRuns()
 	return rm.resumeSleepingRuns()
 }
@@ -62,9 +64,11 @@ func (rm *jobRunner) Stop() {
 	if !rm.started {
 		return
 	}
-	rm.started = false
 	close(rm.done)
+	rm.started = false
 	rm.wg.Wait()
+	// Closing is async, so we wait with demultiplexStopperWg to ensure it's stopped
+	rm.demultiplexStopperWg.Wait()
 }
 
 func (rm *jobRunner) resumeSleepingRuns() error {
@@ -79,6 +83,8 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 }
 
 func (rm *jobRunner) demultiplexRuns() {
+	rm.demultiplexStopperWg.Add(1)
+	defer rm.demultiplexStopperWg.Done()
 	for {
 		select {
 		case <-rm.done:
@@ -86,7 +92,7 @@ func (rm *jobRunner) demultiplexRuns() {
 			return
 		case rr, ok := <-rm.store.RunChannel.Receive():
 			if !ok {
-				logger.Warn("JobRunner RunChannel closed, demultiplexing of job runs finished")
+				logger.Error("JobRunner RunChannel closed, demultiplexing of job runs finished")
 				return
 			}
 			rm.channelForRun(rr.ID) <- rr
