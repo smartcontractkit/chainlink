@@ -57,10 +57,10 @@ func TestStore_Close(t *testing.T) {
 
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
-	want := models.RunResult{JobRunID: "whatever"}
+	want := models.RunResult{}
 
-	s.RunChannel.Send(want, nil)
-	s.RunChannel.Send(want, nil)
+	s.RunChannel.Send("whatever", want, nil)
+	s.RunChannel.Send("whatever", want, nil)
 
 	rr, open := <-s.RunChannel.Receive()
 	assert.Equal(t, want, rr.Input)
@@ -81,10 +81,10 @@ func TestQueuedRunChannel_Send(t *testing.T) {
 	t.Parallel()
 
 	rq := store.NewQueuedRunChannel()
-	input1 := models.RunResult{JobRunID: "first"}
+	input1 := models.RunResult{}
 	ibn1 := cltest.IndexableBlockNumber(17)
 
-	assert.NoError(t, rq.Send(input1, ibn1))
+	assert.NoError(t, rq.Send("first", input1, ibn1))
 	rr1 := <-rq.Receive()
 	assert.Equal(t, input1, rr1.Input)
 	assert.Equal(t, ibn1, rr1.BlockNumber)
@@ -99,5 +99,5 @@ func TestQueuedRunChannel_Send_afterClose(t *testing.T) {
 
 	rq.Close()
 
-	assert.Error(t, rq.Send(input1, ibn1))
+	assert.Error(t, rq.Send("first", input1, ibn1))
 }

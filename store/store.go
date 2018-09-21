@@ -133,8 +133,7 @@ func (s *Store) recoverInProgress() ([]models.JobRun, error) {
 
 func (s *Store) resumeInProgress(runs []models.JobRun) error {
 	for _, run := range runs {
-		rr := models.RunResult{JobRunID: run.ID}
-		if err := s.RunChannel.Send(rr, nil); err != nil {
+		if err := s.RunChannel.Send(run.ID, run.Result, nil); err != nil {
 			return err
 		}
 	}
@@ -196,13 +195,14 @@ func friendlyDuration(duration time.Duration) string {
 // RunRequest is the type that the RunChannel uses to package all the necessary
 // pieces to execute a Job Run.
 type RunRequest struct {
+	ID          string
 	Input       models.RunResult
 	BlockNumber *models.IndexableBlockNumber
 }
 
 // RunChannel manages and dispatches incoming runs.
 type RunChannel interface {
-	Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error
+	Send(jobRunID string, rr models.RunResult, ibn *models.IndexableBlockNumber) error
 	Receive() <-chan RunRequest
 	Close()
 }
@@ -223,7 +223,7 @@ func NewQueuedRunChannel() RunChannel {
 }
 
 // Send adds another entry to the queue of runs.
-func (rq *QueuedRunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error {
+func (rq *QueuedRunChannel) Send(jobRunID string, rr models.RunResult, ibn *models.IndexableBlockNumber) error {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -231,7 +231,12 @@ func (rq *QueuedRunChannel) Send(rr models.RunResult, ibn *models.IndexableBlock
 		return errors.New("QueuedRunChannel.Add: cannot add to a closed QueuedRunChannel")
 	}
 
+	if jobRunID == "" {
+		return errors.New("QueuedRunChannel.Add: cannot add an empty jobRunID")
+	}
+
 	rq.queue <- RunRequest{
+		ID:          jobRunID,
 		Input:       rr,
 		BlockNumber: ibn,
 	}
