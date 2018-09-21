@@ -74,6 +74,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		TaskRuns:  taskRuns,
 		Initiator: i,
 		Status:    RunStatusUnstarted,
+		Result:    RunResult{JobRunID: jrid},
 	}
 }
 

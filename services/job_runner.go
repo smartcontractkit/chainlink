@@ -73,7 +73,7 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 		return err
 	}
 	for _, run := range pendingRuns {
-		rm.store.RunChannel.Send(run.Result, nil)
+		rm.store.RunChannel.Send(run.ID, run.Result, nil)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (rm *jobRunner) demultiplexRuns() {
 				logger.Warn("JobRunner RunChannel closed, demultiplexing of job runs finished")
 				return
 			}
-			rm.channelForRun(rr.Input.JobRunID) <- rr
+			rm.channelForRun(rr.ID) <- rr
 		}
 	}
 }
