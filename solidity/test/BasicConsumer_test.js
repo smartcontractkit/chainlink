@@ -17,8 +17,8 @@ import {
   toHex
 } from './support/helpers'
 
-contract('Consumer', () => {
-  const sourcePath = 'examples/Consumer.sol'
+contract('BasicConsumer', () => {
+  const sourcePath = 'examples/BasicConsumer.sol'
   let specId = newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
   let currency = 'USD'
   let link, oc, cc
@@ -28,7 +28,6 @@ contract('Consumer', () => {
     oc = await deploy('Oracle.sol', link.address)
     await oc.transferOwnership(oracleNode, {from: defaultAccount})
     cc = await deploy(sourcePath, link.address, oc.address, toHex(specId))
-    await cc.transferOwnership(consumer, {from: defaultAccount})
   })
 
   it('has a predictable gas price', async () => {
@@ -141,18 +140,8 @@ contract('Consumer', () => {
       requestId = (await getLatestEvent(cc)).args.id
     })
 
-    context('when called by a non-owner', () => {
-      it('cannot cancel a request', async () => {
-        await assertActionThrows(async () => {
-          await cc.cancelRequest(requestId, {from: stranger})
-        })
-      })
-    })
-
-    context('when called by the owner', () => {
-      it('can cancel the request', async () => {
-        await cc.cancelRequest(requestId, {from: consumer})
-      })
+    it('can cancel the request', async () => {
+      await cc.cancelRequest(requestId, {from: consumer})
     })
   })
 })

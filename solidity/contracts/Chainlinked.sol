@@ -1,19 +1,27 @@
 pragma solidity ^0.4.24;
 
 import "./ChainlinkLib.sol";
+import "./ENSResolver.sol";
 import "./Oracle.sol";
+import "ens/contracts/ENS.sol";
 import "linkToken/contracts/LinkToken.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using SafeMath for uint256;
 
-  uint256 constant clArgsVersion = 1;
+  uint256 constant internal clArgsVersion = 1;
+  uint256 constant internal linkDivisibility = 10**18;
 
   LinkToken internal link;
   Oracle internal oracle;
   uint256 internal requests = 1;
-  mapping(bytes32 => bool) internal unfulfilledRequests;
+  mapping(bytes32 => address) internal unfulfilledRequests;
+
+  ENS internal ens;
+  bytes32 internal ensNode;
+  bytes32 constant internal ensTokenSubname = keccak256("link");
+  bytes32 constant internal ensOracleSubname = keccak256("oracle");
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
@@ -32,12 +40,13 @@ contract Chainlinked {
     internal
     returns(bytes32)
   {
-    requests += 1;
     _run.requestId = bytes32(requests);
     _run.close();
-    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
-    unfulfilledRequests[_run.requestId] = true;
+    unfulfilledRequests[_run.requestId] = oracle;
+
+    requests += 1;
     return _run.requestId;
   }
 
@@ -45,12 +54,12 @@ contract Chainlinked {
     internal
   {
     oracle.cancel(_requestId);
-    unfulfilledRequests[_requestId] = false;
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
   }
 
   function LINK(uint256 _amount) internal view returns (uint256) {
-    return _amount.mul(10**18);
+    return _amount.mul(linkDivisibility);
   }
 
   function setOracle(address _oracle) internal {
@@ -61,10 +70,25 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
+  function newChainlinkWithENS(address _ens, bytes32 _node) internal {
+    ens = ENS(_ens);
+    ensNode = _node;
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
+    setLinkToken(resolver.addr(linkSubnode));
+    updateOracleWithENS();
+  }
+
+  function updateOracleWithENS() internal {
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
+    setOracle(resolver.addr(oracleSubnode));
+  }
+
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == address(oracle) && unfulfilledRequests[_requestId], "Source must be oracle with a valid requestId");
+    require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
     _;
-    unfulfilledRequests[_requestId] = false;
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
   }
 }
