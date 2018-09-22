@@ -1,9 +1,8 @@
 pragma solidity ^0.4.24;
 
 import "../Chainlinked.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract Consumer is Chainlinked, Ownable {
+contract Consumer is Chainlinked {
   bytes32 internal specId;
   bytes32 public currentPrice;
 
@@ -11,12 +10,6 @@ contract Consumer is Chainlinked, Ownable {
     bytes32 indexed requestId,
     bytes32 indexed price
   );
-
-  constructor(address _link, address _oracle, bytes32 _specId) Ownable() public {
-    setLinkToken(_link);
-    setOracle(_oracle);
-    specId = _specId;
-  }
 
   function requestEthereumPrice(string _currency) public {
     ChainlinkLib.Run memory run = newRun(specId, this, "fulfill(bytes32,bytes32)");
@@ -27,7 +20,7 @@ contract Consumer is Chainlinked, Ownable {
     chainlinkRequest(run, LINK(1));
   }
 
-  function cancelRequest(bytes32 _requestId) public onlyOwner {
+  function cancelRequest(bytes32 _requestId) public {
     cancelChainlinkRequest(_requestId);
   }
 
