@@ -245,11 +245,7 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 
 			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 			assert.Equal(t, test.wantConfirmed, confirmed)
-			if test.wantErrored {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			cltest.AssertError(t, test.wantErrored, err)
 		})
 	}
 }
