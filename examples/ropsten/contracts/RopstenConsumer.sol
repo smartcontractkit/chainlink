@@ -293,6 +293,128 @@ library ChainlinkLib {
   }
 }
 
+// File: ../solidity/contracts/ENSResolver.sol
+
+contract ENSResolver {
+  function addr(bytes32 node) public view returns (address);
+}
+
+// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+  address public owner;
+
+
+  event OwnershipRenounced(address indexed previousOwner);
+  event OwnershipTransferred(
+    address indexed previousOwner,
+    address indexed newOwner
+  );
+
+
+  /**
+   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+   * account.
+   */
+  constructor() public {
+    owner = msg.sender;
+  }
+
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  /**
+   * @dev Allows the current owner to relinquish control of the contract.
+   * @notice Renouncing to ownership will leave the contract without an owner.
+   * It will not be possible to call the functions with the `onlyOwner`
+   * modifier anymore.
+   */
+  function renounceOwnership() public onlyOwner {
+    emit OwnershipRenounced(owner);
+    owner = address(0);
+  }
+
+  /**
+   * @dev Allows the current owner to transfer control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function transferOwnership(address _newOwner) public onlyOwner {
+    _transferOwnership(_newOwner);
+  }
+
+  /**
+   * @dev Transfers control of the contract to a newOwner.
+   * @param _newOwner The address to transfer ownership to.
+   */
+  function _transferOwnership(address _newOwner) internal {
+    require(_newOwner != address(0));
+    emit OwnershipTransferred(owner, _newOwner);
+    owner = _newOwner;
+  }
+}
+
+// File: openzeppelin-solidity/contracts/math/SafeMath.sol
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error
+ */
+library SafeMath {
+
+  /**
+  * @dev Multiplies two numbers, throws on overflow.
+  */
+  function mul(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
+    // Gas optimization: this is cheaper than asserting 'a' not being zero, but the
+    // benefit is lost if 'b' is also tested.
+    // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+    if (_a == 0) {
+      return 0;
+    }
+
+    c = _a * _b;
+    assert(c / _a == _b);
+    return c;
+  }
+
+  /**
+  * @dev Integer division of two numbers, truncating the quotient.
+  */
+  function div(uint256 _a, uint256 _b) internal pure returns (uint256) {
+    // assert(_b > 0); // Solidity automatically throws when dividing by 0
+    // uint256 c = _a / _b;
+    // assert(_a == _b * c + _a % _b); // There is no case in which this doesn't hold
+    return _a / _b;
+  }
+
+  /**
+  * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+  */
+  function sub(uint256 _a, uint256 _b) internal pure returns (uint256) {
+    assert(_b <= _a);
+    return _a - _b;
+  }
+
+  /**
+  * @dev Adds two numbers, throws on overflow.
+  */
+  function add(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
+    c = _a + _b;
+    assert(c >= _a);
+    return c;
+  }
+}
+
 // File: linkToken/contracts/token/linkERC20Basic.sol
 
 /**
@@ -603,122 +725,6 @@ contract LinkToken is linkStandardToken, ERC677Token {
 
 }
 
-// File: openzeppelin-solidity/contracts/math/SafeMath.sol
-
-/**
- * @title SafeMath
- * @dev Math operations with safety checks that throw on error
- */
-library SafeMath {
-
-  /**
-  * @dev Multiplies two numbers, throws on overflow.
-  */
-  function mul(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
-    // Gas optimization: this is cheaper than asserting 'a' not being zero, but the
-    // benefit is lost if 'b' is also tested.
-    // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
-    if (_a == 0) {
-      return 0;
-    }
-
-    c = _a * _b;
-    assert(c / _a == _b);
-    return c;
-  }
-
-  /**
-  * @dev Integer division of two numbers, truncating the quotient.
-  */
-  function div(uint256 _a, uint256 _b) internal pure returns (uint256) {
-    // assert(_b > 0); // Solidity automatically throws when dividing by 0
-    // uint256 c = _a / _b;
-    // assert(_a == _b * c + _a % _b); // There is no case in which this doesn't hold
-    return _a / _b;
-  }
-
-  /**
-  * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
-  */
-  function sub(uint256 _a, uint256 _b) internal pure returns (uint256) {
-    assert(_b <= _a);
-    return _a - _b;
-  }
-
-  /**
-  * @dev Adds two numbers, throws on overflow.
-  */
-  function add(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
-    c = _a + _b;
-    assert(c >= _a);
-    return c;
-  }
-}
-
-// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
-
-/**
- * @title Ownable
- * @dev The Ownable contract has an owner address, and provides basic authorization control
- * functions, this simplifies the implementation of "user permissions".
- */
-contract Ownable {
-  address public owner;
-
-
-  event OwnershipRenounced(address indexed previousOwner);
-  event OwnershipTransferred(
-    address indexed previousOwner,
-    address indexed newOwner
-  );
-
-
-  /**
-   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-   * account.
-   */
-  constructor() public {
-    owner = msg.sender;
-  }
-
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-
-  /**
-   * @dev Allows the current owner to relinquish control of the contract.
-   * @notice Renouncing to ownership will leave the contract without an owner.
-   * It will not be possible to call the functions with the `onlyOwner`
-   * modifier anymore.
-   */
-  function renounceOwnership() public onlyOwner {
-    emit OwnershipRenounced(owner);
-    owner = address(0);
-  }
-
-  /**
-   * @dev Allows the current owner to transfer control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function transferOwnership(address _newOwner) public onlyOwner {
-    _transferOwnership(_newOwner);
-  }
-
-  /**
-   * @dev Transfers control of the contract to a newOwner.
-   * @param _newOwner The address to transfer ownership to.
-   */
-  function _transferOwnership(address _newOwner) internal {
-    require(_newOwner != address(0));
-    emit OwnershipTransferred(owner, _newOwner);
-    owner = _newOwner;
-  }
-}
-
 // File: ../solidity/contracts/Oracle.sol
 
 contract Oracle is Ownable {
@@ -759,11 +765,12 @@ contract Oracle is Ownable {
   )
     public
     onlyLINK
+    permittedFunctionsForLINK
   {
     assembly {
-      // solium-disable security/no-low-level-calls
+      // solium-disable-next-line security/no-low-level-calls
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solium-disable security/no-low-level-calls
+      // solium-disable-next-line security/no-low-level-calls
       mstore(add(_data, 68), _wei)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
@@ -845,6 +852,45 @@ contract Oracle is Ownable {
     _;
   }
 
+  bytes4 constant private permittedFunc = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
+
+  modifier permittedFunctionsForLINK() {
+    bytes4[1] memory funcSelector;
+    assembly {
+      // solium-disable-next-line security/no-low-level-calls
+      calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
+    }
+    require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    _;
+  }
+
+}
+
+// File: ens/contracts/ENS.sol
+
+interface ENS {
+
+    // Logged when the owner of a node assigns a new owner to a subnode.
+    event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
+
+    // Logged when the owner of a node transfers ownership to a new account.
+    event Transfer(bytes32 indexed node, address owner);
+
+    // Logged when the resolver for a node changes.
+    event NewResolver(bytes32 indexed node, address resolver);
+
+    // Logged when the TTL of a node changes
+    event NewTTL(bytes32 indexed node, uint64 ttl);
+
+
+    function setSubnodeOwner(bytes32 node, bytes32 label, address owner) public;
+    function setResolver(bytes32 node, address resolver) public;
+    function setOwner(bytes32 node, address owner) public;
+    function setTTL(bytes32 node, uint64 ttl) public;
+    function owner(bytes32 node) public view returns (address);
+    function resolver(bytes32 node) public view returns (address);
+    function ttl(bytes32 node) public view returns (uint64);
+
 }
 
 // File: ../solidity/contracts/Chainlinked.sol
@@ -853,12 +899,18 @@ contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using SafeMath for uint256;
 
-  uint256 constant clArgsVersion = 1;
+  uint256 constant private clArgsVersion = 1;
+  uint256 constant private linkDivisibility = 10**18;
 
-  LinkToken internal link;
-  Oracle internal oracle;
-  uint256 internal requests = 1;
-  mapping(bytes32 => bool) internal unfulfilledRequests;
+  LinkToken private link;
+  Oracle private oracle;
+  uint256 private requests = 1;
+  mapping(bytes32 => address) private unfulfilledRequests;
+
+  ENS private ens;
+  bytes32 private ensNode;
+  bytes32 constant private ensTokenSubname = keccak256("link");
+  bytes32 constant private ensOracleSubname = keccak256("oracle");
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
@@ -873,16 +925,17 @@ contract Chainlinked {
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _wei)
+  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _amount)
     internal
-    returns(bytes32)
+    returns (bytes32)
   {
-    requests += 1;
     _run.requestId = bytes32(requests);
     _run.close();
-    require(link.transferAndCall(oracle, _wei, _run.encodeForOracle(clArgsVersion)), "Unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracle, _amount, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
     emit ChainlinkRequested(_run.requestId);
-    unfulfilledRequests[_run.requestId] = true;
+    unfulfilledRequests[_run.requestId] = oracle;
+
+    requests += 1;
     return _run.requestId;
   }
 
@@ -890,12 +943,12 @@ contract Chainlinked {
     internal
   {
     oracle.cancel(_requestId);
-    unfulfilledRequests[_requestId] = false;
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
   }
 
   function LINK(uint256 _amount) internal view returns (uint256) {
-    return _amount.mul(10**18);
+    return _amount.mul(linkDivisibility);
   }
 
   function setOracle(address _oracle) internal {
@@ -906,10 +959,32 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
+  function newChainlinkWithENS(address _ens, bytes32 _node)
+    internal
+    returns (address, address)
+  {
+    ens = ENS(_ens);
+    ensNode = _node;
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
+    setLinkToken(resolver.addr(linkSubnode));
+    return (link, updateOracleWithENS());
+  }
+
+  function updateOracleWithENS()
+    internal
+    returns (address)
+  {
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
+    setOracle(resolver.addr(oracleSubnode));
+    return oracle;
+  }
+
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == address(oracle) && unfulfilledRequests[_requestId], "Source must be oracle with a valid requestId");
+    require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
     _;
-    unfulfilledRequests[_requestId] = false;
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
   }
 }
