@@ -189,7 +189,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 		if !ethMock.AllCalled() {
 			panic("mock expectations set and not used on default TestApplication ethMock!!!")
 		}
-		ta.Stop()
+		mustNotErr(ta.Stop())
 	}
 }
 
@@ -228,7 +228,7 @@ func newServer(app *services.ChainlinkApplication) *httptest.Server {
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
-	ta.ChainlinkApplication.Stop()
+	err := ta.ChainlinkApplication.Stop()
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -236,7 +236,7 @@ func (ta *TestApplication) Stop() error {
 	if ta.wsServer != nil {
 		ta.wsServer.Close()
 	}
-	return nil
+	return err
 }
 
 func (ta *TestApplication) MustSeedUserSession() models.User {
@@ -310,13 +310,13 @@ func NewStore() (*store.Store, func()) {
 }
 
 func cleanUpStore(store *store.Store) {
-	logger.Sync()
-	store.Close()
-	go func() {
+	defer func() {
 		if err := os.RemoveAll(store.Config.RootDir); err != nil {
 			log.Println(err)
 		}
 	}()
+	logger.Sync()
+	mustNotErr(store.Close())
 }
 
 // NewJobSubscriber creates a new JobSubscriber
