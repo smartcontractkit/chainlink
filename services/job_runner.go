@@ -23,13 +23,14 @@ type JobRunner interface {
 }
 
 type jobRunner struct {
-	started     bool
-	done        chan struct{}
-	bootMutex   sync.Mutex
-	store       *store.Store
-	workerMutex sync.RWMutex
-	workers     map[string]chan store.RunRequest
-	wg          sync.WaitGroup
+	started              bool
+	done                 chan struct{}
+	bootMutex            sync.Mutex
+	store                *store.Store
+	workerMutex          sync.RWMutex
+	workers              map[string]chan store.RunRequest
+	workersWg            sync.WaitGroup
+	demultiplexStopperWg sync.WaitGroup
 }
 
 // NewJobRunner initializes a JobRunner.
@@ -50,7 +51,12 @@ func (rm *jobRunner) Start() error {
 	}
 	rm.done = make(chan struct{})
 	rm.started = true
-	go rm.demultiplexRuns()
+
+	var starterWg sync.WaitGroup
+	starterWg.Add(1)
+	go rm.demultiplexRuns(&starterWg)
+	starterWg.Wait()
+
 	return rm.resumeSleepingRuns()
 }
 
@@ -62,9 +68,10 @@ func (rm *jobRunner) Stop() {
 	if !rm.started {
 		return
 	}
-	rm.started = false
 	close(rm.done)
-	rm.wg.Wait()
+	rm.started = false
+	rm.workersWg.Wait()
+	rm.demultiplexStopperWg.Wait()
 }
 
 func (rm *jobRunner) resumeSleepingRuns() error {
@@ -73,19 +80,26 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 		return err
 	}
 	for _, run := range pendingRuns {
-		rm.store.RunChannel.Send(run.Result, nil)
+		rm.store.RunChannel.Send(run.ID, run.Result, nil)
 	}
 	return nil
 }
 
-func (rm *jobRunner) demultiplexRuns() {
+func (rm *jobRunner) demultiplexRuns(starterWg *sync.WaitGroup) {
+	starterWg.Done()
+	rm.demultiplexStopperWg.Add(1)
+	defer rm.demultiplexStopperWg.Done()
 	for {
 		select {
 		case <-rm.done:
 			logger.Debug("JobRunner demultiplexing of job runs finished")
 			return
-		case rr := <-rm.store.RunChannel.Receive():
-			rm.channelForRun(rr.Input.JobRunID) <- rr
+		case rr, ok := <-rm.store.RunChannel.Receive():
+			if !ok {
+				logger.Panic("RunChannel closed before JobRunner, can no longer demultiplexing job runs")
+				return
+			}
+			rm.channelForRun(rr.ID) <- rr
 		}
 	}
 }
@@ -99,9 +113,9 @@ func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
 		workerChannel = make(chan store.RunRequest, 1000)
 		rm.workers[runID] = workerChannel
 
-		rm.wg.Add(1)
+		rm.workersWg.Add(1)
 		go func() {
-			defer rm.wg.Done()
+			defer rm.workersWg.Done()
 			rm.workerLoop(runID, workerChannel)
 
 			rm.workerMutex.Lock()
@@ -119,20 +133,20 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 		case rr := <-workerChannel:
 			jr, err := rm.store.FindJobRun(runID)
 			if err != nil {
-				logger.Errorw("Application Run Channel Executor: error finding run", jr.ForLogger("error", err)...)
+				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error finding run ", runID), jr.ForLogger("error", err)...)
 			}
 			if rr.BlockNumber != nil {
 				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
 			}
 			if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
-				logger.Errorw("Application Run Channel Executor: error executing run", jr.ForLogger("error", err)...)
+				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error executing run ", runID), jr.ForLogger("error", err)...)
 			}
 
 			if jr.Status.Finished() {
 				return
 			}
 		case <-rm.done:
-			logger.Debug("JobRunner worker loop", runID, "finished")
+			logger.Debug("JobRunner worker loop for ", runID, " finished")
 			return
 		}
 	}

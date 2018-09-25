@@ -41,6 +41,7 @@ func TestJobRunner_resumeSleepingRuns(t *testing.T) {
 
 	assert.NoError(t, services.ExportedResumeSleepingRuns(rm))
 	rr, open := <-store.RunChannel.Receive()
+	assert.Equal(t, jr.ID, rr.ID)
 	assert.Equal(t, jr.Result, rr.Input)
 	assert.True(t, open)
 }

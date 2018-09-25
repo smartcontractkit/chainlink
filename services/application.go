@@ -83,12 +83,14 @@ func (app *ChainlinkApplication) Start() error {
 func (app *ChainlinkApplication) Stop() error {
 	defer logger.Sync()
 	logger.Info("Gracefully exiting...")
+
+	var merr error
 	app.Scheduler.Stop()
-	app.HeadTracker.Stop()
+	merr = multierr.Append(merr, app.HeadTracker.Stop())
 	app.JobRunner.Stop()
-	app.Reaper.Stop()
+	merr = multierr.Append(merr, app.Reaper.Stop())
 	app.HeadTracker.Detach(app.jobSubscriberID)
-	return app.Store.Close()
+	return multierr.Append(merr, app.Store.Close())
 }
 
 // GetStore returns the pointer to the store for the ChainlinkApplication.
