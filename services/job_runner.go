@@ -29,8 +29,7 @@ type jobRunner struct {
 	store                *store.Store
 	workerMutex          sync.RWMutex
 	workers              map[string]chan store.RunRequest
-	wg                   sync.WaitGroup
-	demultiplexStarterWg sync.WaitGroup
+	workersWg            sync.WaitGroup
 	demultiplexStopperWg sync.WaitGroup
 }
 
@@ -53,9 +52,10 @@ func (rm *jobRunner) Start() error {
 	rm.done = make(chan struct{})
 	rm.started = true
 
-	rm.demultiplexStarterWg.Add(1)
-	go rm.demultiplexRuns()
-	rm.demultiplexStarterWg.Wait()
+	var starterWg sync.WaitGroup
+	starterWg.Add(1)
+	go rm.demultiplexRuns(&starterWg)
+	starterWg.Wait()
 
 	return rm.resumeSleepingRuns()
 }
@@ -70,8 +70,7 @@ func (rm *jobRunner) Stop() {
 	}
 	close(rm.done)
 	rm.started = false
-	rm.wg.Wait()
-	// Closing is async, so we wait with demultiplexStopperWg to ensure it's stopped
+	rm.workersWg.Wait()
 	rm.demultiplexStopperWg.Wait()
 }
 
@@ -86,8 +85,8 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 	return nil
 }
 
-func (rm *jobRunner) demultiplexRuns() {
-	rm.demultiplexStarterWg.Done()
+func (rm *jobRunner) demultiplexRuns(starterWg *sync.WaitGroup) {
+	starterWg.Done()
 	rm.demultiplexStopperWg.Add(1)
 	defer rm.demultiplexStopperWg.Done()
 	for {
@@ -114,9 +113,9 @@ func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
 		workerChannel = make(chan store.RunRequest, 1000)
 		rm.workers[runID] = workerChannel
 
-		rm.wg.Add(1)
+		rm.workersWg.Add(1)
 		go func() {
-			defer rm.wg.Done()
+			defer rm.workersWg.Done()
 			rm.workerLoop(runID, workerChannel)
 
 			rm.workerMutex.Lock()
