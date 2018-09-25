@@ -42,11 +42,12 @@ contract Oracle is Ownable {
   )
     public
     onlyLINK
+    permittedFunctionsForLINK
   {
     assembly {
-      // solium-disable security/no-low-level-calls
+      // solium-disable-next-line security/no-low-level-calls
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solium-disable security/no-low-level-calls
+      // solium-disable-next-line security/no-low-level-calls
       mstore(add(_data, 68), _wei)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
@@ -125,6 +126,18 @@ contract Oracle is Ownable {
 
   modifier onlyLINK() {
     require(msg.sender == address(LINK), "Must use LINK token");
+    _;
+  }
+
+  bytes4 constant private permittedFunc = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
+
+  modifier permittedFunctionsForLINK() {
+    bytes4[1] memory funcSelector;
+    assembly {
+      // solium-disable-next-line security/no-low-level-calls
+      calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
+    }
+    require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
     _;
   }
 

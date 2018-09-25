@@ -49,7 +49,15 @@ contract('Oracle', () => {
   })
 
   describe('#onTokenTransfer', () => {
-    let mock
+    context('when called from any address but the LINK token', () => {
+      it('triggers the intended method', async () => {
+        let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
+
+        await h.assertActionThrows(async () => {
+          let tx = await oc.onTokenTransfer(h.oracleNode, 0, callData)
+        })
+      })
+    })
 
     context('when called from the LINK token', () => {
       it('triggers the intended method', async () => {
@@ -68,17 +76,8 @@ contract('Oracle', () => {
       })
     })
 
-    context('when called from any address but the LINK token', () => {
-      it('triggers the intended method', async () => {
-        let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
-
-        await h.assertActionThrows(async () => {
-          let tx = await oc.onTokenTransfer(h.oracleNode, 0, callData)
-        })
-      })
-    })
-
     context('malicious requester', () => {
+      let mock
       const paymentAmount = 1
 
       beforeEach(async () => {
@@ -99,6 +98,22 @@ contract('Oracle', () => {
 
         assert.isTrue(ocOriginalBalance.equals(ocNewBalance))
         assert.isTrue(mockNewBalance.equals(mockOriginalBalance))
+      })
+    })
+
+    it('does not allow recursive calls of onTokenTransfer', async () => {
+      const requestPayload = h.requestDataBytes(specId, to, fHash, 'id', '')
+
+      const ottSelector = h.functionSelector('onTokenTransfer(address,uint256,bytes)')
+      const header = '000000000000000000000000c5fdf4076b8f3a5357c5e395ab970b5b54098fef' + // to
+        '0000000000000000000000000000000000000000000000000000000000000539' + // amount
+        '0000000000000000000000000000000000000000000000000000000000000060' + // offset
+        '0000000000000000000000000000000000000000000000000000000000000136'   // length
+
+      const maliciousPayload = ottSelector + header + requestPayload.slice(2)
+
+      await h.assertActionThrows(async () => {
+        const tx = await link.transferAndCall(oc.address, 0, maliciousPayload)
       })
     })
   })
