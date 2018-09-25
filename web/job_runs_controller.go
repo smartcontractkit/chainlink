@@ -131,8 +131,7 @@ func startJob(j models.JobSpec, s *store.Store, body models.JSON) (models.JobRun
 
 func executeRun(jr models.JobRun, s *store.Store, rr models.RunResult) {
 	go func() {
-		rr.JobRunID = jr.ID
-		if err := s.RunChannel.Send(rr, nil); err != nil {
+		if err := s.RunChannel.Send(jr.ID, rr, nil); err != nil {
 			logger.Error("Web initiator: ", err.Error())
 		}
 	}()

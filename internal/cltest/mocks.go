@@ -616,7 +616,7 @@ func NewMockRunChannel() *MockRunChannel {
 	}
 }
 
-func (m *MockRunChannel) Send(rr models.RunResult, ibn *models.IndexableBlockNumber) error {
+func (m *MockRunChannel) Send(jobRunID string, rr models.RunResult, ibn *models.IndexableBlockNumber) error {
 	m.Runs = append(m.Runs, rr)
 	copy := *ibn
 	m.BlockNumbers = append(m.BlockNumbers, &copy)

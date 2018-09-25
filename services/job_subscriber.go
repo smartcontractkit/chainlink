@@ -91,7 +91,7 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 
 	ibn := head.ToIndexableBlockNumber()
 	for _, jr := range pendingRuns {
-		if err := js.store.RunChannel.Send(jr.Result, ibn); err != nil {
+		if err := js.store.RunChannel.Send(jr.ID, jr.Result, ibn); err != nil {
 			logger.Error("JobSubscriber.OnNewHead: ", err.Error())
 		}
 	}
