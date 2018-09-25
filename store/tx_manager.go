@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -65,6 +66,16 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 
 		return nil
 	})
+
+	if err != nil && strings.Contains(err.Error(), "nonce is too low") {
+		logger.Infow("TxManager CreateTx: Reload nonce and reattempt transaction")
+		err = txm.ReloadNonce()
+		if err != nil {
+			return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
+		}
+
+		return txm.CreateTx(to, data)
+	}
 
 	return tx, err
 }
@@ -241,6 +252,16 @@ func (txm *TxManager) ActivateAccount(account accounts.Account) error {
 	}
 
 	txm.activeAccount = &ActiveAccount{Account: account, nonce: nonce}
+	return nil
+}
+
+// ReloadNonce fetch and update the current nonce via eth_getTransactionCount
+func (txm *TxManager) ReloadNonce() error {
+	nonce, err := txm.GetNonce(txm.activeAccount.Address)
+	if err != nil {
+		return fmt.Errorf("TxManager ReloadNonce: %v", err)
+	}
+	txm.activeAccount.nonce = nonce
 	return nil
 }
 
