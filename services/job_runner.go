@@ -30,6 +30,7 @@ type jobRunner struct {
 	workerMutex          sync.RWMutex
 	workers              map[string]chan store.RunRequest
 	wg                   sync.WaitGroup
+	demultiplexStarterWg sync.WaitGroup
 	demultiplexStopperWg sync.WaitGroup
 }
 
@@ -52,7 +53,10 @@ func (rm *jobRunner) Start() error {
 	rm.done = make(chan struct{})
 	rm.started = true
 
+	rm.demultiplexStarterWg.Add(1)
 	go rm.demultiplexRuns()
+	rm.demultiplexStarterWg.Wait()
+
 	return rm.resumeSleepingRuns()
 }
 
@@ -83,6 +87,7 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 }
 
 func (rm *jobRunner) demultiplexRuns() {
+	rm.demultiplexStarterWg.Done()
 	rm.demultiplexStopperWg.Add(1)
 	defer rm.demultiplexStopperWg.Done()
 	for {
@@ -92,7 +97,7 @@ func (rm *jobRunner) demultiplexRuns() {
 			return
 		case rr, ok := <-rm.store.RunChannel.Receive():
 			if !ok {
-				logger.Error("JobRunner RunChannel closed, demultiplexing of job runs finished")
+				logger.Panic("RunChannel closed before JobRunner, can no longer demultiplexing job runs")
 				return
 			}
 			rm.channelForRun(rr.ID) <- rr
