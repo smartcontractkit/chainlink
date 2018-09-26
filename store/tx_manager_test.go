@@ -121,7 +121,7 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_CreateTx_NonceTooLow(t *testing.T) {
+func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
@@ -167,6 +167,47 @@ func TestTxManager_CreateTx_NonceTooLow(t *testing.T) {
 	attempts, err := store.AttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(attempts))
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+	ethMock := app.MockEthClient()
+
+	nonce1 := uint64(256)
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
+	})
+	assert.NoError(t, app.Start())
+
+	sentAt := uint64(23456)
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
+	})
+
+	nonce2 := uint64(257)
+	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
+	})
+
+	_, err = manager.CreateTx(to, data)
+	assert.EqualError(
+		t,
+		err,
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1, Reattempt: 1",
+	)
 
 	ethMock.EventuallyAllCalled(t)
 }
