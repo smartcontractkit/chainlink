@@ -219,82 +219,97 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 }
 
-func TestJobRunner_ExecuteRun_startingStatus(t *testing.T) {
+func TestJobRunner_startingStatus(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		status    models.RunStatus
-		wantError bool
+		initialStatus  models.RunStatus
+		afterRunStatus models.RunStatus
 	}{
-		{models.RunStatusUnstarted, false},
-		{models.RunStatusInProgress, true},
-		{models.RunStatusPendingConfirmations, false},
-		{models.RunStatusPendingSleep, false},
-		{models.RunStatusPendingBridge, false},
-		{models.RunStatusErrored, true},
-		{models.RunStatusCompleted, true},
+		{models.RunStatusUnstarted, models.RunStatusCompleted},
+		{models.RunStatusInProgress, models.RunStatusInProgress},
+		{models.RunStatusPendingConfirmations, models.RunStatusCompleted},
+		{models.RunStatusPendingSleep, models.RunStatusCompleted},
+		{models.RunStatusPendingBridge, models.RunStatusCompleted},
+		{models.RunStatusErrored, models.RunStatusErrored},
+		{models.RunStatusCompleted, models.RunStatusCompleted},
 	}
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	for _, test := range tests {
-		t.Run(string(test.status), func(t *testing.T) {
+		t.Run(string(test.initialStatus), func(t *testing.T) {
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
-			run.Status = test.status
+			run.Status = test.initialStatus
+			assert.NoError(t, store.Save(&run))
 
-			run, err := services.ExecuteRunAtBlock(run, store, models.RunResult{}, nil)
-			if test.wantError {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "Unable to start with status")
-			} else {
-				require.NoError(t, err)
-			}
+			store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+			cltest.WaitForJobRunStatus(t, store, run, test.afterRunStatus)
+
+			updatedRun := cltest.FindJobRun(store, run.ID)
+			assert.Equal(t, test.afterRunStatus, updatedRun.Status)
 		})
 	}
 }
 
-func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
+// TODO:
+// Now that ExecuteRunAtBlock is private we're no longer testing the
+// return value of the function. This is going to need a different assertion.
+// Possibly something that checks the logs but need to figure out how to do that
+// without app?
+// func TestJobRunner_savesOverridesOnError(t *testing.T) {
+// 	t.Parallel()
+
+// 	store, cleanup := cltest.NewStore()
+// 	defer cleanup()
+// 	jobRunner, cleanup := cltest.NewJobRunner(store)
+// 	defer cleanup()
+// 	jobRunner.Start()
+
+// 	job, initr := cltest.NewJobWithLogInitiator()
+// 	job.Tasks = []models.TaskSpec{} // reason for error
+// 	run := job.NewRun(initr)
+// 	assert.NoError(t, store.Save(&run))
+
+// 	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
+// 	overrides := models.RunResult{Data: initialData}
+
+// 	store.RunChannel.Send(run.ID, overrides, nil)
+// 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
+
+// 	assert.NoError(t, store.One("ID", run.ID, &run))
+// 	assert.Equal(t, initialData, run.Overrides.Data)
+// }
+
+func TestJobRunner_errorsOnOverride(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-
-	job, initr := cltest.NewJobWithLogInitiator()
-	job.Tasks = []models.TaskSpec{} // reason for error
-	run := job.NewRun(initr)
-
-	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
-	overrides := models.RunResult{Data: initialData}
-	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
-	assert.Error(t, err)
-
-	assert.NoError(t, store.One("ID", run.ID, &run))
-	assert.Equal(t, initialData, run.Overrides.Data)
-}
-
-func TestExecuteRun_ExecuteRunAtBlock_errorsOnOverride(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()
+	jobRunner.Start()
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	run := job.NewRun(initr)
 	run.Overrides = run.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
+	assert.NoError(t, store.Save(&run))
 
 	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldNotBeHere"}`)}
 	overrides := models.RunResult{Data: initialData}
-	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
-	assert.Error(t, err)
+	store.RunChannel.Send(run.ID, overrides, nil)
+	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
 
 	assert.NoError(t, store.One("ID", run.ID, &run))
-	assert.Equal(t, models.RunStatusErrored, run.Status)
 	assert.Contains(t, run.Result.ErrorMessage.String, "Cannot merge")
 }
 
-func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
+func TestJobRunner_transitionToPendingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	config, cfgCleanup := cltest.NewConfig()
@@ -303,6 +318,10 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
+
 	creationHeight := 1000
 	configMin := int(store.Config.MinIncomingConfirmations)
 
@@ -334,23 +353,22 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
 			initialData := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 			runLogInitialInput := models.RunResult{Data: initialData}
-			run, err = services.ExecuteRunAtBlock(run, store, runLogInitialInput, early)
-			assert.NoError(t, err)
+			store.RunChannel.Send(run.ID, runLogInitialInput, early)
 
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 			store.One("ID", run.ID, &run)
-			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 			assert.Equal(t, initialData, run.Result.Data)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-			assert.NoError(t, err)
-			assert.Equal(t, models.RunStatusCompleted, run.Status)
+			store.RunChannel.Send(run.ID, models.RunResult{}, trigger)
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
+			store.One("ID", run.ID, &run)
 			assert.Equal(t, initialData, run.Result.Data)
 		})
 	}
 }
 
-func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T) {
+func TestJobRunner_transitionToPendingConfirmationsWithBridgeTask(t *testing.T) {
 	t.Parallel()
 
 	config, cfgCleanup := cltest.NewConfig()
@@ -358,6 +376,9 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 	config.MinIncomingConfirmations = 10
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 	creationHeight := 1000
 	configMin := int(store.Config.MinIncomingConfirmations)
 
@@ -403,21 +424,17 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 			assert.NoError(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
-			assert.NoError(t, err)
-
-			store.One("ID", run.ID, &run)
-			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+			store.RunChannel.Send(run.ID, models.RunResult{}, early)
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-			assert.NoError(t, err)
-			assert.Equal(t, models.RunStatusCompleted, run.Status)
+			store.RunChannel.Send(run.ID, models.RunResult{}, trigger)
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 		})
 	}
 }
 
-func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
+func TestJobRunner_transitionToPending(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -433,17 +450,30 @@ func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 }
 
-func TestJobRunner_ExecuteRun_ErrorsWithNoRuns(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
+// TODO:
+// Now that ExecuteRunAtBlock is private we're no longer testing the
+// return value of the function. This is going to need a different assertion.
+// Possibly something that checks the logs but need to figure out how to do that
+// without app?
+// func TestJobRunner_errorsWithNoRuns(t *testing.T) {
+// 	t.Parallel()
 
-	job, initr := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{}
-	run := job.NewRun(initr)
-	run, err := services.ExecuteRun(run, store, models.RunResult{})
-	assert.Error(t, err)
-}
+// 	store, cleanup := cltest.NewStore()
+// 	defer cleanup()
+// 	jobRunner, cleanup := cltest.NewJobRunner(store)
+// 	defer cleanup()
+// 	jobRunner.Start()
+
+// 	job, initr := cltest.NewJobWithWebInitiator()
+// 	job.Tasks = []models.TaskSpec{}
+// 	assert.NoError(t, store.Save(&job))
+// 	run := job.NewRun(initr)
+// 	assert.NoError(t, store.Save(&run))
+//
+//		store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+//		cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
+// TODO: Check logs?
+// }
 
 func TestJobRunner_BeginRunWithAmount(t *testing.T) {
 	tests := []struct {
