@@ -139,7 +139,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 			if rr.BlockNumber != nil {
 				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
 			}
-			if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
+			if jr, err = executeRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
 				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error executing run ", runID), jr.ForLogger("error", err)...)
 			}
 
@@ -193,7 +193,7 @@ func BeginRunAtBlock(
 		run = run.ApplyResult(input.WithError(err))
 		return run, multierr.Append(err, store.Save(&run))
 	}
-	return ExecuteRunAtBlock(run, store, input, bn)
+	return executeRunAtBlock(run, store, input, bn)
 }
 
 // BuildRun checks to ensure the given job has not started or ended before
@@ -213,15 +213,15 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 	return job.NewRun(i), nil
 }
 
-// ExecuteRun calls ExecuteRunAtBlock without an IndexableBlockNumber
+// ExecuteRun calls executeRunAtBlock without an IndexableBlockNumber
 func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult) (models.JobRun, error) {
-	return ExecuteRunAtBlock(jr, store, overrides, nil)
+	return executeRunAtBlock(jr, store, overrides, nil)
 }
 
-// ExecuteRunAtBlock starts the job and executes task runs within that job in the
+// executeRunAtBlock starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRunAtBlock(
+func executeRunAtBlock(
 	jr models.JobRun,
 	store *store.Store,
 	overrides models.RunResult,
