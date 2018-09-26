@@ -21,6 +21,9 @@ const styles = theme => ({
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
+  },
+  jobRunsCard: {
+    overflow: 'auto'
   }
 })
 
@@ -92,7 +95,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
     />
   )
   return (
-    <Card>
+    <Card className={props.classes.jobRunsCard}>
       <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
       <TablePagination
         component='div'
