@@ -53,6 +53,9 @@ const styles = theme => ({
   },
   duplicate: {
     margin: theme.spacing.unit
+  },
+  jobRunsCard: {
+    overflow: 'auto'
   }
 })
 
@@ -142,7 +145,7 @@ const renderLatestRuns = ({ jobSpecId, classes, latestJobRuns, jobRunsCount }) =
       Last Run
     </Typography>
 
-    <Card>
+    <Card className={classes.jobRunsCard}>
       <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
     </Card>
     {jobRunsCount > LATEST_JOB_RUNS_COUNT && (
