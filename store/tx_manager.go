@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
+	"regexp"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -78,23 +78,26 @@ func (txm *TxManager) createTxWithNonceReload(to common.Address, data []byte, nr
 		return nil
 	})
 
-	if err != nil && strings.Contains(err.Error(), "nonce is too low") {
-		if nrc >= nonceReloadLimit {
-			err = fmt.Errorf(
-				"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v, Reattempt: %v",
-				nonceReloadLimit,
-				nrc,
-			)
-			return tx, err
-		}
+	if err != nil {
+		nonceErr, _ := regexp.MatchString("nonce .*too low", err.Error())
+		if nonceErr {
+			if nrc >= nonceReloadLimit {
+				err = fmt.Errorf(
+					"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v, Reattempt: %v",
+					nonceReloadLimit,
+					nrc,
+				)
+				return tx, err
+			}
 
-		logger.Warnw("Transaction nonce is too low. Reloading the nonce from the network and reattempting the transaction.")
-		err = txm.ReloadNonce()
-		if err != nil {
-			return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
-		}
+			logger.Warnw("Transaction nonce is too low. Reloading the nonce from the network and reattempting the transaction.")
+			err = txm.ReloadNonce()
+			if err != nil {
+				return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
+			}
 
-		return txm.createTxWithNonceReload(to, data, nrc+1)
+			return txm.createTxWithNonceReload(to, data, nrc+1)
+		}
 	}
 
 	return tx, err
