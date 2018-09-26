@@ -26,6 +26,9 @@ import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 
 const styles = theme => ({
+  actions: {
+    textAlign: 'right'
+  },
   title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
@@ -57,6 +60,7 @@ const styles = theme => ({
 })
 
 const renderJobSpec = ({ classes, jobSpec, jobRunsCount, submitJobSpecRun, fetching, fetchJobSpec }) => {
+  const definition = jobSpecDefinition(jobSpec)
   const handleClick = () => {
     submitJobSpecRun(jobSpec.id).then(() => fetchJobSpec(jobSpec.id))
   }
@@ -65,36 +69,36 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, submitJobSpecRun, fetch
     <Grid container spacing={40}>
       <Grid item xs={8}>
         <PaddedCard>
-          <Grid container alignItems='baseline'>
-            <Grid item xs={8}>
-              <Typography variant='title' className={classes.definitionTitle}>
-                Definition
-              </Typography>
-            </Grid>
-            <Grid item>
-              {isWebInitiator(jobSpec.initiators) && (
-                <Button variant='outlined' color='primary' disabled={!!fetching} onClick={handleClick}>
-                  Run
-                </Button>
-              )}
-            </Grid>
-            <Grid item>
-              <Button
-                to={{ pathname: `/create/job`, state: { fromJson: jobSpecDefinition(jobSpec) } }}
-                component={ReactStaticLinkComponent}
-                color='primary'
-                className={classes.duplicate}
-                variant='outlined'>
-                Duplicate
-              </Button>
-            </Grid>
-            <Grid item>
-              <CopyJobSpec JobSpec={jobSpecDefinition(jobSpec)} />
+          <Grid container>
+            <Grid item xs={12}>
+              <Grid container alignItems='baseline'>
+                <Grid item xs={4}>
+                  <Typography variant='title' className={classes.definitionTitle}>
+                    Definition
+                  </Typography>
+                </Grid>
+                <Grid item xs={8} className={classes.actions}>
+                  {isWebInitiator(jobSpec.initiators) && (
+                    <Button variant='outlined' color='primary' disabled={!!fetching} onClick={handleClick}>
+                      Run
+                    </Button>
+                  )}
+                  <Button
+                    to={{ pathname: `/create/job`, state: { fromJson: definition } }}
+                    component={ReactStaticLinkComponent}
+                    color='primary'
+                    className={classes.duplicate}
+                    variant='outlined'>
+                    Duplicate
+                  </Button>
+                  <CopyJobSpec JobSpec={definition} />
+                </Grid>
+              </Grid>
             </Grid>
             <Grid item xs={12}>
               <Divider light className={classes.divider} />
             </Grid>
-            <PrettyJson object={jobSpecDefinition(jobSpec)} />
+            <PrettyJson object={definition} />
           </Grid>
         </PaddedCard>
       </Grid>
