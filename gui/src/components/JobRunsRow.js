@@ -4,6 +4,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
+import { withStyles } from '@material-ui/core/styles'
 
 const statusColor = (status) => {
   if (status === 'error') {
@@ -11,8 +12,18 @@ const statusColor = (status) => {
   }
 }
 
-const JobRunsRow = ({id, jobSpecId, status, createdAt, result}) => (
-  <TableRow>
+const styles = theme => ({
+  jobRunRow: {
+    whiteSpace: 'nowrap'
+  },
+  resultData: {
+    maxWidth: 1000,
+    overflowX: 'scroll'
+  }
+})
+
+const JobRunsRow = ({id, jobSpecId, status, createdAt, result, classes}) => (
+  <TableRow className={classes.jobRunRow}>
     <TableCell component='th' scope='row'>
       <Link to={`/job_specs/${jobSpecId}/runs/id/${id}`}>{id}</Link>
     </TableCell>
@@ -22,8 +33,10 @@ const JobRunsRow = ({id, jobSpecId, status, createdAt, result}) => (
     <TableCell>
       <Typography variant='body1'>{createdAt}</Typography>
     </TableCell>
-    <TableCell>
-      <Typography variant='body1'>{JSON.stringify(result.data)}</Typography>
+    <TableCell className={classes.resultData}>
+      <Typography variant='body1'>
+        {JSON.stringify(result.data)}
+      </Typography>
     </TableCell>
     <TableCell>
       <Typography variant='body1' color='error'>
@@ -40,4 +53,4 @@ JobRunsRow.propTypes = {
   result: PropTypes.object
 }
 
-export default JobRunsRow
+export default withStyles(styles)(JobRunsRow)
