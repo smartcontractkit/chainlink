@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -17,6 +18,7 @@ import (
 )
 
 const defaultGasLimit uint64 = 500000
+const nonceReloadLimit uint = 1
 
 // TxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
@@ -30,6 +32,10 @@ type TxManager struct {
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
+	return txm.createTxWithNonceReload(to, data, 0)
+}
+
+func (txm *TxManager) createTxWithNonceReload(to common.Address, data []byte, nrc uint) (*models.Tx, error) {
 	if txm.activeAccount == nil {
 		return nil, errors.New("Must activate an account before creating a transaction")
 	}
@@ -53,6 +59,12 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 			return err
 		}
 
+		logger.Infow(fmt.Sprintf(
+			"Transaction from: %v, to: %v, attempt #: %v",
+			txm.activeAccount.Address.String(),
+			to.String(),
+			nrc,
+		))
 		gasPrice := txm.config.EthGasPriceDefault
 		var txa *models.TxAttempt
 		txa, err = txm.createAttempt(tx, &gasPrice, blkNum)
@@ -65,6 +77,28 @@ func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, erro
 
 		return nil
 	})
+
+	if err != nil {
+		nonceErr, _ := regexp.MatchString("nonce .*too low", err.Error())
+		if nonceErr {
+			if nrc >= nonceReloadLimit {
+				err = fmt.Errorf(
+					"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v, Reattempt: %v",
+					nonceReloadLimit,
+					nrc,
+				)
+				return tx, err
+			}
+
+			logger.Warnw("Transaction nonce is too low. Reloading the nonce from the network and reattempting the transaction.")
+			err = txm.ReloadNonce()
+			if err != nil {
+				return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
+			}
+
+			return txm.createTxWithNonceReload(to, data, nrc+1)
+		}
+	}
 
 	return tx, err
 }
@@ -241,6 +275,16 @@ func (txm *TxManager) ActivateAccount(account accounts.Account) error {
 	}
 
 	txm.activeAccount = &ActiveAccount{Account: account, nonce: nonce}
+	return nil
+}
+
+// ReloadNonce fetch and update the current nonce via eth_getTransactionCount
+func (txm *TxManager) ReloadNonce() error {
+	nonce, err := txm.GetNonce(txm.activeAccount.Address)
+	if err != nil {
+		return fmt.Errorf("TxManager ReloadNonce: %v", err)
+	}
+	txm.activeAccount.nonce = nonce
 	return nil
 }
 
