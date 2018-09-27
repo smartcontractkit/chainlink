@@ -121,6 +121,112 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		ethClientErrorMsg string
+	}{
+		{"geth", "nonce too low"},
+		{"parity", "Transaction nonce is too low. Try incrementing the nonce"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			app, cleanup := cltest.NewApplicationWithKeyStore()
+			defer cleanup()
+			store := app.Store
+			manager := store.TxManager
+
+			to := cltest.NewAddress()
+			data, err := hex.DecodeString("0000abcdef")
+			assert.NoError(t, err)
+			ethMock := app.MockEthClient()
+
+			nonce1 := uint64(256)
+			ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
+			})
+			assert.NoError(t, app.Start())
+
+			sentAt := uint64(23456)
+			ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+				ethMock.RegisterError("eth_sendRawTransaction", test.ethClientErrorMsg)
+			})
+
+			hash := cltest.NewHash()
+			nonce2 := uint64(257)
+			ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
+				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
+				ethMock.Register("eth_sendRawTransaction", hash)
+			})
+
+			a, err := manager.CreateTx(to, data)
+			assert.NoError(t, err)
+			tx := models.Tx{}
+			assert.NoError(t, store.One("ID", a.TxID, &tx))
+			assert.NoError(t, err)
+			assert.Equal(t, nonce2, tx.Nonce)
+			assert.Equal(t, data, tx.Data)
+			assert.Equal(t, to, tx.To)
+
+			assert.NoError(t, store.One("From", tx.From, &tx))
+			assert.Equal(t, nonce2, tx.Nonce)
+			attempts, err := store.AttemptsFor(tx.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(attempts))
+
+			ethMock.EventuallyAllCalled(t)
+
+		})
+	}
+}
+
+func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+	ethMock := app.MockEthClient()
+
+	nonce1 := uint64(256)
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
+	})
+	assert.NoError(t, app.Start())
+
+	sentAt := uint64(23456)
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
+	})
+
+	nonce2 := uint64(257)
+	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
+	})
+
+	_, err = manager.CreateTx(to, data)
+	assert.EqualError(
+		t,
+		err,
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1, Reattempt: 1",
+	)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 	t.Parallel()
 
@@ -266,6 +372,31 @@ func TestTxManager_ActivateAccount(t *testing.T) {
 	aa := txm.GetActiveAccount()
 	assert.Equal(t, account.Address, aa.Address)
 	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
+}
+
+func TestTxManager_ReloadNonce(t *testing.T) {
+	t.Parallel()
+
+	ethMock := &cltest.EthMock{}
+	txm := &strpkg.TxManager{
+		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
+	}
+	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
+
+	ethMock.Register("eth_getTransactionCount", `0x2D0`)
+	assert.NoError(t, txm.ActivateAccount(account))
+
+	aa := txm.GetActiveAccount()
+	assert.Equal(t, account.Address, aa.Address)
+	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
+
+	ethMock.Register("eth_getTransactionCount", `0x2D1`)
+	assert.NoError(t, txm.ReloadNonce())
+	ethMock.EventuallyAllCalled(t)
+
+	aa = txm.GetActiveAccount()
+	assert.Equal(t, account.Address, aa.Address)
+	assert.Equal(t, uint64(0x2d1), aa.GetNonce())
 }
 
 func TestTxManager_WithdrawLink(t *testing.T) {
