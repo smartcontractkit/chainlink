@@ -160,6 +160,23 @@ func (rm *jobRunner) workerCount() int {
 	return len(rm.workers)
 }
 
+// BuildRun checks to ensure the given job has not started or ended before
+// creating a new run for the job.
+func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (models.JobRun, error) {
+	now := store.Clock.Now()
+	if !job.Started(now) {
+		return models.JobRun{}, JobRunnerError{
+			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+		}
+	}
+	if job.Ended(now) {
+		return models.JobRun{}, JobRunnerError{
+			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+		}
+	}
+	return job.NewRun(i), nil
+}
+
 // BeginRun creates a new run if the job is valid and starts the job.
 func BeginRun(
 	job models.JobSpec,
@@ -194,23 +211,6 @@ func BeginRunAtBlock(
 		return run, multierr.Append(err, store.Save(&run))
 	}
 	return executeRunAtBlock(run, store, input, bn)
-}
-
-// BuildRun checks to ensure the given job has not started or ended before
-// creating a new run for the job.
-func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (models.JobRun, error) {
-	now := store.Clock.Now()
-	if !job.Started(now) {
-		return models.JobRun{}, JobRunnerError{
-			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
-		}
-	}
-	if job.Ended(now) {
-		return models.JobRun{}, JobRunnerError{
-			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
-		}
-	}
-	return job.NewRun(i), nil
 }
 
 // executeRunAtBlock starts the job and executes task runs within that job in the
