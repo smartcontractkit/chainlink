@@ -213,11 +213,6 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 	return job.NewRun(i), nil
 }
 
-// ExecuteRun calls executeRunAtBlock without an IndexableBlockNumber
-func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult) (models.JobRun, error) {
-	return executeRunAtBlock(jr, store, overrides, nil)
-}
-
 // executeRunAtBlock starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).

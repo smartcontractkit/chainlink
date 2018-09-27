@@ -162,6 +162,9 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	for _, tt := range tests {
 		test := tt
@@ -196,9 +199,10 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			assert.Nil(t, store.Save(&job))
 
 			run = job.NewRun(initr)
+			assert.NoError(t, store.Save(&run))
 			input := models.RunResult{Data: cltest.JSONFromString(test.input)}
-			run, err := services.ExecuteRun(run, store, input)
-			assert.NoError(t, err)
+			store.RunChannel.Send(run.ID, input, nil)
+			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
@@ -436,18 +440,21 @@ func TestJobRunner_transitionToPendingConfirmationsWithBridgeTask(t *testing.T) 
 
 func TestJobRunner_transitionToPending(t *testing.T) {
 	t.Parallel()
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOpPend")}
 
 	run := job.NewRun(initr)
-	run, err := services.ExecuteRun(run, store, models.RunResult{})
-	assert.NoError(t, err)
+	assert.NoError(t, store.Save(&run))
 
-	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 }
 
 // TODO:
@@ -470,8 +477,8 @@ func TestJobRunner_transitionToPending(t *testing.T) {
 // 	run := job.NewRun(initr)
 // 	assert.NoError(t, store.Save(&run))
 //
-//		store.RunChannel.Send(run.ID, models.RunResult{}, nil)
-//		cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
+// 	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+// 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
 // TODO: Check logs?
 // }
 
