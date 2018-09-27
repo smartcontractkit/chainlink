@@ -322,7 +322,7 @@ func startTask(
 
 func wrapError(run models.JobRun, err error) error {
 	if err != nil {
-		return fmt.Errorf("ExecuteRun: Job#%v: %v", run.JobID, err)
+		return fmt.Errorf("executeRunAtBlock: Job#%v: %v", run.JobID, err)
 	}
 	return nil
 }

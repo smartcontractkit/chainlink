@@ -139,7 +139,7 @@ func TestJobRunner_Stop(t *testing.T) {
 	}).Should(gomega.Equal(0))
 }
 
-func TestJobRunner_ExecuteRun(t *testing.T) {
+func TestJobRunner_Run(t *testing.T) {
 	t.Parallel()
 
 	bridgeName := "auctionBidding"
@@ -261,34 +261,29 @@ func TestJobRunner_startingStatus(t *testing.T) {
 	}
 }
 
-// TODO:
-// Now that ExecuteRunAtBlock is private we're no longer testing the
-// return value of the function. This is going to need a different assertion.
-// Possibly something that checks the logs but need to figure out how to do that
-// without app?
-// func TestJobRunner_savesOverridesOnError(t *testing.T) {
-// 	t.Parallel()
+func TestJobRunner_savesOverridesOnError(t *testing.T) {
+	t.Parallel()
 
-// 	store, cleanup := cltest.NewStore()
-// 	defer cleanup()
-// 	jobRunner, cleanup := cltest.NewJobRunner(store)
-// 	defer cleanup()
-// 	jobRunner.Start()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
-// 	job, initr := cltest.NewJobWithLogInitiator()
-// 	job.Tasks = []models.TaskSpec{} // reason for error
-// 	run := job.NewRun(initr)
-// 	assert.NoError(t, store.Save(&run))
+	job, initr := cltest.NewJobWithLogInitiator()
+	job.Tasks = []models.TaskSpec{} // reason for error
+	run := job.NewRun(initr)
+	assert.NoError(t, store.Save(&run))
 
-// 	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
-// 	overrides := models.RunResult{Data: initialData}
+	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
+	overrides := models.RunResult{Data: initialData}
 
-// 	store.RunChannel.Send(run.ID, overrides, nil)
-// 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
+	run, err := services.ExportedExecuteRunAtBlock(run, store, overrides, nil)
+	assert.Error(t, err)
 
-// 	assert.NoError(t, store.One("ID", run.ID, &run))
-// 	assert.Equal(t, initialData, run.Overrides.Data)
-// }
+	assert.NoError(t, store.One("ID", run.ID, &run))
+	assert.Equal(t, initialData, run.Overrides.Data)
+}
 
 func TestJobRunner_errorsOnOverride(t *testing.T) {
 	t.Parallel()
@@ -456,31 +451,6 @@ func TestJobRunner_transitionToPending(t *testing.T) {
 	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 }
-
-// TODO:
-// Now that ExecuteRunAtBlock is private we're no longer testing the
-// return value of the function. This is going to need a different assertion.
-// Possibly something that checks the logs but need to figure out how to do that
-// without app?
-// func TestJobRunner_errorsWithNoRuns(t *testing.T) {
-// 	t.Parallel()
-
-// 	store, cleanup := cltest.NewStore()
-// 	defer cleanup()
-// 	jobRunner, cleanup := cltest.NewJobRunner(store)
-// 	defer cleanup()
-// 	jobRunner.Start()
-
-// 	job, initr := cltest.NewJobWithWebInitiator()
-// 	job.Tasks = []models.TaskSpec{}
-// 	assert.NoError(t, store.Save(&job))
-// 	run := job.NewRun(initr)
-// 	assert.NoError(t, store.Save(&run))
-//
-// 	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
-// 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
-// TODO: Check logs?
-// }
 
 func TestJobRunner_BeginRunWithAmount(t *testing.T) {
 	tests := []struct {
