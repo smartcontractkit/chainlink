@@ -196,3 +196,7 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 		})
 	}
 }
+
+func TestRunTopic(t *testing.T) {
+	assert.Equal(t, common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d"), services.RunLogTopic)
+}
