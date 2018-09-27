@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -281,6 +280,9 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	bt := cltest.NewBridgeType()
 	assert.NoError(t, store.Save(&bt))
@@ -288,9 +290,13 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	job, initr := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job))
 
-	completedRun := job.NewRun(initr)
-	completedRun, err := services.ExecuteRun(completedRun, store, models.RunResult{})
-	_, err = store.PendingBridgeType(completedRun)
+	run := job.NewRun(initr)
+	assert.NoError(t, store.Save(&run))
+
+	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
+
+	_, err := store.PendingBridgeType(run)
 	assert.Error(t, err)
 }
 
