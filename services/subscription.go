@@ -32,7 +32,7 @@ const (
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
-var RunLogTopic = common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d")
+var RunLogTopic = mustHash("RunRequest(uint256,bytes32,uint256,uint256,bytes)")
 
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
 // method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
@@ -448,4 +448,12 @@ func timedUnsubscribe(subscription models.EthSubscription) {
 	case <-time.After(100 * time.Millisecond):
 		logger.Warnf("Subscription %T Unsubscribe timed out.", subscription)
 	}
+}
+
+func mustHash(in string) common.Hash {
+	out, err := utils.Keccak256([]byte(in))
+	if err != nil {
+		panic(err)
+	}
+	return common.BytesToHash(out)
 }
