@@ -26,17 +26,18 @@ type HeadTrackable interface {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	trackers               map[string]HeadTrackable
-	headers                chan models.BlockHeader
-	headSubscription       models.EthSubscription
-	store                  *store.Store
-	number                 *models.IndexableBlockNumber
-	headMutex              sync.RWMutex
-	trackersMutex          sync.RWMutex
-	connected              bool
-	sleeper                utils.Sleeper
-	listenToNewHeadsCloser chan struct{}
-	listenToNewHeadsWaiter sync.WaitGroup
+	trackers         map[string]HeadTrackable
+	headers          chan models.BlockHeader
+	headSubscription models.EthSubscription
+	store            *store.Store
+	number           *models.IndexableBlockNumber
+	headMutex        sync.RWMutex
+	trackersMutex    sync.RWMutex
+	connected        bool
+	sleeper          utils.Sleeper
+	done             chan struct{}
+	stopper          sync.WaitGroup
+	starter          sync.WaitGroup
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -50,10 +51,9 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 		sleeper = utils.NewBackoffSleeper()
 	}
 	return &HeadTracker{
-		store:                  store,
-		trackers:               map[string]HeadTrackable{},
-		sleeper:                sleeper,
-		listenToNewHeadsCloser: make(chan struct{}),
+		store:    store,
+		trackers: map[string]HeadTrackable{},
+		sleeper:  sleeper,
 	}
 }
 
@@ -70,15 +70,19 @@ func (ht *HeadTracker) Start() error {
 		ht.number = &numbers[0]
 	}
 
+	ht.done = make(chan struct{})
 	ht.headers = make(chan models.BlockHeader)
-	sub, err := ht.subscribeToNewHeads(ht.headers)
+	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
 	ht.connect(ht.number)
+	ht.starter.Add(3)
+	go ht.listenToSubscriptionErrors()
 	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
+	ht.starter.Wait()
 	return nil
 }
 
@@ -87,14 +91,13 @@ func (ht *HeadTracker) Stop() error {
 	if ht.headSubscription == nil {
 		return nil
 	}
+
 	ht.headSubscription.Unsubscribe()
-	ht.headSubscription = nil
-
-	ht.listenToNewHeadsCloser <- struct{}{}
-
-	ht.listenToNewHeadsWaiter.Wait()
+	close(ht.done)
+	ht.stopper.Wait()
 
 	close(ht.headers)
+	ht.headSubscription = nil
 	ht.disconnect()
 	return nil
 }
@@ -175,22 +178,23 @@ func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 	}
 }
 
-func (ht *HeadTracker) subscribeToNewHeads(headers chan models.BlockHeader) (models.EthSubscription, error) {
-	sub, err := ht.store.TxManager.SubscribeToNewHeads(headers)
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		err := <-sub.Err()
+func (ht *HeadTracker) listenToSubscriptionErrors() {
+	ht.stopper.Add(1)
+	ht.starter.Done()
+	select {
+	case err := <-ht.headSubscription.Err():
+		ht.stopper.Done()
 		if err != nil {
 			logger.Errorw("Error in new head subscription, disconnected", "err", err)
 			ht.reconnectLoop()
 		}
-	}()
-	return sub, nil
+	case <-ht.done:
+		ht.stopper.Done()
+	}
 }
 
 func (ht *HeadTracker) updateBlockHeader() {
+	defer ht.starter.Done()
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
 		logger.Errorw("Unable to update latest block header", "err", err)
@@ -205,8 +209,8 @@ func (ht *HeadTracker) updateBlockHeader() {
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
-	ht.listenToNewHeadsWaiter.Add(1)
-	defer ht.listenToNewHeadsWaiter.Done()
+	ht.stopper.Add(1)
+	defer ht.stopper.Done()
 
 	ht.headMutex.RLock()
 	if ht.number != nil {
@@ -214,6 +218,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 	}
 	ht.headMutex.RUnlock()
 
+	ht.starter.Done()
 	for {
 		select {
 		case header := <-ht.headers:
@@ -224,7 +229,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 			} else {
 				ht.onNewHead(&header)
 			}
-		case <-ht.listenToNewHeadsCloser:
+		case <-ht.done:
 			return
 		}
 	}
