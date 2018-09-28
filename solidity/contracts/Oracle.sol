@@ -25,9 +25,10 @@ contract Oracle is Ownable {
   mapping(uint256 => Callback) private callbacks;
 
   event RunRequest(
-    uint256 indexed internalId,
     bytes32 indexed specId,
+    address indexed sender,
     uint256 indexed amount,
+    uint256 internalId,
     uint256 version,
     bytes data
   );
@@ -60,8 +61,8 @@ contract Oracle is Ownable {
   }
 
   function requestData(
-    address _currentSender,
-    uint256 _currentAmount,
+    address _sender,
+    uint256 _amount,
     uint256 _version,
     bytes32 _specId,
     address _callbackAddress,
@@ -72,14 +73,20 @@ contract Oracle is Ownable {
     public
     onlyLINK
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(_currentSender, _externalId)));
+    uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
     callbacks[internalId] = Callback(
       _externalId,
-      _currentAmount,
+      _amount,
       _callbackAddress,
       _callbackFunctionId,
       uint64(now.add(5 minutes)));
-    emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
+    emit RunRequest(
+      _specId,
+      _sender,
+      _amount,
+      internalId,
+      _version,
+      _data);
   }
 
   function fulfillData(
