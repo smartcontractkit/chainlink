@@ -146,12 +146,12 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinimumContractPayment:   &config.MinimumContractPayment,
 		MinimumRequestExpiration: config.MinimumRequestExpiration,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:             config.Port,
-		TLSPort:          config.TLSPort,
-		TLSHost:          config.TLSHost,
-		RootDir:          config.RootDir,
-		SessionTimeout:   config.SessionTimeout,
-		ReaperExpiration: config.ReaperExpiration,
+		Port:                     config.Port,
+		TLSPort:                  config.TLSPort,
+		TLSHost:                  config.TLSHost,
+		RootDir:                  config.RootDir,
+		SessionTimeout:           config.SessionTimeout,
+		ReaperExpiration:         config.ReaperExpiration,
 	}
 }
 
@@ -418,4 +418,31 @@ func (sa ServiceAgreement) FriendlyExpiration() string {
 // a human readable format.
 func (sa ServiceAgreement) FriendlyPayment() string {
 	return fmt.Sprintf("%v LINK", (*assets.Link)(sa.Encumbrance.Payment).String())
+}
+
+// UserPresenter wraps the user record for shipping as a jsonapi response in
+// the API.
+type UserPresenter struct {
+	*models.User
+}
+
+// GetID returns the jsonapi ID.
+func (u UserPresenter) GetID() string {
+	return u.User.Email
+}
+
+// GetName returns the collection name for jsonapi.
+func (u UserPresenter) GetName() string {
+	return "users"
+}
+
+// MarshalJSON returns the User as json.
+func (u UserPresenter) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Email     string `json:"email"`
+		CreatedAt string `json:"createdAt"`
+	}{
+		Email:     u.User.Email,
+		CreatedAt: u.User.CreatedAt.ISO8601(),
+	})
 }

@@ -1,21 +1,16 @@
 package cmd_test
 
 import (
-	"path"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-
 	tests := []struct {
 		name, email, pwd string
 	}{
@@ -26,13 +21,19 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplication()
+			defer cleanup()
+
 			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
-			tca := cmd.NewSessionCookieAuthenticator(app.Config)
+			store := &cmd.MemoryCookieStore{}
+			tca := cmd.NewSessionCookieAuthenticator(app.Config, store)
 			cookie, err := tca.Authenticate(sr)
 
 			assert.Error(t, err)
 			assert.Nil(t, cookie)
-			assert.False(t, utils.FileExists(path.Join(app.Config.RootDir, "cookie")))
+			cookie, err = store.Retrieve()
+			assert.NoError(t, err)
+			assert.Nil(t, cookie)
 		})
 	}
 }
@@ -54,26 +55,34 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
-			tca := cmd.NewSessionCookieAuthenticator(app.Config)
+			store := &cmd.MemoryCookieStore{}
+			tca := cmd.NewSessionCookieAuthenticator(app.Config, store)
 			cookie, err := tca.Authenticate(sr)
 
 			if test.wantError {
 				assert.Error(t, err)
 				assert.Nil(t, cookie)
-				assert.False(t, utils.FileExists(path.Join(app.Config.RootDir, "cookie")))
+
+				cookie, err = store.Retrieve()
+				assert.NoError(t, err)
+				assert.Nil(t, cookie)
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, cookie)
-				assert.True(t, utils.FileExists(path.Join(app.Config.RootDir, "cookie")))
+
+				retrievedCookie, err := store.Retrieve()
+				assert.NoError(t, err)
+				assert.Equal(t, cookie, retrievedCookie)
 			}
 		})
 	}
 }
 
-func TestTerminalCookieAuthenticator_Cookie(t *testing.T) {
+func TestDiskCookieStore_Retrieve(t *testing.T) {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	config := tc.Config
+
 	tests := []struct {
 		name      string
 		rootDir   string
@@ -85,8 +94,8 @@ func TestTerminalCookieAuthenticator_Cookie(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config.RootDir = test.rootDir
-			tca := cmd.NewSessionCookieAuthenticator(config)
-			cookie, err := tca.Cookie()
+			store := cmd.DiskCookieStore{Config: config}
+			cookie, err := store.Retrieve()
 			if test.wantError {
 				assert.Error(t, err)
 				assert.Nil(t, cookie)

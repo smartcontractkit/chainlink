@@ -20,6 +20,7 @@ func ExampleRun() {
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
 		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
+		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 
 	Run(testClient, "chainlink.test", "--help")
@@ -50,6 +51,7 @@ func ExampleRun() {
 	//      removebridge              Removes a specific bridge
 	//      agree, createsa           Creates a service agreement
 	//      withdraw, w               Withdraw LINK to an authorized address
+	//      chpass                    Change your password
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:

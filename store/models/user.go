@@ -65,3 +65,9 @@ func NewSession() Session {
 		LastUsed: Time{Time: time.Now()},
 	}
 }
+
+// ChangePasswordRequest sets a new password for the current Session's User.
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
