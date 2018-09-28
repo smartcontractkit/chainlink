@@ -291,6 +291,30 @@ func (cli *Client) Withdraw(c *clipkg.Context) error {
 	return cli.printResponseBody(resp)
 }
 
+// ChangePassword prompts the user for the old password and a new one, then
+// posts it to Chainlink to change the password.
+func (cli *Client) ChangePassword(c *clipkg.Context) error {
+	req, err := cli.ChangePasswordPrompter.Prompt()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	requestData, err := json.Marshal(req)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/user/password", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("Password updated.")
+	return nil
+}
+
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)

@@ -269,13 +269,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		CookieAuthenticator:            MockCookieAuthenticator{},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
+		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
 	}
 	return client, r
 }
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	ta.MustSeedUserSession()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config)
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config, &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.Config,
@@ -287,6 +288,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
+		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
 	}
 	return client
 }
@@ -942,4 +944,13 @@ func NewSession(optionalSessionID ...string) models.Session {
 func ResetBucket(store *store.Store, bucket interface{}) {
 	mustNotErr(store.Drop(bucket))
 	mustNotErr(store.Init(bucket))
+}
+
+type MockChangePasswordPrompter struct {
+	models.ChangePasswordRequest
+	err error
+}
+
+func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
+	return m.ChangePasswordRequest, m.err
 }

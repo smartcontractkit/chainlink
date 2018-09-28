@@ -160,6 +160,11 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:   "Withdraw LINK to an authorized address",
 			Action:  client.Withdraw,
 		},
+		{
+			Name:   "chpass",
+			Usage:  "Change your password",
+			Action: client.ChangePassword,
+		},
 	}
 	logger.WarnIf(app.Run(args))
 }
@@ -169,7 +174,7 @@ func Run(client *cmd.Client, args ...string) {
 func NewProductionClient() *cmd.Client {
 	cfg := store.NewConfig()
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg)
+	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		Config:                         cfg,
@@ -181,5 +186,6 @@ func NewProductionClient() *cmd.Client {
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
+		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
 	}
 }
