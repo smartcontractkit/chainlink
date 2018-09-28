@@ -132,13 +132,14 @@ contract('Oracle', () => {
       })
 
       it('logs an event', async () => {
-        assert.equal(specId, web3.toUtf8(log.topics[2]))
+        assert.equal(specId, web3.toUtf8(log.topics[1]))
+        assert.equal(h.defaultAccount, web3.toDecimal(log.topics[2]))
         assert.equal(paid, web3.toDecimal(log.topics[3]))
       })
 
       it('uses the expected event signature', async () => {
         // If updating this test, be sure to update services.RunLogTopic.
-        let eventSignature = '0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d'
+        let eventSignature = '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
         assert.equal(eventSignature, log.topics[0])
       })
     })
@@ -162,7 +163,7 @@ contract('Oracle', () => {
         let fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
         let args = h.requestDataBytes(specId, mock.address, fHash, requestId, '')
         let req = await h.requestDataFrom(oc, link, 0, args)
-        internalId = req.receipt.logs[2].topics[1]
+        internalId = h.runRequestId(req.receipt.logs[2])
       })
 
       context('when called by a non-owner', () => {
@@ -225,7 +226,7 @@ contract('Oracle', () => {
       context('fails during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          internalId = req.receipt.logs[3].topics[1]
+          internalId = h.runRequestId(req.receipt.logs[3])
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -250,7 +251,7 @@ contract('Oracle', () => {
       context('calls selfdestruct', () => {
         beforeEach(async () => {
           const req = await mock.requestData('doesNothing(bytes32,bytes32)')
-          internalId = req.receipt.logs[3].topics[1]
+          internalId = h.runRequestId(req.receipt.logs[3])
           await mock.remove()
         })
 
@@ -269,7 +270,7 @@ contract('Oracle', () => {
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
-          internalId = req.receipt.logs[3].topics[1]
+          internalId = h.runRequestId(req.receipt.logs[3])
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -322,16 +323,15 @@ contract('Oracle', () => {
     })
 
     context('reserving funds via requestData', () => {
-      let log, tx, mock, internalId, amount
+      let internalId, amount
+
       beforeEach(async () => {
         amount = 15
-        mock = await h.deploy('examples/GetterSetter.sol')
-        let args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
-        tx = await h.requestDataFrom(oc, link, amount, args)
+        const mock = await h.deploy('examples/GetterSetter.sol')
+        const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
+        const tx = await h.requestDataFrom(oc, link, amount, args)
         assert.equal(3, tx.receipt.logs.length)
-
-        log = tx.receipt.logs[2]
-        internalId = log.topics[1]
+        internalId = h.runRequestId(tx.receipt.logs[2])
       })
 
       context('but not freeing funds w fulfillData', () => {
@@ -416,7 +416,7 @@ contract('Oracle', () => {
         let args = h.requestDataBytes(specId, h.consumer, fHash, requestId, '')
         tx = await link.transferAndCall(oc.address, requestAmount, args, {from: h.consumer})
         assert.equal(3, tx.receipt.logs.length)
-        internalId = tx.receipt.logs[2].topics[1]
+        internalId = h.runRequestId(tx.receipt.logs[2])
       })
 
       it('has correct initial balances', async () => {

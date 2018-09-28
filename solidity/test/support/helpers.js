@@ -8,6 +8,7 @@ const Deployer = require('../../app/deployer.js')
 
 const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
+const BN = require('bn.js')
 
 const HEX_BASE = 16
 
@@ -76,7 +77,7 @@ export const toWei = number => bigNum(web3.toWei(number))
 export const hexToInt = string => web3.toBigNumber(string)
 
 export const toHexWithoutPrefix = arg => {
-  if (arg instanceof Buffer) {
+  if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
     return Array.prototype.reduce.call(arg, (a, v) => a + v.toString('16').padStart(2, '0'), '')
@@ -153,9 +154,14 @@ export const decodeRunABI = log => {
 
 export const decodeRunRequest = log => {
   let runABI = util.toBuffer(log.data)
-  let types = ['uint256', 'bytes']
-  let [version, data] = abi.rawDecode(types, runABI)
-  return [log.topics[1], log.topics[2], log.topics[3], version, data]
+  let types = ['uint256', 'uint256', 'bytes']
+  let [internalId, version, data] = abi.rawDecode(types, runABI)
+  return [log.topics[1], log.topics[2], log.topics[3], toHex(internalId), version, data]
+}
+
+export const runRequestId = log => {
+  var [_, _, _, internalId, _, _] = decodeRunRequest(log)
+  return internalId
 }
 
 export const requestDataBytes = (specId, to, fHash, runId, data) => {
