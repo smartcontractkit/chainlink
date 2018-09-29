@@ -17,7 +17,7 @@ import (
 func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
-	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"0x76005c26"}`)
+	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000017","functionSelector":"0x76005c26"}`)
 
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
@@ -150,8 +150,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	jobID := "4a1eb0e8df314cb894024a38991cff0f"
 	topics := services.TopicFiltersForRunLog(jobID)
 
-	assert.Equal(t, 3, len(topics))
-	assert.Nil(t, topics[1])
+	assert.Equal(t, 2, len(topics))
 	assert.Equal(
 		t,
 		[]common.Hash{services.RunLogTopic},
@@ -163,7 +162,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 			common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 			common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
 		},
-		topics[2])
+		topics[1])
 }
 
 func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
@@ -185,8 +184,15 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), 1, "{}")
-			log.Topics = []common.Hash{tt.eventLogTopic, common.Hash{}, tt.jobIDTopic, common.Hash{}}
+			requester := cltest.NewAddress()
+			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), requester, 1, "{}")
+			log.Topics = []common.Hash{
+				tt.eventLogTopic,
+				tt.jobIDTopic,
+				requester.Hash(),
+				common.Hash{},
+			}
+
 			le := services.InitiatorSubscriptionLogEvent{
 				Job: job,
 				Log: log,
@@ -198,5 +204,5 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 }
 
 func TestRunTopic(t *testing.T) {
-	assert.Equal(t, common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d"), services.RunLogTopic)
+	assert.Equal(t, common.HexToHash("0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529"), services.RunLogTopic)
 }

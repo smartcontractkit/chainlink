@@ -244,22 +244,29 @@ func EasyJSONFromString(body string, args ...interface{}) EasyJSON {
 }
 
 // NewRunLog create ethtypes.Log for given jobid, address, block, and json
-func NewRunLog(jobID string, addr common.Address, blk int, json string) ethtypes.Log {
+func NewRunLog(
+	jobID string,
+	emitter common.Address,
+	requester common.Address,
+	blk int,
+	json string,
+) ethtypes.Log {
 	return ethtypes.Log{
-		Address:     addr,
+		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData(json),
+		Data:        StringToVersionedLogData("internalID", json),
 		Topics: []common.Hash{
 			services.RunLogTopic,
-			StringToHash("internalID"),
 			StringToHash(jobID),
+			requester.Hash(),
 			minimumContractPayment.ToHash(),
 		},
 	}
 }
 
 // StringToVersionedLogData encodes a string to the log data field.
-func StringToVersionedLogData(str string) hexutil.Bytes {
+func StringToVersionedLogData(internalID, str string) hexutil.Bytes {
+	id := StringToHash(internalID).Hex()
 	j := JSONFromString(str)
 	cbor, err := j.CBOR()
 	mustNotErr(err)
@@ -270,14 +277,14 @@ func StringToVersionedLogData(str string) hexutil.Bytes {
 	}
 
 	data := hex.EncodeToString(cbor)
-	version := utils.EVMHexNumber(1)
-	offset := "0000000000000000000000000000000000000000000000000000000000000020"
+	version := utils.RemoveHexPrefix(utils.EVMHexNumber(1))
+	offset := "0000000000000000000000000000000000000000000000000000000000000060"
 
 	var endPad string
 	if length%32 != 0 {
 		endPad = strings.Repeat("00", (32 - (length % 32)))
 	}
-	return hexutil.MustDecode(version + offset + lenHex + data + endPad)
+	return hexutil.MustDecode(id + version + offset + lenHex + data + endPad)
 }
 
 // BigHexInt create hexutil.Big value from given value

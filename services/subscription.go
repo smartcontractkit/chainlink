@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,16 +24,18 @@ import (
 // Descriptive indices of a RunLog's Topic array
 const (
 	RunLogTopicSignature = iota
-	RunLogTopicInternalID
 	RunLogTopicJobID
+	RunLogTopicSender
 	RunLogTopicAmount
 )
+
+const evmWordBytesSize = 32
 
 // RunLogTopic is the signature for the RunRequest(...) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
-var RunLogTopic = mustHash("RunRequest(uint256,bytes32,uint256,uint256,bytes)")
+var RunLogTopic = mustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
 
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
 // method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
@@ -154,7 +157,7 @@ func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 	hexJobID := common.BytesToHash([]byte(jobID))
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
 	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{{RunLogTopic}, nil, {hexJobID, jobIDZeroPadded}}
+	return [][]common.Hash{{RunLogTopic}, {hexJobID, jobIDZeroPadded}}
 }
 
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
@@ -345,8 +348,7 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 		return false
 	}
 
-	jid, err := jobIDFromHexEncodedTopic(el)
-	if err != nil {
+	if jid, err := jobIDFromHexEncodedTopic(el); err != nil {
 		logger.Errorw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
 	} else if jid != le.Job.ID && jobIDFromImproperEncodedTopic(el) != le.Job.ID {
@@ -365,22 +367,21 @@ func (le InitiatorSubscriptionLogEvent) RunLogJSON() (models.JSON, error) {
 		return js, err
 	}
 
-	fullfillmentJSON, err := fulfillmentToJSON(le)
+	fullfillmentJSON, err := fulfillmentToJSON(el)
 	if err != nil {
 		return js, err
 	}
 	return js.Merge(fullfillmentJSON)
 }
 
-func fulfillmentToJSON(le InitiatorSubscriptionLogEvent) (models.JSON, error) {
-	el := le.Log
+func fulfillmentToJSON(el types.Log) (models.JSON, error) {
 	var js models.JSON
 	js, err := js.Add("address", el.Address.String())
 	if err != nil {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", el.Topics[RunLogTopicInternalID].String())
+	js, err = js.Add("dataPrefix", parseRequestID(el.Data))
 	if err != nil {
 		return js, err
 	}
@@ -412,11 +413,17 @@ func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) 
 	return payment, nil
 }
 
+func parseRequestID(data hexutil.Bytes) string {
+	parsedID := []byte(data)[:evmWordBytesSize]
+	return utils.AddHexPrefix(hex.EncodeToString(parsedID))
+}
+
 func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
-	versionSize := 32
-	varLocationSize := 32
-	varLengthSize := 32
-	prefix := versionSize + varLocationSize + varLengthSize
+	idSize := evmWordBytesSize
+	versionSize := evmWordBytesSize
+	varLocationSize := evmWordBytesSize
+	varLengthSize := evmWordBytesSize
+	prefix := idSize + versionSize + varLocationSize + varLengthSize
 	hex := []byte(string([]byte(data)[prefix:]))
 	return models.ParseCBOR(hex)
 }
