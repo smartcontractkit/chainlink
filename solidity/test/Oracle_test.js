@@ -8,7 +8,7 @@ contract('Oracle', () => {
   let link, oc
 
   beforeEach(async () => {
-    link = await h.deploy('linkToken/contracts/LinkToken.sol')
+    link = await h.deploy('link_token/contracts/LinkToken.sol')
     oc = await h.deploy(sourcePath, link.address)
     await oc.transferOwnership(h.oracleNode, {from: h.defaultAccount})
   })
