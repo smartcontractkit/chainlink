@@ -57,6 +57,7 @@ func (rm *jobRunner) Start() error {
 	go rm.demultiplexRuns(&starterWg)
 	starterWg.Wait()
 
+	rm.demultiplexStopperWg.Add(1)
 	return rm.resumeSleepingRuns()
 }
 
@@ -70,7 +71,6 @@ func (rm *jobRunner) Stop() {
 	}
 	close(rm.done)
 	rm.started = false
-	rm.workersWg.Wait()
 	rm.demultiplexStopperWg.Wait()
 }
 
@@ -87,12 +87,12 @@ func (rm *jobRunner) resumeSleepingRuns() error {
 
 func (rm *jobRunner) demultiplexRuns(starterWg *sync.WaitGroup) {
 	starterWg.Done()
-	rm.demultiplexStopperWg.Add(1)
 	defer rm.demultiplexStopperWg.Done()
 	for {
 		select {
 		case <-rm.done:
 			logger.Debug("JobRunner demultiplexing of job runs finished")
+			rm.workersWg.Wait()
 			return
 		case rr, ok := <-rm.store.RunChannel.Receive():
 			if !ok {
@@ -112,15 +112,16 @@ func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
 	if !present {
 		workerChannel = make(chan store.RunRequest, 1000)
 		rm.workers[runID] = workerChannel
-
 		rm.workersWg.Add(1)
+
 		go func() {
-			defer rm.workersWg.Done()
 			rm.workerLoop(runID, workerChannel)
 
 			rm.workerMutex.Lock()
 			delete(rm.workers, runID)
+			rm.workersWg.Done()
 			rm.workerMutex.Unlock()
+
 			logger.Debug("Worker finished for ", runID)
 		}()
 	}
