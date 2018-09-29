@@ -183,7 +183,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 	logBlockNumber := 1
-	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
+	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	cltest.WaitForRuns(t, j, app.Store, 1)
 
 	runs, err := app.Store.JobRunsFor(j.ID)
@@ -277,7 +277,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
-	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), logBlockNumber, `{}`)
+	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
