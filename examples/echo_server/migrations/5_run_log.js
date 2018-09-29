@@ -1,6 +1,6 @@
 const clmigration = require("../clmigration.js");
 const request = require("request-promise").defaults({jar: true});
-const LinkToken = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
+const LinkToken = artifacts.require("link_token/contracts/LinkToken.sol");
 const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 const RunLog = artifacts.require("./RunLog.sol");
 

@@ -102,8 +102,4 @@ contract RopstenConsumer is Chainlinked, Ownable {
     lastMarket = _market;
   }
 
-  function withdrawLink() public onlyOwner {
-    require(link.transfer(owner, link.balanceOf(address(this))), "Unable to transfer");
-  }
-
 }
