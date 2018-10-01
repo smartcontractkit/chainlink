@@ -1,4 +1,4 @@
-let LINK = artifacts.require("../../../solidity/contracts/lib/LinkToken.sol");
+let LINK = artifacts.require("link_token/contracts/LinkToken.sol");
 let Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
 
 module.exports = function(deployer) {

@@ -31,7 +31,7 @@ const main = async () => {
     .catch(abort('Error deploying RunLog.sol'))
   console.log(`Deployed RunLog at: ${RunLog.address}`)
 
-  const LinkToken = await deployer.load('../node_modules/linkToken/contracts/LinkToken.sol', LINK_TOKEN_ADDRESS)
+  const LinkToken = await deployer.load('../node_modules/link_token/contracts/LinkToken.sol', LINK_TOKEN_ADDRESS)
     .catch(abort(`Error loading LinkToken at address ${LINK_TOKEN_ADDRESS}`))
 
   const amount = web3.utils.toWei('1000')
