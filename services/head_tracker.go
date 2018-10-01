@@ -78,9 +78,8 @@ func (ht *HeadTracker) Start() error {
 	}
 	ht.headSubscription = sub
 	ht.connect(ht.number)
-	ht.starter.Add(3)
+	ht.starter.Add(2)
 	go ht.listenToSubscriptionErrors()
-	go ht.updateBlockHeader()
 	go ht.listenToNewHeads()
 	ht.starter.Wait()
 	return nil
@@ -194,7 +193,6 @@ func (ht *HeadTracker) listenToSubscriptionErrors() {
 }
 
 func (ht *HeadTracker) updateBlockHeader() {
-	defer ht.starter.Done()
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
 		logger.Errorw("Unable to update latest block header", "err", err)
@@ -212,6 +210,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 	ht.stopper.Add(1)
 	defer ht.stopper.Done()
 
+	ht.updateBlockHeader()
 	ht.headMutex.RLock()
 	if ht.number != nil {
 		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(ht.number.ToInt()), " with hash ", ht.number.Hash.String())
