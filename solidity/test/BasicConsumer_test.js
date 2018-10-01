@@ -51,7 +51,7 @@ contract('BasicConsumer', () => {
 
       it('triggers a log event in the Oracle contract', async () => {
         let tx = await cc.requestEthereumPrice(currency)
-        let log = tx.receipt.logs[2]
+        let log = tx.receipt.logs[3]
         assert.equal(log.address, oc.address)
 
         let [id, jId, wei, ver, cborData] = decodeRunRequest(log)
