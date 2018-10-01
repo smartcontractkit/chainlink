@@ -5,7 +5,7 @@
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "fs": "^0.0.1-security",
-    "linkToken": "github:smartcontractkit/linktoken",
+    "link_token": "^1.0.1",
     "moment": "^2.20.1",
     "openzeppelin-solidity": "github:OpenZeppelin/openzeppelin-solidity",
     "request-promise": "^4.2.2",

@@ -18,7 +18,7 @@ import {
 import { assertBigNum } from '../../../solidity/test/support/matchers'
 
 contract('UptimeSLA', () => {
-  let Link = artifacts.require('../../../solidity/contracts/LinkToken.sol')
+  let Link = artifacts.require('LinkToken.sol')
   let Oracle = artifacts.require('../../../solidity/contracts/Oracle.sol')
   let SLA = artifacts.require('UptimeSLA.sol')
   let specId = '4c7b7ffb66b344fbaa64995af81e355a'

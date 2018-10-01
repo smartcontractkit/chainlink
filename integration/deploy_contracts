@@ -3,7 +3,7 @@
 const {deployer, abort} = require('./common.js')
 
 const main = async () => {
-  const LinkToken = await deployer.perform('../node_modules/linkToken/contracts/LinkToken.sol')
+  const LinkToken = await deployer.perform('../node_modules/link_token/contracts/LinkToken.sol')
     .catch(abort('Error deploying LinkToken.sol'))
   console.log(`Deployed LinkToken at: ${LinkToken.address}`)
 

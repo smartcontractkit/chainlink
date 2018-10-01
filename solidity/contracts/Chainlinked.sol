@@ -4,7 +4,7 @@ import "./ChainlinkLib.sol";
 import "./ENSResolver.sol";
 import "./Oracle.sol";
 import "ens/contracts/ENS.sol";
-import "linkToken/contracts/LinkToken.sol";
+import "link_token/contracts/LinkToken.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
