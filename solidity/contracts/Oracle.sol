@@ -31,6 +31,10 @@ contract Oracle is Ownable {
     bytes data
   );
 
+  event CancelRequest(
+    uint256 internalId
+  );
+
   constructor(address _link) Ownable() public {
     LINK = LinkToken(_link);
   }
@@ -110,6 +114,7 @@ contract Oracle is Ownable {
     Callback memory cb = callbacks[internalId];
     require(LINK.transfer(cb.addr, cb.amount), "Unable to transfer");
     delete callbacks[internalId];
+    emit CancelRequest(internalId);
   }
 
   // MODIFIERS

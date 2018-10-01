@@ -388,7 +388,7 @@ contract('Oracle', () => {
     })
 
     context('with a pending request', () => {
-      let log, tx, mock, requestAmount, startingBalance
+      let internalId, tx, mock, requestAmount, startingBalance
       let requestId = 'requestId'
       beforeEach(async () => {
         startingBalance = 100
@@ -400,6 +400,7 @@ contract('Oracle', () => {
         let args = h.requestDataBytes(specId, h.consumer, fHash, requestId, '')
         tx = await link.transferAndCall(oc.address, requestAmount, args, {from: h.consumer})
         assert.equal(3, tx.receipt.logs.length)
+        internalId = tx.receipt.logs[2].topics[1]
       })
 
       it('has correct initial balances', async () => {
@@ -423,6 +424,13 @@ contract('Oracle', () => {
           await oc.cancel(requestId, {from: h.consumer})
           let balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
+        })
+
+        it('triggers a cancellation event', async () => {
+          const tx = await oc.cancel(requestId, {from: h.consumer})
+
+          assert.equal(tx.receipt.logs.length, 2)
+          assert.equal(internalId, tx.receipt.logs[1].data)
         })
 
         context('canceling twice', () => {
