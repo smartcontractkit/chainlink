@@ -15,19 +15,8 @@ const main = async () => {
   const sessionsUrl = 'http://localhost:6688/sessions'
   const specsUrl = 'http://localhost:6688/v2/specs'
   const credentials = {email: 'notreal@fakeemail.ch', password: 'twochains'}
-  const job = {
-    '_comment': 'A runlog has a jobid baked into the contract so chainlink knows which job to run.',
-    'initiators': [{ 'type': 'runlog' }],
-    'tasks': [
-      { 'type': 'Sleep', 'params': { 'until': futureOffset(3) } },
-      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
-    ]
-  }
-  await request.post(sessionsUrl, {json: credentials})
-  let Job = await request.post(specsUrl, {json: job})
-    .catch(abort('Error creating Job'))
 
-  let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS, Job.data.id)
+  let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS)
     .catch(abort('Error deploying RunLog.sol'))
   console.log(`Deployed RunLog at: ${RunLog.address}`)
 
@@ -39,7 +28,19 @@ const main = async () => {
     .catch(abort('Error transferring link to RunLog'))
   console.log(`Transferred ${amount} to RunLog at: ${RunLog.address}`)
 
-  await RunLog.request({from: DEVNET_ADDRESS, gas: 2000000})
+  const job = {
+    '_comment': 'A runlog has a jobid baked into the contract so chainlink knows which job to run.',
+    'initiators': [{ 'type': 'runlog' , 'params': {"requesters": [RunLog.address]}}],
+    'tasks': [
+      { 'type': 'Sleep', 'params': { 'until': futureOffset(3) } },
+      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
+    ]
+  }
+  await request.post(sessionsUrl, {json: credentials})
+  let Job = await request.post(specsUrl, {json: job})
+    .catch(abort('Error creating Job'))
+
+  await RunLog.request(Job.data.id, {from: DEVNET_ADDRESS, gas: 2000000})
     .catch(abort('Error making RunLog request'))
   console.log(`Made RunLog request`)
 }

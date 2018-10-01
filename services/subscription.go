@@ -355,7 +355,24 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
+
+	if !le.validSender() {
+		logger.Errorw(fmt.Sprintf("Run Log didn't have have a valid requester: %v", le.Requester().Hex()), le.ForLogger()...)
+		return false
+	}
 	return true
+}
+
+func (le InitiatorSubscriptionLogEvent) validSender() bool {
+	if len(le.Initiator.Requesters) == 0 {
+		return true
+	}
+	for _, r := range le.Initiator.Requesters {
+		if le.Requester() == r {
+			return true
+		}
+	}
+	return false
 }
 
 // RunLogJSON extracts data from the log's topics and data specific to the format defined
