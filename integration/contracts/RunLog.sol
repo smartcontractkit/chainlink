@@ -3,16 +3,14 @@ pragma solidity ^0.4.23;
 import "Chainlinked.sol";
 
 contract RunLog is Chainlinked {
-  bytes32 private jobId;
 
-  constructor(address _link, address _oracle, bytes32 _jobId) public {
+  constructor(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
-    jobId = _jobId;
   }
 
-  function request() public {
-    ChainlinkLib.Run memory run = newRun(jobId, this, "fulfill(bytes32,bytes32)");
+  function request(bytes32 _jobId) public {
+    ChainlinkLib.Run memory run = newRun(_jobId, this, "fulfill(bytes32,bytes32)");
     run.add("msg", "hello_chainlink");
     chainlinkRequest(run, LINK(1));
   }
