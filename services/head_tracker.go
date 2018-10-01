@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/asdine/storm"
 	uuid "github.com/satori/go.uuid"
@@ -36,8 +37,11 @@ type HeadTracker struct {
 	connected        bool
 	sleeper          utils.Sleeper
 	done             chan struct{}
+	disconnected     chan struct{}
 	stopper          sync.WaitGroup
+	started          bool
 	starter          sync.WaitGroup
+	bootMutex        sync.Mutex
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -61,6 +65,9 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 // subscribes to new heads, and if successful fires Connect on the
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
+	ht.bootMutex.Lock()
+	defer ht.bootMutex.Unlock()
+
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
 	if err != nil && err != storm.ErrNotFound {
@@ -71,6 +78,12 @@ func (ht *HeadTracker) Start() error {
 	}
 
 	ht.done = make(chan struct{})
+	ht.started = true
+	return ht.connectToHead()
+}
+
+func (ht *HeadTracker) connectToHead() error {
+	ht.disconnected = make(chan struct{})
 	ht.headers = make(chan models.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
@@ -87,12 +100,26 @@ func (ht *HeadTracker) Start() error {
 
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
+	ht.bootMutex.Lock()
+	defer ht.bootMutex.Unlock()
+
+	if !ht.started {
+		return nil
+	}
+
+	close(ht.done)
+	err := ht.disconnectFromHead()
+	ht.started = false
+	return err
+}
+
+func (ht *HeadTracker) disconnectFromHead() error {
 	if ht.headSubscription == nil {
 		return nil
 	}
 
 	ht.headSubscription.Unsubscribe()
-	close(ht.done)
+	close(ht.disconnected)
 	ht.stopper.Wait()
 
 	close(ht.headers)
@@ -187,7 +214,7 @@ func (ht *HeadTracker) listenToSubscriptionErrors() {
 			logger.Errorw("Error in new head subscription, disconnected", "err", err)
 			ht.reconnectLoop()
 		}
-	case <-ht.done:
+	case <-ht.disconnected:
 		ht.stopper.Done()
 	}
 }
@@ -228,7 +255,7 @@ func (ht *HeadTracker) listenToNewHeads() {
 			} else {
 				ht.onNewHead(&header)
 			}
-		case <-ht.done:
+		case <-ht.disconnected:
 			return
 		}
 	}
@@ -237,15 +264,19 @@ func (ht *HeadTracker) listenToNewHeads() {
 func (ht *HeadTracker) reconnectLoop() {
 	ht.sleeper.Reset()
 	for {
-		ht.Stop()
+		ht.disconnectFromHead()
 		logger.Info("Reconnecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
-		ht.sleeper.Sleep()
-		err := ht.Start()
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
-		} else {
-			logger.Info("Reconnected to node ", ht.store.Config.EthereumURL)
-			break
+		select {
+		case <-ht.done:
+			return
+		case <-time.After(ht.sleeper.After()):
+			err := ht.connectToHead()
+			if err != nil {
+				logger.Errorw(fmt.Sprintf("Error reconnecting to %v", ht.store.Config.EthereumURL), "err", err)
+			} else {
+				logger.Info("Reconnected to node ", ht.store.Config.EthereumURL)
+				return
+			}
 		}
 	}
 }

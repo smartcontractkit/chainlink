@@ -199,6 +199,7 @@ func toBlockNumArg(number *big.Int) string {
 type Sleeper interface {
 	Reset()
 	Sleep()
+	After() time.Duration
 	Duration() time.Duration
 }
 
@@ -216,9 +217,14 @@ func NewBackoffSleeper() BackoffSleeper {
 	}}
 }
 
-// Sleep waits for the given duration before reattempting.
+// Sleep waits for the given duration, incrementing the back off.
 func (bs BackoffSleeper) Sleep() {
 	time.Sleep(bs.Backoff.Duration())
+}
+
+// After returns the duration for the next stop, and increments the backoff.
+func (bs BackoffSleeper) After() time.Duration {
+	return bs.Backoff.Duration()
 }
 
 // Duration returns the current duration value.
@@ -229,7 +235,6 @@ func (bs BackoffSleeper) Duration() time.Duration {
 // ConstantSleeper is to assist with reattempts with
 // the same sleep duration.
 type ConstantSleeper struct {
-	Sleeper
 	interval time.Duration
 }
 
@@ -239,9 +244,17 @@ func NewConstantSleeper(d time.Duration) ConstantSleeper {
 	return ConstantSleeper{interval: d}
 }
 
+// Reset is a no op since sleep time is constant.
+func (cs ConstantSleeper) Reset() {}
+
 // Sleep waits for the given duration before reattempting.
 func (cs ConstantSleeper) Sleep() {
 	time.Sleep(cs.interval)
+}
+
+// After returns the duration.
+func (cs ConstantSleeper) After() time.Duration {
+	return cs.interval
 }
 
 // Duration returns the duration value.

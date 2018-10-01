@@ -213,6 +213,10 @@ func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader 
 	return newHeads
 }
 
+func (mock *EthMock) NoMagic() {
+	mock.newHeadsCalled = true
+}
+
 func fwdLogs(actual, mock interface{}) {
 	logChan := actual.(chan<- types.Log)
 	mockChan := mock.(chan types.Log)
@@ -544,6 +548,9 @@ func (ns NeverSleeper) Reset() {}
 
 // Sleep puts the never sleeper to sleep
 func (ns NeverSleeper) Sleep() {}
+
+// After returns a duration
+func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
