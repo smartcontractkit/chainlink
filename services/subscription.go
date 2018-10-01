@@ -413,6 +413,12 @@ func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) 
 	return payment, nil
 }
 
+// Requester pulls the requesting address out of the LogEvent's topics.
+func (le InitiatorSubscriptionLogEvent) Requester() common.Address {
+	b := le.Log.Topics[RunLogTopicSender].Bytes()
+	return common.BytesToAddress(b)
+}
+
 func parseRequestID(data hexutil.Bytes) string {
 	parsedID := []byte(data)[:evmWordBytesSize]
 	return utils.AddHexPrefix(hex.EncodeToString(parsedID))

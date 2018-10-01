@@ -41,6 +41,8 @@ func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 }
 
 func TestInitiatorSubscriptionLogEvent_EthLogJSON(t *testing.T) {
+	t.Parallel()
+
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
@@ -55,11 +57,35 @@ func TestInitiatorSubscriptionLogEvent_EthLogJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			le := services.InitiatorSubscriptionLogEvent{Log: test.el}
 			output, err := le.EthLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
+}
+
+func TestInitiatorSubscriptionLogEvent_Requester(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input common.Hash
+		want  common.Address
+	}{
+		{"basic",
+			common.BytesToHash(cltest.HexToBytes("00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee")),
+			cltest.StringToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rl := cltest.NewRunLog("id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
+			rl.Topics[services.RunLogTopicSender] = test.input
+			le := services.InitiatorSubscriptionLogEvent{Log: rl}
+
+			assert.Equal(t, test.want, le.Requester())
 		})
 	}
 }
