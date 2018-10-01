@@ -183,7 +183,7 @@ func TestInitiatorSubscriptionLogEvent_Requester(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			rl := cltest.NewRunLog("id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
-			rl.Topics[services.RunLogTopicSender] = test.input
+			rl.Topics[services.RunLogTopicRequester] = test.input
 			le := services.InitiatorSubscriptionLogEvent{Log: rl}
 
 			assert.Equal(t, test.want, le.Requester())

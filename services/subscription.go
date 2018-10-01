@@ -25,7 +25,7 @@ import (
 const (
 	RunLogTopicSignature = iota
 	RunLogTopicJobID
-	RunLogTopicSender
+	RunLogTopicRequester
 	RunLogTopicAmount
 )
 
@@ -356,14 +356,14 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 		return false
 	}
 
-	if !le.validSender() {
+	if !le.validRequester() {
 		logger.Errorw(fmt.Sprintf("Run Log didn't have have a valid requester: %v", le.Requester().Hex()), le.ForLogger()...)
 		return false
 	}
 	return true
 }
 
-func (le InitiatorSubscriptionLogEvent) validSender() bool {
+func (le InitiatorSubscriptionLogEvent) validRequester() bool {
 	if len(le.Initiator.Requesters) == 0 {
 		return true
 	}
@@ -432,7 +432,7 @@ func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) 
 
 // Requester pulls the requesting address out of the LogEvent's topics.
 func (le InitiatorSubscriptionLogEvent) Requester() common.Address {
-	b := le.Log.Topics[RunLogTopicSender].Bytes()
+	b := le.Log.Topics[RunLogTopicRequester].Bytes()
 	return common.BytesToAddress(b)
 }
 

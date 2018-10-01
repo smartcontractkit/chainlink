@@ -26,7 +26,7 @@ contract Oracle is Ownable {
 
   event RunRequest(
     bytes32 indexed specId,
-    address indexed sender,
+    address indexed requester,
     uint256 indexed amount,
     uint256 internalId,
     uint256 version,
@@ -43,7 +43,7 @@ contract Oracle is Ownable {
 
   function onTokenTransfer(
     address _sender,
-    uint256 _wei,
+    uint256 _amount,
     bytes _data
   )
     public
@@ -54,7 +54,7 @@ contract Oracle is Ownable {
       // solium-disable-next-line security/no-low-level-calls
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
       // solium-disable-next-line security/no-low-level-calls
-      mstore(add(_data, 68), _wei)    // ensure correct amount is passed
+      mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData

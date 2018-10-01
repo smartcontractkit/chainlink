@@ -13,7 +13,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   bytes32 constant PRICE_SPEC_ID = bytes32("b150bc3c11224b27884e608f0e205700");
   bytes32 constant CHANGE_SPEC_ID = bytes32("79312731984145e28b798d0c397f2ac0");
   bytes32 constant MARKET_SPEC_ID = bytes32("f534ec6280174a08804be2a4049e4e3a");
-  
+
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
     uint256 indexed price
