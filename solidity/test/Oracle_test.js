@@ -210,7 +210,7 @@ contract('Oracle', () => {
       context('fails during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          internalId = req.receipt.logs[2].topics[1]
+          internalId = req.receipt.logs[3].topics[1]
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -235,7 +235,7 @@ contract('Oracle', () => {
       context('calls selfdestruct', () => {
         beforeEach(async () => {
           const req = await mock.requestData('doesNothing(bytes32,bytes32)')
-          internalId = req.receipt.logs[2].topics[1]
+          internalId = req.receipt.logs[3].topics[1]
           await mock.remove()
         })
 
@@ -254,7 +254,7 @@ contract('Oracle', () => {
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
-          internalId = req.receipt.logs[2].topics[1]
+          internalId = req.receipt.logs[3].topics[1]
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -285,7 +285,7 @@ contract('Oracle', () => {
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          const log = req.receipt.logs[2]
+          const log = req.receipt.logs[3]
 
           assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
         })
