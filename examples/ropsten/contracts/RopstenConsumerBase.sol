@@ -10,9 +10,9 @@ contract RopstenConsumer is Chainlinked, Ownable {
   address constant ROPSTEN_LINK_ADDRESS = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
   address constant ROPSTEN_ORACLE_ADDRESS = 0x18170370BceC331F31d41B9b83DE772F5Bd47D82;
 
-  bytes32 constant PRICE_SPEC_ID = bytes32("3e775111aac649068669b192533490a6");
-  bytes32 constant CHANGE_SPEC_ID = bytes32("fa7d9b1c502f4f9684661679623638fc");
-  bytes32 constant MARKET_SPEC_ID = bytes32("626250ee99b74b68b8e2a27843d6a575");
+  bytes32 constant PRICE_SPEC_ID = bytes32("b150bc3c11224b27884e608f0e205700");
+  bytes32 constant CHANGE_SPEC_ID = bytes32("79312731984145e28b798d0c397f2ac0");
+  bytes32 constant MARKET_SPEC_ID = bytes32("f534ec6280174a08804be2a4049e4e3a");
   
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
