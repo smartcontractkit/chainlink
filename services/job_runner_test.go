@@ -451,7 +451,7 @@ func TestJobRunner_transitionToPending(t *testing.T) {
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 }
 
-func TestJobRunner_BuildAndValidateRun(t *testing.T) {
+func TestJobRunner_BuildRunWithValidPayment(t *testing.T) {
 	tests := []struct {
 		name    string
 		amount  *assets.Link
@@ -480,7 +480,7 @@ func TestJobRunner_BuildAndValidateRun(t *testing.T) {
 			runResult := models.RunResult{
 				Amount: test.amount,
 			}
-			run, _ := services.BuildAndValidateRun(job, initr, runResult, store)
+			run, _ := services.BuildRunWithValidPayment(job, initr, runResult, store)
 			assert.Equal(t, test.status, run.Status)
 		})
 	}

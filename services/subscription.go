@@ -217,7 +217,7 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		Amount: payment,
 	}
 
-	run, err := BuildAndValidateRun(le.Job, initr, input, le.store)
+	run, err := BuildRunWithValidPayment(le.Job, initr, input, le.store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 		return
