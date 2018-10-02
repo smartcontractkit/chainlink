@@ -30,7 +30,7 @@ var errUnauthorized = errors.New("401 Unauthorized")
 // DisplayAccountBalance renders a table containing the active account address
 // with it's ETH & LINK balance
 func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Get("/v2/account_balance")
+	resp, err := cli.HTTP.Get("/v2/user/balances")
 	if err != nil {
 		return cli.errorOut(err)
 	}

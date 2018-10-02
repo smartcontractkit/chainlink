@@ -138,9 +138,6 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
 	jr := JobRunsController{app}
 
-	ab := AccountBalanceController{app}
-	v2.GET("/account_balance", ab.Show)
-
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
 	v2.PATCH("/runs/:RunID", jr.Update)
@@ -149,7 +146,7 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
-		// FIXME: "/account/balance" should probably go here at some point
+		authv2.GET("/user/balances", uc.AccountBalances)
 
 		j := JobSpecsController{app}
 		authv2.GET("/specs", j.Index)
