@@ -14,7 +14,7 @@ contract Oracle is Ownable {
     uint256 amount;
     address addr;
     bytes4 functionId;
-    uint256 cancelExpiration;
+    uint64 cancelExpiration;
   }
 
   // We initialize fields to 1 instead of 0 so that the first invocation
@@ -78,7 +78,7 @@ contract Oracle is Ownable {
       _currentAmount,
       _callbackAddress,
       _callbackFunctionId,
-      now.add(1 hours));
+      uint64(now.add(1 hours)));
     emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
   }
 
