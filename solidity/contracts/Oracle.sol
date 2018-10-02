@@ -14,6 +14,7 @@ contract Oracle is Ownable {
     uint256 amount;
     address addr;
     bytes4 functionId;
+    uint256 cancelExpiration;
   }
 
   // We initialize fields to 1 instead of 0 so that the first invocation
@@ -76,7 +77,8 @@ contract Oracle is Ownable {
       _externalId,
       _currentAmount,
       _callbackAddress,
-      _callbackFunctionId);
+      _callbackFunctionId,
+      now.add(1 hours));
     emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
   }
 
@@ -111,6 +113,7 @@ contract Oracle is Ownable {
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(msg.sender, _externalId)));
     require(msg.sender == callbacks[internalId].addr, "Must be called from requester");
+    require(callbacks[internalId].cancelExpiration <= now, "Request is not expired");
     Callback memory cb = callbacks[internalId];
     require(LINK.transfer(cb.addr, cb.amount), "Unable to transfer");
     delete callbacks[internalId];

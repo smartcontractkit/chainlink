@@ -7,7 +7,8 @@ import {
   getEvents,
   getLatestEvent,
   toHexWithoutPrefix,
-  toWei
+  toWei,
+  increaseTime1Hour
 } from './support/helpers'
 
 contract('ConcreteChainlinked', () => {
@@ -60,6 +61,7 @@ contract('ConcreteChainlinked', () => {
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
+      await increaseTime1Hour();
       let tx = await cc.publicCancelRequest(requestId)
 
       let events = await getEvents(cc)
@@ -71,6 +73,7 @@ contract('ConcreteChainlinked', () => {
 
     context('when the request ID is no longer unfulfilled', () => {
       beforeEach(async () => {
+        await increaseTime1Hour();
         await cc.publicCancelRequest(requestId)
       })
 
