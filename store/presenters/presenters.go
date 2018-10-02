@@ -86,8 +86,8 @@ func (bt BridgeType) MarshalJSON() ([]byte, error) {
 // AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
 type AccountBalance struct {
 	Address     string       `json:"address"`
-	EthBalance  *assets.Eth  `json:"eth_balance"`
-	LinkBalance *assets.Link `json:"link_balance"`
+	EthBalance  *assets.Eth  `json:"ethBalance"`
+	LinkBalance *assets.Link `json:"linkBalance"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
