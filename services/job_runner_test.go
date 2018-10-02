@@ -452,16 +452,17 @@ func TestJobRunner_transitionToPending(t *testing.T) {
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 }
 
-func TestJobRunner_BeginRunWithAmount(t *testing.T) {
+func TestJobRunner_BuildAndValidateRun(t *testing.T) {
 	tests := []struct {
-		name   string
-		amount *assets.Link
-		status models.RunStatus
+		name    string
+		amount  *assets.Link
+		invalid bool
+		status  models.RunStatus
 	}{
-		{"job with no amount", nil, models.RunStatusCompleted},
-		{"job with insufficient amount", assets.NewLink(9), models.RunStatusErrored},
-		{"job with exact amount", assets.NewLink(10), models.RunStatusCompleted},
-		{"job with valid amount", assets.NewLink(11), models.RunStatusCompleted},
+		{"job with insufficient amount", assets.NewLink(9), true, models.RunStatusErrored},
+		{"job with no amount", nil, false, models.RunStatusUnstarted},
+		{"job with exact amount", assets.NewLink(10), false, models.RunStatusUnstarted},
+		{"job with valid amount", assets.NewLink(11), false, models.RunStatusUnstarted},
 	}
 
 	config, cfgCleanup := cltest.NewConfig()
@@ -480,13 +481,13 @@ func TestJobRunner_BeginRunWithAmount(t *testing.T) {
 			runResult := models.RunResult{
 				Amount: test.amount,
 			}
-			run, _ := services.BeginRun(job, initr, runResult, store)
+			run, _ := services.BuildAndValidateRun(job, initr, runResult, store)
 			assert.Equal(t, test.status, run.Status)
 		})
 	}
 }
 
-func TestJobRunner_BeginRun(t *testing.T) {
+func TestJobRunner_scheduledRuns(t *testing.T) {
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
 	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}

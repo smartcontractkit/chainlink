@@ -216,9 +216,19 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		Data:   data,
 		Amount: payment,
 	}
-	if _, err := BeginRunAtBlock(le.Job, initr, input, le.store, le.ToIndexableBlockNumber()); err != nil {
+
+	run, err := BuildAndValidateRun(le.Job, initr, input, le.store)
+	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
 	}
+	err = le.store.Save(&run)
+	if err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
+	}
+
+	le.store.RunChannel.Send(run.ID, input, le.ToIndexableBlockNumber())
 }
 
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an

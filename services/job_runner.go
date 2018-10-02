@@ -213,6 +213,32 @@ func BeginRunAtBlock(
 	return executeRunAtBlock(run, store, input, bn)
 }
 
+// BuildAndValidateRun builds a new run and validates whether or not the run
+// meets the minimum contract payment.
+func BuildAndValidateRun(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+) (models.JobRun, error) {
+	run, err := BuildRun(job, initr, store)
+	if err != nil {
+		return models.JobRun{}, err
+	}
+	if input.Amount != nil &&
+		store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
+		err := fmt.Errorf(
+			"Rejecting job %s with payment %s below minimum threshold (%s)",
+			job.ID,
+			input.Amount,
+			store.Config.MinimumContractPayment.Text(10))
+		run = run.ApplyResult(input.WithError(err))
+		return run, multierr.Append(err, store.Save(&run))
+	}
+
+	return run, err
+}
+
 // executeRunAtBlock starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).

@@ -131,9 +131,18 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 		initr := i
 		if !job.Ended(r.Clock.Now()) {
 			r.Cron.AddFunc(string(initr.Schedule), func() {
-				_, err := BeginRun(job, initr, models.RunResult{}, r.store)
-				if err != nil && !expectedRecurringError(err) {
-					logger.Error(err.Error())
+				input := models.RunResult{}
+				run, err := BuildAndValidateRun(job, initr, input, r.store)
+
+				if err == nil {
+					err = r.store.Save(&run)
+					if err != nil {
+						logger.Errorw(err.Error())
+						return
+					}
+					r.store.RunChannel.Send(run.ID, input, nil)
+				} else if !expectedRecurringError(err) {
+					logger.Errorw(err.Error())
 				}
 			})
 		}
@@ -175,11 +184,12 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 			logger.Error(err.Error())
 			return
 		}
-		jr, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
+		run, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
 		if err != nil {
 			logger.Error(err.Error())
 		}
-		if jr.Status == models.RunStatusUnstarted {
+
+		if run.Status == models.RunStatusUnstarted {
 			initr.Ran = false
 			if err := ot.Store.Save(&initr); err != nil {
 				logger.Error(err.Error())
