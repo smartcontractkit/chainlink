@@ -15,6 +15,8 @@ pushd $PROJECT_ROOT >/dev/null
 source internal/bin/clenv
 export ROOT=$PROJECT_ROOT/internal/clroot
 
+set -e
+
 mainexec() {
   mkdir -p tmp
   go build -o tmp/cldevbuild -ldflags "$LDFLAGS" main.go
