@@ -89,7 +89,7 @@
   version = "v1.7"
 
 [[projects]]
-  digest = "1:8acdd83e35b407d026e546bf4d18cc778e9604433d03d468eccca62b9c51c718"
+  digest = "1:3c11702e3f6b0daf20996ef8adb0177c51ffb1b3326eebe373d27083e589cd3c"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -99,6 +99,7 @@
     "common/hexutil",
     "common/math",
     "common/mclock",
+    "common/prque",
     "core/types",
     "crypto",
     "crypto/secp256k1",
@@ -114,8 +115,8 @@
     "trie",
   ]
   pruneopts = ""
-  revision = "89451f7c382ad2185987ee369f16416f89c28a7d"
-  version = "v1.8.15"
+  revision = "477eb0933b9529f7deeccc233cc815fe34a8ea56"
+  version = "v1.8.16"
 
 [[projects]]
   digest = "1:d7d69c103aba5ea229451115b28ca06d061e3861b2f44bcd0100cbc65659c4d9"
@@ -635,14 +636,6 @@
   pruneopts = ""
   revision = "e81d6d8d57747b34d7c5fe0d20ebf57692f04ea9"
   version = "v3.3.0"
-
-[[projects]]
-  branch = "v2"
-  digest = "1:a585c075875ab9c344f7840a927f09f3285563f7318e761a1d61d642316f2217"
-  name = "gopkg.in/karalabe/cookiejar.v2"
-  packages = ["collections/prque"]
-  pruneopts = ""
-  revision = "8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57"
 
 [[projects]]
   branch = "v2"
