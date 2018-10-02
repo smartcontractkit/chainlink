@@ -1,8 +1,8 @@
 package cltest
 
 import (
+	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -265,26 +265,18 @@ func NewRunLog(
 }
 
 // StringToVersionedLogData encodes a string to the log data field.
-func StringToVersionedLogData(internalID, str string) hexutil.Bytes {
-	id := StringToHash(internalID).Hex()
-	j := JSONFromString(str)
-	cbor, err := j.CBOR()
+func StringToVersionedLogData(internalID, str string) []byte {
+	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
+	buf.Write(hexutil.MustDecode(utils.EVMHexNumber(1)))
+	buf.Write(hexutil.MustDecode(utils.EVMHexNumber(common.HashLength * 3)))
+
+	cbor, err := JSONFromString(str).CBOR()
 	mustNotErr(err)
-	length := len(cbor)
-	lenHex := utils.RemoveHexPrefix(hexutil.EncodeUint64(uint64(length)))
-	if len(lenHex) < 64 {
-		lenHex = strings.Repeat("0", 64-len(lenHex)) + lenHex
-	}
+	buf.Write(hexutil.MustDecode(utils.EVMHexNumber(len(cbor))))
+	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
+	buf.Write(common.RightPadBytes(cbor, paddedLength))
 
-	data := hex.EncodeToString(cbor)
-	version := utils.RemoveHexPrefix(utils.EVMHexNumber(1))
-	offset := "0000000000000000000000000000000000000000000000000000000000000060"
-
-	var endPad string
-	if length%32 != 0 {
-		endPad = strings.Repeat("00", (32 - (length % 32)))
-	}
-	return hexutil.MustDecode(id + version + offset + lenHex + data + endPad)
+	return buf.Bytes()
 }
 
 // BigHexInt create hexutil.Big value from given value
