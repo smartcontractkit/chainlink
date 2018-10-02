@@ -15,8 +15,12 @@ pushd $PROJECT_ROOT >/dev/null
 source internal/bin/clenv
 export ROOT=$PROJECT_ROOT/internal/clroot
 
+set -e
+
 mainexec() {
-  go run -ldflags "$LDFLAGS" main.go $@
+  mkdir -p tmp
+  go build -o tmp/cldevbuild -ldflags "$LDFLAGS" main.go
+  tmp/cldevbuild $@
 }
 
 if [ "$#" == 0 ]; then
@@ -38,6 +42,7 @@ case "$1" in
     ;;
   clean)
     rm -f $ROOT/db.bolt $ROOT/log.jsonl
+    rm -f tmp/cldevbuild
     ;;
   migration)
     timestamp=$(date +%s)
