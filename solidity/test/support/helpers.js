@@ -239,3 +239,11 @@ export const splitRPCSignature = oracleSignature => {
     s: oracleSignature.slice(32, 64)
   }
 }
+
+export const increaseTime1Hour = async () => {
+  await web3.currentProvider.send({
+    jsonrpc: "2.0", 
+    method: "evm_increaseTime", 
+    params: [3600], id: 0
+  });
+};

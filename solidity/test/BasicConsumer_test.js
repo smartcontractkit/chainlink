@@ -14,7 +14,8 @@ import {
   requestDataBytes,
   requestDataFrom,
   stranger,
-  toHex
+  toHex,
+  increaseTime1Hour
 } from './support/helpers'
 
 contract('BasicConsumer', () => {
@@ -69,7 +70,7 @@ contract('BasicConsumer', () => {
 
       it('has a reasonable gas cost', async () => {
         let tx = await cc.requestEthereumPrice(currency)
-        assert.isBelow(tx.receipt.gasUsed, 165000)
+        assert.isBelow(tx.receipt.gasUsed, 182000)
       })
     })
   })
@@ -140,8 +141,19 @@ contract('BasicConsumer', () => {
       requestId = (await getLatestEvent(cc)).args.id
     })
 
-    it('can cancel the request', async () => {
-      await cc.cancelRequest(requestId, {from: consumer})
+    context("before an hour", () => {
+      it('cant cancel the request', async () => {
+        await assertActionThrows(async () => {
+          await cc.cancelRequest(requestId, {from: consumer})
+        })
+      })
+    })
+
+    context("after an hour", () => {
+      it('can cancel the request', async () => {
+        await increaseTime1Hour();
+        await cc.cancelRequest(requestId, {from: consumer})
+      })
     })
   })
 })
