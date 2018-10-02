@@ -139,7 +139,7 @@ func TestJobRunner_Stop(t *testing.T) {
 	}).Should(gomega.Equal(0))
 }
 
-func TestJobRunner_Run(t *testing.T) {
+func TestJobRunner_EnqueueRunWithValidPayment(t *testing.T) {
 	t.Parallel()
 
 	bridgeName := "auctionBidding"
@@ -198,10 +198,9 @@ func TestJobRunner_Run(t *testing.T) {
 			}
 			assert.Nil(t, store.Save(&job))
 
-			run = job.NewRun(initr)
-			assert.NoError(t, store.Save(&run))
 			input := models.RunResult{Data: cltest.JSONFromString(test.input)}
-			store.RunChannel.Send(run.ID, input, nil)
+			run, err := services.EnqueueRunWithValidPayment(job, initr, input, store)
+			assert.NoError(t, err)
 			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
 
 			store.One("ID", run.ID, &run)

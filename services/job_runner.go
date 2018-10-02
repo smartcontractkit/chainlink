@@ -207,6 +207,39 @@ func BuildRunWithValidPayment(
 	return run, err
 }
 
+// EnqueueRunWithValidPayment creates a run and enqueues it on the run channel
+func EnqueueRunWithValidPayment(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+) (models.JobRun, error) {
+	return EnqueueRunAtBlockWithValidPayment(job, initr, input, store, nil)
+}
+
+// EnqueueRunAtBlockWithValidPayment creates a run and enqueues it on the run
+// channel with the given block number
+func EnqueueRunAtBlockWithValidPayment(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
+	run, err := BuildRunWithValidPayment(job, initr, input, store)
+
+	if err == nil {
+		err = store.Save(&run)
+		if err == nil {
+			store.RunChannel.Send(run.ID, input, bn)
+		} else {
+			logger.Errorw(err.Error())
+		}
+	}
+
+	return run, err
+}
+
 // executeRunAtBlock starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
