@@ -487,49 +487,6 @@ func TestJobRunner_BuildAndValidateRun(t *testing.T) {
 	}
 }
 
-func TestJobRunner_scheduledRuns(t *testing.T) {
-	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
-	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
-	nullTime := null.Time{Valid: false}
-
-	tests := []struct {
-		name     string
-		startAt  null.Time
-		endAt    null.Time
-		errored  bool
-		runCount int
-	}{
-		{"job not started", futureTime, nullTime, true, 0},
-		{"job started", pastTime, futureTime, false, 1},
-		{"job with no time range", nullTime, nullTime, false, 1},
-		{"job ended", nullTime, pastTime, true, 0},
-	}
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-			job, initr := cltest.NewJobWithWebInitiator()
-			job.StartAt = test.startAt
-			job.EndAt = test.endAt
-			assert.Nil(t, store.SaveJob(&job))
-
-			_, err := services.BeginRun(job, initr, models.RunResult{}, store)
-
-			if test.errored {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-			jrs, err := store.JobRunsFor(job.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, test.runCount, len(jrs))
-		})
-	}
-}
-
 func TestJobRunner_BuildRun(t *testing.T) {
 	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
 	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")

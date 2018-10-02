@@ -177,42 +177,6 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 	return job.NewRun(i), nil
 }
 
-// BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(
-	job models.JobSpec,
-	initr models.Initiator,
-	input models.RunResult,
-	store *store.Store,
-) (models.JobRun, error) {
-	return BeginRunAtBlock(job, initr, input, store, nil)
-}
-
-// BeginRunAtBlock builds and executes a new run if the job is valid with the block number
-// to determine if tasks should be resumed.
-func BeginRunAtBlock(
-	job models.JobSpec,
-	initr models.Initiator,
-	input models.RunResult,
-	store *store.Store,
-	bn *models.IndexableBlockNumber,
-) (models.JobRun, error) {
-	run, err := BuildRun(job, initr, store)
-	if err != nil {
-		return models.JobRun{}, err
-	}
-	if input.Amount != nil &&
-		store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
-		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below minimum threshold (%s)",
-			job.ID,
-			input.Amount,
-			store.Config.MinimumContractPayment.Text(10))
-		run = run.ApplyResult(input.WithError(err))
-		return run, multierr.Append(err, store.Save(&run))
-	}
-	return executeRunAtBlock(run, store, input, bn)
-}
-
 // BuildAndValidateRun builds a new run and validates whether or not the run
 // meets the minimum contract payment.
 func BuildAndValidateRun(
