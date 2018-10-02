@@ -169,12 +169,12 @@ func BuildRun(
 ) (models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
-		return models.JobRun{}, JobRunnerError{
+		return models.JobRun{}, RecurringScheduleJobError{
 			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
 		}
 	}
 	if job.Ended(now) {
-		return models.JobRun{}, JobRunnerError{
+		return models.JobRun{}, RecurringScheduleJobError{
 			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
 		}
 	}
@@ -326,12 +326,12 @@ func wrapError(run models.JobRun, err error) error {
 	return nil
 }
 
-// JobRunnerError contains the field for the error message.
-type JobRunnerError struct {
+// RecurringScheduleJobError contains the field for the error message.
+type RecurringScheduleJobError struct {
 	msg string
 }
 
 // Error returns the error message for the run.
-func (err JobRunnerError) Error() string {
+func (err RecurringScheduleJobError) Error() string {
 	return err.msg
 }
