@@ -52,6 +52,7 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	logs := cltest.ObserveLogs()
 
 	store, cleanupStore := cltest.NewStore()
+	defer cleanupStore()
 	clock := cltest.UseSettableClock(store)
 
 	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
@@ -60,9 +61,8 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	assert.Nil(t, store.Save(&j))
 
 	sched := services.NewScheduler(store)
-	assert.Nil(t, sched.Start())
 	defer sched.Stop()
-	defer cleanupStore()
+	assert.Nil(t, sched.Start())
 
 	gomega.NewGomegaWithT(t).Consistently(func() int {
 		runs, err := store.JobRunsFor(j.ID)
