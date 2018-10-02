@@ -130,11 +130,11 @@ func TestOneTime_AddJob(t *testing.T) {
 	futureTime := cltest.NullTime("3000-01-01T00:00:00.000Z")
 	pastRunTime := time.Now().Add(time.Hour * -1)
 	tests := []struct {
-		name     string
-		startAt  null.Time
-		endAt    null.Time
-		runAt    time.Time
-		wantRuns bool
+		name          string
+		startAt       null.Time
+		endAt         null.Time
+		runAt         time.Time
+		wantCompleted bool
 	}{
 		{"run at before start at", futureTime, nullTime, pastRunTime, false},
 		{"run at before end at", nullTime, futureTime, pastRunTime, true},
@@ -146,6 +146,10 @@ func TestOneTime_AddJob(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
+
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
@@ -170,7 +174,7 @@ func TestOneTime_AddJob(t *testing.T) {
 					completed = true
 				}
 				return completed
-			}).Should(gomega.Equal(test.wantRuns))
+			}).Should(gomega.Equal(test.wantCompleted))
 		})
 	}
 }

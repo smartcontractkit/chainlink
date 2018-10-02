@@ -184,12 +184,18 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 			logger.Error(err.Error())
 			return
 		}
-		run, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
-		if err != nil {
-			logger.Error(err.Error())
-		}
+		run, err := BuildAndValidateRun(job, initr, models.RunResult{}, ot.Store)
 
-		if run.Status == models.RunStatusUnstarted {
+		if err == nil {
+			err = ot.Store.Save(&run)
+
+			if err == nil {
+				ot.Store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+			} else {
+				logger.Error(err.Error())
+			}
+		} else {
+			logger.Error(err.Error())
 			initr.Ran = false
 			if err := ot.Store.Save(&initr); err != nil {
 				logger.Error(err.Error())
