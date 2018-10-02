@@ -10,7 +10,7 @@ require('console.table')
 const CONTENT_TYPE_JSON = 'application/vnd.api+json'
 const FETCH_TIMEOUT = 5000
 const SERVICE_AGREEMENTS_PATH = '/v2/service_agreements'
-const ACCOUNT_BALANCE_PATH = '/v2/account_balance'
+const ACCOUNT_BALANCE_PATH = '/v2/user/balances'
 
 function urlWithPath (t, path) {
   const u = new URL(t)

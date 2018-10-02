@@ -73,7 +73,7 @@ export const getJobSpecRuns = (id, page, size) => get(`/v2/specs/${id}/runs`, {p
 
 export const getJobSpecRun = id => get(`/v2/runs/${id}`)
 
-export const getAccountBalance = () => get('/v2/account_balance')
+export const getAccountBalance = () => get('/v2/user/balances')
 
 export const getConfiguration = () => get('/v2/config')
 
