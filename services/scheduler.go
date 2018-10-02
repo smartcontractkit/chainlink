@@ -141,7 +141,7 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 						return
 					}
 					r.store.RunChannel.Send(run.ID, input, nil)
-				} else if !expectedRecurringError(err) {
+				} else if !expectedRecurringScheduleJobError(err) {
 					logger.Errorw(err.Error())
 				}
 			})
@@ -204,9 +204,9 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	}
 }
 
-func expectedRecurringError(err error) bool {
+func expectedRecurringScheduleJobError(err error) bool {
 	switch err.(type) {
-	case JobRunnerError:
+	case RecurringScheduleJobError:
 		return true
 	default:
 		return false
