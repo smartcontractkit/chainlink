@@ -199,7 +199,22 @@ contract('Oracle', () => {
       })
     })
 
-    context('with a malicious consumer/requester', () => {
+    context('with a malicious requester', () => {
+      const paymentAmount = h.toWei(1)
+      
+      beforeEach(async () => {
+        mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
+        await link.transfer(mock.address, paymentAmount)
+      })
+
+      it('cannot cancel before the expiration', async () => {
+        await h.assertActionThrows(async () => {
+          await mock.maliciousRequestCancel()
+        })
+      })
+    })
+
+    context('with a malicious consumer', () => {
       const paymentAmount = h.toWei(1)
 
       beforeEach(async () => {
