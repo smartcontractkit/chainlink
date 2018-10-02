@@ -37,7 +37,6 @@ type HeadTracker struct {
 	connected                   bool
 	sleeper                     utils.Sleeper
 	done                        chan struct{}
-	disconnected                chan struct{}
 	disconnectedWg              sync.WaitGroup
 	started                     bool
 	connectedWg                 sync.WaitGroup
@@ -70,6 +69,10 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 func (ht *HeadTracker) Start() error {
 	ht.bootMutex.Lock()
 	defer ht.bootMutex.Unlock()
+
+	if ht.started {
+		return nil
+	}
 
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
@@ -186,18 +189,16 @@ func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 }
 
 func (ht *HeadTracker) connectToHead() error {
-	ht.disconnected = make(chan struct{})
 	ht.headers = make(chan models.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connectedWg.Add(2)
-	go ht.listenToSubscriptionErrors()
+	ht.connectedWg.Add(1)
 	go ht.listenToNewHeads()
 	ht.connectedWg.Wait()
-	ht.disconnectedWg.Add(2)
+	ht.disconnectedWg.Add(1)
 	ht.connected = true
 	ht.connect(ht.Head())
 	return nil
@@ -209,27 +210,12 @@ func (ht *HeadTracker) disconnectFromHead() error {
 	}
 
 	ht.headSubscription.Unsubscribe()
-	close(ht.disconnected)
-	ht.disconnectedWg.Wait()
-
 	close(ht.headers)
-	ht.connected = false
+	ht.disconnectedWg.Wait()
 	ht.disconnect()
-	return nil
-}
 
-func (ht *HeadTracker) listenToSubscriptionErrors() {
-	ht.connectedWg.Done()
-	select {
-	case err := <-ht.headSubscription.Err():
-		ht.disconnectedWg.Done()
-		if err != nil {
-			logger.Errorw("Error in new head subscription, disconnected", "err", err)
-			ht.connectionRequest <- struct{}{}
-		}
-	case <-ht.disconnected:
-		ht.disconnectedWg.Done()
-	}
+	ht.connected = false
+	return nil
 }
 
 func (ht *HeadTracker) updateBlockHeader() {
@@ -247,8 +233,6 @@ func (ht *HeadTracker) updateBlockHeader() {
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
-	defer ht.disconnectedWg.Done()
-
 	ht.updateBlockHeader()
 	number := ht.Head()
 	if number != nil {
@@ -256,9 +240,13 @@ func (ht *HeadTracker) listenToNewHeads() {
 	}
 
 	ht.connectedWg.Done()
+	defer ht.disconnectedWg.Done()
 	for {
 		select {
-		case header := <-ht.headers:
+		case header, open := <-ht.headers:
+			if !open {
+				return
+			}
 			number := header.ToIndexableBlockNumber()
 			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
 			if err := ht.Save(number); err != nil {
@@ -266,18 +254,21 @@ func (ht *HeadTracker) listenToNewHeads() {
 			} else {
 				ht.onNewHead(&header)
 			}
-		case <-ht.disconnected:
-			return
+		case err, open := <-ht.headSubscription.Err():
+			if open && err != nil {
+				logger.Errorw("Error in new head subscription, disconnected", "err", err)
+				ht.connectionRequest <- struct{}{}
+			}
 		}
 	}
 }
 
 func (ht *HeadTracker) connectionRequestListener() {
 	defer ht.connectionRequestListenerWg.Done()
+	defer ht.disconnectFromHead()
 	for {
 		select {
 		case <-ht.done:
-			ht.disconnectFromHead()
 			return
 		case <-ht.connectionRequest:
 			if !ht.reconnectionPoll() {
