@@ -13,7 +13,7 @@ contract Chainlinked {
   uint256 constant private clArgsVersion = 1;
   uint256 constant private linkDivisibility = 10**18;
 
-  LinkToken private link;
+  LinkToken internal link;
   Oracle private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
