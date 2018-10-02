@@ -31,16 +31,16 @@ type HeadTracker struct {
 	headers          chan models.BlockHeader
 	headSubscription models.EthSubscription
 	store            *store.Store
-	number           *models.IndexableBlockNumber
+	head             *models.IndexableBlockNumber
 	headMutex        sync.RWMutex
 	trackersMutex    sync.RWMutex
 	connected        bool
 	sleeper          utils.Sleeper
 	done             chan struct{}
 	disconnected     chan struct{}
-	stopper          sync.WaitGroup
+	disconnectedWg   sync.WaitGroup
 	started          bool
-	starter          sync.WaitGroup
+	connectedWg      sync.WaitGroup
 	bootMutex        sync.Mutex
 }
 
@@ -74,7 +74,9 @@ func (ht *HeadTracker) Start() error {
 		return err
 	}
 	if len(numbers) > 0 {
-		ht.number = &numbers[0]
+		ht.headMutex.Lock()
+		ht.head = &numbers[0]
+		ht.headMutex.Unlock()
 	}
 
 	ht.done = make(chan struct{})
@@ -90,11 +92,13 @@ func (ht *HeadTracker) connectToHead() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connect(ht.number)
-	ht.starter.Add(2)
+	ht.connectedWg.Add(2)
 	go ht.listenToSubscriptionErrors()
 	go ht.listenToNewHeads()
-	ht.starter.Wait()
+	ht.connectedWg.Wait()
+	ht.disconnectedWg.Add(2)
+	ht.connected = true
+	ht.connect(ht.Head())
 	return nil
 }
 
@@ -114,16 +118,16 @@ func (ht *HeadTracker) Stop() error {
 }
 
 func (ht *HeadTracker) disconnectFromHead() error {
-	if ht.headSubscription == nil {
+	if !ht.connected {
 		return nil
 	}
 
 	ht.headSubscription.Unsubscribe()
 	close(ht.disconnected)
-	ht.stopper.Wait()
+	ht.disconnectedWg.Wait()
 
 	close(ht.headers)
-	ht.headSubscription = nil
+	ht.connected = false
 	ht.disconnect()
 	return nil
 }
@@ -136,19 +140,19 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 	}
 
 	ht.headMutex.Lock()
-	if n.GreaterThan(ht.number) {
+	if n.GreaterThan(ht.head) {
 		copy := *n
-		ht.number = &copy
+		ht.head = &copy
 	}
 	ht.headMutex.Unlock()
 	return ht.store.Save(n)
 }
 
-// LastRecord returns the latest block header being tracked, or nil.
-func (ht *HeadTracker) LastRecord() *models.IndexableBlockNumber {
+// Head returns the latest block header being tracked, or nil.
+func (ht *HeadTracker) Head() *models.IndexableBlockNumber {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
-	return ht.number
+	return ht.head
 }
 
 // Attach registers an object that will have HeadTrackable events fired on occurence,
@@ -159,7 +163,7 @@ func (ht *HeadTracker) Attach(t HeadTrackable) string {
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
 	if ht.connected {
-		t.Connect(ht.LastRecord())
+		t.Connect(ht.Head())
 	}
 	return id
 }
@@ -181,7 +185,6 @@ func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
-	ht.connected = true
 	for _, t := range ht.trackers {
 		logger.WarnIf(t.Connect(bn))
 	}
@@ -190,7 +193,6 @@ func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
 func (ht *HeadTracker) disconnect() {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
-	ht.connected = false
 	for _, t := range ht.trackers {
 		t.Disconnect()
 	}
@@ -205,17 +207,16 @@ func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 }
 
 func (ht *HeadTracker) listenToSubscriptionErrors() {
-	ht.stopper.Add(1)
-	ht.starter.Done()
+	ht.connectedWg.Done()
 	select {
 	case err := <-ht.headSubscription.Err():
-		ht.stopper.Done()
+		ht.disconnectedWg.Done()
 		if err != nil {
 			logger.Errorw("Error in new head subscription, disconnected", "err", err)
 			ht.reconnectLoop()
 		}
 	case <-ht.disconnected:
-		ht.stopper.Done()
+		ht.disconnectedWg.Done()
 	}
 }
 
@@ -227,24 +228,22 @@ func (ht *HeadTracker) updateBlockHeader() {
 	}
 
 	bn := header.ToIndexableBlockNumber()
-	if bn.GreaterThan(ht.LastRecord()) {
+	if bn.GreaterThan(ht.Head()) {
 		logger.Debug("Fast forwarding to block header ", presenters.FriendlyBigInt(bn.ToInt()))
 		ht.Save(bn)
 	}
 }
 
 func (ht *HeadTracker) listenToNewHeads() {
-	ht.stopper.Add(1)
-	defer ht.stopper.Done()
+	defer ht.disconnectedWg.Done()
 
 	ht.updateBlockHeader()
-	ht.headMutex.RLock()
-	if ht.number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(ht.number.ToInt()), " with hash ", ht.number.Hash.String())
+	number := ht.Head()
+	if number != nil {
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.String())
 	}
-	ht.headMutex.RUnlock()
 
-	ht.starter.Done()
+	ht.connectedWg.Done()
 	for {
 		select {
 		case header := <-ht.headers:
