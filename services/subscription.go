@@ -29,8 +29,6 @@ const (
 	RunLogTopicAmount
 )
 
-const evmWordBytesSize = 32
-
 // RunLogTopic is the signature for the RunRequest(...) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
@@ -398,7 +396,7 @@ func fulfillmentToJSON(el types.Log) (models.JSON, error) {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", parseRequestID(el.Data))
+	js, err = js.Add("dataPrefix", encodeRequestID(el.Data))
 	if err != nil {
 		return js, err
 	}
@@ -436,19 +434,17 @@ func (le InitiatorSubscriptionLogEvent) Requester() common.Address {
 	return common.BytesToAddress(b)
 }
 
-func parseRequestID(data hexutil.Bytes) string {
-	parsedID := []byte(data)[:evmWordBytesSize]
-	return utils.AddHexPrefix(hex.EncodeToString(parsedID))
+func encodeRequestID(data []byte) string {
+	return utils.AddHexPrefix(hex.EncodeToString(data[:common.HashLength]))
 }
 
-func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
-	idSize := evmWordBytesSize
-	versionSize := evmWordBytesSize
-	varLocationSize := evmWordBytesSize
-	varLengthSize := evmWordBytesSize
-	prefix := idSize + versionSize + varLocationSize + varLengthSize
-	hex := []byte(string([]byte(data)[prefix:]))
-	return models.ParseCBOR(hex)
+func decodeABIToJSON(data []byte) (models.JSON, error) {
+	idSize := common.HashLength
+	versionSize := common.HashLength
+	varLocationSize := common.HashLength
+	varLengthSize := common.HashLength
+	start := idSize + versionSize + varLocationSize + varLengthSize
+	return models.ParseCBOR(data[start:])
 }
 
 func isRunLog(log types.Log) bool {
