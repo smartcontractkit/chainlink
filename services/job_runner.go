@@ -255,7 +255,12 @@ func executeRunAtBlock(
 	return jr, wrapError(jr, store.Save(&jr))
 }
 
-func prepareJobRun(jr models.JobRun, store *store.Store, overrides models.RunResult, bn *models.IndexableBlockNumber) (models.JobRun, error) {
+func prepareJobRun(
+	jr models.JobRun,
+	store *store.Store,
+	overrides models.RunResult,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
 	if jr.Status.CanStart() {
 		jr.Status = models.RunStatusInProgress
 	} else {
