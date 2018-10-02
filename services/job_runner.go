@@ -218,23 +218,23 @@ func executeRunAtBlock(
 ) (models.JobRun, error) {
 	jr, err := prepareJobRun(jr, store, overrides, bn)
 	if err != nil {
-		return jr, wrapError(jr, err)
+		return jr, wrapExecuteRunAtBlockError(jr, err)
 	}
 	logger.Infow("Starting job", jr.ForLogger()...)
 	unfinished := jr.UnfinishedTaskRuns()
 	if len(unfinished) == 0 {
-		return jr, wrapError(jr, errors.New("No unfinished tasks to run"))
+		return jr, wrapExecuteRunAtBlockError(jr, errors.New("No unfinished tasks to run"))
 	}
 	offset := len(jr.TaskRuns) - len(unfinished)
 	prevResult, err := unfinished[0].Result.Merge(jr.Overrides)
 	if err != nil {
-		return jr, wrapError(jr, err)
+		return jr, wrapExecuteRunAtBlockError(jr, err)
 	}
 
 	for i, taskRunTemplate := range unfinished {
 		nextTaskRun, err := taskRunTemplate.MergeTaskParams(jr.Overrides.Data)
 		if err != nil {
-			return jr, wrapError(jr, err)
+			return jr, wrapExecuteRunAtBlockError(jr, err)
 		}
 
 		lastRun := markCompletedIfRunnable(startTask(jr, nextTaskRun, prevResult, bn, store))
@@ -243,7 +243,7 @@ func executeRunAtBlock(
 		prevResult = lastRun.Result
 
 		if err := store.Save(&jr); err != nil {
-			return jr, wrapError(jr, err)
+			return jr, wrapExecuteRunAtBlockError(jr, err)
 		}
 		if !lastRun.Status.Runnable() {
 			break
@@ -252,7 +252,7 @@ func executeRunAtBlock(
 
 	jr = jr.ApplyResult(prevResult)
 	logger.Infow("Finished current job run execution", jr.ForLogger()...)
-	return jr, wrapError(jr, store.Save(&jr))
+	return jr, wrapExecuteRunAtBlockError(jr, store.Save(&jr))
 }
 
 func prepareJobRun(
@@ -319,7 +319,7 @@ func startTask(
 	return tr.ApplyResult(adapter.Perform(input, store))
 }
 
-func wrapError(run models.JobRun, err error) error {
+func wrapExecuteRunAtBlockError(run models.JobRun, err error) error {
 	if err != nil {
 		return fmt.Errorf("executeRunAtBlock: Job#%v: %v", run.JobID, err)
 	}
