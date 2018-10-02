@@ -223,40 +223,39 @@ func TestJobRunner_Run(t *testing.T) {
 	}
 }
 
-func TestJobRunner_startingStatus(t *testing.T) {
+func TestJobRunner_ExecuteRunAtBlock_startingStatus(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		initialStatus  models.RunStatus
-		afterRunStatus models.RunStatus
+		status    models.RunStatus
+		wantError bool
 	}{
-		{models.RunStatusUnstarted, models.RunStatusCompleted},
-		{models.RunStatusInProgress, models.RunStatusInProgress},
-		{models.RunStatusPendingConfirmations, models.RunStatusCompleted},
-		{models.RunStatusPendingSleep, models.RunStatusCompleted},
-		{models.RunStatusPendingBridge, models.RunStatusCompleted},
-		{models.RunStatusErrored, models.RunStatusErrored},
-		{models.RunStatusCompleted, models.RunStatusCompleted},
+		{models.RunStatusUnstarted, false},
+		{models.RunStatusInProgress, true},
+		{models.RunStatusPendingConfirmations, false},
+		{models.RunStatusPendingSleep, false},
+		{models.RunStatusPendingBridge, false},
+		{models.RunStatusErrored, true},
+		{models.RunStatusCompleted, true},
 	}
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	jobRunner, cleanup := cltest.NewJobRunner(store)
-	defer cleanup()
-	jobRunner.Start()
 
 	for _, test := range tests {
-		t.Run(string(test.initialStatus), func(t *testing.T) {
+		t.Run(string(test.status), func(t *testing.T) {
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
-			run.Status = test.initialStatus
-			assert.NoError(t, store.Save(&run))
 
-			store.RunChannel.Send(run.ID, models.RunResult{}, nil)
-			cltest.WaitForJobRunStatus(t, store, run, test.afterRunStatus)
+			run.Status = test.status
 
-			updatedRun := cltest.FindJobRun(store, run.ID)
-			assert.Equal(t, test.afterRunStatus, updatedRun.Status)
+			run, err := services.ExportedExecuteRunAtBlock(run, store, models.RunResult{}, nil)
+			if test.wantError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "Unable to start with status")
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
