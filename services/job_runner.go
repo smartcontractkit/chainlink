@@ -162,7 +162,11 @@ func (rm *jobRunner) workerCount() int {
 
 // BuildRun checks to ensure the given job has not started or ended before
 // creating a new run for the job.
-func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (models.JobRun, error) {
+func BuildRun(
+	job models.JobSpec,
+	i models.Initiator,
+	store *store.Store,
+) (models.JobRun, error) {
 	now := store.Clock.Now()
 	if !job.Started(now) {
 		return models.JobRun{}, JobRunnerError{
@@ -177,9 +181,9 @@ func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (model
 	return job.NewRun(i), nil
 }
 
-// BuildAndValidateRun builds a new run and validates whether or not the run
-// meets the minimum contract payment.
-func BuildAndValidateRun(
+// BuildRunWithValidPayment builds a new run and validates whether or not the
+// run meets the minimum contract payment.
+func BuildRunWithValidPayment(
 	job models.JobSpec,
 	initr models.Initiator,
 	input models.RunResult,
