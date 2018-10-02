@@ -226,7 +226,6 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 type ManagedSubscription struct {
 	store           *store.Store
 	logs            chan types.Log
-	errors          chan error
 	ethSubscription models.EthSubscription
 	callback        func(types.Log)
 }
@@ -249,9 +248,7 @@ func NewManagedSubscription(
 		callback:        callback,
 		logs:            logs,
 		ethSubscription: es,
-		errors:          make(chan error),
 	}
-	go sub.listenToSubscriptionErrors()
 	go sub.listenToLogs(filter)
 	return sub, nil
 }
@@ -262,20 +259,23 @@ func (sub ManagedSubscription) Unsubscribe() {
 		sub.ethSubscription.Unsubscribe()
 	}
 	close(sub.logs)
-	close(sub.errors)
-}
-
-func (sub ManagedSubscription) listenToSubscriptionErrors() {
-	for err := range sub.errors {
-		logger.Errorw(fmt.Sprintf("Error in log subscription: %s", err.Error()), "err", err)
-	}
 }
 
 func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	backfilledSet := sub.backfillLogs(q)
-	for log := range sub.logs {
-		if _, present := backfilledSet[log.BlockHash.String()]; !present {
-			sub.callback(log)
+	for {
+		select {
+		case log, open := <-sub.logs:
+			if !open {
+				return
+			}
+			if _, present := backfilledSet[log.BlockHash.String()]; !present {
+				sub.callback(log)
+			}
+		case err, ok := <-sub.ethSubscription.Err():
+			if ok {
+				logger.Errorw(fmt.Sprintf("Error in log subscription: %s", err.Error()), "err", err)
+			}
 		}
 	}
 }
