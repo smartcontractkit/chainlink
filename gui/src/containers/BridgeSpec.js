@@ -24,28 +24,31 @@ const styles = theme => ({
   }
 })
 
-const renderBridgeSpec = ({ classes, name, url, confirmations, incomingToken, outgoingToken }) => (
+const renderBridgeSpec = props => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
-        <Typography variant='title' className={classes.definitionTitle}>
+        <Typography variant='title' className={props.classes.definitionTitle}>
           Bridge Info:
         </Typography>
         <Grid>
           <Typography variant='subheading' color='textSecondary'>Name</Typography>
-          <Typography variant='body1' color='inherit'>{name}</Typography>
+          <Typography variant='body1' color='inherit'>{props.name}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>URL</Typography>
-          <Typography variant='body1' color='inherit'>{url}</Typography>
+          <Typography variant='body1' color='inherit'>{props.url}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Confirmations</Typography>
-          <Typography variant='body1' color='inherit'>{confirmations}</Typography>
+          <Typography variant='body1' color='inherit'>{props.confirmations}</Typography>
+
+          <Typography variant='subheading' color='textSecondary'>Minimum Contract Payment</Typography>
+          <Typography variant='body1' color='inherit'>{props.minimumContractPayment}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Incoming Token</Typography>
-          <Typography variant='body1' color='inherit'>{incomingToken}</Typography>
+          <Typography variant='body1' color='inherit'>{props.incomingToken}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Outgoing Token</Typography>
-          <Typography variant='body1' color='inherit'>{outgoingToken}</Typography>
+          <Typography variant='body1' color='inherit'>{props.outgoingToken}</Typography>
         </Grid>
       </PaddedCard>
     </Grid>
@@ -95,11 +98,12 @@ BridgeSpec.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
   return {
     name: state.bridgeSpec.name,
     url: state.bridgeSpec.url,
     confirmations: state.bridgeSpec.confirmations,
+    minimumContractPayment: state.bridgeSpec.minimumContractPayment,
     incomingToken: state.bridgeSpec.incomingToken,
     outgoingToken: state.bridgeSpec.outgoingToken
   }

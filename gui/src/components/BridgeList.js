@@ -12,13 +12,13 @@ import Typography from '@material-ui/core/Typography'
 
 const renderFetching = () => (
   <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>...</TableCell>
+    <TableCell component='th' scope='row' colSpan={4}>...</TableCell>
   </TableRow>
 )
 
 const renderError = error => (
   <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>
+    <TableCell component='th' scope='row' colSpan={4}>
       {error}
     </TableCell>
   </TableRow>
@@ -37,6 +37,9 @@ const renderBridges = bridges => (
       </TableCell>
       <TableCell>
         <Typography variant='body1'>{bridge.confirmations}</Typography>
+      </TableCell>
+      <TableCell>
+        <Typography variant='body1'>{bridge.minimumContractPayment}</Typography>
       </TableCell>
     </TableRow>
   ))
@@ -77,13 +80,24 @@ export class BridgeList extends Component {
           <TableHead>
             <TableRow>
               <TableCell>
-                <Typography variant='body1' color='textSecondary'>Name</Typography>
+                <Typography variant='body1' color='textSecondary'>
+                  Name
+                </Typography>
               </TableCell>
               <TableCell>
-                <Typography variant='body1' color='textSecondary'>URL</Typography>
+                <Typography variant='body1' color='textSecondary'>
+                  URL
+                </Typography>
               </TableCell>
               <TableCell>
-                <Typography variant='body1' color='textSecondary'>Default Confirmations</Typography>
+                <Typography variant='body1' color='textSecondary'>
+                  Default Confirmations
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant='body1' color='textSecondary'>
+                  Minimum Contract Payment
+                </Typography>
               </TableCell>
             </TableRow>
           </TableHead>
