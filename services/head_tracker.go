@@ -27,23 +27,20 @@ type HeadTrackable interface {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	trackers                    map[string]HeadTrackable
-	headers                     chan models.BlockHeader
-	headSubscription            models.EthSubscription
-	store                       *store.Store
-	head                        *models.IndexableBlockNumber
-	headMutex                   sync.RWMutex
-	trackersMutex               sync.RWMutex
-	connected                   bool
-	sleeper                     utils.Sleeper
-	done                        chan struct{}
-	disconnectedWg              sync.WaitGroup
-	started                     bool
-	connectedWg                 sync.WaitGroup
-	connectionRequestListenerWg sync.WaitGroup
-	connectionRequest           chan struct{}
-	connectionSucceeded         chan struct{}
-	bootMutex                   sync.Mutex
+	trackers              map[string]HeadTrackable
+	headers               chan models.BlockHeader
+	headSubscription      models.EthSubscription
+	store                 *store.Store
+	head                  *models.IndexableBlockNumber
+	headMutex             sync.RWMutex
+	trackersMutex         sync.RWMutex
+	connected             bool
+	sleeper               utils.Sleeper
+	done                  chan struct{}
+	started               bool
+	newHeadListenerWg     sync.WaitGroup
+	subscriptionSucceeded chan struct{}
+	bootMutex             sync.Mutex
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -74,25 +71,22 @@ func (ht *HeadTracker) Start() error {
 		return nil
 	}
 
-	numbers := []models.IndexableBlockNumber{}
-	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
-	if err != nil && err != storm.ErrNotFound {
+	if err := ht.updateHeadFromDb(); err != nil {
 		return err
 	}
-	if len(numbers) > 0 {
-		ht.headMutex.Lock()
-		ht.head = &numbers[0]
-		ht.headMutex.Unlock()
+	ht.fastForwardHeadFromEth()
+	number := ht.Head()
+	if number != nil {
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.String())
 	}
 
 	ht.done = make(chan struct{})
-	ht.connectionRequest = make(chan struct{})
-	ht.connectionSucceeded = make(chan struct{})
+	ht.subscriptionSucceeded = make(chan struct{})
 
-	ht.connectionRequestListenerWg.Add(1)
-	go ht.connectionRequestListener()
-	ht.connectionRequest <- struct{}{}
-	<-ht.connectionSucceeded
+	ht.newHeadListenerWg.Add(1)
+	go ht.newHeadListener()
+	<-ht.subscriptionSucceeded
+
 	ht.started = true
 	return nil
 }
@@ -107,9 +101,8 @@ func (ht *HeadTracker) Stop() error {
 	}
 
 	close(ht.done)
-	ht.connectionRequestListenerWg.Wait()
-	close(ht.connectionRequest)
-	close(ht.connectionSucceeded)
+	ht.newHeadListenerWg.Wait()
+	close(ht.subscriptionSucceeded)
 	ht.started = false
 	return nil
 }
@@ -188,37 +181,91 @@ func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 	}
 }
 
-func (ht *HeadTracker) connectToHead() error {
+func (ht *HeadTracker) newHeadListener() {
+	defer ht.newHeadListenerWg.Done()
+	defer ht.unsubscribeFromHead()
+
+	for {
+		ht.reconnectionPoll()
+
+	ConnectedLoop:
+		for {
+			select {
+			case <-ht.done:
+				return
+			case header, open := <-ht.headers:
+				if !open {
+					break ConnectedLoop
+				}
+				number := header.ToIndexableBlockNumber()
+				logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
+				if err := ht.Save(number); err != nil {
+					logger.Error(err.Error())
+				} else {
+					ht.onNewHead(&header)
+				}
+			case err, open := <-ht.headSubscription.Err():
+				if open && err != nil {
+					logger.Errorw("Error in new head subscription, disconnected", "err", err)
+					break ConnectedLoop
+				}
+			}
+		}
+	}
+}
+
+// reconnectionPoll periodically attempts to connect to the ethereum node via websocket.
+// It returns true on success, and false if cut short by a done request and did not connect.
+func (ht *HeadTracker) reconnectionPoll() {
+	ht.sleeper.Reset()
+	for {
+		ht.unsubscribeFromHead()
+		logger.Info("Connecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
+		select {
+		case <-ht.done:
+			return
+		case <-time.After(ht.sleeper.After()):
+			err := ht.subscribeToHead()
+			if err != nil {
+				logger.Errorw(fmt.Sprintf("Error connecting to %v", ht.store.Config.EthereumURL), "err", err)
+			} else {
+				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
+				select {
+				case ht.subscriptionSucceeded <- struct{}{}:
+				default:
+				}
+				return
+			}
+		}
+	}
+}
+
+func (ht *HeadTracker) subscribeToHead() error {
 	ht.headers = make(chan models.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connectedWg.Add(1)
-	go ht.listenToNewHeads()
-	ht.connectedWg.Wait()
-	ht.disconnectedWg.Add(1)
 	ht.connected = true
 	ht.connect(ht.Head())
 	return nil
 }
 
-func (ht *HeadTracker) disconnectFromHead() error {
+func (ht *HeadTracker) unsubscribeFromHead() error {
 	if !ht.connected {
 		return nil
 	}
 
 	timedUnsubscribe(ht.headSubscription)
-	close(ht.headers)
-	ht.disconnectedWg.Wait()
 	ht.disconnect()
+	close(ht.headers)
 
 	ht.connected = false
 	return nil
 }
 
-func (ht *HeadTracker) updateBlockHeader() {
+func (ht *HeadTracker) fastForwardHeadFromEth() {
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
 		logger.Errorw("Unable to update latest block header", "err", err)
@@ -232,74 +279,16 @@ func (ht *HeadTracker) updateBlockHeader() {
 	}
 }
 
-func (ht *HeadTracker) listenToNewHeads() {
-	ht.updateBlockHeader()
-	number := ht.Head()
-	if number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.String())
+func (ht *HeadTracker) updateHeadFromDb() error {
+	numbers := []models.IndexableBlockNumber{}
+	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
+	if err != nil && err != storm.ErrNotFound {
+		return err
 	}
-
-	ht.connectedWg.Done()
-	defer ht.disconnectedWg.Done()
-	for {
-		select {
-		case header, open := <-ht.headers:
-			if !open {
-				return
-			}
-			number := header.ToIndexableBlockNumber()
-			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
-			if err := ht.Save(number); err != nil {
-				logger.Error(err.Error())
-			} else {
-				ht.onNewHead(&header)
-			}
-		case err, open := <-ht.headSubscription.Err():
-			if open && err != nil {
-				logger.Errorw("Error in new head subscription, disconnected", "err", err)
-				ht.connectionRequest <- struct{}{}
-			}
-		}
+	if len(numbers) > 0 {
+		ht.headMutex.Lock()
+		ht.head = &numbers[0]
+		ht.headMutex.Unlock()
 	}
-}
-
-func (ht *HeadTracker) connectionRequestListener() {
-	defer ht.connectionRequestListenerWg.Done()
-	defer ht.disconnectFromHead()
-	for {
-		select {
-		case <-ht.done:
-			return
-		case <-ht.connectionRequest:
-			if !ht.reconnectionPoll() {
-				return
-			}
-		}
-	}
-}
-
-// reconnectionPoll periodically attempts to connect to an ethereum node. It returns true
-// on success, and false if cut short by a done request and did not connect.
-func (ht *HeadTracker) reconnectionPoll() bool {
-	ht.sleeper.Reset()
-	for {
-		ht.disconnectFromHead()
-		logger.Info("Connecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
-		select {
-		case <-ht.done:
-			return false
-		case <-time.After(ht.sleeper.After()):
-			err := ht.connectToHead()
-			if err != nil {
-				logger.Errorw(fmt.Sprintf("Error connecting to %v", ht.store.Config.EthereumURL), "err", err)
-			} else {
-				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
-				select {
-				case ht.connectionSucceeded <- struct{}{}:
-				default:
-				}
-				return true
-			}
-		}
-	}
+	return nil
 }
