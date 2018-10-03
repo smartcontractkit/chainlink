@@ -472,3 +472,38 @@ func setupWithdrawalsApplication() (*cltest.TestApplication, func()) {
 func first(a models.JobSpec, b interface{}) models.JobSpec {
 	return a
 }
+
+func TestClient_ChangePassword(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+
+	client := app.NewAuthenticatingClient(prompter)
+	otherClient := app.NewAuthenticatingClient(prompter)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "../internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	assert.NoError(t, err)
+
+	err = otherClient.RemoteLogin(c)
+	assert.NoError(t, err)
+
+	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
+		ChangePasswordRequest: models.ChangePasswordRequest{
+			OldPassword: cltest.Password,
+			NewPassword: "password",
+		},
+	}
+	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
+	assert.NoError(t, err)
+
+	// otherClient should now be logged out
+	err = otherClient.GetBridges(c)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "401 Unauthorized")
+}

@@ -35,6 +35,7 @@ type Client struct {
 	CookieAuthenticator            CookieAuthenticator
 	FileSessionRequestBuilder      SessionRequestBuilder
 	PromptingSessionRequestBuilder SessionRequestBuilder
+	ChangePasswordPrompter         ChangePasswordPrompter
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -173,17 +174,18 @@ type CookieAuthenticator interface {
 // that retrieves a session id for the user with credentials from the session request.
 type SessionCookieAuthenticator struct {
 	config store.Config
+	store  CookieStore
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(cfg store.Config) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: cfg}
+func NewSessionCookieAuthenticator(config store.Config, store CookieStore) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store}
 }
 
 // Cookie Returns the previously saved authentication cookie.
 func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
-	return t.retrieveCookieFromDisk()
+	return t.store.Retrieve()
 }
 
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
@@ -216,15 +218,44 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	if len(cookies) == 0 {
 		return nil, errors.New("Did not receive cookie with session id")
 	}
-	return cookies[0], t.saveCookieToDisk(cookies[0])
+	return cookies[0], t.store.Save(cookies[0])
 }
 
-func (t *SessionCookieAuthenticator) saveCookieToDisk(cookie *http.Cookie) error {
-	return ioutil.WriteFile(t.cookiePath(), []byte(cookie.String()), 0660)
+// CookieStore is a place to store and retrieve cookies.
+type CookieStore interface {
+	Save(cookie *http.Cookie) error
+	Retrieve() (*http.Cookie, error)
 }
 
-func (t *SessionCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(t.cookiePath())
+// MemoryCookieStore keeps a single cookie in memory
+type MemoryCookieStore struct {
+	Cookie *http.Cookie
+}
+
+// Save stores a cookie.
+func (m *MemoryCookieStore) Save(cookie *http.Cookie) error {
+	m.Cookie = cookie
+	return nil
+}
+
+// Retrieve returns any Saved cookies.
+func (m *MemoryCookieStore) Retrieve() (*http.Cookie, error) {
+	return m.Cookie, nil
+}
+
+// DiskCookieStore saves a single cookie in the local cli working directory.
+type DiskCookieStore struct {
+	Config store.Config
+}
+
+// Save stores a cookie.
+func (d DiskCookieStore) Save(cookie *http.Cookie) error {
+	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0660)
+}
+
+// Retrieve returns any Saved cookies.
+func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
+	b, err := ioutil.ReadFile(d.cookiePath())
 	if err != nil {
 		return nil, multierr.Append(errors.New("Unable to retrieve credentials, have you logged in?"), err)
 	}
@@ -238,8 +269,8 @@ func (t *SessionCookieAuthenticator) retrieveCookieFromDisk() (*http.Cookie, err
 	return request.Cookies()[0], nil
 }
 
-func (t *SessionCookieAuthenticator) cookiePath() string {
-	return path.Join(t.config.RootDir, "cookie")
+func (d DiskCookieStore) cookiePath() string {
+	return path.Join(d.Config.RootDir, "cookie")
 }
 
 // SessionRequestBuilder is an interface that returns a SessionRequest,
@@ -362,4 +393,39 @@ func credentialsFromFile(file string) (models.SessionRequest, error) {
 		Password: strings.TrimSpace(lines[1]),
 	}
 	return credentials, nil
+}
+
+// ChangePasswordPrompter is an interface primarily used for DI to obtain a
+// password change request from the User.
+type ChangePasswordPrompter interface {
+	Prompt() (models.ChangePasswordRequest, error)
+}
+
+// NewChangePasswordPrompter returns the production password change request prompter
+func NewChangePasswordPrompter() ChangePasswordPrompter {
+	prompter := NewTerminalPrompter()
+	return changePasswordPrompter{prompter: prompter}
+}
+
+type changePasswordPrompter struct {
+	prompter Prompter
+}
+
+func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
+	fmt.Println("Changing your chainlink account password.")
+	fmt.Println("NOTE: This will terminate any other sessions.")
+	oldPassword := c.prompter.PasswordPrompt("Password:")
+
+	fmt.Println("Now enter your **NEW** password")
+	newPassword := c.prompter.PasswordPrompt("Password:")
+	confirmPassword := c.prompter.PasswordPrompt("Confirmation:")
+
+	if newPassword != confirmPassword {
+		return models.ChangePasswordRequest{}, errors.New("New password and confirmation did not match")
+	}
+
+	return models.ChangePasswordRequest{
+		OldPassword: oldPassword,
+		NewPassword: newPassword,
+	}, nil
 }

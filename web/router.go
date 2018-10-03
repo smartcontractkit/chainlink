@@ -147,6 +147,10 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 
 	authv2 := engine.Group("/v2", authRequired(app.Store))
 	{
+		uc := UserController{app}
+		authv2.PATCH("/user/password", uc.UpdatePassword)
+		// FIXME: "/account/balance" should probably go here at some point
+
 		j := JobSpecsController{app}
 		authv2.GET("/specs", j.Index)
 		authv2.POST("/specs", j.Create)
@@ -278,7 +282,11 @@ func readBody(reader io.Reader) string {
 	return s
 }
 
-var blacklist = map[string]struct{}{"password": struct{}{}}
+var blacklist = map[string]struct{}{
+	"password":    struct{}{},
+	"newPassword": struct{}{},
+	"oldPassword": struct{}{},
+}
 
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 	var dst map[string]interface{}
