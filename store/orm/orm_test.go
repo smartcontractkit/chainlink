@@ -3,7 +3,6 @@ package orm_test
 import (
 	"encoding/hex"
 	"math/big"
-	"net/url"
 	"testing"
 	"time"
 
@@ -250,9 +249,7 @@ func TestFindBridge(t *testing.T) {
 
 	tt := models.BridgeType{}
 	tt.Name = models.MustNewTaskType("solargridreporting")
-	u, err := url.Parse("https://denergy.eth")
-	assert.NoError(t, err)
-	tt.URL = models.WebURL{URL: u}
+	tt.URL = cltest.WebURL("https://denergy.eth")
 	assert.NoError(t, store.Save(&tt))
 
 	cases := []struct {
