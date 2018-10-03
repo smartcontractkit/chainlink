@@ -10,7 +10,8 @@
     "lint-ci": "standard --verbose | snazzy",
     "test": "NODE_ENV=test jest",
     "test-ci": "NODE_ENV=test yarn jest -i --reporters jest-silent-reporter",
-    "watch": "NODE_ENV=test jest --watchAll --notify"
+    "watch": "NODE_ENV=test jest --watchAll --notify",
+    "flatten": "./internal/bin/flatten-ropsten"
   },
   "dependencies": {
     "change-case": "^3.0.2",
