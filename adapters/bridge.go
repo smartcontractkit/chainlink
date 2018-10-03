@@ -24,13 +24,13 @@ type Bridge struct {
 //
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
-func (ba *Bridge) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if input.Status.Finished() {
 		return input
 	} else if input.Status.PendingBridge() {
 		return resumeBridge(input)
 	}
-	return ba.handleNewRun(input)
+	return ba.handleNewRun(input, store.Config.BridgeResponseURL)
 }
 
 func resumeBridge(input models.RunResult) models.RunResult {
@@ -38,7 +38,7 @@ func resumeBridge(input models.RunResult) models.RunResult {
 	return input
 }
 
-func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
+func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL models.WebURL) models.RunResult {
 	var err error
 	if ba.Params != nil {
 		input.Data, err = input.Data.Merge(*ba.Params)
@@ -47,7 +47,11 @@ func (ba *Bridge) handleNewRun(input models.RunResult) models.RunResult {
 		}
 	}
 
-	body, err := ba.postToExternalAdapter(input)
+	responseURL := bridgeResponseURL
+	if (responseURL != models.WebURL{}) {
+		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID)
+	}
+	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
 		return baRunResultError(input, "post to external adapter", err)
 	}
@@ -70,8 +74,11 @@ func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
 	return rr
 }
 
-func (ba *Bridge) postToExternalAdapter(input models.RunResult) ([]byte, error) {
-	in, err := json.Marshal(&bridgeOutgoing{input})
+func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL models.WebURL) ([]byte, error) {
+	in, err := json.Marshal(&bridgeOutgoing{
+		RunResult:   input,
+		ResponseURL: bridgeResponseURL,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request body: %v", err)
 	}
@@ -105,15 +112,18 @@ func baRunResultError(in models.RunResult, str string, err error) models.RunResu
 
 type bridgeOutgoing struct {
 	models.RunResult
+	ResponseURL models.WebURL
 }
 
 func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 	anon := struct {
-		JobRunID string      `json:"id"`
-		Data     models.JSON `json:"data"`
+		JobRunID    string      `json:"id"`
+		Data        models.JSON `json:"data"`
+		ResponseURL string      `json:"responseURL,omitempty"`
 	}{
-		JobRunID: bp.JobRunID,
-		Data:     bp.Data,
+		JobRunID:    bp.JobRunID,
+		Data:        bp.Data,
+		ResponseURL: bp.ResponseURL.String(),
 	}
 	return json.Marshal(anon)
 }

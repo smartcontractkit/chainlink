@@ -92,6 +92,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	config := TestConfig{
 		Config: store.Config{
 			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
+			BridgeResponseURL:        WebURL("http://localhost:6688"),
 			ChainID:                  3,
 			DatabaseTimeout:          store.Duration{Duration: time.Millisecond * 500},
 			Dev:                      true,
@@ -756,13 +757,6 @@ func WaitForJobs(t *testing.T, store *store.Store, want int) []models.JobSpec {
 		}).Should(gomega.HaveLen(want))
 	}
 	return jobs
-}
-
-// MustParseWebURL must parse the given url and return it
-func MustParseWebURL(str string) models.WebURL {
-	u, err := url.Parse(str)
-	mustNotErr(err)
-	return models.WebURL{URL: u}
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it

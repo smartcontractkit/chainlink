@@ -15,6 +15,7 @@ import (
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	store.Config.BridgeResponseURL = cltest.WebURL("")
 
 	data := ""
 	token := ""
@@ -57,6 +58,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	store.Config.BridgeResponseURL = cltest.WebURL("")
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -101,6 +103,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	store.Config.BridgeResponseURL = cltest.WebURL("")
 	runID := utils.NewBytes32ID()
 	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"value":"lot 49"}}`, runID)
 
@@ -122,6 +125,46 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, test.wantPending, result.Status.PendingBridge())
+		})
+	}
+}
+
+func TestBridge_Perform_responseURL(t *testing.T) {
+	input := cltest.RunResultWithValue("lot 49")
+	input.JobRunID = "1234"
+
+	t.Parallel()
+	cases := []struct {
+		name          string
+		configuredURL models.WebURL
+		want          string
+	}{
+		{
+			name:          "basic URL",
+			configuredURL: cltest.WebURL("https://chain.link"),
+			want:          `{"id":"1234","data":{"value":"lot 49"},"responseURL":"https://chain.link/v2/runs/1234"}`,
+		},
+		{
+			name:          "blank URL",
+			configuredURL: cltest.WebURL(""),
+			want:          `{"id":"1234","data":{"value":"lot 49"}}`,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore()
+			defer cleanup()
+			store.Config.BridgeResponseURL = test.configuredURL
+
+			mock, ensureCalled := cltest.NewHTTPMockServer(t, 200, "POST", ``,
+				func(_ http.Header, body string) {
+					assert.JSONEq(t, test.want, body)
+				})
+			defer ensureCalled()
+
+			eb := &adapters.Bridge{BridgeType: cltest.NewBridgeType("auctionBidding", mock.URL)}
+			eb.Perform(input, store)
 		})
 	}
 }

@@ -296,38 +296,13 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	assert.Equal(t, eaExtra, res.String())
 }
 
-func TestIntegration_ExternalAdapter_WebInitiated(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-	app.Start()
-
-	eaValue := "87698118359"
-	eaExtra := "other values to be used by external adapters"
-	eaResponse := fmt.Sprintf(`{"data":{"value": "%v", "extra": "%v"}}`, eaValue, eaExtra)
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
-	defer cleanup()
-
-	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
-	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
-
-	tr := jr.TaskRuns[0]
-	assert.Equal(t, "randomnumber", tr.Task.Type.String())
-	val, err := tr.Result.Value()
-	assert.NoError(t, err)
-	assert.Equal(t, eaValue, val)
-	res := tr.Result.Get("extra")
-	assert.Equal(t, eaExtra, res.String())
-}
-
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
+	bridgeURL := cltest.WebURL("https://test.chain.link/always")
+	app.Store.Config.BridgeResponseURL = bridgeURL
 	app.Start()
 
 	eaPrice := "1234"
@@ -346,6 +321,9 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 		bodyParam := data.Get("bodyParam")
 		assert.True(t, bodyParam.Exists())
 		assert.Equal(t, true, bodyParam.Bool())
+
+		url := body.Get("responseURL")
+		assert.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
 
 		w.WriteHeader(200)
 		io.WriteString(w, eaResponse)
