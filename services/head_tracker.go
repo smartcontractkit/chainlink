@@ -186,37 +186,19 @@ func (ht *HeadTracker) listenForNewHeads() {
 	defer ht.unsubscribeFromHead()
 
 	for {
-		ht.resubscriptionPoll()
-
-	SubscriptionLoop:
-		for {
-			select {
-			case <-ht.done:
-				return
-			case header, open := <-ht.headers:
-				if !open {
-					break SubscriptionLoop
-				}
-				number := header.ToIndexableBlockNumber()
-				logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
-				if err := ht.Save(number); err != nil {
-					logger.Error(err.Error())
-				} else {
-					ht.onNewHead(&header)
-				}
-			case err, open := <-ht.headSubscription.Err():
-				if open && err != nil {
-					logger.Errorw("Error in new head subscription, disconnected", "err", err)
-					break SubscriptionLoop
-				}
-			}
+		ht.subscribe()
+		if err := ht.receiveHeaders(); err != nil {
+			logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			continue
+		} else {
+			return
 		}
 	}
 }
 
-// resubscriptionPoll periodically attempts to connect to the ethereum node via websocket.
+// subscribe periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
-func (ht *HeadTracker) resubscriptionPoll() {
+func (ht *HeadTracker) subscribe() {
 	ht.sleeper.Reset()
 	for {
 		ht.unsubscribeFromHead()
@@ -230,13 +212,41 @@ func (ht *HeadTracker) resubscriptionPoll() {
 				logger.Errorw(fmt.Sprintf("Error connecting to %v", ht.store.Config.EthereumURL), "err", err)
 			} else {
 				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
-				select {
-				case ht.subscriptionSucceeded <- struct{}{}:
-				default:
-				}
+				ht.nonblockingSubscriptionSuccessSignal()
 				return
 			}
 		}
+	}
+}
+
+func (ht *HeadTracker) receiveHeaders() error {
+	for {
+		select {
+		case <-ht.done:
+			return nil
+		case header, open := <-ht.headers:
+			if !open {
+				return errors.New("HeadTracker headers prematurely closed")
+			}
+			number := header.ToIndexableBlockNumber()
+			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
+			if err := ht.Save(number); err != nil {
+				logger.Error(err.Error())
+			} else {
+				ht.onNewHead(&header)
+			}
+		case err, open := <-ht.headSubscription.Err():
+			if open && err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (ht *HeadTracker) nonblockingSubscriptionSuccessSignal() {
+	select {
+	case ht.subscriptionSucceeded <- struct{}{}:
+	default:
 	}
 }
 
