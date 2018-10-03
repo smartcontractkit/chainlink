@@ -15,7 +15,7 @@ import {
   requestDataFrom,
   stranger,
   toHex,
-  increaseTime1Hour
+  increaseTime5Minutes
 } from './support/helpers'
 
 contract('BasicConsumer', () => {
@@ -141,7 +141,7 @@ contract('BasicConsumer', () => {
       requestId = (await getLatestEvent(cc)).args.id
     })
 
-    context("before an hour", () => {
+    context("before 5 minutes", () => {
       it('cant cancel the request', async () => {
         await assertActionThrows(async () => {
           await cc.cancelRequest(requestId, {from: consumer})
@@ -149,9 +149,9 @@ contract('BasicConsumer', () => {
       })
     })
 
-    context("after an hour", () => {
+    context("after 5 minutes", () => {
       it('can cancel the request', async () => {
-        await increaseTime1Hour();
+        await increaseTime5Minutes();
         await cc.cancelRequest(requestId, {from: consumer})
       })
     })

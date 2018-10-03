@@ -396,7 +396,7 @@ contract('Oracle', () => {
   describe('#cancel', () => {
     context('with no pending requests', () => {
       it('fails', async () => {
-        await h.increaseTime1Hour();
+        await h.increaseTime5Minutes();
         await h.assertActionThrows(async () => {
           await oc.cancel(1337, {from: h.stranger})
         })
@@ -437,14 +437,14 @@ contract('Oracle', () => {
 
       context('from the requester', () => {
         it('refunds the correct amount', async () => {
-          await h.increaseTime1Hour();
+          await h.increaseTime5Minutes();
           await oc.cancel(requestId, {from: h.consumer})
           let balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 
         it('triggers a cancellation event', async () => {
-          await h.increaseTime1Hour();
+          await h.increaseTime5Minutes();
           const tx = await oc.cancel(requestId, {from: h.consumer})
 
           assert.equal(tx.receipt.logs.length, 2)
@@ -453,7 +453,7 @@ contract('Oracle', () => {
 
         context('canceling twice', () => {
           it('fails', async () => {
-            await h.increaseTime1Hour();
+            await h.increaseTime5Minutes();
             await oc.cancel(requestId, {from: h.consumer})
             await h.assertActionThrows(async () => {
               await oc.cancel(requestId, {from: h.consumer})
