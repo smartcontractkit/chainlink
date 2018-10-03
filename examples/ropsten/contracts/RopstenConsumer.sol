@@ -907,7 +907,7 @@ contract Chainlinked {
   uint256 constant private clArgsVersion = 1;
   uint256 constant private linkDivisibility = 10**18;
 
-  LinkToken internal link;
+  LinkToken private link;
   Oracle private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
@@ -950,6 +950,12 @@ contract Chainlinked {
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
     oracle.cancel(_requestId);
+  }
+
+  function withdrawLinkBalance()
+    internal
+  {
+    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
   function LINK(uint256 _amount) internal view returns (uint256) {
@@ -1097,7 +1103,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   }
 
   function withdrawLink() public onlyOwner {
-    require(link.transfer(owner, link.balanceOf(address(this))), "Unable to transfer");
+    withdrawLinkBalance();
   }
 
 }

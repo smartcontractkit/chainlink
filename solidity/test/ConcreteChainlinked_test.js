@@ -82,6 +82,20 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
+  describe('#publicWithdrawLinkBalance', () => {
+    beforeEach(async () => {
+      await link.transfer(cc.address, web3.toWei('1', 'ether'))
+      const balance = await link.balanceOf(cc.address);
+      assert.equal(balance.toString(), web3.toWei('1', 'ether'));
+    })
+
+    it('transfers LINK out of the contract', async () => {
+      await cc.publicWithdrawLinkBalance();
+      const balance = await link.balanceOf(cc.address);
+      assert.equal(balance.toString(), '0');
+    })
+  })
+
   describe('#checkChainlinkFulfillment(modifier)', () => {
     let internalId, requestId
 
