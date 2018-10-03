@@ -102,6 +102,13 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
+  describe('#getLinkToken', () => {
+    it('returns the Link Token address', async () => {
+      const addr = await cc.publicGetLinkToken.call();
+      assert.equal(addr, link.address)
+    })
+  })
+
   describe('#LINK', () => {
     it('multiplies the value by a trillion', async () => {
       await cc.publicLINK(1)
