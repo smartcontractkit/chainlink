@@ -104,8 +104,8 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}{
 		{"ethlog matching address", "ethlog", sharedAddr, sharedAddr, 1, hexutil.Bytes{}},
 		{"ethlog all address", "ethlog", noAddr, newAddr(), 1, hexutil.Bytes{}},
-		{"runlog w/o address", "runlog", noAddr, newAddr(), 1, cltest.StringToVersionedLogData(`{"value":"100"}`)},
-		{"runlog matching address", "runlog", sharedAddr, sharedAddr, 1, cltest.StringToVersionedLogData(`{"value":"100"}`)},
+		{"runlog w/o address", "runlog", noAddr, newAddr(), 1, cltest.StringToVersionedLogData("id", `{"value":"100"}`)},
+		{"runlog matching address", "runlog", sharedAddr, sharedAddr, 1, cltest.StringToVersionedLogData("id", `{"value":"100"}`)},
 	}
 
 	for _, test := range tests {
@@ -134,8 +134,8 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 				Data:    test.data,
 				Topics: []common.Hash{
 					services.RunLogTopic,
-					cltest.StringToHash("internalID"),
 					cltest.StringToHash(j.ID),
+					newAddr().Hash(),
 					common.BigToHash(big.NewInt(0)),
 				},
 			}

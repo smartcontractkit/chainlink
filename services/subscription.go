@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,8 +24,8 @@ import (
 // Descriptive indices of a RunLog's Topic array
 const (
 	RunLogTopicSignature = iota
-	RunLogTopicInternalID
 	RunLogTopicJobID
+	RunLogTopicRequester
 	RunLogTopicAmount
 )
 
@@ -32,7 +33,7 @@ const (
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
 // If updating this, be sure to update the truffle suite's "expected event signature" test.
-var RunLogTopic = common.HexToHash("0x3fab86a1207bdcfe3976d0d9df25f263d45ae8d381a60960559771a2b223974d")
+var RunLogTopic = mustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
 
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
 // method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
@@ -154,7 +155,7 @@ func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 	hexJobID := common.BytesToHash([]byte(jobID))
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
 	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{{RunLogTopic}, nil, {hexJobID, jobIDZeroPadded}}
+	return [][]common.Hash{{RunLogTopic}, {hexJobID, jobIDZeroPadded}}
 }
 
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
@@ -345,15 +346,31 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 		return false
 	}
 
-	jid, err := jobIDFromHexEncodedTopic(el)
-	if err != nil {
+	if jid, err := jobIDFromHexEncodedTopic(el); err != nil {
 		logger.Errorw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
 		return false
 	} else if jid != le.Job.ID && jobIDFromImproperEncodedTopic(el) != le.Job.ID {
 		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
+
+	if !le.validRequester() {
+		logger.Errorw(fmt.Sprintf("Run Log didn't have have a valid requester: %v", le.Requester().Hex()), le.ForLogger()...)
+		return false
+	}
 	return true
+}
+
+func (le InitiatorSubscriptionLogEvent) validRequester() bool {
+	if len(le.Initiator.Requesters) == 0 {
+		return true
+	}
+	for _, r := range le.Initiator.Requesters {
+		if le.Requester() == r {
+			return true
+		}
+	}
+	return false
 }
 
 // RunLogJSON extracts data from the log's topics and data specific to the format defined
@@ -365,22 +382,21 @@ func (le InitiatorSubscriptionLogEvent) RunLogJSON() (models.JSON, error) {
 		return js, err
 	}
 
-	fullfillmentJSON, err := fulfillmentToJSON(le)
+	fullfillmentJSON, err := fulfillmentToJSON(el)
 	if err != nil {
 		return js, err
 	}
 	return js.Merge(fullfillmentJSON)
 }
 
-func fulfillmentToJSON(le InitiatorSubscriptionLogEvent) (models.JSON, error) {
-	el := le.Log
+func fulfillmentToJSON(el types.Log) (models.JSON, error) {
 	var js models.JSON
 	js, err := js.Add("address", el.Address.String())
 	if err != nil {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", el.Topics[RunLogTopicInternalID].String())
+	js, err = js.Add("dataPrefix", encodeRequestID(el.Data))
 	if err != nil {
 		return js, err
 	}
@@ -412,13 +428,23 @@ func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) 
 	return payment, nil
 }
 
-func decodeABIToJSON(data hexutil.Bytes) (models.JSON, error) {
-	versionSize := 32
-	varLocationSize := 32
-	varLengthSize := 32
-	prefix := versionSize + varLocationSize + varLengthSize
-	hex := []byte(string([]byte(data)[prefix:]))
-	return models.ParseCBOR(hex)
+// Requester pulls the requesting address out of the LogEvent's topics.
+func (le InitiatorSubscriptionLogEvent) Requester() common.Address {
+	b := le.Log.Topics[RunLogTopicRequester].Bytes()
+	return common.BytesToAddress(b)
+}
+
+func encodeRequestID(data []byte) string {
+	return utils.AddHexPrefix(hex.EncodeToString(data[:common.HashLength]))
+}
+
+func decodeABIToJSON(data []byte) (models.JSON, error) {
+	idSize := common.HashLength
+	versionSize := common.HashLength
+	varLocationSize := common.HashLength
+	varLengthSize := common.HashLength
+	start := idSize + versionSize + varLocationSize + varLengthSize
+	return models.ParseCBOR(data[start:])
 }
 
 func isRunLog(log types.Log) bool {
@@ -448,4 +474,12 @@ func timedUnsubscribe(subscription models.EthSubscription) {
 	case <-time.After(100 * time.Millisecond):
 		logger.Warnf("Subscription %T Unsubscribe timed out.", subscription)
 	}
+}
+
+func mustHash(in string) common.Hash {
+	out, err := utils.Keccak256([]byte(in))
+	if err != nil {
+		panic(err)
+	}
+	return common.BytesToHash(out)
 }

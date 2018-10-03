@@ -55,7 +55,7 @@ contract('BasicConsumer', () => {
         let log = tx.receipt.logs[3]
         assert.equal(log.address, oc.address)
 
-        let [id, jId, wei, ver, cborData] = decodeRunRequest(log)
+        let [jId, requester, wei, id, ver, cborData] = decodeRunRequest(log)
         let params = await cbor.decodeFirst(cborData)
         let expected = {
           'path': ['USD'],
@@ -64,13 +64,14 @@ contract('BasicConsumer', () => {
 
         assert.equal(toHex(specId), jId)
         assert.equal(web3.toWei('1', 'ether'), hexToInt(wei))
+        assert.equal(cc.address.slice(2), requester.slice(26))
         assert.equal(1, ver)
         assert.deepEqual(expected, params)
       })
 
       it('has a reasonable gas cost', async () => {
         let tx = await cc.requestEthereumPrice(currency)
-        assert.isBelow(tx.receipt.gasUsed, 167000)
+        assert.isBelow(tx.receipt.gasUsed, 167500)
       })
     })
   })
