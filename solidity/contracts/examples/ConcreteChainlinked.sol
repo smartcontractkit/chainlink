@@ -54,6 +54,10 @@ contract ConcreteChainlinked is Chainlinked {
     cancelChainlinkRequest(_requestId);
   }
 
+  function publicGetLinkToken() public returns (address) {
+    return getLinkToken();
+  }
+
   function fulfillRequest(bytes32 _requestId, bytes32 _)
     public
     checkChainlinkFulfillment(_requestId)
