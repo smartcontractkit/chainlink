@@ -209,7 +209,7 @@ func (ht *HeadTracker) disconnectFromHead() error {
 		return nil
 	}
 
-	ht.headSubscription.Unsubscribe()
+	timedUnsubscribe(ht.headSubscription)
 	close(ht.headers)
 	ht.disconnectedWg.Wait()
 	ht.disconnect()

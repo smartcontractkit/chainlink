@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -256,7 +257,7 @@ func NewManagedSubscription(
 // Unsubscribe closes channels and cleans up resources.
 func (sub ManagedSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
-		sub.ethSubscription.Unsubscribe()
+		timedUnsubscribe(sub.ethSubscription)
 	}
 	close(sub.logs)
 }
@@ -428,4 +429,21 @@ func jobIDFromHexEncodedTopic(log types.Log) (string, error) {
 
 func jobIDFromImproperEncodedTopic(log types.Log) string {
 	return log.Topics[RunLogTopicJobID].String()[2:34]
+}
+
+// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
+// unblocking the application. This is an effort to mitigate the occasional
+// indefinite block described here from go-ethereum:
+// https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
+func timedUnsubscribe(subscription models.EthSubscription) {
+	unsubscribed := make(chan struct{})
+	go func() {
+		subscription.Unsubscribe()
+		close(unsubscribed)
+	}()
+	select {
+	case <-unsubscribed:
+	case <-time.After(100 * time.Millisecond):
+		logger.Warnf("Subscription %T Unsubscribe timed out.", subscription)
+	}
 }
