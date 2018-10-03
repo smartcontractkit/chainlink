@@ -17,7 +17,7 @@ import (
 func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 	t.Parallel()
 
-	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000001","functionSelector":"0x76005c26"}`)
+	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000017","functionSelector":"0x76005c26"}`)
 
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
@@ -41,6 +41,8 @@ func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 }
 
 func TestInitiatorSubscriptionLogEvent_EthLogJSON(t *testing.T) {
+	t.Parallel()
+
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
@@ -55,7 +57,6 @@ func TestInitiatorSubscriptionLogEvent_EthLogJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			le := services.InitiatorSubscriptionLogEvent{Log: test.el}
 			output, err := le.EthLogJSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
@@ -150,8 +151,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	jobID := "4a1eb0e8df314cb894024a38991cff0f"
 	topics := services.TopicFiltersForRunLog(jobID)
 
-	assert.Equal(t, 3, len(topics))
-	assert.Nil(t, topics[1])
+	assert.Equal(t, 2, len(topics))
 	assert.Equal(
 		t,
 		[]common.Hash{services.RunLogTopic},
@@ -163,7 +163,32 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 			common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 			common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
 		},
-		topics[2])
+		topics[1])
+}
+
+func TestInitiatorSubscriptionLogEvent_Requester(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input common.Hash
+		want  common.Address
+	}{
+		{"basic",
+			common.BytesToHash(cltest.HexToBytes("00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee")),
+			cltest.StringToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rl := cltest.NewRunLog("id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
+			rl.Topics[services.RunLogTopicRequester] = test.input
+			le := services.InitiatorSubscriptionLogEvent{Log: rl}
+
+			assert.Equal(t, test.want, le.Requester())
+		})
+	}
 }
 
 func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
@@ -171,28 +196,53 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 
 	job := cltest.NewJob()
 	job.ID = "4a1eb0e8df314cb894024a38991cff0f"
+
+	noRequesters := []common.Address{}
+	permittedAddr := cltest.NewAddress()
+	unpermittedAddr := cltest.NewAddress()
+	requesterList := []common.Address{permittedAddr}
+
 	tests := []struct {
-		name          string
-		eventLogTopic common.Hash
-		jobIDTopic    common.Hash
-		want          bool
+		name                string
+		eventLogTopic       common.Hash
+		jobIDTopic          common.Hash
+		initiatorRequesters []common.Address
+		requesterAddress    common.Address
+		want                bool
 	}{
-		{"not runlog", cltest.StringToHash("notrunlog"), common.Hash{}, false},
-		{"runlog wrong jobid", services.RunLogTopic, cltest.StringToHash("wrongjob"), false},
-		{"runlog proper hex jobid", services.RunLogTopic, cltest.StringToHash(job.ID), true},
-		{"runlog incorrect encoded jobid", services.RunLogTopic, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), true},
+		{"not runlog", cltest.StringToHash("notrunlog"), common.Hash{}, noRequesters, unpermittedAddr, false},
+		{"runlog wrong jobid", services.RunLogTopic, cltest.StringToHash("wrongjob"), noRequesters, unpermittedAddr, false},
+		{"runlog proper hex jobid", services.RunLogTopic, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
+		{"runlog incorrect encoded jobid", services.RunLogTopic, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
+		{"runlog correct requester", services.RunLogTopic, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
+		{"runlog incorrect requester", services.RunLogTopic, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), 1, "{}")
-			log.Topics = []common.Hash{tt.eventLogTopic, common.Hash{}, tt.jobIDTopic, common.Hash{}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), test.requesterAddress, 1, "{}")
+			log.Topics = []common.Hash{
+				test.eventLogTopic,
+				test.jobIDTopic,
+				test.requesterAddress.Hash(),
+				common.Hash{},
+			}
+
 			le := services.InitiatorSubscriptionLogEvent{
 				Job: job,
 				Log: log,
+				Initiator: models.Initiator{
+					InitiatorParams: models.InitiatorParams{
+						Requesters: test.initiatorRequesters,
+					},
+				},
 			}
 
-			assert.Equal(t, tt.want, le.ValidateRunLog())
+			assert.Equal(t, test.want, le.ValidateRunLog())
 		})
 	}
+}
+
+func TestRunTopic(t *testing.T) {
+	assert.Equal(t, common.HexToHash("0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529"), services.RunLogTopic)
 }
