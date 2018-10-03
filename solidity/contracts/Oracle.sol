@@ -78,7 +78,7 @@ contract Oracle is Ownable {
       _currentAmount,
       _callbackAddress,
       _callbackFunctionId,
-      uint64(now.add(1 hours)));
+      uint64(now.add(5 minutes)));
     emit RunRequest(internalId, _specId, _currentAmount, _version, _data);
   }
 
