@@ -21,5 +21,17 @@ contract MaliciousRequester is MaliciousChainlinked {
     chainlinkWithdrawRequest(run, LINK(1));
   }
 
+  function request()
+    internal
+    returns (bytes32 requestId)
+  {
+    MaliciousChainlinkLib.Run memory run = newRun("specId", this, "doesNothing(bytes32,bytes32)");
+    requestId = chainlinkRequest(run, LINK(1));
+  }
+
+  function maliciousRequestCancel() public {
+    oracle.cancel(request());
+  }
+
   function doesNothing(bytes32 _requestId, bytes32 _data) public {}
 }
