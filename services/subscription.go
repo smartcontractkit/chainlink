@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -228,7 +229,6 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 type ManagedSubscription struct {
 	store           *store.Store
 	logs            chan types.Log
-	errors          chan error
 	ethSubscription models.EthSubscription
 	callback        func(types.Log)
 }
@@ -251,9 +251,7 @@ func NewManagedSubscription(
 		callback:        callback,
 		logs:            logs,
 		ethSubscription: es,
-		errors:          make(chan error),
 	}
-	go sub.listenToSubscriptionErrors()
 	go sub.listenToLogs(filter)
 	return sub, nil
 }
@@ -261,23 +259,26 @@ func NewManagedSubscription(
 // Unsubscribe closes channels and cleans up resources.
 func (sub ManagedSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
-		sub.ethSubscription.Unsubscribe()
+		timedUnsubscribe(sub.ethSubscription)
 	}
 	close(sub.logs)
-	close(sub.errors)
-}
-
-func (sub ManagedSubscription) listenToSubscriptionErrors() {
-	for err := range sub.errors {
-		logger.Errorw(fmt.Sprintf("Error in log subscription: %s", err.Error()), "err", err)
-	}
 }
 
 func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	backfilledSet := sub.backfillLogs(q)
-	for log := range sub.logs {
-		if _, present := backfilledSet[log.BlockHash.String()]; !present {
-			sub.callback(log)
+	for {
+		select {
+		case log, open := <-sub.logs:
+			if !open {
+				return
+			}
+			if _, present := backfilledSet[log.BlockHash.String()]; !present {
+				sub.callback(log)
+			}
+		case err, ok := <-sub.ethSubscription.Err():
+			if ok {
+				logger.Errorw(fmt.Sprintf("Error in log subscription: %s", err.Error()), "err", err)
+			}
 		}
 	}
 }
@@ -430,4 +431,21 @@ func jobIDFromHexEncodedTopic(log types.Log) (string, error) {
 
 func jobIDFromImproperEncodedTopic(log types.Log) string {
 	return log.Topics[RunLogTopicJobID].String()[2:34]
+}
+
+// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
+// unblocking the application. This is an effort to mitigate the occasional
+// indefinite block described here from go-ethereum:
+// https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
+func timedUnsubscribe(subscription models.EthSubscription) {
+	unsubscribed := make(chan struct{})
+	go func() {
+		subscription.Unsubscribe()
+		close(unsubscribed)
+	}()
+	select {
+	case <-unsubscribed:
+	case <-time.After(100 * time.Millisecond):
+		logger.Warnf("Subscription %T Unsubscribe timed out.", subscription)
+	}
 }

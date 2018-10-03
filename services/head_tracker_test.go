@@ -25,7 +25,7 @@ func TestHeadTracker_New(t *testing.T) {
 
 	ht := services.NewHeadTracker(store)
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, last.Number, ht.LastRecord().Number)
+	assert.Equal(t, last.Number, ht.Head().Number)
 }
 
 func TestHeadTracker_Get(t *testing.T) {
@@ -67,7 +67,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.LastRecord().ToInt())
+			assert.Equal(t, test.want, ht.Head().ToInt())
 		})
 	}
 }
@@ -151,4 +151,34 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	g.Eventually(func() int32 { return checker.OnNewHeadCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(2), checker.ConnectedCount())
 	assert.Equal(t, int32(1), checker.DisconnectedCount())
+}
+
+func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	eth.NoMagic()
+	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
+
+	firstConnection := eth.RegisterSubscription("newHeads")
+	checker := &cltest.MockHeadTrackable{}
+	ht.Attach(checker)
+
+	// connect
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, int32(1), checker.ConnectedCount())
+	assert.Equal(t, int32(0), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewHeadCount())
+
+	// trigger reconnect loop
+	firstConnection.Errors <- errors.New("Test error to force reconnect")
+	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
+	assert.Equal(t, int32(1), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewHeadCount())
+
+	// stop
+	assert.NoError(t, ht.Stop())
 }

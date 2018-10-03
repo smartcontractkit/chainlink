@@ -108,7 +108,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.JobSubscriber.AddJob(job, app.HeadTracker.LastRecord())
+	return app.JobSubscriber.AddJob(job, app.HeadTracker.Head())
 }
 
 // AddAdapter adds an adapter to the store. If another
