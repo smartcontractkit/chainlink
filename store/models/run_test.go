@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -37,22 +36,29 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 
 func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	t.Parallel()
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
-	j, i := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{
+	job, initiator := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{
 		{Type: adapters.TaskTypeNoOp},
 		{Type: adapters.TaskTypeNoOpPend},
 		{Type: adapters.TaskTypeNoOp},
 	}
-	assert.NoError(t, store.SaveJob(&j))
-	jr := j.NewRun(i)
-	assert.Equal(t, jr.TaskRuns, jr.UnfinishedTaskRuns())
+	assert.NoError(t, store.SaveJob(&job))
+	run := job.NewRun(initiator)
+	assert.NoError(t, store.Save(&run))
+	assert.Equal(t, run.TaskRuns, run.UnfinishedTaskRuns())
 
-	jr, err := services.ExecuteRun(jr, store, models.RunResult{})
-	assert.NoError(t, err)
-	assert.Equal(t, jr.TaskRuns[1:], jr.UnfinishedTaskRuns())
+	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
+
+	store.One("ID", run.ID, &run)
+	assert.Equal(t, run.TaskRuns[1:], run.UnfinishedTaskRuns())
 }
 
 func TestTaskRun_Runnable(t *testing.T) {

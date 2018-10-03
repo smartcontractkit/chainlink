@@ -139,7 +139,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 			if rr.BlockNumber != nil {
 				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
 			}
-			if jr, err = ExecuteRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
+			if jr, err = executeRunAtBlock(jr, rm.store, rr.Input, rr.BlockNumber); err != nil {
 				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error executing run ", runID), jr.ForLogger("error", err)...)
 			}
 
@@ -160,24 +160,34 @@ func (rm *jobRunner) workerCount() int {
 	return len(rm.workers)
 }
 
-// BeginRun creates a new run if the job is valid and starts the job.
-func BeginRun(
+// BuildRun checks to ensure the given job has not started or ended before
+// creating a new run for the job.
+func BuildRun(
 	job models.JobSpec,
-	initr models.Initiator,
-	input models.RunResult,
+	i models.Initiator,
 	store *store.Store,
 ) (models.JobRun, error) {
-	return BeginRunAtBlock(job, initr, input, store, nil)
+	now := store.Clock.Now()
+	if !job.Started(now) {
+		return models.JobRun{}, RecurringScheduleJobError{
+			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+		}
+	}
+	if job.Ended(now) {
+		return models.JobRun{}, RecurringScheduleJobError{
+			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+		}
+	}
+	return job.NewRun(i), nil
 }
 
-// BeginRunAtBlock builds and executes a new run if the job is valid with the block number
-// to determine if tasks should be resumed.
-func BeginRunAtBlock(
+// BuildRunWithValidPayment builds a new run and validates whether or not the
+// run meets the minimum contract payment.
+func BuildRunWithValidPayment(
 	job models.JobSpec,
 	initr models.Initiator,
 	input models.RunResult,
 	store *store.Store,
-	bn *models.IndexableBlockNumber,
 ) (models.JobRun, error) {
 	run, err := BuildRun(job, initr, store)
 	if err != nil {
@@ -193,35 +203,47 @@ func BeginRunAtBlock(
 		run = run.ApplyResult(input.WithError(err))
 		return run, multierr.Append(err, store.Save(&run))
 	}
-	return ExecuteRunAtBlock(run, store, input, bn)
+
+	return run, err
 }
 
-// BuildRun checks to ensure the given job has not started or ended before
-// creating a new run for the job.
-func BuildRun(job models.JobSpec, i models.Initiator, store *store.Store) (models.JobRun, error) {
-	now := store.Clock.Now()
-	if !job.Started(now) {
-		return models.JobRun{}, JobRunnerError{
-			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+// EnqueueRunWithValidPayment creates a run and enqueues it on the run channel
+func EnqueueRunWithValidPayment(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+) (models.JobRun, error) {
+	return EnqueueRunAtBlockWithValidPayment(job, initr, input, store, nil)
+}
+
+// EnqueueRunAtBlockWithValidPayment creates a run and enqueues it on the run
+// channel with the given block number
+func EnqueueRunAtBlockWithValidPayment(
+	job models.JobSpec,
+	initr models.Initiator,
+	input models.RunResult,
+	store *store.Store,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
+	run, err := BuildRunWithValidPayment(job, initr, input, store)
+
+	if err == nil {
+		err = store.Save(&run)
+		if err == nil {
+			store.RunChannel.Send(run.ID, input, bn)
+		} else {
+			logger.Errorw(err.Error())
 		}
 	}
-	if job.Ended(now) {
-		return models.JobRun{}, JobRunnerError{
-			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
-		}
-	}
-	return job.NewRun(i), nil
+
+	return run, err
 }
 
-// ExecuteRun calls ExecuteRunAtBlock without an IndexableBlockNumber
-func ExecuteRun(jr models.JobRun, store *store.Store, overrides models.RunResult) (models.JobRun, error) {
-	return ExecuteRunAtBlock(jr, store, overrides, nil)
-}
-
-// ExecuteRunAtBlock starts the job and executes task runs within that job in the
+// executeRunAtBlock starts the job and executes task runs within that job in the
 // order defined in the run for as long as they do not return errors. Results
 // are saved in the store (db).
-func ExecuteRunAtBlock(
+func executeRunAtBlock(
 	jr models.JobRun,
 	store *store.Store,
 	overrides models.RunResult,
@@ -229,23 +251,23 @@ func ExecuteRunAtBlock(
 ) (models.JobRun, error) {
 	jr, err := prepareJobRun(jr, store, overrides, bn)
 	if err != nil {
-		return jr, wrapError(jr, err)
+		return jr, wrapExecuteRunAtBlockError(jr, err)
 	}
 	logger.Infow("Starting job", jr.ForLogger()...)
 	unfinished := jr.UnfinishedTaskRuns()
 	if len(unfinished) == 0 {
-		return jr, wrapError(jr, errors.New("No unfinished tasks to run"))
+		return jr, wrapExecuteRunAtBlockError(jr, errors.New("No unfinished tasks to run"))
 	}
 	offset := len(jr.TaskRuns) - len(unfinished)
 	prevResult, err := unfinished[0].Result.Merge(jr.Overrides)
 	if err != nil {
-		return jr, wrapError(jr, err)
+		return jr, wrapExecuteRunAtBlockError(jr, err)
 	}
 
 	for i, taskRunTemplate := range unfinished {
 		nextTaskRun, err := taskRunTemplate.MergeTaskParams(jr.Overrides.Data)
 		if err != nil {
-			return jr, wrapError(jr, err)
+			return jr, wrapExecuteRunAtBlockError(jr, err)
 		}
 
 		lastRun := markCompletedIfRunnable(startTask(jr, nextTaskRun, prevResult, bn, store))
@@ -254,7 +276,7 @@ func ExecuteRunAtBlock(
 		prevResult = lastRun.Result
 
 		if err := store.Save(&jr); err != nil {
-			return jr, wrapError(jr, err)
+			return jr, wrapExecuteRunAtBlockError(jr, err)
 		}
 		if !lastRun.Status.Runnable() {
 			break
@@ -263,10 +285,15 @@ func ExecuteRunAtBlock(
 
 	jr = jr.ApplyResult(prevResult)
 	logger.Infow("Finished current job run execution", jr.ForLogger()...)
-	return jr, wrapError(jr, store.Save(&jr))
+	return jr, wrapExecuteRunAtBlockError(jr, store.Save(&jr))
 }
 
-func prepareJobRun(jr models.JobRun, store *store.Store, overrides models.RunResult, bn *models.IndexableBlockNumber) (models.JobRun, error) {
+func prepareJobRun(
+	jr models.JobRun,
+	store *store.Store,
+	overrides models.RunResult,
+	bn *models.IndexableBlockNumber,
+) (models.JobRun, error) {
 	if jr.Status.CanStart() {
 		jr.Status = models.RunStatusInProgress
 	} else {
@@ -325,19 +352,19 @@ func startTask(
 	return tr.ApplyResult(adapter.Perform(input, store))
 }
 
-func wrapError(run models.JobRun, err error) error {
+func wrapExecuteRunAtBlockError(run models.JobRun, err error) error {
 	if err != nil {
-		return fmt.Errorf("ExecuteRun: Job#%v: %v", run.JobID, err)
+		return fmt.Errorf("executeRunAtBlock: Job#%v: %v", run.JobID, err)
 	}
 	return nil
 }
 
-// JobRunnerError contains the field for the error message.
-type JobRunnerError struct {
+// RecurringScheduleJobError contains the field for the error message.
+type RecurringScheduleJobError struct {
 	msg string
 }
 
 // Error returns the error message for the run.
-func (err JobRunnerError) Error() string {
+func (err RecurringScheduleJobError) Error() string {
 	return err.msg
 }
