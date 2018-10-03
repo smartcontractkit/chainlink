@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMigrate_updatesJobSpecsBucket(t *testing.T) {
+func TestMigrate1537223654_updatesJobSpecsBucket(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -31,7 +31,7 @@ func TestMigrate_updatesJobSpecsBucket(t *testing.T) {
 	assert.Equal(t, js1.Initiators[0].Schedule, js2.Initiators[0].Schedule)
 }
 
-func TestMigrate_updatesInitiatorsBucket(t *testing.T) {
+func TestMigrate1537223654_updatesInitiatorsBucket(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -52,7 +52,7 @@ func TestMigrate_updatesInitiatorsBucket(t *testing.T) {
 	assert.Equal(t, i1.Schedule, i2.Schedule)
 }
 
-func TestMigrate_updatesJobRunsBucket(t *testing.T) {
+func TestMigrate1537223654_updatesJobRunsBucket(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
