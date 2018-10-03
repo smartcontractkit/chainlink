@@ -131,9 +131,10 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 		initr := i
 		if !job.Ended(r.Clock.Now()) {
 			r.Cron.AddFunc(string(initr.Schedule), func() {
-				_, err := BeginRun(job, initr, models.RunResult{}, r.store)
-				if err != nil && !expectedRecurringError(err) {
-					logger.Error(err.Error())
+				input := models.RunResult{}
+				_, err := EnqueueRunWithValidPayment(job, initr, input, r.store)
+				if err != nil && !expectedRecurringScheduleJobError(err) {
+					logger.Errorw(err.Error())
 				}
 			})
 		}
@@ -175,11 +176,9 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 			logger.Error(err.Error())
 			return
 		}
-		jr, err := BeginRun(job, initr, models.RunResult{}, ot.Store)
+		_, err := EnqueueRunWithValidPayment(job, initr, models.RunResult{}, ot.Store)
 		if err != nil {
 			logger.Error(err.Error())
-		}
-		if jr.Status == models.RunStatusUnstarted {
 			initr.Ran = false
 			if err := ot.Store.Save(&initr); err != nil {
 				logger.Error(err.Error())
@@ -188,9 +187,9 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	}
 }
 
-func expectedRecurringError(err error) bool {
+func expectedRecurringScheduleJobError(err error) bool {
 	switch err.(type) {
-	case JobRunnerError:
+	case RecurringScheduleJobError:
 		return true
 	default:
 		return false

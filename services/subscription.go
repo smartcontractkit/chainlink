@@ -216,7 +216,9 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		Data:   data,
 		Amount: payment,
 	}
-	if _, err := BeginRunAtBlock(le.Job, initr, input, le.store, le.ToIndexableBlockNumber()); err != nil {
+
+	_, err = EnqueueRunAtBlockWithValidPayment(le.Job, initr, input, le.store, le.ToIndexableBlockNumber())
+	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 }

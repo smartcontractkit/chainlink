@@ -139,7 +139,7 @@ func TestJobRunner_Stop(t *testing.T) {
 	}).Should(gomega.Equal(0))
 }
 
-func TestJobRunner_ExecuteRun(t *testing.T) {
+func TestJobRunner_EnqueueRunWithValidPayment(t *testing.T) {
 	t.Parallel()
 
 	bridgeName := "auctionBidding"
@@ -162,6 +162,9 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	for _, tt := range tests {
 		test := tt
@@ -195,10 +198,10 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 			}
 			assert.Nil(t, store.Save(&job))
 
-			run = job.NewRun(initr)
 			input := models.RunResult{Data: cltest.JSONFromString(test.input)}
-			run, err := services.ExecuteRun(run, store, input)
+			run, err := services.EnqueueRunWithValidPayment(job, initr, input, store)
 			assert.NoError(t, err)
+			cltest.WaitForJobRunStatus(t, store, run, test.wantStatus)
 
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, test.wantStatus, run.Status)
@@ -219,7 +222,7 @@ func TestJobRunner_ExecuteRun(t *testing.T) {
 	}
 }
 
-func TestJobRunner_ExecuteRun_startingStatus(t *testing.T) {
+func TestJobRunner_ExecuteRunAtBlock_startingStatus(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -242,9 +245,10 @@ func TestJobRunner_ExecuteRun_startingStatus(t *testing.T) {
 		t.Run(string(test.status), func(t *testing.T) {
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
+
 			run.Status = test.status
 
-			run, err := services.ExecuteRunAtBlock(run, store, models.RunResult{}, nil)
+			run, err := services.ExportedExecuteRunAtBlock(run, store, models.RunResult{}, nil)
 			if test.wantError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "Unable to start with status")
@@ -255,46 +259,54 @@ func TestJobRunner_ExecuteRun_startingStatus(t *testing.T) {
 	}
 }
 
-func TestExecuteRun_ExecuteRunAtBlock_savesOverridesOnError(t *testing.T) {
+func TestJobRunner_savesOverridesOnError(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	job.Tasks = []models.TaskSpec{} // reason for error
 	run := job.NewRun(initr)
+	assert.NoError(t, store.Save(&run))
 
 	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
 	overrides := models.RunResult{Data: initialData}
-	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
+
+	run, err := services.ExportedExecuteRunAtBlock(run, store, overrides, nil)
 	assert.Error(t, err)
 
 	assert.NoError(t, store.One("ID", run.ID, &run))
 	assert.Equal(t, initialData, run.Overrides.Data)
 }
 
-func TestExecuteRun_ExecuteRunAtBlock_errorsOnOverride(t *testing.T) {
+func TestJobRunner_errorsOnOverride(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	run := job.NewRun(initr)
 	run.Overrides = run.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
+	assert.NoError(t, store.Save(&run))
 
 	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldNotBeHere"}`)}
 	overrides := models.RunResult{Data: initialData}
-	run, err := services.ExecuteRunAtBlock(run, store, overrides, nil)
-	assert.Error(t, err)
+	store.RunChannel.Send(run.ID, overrides, nil)
+	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
 
 	assert.NoError(t, store.One("ID", run.ID, &run))
-	assert.Equal(t, models.RunStatusErrored, run.Status)
 	assert.Contains(t, run.Result.ErrorMessage.String, "Cannot merge")
 }
 
-func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
+func TestJobRunner_transitionToPendingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	config, cfgCleanup := cltest.NewConfig()
@@ -303,6 +315,10 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
+
 	creationHeight := 1000
 	configMin := int(store.Config.MinIncomingConfirmations)
 
@@ -334,23 +350,22 @@ func TestExecuteRun_TransitionToPendingConfirmations(t *testing.T) {
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
 			initialData := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 			runLogInitialInput := models.RunResult{Data: initialData}
-			run, err = services.ExecuteRunAtBlock(run, store, runLogInitialInput, early)
-			assert.NoError(t, err)
+			store.RunChannel.Send(run.ID, runLogInitialInput, early)
 
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 			store.One("ID", run.ID, &run)
-			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 			assert.Equal(t, initialData, run.Result.Data)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-			assert.NoError(t, err)
-			assert.Equal(t, models.RunStatusCompleted, run.Status)
+			store.RunChannel.Send(run.ID, models.RunResult{}, trigger)
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
+			store.One("ID", run.ID, &run)
 			assert.Equal(t, initialData, run.Result.Data)
 		})
 	}
 }
 
-func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T) {
+func TestJobRunner_transitionToPendingConfirmationsWithBridgeTask(t *testing.T) {
 	t.Parallel()
 
 	config, cfgCleanup := cltest.NewConfig()
@@ -358,6 +373,9 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 	config.MinIncomingConfirmations = 10
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 	creationHeight := 1000
 	configMin := int(store.Config.MinIncomingConfirmations)
 
@@ -403,58 +421,46 @@ func TestExecuteRun_TransitionToPendingConfirmations_WithBridgeTask(t *testing.T
 			assert.NoError(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, early)
-			assert.NoError(t, err)
-
-			store.One("ID", run.ID, &run)
-			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+			store.RunChannel.Send(run.ID, models.RunResult{}, early)
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
-			run, err = services.ExecuteRunAtBlock(run, store, models.RunResult{}, trigger)
-			assert.NoError(t, err)
-			assert.Equal(t, models.RunStatusCompleted, run.Status)
+			store.RunChannel.Send(run.ID, models.RunResult{}, trigger)
+			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 		})
 	}
 }
 
-func TestJobRunner_ExecuteRun_TransitionToPending(t *testing.T) {
+func TestJobRunner_transitionToPending(t *testing.T) {
 	t.Parallel()
+
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+	jobRunner, cleanup := cltest.NewJobRunner(store)
+	defer cleanup()
+	jobRunner.Start()
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOpPend")}
 
 	run := job.NewRun(initr)
-	run, err := services.ExecuteRun(run, store, models.RunResult{})
-	assert.NoError(t, err)
+	assert.NoError(t, store.Save(&run))
 
-	store.One("ID", run.ID, &run)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 }
 
-func TestJobRunner_ExecuteRun_ErrorsWithNoRuns(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	job, initr := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{}
-	run := job.NewRun(initr)
-	run, err := services.ExecuteRun(run, store, models.RunResult{})
-	assert.Error(t, err)
-}
-
-func TestJobRunner_BeginRunWithAmount(t *testing.T) {
+func TestJobRunner_BuildRunWithValidPayment(t *testing.T) {
 	tests := []struct {
-		name   string
-		amount *assets.Link
-		status models.RunStatus
+		name    string
+		amount  *assets.Link
+		invalid bool
+		status  models.RunStatus
 	}{
-		{"job with no amount", nil, models.RunStatusCompleted},
-		{"job with insufficient amount", assets.NewLink(9), models.RunStatusErrored},
-		{"job with exact amount", assets.NewLink(10), models.RunStatusCompleted},
-		{"job with valid amount", assets.NewLink(11), models.RunStatusCompleted},
+		{"job with insufficient amount", assets.NewLink(9), true, models.RunStatusErrored},
+		{"job with no amount", nil, false, models.RunStatusUnstarted},
+		{"job with exact amount", assets.NewLink(10), false, models.RunStatusUnstarted},
+		{"job with valid amount", assets.NewLink(11), false, models.RunStatusUnstarted},
 	}
 
 	config, cfgCleanup := cltest.NewConfig()
@@ -473,51 +479,8 @@ func TestJobRunner_BeginRunWithAmount(t *testing.T) {
 			runResult := models.RunResult{
 				Amount: test.amount,
 			}
-			run, _ := services.BeginRun(job, initr, runResult, store)
+			run, _ := services.BuildRunWithValidPayment(job, initr, runResult, store)
 			assert.Equal(t, test.status, run.Status)
-		})
-	}
-}
-
-func TestJobRunner_BeginRun(t *testing.T) {
-	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
-	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
-	nullTime := null.Time{Valid: false}
-
-	tests := []struct {
-		name     string
-		startAt  null.Time
-		endAt    null.Time
-		errored  bool
-		runCount int
-	}{
-		{"job not started", futureTime, nullTime, true, 0},
-		{"job started", pastTime, futureTime, false, 1},
-		{"job with no time range", nullTime, nullTime, false, 1},
-		{"job ended", nullTime, pastTime, true, 0},
-	}
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-			job, initr := cltest.NewJobWithWebInitiator()
-			job.StartAt = test.startAt
-			job.EndAt = test.endAt
-			assert.Nil(t, store.SaveJob(&job))
-
-			_, err := services.BeginRun(job, initr, models.RunResult{}, store)
-
-			if test.errored {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-			jrs, err := store.JobRunsFor(job.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, test.runCount, len(jrs))
 		})
 	}
 }
