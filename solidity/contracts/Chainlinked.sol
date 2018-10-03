@@ -70,6 +70,14 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
+  function getLinkToken()
+    internal
+    view
+    returns (address)
+  {
+    return address(link);
+  }
+
   function newChainlinkWithENS(address _ens, bytes32 _node)
     internal
     returns (address, address)
