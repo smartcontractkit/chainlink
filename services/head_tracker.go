@@ -38,7 +38,7 @@ type HeadTracker struct {
 	sleeper               utils.Sleeper
 	done                  chan struct{}
 	started               bool
-	newHeadListenerWg     sync.WaitGroup
+	listenForNewHeadsWg   sync.WaitGroup
 	subscriptionSucceeded chan struct{}
 	bootMutex             sync.Mutex
 }
@@ -83,8 +83,8 @@ func (ht *HeadTracker) Start() error {
 	ht.done = make(chan struct{})
 	ht.subscriptionSucceeded = make(chan struct{})
 
-	ht.newHeadListenerWg.Add(1)
-	go ht.newHeadListener()
+	ht.listenForNewHeadsWg.Add(1)
+	go ht.listenForNewHeads()
 	<-ht.subscriptionSucceeded
 
 	ht.started = true
@@ -101,7 +101,7 @@ func (ht *HeadTracker) Stop() error {
 	}
 
 	close(ht.done)
-	ht.newHeadListenerWg.Wait()
+	ht.listenForNewHeadsWg.Wait()
 	close(ht.subscriptionSucceeded)
 	ht.started = false
 	return nil
@@ -181,21 +181,21 @@ func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 	}
 }
 
-func (ht *HeadTracker) newHeadListener() {
-	defer ht.newHeadListenerWg.Done()
+func (ht *HeadTracker) listenForNewHeads() {
+	defer ht.listenForNewHeadsWg.Done()
 	defer ht.unsubscribeFromHead()
 
 	for {
-		ht.reconnectionPoll()
+		ht.resubscriptionPoll()
 
-	ConnectedLoop:
+	SubscriptionLoop:
 		for {
 			select {
 			case <-ht.done:
 				return
 			case header, open := <-ht.headers:
 				if !open {
-					break ConnectedLoop
+					break SubscriptionLoop
 				}
 				number := header.ToIndexableBlockNumber()
 				logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
@@ -207,16 +207,16 @@ func (ht *HeadTracker) newHeadListener() {
 			case err, open := <-ht.headSubscription.Err():
 				if open && err != nil {
 					logger.Errorw("Error in new head subscription, disconnected", "err", err)
-					break ConnectedLoop
+					break SubscriptionLoop
 				}
 			}
 		}
 	}
 }
 
-// reconnectionPoll periodically attempts to connect to the ethereum node via websocket.
+// resubscriptionPoll periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
-func (ht *HeadTracker) reconnectionPoll() {
+func (ht *HeadTracker) resubscriptionPoll() {
 	ht.sleeper.Reset()
 	for {
 		ht.unsubscribeFromHead()
