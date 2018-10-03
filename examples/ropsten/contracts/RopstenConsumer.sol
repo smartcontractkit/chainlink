@@ -754,6 +754,10 @@ contract Oracle is Ownable {
     bytes data
   );
 
+  event CancelRequest(
+    uint256 internalId
+  );
+
   constructor(address _link) Ownable() public {
     LINK = LinkToken(_link);
   }
@@ -833,6 +837,7 @@ contract Oracle is Ownable {
     Callback memory cb = callbacks[internalId];
     require(LINK.transfer(cb.addr, cb.amount), "Unable to transfer");
     delete callbacks[internalId];
+    emit CancelRequest(internalId);
   }
 
   // MODIFIERS
@@ -930,21 +935,27 @@ contract Chainlinked {
     returns (bytes32)
   {
     _run.requestId = bytes32(requests);
-    _run.close();
-    require(link.transferAndCall(oracle, _amount, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
-    emit ChainlinkRequested(_run.requestId);
-    unfulfilledRequests[_run.requestId] = oracle;
-
     requests += 1;
+    _run.close();
+    unfulfilledRequests[_run.requestId] = oracle;
+    emit ChainlinkRequested(_run.requestId);
+    require(link.transferAndCall(oracle, _amount, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
+
     return _run.requestId;
   }
 
   function cancelChainlinkRequest(bytes32 _requestId)
     internal
   {
-    oracle.cancel(_requestId);
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
+    oracle.cancel(_requestId);
+  }
+
+  function withdrawLinkBalance()
+    internal
+  {
+    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
   function LINK(uint256 _amount) internal view returns (uint256) {
@@ -1089,6 +1100,10 @@ contract RopstenConsumer is Chainlinked, Ownable {
   {
     emit RequestEthereumLastMarket(_requestId, _market);
     lastMarket = _market;
+  }
+
+  function withdrawLink() public onlyOwner {
+    withdrawLinkBalance();
   }
 
 }

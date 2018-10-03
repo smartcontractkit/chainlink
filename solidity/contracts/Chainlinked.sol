@@ -58,6 +58,12 @@ contract Chainlinked {
     oracle.cancel(_requestId);
   }
 
+  function withdrawLinkBalance()
+    internal
+  {
+    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
+  }
+
   function LINK(uint256 _amount) internal view returns (uint256) {
     return _amount.mul(linkDivisibility);
   }

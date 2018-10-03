@@ -102,4 +102,8 @@ contract RopstenConsumer is Chainlinked, Ownable {
     lastMarket = _market;
   }
 
+  function withdrawLink() public onlyOwner {
+    withdrawLinkBalance();
+  }
+
 }
