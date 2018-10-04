@@ -157,4 +157,20 @@ contract('BasicConsumer', () => {
       })
     })
   })
+
+  describe('#withdrawLink', () => {
+    beforeEach(async () => {
+      await link.transfer(cc.address, web3.toWei('1', 'ether'))
+      const balance = await link.balanceOf(cc.address);
+      assert.equal(balance.toString(), web3.toWei('1', 'ether'));
+    })
+
+    it('transfers LINK out of the contract', async () => {
+      await cc.withdrawLink({from: consumer});
+      const ccBalance = await link.balanceOf(cc.address);
+      const consumerBalance = await link.balanceOf(consumer);
+      assert.equal(ccBalance.toString(), '0');
+      assert.equal(consumerBalance.toString(), web3.toWei('1', 'ether'));
+    })
+  })
 })
