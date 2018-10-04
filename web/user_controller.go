@@ -84,3 +84,30 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		ctx.Data(http.StatusOK, MediaType, json)
 	}
 }
+
+// AccountBalances returns the account balances of ETH & LINK.
+// Example:
+//  "<application>/user/balances"
+func (c *UserController) AccountBalances(ctx *gin.Context) {
+	store := c.App.Store
+	txm := store.TxManager
+
+	if account, err := store.KeyStore.GetAccount(); err != nil {
+		publicError(ctx, 400, err)
+	} else if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
+		ctx.AbortWithError(500, err)
+	} else if linkBalance, err := txm.GetLinkBalance(account.Address); err != nil {
+		ctx.AbortWithError(500, err)
+	} else {
+		ab := presenters.AccountBalance{
+			Address:     account.Address.Hex(),
+			EthBalance:  ethBalance,
+			LinkBalance: linkBalance,
+		}
+		if json, err := jsonapi.Marshal(ab); err != nil {
+			ctx.AbortWithError(500, fmt.Errorf("failed to marshal account using jsonapi: %+v", err))
+		} else {
+			ctx.Data(200, MediaType, json)
+		}
+	}
+}

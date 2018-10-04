@@ -36,7 +36,7 @@ describe('containers/Job', () => {
       '10120000000000000000000',
       '7460000000000000000000'
     )
-    global.fetch.getOnce('/v2/account_balance', accountBalanceResponse)
+    global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
     const wrapper = mountJobs()
 
@@ -55,7 +55,7 @@ describe('containers/Job', () => {
     expect.assertions(6)
 
     const accountBalanceResponse = accountBalanceFactory('0', '0')
-    global.fetch.getOnce('/v2/account_balance', accountBalanceResponse)
+    global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
     const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
