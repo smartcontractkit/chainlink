@@ -75,7 +75,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	} else if user, err := c.App.Store.FindUser(); err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 	} else if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		publicError(ctx, http.StatusUnauthorized, errors.New("Old password does not match"))
+		publicError(ctx, http.StatusConflict, errors.New("Old password does not match"))
 	} else if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else if json, err := jsonapi.Marshal(presenters.UserPresenter{User: &user}); err != nil {
