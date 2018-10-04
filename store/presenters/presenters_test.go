@@ -73,7 +73,7 @@ func TestPresenterShowEthBalance_WithEmptyAccount(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	_, err := presenters.ShowEthBalance(app.Store)
+	_, _, err := presenters.ShowEthBalance(app.Store)
 	assert.Error(t, err)
 }
 
@@ -87,11 +87,13 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 
-	output, err := presenters.ShowEthBalance(app.Store)
+	output, kv, err := presenters.ShowEthBalance(app.Store)
 	assert.NoError(t, err)
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
+	assert.Equal(t, kv[1], addr)
+	assert.Equal(t, kv[3], "0.000000000000000256")
 }
 
 func TestPresenterShowLinkBalance_NoAccount(t *testing.T) {
@@ -116,12 +118,14 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 
-	output, err := presenters.ShowLinkBalance(app.Store)
+	output, kv, err := presenters.ShowLinkBalance(app.Store)
 	assert.NoError(t, err)
 
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("Link Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
+	assert.Equal(t, kv[1], addr)
+	assert.Equal(t, kv[3], "0.000000000000000256")
 }
 
 func TestPresenter_FriendlyBigInt(t *testing.T) {

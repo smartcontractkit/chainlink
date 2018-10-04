@@ -94,12 +94,12 @@ func updateConfig(config strpkg.Config, debug bool) strpkg.Config {
 }
 
 func logNodeBalance(store *strpkg.Store) {
-	balance, err := presenters.ShowEthBalance(store)
+	balance, kv, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
-	logger.Infow(balance)
-	balance, err = presenters.ShowLinkBalance(store)
+	logger.Infow(balance, kv...)
+	balance, kv, err = presenters.ShowLinkBalance(store)
 	logger.WarnIf(err)
-	logger.Infow(balance)
+	logger.Infow(balance, kv...)
 }
 
 func logConfigVariables(config strpkg.Config) {
