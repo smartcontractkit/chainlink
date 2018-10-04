@@ -24,7 +24,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
@@ -809,11 +808,6 @@ func mustNotErr(err error) {
 	if err != nil {
 		logger.Panic(err)
 	}
-}
-
-// UnwrapAdapter unwraps the adapter from given wrapped adapter
-func UnwrapAdapter(wa adapters.AdapterWithMinConfs) adapters.Adapter {
-	return wa.(adapters.MinConfsWrappedAdapter).Adapter
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store

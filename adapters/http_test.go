@@ -13,7 +13,7 @@ import (
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	tests := []struct {
 		name    string
-		adapter adapters.Adapter
+		adapter adapters.BaseAdapter
 	}{
 		{"HTTPGet", &adapters.HTTPGet{URL: cltest.MustParseWebURL("NotAURL")}},
 		{"HTTPPost", &adapters.HTTPPost{URL: cltest.MustParseWebURL("NotAURL")}},
