@@ -187,21 +187,32 @@ func BuildRunWithValidPayment(
 	job models.JobSpec,
 	initr models.Initiator,
 	input models.RunResult,
-	store *store.Store,
+	s *store.Store,
 ) (models.JobRun, error) {
-	run, err := BuildRun(job, initr, store)
+	run, err := BuildRun(job, initr, s)
 	if err != nil {
 		return models.JobRun{}, err
 	}
-	if input.Amount != nil &&
-		store.Config.MinimumContractPayment.Cmp(input.Amount) > 0 {
-		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below minimum threshold (%s)",
-			job.ID,
-			input.Amount,
-			store.Config.MinimumContractPayment.Text(10))
-		run = run.ApplyResult(input.WithError(err))
-		return run, multierr.Append(err, store.Save(&run))
+	if input.Amount != nil {
+		paymentValid, err := ValidateMinimumContractPayment(s, job, *input.Amount)
+
+		if err != nil {
+			err := fmt.Errorf(
+				"Rejecting job %s error validating contract payment: %v",
+				job.ID,
+				err,
+			)
+			run = run.ApplyResult(input.WithError(err))
+			return run, multierr.Append(err, s.Save(&run))
+		} else if !paymentValid {
+			err := fmt.Errorf(
+				"Rejecting job %s with payment %s below minimum threshold (%s)",
+				job.ID,
+				input.Amount,
+				s.Config.MinimumContractPayment.Text(10))
+			run = run.ApplyResult(input.WithError(err))
+			return run, multierr.Append(err, s.Save(&run))
+		}
 	}
 
 	return run, err

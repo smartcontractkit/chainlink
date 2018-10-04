@@ -451,18 +451,6 @@ func TestJobRunner_transitionToPending(t *testing.T) {
 }
 
 func TestJobRunner_BuildRunWithValidPayment(t *testing.T) {
-	tests := []struct {
-		name    string
-		amount  *assets.Link
-		invalid bool
-		status  models.RunStatus
-	}{
-		{"job with insufficient amount", assets.NewLink(9), true, models.RunStatusErrored},
-		{"job with no amount", nil, false, models.RunStatusUnstarted},
-		{"job with exact amount", assets.NewLink(10), false, models.RunStatusUnstarted},
-		{"job with valid amount", assets.NewLink(11), false, models.RunStatusUnstarted},
-	}
-
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
 	config.MinimumContractPayment = *assets.NewLink(10)
@@ -470,17 +458,32 @@ func TestJobRunner_BuildRunWithValidPayment(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
+	tests := []struct {
+		name       string
+		amount     *assets.Link
+		invalid    bool
+		wantStatus models.RunStatus
+	}{
+		{"job with insufficient amount", assets.NewLink(9), true, models.RunStatusErrored},
+		{"job with no amount", nil, false, models.RunStatusUnstarted},
+		{"job with exact amount", assets.NewLink(10), false, models.RunStatusUnstarted},
+		{"job with valid amount", assets.NewLink(11), false, models.RunStatusUnstarted},
+	}
+
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			job, initr := cltest.NewJobWithWebInitiator()
+			job.Tasks = []models.TaskSpec{
+				cltest.NewTask("ethtx"),
+			}
 			assert.Nil(t, store.SaveJob(&job))
 
 			runResult := models.RunResult{
 				Amount: test.amount,
 			}
 			run, _ := services.BuildRunWithValidPayment(job, initr, runResult, store)
-			assert.Equal(t, test.status, run.Status)
+			assert.Equal(t, test.wantStatus, run.Status)
 		})
 	}
 }
