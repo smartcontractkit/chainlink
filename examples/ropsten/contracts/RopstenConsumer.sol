@@ -974,6 +974,14 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
+  function getLinkToken()
+    internal
+    view
+    returns (address)
+  {
+    return address(link);
+  }
+
   function newChainlinkWithENS(address _ens, bytes32 _node)
     internal
     returns (address, address)
@@ -1104,6 +1112,11 @@ contract RopstenConsumer is Chainlinked, Ownable {
   {
     emit RequestEthereumLastMarket(_requestId, _market);
     lastMarket = _market;
+  }
+
+  function withdrawLink() public onlyOwner {
+    LinkToken link = LinkToken(getLinkToken());
+    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
 }

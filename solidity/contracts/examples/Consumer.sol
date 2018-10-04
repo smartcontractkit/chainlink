@@ -24,6 +24,11 @@ contract Consumer is Chainlinked {
     cancelChainlinkRequest(_requestId);
   }
 
+  function withdrawLink() public {
+    LinkToken link = LinkToken(chainlinkToken());
+    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
+  }
+
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
     checkChainlinkFulfillment(_requestId)
