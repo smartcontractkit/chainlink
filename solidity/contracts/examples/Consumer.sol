@@ -25,7 +25,7 @@ contract Consumer is Chainlinked {
   }
 
   function withdrawLink() public {
-    LinkToken link = LinkToken(getLinkToken());
+    LinkToken link = LinkToken(chainlinkToken());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
