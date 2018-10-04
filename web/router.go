@@ -280,10 +280,11 @@ func readBody(reader io.Reader) string {
 	return s
 }
 
+// NOTE: keys must be in lowercase for case insensitive match
 var blacklist = map[string]struct{}{
 	"password":    struct{}{},
-	"newPassword": struct{}{},
-	"oldPassword": struct{}{},
+	"newpassword": struct{}{},
+	"oldpassword": struct{}{},
 }
 
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
