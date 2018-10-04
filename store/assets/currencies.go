@@ -40,6 +40,15 @@ func (l *Link) ToHash() common.Hash {
 	return common.BigToHash((*big.Int)(l))
 }
 
+// Set delegates to *big.Int.Set
+func (l *Link) Set(x *Link) *Link {
+	il := (*big.Int)(l)
+	ix := (*big.Int)(x)
+
+	w := il.Set(ix)
+	return (*Link)(w)
+}
+
 // SetString delegates to *big.Int.SetString
 func (l *Link) SetString(s string, base int) (*Link, bool) {
 	w, ok := (*big.Int)(l).SetString(s, base)
@@ -49,6 +58,15 @@ func (l *Link) SetString(s string, base int) (*Link, bool) {
 // Cmp defers to big.Int Cmp
 func (l *Link) Cmp(y *Link) int {
 	return (*big.Int)(l).Cmp((*big.Int)(y))
+}
+
+// Add defers to big.Int Add
+func (l *Link) Add(x, y *Link) *Link {
+	il := (*big.Int)(l)
+	ix := (*big.Int)(x)
+	iy := (*big.Int)(y)
+
+	return (*Link)(il.Add(ix, iy))
 }
 
 // Text defers to big.Int Text
