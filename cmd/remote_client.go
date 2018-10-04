@@ -311,7 +311,13 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Password updated.")
+	if resp.StatusCode == http.StatusOK {
+		fmt.Println("Password updated.")
+	} else if resp.StatusCode == http.StatusConflict {
+		fmt.Println("Old password did not match.")
+	} else {
+		return cli.printResponseBody(resp)
+	}
 	return nil
 }
 
