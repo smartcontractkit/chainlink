@@ -3,7 +3,7 @@ pragma solidity ^0.4.24;
 import "./ChainlinkLib.sol";
 import "./ENSResolver.sol";
 import "./Oracle.sol";
-import "ens/contracts/ENS.sol";
+import "@ensdomains/ens/contracts/ENS.sol";
 import "link_token/contracts/LinkToken.sol";
 
 contract Chainlinked {

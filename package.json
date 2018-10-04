@@ -14,8 +14,8 @@
     "flatten": "./internal/bin/flatten-ropsten"
   },
   "dependencies": {
+    "@ensdomains/ens": "^0.1.1",
     "change-case": "^3.0.2",
-    "ens": "github:ensdomains/ens",
     "formik": "^1.0.3",
     "link_token": "^1.0.1",
     "openzeppelin-solidity": "^1.12.0",
