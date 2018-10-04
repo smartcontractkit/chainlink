@@ -8,6 +8,9 @@ cc-test-reporter before-build
 goverage -v -parallel 2 --tags=test -coverprofile=c.out ./...
 result=$?
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
+  cc-test-reporter format-coverage --output coverage/codeclimate.$SUITE.json
+  cc-test-reporter sum-coverage coverage/codeclimate.*.json
   cc-test-reporter after-build -t gocov --exit-code $result
+  cc-test-reporter upload-coverage
 fi
 bash <(curl -s https://codecov.io/bash)
