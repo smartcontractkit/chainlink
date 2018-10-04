@@ -102,9 +102,9 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#getLinkToken', () => {
+  describe('#chainlinkToken', () => {
     it('returns the Link Token address', async () => {
-      const addr = await cc.publicGetLinkToken.call();
+      const addr = await cc.publicChainlinkToken.call();
       assert.equal(addr, link.address)
     })
   })

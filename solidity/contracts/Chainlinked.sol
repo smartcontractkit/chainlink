@@ -70,7 +70,7 @@ contract Chainlinked {
     link = LinkToken(_link);
   }
 
-  function getLinkToken()
+  function chainlinkToken()
     internal
     view
     returns (address)
