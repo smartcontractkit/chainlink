@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -174,4 +175,70 @@ func TestValidateServiceAgreement(t *testing.T) {
 			cltest.AssertError(t, test.wantError, result)
 		})
 	}
+}
+
+func TestValidateMinimumContractPayment_tasksExist(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig()
+	defer cleanup()
+	config.MinimumContractPayment = *assets.NewLink(1)
+
+	s, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	bta := cltest.NewBridgeType("bridgeA")
+	bta.MinimumContractPayment = *assets.NewLink(2)
+	assert.NoError(t, s.Save(&bta))
+
+	btb := cltest.NewBridgeType("bridgeB")
+	btb.MinimumContractPayment = *assets.NewLink(3)
+	assert.NoError(t, s.Save(&btb))
+
+	job := models.NewJob()
+	job.Tasks = []models.TaskSpec{
+		cltest.NewTask("ethtx"),
+		cltest.NewTask("bridgea"),
+		cltest.NewTask("bridgeb"),
+	}
+	assert.NoError(t, s.Save(&job))
+
+	tests := []struct {
+		name      string
+		amount    assets.Link
+		wantValid bool
+	}{
+		{"less than", *assets.NewLink(5), false},
+		{"equal", *assets.NewLink(6), true},
+		{"greater than", *assets.NewLink(7), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			valid, err := services.ValidateMinimumContractPayment(s, job, test.amount)
+			assert.NoError(t, err)
+			assert.Equal(t, test.wantValid, valid)
+		})
+	}
+}
+
+func TestValidateMinimumContractPayment_taskDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig()
+	defer cleanup()
+	config.MinimumContractPayment = *assets.NewLink(1)
+
+	s, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	job := models.NewJob()
+	job.Tasks = []models.TaskSpec{
+		cltest.NewTask("idontexist"),
+	}
+	assert.NoError(t, s.Save(&job))
+
+	valid, err := services.ValidateMinimumContractPayment(s, job, *assets.NewLink(1))
+	assert.Error(t, err)
+	assert.Equal(t, false, valid)
 }
