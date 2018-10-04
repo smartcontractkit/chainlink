@@ -49,12 +49,7 @@ func TestAdapterFor(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				wa, ok := adapter.(adapters.MinConfsWrappedAdapter)
-				if ok {
-					assert.Equal(t, test.want, reflect.TypeOf(wa.Adapter).String())
-				} else {
-					assert.Equal(t, test.want, reflect.TypeOf(adapter).String())
-				}
+				assert.Equal(t, test.want, reflect.TypeOf(adapter.BaseAdapter).String())
 			}
 		})
 	}

@@ -37,89 +37,85 @@ var (
 	TaskTypeWasm = models.MustNewTaskType("wasm")
 )
 
-// Adapter interface applies to all core adapters.
-// Each implementation must return a RunResult.
-type Adapter interface {
+// BaseAdapter is the minimum interface required to create an adapter. Only core
+// adapters have this minimum requirement.
+type BaseAdapter interface {
 	Perform(models.RunResult, *store.Store) models.RunResult
 }
 
-// AdapterWithMinConfs is the interface required for an adapter to be run in
-// the job pipeline. In addition to the Adapter interface, implementers must
-// specify the number of confirmations required before the Adapter can be run.
-type AdapterWithMinConfs interface {
-	Adapter
-	MinConfs() uint64
+// PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
+type PipelineAdapter struct {
+	BaseAdapter
+	minConfs uint64
 }
 
-// MinConfsWrappedAdapter allows for an adapter to be wrapped so that it meets
-// the AdapterWithMinConfsInterface.
-type MinConfsWrappedAdapter struct {
-	Adapter
-	ConfiguredConfirmations uint64
-}
-
-// MinConfs specifies the number of block confirmations
-// needed to run the adapter.
-func (wa MinConfsWrappedAdapter) MinConfs() uint64 {
-	return wa.ConfiguredConfirmations
+// MinConfs returns the private attribute
+func (p PipelineAdapter) MinConfs() uint64 {
+	return p.minConfs
 }
 
 // For determines the adapter type to use for a given task.
-func For(task models.TaskSpec, store *store.Store) (AdapterWithMinConfs, error) {
-	var ac Adapter
+func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
+	var ba BaseAdapter
 	var err error
+	mic := store.Config.MinIncomingConfirmations
+
 	switch task.Type {
 	case TaskTypeCopy:
-		ac = &Copy{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &Copy{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthBytes32:
-		ac = &EthBytes32{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &EthBytes32{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthInt256:
-		ac = &EthInt256{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &EthInt256{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthUint256:
-		ac = &EthUint256{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &EthUint256{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTx:
-		ac = &EthTx{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &EthTx{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
-		ac = &HTTPGet{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &HTTPGet{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPPost:
-		ac = &HTTPPost{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &HTTPPost{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeJSONParse:
-		ac = &JSONParse{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &JSONParse{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeMultiply:
-		ac = &Multiply{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &Multiply{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeNoOp:
-		ac = &NoOp{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &NoOp{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeNoOpPend:
-		ac = &NoOpPend{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &NoOpPend{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeSleep:
-		ac = &Sleep{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &Sleep{}
+		err = unmarshalParams(task.Params, ba)
 	case TaskTypeWasm:
-		ac = &Wasm{}
-		err = unmarshalParams(task.Params, ac)
+		ba = &Wasm{}
+		err = unmarshalParams(task.Params, ba)
 	default:
 		bt, err := store.FindBridge(task.Type.String())
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
-		return &Bridge{BridgeType: bt, Params: &task.Params}, nil
+		b := Bridge{BridgeType: bt, Params: &task.Params}
+		ba = &b
+		mic = b.Confirmations
 	}
-	wa := MinConfsWrappedAdapter{
-		Adapter:                 ac,
-		ConfiguredConfirmations: store.Config.MinIncomingConfirmations,
+
+	pa := &PipelineAdapter{
+		BaseAdapter: ba,
+		minConfs:    mic,
 	}
-	return wa, err
+
+	return pa, err
 }
 
 func unmarshalParams(params models.JSON, dst interface{}) error {

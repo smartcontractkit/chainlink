@@ -107,15 +107,15 @@ func TestJobSpecsController_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
-	httpGet := cltest.UnwrapAdapter(adapter1).(*adapters.HTTPGet)
+	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.URL.String(), "https://bitstamp.net/api/ticker/")
 
 	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
-	jsonParse := cltest.UnwrapAdapter(adapter2).(*adapters.JSONParse)
+	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
-	signTx := cltest.UnwrapAdapter(adapter4).(*adapters.EthTx)
+	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
@@ -133,17 +133,17 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/caseinsensitive_hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
-	httpGet := cltest.UnwrapAdapter(adapter1).(*adapters.HTTPGet)
+	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.URL.String(), "https://bitstamp.net/api/ticker/")
 
 	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
-	jsonParse := cltest.UnwrapAdapter(adapter2).(*adapters.JSONParse)
+	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
 	assert.Equal(t, jsonParse.Path, []string{"last"})
 
 	assert.Equal(t, "ethbytes32", j.Tasks[2].Type.String())
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
-	signTx := cltest.UnwrapAdapter(adapter4).(*adapters.EthTx)
+	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
