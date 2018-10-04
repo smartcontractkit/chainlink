@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
@@ -46,7 +47,8 @@ type BaseAdapter interface {
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
 type PipelineAdapter struct {
 	BaseAdapter
-	minConfs uint64
+	minConfs           uint64
+	minContractPayment assets.Link
 }
 
 // MinConfs returns the private attribute
@@ -54,11 +56,17 @@ func (p PipelineAdapter) MinConfs() uint64 {
 	return p.minConfs
 }
 
+// MinContractPayment returns the private attribute
+func (p PipelineAdapter) MinContractPayment() assets.Link {
+	return p.minContractPayment
+}
+
 // For determines the adapter type to use for a given task.
 func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 	var ba BaseAdapter
 	var err error
 	mic := store.Config.MinIncomingConfirmations
+	mcp := *assets.NewLink(0)
 
 	switch task.Type {
 	case TaskTypeCopy:
@@ -75,6 +83,7 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTx:
 		ba = &EthTx{}
+		mcp = store.Config.MinimumContractPayment
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
 		ba = &HTTPGet{}
@@ -108,11 +117,13 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		b := Bridge{BridgeType: bt, Params: &task.Params}
 		ba = &b
 		mic = b.Confirmations
+		mcp = bt.MinimumContractPayment
 	}
 
 	pa := &PipelineAdapter{
-		BaseAdapter: ba,
-		minConfs:    mic,
+		BaseAdapter:        ba,
+		minConfs:           mic,
+		minContractPayment: mcp,
 	}
 
 	return pa, err
