@@ -43,32 +43,23 @@ type BaseAdapter interface {
 	Perform(models.RunResult, *store.Store) models.RunResult
 }
 
-// PipelineAdapter is the interface required for an adapter to be run in
-// the job pipeline with validation checks. In addition to the BaseAdapter
-// interface, implementers must specify the number of confirmations required
-// before the adapter can be run.
-type PipelineAdapter interface {
+// PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
+type PipelineAdapter struct {
 	BaseAdapter
-	MinConfs() uint64
+	minConfs uint64
 }
 
-// MinConfsWrappedAdapter allows for an adapter to be wrapped so that it meets
-// the AdapterWithMinConfsInterface.
-type MinConfsWrappedAdapter struct {
-	BaseAdapter
-	ConfiguredConfirmations uint64
-}
-
-// MinConfs specifies the number of block confirmations
-// needed to run the adapter.
-func (wa MinConfsWrappedAdapter) MinConfs() uint64 {
-	return wa.ConfiguredConfirmations
+// MinConfs returns the private attribute
+func (p PipelineAdapter) MinConfs() uint64 {
+	return p.minConfs
 }
 
 // For determines the adapter type to use for a given task.
-func For(task models.TaskSpec, store *store.Store) (PipelineAdapter, error) {
+func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 	var ba BaseAdapter
 	var err error
+	mic := store.Config.MinIncomingConfirmations
+
 	switch task.Type {
 	case TaskTypeCopy:
 		ba = &Copy{}
@@ -114,13 +105,17 @@ func For(task models.TaskSpec, store *store.Store) (PipelineAdapter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
-		return &Bridge{BridgeType: bt, Params: &task.Params}, nil
+		b := Bridge{BridgeType: bt, Params: &task.Params}
+		ba = &b
+		mic = b.Confirmations
 	}
-	a := MinConfsWrappedAdapter{
-		BaseAdapter:             ba,
-		ConfiguredConfirmations: store.Config.MinIncomingConfirmations,
+
+	pa := &PipelineAdapter{
+		BaseAdapter: ba,
+		minConfs:    mic,
 	}
-	return a, err
+
+	return pa, err
 }
 
 func unmarshalParams(params models.JSON, dst interface{}) error {
