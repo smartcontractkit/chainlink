@@ -812,8 +812,8 @@ func mustNotErr(err error) {
 }
 
 // UnwrapAdapter unwraps the adapter from given wrapped adapter
-func UnwrapAdapter(wa adapters.AdapterWithMinConfs) adapters.Adapter {
-	return wa.(adapters.MinConfsWrappedAdapter).Adapter
+func UnwrapAdapter(wa adapters.PipelineAdapter) adapters.BaseAdapter {
+	return wa.(adapters.MinConfsWrappedAdapter).BaseAdapter
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
