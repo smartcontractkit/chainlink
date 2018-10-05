@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigController_Show(t *testing.T) {
@@ -25,8 +26,7 @@ func TestConfigController_Show(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	cwl := presenters.ConfigWhitelist{}
-	err := cltest.ParseJSONAPIResponse(resp, &cwl)
-	assert.NoError(t, err)
+	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &cwl))
 
 	assert.Equal(t, store.LogLevel{Level: -1}, cwl.LogLevel)
 	assert.Contains(t, cwl.RootDir, "/tmp/chainlink_test/")

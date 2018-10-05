@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"net/url"
-
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -61,9 +59,7 @@ func TestValidateAdapter(t *testing.T) {
 
 	tt := models.BridgeType{}
 	tt.Name = models.MustNewTaskType("solargridreporting")
-	u, err := url.Parse("https://denergy.eth")
-	assert.NoError(t, err)
-	tt.URL = models.WebURL{URL: u}
+	tt.URL = cltest.WebURL("https://denergy.eth")
 	assert.NoError(t, store.Save(&tt))
 
 	tests := []struct {
