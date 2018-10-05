@@ -380,7 +380,7 @@ func StripBearer(authorizationStr string) string {
 }
 
 // IsQuoted checks if the first and last characters are either " or '.
-func isQuoted(input []byte) bool {
+func IsQuoted(input []byte) bool {
 	return len(input) >= 2 &&
 		((input[0] == '"' && input[len(input)-1] == '"') ||
 			(input[0] == '\'' && input[len(input)-1] == '\''))
@@ -389,7 +389,7 @@ func isQuoted(input []byte) bool {
 // RemoveQuotes removes the first and last character if they are both either
 // " or ', otherwise it is a noop.
 func RemoveQuotes(input []byte) []byte {
-	if isQuoted(input) {
+	if IsQuoted(input) {
 		return input[1 : len(input)-1]
 	}
 	return input

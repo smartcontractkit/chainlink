@@ -5,16 +5,18 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 
 	simplejson "github.com/bitly/go-simplejson"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // JSONParse holds a path to the desired field in a JSON object,
 // made up of an array of strings.
 type JSONParse struct {
-	Path []string `json:"path"`
+	Path jsonPath `json:"path"`
 }
 
 // Perform returns the value associated to the desired field for a
@@ -124,4 +126,18 @@ func isArray(js *simplejson.Json, key string) bool {
 		return false
 	}
 	return true
+}
+
+type jsonPath []string
+
+func (jp *jsonPath) UnmarshalJSON(b []byte) error {
+	strs := []string{}
+	var err error
+	if utils.IsQuoted(b) {
+		strs = strings.Split(string(utils.RemoveQuotes(b)), ".")
+	} else {
+		err = json.Unmarshal(b, &strs)
+	}
+	*jp = jsonPath(strs)
+	return err
 }

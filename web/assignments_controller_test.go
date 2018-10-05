@@ -28,7 +28,7 @@ func TestAssignmentsController_Create_V1_Format(t *testing.T) {
 	adapter2, err := adapters.For(j.Tasks[1], app.Store)
 	assert.NoError(t, err)
 	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
-	assert.Equal(t, jsonParse.Path, []string{"last"})
+	assert.Equal(t, []string(jsonParse.Path), []string{"last"})
 
 	adapter3, err := adapters.For(j.Tasks[2], app.Store)
 	assert.NoError(t, err)
