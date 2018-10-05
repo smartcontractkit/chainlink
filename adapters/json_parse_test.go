@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/adapters"
@@ -9,6 +10,7 @@ import (
 )
 
 func TestJsonParse_Perform(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		value           string
@@ -80,7 +82,6 @@ func TestJsonParse_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.RunResultWithValue(test.value)
 			adapter := adapters.JSONParse{Path: test.path}
 			result := adapter.Perform(input, nil)
@@ -90,6 +91,34 @@ func TestJsonParse_Perform(t *testing.T) {
 				assert.Error(t, result.GetError())
 			} else {
 				assert.NoError(t, result.GetError())
+			}
+		})
+	}
+}
+
+func TestJSON_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		input     string
+		want      []string
+		wantError bool
+	}{
+		{"array", `{"path":["1","b"]}`, []string{"1", "b"}, false},
+		{"array with dots", `{"path":["1",".","b"]}`, []string{"1", ".", "b"}, false},
+		{"string", `{"path":"first"}`, []string{"first"}, false},
+		{"dot delimited", `{"path":"1.b"}`, []string{"1", "b"}, false},
+		{"dot delimited empty string", `{"path":"1...b"}`, []string{"1", "", "", "b"}, false},
+		{"unclosed array errors", `{"path":["1"}`, []string{}, true},
+		{"unclosed string errors", `{"path":"1.2}`, []string{}, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			a := adapters.JSONParse{}
+			err := json.Unmarshal([]byte(test.input), &a)
+			cltest.AssertError(t, test.wantError, err)
+			if !test.wantError {
+				assert.Equal(t, test.want, []string(a.Path))
 			}
 		})
 	}
