@@ -217,9 +217,7 @@ func (j JSON) CBOR() ([]byte, error) {
 }
 
 // WebURL contains the URL of the endpoint.
-type WebURL struct {
-	*url.URL
-}
+type WebURL url.URL
 
 // UnmarshalJSON parses the raw URL stored in JSON-encoded
 // data to a URL structure and sets it to the URL field.
@@ -233,21 +231,19 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 	if err != nil {
 		return err
 	}
-	w.URL = u
+	*w = WebURL(*u)
 	return nil
 }
 
 // MarshalJSON returns the JSON-encoded string of the given data.
-func (w *WebURL) MarshalJSON() ([]byte, error) {
+func (w WebURL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(w.String())
 }
 
 // String delegates to the wrapped URL struct or an empty string when it is nil
-func (w *WebURL) String() string {
-	if w.URL == nil {
-		return ""
-	}
-	return w.URL.String()
+func (w WebURL) String() string {
+	url := url.URL(w)
+	return url.String()
 }
 
 // Time holds a common field for time.

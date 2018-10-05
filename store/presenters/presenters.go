@@ -104,54 +104,56 @@ func (a *AccountBalance) SetID(value string) error {
 // ConfigWhitelist are the non-secret values of the node
 type ConfigWhitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
+	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  uint64          `json:"ethChainId"`
 	ChainlinkDev             bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
 	DatabaseTimeout          store.Duration  `json:"databaseTimeout"`
+	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
-	EthereumURL              string          `json:"ethUrl"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
 	LogLevel                 store.LogLevel  `json:"logLevel"`
-	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
-	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
+	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
+	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     uint16          `json:"chainlinkPort"`
-	TLSPort                  uint16          `json:"chainlinkTLSPort"`
-	TLSHost                  string          `json:"chainlinkTLSHost"`
+	ReaperExpiration         store.Duration  `json:"reaperExpiration"`
 	RootDir                  string          `json:"root"`
 	SessionTimeout           store.Duration  `json:"sessionTimeout"`
-	ReaperExpiration         store.Duration  `json:"reaperExpiration"`
+	TLSHost                  string          `json:"chainlinkTLSHost"`
+	TLSPort                  uint16          `json:"chainlinkTLSPort"`
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
 func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 	return ConfigWhitelist{
 		AllowOrigins:             config.AllowOrigins,
+		BridgeResponseURL:        config.BridgeResponseURL.String(),
 		ChainID:                  config.ChainID,
 		ChainlinkDev:             config.Dev,
 		ClientNodeURL:            config.ClientNodeURL,
 		DatabaseTimeout:          config.DatabaseTimeout,
+		EthereumURL:              config.EthereumURL,
 		EthGasBumpThreshold:      config.EthGasBumpThreshold,
 		EthGasBumpWei:            &config.EthGasBumpWei,
 		EthGasPriceDefault:       &config.EthGasPriceDefault,
-		EthereumURL:              config.EthereumURL,
 		LinkContractAddress:      config.LinkContractAddress,
 		LogLevel:                 config.LogLevel,
-		MinIncomingConfirmations: config.MinIncomingConfirmations,
-		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		MinimumContractPayment:   &config.MinimumContractPayment,
 		MinimumRequestExpiration: config.MinimumRequestExpiration,
+		MinIncomingConfirmations: config.MinIncomingConfirmations,
+		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		OracleContractAddress:    config.OracleContractAddress,
 		Port:                     config.Port,
-		TLSPort:                  config.TLSPort,
-		TLSHost:                  config.TLSHost,
+		ReaperExpiration:         config.ReaperExpiration,
 		RootDir:                  config.RootDir,
 		SessionTimeout:           config.SessionTimeout,
-		ReaperExpiration:         config.ReaperExpiration,
+		TLSHost:                  config.TLSHost,
+		TLSPort:                  config.TLSPort,
 	}
 }
 
@@ -177,7 +179,8 @@ func (c ConfigWhitelist) String() string {
 		"ALLOW_ORIGINS: %s\n" +
 		"CHAINLINK_DEV: %v\n" +
 		"SESSION_TIMEOUT: %v\n" +
-		"REAPER_EXPIRATION: %v\n"
+		"REAPER_EXPIRATION: %v\n" +
+		"BRIDGE_RESPONSE_URL: %s\n"
 
 	oracleContractAddress := ""
 	if c.OracleContractAddress != nil {
@@ -207,6 +210,7 @@ func (c ConfigWhitelist) String() string {
 		c.ChainlinkDev,
 		c.SessionTimeout,
 		c.ReaperExpiration,
+		c.BridgeResponseURL,
 	)
 }
 

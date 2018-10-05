@@ -249,7 +249,7 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
 	assert.NoError(t, err)
-	wurl := &models.WebURL{URL: parsed}
+	wurl := models.WebURL(*parsed)
 	b, err := json.Marshal(wurl)
 	assert.NoError(t, err)
 	assert.Equal(t, `"`+str+`"`, string(b))
@@ -259,9 +259,7 @@ func TestWebURL_String_HasURL(t *testing.T) {
 	t.Parallel()
 
 	u, _ := url.Parse("http://www.duckduckgo.com")
-	w := models.WebURL{
-		URL: u,
-	}
+	w := models.WebURL(*u)
 
 	assert.Equal(t, "http://www.duckduckgo.com", w.String())
 }

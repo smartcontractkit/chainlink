@@ -20,6 +20,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -29,6 +30,7 @@ import (
 // by setting environment variables.
 type Config struct {
 	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
+	BridgeResponseURL        models.WebURL   `env:"BRIDGE_RESPONSE_URL" envDefault:""`
 	ChainID                  uint64          `env:"ETH_CHAIN_ID" envDefault:"0"`
 	ClientNodeURL            string          `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
 	DatabaseTimeout          Duration        `env:"DATABASE_TIMEOUT" envDefault:"500ms"`
@@ -37,6 +39,7 @@ type Config struct {
 	EthGasBumpWei            big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
 	EthGasPriceDefault       big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
 	EthereumURL              string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
+	JSONStdout               bool            `env:"JSON_STDOUT" envDefault:"false"`
 	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
 	MinIncomingConfirmations uint64          `env:"MIN_INCOMING_CONFIRMATIONS" envDefault:"0"`
@@ -45,15 +48,14 @@ type Config struct {
 	MinimumRequestExpiration uint64          `env:"MINIMUM_REQUEST_EXPIRATION" envDefault:"300"`
 	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	Port                     uint16          `env:"CHAINLINK_PORT" envDefault:"6688"`
-	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" envDefault:"6689"`
-	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" envDefault:""`
+	ReaperExpiration         Duration        `env:"REAPER_EXPIRATION" envDefault:"240h"`
 	RootDir                  string          `env:"ROOT" envDefault:"~/.chainlink"`
-	JSONStdout               bool            `env:"JSON_STDOUT" envDefault:"false"`
+	SessionTimeout           Duration        `env:"SESSION_TIMEOUT" envDefault:"15m"`
+	TLSCertPath              string          `env:"TLS_CERT_PATH" envDefault:""`
+	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" envDefault:""`
+	TLSKeyPath               string          `env:"TLS_KEY_PATH" envDefault:""`
+	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" envDefault:"6689"`
 	SecretGenerator          SecretGenerator
-	TLSCertPath              string   `env:"TLS_CERT_PATH" envDefault:""`
-	TLSKeyPath               string   `env:"TLS_KEY_PATH" envDefault:""`
-	SessionTimeout           Duration `env:"SESSION_TIMEOUT" envDefault:"15m"`
-	ReaperExpiration         Duration `env:"REAPER_EXPIRATION" envDefault:"240h"`
 }
 
 // NewConfig returns the config with the environment variables set to their

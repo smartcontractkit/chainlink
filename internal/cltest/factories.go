@@ -160,7 +160,7 @@ func NewBridgeTypeWithConfirmations(confirmations uint64, info ...string) models
 func WebURL(unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	mustNotErr(err)
-	return models.WebURL{URL: parsed}
+	return models.WebURL(*parsed)
 }
 
 // NullString creates null.String from given value
