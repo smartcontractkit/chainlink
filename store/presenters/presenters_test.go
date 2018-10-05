@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/smartcontractkit/chainlink/store/assets"
 )
 
 type MI = models.Initiator
@@ -92,8 +93,8 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
-	assert.Equal(t, kv[1], addr)
-	assert.Equal(t, kv[3], "0.000000000000000256")
+	assert.Equal(t, kv[1].(common.Address).String(), addr)
+	assert.Equal(t, kv[3].(*assets.Eth).String(), "0.000000000000000256")
 }
 
 func TestPresenterShowLinkBalance_NoAccount(t *testing.T) {
@@ -124,7 +125,7 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("Link Balance for %v: 0.000000000000000256", addr)
 	assert.Equal(t, want, output)
-	assert.Equal(t, kv[1], addr)
+	assert.Equal(t, kv[1].(common.Address).String(), addr)
 	assert.Equal(t, kv[3], "0.000000000000000256")
 }
 
