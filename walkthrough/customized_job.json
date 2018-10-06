@@ -1,0 +1,12 @@
+// custom adapters job
+
+{
+  "initiators": [{"type": "RunLog"}],
+  "tasks": [
+    {"type": "ArrivalStatus"},
+    {"type": "PriceAggregation"},
+    {"type": "EthUint256"},
+    {"type": "EthTx"}
+  ]
+}
+

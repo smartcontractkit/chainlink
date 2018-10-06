@@ -1,0 +1,8 @@
+// 20181005203832
+// https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY
+
+{
+  "USD": 226.14,
+  "EUR": 195.86,
+  "JPY": 25667.76
+}

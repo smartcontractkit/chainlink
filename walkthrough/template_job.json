@@ -1,0 +1,10 @@
+{
+  "initiators": [{"type": "RunLog"}],
+  "tasks": [
+    {"type": "HttpGet"},
+    {"type": "JsonParse"},
+    {"type": "EthUint256"},
+    {"type": "EthTx"}
+  ]
+}
+
