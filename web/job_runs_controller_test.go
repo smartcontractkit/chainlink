@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -277,6 +278,35 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	val, err := jr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, "0", val)
+}
+
+func TestJobRunsController_Update_WithMergeError(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	app.Start()
+	defer cleanup()
+
+	bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.Save(&bt))
+	j, initr := cltest.NewJobWithWebInitiator()
+	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
+	assert.Nil(t, app.Store.Save(&j))
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
+	assert.Nil(t, app.Store.Save(&jr))
+
+	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+	url := app.Config.ClientNodeURL + "/v2/runs/" + jr.ID
+	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
+	defer cleanup()
+
+	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	jrID := cltest.ParseCommonJSON(resp.Body).ID
+	assert.Equal(t, jr.ID, jrID)
+
+	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
+	assert.Contains(t, jr.Result.ErrorMessage.String, "Cannot merge")
 }
 
 func TestJobRunsController_Update_BadInput(t *testing.T) {

@@ -110,28 +110,51 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if _, err := bt.Authenticate(utils.StripBearer(c.Request.Header.Get("Authorization"))); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
+	} else if err = resumeJob(&jr, brr.RunResult, jrc.App.Store); err != nil {
+		c.AbortWithError(500, err)
 	} else {
-		executeRun(jr, jrc.App.Store, brr.RunResult)
 		c.JSON(200, gin.H{"id": jr.ID})
 	}
 }
 
+func resumeJob(jr *models.JobRun, input models.RunResult, store *store.Store) error {
+	var err error
+	if input.Status.Errored() {
+		*jr = jr.ApplyResult(input)
+		return store.Save(jr)
+	}
+
+	jr.Overrides, err = jr.Overrides.Merge(input)
+	if err != nil {
+		*jr = jr.ApplyResult(jr.Result.WithError(err))
+		return store.Save(jr)
+	}
+
+	if err := store.Save(jr); err != nil {
+		return err
+	}
+	executeRun(*jr, store)
+	return nil
+}
+
 func startJob(j models.JobSpec, s *store.Store, body models.JSON) (models.JobRun, error) {
 	i := j.InitiatorsFor(models.InitiatorWeb)[0]
-	jr, err := services.BuildRun(j, i, s)
+	jr, err := services.BuildRun(j, i, s, models.RunResult{Data: body})
 	if err != nil {
 		return jr, err
 	}
+
 	if s.Save(&jr); err != nil {
 		return jr, err
 	}
-	executeRun(jr, s, models.RunResult{Data: body})
+
+	executeRun(jr, s)
 	return jr, nil
 }
 
-func executeRun(jr models.JobRun, s *store.Store, rr models.RunResult) {
+func executeRun(jr models.JobRun, s *store.Store) {
 	go func() {
-		if err := s.RunChannel.Send(jr.ID, rr, nil); err != nil {
+		if err := s.RunChannel.Send(jr.ID, nil); err != nil {
 			logger.Error("Web initiator: ", err.Error())
 		}
 	}()

@@ -290,7 +290,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	run := job.NewRun(initr)
 	assert.NoError(t, store.Save(&run))
 
-	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	store.RunChannel.Send(run.ID, nil)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 
 	_, err := store.PendingBridgeType(run)
