@@ -180,7 +180,6 @@ func TestJobSubscriber_OnNewHead_OnlySendPendingConfirmationsAndInProgress(t *te
 			if test.wantSend {
 				assert.Equal(t, 1, len(mockRunChannel.Runs))
 				assert.Equal(t, block.Number, mockRunChannel.BlockNumbers[0].Number)
-				assert.Equal(t, test.status, mockRunChannel.Runs[0].Status)
 			} else {
 				assert.Equal(t, 0, len(mockRunChannel.Runs))
 			}

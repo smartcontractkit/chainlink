@@ -86,12 +86,12 @@ func (js *jobSubscriber) Disconnect() {
 func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 	pendingRuns, err := js.store.JobRunsWithStatus(models.RunStatusPendingConfirmations, models.RunStatusInProgress)
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error("error fetching pending job runs:", err.Error())
 	}
 
 	ibn := head.ToIndexableBlockNumber()
 	for _, jr := range pendingRuns {
-		if err := js.store.RunChannel.Send(jr.ID, jr.Result, ibn); err != nil {
+		if err := js.store.RunChannel.Send(jr.ID, ibn); err != nil {
 			logger.Error("JobSubscriber.OnNewHead: ", err.Error())
 		}
 	}

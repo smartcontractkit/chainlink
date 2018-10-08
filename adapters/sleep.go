@@ -22,7 +22,7 @@ func (adapter *Sleep) Perform(input models.RunResult, str *store.Store) models.R
 	input.Status = models.RunStatusPendingSleep
 	go func() {
 		<-str.Clock.After(duration)
-		if err := str.RunChannel.Send(input.JobRunID, input, nil); err != nil {
+		if err := str.RunChannel.Send(input.JobRunID, nil); err != nil {
 			logger.Error("Sleep Adapter Perform:", err.Error())
 		}
 	}()
