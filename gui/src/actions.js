@@ -231,13 +231,8 @@ function sendJobSpec (data, shouldStringify) {
 
 function sendBridgeType (data, shouldStringify) {
   return dispatch => {
-    const normalizedData = Object.assign({}, data)
-    if (typeof normalizedData.minimumContractPayment === 'number') {
-      normalizedData.minimumContractPayment = normalizedData.minimumContractPayment.toString()
-    }
-
     dispatch(createAction(REQUEST_CREATE))
-    return api.createBridgeType(normalizedData, shouldStringify)
+    return api.createBridgeType(data, shouldStringify)
       .then(res => dispatch(receiveCreateSuccess(res)))
       .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
