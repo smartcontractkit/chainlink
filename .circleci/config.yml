@@ -3,7 +3,7 @@ jobs:
   go:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.9
+      - image: smartcontract/builder:1.0.11
     steps:
       - checkout
       - restore_cache:
@@ -15,11 +15,12 @@ jobs:
           key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
+      - run: ./internal/ci/init_gcloud
       - run: ./internal/ci/go_test
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.9
+      - image: smartcontract/builder:1.0.11
     steps:
       - checkout
       - restore_cache:
@@ -41,7 +42,7 @@ jobs:
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.9
+      - image: smartcontract/builder:1.0.11
     steps:
       - checkout
       - restore_cache:
@@ -57,7 +58,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.9
+      - image: smartcontract/builder:1.0.11
     steps:
       - checkout
       - restore_cache:
@@ -73,7 +74,7 @@ jobs:
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.9
+      - image: smartcontract/builder:1.0.11
     steps:
       - checkout
       - restore_cache:
@@ -85,7 +86,15 @@ jobs:
           key: v1-yarn-packages-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
+      - run: ./internal/ci/init_gcloud
       - run: ./internal/ci/gui_test
+  reportcoverage:
+    docker:
+      - image: smartcontract/deployer:latest
+    steps:
+      - checkout
+      - run: ./internal/ci/init_gcloud
+      - run: ./internal/ci/report_coverage
   deploy:
     docker:
       - image: smartcontract/deployer:latest
@@ -93,15 +102,8 @@ jobs:
       ENVIRONMENT: release
       DOCKER_TAG: staging
     steps:
-      - run:
-          name: Store Service Account
-          command: echo $GCLOUD_SERVICE_KEY > ${HOME}/gcloud-service-key.json
-      - run: |
-          gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-          gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
-          gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
-          gcloud --quiet container clusters get-credentials ${GOOGLE_CLUSTER_NAME}
       - checkout
+      - run: ./internal/ci/init_gcloud
       - setup_remote_docker
       - run: echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin
       - run: make docker
@@ -122,6 +124,10 @@ workflows:
       - geth
       - gui
       - rust
+      - reportcoverage:
+          requires:
+            - go
+            - gui
       - deploy:
           requires:
             - go
