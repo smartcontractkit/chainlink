@@ -15,6 +15,12 @@
 // The JSONParse adapter will obtain the value(s) for the given field(s).
 //  { "type": "JSONParse", "path": ["someField"] }
 //
+// EthBool
+//
+// The EthBool adapter will take the given values and format them for
+// the Ethereum blockhain in boolean value.
+//  { "type": "EthBool" }
+//
 // EthBytes32
 //
 // The EthBytes32 adapter will take the given values and format them for
