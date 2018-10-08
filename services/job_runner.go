@@ -316,7 +316,7 @@ func prepareJobRun(
 
 func logTaskResult(lr models.TaskRun, tr models.TaskRun, i int) {
 	logger.Debugw("Produced task run", "taskRun", lr)
-	logger.Debugw(fmt.Sprintf("Task %v %v", tr.Task.Type, tr.Result.Status), tr.ForLogger("task", i, "result", lr.Result)...)
+	logger.Debugw(fmt.Sprintf("Next task run %v %v", tr.Task.Type, tr.Result.Status), tr.ForLogger("taskidx", i, "result", lr.Result)...)
 }
 
 func markCompletedIfRunnable(tr models.TaskRun) models.TaskRun {
