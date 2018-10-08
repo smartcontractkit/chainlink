@@ -3,6 +3,8 @@ import {
   jobSpecSelector,
   jobRunsSelector,
   jobRunsCountSelector,
+  bridgeSelector,
+  bridgesSelector,
   configsSelector,
   isFetchingSelector
 } from 'selectors'
@@ -131,6 +133,56 @@ describe('selectors', () => {
       }
 
       expect(jobRunsCountSelector(state, 'jobA')).toEqual(0)
+    })
+  })
+
+  describe('bridgeSelector', () => {
+    it('returns the bridge with the given id', () => {
+      const state = {
+        bridges: {
+          items: {
+            a: {name: 'A'},
+            b: {name: 'B'}
+          }
+        }
+      }
+
+      expect(bridgeSelector(state, 'a')).toEqual({name: 'A'})
+    })
+  })
+
+  describe('bridgesSelector', () => {
+    it('returns the current page of bridges', () => {
+      const state = {
+        bridges: {
+          items: {
+            a: {name: 'A'},
+            b: {name: 'B'},
+            c: {name: 'C'}
+          },
+          currentPage: ['c', 'a']
+        }
+      }
+
+      expect(bridgesSelector(state, 'a')).toEqual([
+        {name: 'C'},
+        {name: 'A'}
+      ])
+    })
+
+    it('does not return items that cannot be found', () => {
+      const state = {
+        bridges: {
+          items: {
+            a: {name: 'A'},
+            b: {name: 'B'},
+            c: {name: 'C'}
+          },
+          currentPage: ['C', 'A']
+        }
+      }
+
+      expect(bridgesSelector(state, 'a')).toEqual([])
     })
   })
 

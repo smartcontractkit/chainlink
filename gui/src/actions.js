@@ -130,27 +130,25 @@ fetchActions.bridges = {
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGES_SUCCESS,
     count: json.meta.count,
-    items: json.data.map(b => b.attributes)
+    items: json.data.map(b => Object.assign({id: b.id}, b.attributes))
   }),
   receiveErrorType: RECEIVE_BRIDGES_ERROR
 }
 
-export const REQUEST_BRIDGESPEC = 'REQUEST_BRIDGESPEC'
-export const RECEIVE_BRIDGESPEC_SUCCESS = 'RECEIVE_BRIDGESPEC_SUCCESS'
-export const RECEIVE_BRIDGESPEC_ERROR = 'RECEIVE_BRIDGESPEC_ERROR'
+export const REQUEST_BRIDGE = 'REQUEST_BRIDGE'
+export const RECEIVE_BRIDGE_SUCCESS = 'RECEIVE_BRIDGE_SUCCESS'
+export const RECEIVE_BRIDGE_ERROR = 'RECEIVE_BRIDGE_ERROR'
 
 fetchActions.bridgeSpec = {
-  requestActionType: REQUEST_BRIDGESPEC,
+  requestActionType: REQUEST_BRIDGE,
   receiveSuccess: json => ({
-    type: RECEIVE_BRIDGESPEC_SUCCESS,
-    name: json.data.attributes.name,
-    url: json.data.attributes.url,
-    confirmations: json.data.attributes.confirmations,
-    minimumContractPayment: json.data.attributes.minimumContractPayment,
-    incomingToken: json.data.attributes.incomingToken,
-    outgoingToken: json.data.attributes.outgoingToken
+    type: RECEIVE_BRIDGE_SUCCESS,
+    item: Object.assign(
+      {id: json.data.id},
+      json.data.attributes
+    )
   }),
-  receiveErrorType: RECEIVE_BRIDGESPEC_ERROR
+  receiveErrorType: RECEIVE_BRIDGE_ERROR
 }
 
 function sendFetchActions (type, ...getArgs) {

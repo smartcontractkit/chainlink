@@ -10,6 +10,7 @@ import { connect } from 'react-redux'
 import { fetchBridges } from 'actions'
 import { Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import { bridgesSelector } from 'selectors'
 
 const styles = theme => ({
   title: {
@@ -78,11 +79,14 @@ const mapStateToProps = state => {
 
   return {
     bridgeCount: state.bridges.count,
-    bridges: state.bridges.items,
+    bridges: bridgesSelector(state),
     bridgesError: bridgesError
   }
 }
 
-export const ConnectedBridges = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ fetchBridges }))(Bridges)
+export const ConnectedBridges = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({fetchBridges})
+)(Bridges)
 
 export default withSiteData(withStyles(styles)(ConnectedBridges))
