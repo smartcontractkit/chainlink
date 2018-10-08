@@ -1,0 +1,5 @@
+#!/bin/bash
+
+gsutil rsync -d -r gs://chainlink-test-coverage/$CIRCLE_BUILD_NUM coverage
+cc-test-reporter sum-coverage coverage/codeclimate.*.json
+cc-test-reporter upload-coverage

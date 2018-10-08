@@ -3,11 +3,9 @@
 set -e
 
 go get -u github.com/smartcontractkit/goverage
-
-cc-test-reporter before-build
+sleep 1
 goverage -v -parallel 2 --tags=test -coverprofile=c.out ./...
-result=$?
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
-  cc-test-reporter after-build -t gocov --exit-code $result
+  cc-test-reporter format-coverage --output "coverage/codeclimate.go.json"
+  gsutil cp "coverage/codeclimate.go.json" gs://chainlink-test-coverage/$CIRCLE_BUILD_NUM/
 fi
-bash <(curl -s https://codecov.io/bash)

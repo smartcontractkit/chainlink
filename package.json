@@ -9,7 +9,7 @@
     "lint": "standard --fix --verbose | snazzy",
     "lint-ci": "standard --verbose | snazzy",
     "test": "NODE_ENV=test jest",
-    "test-ci": "NODE_ENV=test yarn jest -i --reporters jest-silent-reporter",
+    "test-ci": "NODE_ENV=test yarn jest -i --coverage --reporters jest-silent-reporter",
     "watch": "NODE_ENV=test jest --watchAll --notify",
     "flatten": "./internal/bin/flatten-ropsten"
   },
