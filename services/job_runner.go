@@ -197,19 +197,20 @@ func BuildRunWithValidPayment(
 		paymentValid, err := ValidateMinimumContractPayment(s, job, *input.Amount)
 
 		if err != nil {
-			err := fmt.Errorf(
+			err = fmt.Errorf(
 				"Rejecting job %s error validating contract payment: %v",
 				job.ID,
 				err,
 			)
-			run = run.ApplyResult(input.WithError(err))
-			return run, multierr.Append(err, s.Save(&run))
 		} else if !paymentValid {
-			err := fmt.Errorf(
+			err = fmt.Errorf(
 				"Rejecting job %s with payment %s below minimum threshold (%s)",
 				job.ID,
 				input.Amount,
 				s.Config.MinimumContractPayment.Text(10))
+		}
+
+		if err != nil {
 			run = run.ApplyResult(input.WithError(err))
 			return run, multierr.Append(err, s.Save(&run))
 		}
