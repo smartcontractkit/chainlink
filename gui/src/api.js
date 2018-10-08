@@ -1,4 +1,5 @@
 import 'isomorphic-unfetch'
+import { camelizeKeys } from 'humps'
 import formatRequestURI from 'utils/formatRequestURI'
 import {
   AuthenticationError,
@@ -6,7 +7,7 @@ import {
   ServerError,
   UnknownResponseError
 } from './errors'
-import { camelizeKeys } from 'humps'
+import { default as serializeBridgeType } from 'api/serializers/bridgeType'
 
 const formatURI = (path, query = {}) => {
   return formatRequestURI(path, query, {
@@ -83,7 +84,10 @@ export const getBridgeSpec = name => get(`/v2/bridge_types/${name}`)
 
 export const createSession = data => post(`/sessions`, data)
 
-export const createBridgeType = (data, shouldStringify) => post('/v2/bridge_types', data, shouldStringify)
+export const createBridgeType = (data, shouldStringify) => {
+  const normalizedData = serializeBridgeType(data)
+  return post('/v2/bridge_types', normalizedData, shouldStringify)
+}
 
 export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
 
