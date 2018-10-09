@@ -7,4 +7,4 @@ yarn lint && yarn test-ci
 
 cd ..
 cc-test-reporter format-coverage --output "coverage/codeclimate.gui.json"
-gsutil cp "coverage/codeclimate.gui.json" gs://chainlink-test-coverage/$CIRCLE_BUILD_NUM/
+gsutil cp "coverage/codeclimate.gui.json" gs://chainlink-test-coverage/$CIRCLE_WORKFLOW_ID/

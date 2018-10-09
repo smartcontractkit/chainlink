@@ -90,7 +90,7 @@ jobs:
       - run: ./internal/ci/gui_test
   reportcoverage:
     docker:
-      - image: smartcontract/deployer:latest
+      - image: smartcontract/builder:1.0.11
     steps:
       - checkout
       - run: ./internal/ci/init_gcloud
