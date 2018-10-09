@@ -3,7 +3,6 @@
 set -e
 
 go get -u github.com/smartcontractkit/goverage
-sleep 1
 goverage -v -parallel 2 --tags=test -coverprofile=c.out ./...
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
   cc-test-reporter format-coverage --output "coverage/codeclimate.go.json"
