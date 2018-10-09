@@ -17,6 +17,22 @@ jobs:
             - ./vendor
       - run: ./internal/ci/init_gcloud
       - run: ./internal/ci/go_test
+  gorace:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.11
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+      - run: dep ensure -vendor-only
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - ./vendor
+      - run: ./internal/ci/gorace_test
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -120,6 +136,7 @@ workflows:
   test:
     jobs:
       - go
+      - gorace
       - truffle
       - geth
       - gui
@@ -131,6 +148,7 @@ workflows:
       - deploy:
           requires:
             - go
+            - gorace
             - truffle
             - geth
             - gui
