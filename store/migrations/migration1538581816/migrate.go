@@ -10,9 +10,7 @@ import (
 
 type Migration struct{}
 
-type WebURL struct {
-	*url.URL
-}
+type WebURL url.URL
 
 type TaskType string
 
@@ -44,11 +42,11 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 	for _, obt := range bridgeTypes {
 		nbt := BridgeType{
 			MinimumContractPayment: *assets.NewLink(0),
-			Name:          TaskType(obt.Name),
-			URL:           WebURL(obt.URL),
-			Confirmations: obt.Confirmations,
-			IncomingToken: obt.IncomingToken,
-			OutgoingToken: obt.OutgoingToken,
+			Name:                   TaskType(obt.Name),
+			URL:                    WebURL(obt.URL),
+			Confirmations:          obt.Confirmations,
+			IncomingToken:          obt.IncomingToken,
+			OutgoingToken:          obt.OutgoingToken,
 		}
 		if err := tx.Save(&nbt); err != nil {
 			return err
