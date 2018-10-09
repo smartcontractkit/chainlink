@@ -10,12 +10,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"github.com/smartcontractkit/chainlink/store/assets"
 )
 
 type MI = models.Initiator
@@ -74,7 +74,7 @@ func TestPresenterShowEthBalance_WithEmptyAccount(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	_, _, err := presenters.ShowEthBalance(app.Store)
+	_, err := presenters.ShowEthBalance(app.Store)
 	assert.Error(t, err)
 }
 
@@ -88,11 +88,11 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 
-	output, kv, err := presenters.ShowEthBalance(app.Store)
+	kv, err := presenters.ShowEthBalance(app.Store)
 	assert.NoError(t, err)
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)
-	assert.Equal(t, want, output)
+	assert.Equal(t, want, kv[5].(string))
 	assert.Equal(t, kv[1].(common.Address).String(), addr)
 	assert.Equal(t, kv[3].(*assets.Eth).String(), "0.000000000000000256")
 }
@@ -119,12 +119,12 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 
-	output, kv, err := presenters.ShowLinkBalance(app.Store)
+	kv, err := presenters.ShowLinkBalance(app.Store)
 	assert.NoError(t, err)
 
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("Link Balance for %v: 0.000000000000000256", addr)
-	assert.Equal(t, want, output)
+	assert.Equal(t, want, kv[5].(string))
 	assert.Equal(t, kv[1].(common.Address).String(), addr)
 	assert.Equal(t, kv[3], "0.000000000000000256")
 }

@@ -28,51 +28,51 @@ func LogListeningAddress(address common.Address) string {
 }
 
 // ShowEthBalance returns the current Eth Balance for current Account
-func ShowEthBalance(store *store.Store) (string, []interface{}, error) {
+func ShowEthBalance(store *store.Store) ([]interface{}, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
 	account, err := store.KeyStore.GetAccount()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	address := account.Address
 	balance, err := store.TxManager.GetEthBalance(address)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	if balance.IsZero() {
-		return "", nil, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
+		return nil, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	keysAndValues := []interface{}{
 		"address", account.Address,
 		"balance", balance,
+		"msg", fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance),
 	}
-	result := fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
-	return result, keysAndValues, nil
+	return keysAndValues, nil
 }
 
 // ShowLinkBalance returns the current Link Balance for current Account
-func ShowLinkBalance(store *store.Store) (string, []interface{}, error) {
+func ShowLinkBalance(store *store.Store) ([]interface{}, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
 	account, err := store.KeyStore.GetAccount()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	address := account.Address
 	linkBalance, err := store.TxManager.GetLinkBalance(address)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	keysAndValues := []interface{}{
 		"address", account.Address,
 		"balance", linkBalance.String(),
+		"msg", fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String()),
 	}
-	result := fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String())
-	return result, keysAndValues, nil
+	return keysAndValues, nil
 }
 
 // BridgeType holds a bridge.
