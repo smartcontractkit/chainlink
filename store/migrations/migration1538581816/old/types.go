@@ -2,9 +2,7 @@ package old
 
 import "net/url"
 
-type WebURL struct {
-	*url.URL
-}
+type WebURL url.URL
 
 type TaskType string
 
