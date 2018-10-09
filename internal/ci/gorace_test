@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+go test -race -parallel 1 \
+  github.com/smartcontractkit/chainlink/integration \
+  github.com/smartcontractkit/chainlink/web \
+  github.com/smartcontractkit/chainlink/services
