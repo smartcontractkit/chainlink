@@ -29,49 +29,47 @@ func LogListeningAddress(address common.Address) string {
 
 // ShowEthBalance returns the current Eth Balance for current Account
 func ShowEthBalance(store *store.Store) (map[string]interface{}, error) {
+	keysAndValues := make(map[string]interface{})
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
 	account, err := store.KeyStore.GetAccount()
 	if err != nil {
-		return nil, err
+		return keysAndValues, err
 	}
 	address := account.Address
 	balance, err := store.TxManager.GetEthBalance(address)
 	if err != nil {
-		return nil, err
+		return keysAndValues, err
 	}
+	keysAndValues["message"] = fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
+	keysAndValues["address"] = account.Address
+	keysAndValues["balance"] = balance
 	if balance.IsZero() {
-		return nil, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
-	}
-	keysAndValues := map[string]interface{}{
-		"address": account.Address,
-		"balance": balance,
-		"message": fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance),
+		return keysAndValues, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return keysAndValues, nil
 }
 
 // ShowLinkBalance returns the current Link Balance for current Account
 func ShowLinkBalance(store *store.Store) (map[string]interface{}, error) {
+	keysAndValues := make(map[string]interface{})
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
 	account, err := store.KeyStore.GetAccount()
 	if err != nil {
-		return nil, err
+		return keysAndValues, err
 	}
 
 	address := account.Address
 	linkBalance, err := store.TxManager.GetLinkBalance(address)
 	if err != nil {
-		return nil, err
+		return keysAndValues, err
 	}
-	keysAndValues := map[string]interface{}{
-		"address": account.Address,
-		"balance": linkBalance.String(),
-		"message": fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String()),
-	}
+	keysAndValues["address"] = account.Address
+	keysAndValues["balance"] = linkBalance.String()
+	keysAndValues["message"] = fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String())
 	return keysAndValues, nil
 }
 
