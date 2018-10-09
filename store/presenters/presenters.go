@@ -28,7 +28,7 @@ func LogListeningAddress(address common.Address) string {
 }
 
 // ShowEthBalance returns the current Eth Balance for current Account
-func ShowEthBalance(store *store.Store) ([]interface{}, error) {
+func ShowEthBalance(store *store.Store) (map[string]interface{}, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
@@ -44,16 +44,16 @@ func ShowEthBalance(store *store.Store) ([]interface{}, error) {
 	if balance.IsZero() {
 		return nil, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
-	keysAndValues := []interface{}{
-		"address", account.Address,
-		"balance", balance,
-		"msg", fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance),
+	keysAndValues := map[string]interface{}{
+		"address": account.Address,
+		"balance": balance,
+		"message": fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance),
 	}
 	return keysAndValues, nil
 }
 
 // ShowLinkBalance returns the current Link Balance for current Account
-func ShowLinkBalance(store *store.Store) ([]interface{}, error) {
+func ShowLinkBalance(store *store.Store) (map[string]interface{}, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
@@ -67,10 +67,10 @@ func ShowLinkBalance(store *store.Store) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	keysAndValues := []interface{}{
-		"address", account.Address,
-		"balance", linkBalance.String(),
-		"msg", fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String()),
+	keysAndValues := map[string]interface{}{
+		"address": account.Address,
+		"balance": linkBalance.String(),
+		"message": fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String()),
 	}
 	return keysAndValues, nil
 }

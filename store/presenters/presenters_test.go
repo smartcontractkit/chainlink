@@ -92,9 +92,9 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 	assert.NoError(t, err)
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)
-	assert.Equal(t, want, kv[5].(string))
-	assert.Equal(t, kv[1].(common.Address).String(), addr)
-	assert.Equal(t, kv[3].(*assets.Eth).String(), "0.000000000000000256")
+	assert.Equal(t, want, kv["message"].(string))
+	assert.Equal(t, kv["address"].(common.Address).String(), addr)
+	assert.Equal(t, kv["balance"].(*assets.Eth).String(), "0.000000000000000256")
 }
 
 func TestPresenterShowLinkBalance_NoAccount(t *testing.T) {
@@ -124,9 +124,9 @@ func TestPresenterShowLinkBalance_WithAccount(t *testing.T) {
 
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("Link Balance for %v: 0.000000000000000256", addr)
-	assert.Equal(t, want, kv[5].(string))
-	assert.Equal(t, kv[1].(common.Address).String(), addr)
-	assert.Equal(t, kv[3], "0.000000000000000256")
+	assert.Equal(t, want, kv["message"].(string))
+	assert.Equal(t, kv["address"].(common.Address).String(), addr)
+	assert.Equal(t, kv["balance"], "0.000000000000000256")
 }
 
 func TestPresenter_FriendlyBigInt(t *testing.T) {
