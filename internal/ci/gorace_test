@@ -2,7 +2,11 @@
 
 set -e
 
-go test -race -parallel 1 \
-  github.com/smartcontractkit/chainlink/integration \
-  github.com/smartcontractkit/chainlink/web \
-  github.com/smartcontractkit/chainlink/services
+# Set ulimits to prevent excessive memory consumption on Circle CI VMs
+ulimit -m 3096000
+ulimit -v 3096000
+
+# Split up each test run to mitigate memory consumption
+go test -race -cpu 2 github.com/smartcontractkit/chainlink/integration && \
+  go test -race -cpu 2 github.com/smartcontractkit/chainlink/web && \
+  go test -race -cpu 2 github.com/smartcontractkit/chainlink/services
