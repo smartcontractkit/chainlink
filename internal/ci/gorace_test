@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+# Split up each test run to mitigate memory consumption
+go test -race -cpu 2 github.com/smartcontractkit/chainlink/integration && \
+  go test -race -cpu 2 github.com/smartcontractkit/chainlink/services
