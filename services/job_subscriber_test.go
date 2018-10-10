@@ -147,15 +147,17 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestJobSubscriber_OnNewHead_OnlySendPendingConfirmationsAndInProgress(t *testing.T) {
+func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 	t.Parallel()
+
+	block := cltest.NewBlockHeader(10)
 
 	tests := []struct {
 		status   models.RunStatus
 		wantSend bool
 	}{
 		{models.RunStatusPendingConfirmations, true},
-		{models.RunStatusInProgress, true},
+		{models.RunStatusInProgress, false},
 		{models.RunStatusPendingBridge, false},
 		{models.RunStatusPendingSleep, false},
 		{models.RunStatusCompleted, false},
@@ -170,16 +172,13 @@ func TestJobSubscriber_OnNewHead_OnlySendPendingConfirmationsAndInProgress(t *te
 			store.RunChannel = mockRunChannel
 
 			job, initr := cltest.NewJobWithWebInitiator()
-			assert.Nil(t, store.SaveJob(&job))
 			run := job.NewRun(initr)
-			run = run.ApplyResult(models.RunResult{Status: test.status, JobRunID: run.ID})
+			run.ApplyResult(models.RunResult{Status: test.status})
 			assert.Nil(t, store.Save(&run))
 
-			block := cltest.NewBlockHeader(10)
 			js.OnNewHead(block)
 			if test.wantSend {
 				assert.Equal(t, 1, len(mockRunChannel.Runs))
-				assert.Equal(t, block.Number, mockRunChannel.BlockNumbers[0].Number)
 			} else {
 				assert.Equal(t, 0, len(mockRunChannel.Runs))
 			}

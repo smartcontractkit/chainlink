@@ -613,7 +613,6 @@ func (m mockSecretGenerator) Generate(store.Config) ([]byte, error) {
 
 type MockRunChannel struct {
 	Runs               []models.RunResult
-	BlockNumbers       []*models.IndexableBlockNumber
 	neverReturningChan chan store.RunRequest
 }
 
@@ -623,10 +622,8 @@ func NewMockRunChannel() *MockRunChannel {
 	}
 }
 
-func (m *MockRunChannel) Send(jobRunID string, ibn *models.IndexableBlockNumber) error {
+func (m *MockRunChannel) Send(jobRunID string) error {
 	m.Runs = append(m.Runs, models.RunResult{})
-	copy := *ibn
-	m.BlockNumbers = append(m.BlockNumbers, &copy)
 	return nil
 }
 

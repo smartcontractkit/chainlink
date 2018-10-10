@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -24,6 +23,7 @@ type JobRun struct {
 	CompletedAt    null.Time    `json:"completedAt"`
 	Initiator      Initiator    `json:"initiator"`
 	CreationHeight *hexutil.Big `json:"creationHeight"`
+	ObservedHeight *hexutil.Big `json:"observedHeight"`
 	Overrides      RunResult    `json:"overrides"`
 }
 
@@ -51,6 +51,10 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		"status", jr.Status,
 	}
 
+	if jr.CreationHeight != nil {
+		output = append(output, "creation_height", jr.CreationHeight.ToInt())
+	}
+
 	if jr.Result.HasError() {
 		output = append(output, "error", jr.Result.Error())
 	}
@@ -58,68 +62,70 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-// UnfinishedTaskRuns returns a list of TaskRuns for a JobRun
-// which are not Completed or Errored.
-func (jr JobRun) UnfinishedTaskRuns() []TaskRun {
-	unfinished := jr.TaskRuns
-	for _, tr := range jr.TaskRuns {
-		if tr.Status.Completed() {
-			unfinished = unfinished[1:]
-		} else if tr.Status.Errored() {
-			return []TaskRun{}
-		} else {
-			return unfinished
+func (jr JobRun) nextTaskIndex() (int, bool) {
+	for index, tr := range jr.TaskRuns {
+		if !(tr.Status.Completed() || tr.Status.Errored()) {
+			return index, true
 		}
 	}
-	return unfinished
+	return 0, false
+}
+
+// CurrentTaskRuns gets the previous task run that completed and the next run
+// to be processed
+func (jr JobRun) CurrentTaskRuns() (*TaskRun, *TaskRun) {
+	nextTaskIndex, runnable := jr.nextTaskIndex()
+	if runnable {
+		var previousTaskRun *TaskRun
+		if nextTaskIndex > 0 {
+			previousTaskRun = &jr.TaskRuns[nextTaskIndex-1]
+		}
+		return previousTaskRun, &jr.TaskRuns[nextTaskIndex]
+	}
+	return nil, nil
 }
 
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
-func (jr JobRun) NextTaskRun() TaskRun {
-	return jr.UnfinishedTaskRuns()[0]
+func (jr JobRun) NextTaskRun() *TaskRun {
+	nextTaskIndex, runnable := jr.nextTaskIndex()
+	if runnable {
+		return &jr.TaskRuns[nextTaskIndex]
+	}
+	return nil
 }
 
-// Runnable checks that the number of confirmations have passed since the
-// job's creation height to determine if the JobRun can be started. Returns
-// true for non-JobSubscriber (runlog & ethlog) initiators.
-func (jr JobRun) Runnable(currentHeight *IndexableBlockNumber, minConfs uint64) bool {
-	if jr.CreationHeight == nil || currentHeight == nil {
-		return true
-	}
-
-	diff := new(big.Int).Sub(currentHeight.ToInt(), jr.CreationHeight.ToInt())
-	min := new(big.Int).SetUint64(minConfs)
-	min = min.Sub(min, big.NewInt(1))
-	return diff.Cmp(min) >= 0
+// TasksRemain returns true if there are unfinished tasks left for this job run
+func (jr JobRun) TasksRemain() bool {
+	_, runnable := jr.nextTaskIndex()
+	return runnable
 }
 
 // ApplyResult updates the JobRun's Result and Status
-func (jr JobRun) ApplyResult(result RunResult) JobRun {
+func (jr *JobRun) ApplyResult(result RunResult) {
 	jr.Result = result
 	jr.Status = result.Status
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	}
-	return jr
 }
 
 // MarkCompleted sets the JobRun's status to completed and records the
 // completed at time.
-func (jr JobRun) MarkCompleted() JobRun {
+func (jr *JobRun) MarkCompleted() {
 	jr.Status = RunStatusCompleted
 	jr.Result.Status = RunStatusCompleted
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
-	return jr
 }
 
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID     string    `json:"id" storm:"id,unique"`
-	Result RunResult `json:"result"`
-	Status RunStatus `json:"status"`
-	Task   TaskSpec  `json:"task"`
+	ID                   string    `json:"id" storm:"id,unique"`
+	Result               RunResult `json:"result"`
+	Status               RunStatus `json:"status"`
+	Task                 TaskSpec  `json:"task"`
+	MinimumConfirmations uint64    `json:"minimumConfirmations"`
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
@@ -143,29 +149,16 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
-// MergeTaskParams merges the existing parameters on a TaskRun with the given JSON.
-func (tr TaskRun) MergeTaskParams(j JSON) (TaskRun, error) {
-	merged, err := j.Merge(tr.Task.Params)
-	if err != nil {
-		return tr, fmt.Errorf("TaskRun#Merge merging params: %v", err.Error())
-	}
-
-	tr.Task.Params = merged
-	return tr, nil
-}
-
 // ApplyResult updates the TaskRun's Result and Status
-func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
+func (tr *TaskRun) ApplyResult(result RunResult) {
 	tr.Result = result
 	tr.Status = result.Status
-	return tr
 }
 
 // MarkCompleted marks the task's status as completed.
-func (tr TaskRun) MarkCompleted() TaskRun {
+func (tr *TaskRun) MarkCompleted() {
 	tr.Status = RunStatusCompleted
 	tr.Result.Status = RunStatusCompleted
-	return tr
 }
 
 // MarkPendingConfirmations marks the task's status as blocked.
