@@ -59,12 +59,7 @@ func (txm *TxManager) createTxWithNonceReload(to common.Address, data []byte, nr
 			return err
 		}
 
-		logger.Infow(fmt.Sprintf(
-			"Transaction from: %v, to: %v, attempt #: %v",
-			txm.activeAccount.Address.String(),
-			to.String(),
-			nrc,
-		))
+		logger.Infow(fmt.Sprintf("Created ETH transaction, attempt #: %v", nrc), []interface{}{"from", txm.activeAccount.Address.String(), "to", to.String()}...)
 		gasPrice := txm.config.EthGasPriceDefault
 		var txa *models.TxAttempt
 		txa, err = txm.createAttempt(tx, &gasPrice, blkNum)

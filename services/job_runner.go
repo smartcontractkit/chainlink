@@ -9,16 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
-	"go.uber.org/multierr"
 )
 
 // JobRunner safely handles coordinating job runs.
 type JobRunner interface {
 	Start() error
 	Stop()
-	resumeSleepingRuns() error
-	channelForRun(string) chan<- store.RunRequest
+	resumeRuns() error
+	channelForRun(string) chan<- struct{}
 	workerCount() int
 }
 
@@ -28,7 +26,7 @@ type jobRunner struct {
 	bootMutex            sync.Mutex
 	store                *store.Store
 	workerMutex          sync.RWMutex
-	workers              map[string]chan store.RunRequest
+	workers              map[string]chan struct{}
 	workersWg            sync.WaitGroup
 	demultiplexStopperWg sync.WaitGroup
 }
@@ -37,7 +35,7 @@ type jobRunner struct {
 func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
 		store:   str,
-		workers: make(map[string]chan store.RunRequest),
+		workers: make(map[string]chan struct{}),
 	}
 }
 
@@ -58,7 +56,7 @@ func (rm *jobRunner) Start() error {
 	starterWg.Wait()
 
 	rm.demultiplexStopperWg.Add(1)
-	return rm.resumeSleepingRuns()
+	return rm.resumeRuns()
 }
 
 // Stop closes all open worker channels.
@@ -74,13 +72,23 @@ func (rm *jobRunner) Stop() {
 	rm.demultiplexStopperWg.Wait()
 }
 
-func (rm *jobRunner) resumeSleepingRuns() error {
-	pendingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
+func (rm *jobRunner) resumeRuns() error {
+	sleepingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
 		return err
 	}
-	for _, run := range pendingRuns {
-		rm.store.RunChannel.Send(run.ID, nil)
+	for _, run := range sleepingRuns {
+		if err := QueueSleepingTask(&run, rm.store); err != nil {
+			logger.Errorw("Error resuming sleeping job", "error", err)
+		}
+	}
+
+	inProgressRuns, err := rm.store.JobRunsWithStatus(models.RunStatusInProgress)
+	if err != nil {
+		return err
+	}
+	for _, run := range inProgressRuns {
+		rm.store.RunChannel.Send(run.ID)
 	}
 	return nil
 }
@@ -99,18 +107,18 @@ func (rm *jobRunner) demultiplexRuns(starterWg *sync.WaitGroup) {
 				logger.Panic("RunChannel closed before JobRunner, can no longer demultiplexing job runs")
 				return
 			}
-			rm.channelForRun(rr.ID) <- rr
+			rm.channelForRun(rr.ID) <- struct{}{}
 		}
 	}
 }
 
-func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
+func (rm *jobRunner) channelForRun(runID string) chan<- struct{} {
 	rm.workerMutex.Lock()
 	defer rm.workerMutex.Unlock()
 
 	workerChannel, present := rm.workers[runID]
 	if !present {
-		workerChannel = make(chan store.RunRequest, 1000)
+		workerChannel = make(chan struct{}, 1)
 		rm.workers[runID] = workerChannel
 		rm.workersWg.Add(1)
 
@@ -128,26 +136,25 @@ func (rm *jobRunner) channelForRun(runID string) chan<- store.RunRequest {
 	return workerChannel
 }
 
-func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunRequest) {
+func (rm *jobRunner) workerLoop(runID string, workerChannel chan struct{}) {
 	for {
 		select {
-		case rr := <-workerChannel:
-			jr, err := rm.store.FindJobRun(runID)
+		case <-workerChannel:
+			run, err := rm.store.FindJobRun(runID)
 			if err != nil {
-				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error finding run ", runID), jr.ForLogger("error", err)...)
-			}
-			if rr.BlockNumber != nil {
-				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
-			} else {
-				logger.Debugw("Starting new job", jr.ForLogger()...)
-			}
-			if jr, err = executeRunAtBlock(jr, rm.store, rr.BlockNumber); err != nil {
-				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error executing run ", runID), jr.ForLogger("error", err)...)
+				logger.Errorw(fmt.Sprint("Error finding run ", runID), run.ForLogger("error", err)...)
 			}
 
-			if jr.Status.Finished() {
+			if err = executeRun(&run, rm.store); err != nil {
+				logger.Errorw(fmt.Sprint("Error executing run ", runID), run.ForLogger("error", err)...)
 				return
 			}
+
+			if run.Status.Finished() {
+				logger.Debugw("All tasks complete for run", []interface{}{"run", run.ID}...)
+				return
+			}
+
 		case <-rm.done:
 			logger.Debug("JobRunner worker loop for ", runID, " finished")
 			return
@@ -162,218 +169,89 @@ func (rm *jobRunner) workerCount() int {
 	return len(rm.workers)
 }
 
-// BuildRun checks to ensure the given job has not started or ended before
-// creating a new run for the job.
-func BuildRun(
-	job models.JobSpec,
-	i models.Initiator,
-	store *store.Store,
-	overrides models.RunResult,
-) (models.JobRun, error) {
-	now := store.Clock.Now()
-	if !job.Started(now) {
-		return models.JobRun{}, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
-		}
+func executeTask(run *models.JobRun, previousTaskRun *models.TaskRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
+	var err error
+	if currentTaskRun.Task.Params, err = currentTaskRun.Task.Params.Merge(run.Overrides.Data); err != nil {
+		return currentTaskRun.Result.WithError(err)
 	}
-	if job.Ended(now) {
-		return models.JobRun{}, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
-		}
-	}
-	run := job.NewRun(i)
-	run.Overrides = overrides
-	return run, nil
-}
 
-// BuildRunWithValidPayment builds a new run and validates whether or not the
-// run meets the minimum contract payment.
-func BuildRunWithValidPayment(
-	job models.JobSpec,
-	initr models.Initiator,
-	input models.RunResult,
-	s *store.Store,
-) (models.JobRun, error) {
-	run, err := BuildRun(job, initr, s, input)
+	input := models.RunResult{Data: models.JSON{}}
+	if previousTaskRun != nil {
+		input = previousTaskRun.Result
+	}
+	if input.Data, err = run.Overrides.Data.Merge(input.Data); err != nil {
+		return currentTaskRun.Result.WithError(err)
+	}
+	input.JobRunID = run.ID
+
+	adapter, err := adapters.For(currentTaskRun.Task, store)
 	if err != nil {
-		return models.JobRun{}, err
+		return currentTaskRun.Result.WithError(err)
 	}
-	if input.Amount != nil {
-		paymentValid, err := ValidateMinimumContractPayment(s, job, *input.Amount)
 
-		if err != nil {
-			err = fmt.Errorf(
-				"Rejecting job %s error validating contract payment: %v",
-				job.ID,
-				err,
-			)
-		} else if !paymentValid {
-			err = fmt.Errorf(
-				"Rejecting job %s with payment %s below minimum threshold (%s)",
-				job.ID,
-				input.Amount,
-				s.Config.MinimumContractPayment.Text(10))
+	logger.Infow(fmt.Sprintf("Processing task %s", currentTaskRun.Task.Type), []interface{}{"task", currentTaskRun.ID}...)
+
+	result := adapter.Perform(input, store)
+
+	logger.Infow(fmt.Sprintf("Finished processing task %s", currentTaskRun.Task.Type), []interface{}{
+		"task", currentTaskRun.ID,
+		"result", result.Status,
+	}...)
+
+	return result
+}
+
+func executeRun(run *models.JobRun, store *store.Store) error {
+	logger.Infow("Processing run", run.ForLogger()...)
+
+	if !run.Status.Runnable() {
+		return fmt.Errorf("Run triggered in non runnable state %s", run.Status)
+	}
+
+	if !run.TasksRemain() {
+		return errors.New("Run triggered with no remaining tasks")
+	}
+
+	prevTaskRun, currentTaskRun := run.CurrentTaskRuns()
+	result := executeTask(run, prevTaskRun, currentTaskRun, store)
+
+	currentTaskRun.ApplyResult(result)
+	if currentTaskRun.Status.PendingSleep() {
+		run.ApplyResult(result)
+
+		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
+		if err := QueueSleepingTask(run, store); err != nil {
+			return err
 		}
-
-		if err != nil {
-			run = run.ApplyResult(input.WithError(err))
-			return run, multierr.Append(err, s.Save(&run))
-		}
+	} else if !currentTaskRun.Status.Runnable() {
+		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
+		run.ApplyResult(result)
+	} else if !run.TasksRemain() {
+		logger.Debugw("All tasks completed, marking run complete", []interface{}{"run", run.ID, "task", currentTaskRun.ID}...)
+		run.ApplyResult(currentTaskRun.Result)
+		run.MarkCompleted()
 	}
 
-	return run, err
-}
-
-// EnqueueRunWithValidPayment creates a run and enqueues it on the run channel
-func EnqueueRunWithValidPayment(
-	job models.JobSpec,
-	initr models.Initiator,
-	input models.RunResult,
-	store *store.Store,
-) (models.JobRun, error) {
-	return EnqueueRunAtBlockWithValidPayment(job, initr, input, store, nil)
-}
-
-// EnqueueRunAtBlockWithValidPayment creates a run and enqueues it on the run
-// channel with the given block number
-func EnqueueRunAtBlockWithValidPayment(
-	job models.JobSpec,
-	initr models.Initiator,
-	input models.RunResult,
-	store *store.Store,
-	bn *models.IndexableBlockNumber,
-) (models.JobRun, error) {
-	run, err := BuildRunWithValidPayment(job, initr, input, store)
-
-	if err == nil {
-		err = store.Save(&run)
-		if err == nil {
-			store.RunChannel.Send(run.ID, bn)
-		} else {
-			logger.Errorw(err.Error())
-		}
+	if !run.Status.Finished() && run.Status.Runnable() {
+		queueNextTask(run, store)
 	}
 
-	return run, err
-}
-
-// executeRunAtBlock starts the job and executes task runs within that job in the
-// order defined in the run for as long as they do not return errors. Results
-// are saved in the store (db).
-func executeRunAtBlock(
-	jr models.JobRun,
-	store *store.Store,
-	bn *models.IndexableBlockNumber,
-) (models.JobRun, error) {
-	jr, err := prepareJobRun(jr, store, bn)
-	if err != nil {
-		return jr, wrapExecuteRunAtBlockError(jr, err)
+	if err := saveAndTrigger(run, store); err != nil {
+		return err
 	}
-	logger.Infow("Starting job", jr.ForLogger()...)
-	unfinished := jr.UnfinishedTaskRuns()
-	if len(unfinished) == 0 {
-		return jr, wrapExecuteRunAtBlockError(jr, errors.New("No unfinished tasks to run"))
-	}
-	offset := len(jr.TaskRuns) - len(unfinished)
-	prevResult, err := jr.Overrides.Merge(unfinished[0].Result)
-	if err != nil {
-		return jr, wrapExecuteRunAtBlockError(jr, err)
-	}
+	logger.Infow("Run finished processing", run.ForLogger()...)
 
-	for i, taskRunTemplate := range unfinished {
-		nextTaskRun, err := taskRunTemplate.MergeTaskParams(jr.Overrides.Data)
-		if err != nil {
-			return jr, wrapExecuteRunAtBlockError(jr, err)
-		}
-
-		lastRun := markCompletedIfRunnable(startTask(jr, nextTaskRun, prevResult, bn, store))
-		jr.TaskRuns[i+offset] = lastRun
-		logTaskResult(lastRun, nextTaskRun, i)
-		prevResult = lastRun.Result
-
-		if err := store.Save(&jr); err != nil {
-			return jr, wrapExecuteRunAtBlockError(jr, err)
-		}
-		if !lastRun.Status.Runnable() {
-			break
-		}
-	}
-
-	jr = jr.ApplyResult(prevResult)
-	logger.Infow("Finished current job run execution", jr.ForLogger()...)
-	return jr, wrapExecuteRunAtBlockError(jr, store.Save(&jr))
-}
-
-func prepareJobRun(
-	jr models.JobRun,
-	store *store.Store,
-	bn *models.IndexableBlockNumber,
-) (models.JobRun, error) {
-	if jr.Status.CanStart() {
-		jr.Status = models.RunStatusInProgress
-	} else {
-		return jr, fmt.Errorf("Unable to start with status %v", jr.Status)
-	}
-	if err := store.Save(&jr); err != nil {
-		return jr, err
-	}
-	if jr.Result.HasError() {
-		return jr, jr.Result
-	}
-	return store.SaveCreationHeight(jr, bn)
-}
-
-func logTaskResult(lr models.TaskRun, tr models.TaskRun, i int) {
-	logger.Debugw("Produced task run", "taskRun", lr)
-	logger.Debugw(fmt.Sprintf("Next task run %v %v", tr.Task.Type, tr.Result.Status), tr.ForLogger("taskidx", i, "result", lr.Result)...)
-}
-
-func markCompletedIfRunnable(tr models.TaskRun) models.TaskRun {
-	if tr.Status.Runnable() {
-		return tr.MarkCompleted()
-	}
-	return tr
-}
-
-func startTask(
-	jr models.JobRun,
-	tr models.TaskRun,
-	input models.RunResult,
-	bn *models.IndexableBlockNumber,
-	store *store.Store,
-) models.TaskRun {
-	adapter, err := adapters.For(tr.Task, store)
-	if err != nil {
-		return tr.ApplyResult(tr.Result.WithError(err))
-	}
-
-	minConfs := utils.MaxUint64(
-		store.Config.MinIncomingConfirmations,
-		tr.Task.Confirmations,
-		adapter.MinConfs())
-
-	if !jr.Runnable(bn, minConfs) {
-		tr = tr.MarkPendingConfirmations()
-		tr.Result.Data = input.Data
-		return tr
-	}
-
-	return tr.ApplyResult(adapter.Perform(input, store))
-}
-
-func wrapExecuteRunAtBlockError(run models.JobRun, err error) error {
-	if err != nil {
-		return fmt.Errorf("executeRunAtBlock: Job#%v: %v", run.JobID, err)
-	}
 	return nil
 }
 
-// RecurringScheduleJobError contains the field for the error message.
-type RecurringScheduleJobError struct {
-	msg string
-}
+func queueNextTask(run *models.JobRun, store *store.Store) {
+	futureTaskRun := run.NextTaskRun()
 
-// Error returns the error message for the run.
-func (err RecurringScheduleJobError) Error() string {
-	return err.msg
+	if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
+		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID}...)
+		run.Status = models.RunStatusInProgress
+	} else {
+		logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
+		run.Status = models.RunStatusPendingConfirmations
+	}
 }

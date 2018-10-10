@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -292,7 +291,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	run := job.NewRun(initr)
 	assert.NoError(t, store.Save(&run))
 
-	store.RunChannel.Send(run.ID, nil)
+	store.RunChannel.Send(run.ID)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 
 	_, err := store.PendingBridgeType(run)
@@ -355,43 +354,6 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, one, nonce)
-}
-
-func TestORM_SaveCreationHeight(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	job, initr := cltest.NewJobWithWebInitiator()
-	cases := []struct {
-		name            string
-		creationHeight  *big.Int
-		parameterHeight *big.Int
-		wantHeight      *big.Int
-	}{
-		{"unset", nil, big.NewInt(2), big.NewInt(2)},
-		{"set", big.NewInt(1), big.NewInt(2), big.NewInt(1)},
-		{"unset and nil", nil, nil, nil},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			jr := job.NewRun(initr)
-			if test.creationHeight != nil {
-				ch := hexutil.Big(*test.creationHeight)
-				jr.CreationHeight = &ch
-			}
-			assert.NoError(t, store.Save(&jr))
-
-			bn := cltest.IndexableBlockNumber(test.parameterHeight)
-			result, err := store.SaveCreationHeight(jr, bn)
-
-			assert.NoError(t, err)
-			assert.Equal(t, test.wantHeight, result.CreationHeight.ToInt())
-			assert.NoError(t, store.One("ID", jr.ID, &jr))
-			assert.Equal(t, test.wantHeight, jr.CreationHeight.ToInt())
-		})
-	}
 }
 
 func TestORM_MarkRan(t *testing.T) {

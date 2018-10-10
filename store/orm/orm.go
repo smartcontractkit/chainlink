@@ -85,11 +85,11 @@ func (orm *ORM) FindBridge(name string) (models.BridgeType, error) {
 // PendingBridgeType returns the bridge type of the current pending task,
 // or error if not pending bridge.
 func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
-	unfinished := jr.UnfinishedTaskRuns()
-	if len(unfinished) == 0 {
+	nextTask := jr.NextTaskRun()
+	if nextTask == nil {
 		return models.BridgeType{}, errors.New("Cannot find the pending bridge type of a job run with no unfinished tasks")
 	}
-	return orm.FindBridge(unfinished[0].Task.Type.String())
+	return orm.FindBridge(nextTask.Task.Type.String())
 }
 
 // FindJob looks up a Job by its ID.
@@ -197,18 +197,6 @@ func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
 	}
 
 	return tx.Commit()
-}
-
-// SaveCreationHeight stores the JobRun in the database with the given
-// block number.
-func (orm *ORM) SaveCreationHeight(jr models.JobRun, bn *models.IndexableBlockNumber) (models.JobRun, error) {
-	if jr.CreationHeight != nil || bn == nil {
-		return jr, nil
-	}
-
-	dup := bn.Number
-	jr.CreationHeight = &dup
-	return jr, orm.Save(&jr)
 }
 
 // JobRunsWithStatus returns the JobRuns which have the passed statuses.

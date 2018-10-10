@@ -219,7 +219,8 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		Amount: payment,
 	}
 
-	_, err = EnqueueRunAtBlockWithValidPayment(le.Job, initr, input, le.store, le.ToIndexableBlockNumber())
+	currentHead := le.ToIndexableBlockNumber().Number.ToInt()
+	_, err = ExecuteJob(le.Job, initr, input, currentHead, le.store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
@@ -315,8 +316,8 @@ type InitiatorSubscriptionLogEvent struct {
 // ForLogger formats the InitiatorSubscriptionLogEvent for easy common formatting in logs (trace statements, not ethereum events).
 func (le InitiatorSubscriptionLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", le.Job,
-		"log", le.Log,
+		"job", le.Job.ID,
+		"log", le.Log.BlockNumber,
 		"initiator", le.Initiator,
 	}
 

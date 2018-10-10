@@ -10,7 +10,7 @@ set -e
 assert ()
 {
   sleepCount=0
-  while [ "$sleepCount" -le "10" ] && output=`eval $2`; do
+  while [ "$sleepCount" -le "30" ] && output=`eval $2`; do
     if [ "$output" == "$3" ]; then
       printf -- "\033[32mTest passed!\033[0m $1: got expected value $3.\n"
       return
