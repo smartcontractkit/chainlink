@@ -2,10 +2,10 @@ pragma solidity ^0.4.24;
 
 import "./ChainlinkLib.sol";
 import "./ENSResolver.sol";
-import "./ILinkToken.sol";
-import "./IOracle.sol";
+import "./interfaces/IENS.sol";
+import "./interfaces/ILinkToken.sol";
+import "./interfaces/IOracle.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "@ensdomains/ens/contracts/ENS.sol";
 
 contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
@@ -19,7 +19,7 @@ contract Chainlinked {
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
 
-  ENS private ens;
+  IENS private ens;
   bytes32 private ensNode;
   bytes32 constant private ensTokenSubname = keccak256("link");
   bytes32 constant private ensOracleSubname = keccak256("oracle");
@@ -83,7 +83,7 @@ contract Chainlinked {
     internal
     returns (address, address)
   {
-    ens = ENS(_ens);
+    ens = IENS(_ens);
     ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
