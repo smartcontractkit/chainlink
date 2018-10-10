@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMigration1536764911_ConvertTaskSpec(t *testing.T) {
+func TestMigrate1536764911_ConvertTaskSpec(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1536764911_job_without_task_params.json")
 	var js old.JobSpec
 	require.NoError(t, json.Unmarshal(input, &js))

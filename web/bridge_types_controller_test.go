@@ -7,6 +7,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
@@ -120,6 +121,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.Confirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
+	assert.Equal(t, *assets.NewLink(0), bt.MinimumContractPayment)
 	assert.NotEmpty(t, bt.IncomingToken)
 	assert.NotEmpty(t, bt.OutgoingToken)
 }

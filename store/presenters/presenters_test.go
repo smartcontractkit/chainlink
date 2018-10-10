@@ -157,7 +157,7 @@ func TestBridgeType_MarshalJSON(t *testing.T) {
 		IncomingToken: "123",
 		OutgoingToken: "abc",
 	}
-	expected := []byte(`{"name":"hapax","url":"http://hap.ax","confirmations":0,"incomingToken":"123","outgoingToken":"abc"}`)
+	expected := []byte(`{"name":"hapax","url":"http://hap.ax","confirmations":0,"incomingToken":"123","outgoingToken":"abc","minimumContractPayment":"0"}`)
 	bt := presenters.BridgeType{BridgeType: input}
 	output, err := bt.MarshalJSON()
 	assert.NoError(t, err)

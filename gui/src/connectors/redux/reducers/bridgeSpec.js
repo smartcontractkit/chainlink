@@ -31,6 +31,7 @@ export default (state = initialState, action = {}) => {
           name: action.name,
           url: action.url,
           confirmations: action.confirmations,
+          minimumContractPayment: action.minimumContractPayment,
           incomingToken: action.incomingToken,
           outgoingToken: action.outgoingToken,
           fetching: false,

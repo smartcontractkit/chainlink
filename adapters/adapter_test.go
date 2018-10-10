@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,29 +28,33 @@ func TestAdapterFor(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType("rideShare", "https://dUber.eth")
+	bt.MinimumContractPayment = *assets.NewLink(10)
 	assert.Nil(t, store.Save(&bt))
 
 	cases := []struct {
-		bridgeName string
-		want       string
-		errored    bool
+		name                   string
+		bridgeName             string
+		wantType               string
+		wantMinContractPayment *assets.Link
+		wantErrored            bool
 	}{
-		{"NoOp", "*adapters.NoOp", false},
-		{"EthTx", "*adapters.EthTx", false},
-		{"nonExistent", "<nil>", true},
-		{bt.Name.String(), "*adapters.Bridge", false},
-		{bt.Name.String(), "*adapters.Bridge", false},
+		{"adapter not found", "nonExistent", "<nil>", nil, true},
+		{"noop", "NoOp", "*adapters.NoOp", assets.NewLink(0), false},
+		{"ethtx", "EthTx", "*adapters.EthTx", &store.Config.MinimumContractPayment, false},
+		{"bridge mixed case", "rideShare", "*adapters.Bridge", assets.NewLink(10), false},
+		{"bridge lower case", "rideshare", "*adapters.Bridge", assets.NewLink(10), false},
 	}
 
 	for _, test := range cases {
-		t.Run(test.want, func(t *testing.T) {
+		t.Run(test.wantType, func(t *testing.T) {
 			task := models.TaskSpec{Type: models.MustNewTaskType(test.bridgeName)}
 			adapter, err := adapters.For(task, store)
-			if test.errored {
+			if test.wantErrored {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, test.want, reflect.TypeOf(adapter.BaseAdapter).String())
+				assert.Equal(t, test.wantType, reflect.TypeOf(adapter.BaseAdapter).String())
+				assert.Equal(t, *test.wantMinContractPayment, adapter.MinContractPayment())
 			}
 		})
 	}

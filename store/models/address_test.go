@@ -11,6 +11,8 @@ import (
 )
 
 func TestEIP55Address(t *testing.T) {
+	t.Parallel()
+
 	address := EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
 
 	assert.Equal(t, []byte{
@@ -44,6 +46,8 @@ func TestEIP55Address(t *testing.T) {
 }
 
 func TestValidateEIP55Address(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		input string

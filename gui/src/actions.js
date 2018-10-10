@@ -146,6 +146,7 @@ fetchActions.bridgeSpec = {
     name: json.data.attributes.name,
     url: json.data.attributes.url,
     confirmations: json.data.attributes.confirmations,
+    minimumContractPayment: json.data.attributes.minimumContractPayment,
     incomingToken: json.data.attributes.incomingToken,
     outgoingToken: json.data.attributes.outgoingToken
   }),
