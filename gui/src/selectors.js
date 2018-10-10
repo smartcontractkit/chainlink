@@ -33,6 +33,16 @@ export const jobRunsCountSelector = (state, jobSpecId) => {
   return spec ? spec.runsCount : 0
 }
 
+export const bridgeSelector = (state, id) => state.bridges.items[id]
+
+export const bridgesSelector = state => {
+  const bridgeIds = state.bridges.currentPage
+
+  return bridgeIds
+    .map(id => state.bridges.items[id])
+    .filter(r => r)
+}
+
 export const configsSelector = state => (
   Object.keys(state.configuration.config)
     .sort()

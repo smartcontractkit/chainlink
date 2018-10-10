@@ -1,7 +1,6 @@
 import { combineReducers } from 'redux'
 import accountBalance from './accountBalance'
 import authentication from './authentication'
-import bridgeSpec from './bridgeSpec'
 import bridges from './bridges'
 import configuration from './configuration'
 import create from './create'
@@ -14,7 +13,6 @@ import redirect from './redirect'
 const reducer = combineReducers({
   accountBalance,
   authentication,
-  bridgeSpec,
   bridges,
   configuration,
   create,
