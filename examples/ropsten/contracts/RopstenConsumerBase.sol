@@ -1,6 +1,7 @@
 pragma solidity ^0.4.24;
 
 import "../../../solidity/contracts/Chainlinked.sol";
+import "../../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract RopstenConsumer is Chainlinked, Ownable {
   uint256 public currentPrice;
@@ -103,7 +104,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   }
 
   function withdrawLink() public onlyOwner {
-    LinkToken link = LinkToken(chainlinkToken());
+    ILinkToken link = ILinkToken(chainlinkToken());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
