@@ -43,16 +43,57 @@ const BridgeFormLayout = ({
     <Form className={classes.form} noValidate>
       <Grid container justify='center'>
         <Grid item sm={2}>
-          <TextField className={classes.textfield} onChange={handleChange} fullWidth label='Bridge Name' name='name' id='name' placeholder='name' />
+          <TextField
+            className={classes.textfield}
+            onChange={handleChange}
+            fullWidth
+            label='Bridge Name'
+            name='name'
+            id='name'
+            placeholder='name'
+          />
         </Grid>
         <Grid container justify='center'>
           <Grid item sm={2}>
-            <TextField className={classes.textfield} label='Bridge URL' name='url' fullWidth placeholder='url' id='url' onChange={handleChange} />
+            <TextField
+              className={classes.textfield}
+              label='Bridge URL'
+              name='url'
+              fullWidth
+              placeholder='url'
+              id='url'
+              onChange={handleChange}
+            />
           </Grid>
         </Grid>
         <Grid container justify='center'>
           <Grid item sm={2}>
-            <TextField className={classes.textfield} onChange={handleChange} name='confirmations' fullWidth placeholder='confirmations' id='confirmations' label='Confirmations' />
+            <TextField
+              className={classes.textfield}
+              onChange={handleChange}
+              name='minimumContractPayment'
+              type='number'
+              inputProps={{min: 0}}
+              fullWidth
+              placeholder='0'
+              id='minimumContractPayment'
+              label='Minimum Contract Payment'
+            />
+          </Grid>
+        </Grid>
+        <Grid container justify='center'>
+          <Grid item sm={2}>
+            <TextField
+              className={classes.textfield}
+              onChange={handleChange}
+              name='confirmations'
+              type='number'
+              inputProps={{min: 0}}
+              fullWidth
+              placeholder='0'
+              id='confirmations'
+              label='Confirmations'
+            />
           </Grid>
         </Grid>
         <Button variant='contained' color='primary' type='submit' className={classes.button} disabled={isSubmitting || !values.name || !values.url}>
