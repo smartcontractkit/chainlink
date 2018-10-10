@@ -1,9 +1,9 @@
 'use strict';
 
 contract('RunLog', () => {
-  let LinkToken = artifacts.require("LinkToken.sol");
-  let Oracle = artifacts.require("examples/Oracle.sol");
-  let RunLog = artifacts.require("examples/RunLog.sol");
+  let LinkToken = artifacts.require("LinkToken");
+  let Oracle = artifacts.require("Oracle");
+  let RunLog = artifacts.require("RunLog");
   let link, logger, oc;
 
   beforeEach(async () => {
