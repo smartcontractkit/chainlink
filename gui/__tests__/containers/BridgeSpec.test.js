@@ -20,12 +20,11 @@ const mountBridgeSpec = (props) => (
 describe('containers/BridgeSpec', () => {
   it('renders the details of the bridge spec', async () => {
     expect.assertions(6)
-    const bridgeName = 'TallBridge'
     const response = { data: {
+      id: 'tallbridge',
       type: 'bridges',
-      id: bridgeName,
       attributes: {
-        name: bridgeName,
+        name: 'Tall Bridge',
         url: 'https://localhost.com:712/endpoint',
         confirmations: 9,
         incomingToken: 'incomingToken',
@@ -33,13 +32,13 @@ describe('containers/BridgeSpec', () => {
       }
     }}
 
-    global.fetch.getOnce(`/v2/bridge_types/${bridgeName}`, response)
+    global.fetch.getOnce(`/v2/bridge_types/tallbridge`, response)
 
-    const props = {match: {params: {bridgeName: bridgeName}}}
+    const props = {match: {params: {bridgeId: 'tallbridge'}}}
     const wrapper = mountBridgeSpec(props)
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain(bridgeName)
+    expect(wrapper.text()).toContain('Tall Bridge')
     expect(wrapper.text()).toContain('Confirmations')
     expect(wrapper.text()).toContain('https://localhost.com:712/endpoint')
     expect(wrapper.text()).toContain('incomingToken')

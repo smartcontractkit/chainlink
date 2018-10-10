@@ -9,6 +9,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchBridgeSpec } from 'actions'
+import { bridgeSelector } from 'selectors'
 
 const styles = theme => ({
   title: {
@@ -24,7 +25,11 @@ const styles = theme => ({
   }
 })
 
-const renderBridgeSpec = props => (
+const renderLoading = props => (
+  <div>Loading...</div>
+)
+
+const renderLoaded = props => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
@@ -33,59 +38,46 @@ const renderBridgeSpec = props => (
         </Typography>
         <Grid>
           <Typography variant='subheading' color='textSecondary'>Name</Typography>
-          <Typography variant='body1' color='inherit'>{props.name}</Typography>
+          <Typography variant='body1' color='inherit'>{props.bridge.name}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>URL</Typography>
-          <Typography variant='body1' color='inherit'>{props.url}</Typography>
+          <Typography variant='body1' color='inherit'>{props.bridge.url}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Confirmations</Typography>
-          <Typography variant='body1' color='inherit'>{props.confirmations}</Typography>
+          <Typography variant='body1' color='inherit'>{props.bridge.confirmations}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Minimum Contract Payment</Typography>
-          <Typography variant='body1' color='inherit'>{props.minimumContractPayment}</Typography>
+          <Typography variant='body1' color='inherit'>{props.bridge.minimumContractPayment}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Incoming Token</Typography>
-          <Typography variant='body1' color='inherit'>{props.incomingToken}</Typography>
+          <Typography variant='body1' color='inherit'>{props.bridge.incomingToken}</Typography>
 
           <Typography variant='subheading' color='textSecondary'>Outgoing Token</Typography>
-          <Typography variant='body1' color='inherit'>{props.outgoingToken}</Typography>
+          <Typography variant='body1' color='inherit'>{props.bridge.outgoingToken}</Typography>
         </Grid>
       </PaddedCard>
     </Grid>
   </Grid>
 )
 
-const renderFetching = () => <div>Fetching...</div>
-
-const renderDetails = props => {
-  if (!props.fetching) {
-    return (
-      <React.Fragment>
-        {renderBridgeSpec(props)}
-      </React.Fragment>
-    )
-  } else {
-    return renderFetching()
-  }
-}
+const renderDetails = props => props.bridge ? renderLoaded(props) : renderLoading(props)
 
 export class BridgeSpec extends Component {
   componentDidMount () {
-    this.props.fetchBridgeSpec(this.props.match.params.bridgeName)
+    this.props.fetchBridgeSpec(this.props.match.params.bridgeId)
   }
 
   render () {
-    const { classes, name } = this.props
     return (
       <div>
-        <Breadcrumb className={classes.breadcrumb}>
+        <Breadcrumb className={this.props.classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem>{name}</BreadcrumbItem>
+          <BreadcrumbItem>{this.props.bridge && this.props.bridge.id}</BreadcrumbItem>
         </Breadcrumb>
-        <Typography variant='display2' color='inherit' className={classes.title}>
+        <Typography variant='display2' color='inherit' className={this.props.classes.title}>
           Bridge Spec Details
         </Typography>
         {renderDetails(this.props)}
@@ -95,17 +87,13 @@ export class BridgeSpec extends Component {
 }
 
 BridgeSpec.propTypes = {
-  classes: PropTypes.object.isRequired
+  classes: PropTypes.object.isRequired,
+  bridge: PropTypes.object
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state, ownProps) => {
   return {
-    name: state.bridgeSpec.name,
-    url: state.bridgeSpec.url,
-    confirmations: state.bridgeSpec.confirmations,
-    minimumContractPayment: state.bridgeSpec.minimumContractPayment,
-    incomingToken: state.bridgeSpec.incomingToken,
-    outgoingToken: state.bridgeSpec.outgoingToken
+    bridge: bridgeSelector(state, ownProps.match.params.bridgeId)
   }
 }
 
