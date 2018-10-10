@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 )
 
@@ -46,6 +47,27 @@ func ValidateAdapter(bt *models.BridgeType, store *store.Store) (err error) {
 		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
+}
+
+// ValidateMinimumContractPayment returns true when the amount is >= the cost of
+// every adapter used in the job
+func ValidateMinimumContractPayment(
+	s *store.Store,
+	job models.JobSpec,
+	amount assets.Link,
+) (bool, error) {
+	cost := assets.NewLink(0)
+
+	for _, task := range job.Tasks {
+		a, err := adapters.For(task, s)
+		if err != nil {
+			return false, fmt.Errorf("policies.MinimumContractPaymentValid: %v", err)
+		}
+		mp := a.MinContractPayment()
+		cost.Add(cost, &mp)
+	}
+
+	return cost.Cmp(&amount) <= 0, nil
 }
 
 // ValidateInitiator checks the Initiator for any application logic errors.
