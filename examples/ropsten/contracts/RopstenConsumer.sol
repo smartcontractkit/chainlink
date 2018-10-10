@@ -298,7 +298,34 @@ contract ENSResolver {
   function addr(bytes32 node) public view returns (address);
 }
 
-// File: ../solidity/contracts/ILinkToken.sol
+// File: ../solidity/contracts/interfaces/IENS.sol
+
+interface IENS {
+
+    // Logged when the owner of a node assigns a new owner to a subnode.
+    event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
+
+    // Logged when the owner of a node transfers ownership to a new account.
+    event Transfer(bytes32 indexed node, address owner);
+
+    // Logged when the resolver for a node changes.
+    event NewResolver(bytes32 indexed node, address resolver);
+
+    // Logged when the TTL of a node changes
+    event NewTTL(bytes32 indexed node, uint64 ttl);
+
+
+    function setSubnodeOwner(bytes32 node, bytes32 label, address owner) external;
+    function setResolver(bytes32 node, address resolver) external;
+    function setOwner(bytes32 node, address owner) external;
+    function setTTL(bytes32 node, uint64 ttl) external;
+    function owner(bytes32 node) external view returns (address);
+    function resolver(bytes32 node) external view returns (address);
+    function ttl(bytes32 node) external view returns (uint64);
+
+}
+
+// File: ../solidity/contracts/interfaces/ILinkToken.sol
 
 interface ILinkToken {
   function balanceOf(address _owner) external returns (uint256 balance);
@@ -306,7 +333,7 @@ interface ILinkToken {
   function transferAndCall(address _to, uint _value, bytes _data) external returns (bool success);
 }
 
-// File: ../solidity/contracts/IOracle.sol
+// File: ../solidity/contracts/interfaces/IOracle.sol
 
 interface IOracle {
   function cancel(bytes32 _externalId) external;
@@ -364,33 +391,6 @@ library SafeMath {
   }
 }
 
-// File: @ensdomains/ens/contracts/ENS.sol
-
-interface ENS {
-
-    // Logged when the owner of a node assigns a new owner to a subnode.
-    event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
-
-    // Logged when the owner of a node transfers ownership to a new account.
-    event Transfer(bytes32 indexed node, address owner);
-
-    // Logged when the resolver for a node changes.
-    event NewResolver(bytes32 indexed node, address resolver);
-
-    // Logged when the TTL of a node changes
-    event NewTTL(bytes32 indexed node, uint64 ttl);
-
-
-    function setSubnodeOwner(bytes32 node, bytes32 label, address owner) public;
-    function setResolver(bytes32 node, address resolver) public;
-    function setOwner(bytes32 node, address owner) public;
-    function setTTL(bytes32 node, uint64 ttl) public;
-    function owner(bytes32 node) public view returns (address);
-    function resolver(bytes32 node) public view returns (address);
-    function ttl(bytes32 node) public view returns (uint64);
-
-}
-
 // File: ../solidity/contracts/Chainlinked.sol
 
 contract Chainlinked {
@@ -405,7 +405,7 @@ contract Chainlinked {
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
 
-  ENS private ens;
+  IENS private ens;
   bytes32 private ensNode;
   bytes32 constant private ensTokenSubname = keccak256("link");
   bytes32 constant private ensOracleSubname = keccak256("oracle");
@@ -469,7 +469,7 @@ contract Chainlinked {
     internal
     returns (address, address)
   {
-    ens = ENS(_ens);
+    ens = IENS(_ens);
     ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
