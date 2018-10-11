@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -54,16 +53,10 @@ func (s *Scheduler) Start() error {
 	}
 	s.started = true
 
-	jobs, err := s.store.Jobs()
-	if err != nil {
-		return fmt.Errorf("Scheduler: %v", err)
-	}
-
-	for _, job := range jobs {
-		s.addJob(job)
-	}
-
-	return nil
+	return s.store.Jobs(func(j models.JobSpec) bool {
+		s.addJob(j)
+		return true
+	})
 }
 
 // Stop is the governing function for both Recurring and OneTime

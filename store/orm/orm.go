@@ -110,10 +110,11 @@ func (orm *ORM) InitBucket(model interface{}) error {
 }
 
 // Jobs fetches all jobs.
-func (orm *ORM) Jobs() ([]models.JobSpec, error) {
-	var jobs []models.JobSpec
-	err := orm.All(&jobs)
-	return jobs, err
+func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
+	var bucket []models.JobSpec
+	return orm.AllInBatches(&bucket, func(j models.JobSpec) bool {
+		return cb(j)
+	})
 }
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
