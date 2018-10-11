@@ -3,6 +3,7 @@ package orm_test
 import (
 	"encoding/hex"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -543,6 +544,115 @@ func TestORM_CreateSession(t *testing.T) {
 				require.Error(t, err)
 				assert.Empty(t, sessionID)
 			}
+		})
+	}
+}
+
+func TestORM_AllInBatches_DifferentBatchSizes(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	var expected []string
+	for i := 0; i < 5; i++ {
+		job, _ := cltest.NewJobWithWebInitiator()
+		require.NoError(t, store.SaveJob(&job))
+		expected = append(expected, job.ID)
+	}
+
+	tests := []struct {
+		name      string
+		batchSize int
+	}{
+		{"smaller", 3},
+		{"equal", 5},
+		{"larger", 100},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var bucket []models.JobSpec // Need this to tell storm which bucket to use (via reflection)
+			var actual []string
+
+			err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
+				actual = append(actual, j.ID)
+				return true
+			}, test.batchSize)
+
+			require.NoError(t, err)
+			sort.Strings(expected)
+			sort.Strings(actual)
+			assert.Equal(t, expected, actual)
+		})
+	}
+}
+
+func TestORM_AllInBatches_EarlyExit(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	var jobids []string
+	for i := 0; i < 2; i++ {
+		job, _ := cltest.NewJobWithWebInitiator()
+		require.NoError(t, store.SaveJob(&job))
+		jobids = append(jobids, job.ID)
+	}
+
+	var bucket []models.JobSpec
+	var actual []string
+	err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
+		actual = append(actual, j.ID)
+		return false
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(actual))
+	assert.Contains(t, jobids, actual[0])
+}
+
+func TestORM_AllInBatches_Empty(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	var bucket []models.JobSpec
+	var actual []string
+	err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
+		actual = append(actual, j.ID)
+		return true
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, actual)
+}
+
+func TestORM_AllInBatches_IncorrectCallback(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, _ := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.SaveJob(&job))
+
+	var bucket []models.JobSpec
+
+	tests := []struct {
+		name     string
+		callback interface{}
+	}{
+		{"missing bool", func(models.JobSpec) {}},
+		{"wrong rval", func(models.JobSpec) int { return 0 }},
+		{"mismatched bucket and model", func(models.BridgeType) bool { return true }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := store.AllInBatches(&bucket, test.callback)
+			require.Error(t, err)
 		})
 	}
 }
