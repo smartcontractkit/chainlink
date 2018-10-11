@@ -742,17 +742,14 @@ func WaitForJobs(t *testing.T, store *store.Store, want int) []models.JobSpec {
 	g := gomega.NewGomegaWithT(t)
 
 	var jobs []models.JobSpec
-	var err error
 	if want == 0 {
 		g.Consistently(func() []models.JobSpec {
-			jobs, err = store.Jobs()
-			assert.NoError(t, err)
+			jobs = AllJobs(store)
 			return jobs
 		}).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobSpec {
-			jobs, err = store.Jobs()
-			assert.NoError(t, err)
+			jobs = AllJobs(store)
 			return jobs
 		}).Should(gomega.HaveLen(want))
 	}
@@ -950,4 +947,15 @@ func HexToBytes(in string) []byte {
 	b, err := utils.HexToBytes(in)
 	mustNotErr(err)
 	return b
+}
+
+func AllJobs(store *store.Store) []models.JobSpec {
+	var bucket []models.JobSpec
+	var all []models.JobSpec
+	err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
+		all = append(all, j)
+		return true
+	})
+	mustNotErr(err)
+	return all
 }
