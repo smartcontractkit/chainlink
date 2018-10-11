@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -644,15 +645,16 @@ func TestORM_AllInBatches_IncorrectCallback(t *testing.T) {
 	tests := []struct {
 		name     string
 		callback interface{}
+		err      error
 	}{
-		{"missing bool", func(models.JobSpec) {}},
-		{"wrong rval", func(models.JobSpec) int { return 0 }},
-		{"mismatched bucket and model", func(models.BridgeType) bool { return true }},
+		{"missing bool", func(models.JobSpec) {}, orm.ErrorInvalidCallbackSignature},
+		{"wrong rval", func(models.JobSpec) int { return 0 }, orm.ErrorInvalidCallbackSignature},
+		{"mismatched bucket and model", func(models.BridgeType) bool { return true }, orm.ErrorInvalidCallbackModel},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := store.AllInBatches(&bucket, test.callback)
-			require.Error(t, err)
+			require.Equal(t, test.err, err)
 		})
 	}
 }
