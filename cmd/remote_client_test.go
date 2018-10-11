@@ -113,7 +113,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 			err := client.CreateServiceAgreement(c)
 
 			cltest.AssertError(t, test.errored, err)
-			jobs, _ := app.Store.Jobs()
+			jobs := cltest.AllJobs(app.Store)
 			if test.jobsCreated {
 				assert.True(t, len(jobs) > 0)
 			} else {
@@ -138,7 +138,7 @@ func TestClient_CreateServiceAgreementMultipleTimes(t *testing.T) {
 	err := client.CreateServiceAgreement(c)
 
 	assert.NoError(t, err)
-	numberOfJobs, _ := app.Store.Jobs()
+	numberOfJobs := cltest.AllJobs(app.Store)
 	assert.Equal(t, 1, len(numberOfJobs))
 
 	set.Parse([]string{sa.String()})
@@ -149,7 +149,7 @@ func TestClient_CreateServiceAgreementMultipleTimes(t *testing.T) {
 	err = client.CreateServiceAgreement(c)
 
 	assert.NoError(t, err)
-	numberOfJobs, _ = app.Store.Jobs()
+	numberOfJobs = cltest.AllJobs(app.Store)
 	assert.Equal(t, 2, len(numberOfJobs))
 }
 
@@ -179,7 +179,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 			err := client.CreateJobSpec(c)
 			cltest.AssertError(t, test.errored, err)
 
-			numberOfJobs, _ := app.Store.Jobs()
+			numberOfJobs := cltest.AllJobs(app.Store)
 			assert.Equal(t, test.nJobs, len(numberOfJobs))
 		})
 	}

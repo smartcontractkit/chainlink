@@ -61,14 +61,12 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
 func (js *jobSubscriber) Connect(bn *models.IndexableBlockNumber) error {
-	jobs, err := js.store.Jobs()
-	if err != nil {
-		return err
-	}
-	for _, j := range jobs {
-		err = multierr.Append(err, js.AddJob(j, bn))
-	}
-	return err
+	var merr error
+	err := js.store.Jobs(func(j models.JobSpec) bool {
+		merr = multierr.Append(merr, js.AddJob(j, bn))
+		return true
+	})
+	return multierr.Append(merr, err)
 }
 
 // Disconnect disconnects all subscriptions associated with jobs belonging to
