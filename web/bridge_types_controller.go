@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store/forms"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
@@ -78,6 +79,32 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 	} else {
 		c.Data(200, MediaType, doc)
 	}
+}
+
+// Update can change the restricted attributes for a bridge
+func (btc *BridgeTypesController) Update(c *gin.Context) {
+	bn := c.Param("BridgeName")
+	form, err := forms.NewUpdateBridgeType(btc.App.Store, bn)
+
+	if err == storm.ErrNotFound {
+		publicError(c, 404, errors.New("bridge name not found"))
+		return
+	}
+
+	c.BindJSON(&form)
+	err = form.Save()
+	if err != nil {
+		c.AbortWithError(500, err)
+		return
+	}
+
+	doc, err := form.Marshal()
+	if err != nil {
+		c.AbortWithError(500, err)
+		return
+	}
+
+	c.Data(200, MediaType, doc)
 }
 
 // Destroy removes a specific Bridge.
