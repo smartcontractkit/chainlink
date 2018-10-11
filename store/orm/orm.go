@@ -454,3 +454,53 @@ func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 func (orm *ORM) InitializeModel(klass interface{}) error {
 	return orm.InitBucket(klass)
 }
+
+// AllInBatches iterates over every single entry in the passed bucket without holding
+// the entire contents in memory, pulling down batches and streaming over each entry.
+// Be sure not to use the passed bucket parameter as it is used as a buffer.
+func (orm *ORM) AllInBatches(bucket interface{}, callback interface{}, optionalBatchSize ...int) error {
+	skip := 0
+	batchSize := 1000
+	if len(optionalBatchSize) > 0 {
+		batchSize = optionalBatchSize[0]
+	}
+
+	vcallback := reflect.ValueOf(callback)
+	tcallback := reflect.TypeOf(callback)
+	if tcallback.NumOut() != 1 || tcallback.Out(0).Kind() != reflect.Bool {
+		return errors.New("AllInBatches callback has incorrect function signature, must return bool")
+	}
+
+	if tcallback.NumIn() != 1 || tcallback.In(0) != underlyingBucketType(bucket) {
+		return errors.New("AllInBatches callback has incorrect model, must match bucket")
+	}
+
+	for {
+		err := orm.All(bucket, storm.Limit(batchSize), storm.Skip(skip))
+		if err != nil {
+			return err
+		}
+
+		slice := reflect.ValueOf(bucket).Elem()
+		for i := 0; i < slice.Len(); i++ {
+			e := slice.Index(i)
+			rval := vcallback.Call([]reflect.Value{e})[0].Bool()
+			if !rval {
+				return nil
+			}
+		}
+
+		if slice.Len() < batchSize {
+			return nil
+		}
+
+		skip += batchSize
+	}
+}
+
+func underlyingBucketType(bucket interface{}) reflect.Type {
+	ref := reflect.ValueOf(bucket)
+	sliceType := reflect.Indirect(ref).Type()
+	elemType := sliceType.Elem()
+	return elemType
+}
