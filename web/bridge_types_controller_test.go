@@ -126,6 +126,29 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, bt.OutgoingToken)
 }
 
+func TestBridgeTypesController_Update_Success(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	bt := &models.BridgeType{
+		Name: models.MustNewTaskType("bridgea"),
+		URL:  cltest.WebURL("http://mybridge"),
+	}
+	assert.NoError(t, app.AddAdapter(bt))
+
+	ud := bytes.NewBuffer([]byte(`{"url":"http://yourbridge"}`))
+	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+
+	ubt, err := app.Store.FindBridge(bt.Name.String())
+	assert.NoError(t, err)
+	assert.Equal(t, cltest.WebURL("http://yourbridge"), ubt.URL)
+}
+
 func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
