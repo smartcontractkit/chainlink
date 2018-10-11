@@ -217,23 +217,23 @@ func (orm *ORM) JobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun
 // AnyJobWithType returns true if there is at least one job associated with
 // the type name specified and false otherwise
 func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
-	jobs := []models.JobSpec{}
-	err := orm.All(&jobs)
-	if err != nil {
-		return false, err
-	}
 	ts, err := models.NewTaskType(taskTypeName)
 	if err != nil {
 		return false, err
 	}
-	for i := range jobs {
-		for j := range jobs[i].Tasks {
-			if jobs[i].Tasks[j].Type == ts {
-				return true, nil
+
+	var found bool
+	err = orm.Jobs(func(j models.JobSpec) bool {
+		for _, t := range j.Tasks {
+			if t.Type == ts {
+				found = true
+				return false
 			}
 		}
-	}
-	return false, nil
+		return true
+	})
+
+	return found, err
 }
 
 // CreateTx saves the properties of an Ethereum transaction to the database.
