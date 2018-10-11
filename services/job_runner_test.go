@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -42,7 +41,6 @@ func TestJobRunner_resumeSleepingRuns(t *testing.T) {
 	assert.NoError(t, services.ExportedResumeSleepingRuns(rm))
 	rr, open := <-store.RunChannel.Receive()
 	assert.Equal(t, jr.ID, rr.ID)
-	assert.Equal(t, jr.Result, rr.Input)
 	assert.True(t, open)
 }
 
@@ -82,7 +80,7 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	assert.NoError(t, s.Save(&jr))
 
 	chan1 := services.ExportedChannelForRun(rm, jr.ID)
-	chan1 <- store.RunRequest{Input: jr.Result}
+	chan1 <- store.RunRequest{}
 	cltest.WaitForJobRunToComplete(t, s, jr)
 
 	gomega.NewGomegaWithT(t).Eventually(func() chan<- store.RunRequest {
@@ -90,7 +88,7 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	}).Should(gomega.Not(gomega.Equal(chan1))) // eventually deletes the channel
 
 	chan2 := services.ExportedChannelForRun(rm, jr.ID)
-	chan2 <- store.RunRequest{Input: jr.Result} // does not panic
+	chan2 <- store.RunRequest{} // does not panic
 }
 
 func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
@@ -248,7 +246,7 @@ func TestJobRunner_ExecuteRunAtBlock_startingStatus(t *testing.T) {
 
 			run.Status = test.status
 
-			run, err := services.ExportedExecuteRunAtBlock(run, store, models.RunResult{}, nil)
+			run, err := services.ExportedExecuteRunAtBlock(run, store, nil)
 			if test.wantError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "Unable to start with status")
@@ -271,39 +269,15 @@ func TestJobRunner_savesOverridesOnError(t *testing.T) {
 	job, initr := cltest.NewJobWithLogInitiator()
 	job.Tasks = []models.TaskSpec{} // reason for error
 	run := job.NewRun(initr)
+	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
+	run.Overrides = models.RunResult{Data: initialData}
 	assert.NoError(t, store.Save(&run))
 
-	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldBeHere"}`)}
-	overrides := models.RunResult{Data: initialData}
-
-	run, err := services.ExportedExecuteRunAtBlock(run, store, overrides, nil)
+	run, err := services.ExportedExecuteRunAtBlock(run, store, nil)
 	assert.Error(t, err)
 
 	assert.NoError(t, store.One("ID", run.ID, &run))
 	assert.Equal(t, initialData, run.Overrides.Data)
-}
-
-func TestJobRunner_errorsOnOverride(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-	jobRunner, cleanup := cltest.NewJobRunner(store)
-	defer cleanup()
-	jobRunner.Start()
-
-	job, initr := cltest.NewJobWithLogInitiator()
-	run := job.NewRun(initr)
-	run.Overrides = run.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
-	assert.NoError(t, store.Save(&run))
-
-	initialData := models.JSON{Result: gjson.Parse(`{"key":"shouldNotBeHere"}`)}
-	overrides := models.RunResult{Data: initialData}
-	store.RunChannel.Send(run.ID, overrides, nil)
-	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusErrored)
-
-	assert.NoError(t, store.One("ID", run.ID, &run))
-	assert.Contains(t, run.Result.ErrorMessage.String, "Cannot merge")
 }
 
 func TestJobRunner_transitionToPendingConfirmations(t *testing.T) {
@@ -343,21 +317,21 @@ func TestJobRunner_transitionToPendingConfirmations(t *testing.T) {
 				},
 			}
 
+			initialData := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 			run := job.NewRun(initr)
+			run.Overrides = models.RunResult{Data: initialData}
 			run, err := store.SaveCreationHeight(run, cltest.IndexableBlockNumber(creationHeight))
 			assert.NoError(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
-			initialData := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-			runLogInitialInput := models.RunResult{Data: initialData}
-			store.RunChannel.Send(run.ID, runLogInitialInput, early)
+			store.RunChannel.Send(run.ID, early)
 
 			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, initialData, run.Result.Data)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
-			store.RunChannel.Send(run.ID, models.RunResult{}, trigger)
+			store.RunChannel.Send(run.ID, trigger)
 			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 			store.One("ID", run.ID, &run)
 			assert.Equal(t, initialData, run.Result.Data)
@@ -421,11 +395,11 @@ func TestJobRunner_transitionToPendingConfirmationsWithBridgeTask(t *testing.T) 
 			assert.NoError(t, err)
 
 			early := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 2)
-			store.RunChannel.Send(run.ID, models.RunResult{}, early)
+			store.RunChannel.Send(run.ID, early)
 			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 
 			trigger := cltest.IndexableBlockNumber(creationHeight + test.triggeringConf - 1)
-			store.RunChannel.Send(run.ID, models.RunResult{}, trigger)
+			store.RunChannel.Send(run.ID, trigger)
 			cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 		})
 	}
@@ -446,7 +420,7 @@ func TestJobRunner_transitionToPending(t *testing.T) {
 	run := job.NewRun(initr)
 	assert.NoError(t, store.Save(&run))
 
-	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	store.RunChannel.Send(run.ID, nil)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 }
 
@@ -518,7 +492,7 @@ func TestJobRunner_BuildRun(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(&job))
 
-			_, err := services.BuildRun(job, initr, store)
+			_, err := services.BuildRun(job, initr, store, models.RunResult{})
 
 			if test.errored {
 				assert.Error(t, err)

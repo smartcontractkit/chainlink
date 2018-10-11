@@ -54,7 +54,7 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	assert.NoError(t, store.Save(&run))
 	assert.Equal(t, run.TaskRuns, run.UnfinishedTaskRuns())
 
-	store.RunChannel.Send(run.ID, models.RunResult{}, nil)
+	store.RunChannel.Send(run.ID, nil)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 
 	store.One("ID", run.ID, &run)
