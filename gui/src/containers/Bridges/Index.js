@@ -30,19 +30,25 @@ export class Index extends Component {
     return (
       <div>
         <Grid container spacing={8} alignItems='center'>
-          <Grid item xs={12}>
+          <Grid item xs={9}>
             <Typography variant='display2' color='inherit' className={classes.title}>
               Bridges
             </Typography>
           </Grid>
-          <Button
-            variant='outlined'
-            color='primary'
-            component={ReactStaticLinkComponent}
-            to={'/bridges/new'}
-          >
-            New Bridge
-          </Button>
+          <Grid item xs={3}>
+            <Grid container justify='flex-end' >
+              <Grid item>
+                <Button
+                  variant='outlined'
+                  color='primary'
+                  component={ReactStaticLinkComponent}
+                  to={'/bridges/new'}
+                >
+                  New Bridge
+                </Button>
+              </Grid>
+            </Grid>
+          </Grid>
         </Grid>
         <Grid container spacing={40}>
           <Grid item xs={12}>

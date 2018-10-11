@@ -56,18 +56,23 @@ export class Jobs extends Component {
   }
 
   render () {
-    const { classes } = this.props
     return (
       <div>
-        <Grid container alignItems='center'>
-          <Grid item xs>
-            <Typography variant='display2' color='inherit' className={classes.title}>
+        <Grid container alignItems='center' >
+          <Grid item xs={9}>
+            <Typography variant='display2' color='inherit' className={this.props.classes.title}>
               Jobs
             </Typography>
           </Grid>
-          <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/create/job'}>
-            Create Job
-          </Button>
+          <Grid item xs={3}>
+            <Grid container justify='flex-end' >
+              <Grid item>
+                <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/create/job'}>
+                  Create Job
+                </Button>
+              </Grid>
+            </Grid>
+          </Grid>
         </Grid>
         <Grid container spacing={40}>
           <Grid item xs={9}>
