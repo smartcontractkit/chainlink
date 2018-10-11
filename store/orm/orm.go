@@ -17,6 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+var (
+	// ErrorInvalidCallbackSignature is returned in AllInBatches if the incorrect function signature is passed.
+	ErrorInvalidCallbackSignature = errors.New("AllInBatches callback has incorrect function signature, must return bool")
+	// ErrorInvalidCallbackModel is returned in AllInBatches if the model and bucket do not match types.
+	ErrorInvalidCallbackModel = errors.New("AllInBatches callback has incorrect model, must match bucket")
+)
+
 // ORM contains the database object used by Chainlink.
 type ORM struct {
 	*storm.DB
@@ -469,11 +476,11 @@ func (orm *ORM) AllInBatches(bucket interface{}, callback interface{}, optionalB
 	vcallback := reflect.ValueOf(callback)
 	tcallback := reflect.TypeOf(callback)
 	if tcallback.NumOut() != 1 || tcallback.Out(0).Kind() != reflect.Bool {
-		return errors.New("AllInBatches callback has incorrect function signature, must return bool")
+		return ErrorInvalidCallbackSignature
 	}
 
 	if tcallback.NumIn() != 1 || tcallback.In(0) != underlyingBucketType(bucket) {
-		return errors.New("AllInBatches callback has incorrect model, must match bucket")
+		return ErrorInvalidCallbackModel
 	}
 
 	for {
