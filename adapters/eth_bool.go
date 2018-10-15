@@ -19,6 +19,9 @@ type EthBool struct{}
 // "0x0000000000000000000000000000000000000000000000000000000000000000"
 func (*EthBool) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	r := input.Get("value")
+	if !r.Exists() {
+		return input.WithValue(evmFalse)
+	}
 	if boolean(r.Type) {
 		return input.WithValue(evmTrue)
 	}
