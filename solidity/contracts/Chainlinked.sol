@@ -2,9 +2,9 @@ pragma solidity ^0.4.24;
 
 import "./ChainlinkLib.sol";
 import "./ENSResolver.sol";
-import "./interfaces/IENS.sol";
-import "./interfaces/ILinkToken.sol";
-import "./interfaces/IOracle.sol";
+import "./interfaces/ENSInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/OracleInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Chainlinked {
@@ -14,12 +14,12 @@ contract Chainlinked {
   uint256 constant private clArgsVersion = 1;
   uint256 constant private linkDivisibility = 10**18;
 
-  ILinkToken private link;
-  IOracle private oracle;
+  LinkTokenInterface private link;
+  OracleInterface private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
 
-  IENS private ens;
+  ENSInterface private ens;
   bytes32 private ensNode;
   bytes32 constant private ensTokenSubname = keccak256("link");
   bytes32 constant private ensOracleSubname = keccak256("oracle");
@@ -64,11 +64,11 @@ contract Chainlinked {
   }
 
   function setOracle(address _oracle) internal {
-    oracle = IOracle(_oracle);
+    oracle = OracleInterface(_oracle);
   }
 
   function setLinkToken(address _link) internal {
-    link = ILinkToken(_link);
+    link = LinkTokenInterface(_link);
   }
 
   function chainlinkToken()
@@ -83,7 +83,7 @@ contract Chainlinked {
     internal
     returns (address, address)
   {
-    ens = IENS(_ens);
+    ens = ENSInterface(_ens);
     ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
