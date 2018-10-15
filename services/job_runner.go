@@ -138,6 +138,8 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 			}
 			if rr.BlockNumber != nil {
 				logger.Debug("Woke up", jr.ID, "worker to process ", rr.BlockNumber.ToInt())
+			} else {
+				logger.Debugw("Starting new job", jr.ForLogger()...)
 			}
 			if jr, err = executeRunAtBlock(jr, rm.store, rr.BlockNumber); err != nil {
 				logger.Errorw(fmt.Sprint("Application Run Channel Executor: error executing run ", runID), jr.ForLogger("error", err)...)
