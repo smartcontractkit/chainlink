@@ -18,12 +18,9 @@ func TestEthBool_Perform(t *testing.T) {
 		json     string
 		expected string
 	}{
-		{"bool false", `{"value":false}`, evmFalse},
-		{"bool true", `{"value":true}`, evmTrue},
-		{"true string", `{"value":"true"}`, evmTrue},
-		{"false string", `{"value":"false"}`, evmTrue},
-		{"number 5", `{"value":5}`, evmTrue},
-		{"number 0", `{"value":0}`, evmTrue},
+		{"value is bool false", `{"value":false}`, evmFalse},
+		{"value is bool true", `{"value":true}`, evmTrue},
+		{"value does not exist", `{}`, evmFalse},
 	}
 
 	for _, tt := range tests {
