@@ -9,7 +9,9 @@ contract UpdatableConsumer is Consumer {
 
   constructor(bytes32 _specId, address _ens, bytes32 _ensNode) public {
     specId = _specId;
-    var (link, oracle) = newChainlinkWithENS(_ens, _ensNode);
+    address link;
+    address oracle;
+    (link, oracle) = newChainlinkWithENS(_ens, _ensNode);
     publicLinkToken = link;
     publicOracle = oracle;
   }
