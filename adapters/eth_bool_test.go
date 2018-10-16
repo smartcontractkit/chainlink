@@ -20,7 +20,9 @@ func TestEthBool_Perform(t *testing.T) {
 	}{
 		{"value is bool false", `{"value":false}`, evmFalse},
 		{"value is bool true", `{"value":true}`, evmTrue},
-		{"value does not exist", `{}`, evmFalse},
+		{"value is null string", `{"value":"null"}`, evmTrue},
+		{"value is null", `{"value":null}`, evmFalse},
+		{"empty object", `{}`, evmFalse},
 	}
 
 	for _, tt := range tests {
