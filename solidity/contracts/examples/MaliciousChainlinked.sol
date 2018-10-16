@@ -1,8 +1,9 @@
 pragma solidity ^0.4.24;
 
 import "./MaliciousChainlinkLib.sol";
-import "../Oracle.sol";
-import "link_token/contracts/LinkToken.sol";
+import "../interfaces/OracleInterface.sol";
+import "../interfaces/LinkTokenInterface.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract MaliciousChainlinked {
   using MaliciousChainlinkLib for MaliciousChainlinkLib.Run;
@@ -11,8 +12,8 @@ contract MaliciousChainlinked {
 
   uint256 constant clArgsVersion = 1;
 
-  LinkToken internal link;
-  Oracle internal oracle;
+  LinkTokenInterface internal link;
+  OracleInterface internal oracle;
   uint256 internal requests = 1;
   mapping(bytes32 => bool) internal unfulfilledRequests;
 
@@ -63,16 +64,16 @@ contract MaliciousChainlinked {
     return _run.requestId;
   }
 
-  function LINK(uint256 _amount) internal view returns (uint256) {
+  function LINK(uint256 _amount) internal pure returns (uint256) {
     return _amount.mul(10**18);
   }
 
   function setOracle(address _oracle) internal {
-    oracle = Oracle(_oracle);
+    oracle = OracleInterface(_oracle);
   }
 
   function setLinkToken(address _link) internal {
-    link = LinkToken(_link);
+    link = LinkTokenInterface(_link);
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
