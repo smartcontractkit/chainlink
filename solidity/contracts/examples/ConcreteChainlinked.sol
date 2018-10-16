@@ -1,6 +1,4 @@
 pragma solidity ^0.4.24;
-pragma experimental ABIEncoderV2; //solium-disable-line
-
 
 import "../Chainlinked.sol";
 
@@ -54,15 +52,14 @@ contract ConcreteChainlinked is Chainlinked {
     cancelChainlinkRequest(_requestId);
   }
 
-  function publicChainlinkToken() public returns (address) {
+  function publicChainlinkToken() public view returns (address) {
     return chainlinkToken();
   }
 
-  function fulfillRequest(bytes32 _requestId, bytes32 _)
+  function fulfillRequest(bytes32 _requestId, bytes32)
     public
     checkChainlinkFulfillment(_requestId)
-  {
-  }
+  {}
 
   event LinkAmount(uint256 amount);
 

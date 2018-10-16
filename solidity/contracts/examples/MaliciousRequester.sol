@@ -33,5 +33,5 @@ contract MaliciousRequester is MaliciousChainlinked {
     oracle.cancel(request());
   }
 
-  function doesNothing(bytes32 _requestId, bytes32 _data) public {}
+  function doesNothing(bytes32, bytes32) public pure {}
 }

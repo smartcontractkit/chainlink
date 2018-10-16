@@ -1,14 +1,13 @@
 pragma solidity ^0.4.24;
 
-import "./interfaces/OracleInterface.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "link_token/contracts/LinkToken.sol";
+import "./interfaces/LinkTokenInterface.sol";
 
-contract Oracle is OracleInterface, Ownable {
+contract Oracle is Ownable {
   using SafeMath for uint256;
 
-  LinkToken internal LINK;
+  LinkTokenInterface internal LINK;
 
   struct Callback {
     bytes32 externalId;
@@ -39,7 +38,7 @@ contract Oracle is OracleInterface, Ownable {
   );
 
   constructor(address _link) Ownable() public {
-    LINK = LinkToken(_link);
+    LINK = LinkTokenInterface(_link);
   }
 
   function onTokenTransfer(
@@ -97,6 +96,7 @@ contract Oracle is OracleInterface, Ownable {
     public
     onlyOwner
     hasInternalId(_internalId)
+    returns (bool)
   {
     Callback memory callback = callbacks[_internalId];
     withdrawableWei = withdrawableWei.add(callback.amount);
@@ -104,7 +104,7 @@ contract Oracle is OracleInterface, Ownable {
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
+    return callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function withdraw(address _recipient, uint256 _amount)
