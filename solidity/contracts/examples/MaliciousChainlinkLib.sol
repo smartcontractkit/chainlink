@@ -69,10 +69,9 @@ library MaliciousChainlinkLib {
       self.buf.buf);
   }
 
-  function encodeWithdrawForOracle(
-    WithdrawRun memory self,
-    uint256 _clArgsVersion
-  ) internal pure returns (bytes memory) {
+  function encodeWithdrawForOracle(WithdrawRun memory self, uint256)
+    internal pure returns (bytes memory)
+  {
     return abi.encodeWithSelector(
       oracleWithdrawFid,
       self.callbackAddress,

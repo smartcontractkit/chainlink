@@ -6,29 +6,21 @@ import "../Chainlinked.sol";
 
 contract MaliciousConsumer is Chainlinked {
 
-  constructor(address _link, address _oracle)
-    public
-  {
+  constructor(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
   }
 
-  function requestData(string _callbackFunc)
-    public
-  {
+  function requestData(string _callbackFunc) public {
     ChainlinkLib.Run memory run = newRun("specId", this, _callbackFunc);
     chainlinkRequest(run, LINK(1));
   }
 
-  function assertFail(bytes32 _requestId, bytes32 _data)
-    public
-  {
+  function assertFail(bytes32, bytes32) public pure {
     assert(1 == 2);
   }
 
-  function cancelRequestOnFulfill(bytes32 _requestId, bytes32 _data)
-    public
-  {
+  function cancelRequestOnFulfill(bytes32 _requestId, bytes32) public {
     cancelChainlinkRequest(_requestId);
   }
 
@@ -36,5 +28,5 @@ contract MaliciousConsumer is Chainlinked {
     selfdestruct(address(0));
   }
 
-  function doesNothing(bytes32 _requestId, bytes32 _data) public {}
+  function doesNothing(bytes32, bytes32) public pure {}
 }
