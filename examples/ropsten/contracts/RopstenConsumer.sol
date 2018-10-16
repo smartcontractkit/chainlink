@@ -8,8 +8,7 @@ library Buffer {
         uint capacity;
     }
 
-    function init(buffer memory buf, uint _capacity) internal pure {
-        uint capacity = _capacity;
+    function init(buffer memory buf, uint capacity) internal pure {
         if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
         // Allocate space for the buffer data
         buf.capacity = capacity;
@@ -467,6 +466,14 @@ contract Chainlinked {
     return address(link);
   }
 
+  function oracleAddress()
+    internal
+    view
+    returns (address)
+  {
+    return address(oracle);
+  }
+
   function newChainlinkWithENS(address _ens, bytes32 _node)
     internal
     returns (address, address)
@@ -568,12 +575,8 @@ contract RopstenConsumer is Chainlinked, Ownable {
   int256 public changeDay;
   bytes32 public lastMarket;
 
-  address constant ROPSTEN_LINK_ADDRESS = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
-  address constant ROPSTEN_ORACLE_ADDRESS = 0x261a3F70acdC85CfC2FFc8badE43b1D42bf75D69;
-
-  bytes32 constant PRICE_SPEC_ID = bytes32("2216dd2bf5464687a05ded0b844e200c");
-  bytes32 constant CHANGE_SPEC_ID = bytes32("3f97669ef7c54e1990ce97149d7ada19");
-  bytes32 constant MARKET_SPEC_ID = bytes32("3116f19a4b00434ba28b4a5cec349474");
+  address constant ROPSTEN_ENS = 0x112234455C3a32FD11230C42E7Bccd4A84e02010;
+  bytes32 constant ROPSTEN_CHAINLINK_ENS = 0xead9c0180f6d685e43522fcfe277c2f0465fe930fb32b5b415826eacf9803727;
 
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
@@ -591,15 +594,14 @@ contract RopstenConsumer is Chainlinked, Ownable {
   );
 
   constructor() Ownable() public {
-    setLinkToken(ROPSTEN_LINK_ADDRESS);
-    setOracle(ROPSTEN_ORACLE_ADDRESS);
+    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
-  function requestEthereumPrice(string _currency) 
+  function requestEthereumPrice(string _jobId, string _currency) 
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(PRICE_SPEC_ID, this, "fulfillEthereumPrice(bytes32,uint256)");
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, "fulfillEthereumPrice(bytes32,uint256)");
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
@@ -608,11 +610,11 @@ contract RopstenConsumer is Chainlinked, Ownable {
     chainlinkRequest(run, LINK(1));
   }
 
-  function requestEthereumChange(string _currency)
+  function requestEthereumChange(string _jobId, string _currency)
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(CHANGE_SPEC_ID, this, "fulfillEthereumChange(bytes32,int256)");
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, "fulfillEthereumChange(bytes32,int256)");
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -624,11 +626,11 @@ contract RopstenConsumer is Chainlinked, Ownable {
     chainlinkRequest(run, LINK(1));
   }
 
-  function requestEthereumLastMarket(string _currency)
+  function requestEthereumLastMarket(string _jobId, string _currency)
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(MARKET_SPEC_ID, this, "fulfillEthereumLastMarket(bytes32,bytes32)");
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, "fulfillEthereumLastMarket(bytes32,bytes32)");
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -663,9 +665,32 @@ contract RopstenConsumer is Chainlinked, Ownable {
     lastMarket = _market;
   }
 
+  function updateChainlinkAddresses() public onlyOwner {
+    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+  }
+
+  function getChainlinkToken() public view returns (address) {
+    return chainlinkToken();
+  }
+  
+  function getOracle() public view returns (address) {
+    return oracleAddress();
+  }
+
   function withdrawLink() public onlyOwner {
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
+  }
+
+  function stringToBytes32(string memory source) private pure returns (bytes32 result) {
+    bytes memory tempEmptyStringTest = bytes(source);
+    if (tempEmptyStringTest.length == 0) {
+      return 0x0;
+    }
+
+    assembly {
+      result := mload(add(source, 32))
+    }
   }
 
 }

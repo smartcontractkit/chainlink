@@ -4,20 +4,21 @@ import "./Consumer.sol";
 
 contract UpdatableConsumer is Consumer {
 
-  address public publicLinkToken;
-  address public publicOracle;
-
-  constructor(bytes32 _specId, address _ens, bytes32 _ensNode) public {
+  constructor(bytes32 _specId, address _ens, bytes32 _node) public {
     specId = _specId;
-    address link;
-    address oracle;
-    (link, oracle) = newChainlinkWithENS(_ens, _ensNode);
-    publicLinkToken = link;
-    publicOracle = oracle;
+    newChainlinkWithENS(_ens, _node);
   }
 
   function updateOracle() public {
-    publicOracle = updateOracleWithENS();
+    updateOracleWithENS();
+  }
+
+  function getChainlinkToken() public view returns (address) {
+    return chainlinkToken();
+  }
+  
+  function getOracle() public view returns (address) {
+    return oracleAddress();
   }
 
 }
