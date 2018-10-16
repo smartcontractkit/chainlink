@@ -467,6 +467,14 @@ contract Chainlinked {
     return address(link);
   }
 
+  function oracleAddress()
+    internal
+    view
+    returns (address)
+  {
+    return address(oracle);
+  }
+
   function newChainlinkWithENS(address _ens)
     internal
     returns (address, address)
@@ -659,6 +667,14 @@ contract RopstenConsumer is Chainlinked, Ownable {
 
   function updateChainlinkAddresses() public onlyOwner {
     newChainlinkWithENS(ROPSTEN_ENS);
+  }
+
+  function getChainlinkToken() public view returns (address) {
+    return chainlinkToken();
+  }
+  
+  function getOracle() public view returns (address) {
+    return oracleAddress();
   }
 
   function withdrawLink() public onlyOwner {
