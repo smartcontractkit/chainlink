@@ -8,8 +8,7 @@ library Buffer {
         uint capacity;
     }
 
-    function init(buffer memory buf, uint _capacity) internal pure {
-        uint capacity = _capacity;
+    function init(buffer memory buf, uint capacity) internal pure {
         if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
         // Allocate space for the buffer data
         buf.capacity = capacity;
@@ -475,7 +474,7 @@ contract Chainlinked {
     return address(oracle);
   }
 
-  function newChainlinkWithENS(address _ens)
+  function newChainlinkWithENS(address _ens, bytes32 _node)
     internal
     returns (address, address)
   {
@@ -577,6 +576,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   bytes32 public lastMarket;
 
   address constant ROPSTEN_ENS = 0x112234455C3a32FD11230C42E7Bccd4A84e02010;
+  bytes32 constant ROPSTEN_CHAINLINK_ENS = 0xead9c0180f6d685e43522fcfe277c2f0465fe930fb32b5b415826eacf9803727;
 
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
@@ -594,7 +594,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   );
 
   constructor() Ownable() public {
-    newChainlinkWithENS(ROPSTEN_ENS);
+    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function requestEthereumPrice(string _jobId, string _currency) 
@@ -666,7 +666,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   }
 
   function updateChainlinkAddresses() public onlyOwner {
-    newChainlinkWithENS(ROPSTEN_ENS);
+    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function getChainlinkToken() public view returns (address) {
