@@ -7,7 +7,7 @@ contract UpdatableConsumer is Consumer {
   address public publicLinkToken;
   address public publicOracle;
 
-  constructor(bytes32 _specId, address _ens, bytes32 _ensNode) public {
+  constructor(bytes32 _specId, address _ens) public {
     specId = _specId;
     address link;
     address oracle;

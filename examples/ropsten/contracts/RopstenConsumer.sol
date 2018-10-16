@@ -467,7 +467,7 @@ contract Chainlinked {
     return address(link);
   }
 
-  function newChainlinkWithENS(address _ens, bytes32 _node)
+  function newChainlinkWithENS(address _ens)
     internal
     returns (address, address)
   {
