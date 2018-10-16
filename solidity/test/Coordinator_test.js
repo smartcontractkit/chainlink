@@ -1,24 +1,18 @@
 import {
   assertActionThrows,
   bigNum,
+  calculateSAID,
   checkPublicABI,
-  concatTypedArrays,
   deploy,
   newAddress,
   newHash,
-  newSignature,
-  newUint8ArrayFromStr,
   oracleNode,
-  splitRPCSignature,
+  personalSign,
+  recoverPersonalSignature,
   stranger,
-  toBuffer,
-  toHex,
-  toHexWithoutPrefix
+  toHex
 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
-import utils from 'ethereumjs-util'
-
-const REQUEST_DIGEST_PREFIX = newUint8ArrayFromStr('\x19Ethereum Signed Message:\n')
 
 contract('Coordinator', () => {
   const sourcePath = 'Coordinator.sol'
@@ -49,44 +43,24 @@ contract('Coordinator', () => {
   })
 
   describe('#initiateServiceAgreement', () => {
-    let payment, expiration, account, oracles, requestDigest, serviceAgreementID,
-      oracleSignature, v, r, s
+    let payment, expiration, oracle, oracles, requestDigest,
+      serviceAgreementID, oracleSignature
 
     beforeEach(async () => {
       payment = newHash('1000000000000000000')
       expiration = newHash('300')
-      account = newAddress(oracleNode)
-      oracles = [account]
+      oracle = newAddress(oracleNode)
+      oracles = [oracle]
       requestDigest = newHash('0x9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8')
 
-      const serviceAgreementIDInput = concatTypedArrays(
-        payment,
-        expiration,
-        concatTypedArrays(...(oracles.map(a => newHash(toHex(a))))),
-        requestDigest)
-      const serviceAgreementIDInputDigest = utils.sha3(toHex(serviceAgreementIDInput))
-      serviceAgreementID = newHash(toHex(serviceAgreementIDInputDigest))
+      serviceAgreementID = calculateSAID(payment, expiration, oracles, requestDigest)
     })
 
     context("with valid oracle signatures", () => {
       beforeEach(async () => {
-        oracleSignature = newSignature(web3.eth.sign(toHexWithoutPrefix(account), toHexWithoutPrefix(serviceAgreementID)))
-
-        const sigObject = splitRPCSignature(oracleSignature)
-        v = sigObject.v
-        r = sigObject.r
-        s = sigObject.s
-
-        const requestDigestPrefixedMsg = concatTypedArrays(
-          REQUEST_DIGEST_PREFIX,
-          newUint8ArrayFromStr(serviceAgreementID.length.toString()),
-          serviceAgreementID
-        )
-        const requestDigestPubKey =
-          utils.ecrecover(utils.sha3(toBuffer(requestDigestPrefixedMsg)), v, toBuffer(r), toBuffer(s))
-        const requestDigestAddr = utils.pubToAddress(requestDigestPubKey)
-
-        assert.equal(toHex(account), toHex(requestDigestAddr))
+        oracleSignature = personalSign(oracle, serviceAgreementID)
+        const requestDigestAddr = recoverPersonalSignature(serviceAgreementID, oracleSignature)
+        assert.equal(toHex(oracle), toHex(requestDigestAddr))
       })
 
       it('saves a service agreement struct from the parameters', async () => {
@@ -94,9 +68,9 @@ contract('Coordinator', () => {
           toHex(payment),
           toHex(expiration),
           oracles.map(toHex),
-          [v],
-          [r].map(toHex),
-          [s].map(toHex),
+          [oracleSignature.v],
+          [oracleSignature.r].map(toHex),
+          [oracleSignature.s].map(toHex),
           toHex(requestDigest)
         )
 
@@ -126,12 +100,7 @@ contract('Coordinator', () => {
 
     context("with an invalid oracle signatures", () => {
       beforeEach(async () => {
-        oracleSignature = newSignature(web3.eth.sign(stranger, toHexWithoutPrefix(serviceAgreementID)))
-
-        const sigObject = splitRPCSignature(oracleSignature)
-        v = sigObject.v
-        r = sigObject.r
-        s = sigObject.s
+        oracleSignature = personalSign(newAddress(stranger), serviceAgreementID)
       })
 
       it('saves a service agreement struct from the parameters', async () => {
@@ -140,9 +109,9 @@ contract('Coordinator', () => {
             toHex(payment),
             toHex(expiration),
             oracles.map(toHex),
-            [v],
-            [r].map(toHex),
-            [s].map(toHex),
+            [oracleSignature.v],
+            [oracleSignature.r].map(toHex),
+            [oracleSignature.s].map(toHex),
             toHex(requestDigest)
           )
         })
