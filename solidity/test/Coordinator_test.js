@@ -46,7 +46,7 @@ contract('Coordinator', () => {
     let payment, expiration, oracle, oracles, requestDigest,
       serviceAgreementID, oracleSignature
 
-    beforeEach(async () => {
+    beforeEach(() => {
       payment = newHash('1000000000000000000')
       expiration = newHash('300')
       oracle = newAddress(oracleNode)
@@ -57,7 +57,7 @@ contract('Coordinator', () => {
     })
 
     context("with valid oracle signatures", () => {
-      beforeEach(async () => {
+      beforeEach(() => {
         oracleSignature = personalSign(oracle, serviceAgreementID)
         const requestDigestAddr = recoverPersonalSignature(serviceAgreementID, oracleSignature)
         assert.equal(toHex(oracle), toHex(requestDigestAddr))
@@ -99,8 +99,10 @@ contract('Coordinator', () => {
     })
 
     context("with an invalid oracle signatures", () => {
-      beforeEach(async () => {
+      beforeEach(() => {
         oracleSignature = personalSign(newAddress(stranger), serviceAgreementID)
+        const requestDigestAddr = recoverPersonalSignature(serviceAgreementID, oracleSignature)
+        assert.notEqual(toHex(oracle), toHex(requestDigestAddr))
       })
 
       it('saves a service agreement struct from the parameters', async () => {
