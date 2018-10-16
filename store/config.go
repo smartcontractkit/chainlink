@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -153,6 +154,7 @@ func parseEnv(cfg interface{}) error {
 		reflect.TypeOf(assets.Link{}):     linkParser,
 		reflect.TypeOf(LogLevel{}):        levelParser,
 		reflect.TypeOf(Duration{}):        durationParser,
+		reflect.TypeOf(models.WebURL{}):   urlParser,
 		reflect.TypeOf(uint16(0)):         portParser,
 	})
 }
@@ -200,6 +202,14 @@ func durationParser(str string) (interface{}, error) {
 func portParser(str string) (interface{}, error) {
 	d, err := strconv.ParseUint(str, 10, 16)
 	return uint16(d), err
+}
+
+func urlParser(s string) (interface{}, error) {
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		return nil, err
+	}
+	return models.WebURL(*u), nil
 }
 
 // LogLevel determines the verbosity of the events to be logged.
