@@ -79,6 +79,14 @@ contract Chainlinked {
     return address(link);
   }
 
+  function oracleAddress()
+    internal
+    view
+    returns (address)
+  {
+    return address(oracle);
+  }
+
   function newChainlinkWithENS(address _ens, bytes32 _node)
     internal
     returns (address, address)

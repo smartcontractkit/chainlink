@@ -49,11 +49,11 @@ contract('UpdatableConsumer', () => {
 
   describe('constructor', () => {
     it('pulls the token contract address from the resolver', async () => {
-      assert.equal(link.address, await uc.publicLinkToken.call())
+      assert.equal(link.address, await uc.getChainlinkToken.call())
     })
 
     it('pulls the oracle contract address from the resolver', async () => {
-      assert.equal(oc.address, await uc.publicOracle.call())
+      assert.equal(oc.address, await uc.getOracle.call())
     })
   })
 
@@ -66,7 +66,7 @@ contract('UpdatableConsumer', () => {
       it("updates the contract's oracle address", async () => {
         await uc.updateOracle()
 
-        assert.equal(newOracleAddress, await uc.publicOracle.call())
+        assert.equal(newOracleAddress, await uc.getOracle.call())
       })
     })
 
@@ -74,7 +74,7 @@ contract('UpdatableConsumer', () => {
       it("keeps the same oracle address", async () => {
         await uc.updateOracle()
 
-        assert.equal(oc.address, await uc.publicOracle.call())
+        assert.equal(oc.address, await uc.getOracle.call())
       })
     })
   })
@@ -105,7 +105,7 @@ contract('UpdatableConsumer', () => {
       beforeEach(async () => {
         await ensResolver.setAddr(oracleSubnode, newOracleAddress, {from: oracleNode})
         await uc.updateOracle()
-        assert.equal(newOracleAddress, await uc.publicOracle.call())
+        assert.equal(newOracleAddress, await uc.getOracle.call())
       })
 
       it('records the data given to it by the old oracle contract', async () => {
