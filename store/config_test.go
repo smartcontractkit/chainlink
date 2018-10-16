@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -145,4 +146,31 @@ func TestStore_levelParser(t *testing.T) {
 
 	val, err = levelParser("primus sucks")
 	assert.Error(t, err)
+}
+
+func TestStore_urlParser(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"valid URL", "http://localhost:3000", false},
+		{"invalid URL", "htp", true},
+		{"empty URL", "", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			i, err := urlParser(test.input)
+
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				w, ok := i.(models.WebURL)
+				assert.True(t, ok)
+				assert.Equal(t, test.input, w.String())
+			}
+		})
+	}
 }
