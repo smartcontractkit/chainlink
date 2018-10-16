@@ -23,7 +23,7 @@ func TestAssignmentsController_Create_V1_Format(t *testing.T) {
 	adapter1, err := adapters.For(j.Tasks[0], app.Store)
 	assert.NoError(t, err)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
-	assert.Equal(t, httpGet.URL.String(), "https://bitstamp.net/api/ticker/")
+	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 
 	adapter2, err := adapters.For(j.Tasks[1], app.Store)
 	assert.NoError(t, err)

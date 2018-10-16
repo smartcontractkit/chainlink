@@ -7,7 +7,7 @@
   }],
   "tasks": [{
     "type": "httpPost", "params": {
-      "url": "https://weiwatchers.com/api"
+      "post": "https://weiwatchers.com/api"
     }
   }]
 }
