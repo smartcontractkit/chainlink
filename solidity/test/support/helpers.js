@@ -9,6 +9,7 @@ const Deployer = require('../../app/deployer.js')
 const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
 const BN = require('bn.js')
+const ethjsUtils = require('ethereumjs-util')
 
 const HEX_BASE = 16
 
@@ -196,9 +197,19 @@ export const newUint8Array = (str, count) => {
   return result
 }
 
-// newSignature returns a 65 byte Uint8Array for representing a signature
+// newSignature returns a signature object with v, r, and s broken up
 export const newSignature = str => {
-  return newUint8Array(str, 65)
+  const oracleSignature = newUint8Array(str, 65)
+  let v = oracleSignature[64]
+  if (v < 27) {
+    v += 27
+  }
+  return {
+    v: v,
+    r: oracleSignature.slice(0, 32),
+    s: oracleSignature.slice(32, 64),
+    full: oracleSignature
+  }
 }
 
 // newHash returns a 65 byte Uint8Array for representing a hash
@@ -234,22 +245,44 @@ export const concatTypedArrays = (...arrays) => {
   return result
 }
 
-export const splitRPCSignature = oracleSignature => {
-  let v = oracleSignature[64]
-  if (v < 27) {
-    v += 27
-  }
-  return {
-    v: v,
-    r: oracleSignature.slice(0, 32),
-    s: oracleSignature.slice(32, 64)
-  }
-}
-
 export const increaseTime5Minutes = async () => {
   await web3.currentProvider.send({
-    jsonrpc: "2.0", 
-    method: "evm_increaseTime", 
-    params: [300], id: 0
-  });
-};
+    jsonrpc: '2.0',
+    method: 'evm_increaseTime',
+    params: [300],
+    id: 0
+  })
+}
+
+export const calculateSAID = (payment, expiration, oracles, requestDigest) => {
+  const serviceAgreementIDInput = concatTypedArrays(
+    payment,
+    expiration,
+    concatTypedArrays(...(oracles.map(a => newHash(toHex(a))))),
+    requestDigest)
+  const serviceAgreementIDInputDigest = ethjsUtils.sha3(toHex(serviceAgreementIDInput))
+  return newHash(toHex(serviceAgreementIDInputDigest))
+}
+
+export const recoverPersonalSignature = (message, signature) => {
+  const personalSignPrefix = newUint8ArrayFromStr('\x19Ethereum Signed Message:\n')
+  const personalSignMessage = concatTypedArrays(
+    personalSignPrefix,
+    newUint8ArrayFromStr(message.length.toString()),
+    message
+  )
+  const digest = ethjsUtils.sha3(toBuffer(personalSignMessage))
+  const requestDigestPubKey = ethjsUtils.ecrecover(digest,
+    signature.v,
+    toBuffer(signature.r),
+    toBuffer(signature.s)
+  )
+  return ethjsUtils.pubToAddress(requestDigestPubKey)
+}
+
+export const personalSign = (account, message) => {
+  return newSignature(web3.eth.sign(
+    toHexWithoutPrefix(account),
+    toHexWithoutPrefix(message))
+  )
+}
