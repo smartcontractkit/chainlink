@@ -1,4 +1,4 @@
-let LINK = artifacts.require("link_token/contracts/LinkToken.sol");
+let LINK = artifacts.require("LinkToken");
 
 module.exports = function(deployer) {
   deployer.deploy(LINK);
