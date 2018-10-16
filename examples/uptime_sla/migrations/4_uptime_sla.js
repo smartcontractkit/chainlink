@@ -1,8 +1,8 @@
 const clmigration = require("../clmigration.js");
 const request = require("request-promise").defaults({jar: true});
-const UptimeSLA = artifacts.require("./UptimeSLA.sol");
-const Oracle = artifacts.require("../../../solidity/contracts/Oracle.sol");
-const LINK = artifacts.require("link_token/contracts/LinkToken.sol");
+const UptimeSLA = artifacts.require("UptimeSLA");
+const Oracle = artifacts.require("Oracle");
+const LINK = artifacts.require("LinkToken");
 
 let sessionsUrl = "http://localhost:6688/sessions";
 let specsUrl = "http://localhost:6688/v2/specs";

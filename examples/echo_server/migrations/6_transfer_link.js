@@ -1,6 +1,6 @@
 const clmigration = require("../clmigration.js");
-const LinkToken = artifacts.require("link_token/contracts/LinkToken.sol");
-const RunLog = artifacts.require("./RunLog.sol");
+const LinkToken = artifacts.require("LinkToken");
+const RunLog = artifacts.require("RunLog");
 const devnetAddress = "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f";
 
 module.exports = clmigration(function(deployer) {
