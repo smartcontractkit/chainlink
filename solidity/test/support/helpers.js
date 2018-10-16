@@ -286,3 +286,11 @@ export const personalSign = (account, message) => {
     toHexWithoutPrefix(message))
   )
 }
+
+export const executeServiceAgreementBytes = (sAID, to, fHash, runId, data) => {
+  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
+  let values = [0, 0, 1, sAID, to, fHash, runId, data]
+  let encoded = abi.rawEncode(types, values)
+  let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
+  return funcSelector + encoded.toString('hex')
+}
