@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewServiceAgreementFromRequest(t *testing.T) {
+func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name        string
@@ -35,7 +35,42 @@ func TestNewServiceAgreementFromRequest(t *testing.T) {
 			var sar models.ServiceAgreementRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
-			sa, err := models.NewServiceAgreementFromRequest(strings.NewReader(test.input), cltest.MockSigner{})
+			us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(test.input))
+			assert.NoError(t, err)
+			assert.Equal(t, test.wantDigest, us.ID.String())
+			assert.Equal(t, test.wantPayment, us.Encumbrance.Payment)
+			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), us.RequestBody)
+		})
+	}
+}
+
+func TestBuildServiceAgreement(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		input       string
+		wantDigest  string
+		wantPayment *assets.Link
+	}{
+		{
+			"basic",
+			`{"payment":"1","initiators":[{"type":"web"}],"tasks":[` +
+				`{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},` +
+				`{"type":"jsonparse","path":["last"]},` +
+				`{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			"0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381",
+			assets.NewLink(1),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var sar models.ServiceAgreementRequest
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
+
+			us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(test.input))
+			assert.NoError(t, err)
+
+			sa, err := models.BuildServiceAgreement(us, cltest.MockSigner{})
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantDigest, sa.ID)
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
