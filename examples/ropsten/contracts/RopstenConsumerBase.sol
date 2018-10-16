@@ -101,6 +101,14 @@ contract RopstenConsumer is Chainlinked, Ownable {
     newChainlinkWithENS(ROPSTEN_ENS);
   }
 
+  function getChainlinkToken() public view returns (address) {
+    return chainlinkToken();
+  }
+  
+  function getOracle() public view returns (address) {
+    return oracleAddress();
+  }
+
   function withdrawLink() public onlyOwner {
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
