@@ -20,7 +20,7 @@ contract Chainlinked {
   mapping(bytes32 => address) private unfulfilledRequests;
 
   ENSInterface private ens;
-  bytes32 private ensNode;
+  bytes32 constant private ensNode = 0xead9c0180f6d685e43522fcfe277c2f0465fe930fb32b5b415826eacf9803727;
   bytes32 constant private ensTokenSubname = keccak256("link");
   bytes32 constant private ensOracleSubname = keccak256("oracle");
 
@@ -79,12 +79,11 @@ contract Chainlinked {
     return address(link);
   }
 
-  function newChainlinkWithENS(address _ens, bytes32 _node)
+  function newChainlinkWithENS(address _ens)
     internal
     returns (address, address)
   {
     ens = ENSInterface(_ens);
-    ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
     setLinkToken(resolver.addr(linkSubnode));

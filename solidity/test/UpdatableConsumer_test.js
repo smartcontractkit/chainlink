@@ -11,9 +11,9 @@ contract('UpdatableConsumer', () => {
   const sourcePath = 'examples/UpdatableConsumer.sol'
 
   const ensRoot = namehash.hash()
-  const tld = 'cltest'
+  const tld = 'eth'
   const tldSubnode = namehash.hash(tld)
-  const domain = 'chainlink'
+  const domain = 'chainlinkdata'
   const domainSubnode = namehash.hash(`${domain}.${tld}`)
   const tokenSubdomain = 'link'
   const tokenSubnode = namehash.hash(`${tokenSubdomain}.${domain}.${tld}`)
@@ -44,7 +44,7 @@ contract('UpdatableConsumer', () => {
     await ensResolver.setAddr(oracleSubnode, oc.address, {from: oracleNode})
 
     // deploy updatable consumer contract
-    uc = await deploy(sourcePath, specId, ens.address, domainSubnode)
+    uc = await deploy(sourcePath, specId, ens.address)
   })
 
   describe('constructor', () => {
