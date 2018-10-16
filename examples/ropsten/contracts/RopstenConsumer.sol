@@ -8,7 +8,8 @@ library Buffer {
         uint capacity;
     }
 
-    function init(buffer memory buf, uint capacity) internal pure {
+    function init(buffer memory buf, uint _capacity) internal pure {
+        uint capacity = _capacity;
         if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
         // Allocate space for the buffer data
         buf.capacity = capacity;
@@ -298,9 +299,9 @@ contract ENSResolver {
   function addr(bytes32 node) public view returns (address);
 }
 
-// File: ../solidity/contracts/interfaces/IENS.sol
+// File: ../solidity/contracts/interfaces/ENSInterface.sol
 
-interface IENS {
+interface ENSInterface {
 
     // Logged when the owner of a node assigns a new owner to a subnode.
     event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
@@ -325,17 +326,18 @@ interface IENS {
 
 }
 
-// File: ../solidity/contracts/interfaces/ILinkToken.sol
+// File: ../solidity/contracts/interfaces/LinkTokenInterface.sol
 
-interface ILinkToken {
+interface LinkTokenInterface {
   function balanceOf(address _owner) external returns (uint256 balance);
   function transfer(address _to, uint _value) external returns (bool success);
   function transferAndCall(address _to, uint _value, bytes _data) external returns (bool success);
 }
 
-// File: ../solidity/contracts/interfaces/IOracle.sol
+// File: ../solidity/contracts/interfaces/OracleInterface.sol
 
-interface IOracle {
+interface OracleInterface {
+  function fulfillData(uint256 _internalId, bytes32 _data) external returns (bool);
   function cancel(bytes32 _externalId) external;
 }
 
@@ -400,12 +402,12 @@ contract Chainlinked {
   uint256 constant private clArgsVersion = 1;
   uint256 constant private linkDivisibility = 10**18;
 
-  ILinkToken private link;
-  IOracle private oracle;
+  LinkTokenInterface private link;
+  OracleInterface private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
 
-  IENS private ens;
+  ENSInterface private ens;
   bytes32 private ensNode;
   bytes32 constant private ensTokenSubname = keccak256("link");
   bytes32 constant private ensOracleSubname = keccak256("oracle");
@@ -450,11 +452,11 @@ contract Chainlinked {
   }
 
   function setOracle(address _oracle) internal {
-    oracle = IOracle(_oracle);
+    oracle = OracleInterface(_oracle);
   }
 
   function setLinkToken(address _link) internal {
-    link = ILinkToken(_link);
+    link = LinkTokenInterface(_link);
   }
 
   function chainlinkToken()
@@ -469,7 +471,7 @@ contract Chainlinked {
     internal
     returns (address, address)
   {
-    ens = IENS(_ens);
+    ens = ENSInterface(_ens);
     ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
@@ -662,7 +664,7 @@ contract RopstenConsumer is Chainlinked, Ownable {
   }
 
   function withdrawLink() public onlyOwner {
-    ILinkToken link = ILinkToken(chainlinkToken());
+    LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
