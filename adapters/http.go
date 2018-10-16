@@ -15,6 +15,7 @@ import (
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
 	URL models.WebURL `json:"url"`
+	GET models.WebURL `json:"get"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -24,7 +25,7 @@ func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
-	response, err := client.Get(hga.URL.String())
+	response, err := client.Get(hga.GetURL())
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -44,9 +45,18 @@ func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	return input.WithValue(body)
 }
 
+// GetURL retrieves the GET field if set otherwise returns the URL field
+func (hga *HTTPGet) GetURL() string {
+	if hga.GET.String() != "" {
+		return hga.GET.String()
+	}
+	return hga.URL.String()
+}
+
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL models.WebURL `json:"url"`
+	URL  models.WebURL `json:"url"`
+	POST models.WebURL `json:"post"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -57,7 +67,7 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 	}
 	client := &http.Client{Transport: tr}
 	reqBody := bytes.NewBufferString(input.Data.String())
-	response, err := client.Post(hpa.URL.String(), "application/json", reqBody)
+	response, err := client.Post(hpa.GetURL(), "application/json", reqBody)
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -75,4 +85,12 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 	}
 
 	return input.WithValue(body)
+}
+
+// GetURL retrieves the POST field if set otherwise returns the URL field
+func (hpa *HTTPPost) GetURL() string {
+	if hpa.POST.String() != "" {
+		return hpa.POST.String()
+	}
+	return hpa.URL.String()
 }

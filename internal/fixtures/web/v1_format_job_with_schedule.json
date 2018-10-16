@@ -4,7 +4,7 @@
       {
         "adapterType": "httpGet",
         "adapterParams": {
-          "url": "https://bitstamp.net/api/ticker/"
+          "get": "https://bitstamp.net/api/ticker/"
         }
       },
       {
