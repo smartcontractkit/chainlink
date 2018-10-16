@@ -1,21 +1,18 @@
 import {
-  deploy,
-  checkPublicABI,
+  assertActionThrows,
   bigNum,
-  newUint8ArrayFromStr,
-  newSignature,
-  newHash,
+  calculateSAID,
+  checkPublicABI,
+  deploy,
   newAddress,
-  toBuffer,
-  concatTypedArrays,
-  toHex,
-  toHexWithoutPrefix,
-  splitRPCSignature
+  newHash,
+  oracleNode,
+  personalSign,
+  recoverPersonalSignature,
+  stranger,
+  toHex
 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
-import utils from 'ethereumjs-util'
-
-const REQUEST_DIGEST_PREFIX = newUint8ArrayFromStr('\x19Ethereum Signed Message:\n')
 
 contract('Coordinator', () => {
   const sourcePath = 'Coordinator.sol'
@@ -46,73 +43,86 @@ contract('Coordinator', () => {
   })
 
   describe('#initiateServiceAgreement', () => {
-    it('saves a service agreement struct from the parameters', async () => {
-      const payment = newHash('1000000000000000000')
-      const expiration = newHash('300')
-      const account = newAddress(web3.eth.accounts[0])
-      const oracles = [account]
-      const requestDigest = newHash('0x9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8')
+    let payment, expiration, oracle, oracles, requestDigest,
+      serviceAgreementID, oracleSignature
 
-      const serviceAgreementIDInput = concatTypedArrays(
-        payment,
-        expiration,
-        // XXX: the account is an address, which is 20 bytes, but solidity
-        // abi.encodePacked treats it as a 32 byte hash :(
-        // concatTypedArrays(...oracles),
-        concatTypedArrays(...(oracles.map(a => newHash(toHex(a))))),
-        requestDigest)
+    beforeEach(() => {
+      payment = newHash('1000000000000000000')
+      expiration = newHash('300')
+      oracle = newAddress(oracleNode)
+      oracles = [oracle]
+      requestDigest = newHash('0x9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8')
 
-      const serviceAgreementIDInputDigest = utils.sha3(toHex(serviceAgreementIDInput))
-      const serviceAgreementID = newHash(toHex(serviceAgreementIDInputDigest))
+      serviceAgreementID = calculateSAID(payment, expiration, oracles, requestDigest)
+    })
 
-      let oracleSignature =
-        newSignature(web3.eth.sign(toHexWithoutPrefix(account), toHexWithoutPrefix(serviceAgreementID)))
+    context("with valid oracle signatures", () => {
+      beforeEach(() => {
+        oracleSignature = personalSign(oracle, serviceAgreementID)
+        const requestDigestAddr = recoverPersonalSignature(serviceAgreementID, oracleSignature)
+        assert.equal(toHex(oracle), toHex(requestDigestAddr))
+      })
 
-      const {v, r, s} = splitRPCSignature(oracleSignature)
+      it('saves a service agreement struct from the parameters', async () => {
+        await coordinator.initiateServiceAgreement(
+          toHex(payment),
+          toHex(expiration),
+          oracles.map(toHex),
+          [oracleSignature.v],
+          [oracleSignature.r].map(toHex),
+          [oracleSignature.s].map(toHex),
+          toHex(requestDigest)
+        )
 
-      const requestDigestPrefixedMsg = concatTypedArrays(
-        REQUEST_DIGEST_PREFIX,
-        newUint8ArrayFromStr(serviceAgreementID.length.toString()),
-        serviceAgreementID
-      )
+        const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
 
-      const requestDigestPubKey =
-        utils.ecrecover(utils.sha3(toBuffer(requestDigestPrefixedMsg)), v, toBuffer(r), toBuffer(s))
-      const requestDigestAddr = utils.pubToAddress(requestDigestPubKey)
+        assertBigNum(sa[0], bigNum(toHex(payment)))
+        assertBigNum(sa[1], bigNum(toHex(expiration)))
+        assert.equal(sa[2], toHex(requestDigest))
 
-      assert.equal(toHex(account), toHex(requestDigestAddr))
+        /// / TODO:
+        /// / Web3.js doesn't support generating an artifact for arrays within a struct.
+        /// / This means that we aren't returned the list of oracles and
+        /// / can't assert on their values.
+        /// /
+        /// / However, we can pass them into the function to generate the ID
+        /// / & solidity won't compile unless we pass the correct number and
+        /// / type of params when initializing the ServiceAgreement struct,
+        /// / so we have some indirect test coverage.
+        /// /
+        /// / https://github.com/ethereum/web3.js/issues/1241
+        /// / assert.equal(
+        /// /   sa[2],
+        /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d', '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
+        /// / )
+      })
+    })
 
-      await coordinator.initiateServiceAgreement(
-        toHex(payment),
-        toHex(expiration),
-        oracles.map(toHex),
-        [v],
-        [r].map(toHex),
-        [s].map(toHex),
-        toHex(requestDigest)
-      )
+    context("with an invalid oracle signatures", () => {
+      beforeEach(() => {
+        oracleSignature = personalSign(newAddress(stranger), serviceAgreementID)
+        const requestDigestAddr = recoverPersonalSignature(serviceAgreementID, oracleSignature)
+        assert.notEqual(toHex(oracle), toHex(requestDigestAddr))
+      })
 
-      let sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
+      it('saves a service agreement struct from the parameters', async () => {
+        assertActionThrows(async () => {
+          await coordinator.initiateServiceAgreement(
+            toHex(payment),
+            toHex(expiration),
+            oracles.map(toHex),
+            [oracleSignature.v],
+            [oracleSignature.r].map(toHex),
+            [oracleSignature.s].map(toHex),
+            toHex(requestDigest)
+          )
+        })
 
-      assertBigNum(sa[0], bigNum(toHex(payment)))
-      assertBigNum(sa[1], bigNum(toHex(expiration)))
-      assert.equal(sa[2], toHex(requestDigest))
-
-      /// / TODO:
-      /// / Web3.js doesn't support generating an artifact for arrays within a struct.
-      /// / This means that we aren't returned the list of oracles and
-      /// / can't assert on their values.
-      /// /
-      /// / However, we can pass them into the function to generate the ID
-      /// / & solidity won't compile unless we pass the correct number and
-      /// / type of params when initializing the ServiceAgreement struct,
-      /// / so we have some indirect test coverage.
-      /// /
-      /// / https://github.com/ethereum/web3.js/issues/1241
-      /// / assert.equal(
-      /// /   sa[2],
-      /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d', '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
-      /// / )
+        const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
+        assertBigNum(sa[0], bigNum(0))
+        assertBigNum(sa[1], bigNum(0))
+        assert.equal(sa[2], '0x0000000000000000000000000000000000000000000000000000000000000000')
+      })
     })
   })
 })
