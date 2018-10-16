@@ -12,6 +12,8 @@ import (
 var (
 	// TaskTypeCopy is the identifier for the Copy adapter.
 	TaskTypeCopy = models.MustNewTaskType("copy")
+	// TaskTypeEthBool is the identifier for the EthBool adapter.
+	TaskTypeEthBool = models.MustNewTaskType("ethbool")
 	// TaskTypeEthBytes32 is the identifier for the EthBytes32 adapter.
 	TaskTypeEthBytes32 = models.MustNewTaskType("ethbytes32")
 	// TaskTypeEthInt256 is the identifier for the EthInt256 adapter.
@@ -71,6 +73,9 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 	switch task.Type {
 	case TaskTypeCopy:
 		ba = &Copy{}
+		err = unmarshalParams(task.Params, ba)
+	case TaskTypeEthBool:
+		ba = &EthBool{}
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthBytes32:
 		ba = &EthBytes32{}
