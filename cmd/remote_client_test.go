@@ -123,36 +123,6 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	}
 }
 
-func TestClient_CreateServiceAgreementMultipleTimes(t *testing.T) {
-	config, _ := cltest.NewConfigWithPrivateKey()
-	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
-	defer cleanup()
-	client, _ := app.NewClientAndRenderer()
-
-	sa := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
-
-	set := flag.NewFlagSet("create", 0)
-	set.Parse([]string{sa.String()})
-	c := cli.NewContext(nil, set, nil)
-
-	err := client.CreateServiceAgreement(c)
-
-	assert.NoError(t, err)
-	numberOfJobs := cltest.AllJobs(app.Store)
-	assert.Equal(t, 1, len(numberOfJobs))
-
-	set.Parse([]string{sa.String()})
-	set = flag.NewFlagSet("create", 0)
-	set.Parse([]string{"../internal/fixtures/web/hello_world_agreement.json"})
-	c = cli.NewContext(nil, set, nil)
-
-	err = client.CreateServiceAgreement(c)
-
-	assert.NoError(t, err)
-	numberOfJobs = cltest.AllJobs(app.Store)
-	assert.Equal(t, 2, len(numberOfJobs))
-}
-
 func TestClient_CreateJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()

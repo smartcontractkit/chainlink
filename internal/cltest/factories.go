@@ -363,5 +363,9 @@ func (s MockSigner) Sign(input []byte) (models.Signature, error) {
 }
 
 func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
-	return models.NewServiceAgreementFromRequest(strings.NewReader(str), MockSigner{})
+	us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(str))
+	if err != nil {
+		return models.ServiceAgreement{}, err
+	}
+	return models.BuildServiceAgreement(us, MockSigner{})
 }

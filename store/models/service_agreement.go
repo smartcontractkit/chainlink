@@ -13,6 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+// UnsignedServiceAgreement contains the information to sign a service agreement
+type UnsignedServiceAgreement struct {
+	Encumbrance             Encumbrance
+	ID                      common.Hash
+	RequestBody             string
+	ServiceAgreementRequest ServiceAgreementRequest
+}
+
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
 	CreatedAt   Time        `json:"createdAt" storm:"index"`
@@ -47,56 +55,72 @@ type Signer interface {
 	Sign(input []byte) (Signature, error)
 }
 
-// NewServiceAgreementFromRequest builds a new ServiceAgreement.
-func NewServiceAgreementFromRequest(reader io.Reader, signer Signer) (ServiceAgreement, error) {
-	input, err := ioutil.ReadAll(reader)
+// BuildServiceAgreement builds a signed service agreement
+func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceAgreement, error) {
+	signature, err := signer.Sign(us.ID.Bytes())
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
 
+	jobSpec := NewJob()
+	jobSpec.Initiators = us.ServiceAgreementRequest.Initiators
+	jobSpec.Tasks = us.ServiceAgreementRequest.Tasks
+	jobSpec.EndAt = us.ServiceAgreementRequest.EndAt
+	jobSpec.StartAt = us.ServiceAgreementRequest.StartAt
+
+	return ServiceAgreement{
+		ID:          us.ID.String(),
+		CreatedAt:   Time{time.Now()},
+		Encumbrance: us.Encumbrance,
+		JobSpec:     jobSpec,
+		RequestBody: us.RequestBody,
+		Signature:   signature,
+	}, nil
+}
+
+// NewUnsignedServiceAgreementFromRequest builds the information required to
+// sign a service agreement
+func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAgreement, error) {
 	var sar ServiceAgreementRequest
+
+	input, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return UnsignedServiceAgreement{}, err
+	}
+
 	err = json.Unmarshal(input, &sar)
 	if err != nil {
-		return ServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, err
 	}
 
 	normalized, err := utils.NormalizedJSON(input)
 	if err != nil {
-		return ServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, err
 	}
 
 	requestDigest, err := utils.Keccak256([]byte(normalized))
+	if err != nil {
+		return UnsignedServiceAgreement{}, err
+	}
 
 	encumbrance := Encumbrance{
 		Payment:    sar.Payment,
 		Expiration: sar.Expiration,
 		Oracles:    sar.Oracles,
 	}
-
 	id, err := generateServiceAgreementID(encumbrance, common.BytesToHash(requestDigest))
 	if err != nil {
-		return ServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, err
 	}
 
-	signature, err := signer.Sign(id.Bytes())
-	if err != nil {
-		return ServiceAgreement{}, err
+	us := UnsignedServiceAgreement{
+		ID:                      id,
+		Encumbrance:             encumbrance,
+		RequestBody:             normalized,
+		ServiceAgreementRequest: sar,
 	}
 
-	jobSpec := NewJob()
-	jobSpec.Initiators = sar.Initiators
-	jobSpec.Tasks = sar.Tasks
-	jobSpec.EndAt = sar.EndAt
-	jobSpec.StartAt = sar.StartAt
-
-	return ServiceAgreement{
-		ID:          id.String(),
-		CreatedAt:   Time{time.Now()},
-		Encumbrance: encumbrance,
-		JobSpec:     jobSpec,
-		RequestBody: normalized,
-		Signature:   signature,
-	}, nil
+	return us, err
 }
 
 func generateServiceAgreementID(e Encumbrance, digest common.Hash) (common.Hash, error) {

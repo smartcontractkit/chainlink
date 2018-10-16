@@ -52,6 +52,33 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	}
 }
 
+func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
+	t.Parallel()
+
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+	defer cleanup()
+
+	client := app.NewHTTPClient()
+
+	reader := bytes.NewBufferString(cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json").String())
+	resp, cleanup := client.Post("/v2/service_agreements", reader)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+	response1 := models.ServiceAgreement{}
+	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response1))
+
+	reader = bytes.NewBufferString(cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json").String())
+	resp, cleanup = client.Post("/v2/service_agreements", reader)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+	response2 := models.ServiceAgreement{}
+	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response2))
+
+	assert.Equal(t, response1.ID, response2.ID)
+	assert.Equal(t, response1.JobSpec.ID, response2.JobSpec.ID)
+}
+
 func TestServiceAgreementsController_Show(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
