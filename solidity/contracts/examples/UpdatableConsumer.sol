@@ -4,9 +4,9 @@ import "./Consumer.sol";
 
 contract UpdatableConsumer is Consumer {
 
-  constructor(bytes32 _specId, address _ens) public {
+  constructor(bytes32 _specId, address _ens, bytes32 _node) public {
     specId = _specId;
-    newChainlinkWithENS(_ens);
+    newChainlinkWithENS(_ens, _node);
   }
 
   function updateOracle() public {
