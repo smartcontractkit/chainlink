@@ -1,16 +1,19 @@
 import {
-  deploy,
-  checkPublicABI,
+  assertActionThrows,
   bigNum,
-  newUint8ArrayFromStr,
-  newSignature,
-  newHash,
-  newAddress,
-  toBuffer,
+  checkPublicABI,
   concatTypedArrays,
+  deploy,
+  newAddress,
+  newHash,
+  newSignature,
+  newUint8ArrayFromStr,
+  oracleNode,
+  splitRPCSignature,
+  stranger,
+  toBuffer,
   toHex,
-  toHexWithoutPrefix,
-  splitRPCSignature
+  toHexWithoutPrefix
 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
 import utils from 'ethereumjs-util'
@@ -46,73 +49,109 @@ contract('Coordinator', () => {
   })
 
   describe('#initiateServiceAgreement', () => {
-    it('saves a service agreement struct from the parameters', async () => {
-      const payment = newHash('1000000000000000000')
-      const expiration = newHash('300')
-      const account = newAddress(web3.eth.accounts[0])
-      const oracles = [account]
-      const requestDigest = newHash('0x9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8')
+    let payment, expiration, account, oracles, requestDigest, serviceAgreementID,
+      oracleSignature, v, r, s
+
+    beforeEach(async () => {
+      payment = newHash('1000000000000000000')
+      expiration = newHash('300')
+      account = newAddress(oracleNode)
+      oracles = [account]
+      requestDigest = newHash('0x9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8')
 
       const serviceAgreementIDInput = concatTypedArrays(
         payment,
         expiration,
-        // XXX: the account is an address, which is 20 bytes, but solidity
-        // abi.encodePacked treats it as a 32 byte hash :(
-        // concatTypedArrays(...oracles),
         concatTypedArrays(...(oracles.map(a => newHash(toHex(a))))),
         requestDigest)
-
       const serviceAgreementIDInputDigest = utils.sha3(toHex(serviceAgreementIDInput))
-      const serviceAgreementID = newHash(toHex(serviceAgreementIDInputDigest))
+      serviceAgreementID = newHash(toHex(serviceAgreementIDInputDigest))
+    })
 
-      let oracleSignature =
-        newSignature(web3.eth.sign(toHexWithoutPrefix(account), toHexWithoutPrefix(serviceAgreementID)))
+    context("with valid oracle signatures", () => {
+      beforeEach(async () => {
+        oracleSignature = newSignature(web3.eth.sign(toHexWithoutPrefix(account), toHexWithoutPrefix(serviceAgreementID)))
 
-      const {v, r, s} = splitRPCSignature(oracleSignature)
+        const sigObject = splitRPCSignature(oracleSignature)
+        v = sigObject.v
+        r = sigObject.r
+        s = sigObject.s
 
-      const requestDigestPrefixedMsg = concatTypedArrays(
-        REQUEST_DIGEST_PREFIX,
-        newUint8ArrayFromStr(serviceAgreementID.length.toString()),
-        serviceAgreementID
-      )
+        const requestDigestPrefixedMsg = concatTypedArrays(
+          REQUEST_DIGEST_PREFIX,
+          newUint8ArrayFromStr(serviceAgreementID.length.toString()),
+          serviceAgreementID
+        )
+        const requestDigestPubKey =
+          utils.ecrecover(utils.sha3(toBuffer(requestDigestPrefixedMsg)), v, toBuffer(r), toBuffer(s))
+        const requestDigestAddr = utils.pubToAddress(requestDigestPubKey)
 
-      const requestDigestPubKey =
-        utils.ecrecover(utils.sha3(toBuffer(requestDigestPrefixedMsg)), v, toBuffer(r), toBuffer(s))
-      const requestDigestAddr = utils.pubToAddress(requestDigestPubKey)
+        assert.equal(toHex(account), toHex(requestDigestAddr))
+      })
 
-      assert.equal(toHex(account), toHex(requestDigestAddr))
+      it('saves a service agreement struct from the parameters', async () => {
+        await coordinator.initiateServiceAgreement(
+          toHex(payment),
+          toHex(expiration),
+          oracles.map(toHex),
+          [v],
+          [r].map(toHex),
+          [s].map(toHex),
+          toHex(requestDigest)
+        )
 
-      await coordinator.initiateServiceAgreement(
-        toHex(payment),
-        toHex(expiration),
-        oracles.map(toHex),
-        [v],
-        [r].map(toHex),
-        [s].map(toHex),
-        toHex(requestDigest)
-      )
+        const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
 
-      let sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
+        assertBigNum(sa[0], bigNum(toHex(payment)))
+        assertBigNum(sa[1], bigNum(toHex(expiration)))
+        assert.equal(sa[2], toHex(requestDigest))
 
-      assertBigNum(sa[0], bigNum(toHex(payment)))
-      assertBigNum(sa[1], bigNum(toHex(expiration)))
-      assert.equal(sa[2], toHex(requestDigest))
+        /// / TODO:
+        /// / Web3.js doesn't support generating an artifact for arrays within a struct.
+        /// / This means that we aren't returned the list of oracles and
+        /// / can't assert on their values.
+        /// /
+        /// / However, we can pass them into the function to generate the ID
+        /// / & solidity won't compile unless we pass the correct number and
+        /// / type of params when initializing the ServiceAgreement struct,
+        /// / so we have some indirect test coverage.
+        /// /
+        /// / https://github.com/ethereum/web3.js/issues/1241
+        /// / assert.equal(
+        /// /   sa[2],
+        /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d', '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
+        /// / )
+      })
+    })
 
-      /// / TODO:
-      /// / Web3.js doesn't support generating an artifact for arrays within a struct.
-      /// / This means that we aren't returned the list of oracles and
-      /// / can't assert on their values.
-      /// /
-      /// / However, we can pass them into the function to generate the ID
-      /// / & solidity won't compile unless we pass the correct number and
-      /// / type of params when initializing the ServiceAgreement struct,
-      /// / so we have some indirect test coverage.
-      /// /
-      /// / https://github.com/ethereum/web3.js/issues/1241
-      /// / assert.equal(
-      /// /   sa[2],
-      /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d', '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
-      /// / )
+    context("with an invalid oracle signatures", () => {
+      beforeEach(async () => {
+        oracleSignature = newSignature(web3.eth.sign(stranger, toHexWithoutPrefix(serviceAgreementID)))
+
+        const sigObject = splitRPCSignature(oracleSignature)
+        v = sigObject.v
+        r = sigObject.r
+        s = sigObject.s
+      })
+
+      it('saves a service agreement struct from the parameters', async () => {
+        assertActionThrows(async () => {
+          await coordinator.initiateServiceAgreement(
+            toHex(payment),
+            toHex(expiration),
+            oracles.map(toHex),
+            [v],
+            [r].map(toHex),
+            [s].map(toHex),
+            toHex(requestDigest)
+          )
+        })
+
+        const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
+        assertBigNum(sa[0], bigNum(0))
+        assertBigNum(sa[1], bigNum(0))
+        assert.equal(sa[2], '0x0000000000000000000000000000000000000000000000000000000000000000')
+      })
     })
   })
 })
