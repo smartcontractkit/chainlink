@@ -1,7 +1,7 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
-    { "type": "HttpGet", "params": { "url": "https://bitstamp.net/api/ticker/" }},
+    { "type": "HttpGet", "params": { "get": "https://bitstamp.net/api/ticker/" }},
     { "type": "JsonParse", "params": { "path": ["last"] }},
     { "type": "EthBytes32" },
     {
