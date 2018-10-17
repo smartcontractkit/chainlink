@@ -1,25 +1,24 @@
 /* eslint-env jest */
 import React from 'react'
-import CreateBridgeType from 'containers/CreateBridgeType'
 import { Provider } from 'react-redux'
 import { mount } from 'enzyme'
-import createStore from 'connectors/redux'
-import syncFetch from 'test-helpers/syncFetch'
-import BridgeForm from 'components/BridgeForm'
 import { MemoryRouter } from 'react-router'
 import { Switch, Route } from 'react-static'
+import createStore from 'connectors/redux'
+import syncFetch from 'test-helpers/syncFetch'
+import New from 'containers/Bridges/New'
 
 const classes = {}
 
 const TestPrompt = () => <div>Shouldn't be rendered</div>
 
-const mountCreatePage = (store, props) => {
-  const CreateWithProps = () => <CreateBridgeType {...props} />
+const mountNew = (store, props) => {
+  const NewWithProps = () => <New {...props} />
   return mount(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/create/bridge']}>
+      <MemoryRouter initialEntries={['/bridges/new']}>
         <Switch>
-          <Route exact path='/create/bridge' component={CreateWithProps} classes={classes} />
+          <Route exact path='/bridges/new' component={NewWithProps} classes={classes} />
           <Route exact path='/' component={TestPrompt} classes={classes} />
         </Switch>
       </MemoryRouter>
@@ -31,19 +30,11 @@ const formikFillIn = (wrapper, selector, value, name) => {
   wrapper.find(selector).simulate('change', { target: { value: value, name: name } })
 }
 
-describe('containers/CreateBridgeType', () => {
-  it('lands correctly', async () => {
-    expect.assertions(1)
-    let wrapper = mountCreatePage(createStore())
-
-    await syncFetch(wrapper)
-    expect(wrapper.contains(<BridgeForm />)).toBe(true)
-  })
-
+describe('containers/Bridges/New', () => {
   it('makes sure all needed fields are entered', async () => {
     expect.assertions(3)
     const store = createStore()
-    const wrapper = mountCreatePage(store)
+    const wrapper = mountNew(store)
     expect(wrapper.find('form button').getDOMNode().disabled).toEqual(true)
     formikFillIn(wrapper, 'input#name', 'someRandomBridge', 'name')
 
