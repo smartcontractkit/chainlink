@@ -26,10 +26,10 @@ import { isFetchingSelector } from 'selectors'
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = {loading: Loading}
-const Bridges = universal(import('./containers/Bridges'), uniOpts)
-const BridgeSpec = universal(import('./containers/BridgeSpec'), uniOpts)
+const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
+const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
+const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
-const CreateBridgeType = universal(import('./containers/CreateBridgeType'), uniOpts)
 const CreateJobSpec = universal(import('./containers/CreateJobSpec'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
 const Jobs = universal(import('./containers/Jobs'), uniOpts)
@@ -118,8 +118,8 @@ class Layout extends Component {
             <ListItem button component={Link} to='/create/job' className={classes.menuitem}>
               <ListItemText primary='Create Job' />
             </ListItem>
-            <ListItem button component={Link} to='/create/bridge' className={classes.menuitem}>
-              <ListItemText primary='Create Bridge' />
+            <ListItem button component={Link} to='/bridges/new' className={classes.menuitem}>
+              <ListItemText primary='New Bridge' />
             </ListItem>
             <ListItem button component={Link} to='/config' className={classes.menuitem}>
               <ListItemText primary='Configuration' />
@@ -177,18 +177,18 @@ class Layout extends Component {
                   <Route exact path='/signin' component={SignIn} />
                   <PrivateRoute exact path='/signout' component={SignOut} />
                   {redirectTo && <Redirect to={redirectTo} />}
+                  <PrivateRoute exact path='/' component={Jobs} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobSpec} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
+                  <PrivateRoute exact path='/jobs/page/:jobPage' component={Jobs} />
+                  <PrivateRoute exact path='/create/job' component={CreateJobSpec} />
+                  <PrivateRoute exact path='/bridges' component={BridgesIndex} />
+                  <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
+                  <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
                   <PrivateRoute exact path='/about' component={About} />
                   <PrivateRoute exact path='/config' component={Configuration} />
-                  <PrivateRoute exact path='/create/job' component={CreateJobSpec} />
-                  <PrivateRoute exact path='/create/bridge' component={CreateBridgeType} />
-                  <PrivateRoute exact path='/bridges' component={Bridges} />
-                  <PrivateRoute exact path='/bridges/:bridgeId' component={BridgeSpec} />
-                  <PrivateRoute exact path='/' component={Jobs} />
-                  <PrivateRoute exact path='/jobs/page/:jobPage' component={Jobs} />
                   <Routes />
                 </Switch>
               </div>

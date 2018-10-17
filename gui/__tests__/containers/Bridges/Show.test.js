@@ -4,20 +4,20 @@ import syncFetch from 'test-helpers/syncFetch'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
-import { ConnectedBridgeSpec as BridgeSpec } from 'containers/BridgeSpec'
+import { ConnectedShow as Show } from 'containers/Bridges/Show'
 
 const classes = {}
-const mountBridgeSpec = (props) => (
+const mountShow = (props) => (
   mount(
     <Provider store={createStore()}>
       <Router>
-        <BridgeSpec classes={classes} {...props} />
+        <Show classes={classes} {...props} />
       </Router>
     </Provider>
   )
 )
 
-describe('containers/BridgeSpec', () => {
+describe('containers/Bridges/Show', () => {
   it('renders the details of the bridge spec', async () => {
     expect.assertions(6)
     const response = { data: {
@@ -35,7 +35,7 @@ describe('containers/BridgeSpec', () => {
     global.fetch.getOnce(`/v2/bridge_types/tallbridge`, response)
 
     const props = {match: {params: {bridgeId: 'tallbridge'}}}
-    const wrapper = mountBridgeSpec(props)
+    const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Tall Bridge')
