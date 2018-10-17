@@ -54,7 +54,7 @@ contract Coordinator {
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
+    require(address(this).delegatecall(_data), "Unable to create request"); // calls executeServiceAgreement
   }
 
   function executeServiceAgreement(
