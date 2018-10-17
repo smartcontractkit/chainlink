@@ -137,7 +137,7 @@ contract('Coordinator', () => {
     const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
     const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
     const payment = 1000000000000000000
-    let sAID
+    let sAID, tx, log
 
     beforeEach(async () => {
       const paymentAmount = newHash(payment.toString())
@@ -161,12 +161,10 @@ contract('Coordinator', () => {
       await link.transfer(consumer, toWei(1000))
     })
 
-    context('when called through the LINK token', () => {
-      let tx, log
-
+    context('when called through the LINK token with enough payment', () => {
       beforeEach(async () => {
         const payload = executeServiceAgreementBytes(toHex(sAID), to, fHash, '1', '')
-        tx = await link.transferAndCall(coordinator.address, toWei(1), payload, {
+        tx = await link.transferAndCall(coordinator.address, payment, payload, {
           from: consumer
         })
         log = tx.receipt.logs[2]
@@ -182,6 +180,19 @@ contract('Coordinator', () => {
         assert.equal(toHex(sAID), log.topics[1])
         assert.equal(consumer, web3.toDecimal(log.topics[2]))
         assert.equal(payment, web3.toDecimal(log.topics[3]))
+      })
+    })
+
+    context('when called through the LINK token with not enough payment', () => {
+      it('throws an error', async () => {
+        const calldata = executeServiceAgreementBytes(toHex(sAID), to, fHash, '1', '')
+        const underPaid = bigNum(payment).sub(1)
+
+        await assertActionThrows(async () => {
+          tx = await link.transferAndCall(coordinator.address, underPaid, calldata, {
+            from: consumer
+          })
+        })
       })
     })
 

@@ -61,7 +61,7 @@ contract Coordinator {
     address _sender,
     uint256 _amount,
     uint256 _version,
-    bytes32 _specId,
+    bytes32 _sAId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
     bytes32 _externalId,
@@ -69,6 +69,7 @@ contract Coordinator {
   )
     public
     onlyLINK
+    sufficientLINK(_amount, _sAId)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
     callbacks[internalId] = Callback(
@@ -78,7 +79,7 @@ contract Coordinator {
       _callbackFunctionId,
       uint64(now.add(5 minutes)));
     emit RunRequest(
-      _specId,
+      _sAId,
       _sender,
       _amount,
       internalId,
@@ -152,4 +153,10 @@ contract Coordinator {
     require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
     _;
   }
+
+  modifier sufficientLINK(uint256 _amount, bytes32 _sAId) {
+    require(_amount >= serviceAgreements[_sAId].payment, "Below agreed payment");
+    _;
+  }
+
 }
