@@ -17,10 +17,18 @@ FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y ca-certificates
 
+WORKDIR /root
+
 COPY --from=builder \
   /go/src/github.com/smartcontractkit/chainlink/chainlink \
   /usr/local/bin/
 
+COPY --from=builder \
+  /go/src/github.com/smartcontractkit/chainlink/chainlink-launcher.sh \
+  /root/
+
+RUN chmod +x ./chainlink-launcher.sh
+
 EXPOSE 6688
-ENTRYPOINT ["chainlink"]
+ENTRYPOINT ["./chainlink-launcher.sh"]
 CMD ["node"]

@@ -43,7 +43,7 @@ COPY --from=builder /opt/intel/ /opt/intel/
 # Copy chainlink enclave+stub from build image
 ARG ENVIRONMENT
 COPY --from=builder \
-  /go/src/github.com/smartcontractkit/chainlink/chainlink /root/
+  /go/src/github.com/smartcontractkit/chainlink/chainlink /usr/local/bin/
 COPY --from=builder \
   /go/src/github.com/smartcontractkit/chainlink/sgx/target/$ENVIRONMENT/libadapters.so \
   /usr/lib/
