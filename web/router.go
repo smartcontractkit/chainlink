@@ -235,7 +235,7 @@ func loggerFunc() gin.HandlerFunc {
 		c.Next()
 		end := time.Now()
 
-		logger.Infow("Web request",
+		logger.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
@@ -243,7 +243,7 @@ func loggerFunc() gin.HandlerFunc {
 			"body", readBody(rdr),
 			"clientIP", c.ClientIP(),
 			"errors", c.Errors.String(),
-			"servedAt", end.Format("2006/01/02 - 15:04:05"),
+			"servedAt", end.Format("2006-01-02 15:04:05"),
 			"latency", fmt.Sprintf("%v", end.Sub(start)),
 		)
 	}
