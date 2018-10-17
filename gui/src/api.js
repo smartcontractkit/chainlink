@@ -54,6 +54,22 @@ const post = (path, body, shouldStringify = true) => {
     .then(parseResponse)
 }
 
+const patch = (path, body) => {
+  return global.fetch(
+    formatURI(path),
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    }
+  )
+    .then(parseResponse)
+}
+
 const destroy = (path) => (
   global.fetch(
     formatURI(path),
@@ -84,13 +100,18 @@ export const getBridgeSpec = name => get(`/v2/bridge_types/${name}`)
 
 export const createSession = data => post(`/sessions`, data)
 
-export const createBridgeType = (data, shouldStringify) => {
+export const createBridge = data => {
   const normalizedData = serializeBridgeType(data)
-  return post('/v2/bridge_types', normalizedData, shouldStringify)
+  return post('/v2/bridge_types', normalizedData)
 }
 
 export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
 
 export const createJobSpecRun = id => post(`/v2/specs/${id}/runs`)
+
+export const updateBridge = data => {
+  const normalizedData = serializeBridgeType(data)
+  return patch(`/v2/bridge_types/${data.name}`, normalizedData)
+}
 
 export const destroySession = () => destroy(`/sessions`)

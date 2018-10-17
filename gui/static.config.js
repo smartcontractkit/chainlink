@@ -22,6 +22,7 @@ export default {
       {path: '/bridges'},
       {path: '/bridges/new'},
       {path: '/bridges/_bridgeId_'},
+      {path: '/bridges/_bridgeId_/edit'},
       {path: '/config'},
       {path: '/signin'},
       {path: '/signout'},

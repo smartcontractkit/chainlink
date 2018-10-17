@@ -2,7 +2,9 @@ import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
   RECEIVE_CREATE_SUCCESS,
-  RECEIVE_CREATE_ERROR
+  RECEIVE_CREATE_ERROR,
+  NOTIFY_SUCCESS,
+  NOTIFY_ERROR
 } from 'actions'
 
 const initialState = {
@@ -25,7 +27,7 @@ export default (state = initialState, action = {}) => {
 
       return state
     }
-    case RECEIVE_SIGNIN_FAIL:
+    case RECEIVE_SIGNIN_FAIL: {
       return Object.assign(
         {},
         state,
@@ -34,7 +36,8 @@ export default (state = initialState, action = {}) => {
           errors: [{detail: SIGN_IN_FAIL_MSG}]
         }
       )
-    case RECEIVE_CREATE_ERROR:
+    }
+    case RECEIVE_CREATE_ERROR: {
       return Object.assign(
         {},
         state,
@@ -43,7 +46,8 @@ export default (state = initialState, action = {}) => {
           errors: action.error.errors
         }
       )
-    case RECEIVE_CREATE_SUCCESS:
+    }
+    case RECEIVE_CREATE_SUCCESS: {
       return Object.assign(
         {},
         state,
@@ -52,6 +56,27 @@ export default (state = initialState, action = {}) => {
           errors: []
         }
       )
+    }
+    case NOTIFY_SUCCESS: {
+      return Object.assign(
+        {},
+        state,
+        {
+          successes: [{type: 'component', component: action.component, props: action.props}],
+          errors: []
+        }
+      )
+    }
+    case NOTIFY_ERROR: {
+      return Object.assign(
+        {},
+        state,
+        {
+          successes: [],
+          errors: [{type: 'component', component: action.component, props: action.props}]
+        }
+      )
+    }
     default:
       return state
   }

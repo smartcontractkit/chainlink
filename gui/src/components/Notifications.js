@@ -22,6 +22,7 @@ export class Notifications extends React.Component {
     const isJobRun = success => success.data && success.data.type === 'runs'
     const isBridge = success => success.data && success.data.type === 'bridges'
     const attributes = success.data.attributes
+
     if (isJob(success)) {
       return <p key={i}>
         Job <Link to={`/job_specs/${attributes.id}`}>{attributes.id}</Link> was successfully created
@@ -50,7 +51,12 @@ export class Notifications extends React.Component {
         }
         {successes.length > 0 && (
           <Flash success className={classes.flash}>
-            {successes.map((succ, i) => this.successPresenter(succ, i))}
+            {successes.map((succ, i) => {
+              if (succ.type === 'component') {
+                return <p key={i}>{succ.component(succ.props)}</p>
+              }
+              return this.successPresenter(succ, i)
+            })}
           </Flash>
         )}
       </Fragment>
