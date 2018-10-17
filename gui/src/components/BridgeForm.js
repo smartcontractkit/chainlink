@@ -12,9 +12,6 @@ const styles = theme => ({
   textfield: {
     paddingTop: theme.spacing.unit * 1.25
   },
-  form: {
-    paddingTop: theme.spacing.unit * 4
-  },
   card: {
     paddingBottom: theme.spacing.unit * 2
   },
@@ -40,9 +37,9 @@ const BridgeFormLayout = ({
       when={(values.name !== '' || values.url !== '' || values.confirmations !== '') && submitCount === 0}
       message='You have not submitted the form, are you sure you want to leave?'
     />
-    <Form className={classes.form} noValidate>
-      <Grid container justify='center'>
-        <Grid item sm={2}>
+    <Form noValidate>
+      <Grid container>
+        <Grid item xs={12} md={7}>
           <TextField
             className={classes.textfield}
             onChange={handleChange}
@@ -53,52 +50,54 @@ const BridgeFormLayout = ({
             placeholder='name'
           />
         </Grid>
-        <Grid container justify='center'>
-          <Grid item sm={2}>
-            <TextField
-              className={classes.textfield}
-              label='Bridge URL'
-              name='url'
-              fullWidth
-              placeholder='url'
-              id='url'
-              onChange={handleChange}
-            />
-          </Grid>
+        <Grid item xs={12} md={7}>
+          <TextField
+            className={classes.textfield}
+            label='Bridge URL'
+            name='url'
+            fullWidth
+            placeholder='url'
+            id='url'
+            onChange={handleChange}
+          />
         </Grid>
-        <Grid container justify='center'>
-          <Grid item sm={2}>
-            <TextField
-              className={classes.textfield}
-              onChange={handleChange}
-              name='minimumContractPayment'
-              type='number'
-              inputProps={{min: 0}}
-              fullWidth
-              placeholder='0'
-              id='minimumContractPayment'
-              label='Minimum Contract Payment'
-            />
-          </Grid>
+        <Grid item xs={12} md={7}>
+          <TextField
+            className={classes.textfield}
+            onChange={handleChange}
+            name='minimumContractPayment'
+            type='number'
+            inputProps={{min: 0}}
+            fullWidth
+            placeholder='0'
+            id='minimumContractPayment'
+            label='Minimum Contract Payment'
+          />
         </Grid>
-        <Grid container justify='center'>
-          <Grid item sm={2}>
-            <TextField
-              className={classes.textfield}
-              onChange={handleChange}
-              name='confirmations'
-              type='number'
-              inputProps={{min: 0}}
-              fullWidth
-              placeholder='0'
-              id='confirmations'
-              label='Confirmations'
-            />
-          </Grid>
+        <Grid item xs={12} md={7}>
+          <TextField
+            className={classes.textfield}
+            onChange={handleChange}
+            name='confirmations'
+            type='number'
+            inputProps={{min: 0}}
+            fullWidth
+            placeholder='0'
+            id='confirmations'
+            label='Confirmations'
+          />
         </Grid>
-        <Button variant='contained' color='primary' type='submit' className={classes.button} disabled={isSubmitting || !values.name || !values.url}>
-          Build Bridge
-        </Button>
+        <Grid item xs={12} md={7}>
+          <Button
+            variant='contained'
+            color='primary'
+            type='submit'
+            className={classes.button}
+            disabled={isSubmitting || !values.name || !values.url}
+          >
+            Create Bridge
+          </Button>
+        </Grid>
       </Grid>
     </Form>
   </Fragment>
@@ -127,8 +126,9 @@ const mapStateToProps = state => ({
   fetching: state.fetching.count
 })
 
-export const ConnectedBridgeForm = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ submitBridgeType }))(
-  BridgeForm
-)
+export const ConnectedBridgeForm = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({ submitBridgeType })
+)(BridgeForm)
 
 export default withStyles(styles)(ConnectedBridgeForm)

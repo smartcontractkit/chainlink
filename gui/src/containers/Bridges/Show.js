@@ -16,9 +16,6 @@ const styles = theme => ({
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
   },
-  definitionTitle: {
-    marginBottom: theme.spacing.unit * 3
-  },
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
@@ -33,9 +30,6 @@ const renderLoaded = props => (
   <Grid container spacing={40}>
     <Grid item xs={8}>
       <PaddedCard>
-        <Typography variant='title' className={props.classes.definitionTitle}>
-          Bridge Info:
-        </Typography>
         <Grid>
           <Typography variant='subheading' color='textSecondary'>Name</Typography>
           <Typography variant='body1' color='inherit'>{props.bridge.name}</Typography>
@@ -62,7 +56,7 @@ const renderLoaded = props => (
 
 const renderDetails = props => props.bridge ? renderLoaded(props) : renderLoading(props)
 
-export class BridgeSpec extends Component {
+export class Show extends Component {
   componentDidMount () {
     this.props.fetchBridgeSpec(this.props.match.params.bridgeId)
   }
@@ -78,7 +72,7 @@ export class BridgeSpec extends Component {
           <BreadcrumbItem>{this.props.bridge && this.props.bridge.id}</BreadcrumbItem>
         </Breadcrumb>
         <Typography variant='display2' color='inherit' className={this.props.classes.title}>
-          Bridge Spec Details
+          Bridge Info
         </Typography>
         {renderDetails(this.props)}
       </div>
@@ -86,7 +80,7 @@ export class BridgeSpec extends Component {
   }
 }
 
-BridgeSpec.propTypes = {
+Show.propTypes = {
   classes: PropTypes.object.isRequired,
   bridge: PropTypes.object
 }
@@ -97,9 +91,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-export const ConnectedBridgeSpec = connect(
+export const ConnectedShow = connect(
   mapStateToProps,
   matchRouteAndMapDispatchToProps({fetchBridgeSpec})
-)(BridgeSpec)
+)(Show)
 
-export default withStyles(styles)(ConnectedBridgeSpec)
+export default withStyles(styles)(ConnectedShow)

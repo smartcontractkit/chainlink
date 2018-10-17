@@ -1,16 +1,16 @@
 import React, { Component } from 'react'
+import { withSiteData } from 'react-static'
+import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
+import { withStyles } from '@material-ui/core/styles'
+import { Button } from '@material-ui/core'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import BridgeList from 'components/BridgeList'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { withSiteData } from 'react-static'
-import { withStyles } from '@material-ui/core/styles'
-import { connect } from 'react-redux'
-import { fetchBridges } from 'actions'
-import { Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { bridgesSelector } from 'selectors'
+import { fetchBridges } from 'actions'
 
 const styles = theme => ({
   title: {
@@ -19,23 +19,13 @@ const styles = theme => ({
   }
 })
 
-const renderBridgeList = ({ bridges, bridgeCount, pageSize, bridgesError, fetchBridges }) => (
-  <BridgeList
-    bridges={bridges}
-    bridgeCount={bridgeCount}
-    pageSize={pageSize}
-    error={bridgesError}
-    fetchBridges={fetchBridges}
-  />
-)
-
-export class Bridges extends Component {
+export class Index extends Component {
   componentDidMount () {
     this.props.fetchBridges(1, this.props.pageSize)
   }
 
   render () {
-    const { classes } = this.props
+    const { bridges, bridgeCount, classes, pageSize, bridgesError, fetchBridges } = this.props
 
     return (
       <div>
@@ -45,13 +35,24 @@ export class Bridges extends Component {
               Bridges
             </Typography>
           </Grid>
-          <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/create/bridge'}>
-            Create Bridge
+          <Button
+            variant='outlined'
+            color='primary'
+            component={ReactStaticLinkComponent}
+            to={'/bridges/new'}
+          >
+            New Bridge
           </Button>
         </Grid>
         <Grid container spacing={40}>
           <Grid item xs={12}>
-            {renderBridgeList(this.props)}
+            <BridgeList
+              bridges={bridges}
+              bridgeCount={bridgeCount}
+              pageSize={pageSize}
+              error={bridgesError}
+              fetchBridges={fetchBridges}
+            />
           </Grid>
         </Grid>
       </div>
@@ -59,15 +60,15 @@ export class Bridges extends Component {
   }
 }
 
-Bridges.propTypes = {
-  classes: PropTypes.object.isRequired,
+Index.propTypes = {
   bridgeCount: PropTypes.number.isRequired,
   bridges: PropTypes.array.isRequired,
   bridgesError: PropTypes.string,
+  classes: PropTypes.object.isRequired,
   pageSize: PropTypes.number
 }
 
-Bridges.defaultProps = {
+Index.defaultProps = {
   pageSize: 10
 }
 
@@ -84,9 +85,9 @@ const mapStateToProps = state => {
   }
 }
 
-export const ConnectedBridges = connect(
+export const ConnectedIndex = connect(
   mapStateToProps,
   matchRouteAndMapDispatchToProps({fetchBridges})
-)(Bridges)
+)(Index)
 
-export default withSiteData(withStyles(styles)(ConnectedBridges))
+export default withSiteData(withStyles(styles)(ConnectedIndex))

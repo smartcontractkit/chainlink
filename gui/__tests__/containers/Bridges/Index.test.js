@@ -8,20 +8,20 @@ import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
 import { Router } from 'react-static'
 import { Provider } from 'react-redux'
-import { ConnectedBridges as Bridges } from 'containers/Bridges'
+import { ConnectedIndex as Index } from 'containers/Bridges/Index'
 
 const classes = {}
-const mountBridges = (opts = {}) => (
+const mountIndex = (opts = {}) => (
   mount(
     <Provider store={createStore()}>
       <Router>
-        <Bridges classes={classes} pageSize={opts.pageSize} />
+        <Index classes={classes} pageSize={opts.pageSize} />
       </Router>
     </Provider>
   )
 )
 
-describe('containers/Bridge', () => {
+describe('containers/Bridges/Index', () => {
   it('renders the list of bridges', async () => {
     expect.assertions(2)
 
@@ -31,7 +31,7 @@ describe('containers/Bridge', () => {
     }])
     global.fetch.getOnce('/v2/bridge_types?page=1&size=10', bridgesResponse)
 
-    const wrapper = mountBridges()
+    const wrapper = mountIndex()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('reggaeIsntThatGood')
@@ -46,7 +46,7 @@ describe('containers/Bridge', () => {
     ], 2)
     global.fetch.getOnce('/v2/bridge_types?page=1&size=1', pageOneResponse)
 
-    const wrapper = mountBridges({pageSize: 1})
+    const wrapper = mountIndex({pageSize: 1})
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
@@ -75,7 +75,7 @@ describe('containers/Bridge', () => {
 
     global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
 
-    const wrapper = mountBridges()
+    const wrapper = mountIndex()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain(
