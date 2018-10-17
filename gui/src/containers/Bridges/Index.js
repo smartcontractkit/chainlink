@@ -36,7 +36,7 @@ export class Index extends Component {
             </Typography>
           </Grid>
           <Grid item xs={3}>
-            <Grid container justify='flex-end' >
+            <Grid container justify='flex-end'>
               <Grid item>
                 <Button
                   variant='outlined'

@@ -3,7 +3,9 @@ import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
   RECEIVE_CREATE_SUCCESS,
-  RECEIVE_CREATE_ERROR
+  RECEIVE_CREATE_ERROR,
+  NOTIFY_SUCCESS,
+  NOTIFY_ERROR
 } from 'actions'
 
 describe('notifications reducer', () => {
@@ -90,6 +92,48 @@ describe('notifications reducer', () => {
     expect(state.notifications).toEqual({
       errors: [],
       successes: [response],
+      currentUrl: null
+    })
+  })
+
+  it('NOTIFY_SUCCESS adds a success component and clears errors', () => {
+    const previousState = {
+      notifications: {
+        errors: [{detail: 'error 1'}],
+        successes: [],
+        currentUrl: null
+      }
+    }
+
+    const component = () => {}
+    const props = {}
+    const action = {type: NOTIFY_SUCCESS, component: component, props: props}
+    const state = reducer(previousState, action)
+
+    expect(state.notifications).toEqual({
+      errors: [],
+      successes: [{type: 'component', component: component, props: props}],
+      currentUrl: null
+    })
+  })
+
+  it('NOTIFY_ERROR adds an error component and clears success', () => {
+    const previousState = {
+      notifications: {
+        errors: [],
+        successes: [{id: '123'}],
+        currentUrl: null
+      }
+    }
+
+    const component = () => {}
+    const props = {}
+    const action = {type: NOTIFY_ERROR, component: component, props: props}
+    const state = reducer(previousState, action)
+
+    expect(state.notifications).toEqual({
+      errors: [{type: 'component', component: component, props: props}],
+      successes: [],
       currentUrl: null
     })
   })

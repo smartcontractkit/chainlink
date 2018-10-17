@@ -253,7 +253,7 @@ func loggerFunc() gin.HandlerFunc {
 // Add CORS headers so UI can make api requests
 func uiCorsHandler(config store.Config) gin.HandlerFunc {
 	c := cors.Config{
-		AllowMethods:     []string{"GET", "POST", "DELETE"},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
