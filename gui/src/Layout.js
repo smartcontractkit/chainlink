@@ -9,6 +9,8 @@ import ListItemText from '@material-ui/core/ListItemText'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
+import Tabs from '@material-ui/core/Tabs'
+import Tab from '@material-ui/core/Tab'
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
 import Loading from 'components/Loading'
@@ -40,14 +42,14 @@ const JobSpecRun = universal(import('./containers/JobSpecRun'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
 const SignOut = universal(import('./containers/SignOut'), uniOpts)
 
-const appBarHeight = 70
+const appBarHeight = 90
 const drawerWidth = 240
 
 // Custom styles
 const styles = theme => {
   return {
     appBar: {
-      backgroundColor: theme.palette.background.appBar,
+      backgroundColor: theme.palette.common.white,
       paddingLeft: theme.spacing.unit * 5,
       paddingRight: theme.spacing.unit * 5,
       zIndex: theme.zIndex.modal + 1
@@ -58,9 +60,6 @@ const styles = theme => {
     content: {
       margin: theme.spacing.unit * 5,
       marginTop: 0
-    },
-    menuButton: {
-      color: theme.palette.common.white
     },
     menuitem: {
       padding: theme.spacing.unit * 3,
@@ -149,21 +148,19 @@ class Layout extends Component {
               position='absolute'
             >
               <Grid container alignItems='center' className={classes.appBarContent}>
-                <Grid item xs={9}>
+                <Grid item xs={6}>
                   <Link to='/'>
-                    <Logo width={39} height={45} spin={isFetching} />
+                    <Logo width={40} height={50} spin={isFetching} />
                   </Link>
                 </Grid>
-                <Grid item xs={3}>
-                  <div align='right'>
-                    <IconButton
-                      aria-label='open drawer'
-                      onClick={this.toggleDrawer}
-                      className={classes.menuButton}
-                    >
-                      <MenuIcon />
-                    </IconButton>
-                  </div>
+                <Grid item xs={6}>
+                  <Grid container justify='flex-end'>
+                    <Grid item>
+                      <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
+                        <MenuIcon />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
                 </Grid>
               </Grid>
             </AppBar>
