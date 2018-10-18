@@ -164,6 +164,7 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 		authv2.GET("/bridge_types", bt.Index)
 		authv2.POST("/bridge_types", bt.Create)
 		authv2.GET("/bridge_types/:BridgeName", bt.Show)
+		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
 		w := WithdrawalsController{app}
