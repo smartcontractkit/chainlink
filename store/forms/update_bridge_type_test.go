@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestForms_NewUpdateBridgeType(t *testing.T) {
+func TestFormsNewUpdateBridgeType(t *testing.T) {
 	t.Parallel()
 
 	s, cleanup := cltest.NewStore()
@@ -26,7 +26,7 @@ func TestForms_NewUpdateBridgeType(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestForms_UpdateBridgeType_Save(t *testing.T) {
+func TestFormsUpdateBridgeType_Save(t *testing.T) {
 	t.Parallel()
 
 	s, cleanup := cltest.NewStore()
