@@ -132,6 +132,8 @@ contract('Oracle', () => {
       })
 
       it('logs an event', async () => {
+        assert.equal(oc.address, log.address)
+
         assert.equal(specId, web3.toUtf8(log.topics[1]))
         assert.equal(h.defaultAccount, web3.toDecimal(log.topics[2]))
         assert.equal(paid, web3.toDecimal(log.topics[3]))
@@ -202,7 +204,7 @@ contract('Oracle', () => {
 
     context('with a malicious requester', () => {
       const paymentAmount = h.toWei(1)
-      
+
       beforeEach(async () => {
         mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)

@@ -2,30 +2,37 @@ import {
   assertActionThrows,
   bigNum,
   calculateSAID,
+  consumer,
   checkPublicABI,
   deploy,
+  executeServiceAgreementBytes,
+  functionSelector,
   newAddress,
   newHash,
   oracleNode,
   personalSign,
   recoverPersonalSignature,
   stranger,
-  toHex
+  toHex,
+  toWei
 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
 contract('Coordinator', () => {
   const sourcePath = 'Coordinator.sol'
-  let coordinator
+  let coordinator, link
 
   beforeEach(async () => {
-    coordinator = await deploy(sourcePath)
+    link = await deploy('link_token/contracts/LinkToken.sol')
+    coordinator = await deploy(sourcePath, link.address)
   })
 
   it('has a limited public interface', () => {
     checkPublicABI(artifacts.require(sourcePath), [
       'getId',
+      'executeServiceAgreement',
       'initiateServiceAgreement',
+      'onTokenTransfer',
       'serviceAgreements'
     ])
   })
@@ -122,6 +129,78 @@ contract('Coordinator', () => {
         assertBigNum(sa[0], bigNum(0))
         assertBigNum(sa[1], bigNum(0))
         assert.equal(sa[2], '0x0000000000000000000000000000000000000000000000000000000000000000')
+      })
+    })
+  })
+
+  describe('#executeServiceAgreement', () => {
+    const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
+    const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
+    const payment = 1000000000000000000
+    let sAID, tx, log
+
+    beforeEach(async () => {
+      const paymentAmount = newHash(payment.toString())
+      const expiration = newHash('300')
+      const oracle = newAddress(oracleNode)
+      const oracles = [oracle]
+      const requestDigest = newHash('0x9ebed6ae16d275059bf4de0e01482b0eca7ffc0ffcc1918db61e17ac0f7dedc8')
+
+      sAID = calculateSAID(paymentAmount, expiration, oracles, requestDigest)
+      const oracleSignature = personalSign(oracle, sAID)
+
+      await coordinator.initiateServiceAgreement(
+        toHex(paymentAmount),
+        toHex(expiration),
+        oracles.map(toHex),
+        [oracleSignature.v],
+        [oracleSignature.r].map(toHex),
+        [oracleSignature.s].map(toHex),
+        toHex(requestDigest))
+
+      await link.transfer(consumer, toWei(1000))
+    })
+
+    context('when called through the LINK token with enough payment', () => {
+      beforeEach(async () => {
+        const payload = executeServiceAgreementBytes(toHex(sAID), to, fHash, '1', '')
+        tx = await link.transferAndCall(coordinator.address, payment, payload, {
+          from: consumer
+        })
+        log = tx.receipt.logs[2]
+      })
+
+      it('logs an event', async () => {
+        assert.equal(coordinator.address, log.address)
+
+        // If updating this test, be sure to update services.RunLogTopic.
+        let eventSignature = '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
+        assert.equal(eventSignature, log.topics[0])
+
+        assert.equal(toHex(sAID), log.topics[1])
+        assert.equal(consumer, web3.toDecimal(log.topics[2]))
+        assert.equal(payment, web3.toDecimal(log.topics[3]))
+      })
+    })
+
+    context('when called through the LINK token with not enough payment', () => {
+      it('throws an error', async () => {
+        const calldata = executeServiceAgreementBytes(toHex(sAID), to, fHash, '1', '')
+        const underPaid = bigNum(payment).sub(1)
+
+        await assertActionThrows(async () => {
+          tx = await link.transferAndCall(coordinator.address, underPaid, calldata, {
+            from: consumer
+          })
+        })
+      })
+    })
+
+    context('when not called through the LINK token', () => {
+      it('reverts', async () => {
+        await assertActionThrows(async () => {
+          await coordinator.executeServiceAgreement(0, 0, 1, toHex(sAID), to, fHash, 'id', '', {from: consumer})
+        })
       })
     })
   })
