@@ -27,8 +27,9 @@ import { isFetchingSelector } from 'selectors'
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = {loading: Loading}
 const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
-const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
 const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
+const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
+const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
 const CreateJobSpec = universal(import('./containers/CreateJobSpec'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
@@ -187,6 +188,7 @@ class Layout extends Component {
                   <PrivateRoute exact path='/bridges' component={BridgesIndex} />
                   <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
                   <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
+                  <PrivateRoute exact path='/bridges/:bridgeId/edit' component={BridgesEdit} />
                   <PrivateRoute exact path='/about' component={About} />
                   <PrivateRoute exact path='/config' component={Configuration} />
                   <Routes />

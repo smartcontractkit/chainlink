@@ -10,7 +10,7 @@ const createErrorAction = (error, type) => ({
   networkError: true
 })
 
-const createErrorHandler = (dispatch, type) => error => {
+const curryErrorHandler = (dispatch, type) => error => {
   if (error instanceof AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
@@ -30,6 +30,22 @@ export const MATCH_ROUTE = 'MATCH_ROUTE'
 export const matchRoute = match => ({
   type: MATCH_ROUTE,
   match: match
+})
+
+export const NOTIFY_SUCCESS = 'NOTIFY_SUCCESS'
+
+export const notifySuccess = (component, props) => ({
+  type: NOTIFY_SUCCESS,
+  component: component,
+  props: props
+})
+
+export const NOTIFY_ERROR = 'NOTIFY_ERROR'
+
+export const notifyError = (component, props) => ({
+  type: NOTIFY_ERROR,
+  component: component,
+  props: props
 })
 
 const fetchActions = {}
@@ -159,7 +175,7 @@ function sendFetchActions (type, ...getArgs) {
     dispatch(createAction(requestActionType))
     return apiGet(...getArgs)
       .then(json => dispatch(receiveSuccess(json)))
-      .catch(createErrorHandler(dispatch, receiveErrorType))
+      .catch(curryErrorHandler(dispatch, receiveErrorType))
   }
 }
 
@@ -205,7 +221,7 @@ function sendSignOut () {
     dispatch(createAction(REQUEST_SIGNOUT))
     return api.destroySession()
       .then(json => dispatch(receiveSignoutSuccess(json)))
-      .catch(createErrorHandler(dispatch, RECEIVE_SIGNIN_ERROR))
+      .catch(curryErrorHandler(dispatch, RECEIVE_SIGNIN_ERROR))
   }
 }
 
@@ -223,16 +239,16 @@ function sendJobSpec (data, shouldStringify) {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpec(data, shouldStringify)
       .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
+      .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
 }
 
-function sendBridgeType (data, shouldStringify) {
+function sendBridgeType (data) {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
-    return api.createBridgeType(data, shouldStringify)
+    return api.createBridge(data)
       .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
+      .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
 }
 
@@ -241,9 +257,18 @@ function sendJobSpecRun (id) {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpecRun(id)
       .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(createErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
+      .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
 }
+
+export const REQUEST_UPDATE = 'REQUEST_UPDATE'
+export const RECEIVE_UPDATE_SUCCESS = 'RECEIVE_UPDATE_SUCCESS'
+export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
+
+const receiveUpdateSuccess = response => ({
+  type: RECEIVE_UPDATE_SUCCESS,
+  response: response
+})
 
 export const fetchJobs = (page, size) => sendFetchActions('jobs', page, size)
 export const fetchAccountBalance = () => sendFetchActions('accountBalance')
@@ -256,6 +281,21 @@ export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
 
 export const submitSignIn = data => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
-export const submitBridgeType = (data, shouldStringify) => sendBridgeType(data, shouldStringify)
+export const submitBridgeType = data => sendBridgeType(data)
 export const submitJobSpec = (data, shouldStringify) => sendJobSpec(data, shouldStringify)
 export const submitJobSpecRun = id => sendJobSpecRun(id)
+
+export const updateBridge = (data, renderNotifySuccess, renderNotifyError) => {
+  return dispatch => {
+    dispatch(createAction(REQUEST_UPDATE))
+    return api.updateBridge(data)
+      .then(res => {
+        dispatch(receiveUpdateSuccess(res))
+        dispatch(notifySuccess(renderNotifySuccess, data))
+      })
+      .catch(() => {
+        curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)
+        dispatch(notifyError(renderNotifyError, data))
+      })
+  }
+}
