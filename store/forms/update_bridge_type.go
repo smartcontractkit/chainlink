@@ -18,7 +18,7 @@ func NewUpdateBridgeType(store *store.Store, bridgeName string) (UpdateBridgeTyp
 
 	form := UpdateBridgeType{
 		store:                  store,
-		bridgeType:             bt,
+		bridgeName:             bridgeName,
 		URL:                    bt.URL,
 		Confirmations:          bt.Confirmations,
 		MinimumContractPayment: bt.MinimumContractPayment,
@@ -29,7 +29,7 @@ func NewUpdateBridgeType(store *store.Store, bridgeName string) (UpdateBridgeTyp
 // UpdateBridgeType whitelists attributes that can be updated on the bridge
 type UpdateBridgeType struct {
 	store                  *store.Store
-	bridgeType             models.BridgeType
+	bridgeName             string
 	URL                    models.WebURL `json:"url"`
 	Confirmations          uint64        `json:"confirmations"`
 	MinimumContractPayment assets.Link   `json:"minimumContractPayment"`
@@ -37,15 +37,29 @@ type UpdateBridgeType struct {
 
 // Save updates the whitelisted attributes on the bridge
 func (ubt UpdateBridgeType) Save() error {
-	ubt.bridgeType.URL = ubt.URL
-	ubt.bridgeType.Confirmations = ubt.Confirmations
-	ubt.bridgeType.MinimumContractPayment = ubt.MinimumContractPayment
-	return ubt.store.Save(&ubt.bridgeType)
+	bt, err := ubt.findBridge()
+	if err != nil {
+		return err
+	}
+
+	bt.URL = ubt.URL
+	bt.Confirmations = ubt.Confirmations
+	bt.MinimumContractPayment = ubt.MinimumContractPayment
+	return ubt.store.Save(&bt)
 }
 
 // Marshal encodes the bridge with the JSON-API presenter
 func (ubt UpdateBridgeType) Marshal() ([]byte, error) {
+	bt, err := ubt.findBridge()
+	if err != nil {
+		return []byte{}, err
+	}
+
 	return jsonapi.Marshal(
-		presenters.BridgeType{BridgeType: ubt.bridgeType},
+		presenters.BridgeType{BridgeType: bt},
 	)
+}
+
+func (ubt UpdateBridgeType) findBridge() (models.BridgeType, error) {
+	return ubt.store.FindBridge(ubt.bridgeName)
 }
