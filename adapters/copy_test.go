@@ -67,13 +67,13 @@ func TestCopy_UnmarshalJSON(t *testing.T) {
 		want      []string
 		wantError bool
 	}{
-		{"array", `{"path":["1","b"]}`, []string{"1", "b"}, false},
-		{"array with dots", `{"path":["1",".","b"]}`, []string{"1", ".", "b"}, false},
-		{"string", `{"path":"first"}`, []string{"first"}, false},
-		{"dot delimited", `{"path":"1.b"}`, []string{"1", "b"}, false},
-		{"dot delimited empty string", `{"path":"1...b"}`, []string{"1", "", "", "b"}, false},
-		{"unclosed array errors", `{"path":["1"}`, []string{}, true},
-		{"unclosed string errors", `{"path":"1.2}`, []string{}, true},
+		{"array", `{"copyPath":["1","b"]}`, []string{"1", "b"}, false},
+		{"array with dots", `{"copyPath":["1",".","b"]}`, []string{"1", ".", "b"}, false},
+		{"string", `{"copyPath":"first"}`, []string{"first"}, false},
+		{"dot delimited", `{"copyPath":"1.b"}`, []string{"1", "b"}, false},
+		{"dot delimited empty string", `{"copyPath":"1...b"}`, []string{"1", "", "", "b"}, false},
+		{"unclosed array errors", `{"copyPath":["1"}`, []string{}, true},
+		{"unclosed string errors", `{"copyPath":"1.2}`, []string{}, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestCopy_UnmarshalJSON(t *testing.T) {
 			err := json.Unmarshal([]byte(test.input), &a)
 			cltest.AssertError(t, test.wantError, err)
 			if !test.wantError {
-				assert.Equal(t, test.want, []string(a.Path))
+				assert.Equal(t, test.want, []string(a.CopyPath))
 			}
 		})
 	}

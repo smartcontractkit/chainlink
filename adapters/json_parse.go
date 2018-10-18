@@ -131,6 +131,7 @@ func isArray(js *simplejson.Json, key string) bool {
 // JSONPath is a path to a value in a JSON object
 type JSONPath []string
 
+// UnmarshalJSON implements the Unmarshaler interface
 func (jp *JSONPath) UnmarshalJSON(b []byte) error {
 	strs := []string{}
 	var err error
