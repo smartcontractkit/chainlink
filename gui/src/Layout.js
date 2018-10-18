@@ -9,6 +9,8 @@ import ListItemText from '@material-ui/core/ListItemText'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
+import Typography from '@material-ui/core/Typography'
+import Hidden from '@material-ui/core/Hidden'
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
 import Loading from 'components/Loading'
@@ -40,34 +42,48 @@ const JobSpecRun = universal(import('./containers/JobSpecRun'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
 const SignOut = universal(import('./containers/SignOut'), uniOpts)
 
-const appBarHeight = 70
+const appBarHeight = 90
 const drawerWidth = 240
 
 // Custom styles
 const styles = theme => {
   return {
     appBar: {
-      backgroundColor: theme.palette.background.appBar,
+      backgroundColor: theme.palette.common.white,
       paddingLeft: theme.spacing.unit * 5,
       paddingRight: theme.spacing.unit * 5,
       zIndex: theme.zIndex.modal + 1
-    },
-    appBarContent: {
-      height: appBarHeight
     },
     content: {
       margin: theme.spacing.unit * 5,
       marginTop: 0
     },
-    menuButton: {
-      color: theme.palette.common.white
-    },
     menuitem: {
       padding: theme.spacing.unit * 3,
       display: 'block'
     },
+    horizontalNav: {
+      paddingBottom: 0
+    },
+    horizontalNavItem: {
+      display: 'inline'
+    },
+    horizontalNavLink: {
+      color: theme.palette.primary.dark,
+      paddingTop: theme.spacing.unit * 4,
+      paddingBottom: theme.spacing.unit * 4,
+      textDecoration: 'none',
+      display: 'inline-block',
+      borderBottom: 'solid 1px',
+      borderBottomColor: theme.palette.common.white,
+      '&:hover': {
+        color: theme.palette.primary.main,
+        borderBottomColor: theme.palette.primary.main
+      }
+    },
     drawerPaper: {
       backgroundColor: theme.palette.common.white,
+      paddingTop: theme.spacing.unit * 7,
       width: drawerWidth
     },
     drawerList: {
@@ -103,7 +119,6 @@ class Layout extends Component {
         }}
         onClose={this.toggleDrawer}
       >
-        <div className={classes.toolbar} />
         <div
           tabIndex={0}
           role='button'
@@ -116,26 +131,44 @@ class Layout extends Component {
             <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
               <ListItemText primary='Bridges' />
             </ListItem>
-            <ListItem button component={Link} to='/create/job' className={classes.menuitem}>
-              <ListItemText primary='Create Job' />
-            </ListItem>
-            <ListItem button component={Link} to='/bridges/new' className={classes.menuitem}>
-              <ListItemText primary='New Bridge' />
-            </ListItem>
             <ListItem button component={Link} to='/config' className={classes.menuitem}>
               <ListItemText primary='Configuration' />
             </ListItem>
             <ListItem button component={Link} to='/about' className={classes.menuitem}>
               <ListItemText primary='About' />
             </ListItem>
-            { this.props.authenticated &&
-            <ListItem button onClick={this.signOut} className={classes.menuitem}>
-              <ListItemText primary='Sign Out' />
-            </ListItem>
+            {this.props.authenticated &&
+              <ListItem button onClick={this.signOut} className={classes.menuitem}>
+                <ListItemText primary='Sign Out' />
+              </ListItem>
             }
           </List>
         </div>
       </Drawer>
+    )
+
+    const nav = (
+      <Typography variant='body1' component='div'>
+        <List className={classes.horizontalNav}>
+          <ListItem className={classes.horizontalNavItem}>
+            <Link to='/' className={classes.horizontalNavLink}>Jobs</Link>
+          </ListItem>
+          <ListItem className={classes.horizontalNavItem}>
+            <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
+          </ListItem>
+          <ListItem className={classes.horizontalNavItem}>
+            <Link to='/config' className={classes.horizontalNavLink}>Configuration</Link>
+          </ListItem>
+          <ListItem className={classes.horizontalNavItem}>
+            <Link to='/about' className={classes.horizontalNavLink}>About</Link>
+          </ListItem>
+          {this.props.authenticated &&
+            <ListItem className={classes.horizontalNavItem}>
+              <Link to='/signout' className={classes.horizontalNavLink}>Sign Out</Link>
+            </ListItem>
+          }
+        </List>
+      </Typography>
     )
 
     return (
@@ -149,21 +182,24 @@ class Layout extends Component {
               position='absolute'
             >
               <Grid container alignItems='center' className={classes.appBarContent}>
-                <Grid item xs={9}>
+                <Grid item xs={6} md={4}>
                   <Link to='/'>
-                    <Logo width={39} height={45} spin={isFetching} />
+                    <Logo width={40} height={50} spin={isFetching} />
                   </Link>
                 </Grid>
-                <Grid item xs={3}>
-                  <div align='right'>
-                    <IconButton
-                      aria-label='open drawer'
-                      onClick={this.toggleDrawer}
-                      className={classes.menuButton}
-                    >
-                      <MenuIcon />
-                    </IconButton>
-                  </div>
+                <Grid item xs={6} md={8}>
+                  <Grid container justify='flex-end'>
+                    <Grid item>
+                      <Hidden mdUp>
+                        <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
+                          <MenuIcon />
+                        </IconButton>
+                      </Hidden>
+                      <Hidden smDown>
+                        {nav}
+                      </Hidden>
+                    </Grid>
+                  </Grid>
                 </Grid>
               </Grid>
             </AppBar>
