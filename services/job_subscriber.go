@@ -93,7 +93,7 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 		"pending_run_count", len(pendingRuns)}...,
 	)
 	for _, jr := range pendingRuns {
-		err := ResumeConfirmingTask(&jr, js.store, ibn)
+		_, err := ResumeConfirmingTask(&jr, js.store, ibn)
 		if err != nil {
 			logger.Error("JobSubscriber.OnNewHead: ", err.Error())
 		}

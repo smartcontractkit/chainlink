@@ -58,7 +58,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{Data: data}, nil, jrc.App.Store); err != nil {
 		c.AbortWithError(500, err)
-	} else if doc, err := jsonapi.Marshal(presenters.JobRun{jr}); err != nil {
+	} else if doc, err := jsonapi.Marshal(presenters.JobRun{JobRun: *jr}); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.Data(200, MediaType, doc)
@@ -82,7 +82,7 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 		c.AbortWithError(404, errors.New("Job Run not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
-	} else if doc, err := jsonapi.Marshal(presenters.JobRun{jr}); err != nil {
+	} else if doc, err := jsonapi.Marshal(presenters.JobRun{JobRun: jr}); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.Data(200, MediaType, doc)
@@ -108,7 +108,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if _, err := bt.Authenticate(utils.StripBearer(c.Request.Header.Get("Authorization"))); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
-	} else if err = services.ResumePendingTask(&jr, jrc.App.Store, brr.RunResult); err != nil {
+	} else if _, err = services.ResumePendingTask(&jr, jrc.App.Store, brr.RunResult); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, gin.H{"id": jr.ID})

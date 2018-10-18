@@ -9,7 +9,7 @@ func ExportedExecuteRunAtBlock(
 	run *models.JobRun,
 	store *store.Store,
 	input models.RunResult,
-) error {
+) (*models.JobRun, error) {
 	return executeRun(run, store)
 }
 

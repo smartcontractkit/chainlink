@@ -172,30 +172,30 @@ func TestResumePendingTask(t *testing.T) {
 	defer cleanup()
 
 	// reject a run with an invalid state
-	run := models.JobRun{}
-	err := services.ResumePendingTask(&run, store, models.RunResult{})
+	run := &models.JobRun{}
+	run, err := services.ResumePendingTask(run, store, models.RunResult{})
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = models.JobRun{Status: models.RunStatusPendingBridge}
-	err = services.ResumePendingTask(&run, store, models.RunResult{})
+	run = &models.JobRun{Status: models.RunStatusPendingBridge}
+	run, err = services.ResumePendingTask(run, store, models.RunResult{})
 	assert.Error(t, err)
 
 	// input with error errors run
-	run = models.JobRun{
+	run = &models.JobRun{
 		Status:   models.RunStatusPendingBridge,
 		TaskRuns: []models.TaskRun{models.TaskRun{}},
 	}
-	err = services.ResumePendingTask(&run, store, models.RunResult{Status: models.RunStatusErrored})
+	run, err = services.ResumePendingTask(run, store, models.RunResult{Status: models.RunStatusErrored})
 	assert.Error(t, err)
 
 	// completed input with remaining tasks should put task into pending
-	run = models.JobRun{
+	run = &models.JobRun{
 		Status:   models.RunStatusPendingBridge,
 		TaskRuns: []models.TaskRun{models.TaskRun{}, models.TaskRun{}},
 	}
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-	err = services.ResumePendingTask(&run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	run, err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
@@ -203,11 +203,11 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
 
 	// completed input with no remaining tasks should get marked as complete
-	run = models.JobRun{
+	run = &models.JobRun{
 		Status:   models.RunStatusPendingBridge,
 		TaskRuns: []models.TaskRun{models.TaskRun{}},
 	}
-	err = services.ResumePendingTask(&run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	run, err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
@@ -220,36 +220,36 @@ func TestResumeConfirmingTask(t *testing.T) {
 	defer cleanup()
 
 	// reject a run with an invalid state
-	run := models.JobRun{}
-	err := services.ResumeConfirmingTask(&run, store, big.NewInt(0))
+	run := &models.JobRun{}
+	run, err := services.ResumeConfirmingTask(run, store, big.NewInt(0))
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = models.JobRun{Status: models.RunStatusPendingConfirmations}
-	err = services.ResumeConfirmingTask(&run, store, big.NewInt(0))
+	run = &models.JobRun{Status: models.RunStatusPendingConfirmations}
+	run, err = services.ResumeConfirmingTask(run, store, big.NewInt(0))
 	assert.Error(t, err)
 
 	// leave in pending if not enough confirmations have been met yet
 	creationHeight := cltest.BigHexInt(0)
-	run = models.JobRun{
+	run = &models.JobRun{
 		ID:             utils.NewBytes32ID(),
 		CreationHeight: &creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns:       []models.TaskRun{models.TaskRun{MinimumConfirmations: 2, Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
 	}
-	err = services.ResumeConfirmingTask(&run, store, big.NewInt(0))
+	run, err = services.ResumeConfirmingTask(run, store, big.NewInt(0))
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
 
 	// input, should go from pending -> in progress and save the input
 	creationHeight = cltest.BigHexInt(0)
-	run = models.JobRun{
+	run = &models.JobRun{
 		ID:             utils.NewBytes32ID(),
 		CreationHeight: &creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns:       []models.TaskRun{models.TaskRun{MinimumConfirmations: 1, Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
 	}
-	err = services.ResumeConfirmingTask(&run, store, big.NewInt(1))
+	run, err = services.ResumeConfirmingTask(run, store, big.NewInt(1))
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
@@ -266,27 +266,27 @@ func TestQueueSleepingTask(t *testing.T) {
 	store.Clock = cltest.NeverClock{}
 
 	// reject a run with an invalid state
-	run := models.JobRun{}
-	err := services.QueueSleepingTask(&run, store)
+	run := &models.JobRun{}
+	run, err := services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = models.JobRun{Status: models.RunStatusPendingSleep}
-	err = services.QueueSleepingTask(&run, store)
+	run = &models.JobRun{Status: models.RunStatusPendingSleep}
+	run, err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// reject a run that is sleeping but its task is not
-	run = models.JobRun{
+	run = &models.JobRun{
 		ID:       utils.NewBytes32ID(),
 		Status:   models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{Task: models.TaskSpec{Type: adapters.TaskTypeSleep}}},
 	}
-	err = services.QueueSleepingTask(&run, store)
+	run, err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// error decoding params into adapter
 	inputFromTheFuture := cltest.ParseJSON(bytes.NewBuffer([]byte(`{"until": -1}`)))
-	run = models.JobRun{
+	run = &models.JobRun{
 		ID:     utils.NewBytes32ID(),
 		Status: models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
@@ -299,18 +299,18 @@ func TestQueueSleepingTask(t *testing.T) {
 			},
 		},
 	}
-	err = services.QueueSleepingTask(&run, store)
+	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusErrored), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusErrored), string(run.Status))
 
 	// mark run as pending, task as completed if duration has already elapsed
-	run = models.JobRun{
+	run = &models.JobRun{
 		ID:       utils.NewBytes32ID(),
 		Status:   models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{Status: models.RunStatusPendingSleep, Task: models.TaskSpec{Type: adapters.TaskTypeSleep}}},
 	}
-	err = services.QueueSleepingTask(&run, store)
+	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
@@ -325,7 +325,7 @@ func TestQueueSleepingTask(t *testing.T) {
 	clock.SetTime(time.Time{})
 
 	inputFromTheFuture = sleepAdapterParams(60)
-	run = models.JobRun{
+	run = &models.JobRun{
 		ID:     utils.NewBytes32ID(),
 		Status: models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
@@ -338,7 +338,7 @@ func TestQueueSleepingTask(t *testing.T) {
 			},
 		},
 	}
-	err = services.QueueSleepingTask(&run, store)
+	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.Status))
@@ -349,7 +349,7 @@ func TestQueueSleepingTask(t *testing.T) {
 	assert.True(t, open)
 	assert.Equal(t, run.ID, runRequest.ID)
 
-	run, err = store.ORM.FindJobRun(run.ID)
+	*run, err = store.ORM.FindJobRun(run.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
