@@ -173,7 +173,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
-			run.ApplyResult(models.RunResult{Status: test.status})
+			run = run.ApplyResult(models.RunResult{Status: test.status})
 			assert.Nil(t, store.Save(&run))
 
 			js.OnNewHead(block)

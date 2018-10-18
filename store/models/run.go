@@ -56,13 +56,14 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	if jr.Result.HasError() {
-		output = append(output, "error", jr.Result.Error())
+		output = append(output, "job_error", jr.Result.Error())
 	}
 
 	return append(kvs, output...)
 }
 
-func (jr JobRun) nextTaskIndex() (int, bool) {
+// NextTaskRunIndex returns the position of the next unfinished task
+func (jr JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
 		if !(tr.Status.Completed() || tr.Status.Errored()) {
 			return index, true
@@ -71,51 +72,48 @@ func (jr JobRun) nextTaskIndex() (int, bool) {
 	return 0, false
 }
 
-// CurrentTaskRuns gets the previous task run that completed and the next run
-// to be processed
-func (jr JobRun) CurrentTaskRuns() (*TaskRun, *TaskRun) {
-	nextTaskIndex, runnable := jr.nextTaskIndex()
-	if runnable {
-		var previousTaskRun *TaskRun
-		if nextTaskIndex > 0 {
-			previousTaskRun = &jr.TaskRuns[nextTaskIndex-1]
-		}
-		return previousTaskRun, &jr.TaskRuns[nextTaskIndex]
-	}
-	return nil, nil
-}
-
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
 func (jr JobRun) NextTaskRun() *TaskRun {
-	nextTaskIndex, runnable := jr.nextTaskIndex()
+	nextTaskIndex, runnable := jr.NextTaskRunIndex()
 	if runnable {
 		return &jr.TaskRuns[nextTaskIndex]
 	}
 	return nil
 }
 
+// PreviousTaskRun returns the last task to be processed, if it exists
+func (jr JobRun) PreviousTaskRun() *TaskRun {
+	index, runnable := jr.NextTaskRunIndex()
+	if runnable && index > 0 {
+		return &jr.TaskRuns[index-1]
+	}
+	return nil
+}
+
 // TasksRemain returns true if there are unfinished tasks left for this job run
 func (jr JobRun) TasksRemain() bool {
-	_, runnable := jr.nextTaskIndex()
+	_, runnable := jr.NextTaskRunIndex()
 	return runnable
 }
 
 // ApplyResult updates the JobRun's Result and Status
-func (jr *JobRun) ApplyResult(result RunResult) {
+func (jr JobRun) ApplyResult(result RunResult) JobRun {
 	jr.Result = result
 	jr.Status = result.Status
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	}
+	return jr
 }
 
 // MarkCompleted sets the JobRun's status to completed and records the
 // completed at time.
-func (jr *JobRun) MarkCompleted() {
+func (jr JobRun) MarkCompleted() JobRun {
 	jr.Status = RunStatusCompleted
 	jr.Result.Status = RunStatusCompleted
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
+	return jr
 }
 
 // TaskRun stores the Task and represents the status of the
@@ -150,15 +148,17 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 }
 
 // ApplyResult updates the TaskRun's Result and Status
-func (tr *TaskRun) ApplyResult(result RunResult) {
+func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
 	tr.Result = result
 	tr.Status = result.Status
+	return tr
 }
 
 // MarkCompleted marks the task's status as completed.
-func (tr *TaskRun) MarkCompleted() {
+func (tr TaskRun) MarkCompleted() TaskRun {
 	tr.Status = RunStatusCompleted
 	tr.Result.Status = RunStatusCompleted
+	return tr
 }
 
 // MarkPendingConfirmations marks the task's status as blocked.
