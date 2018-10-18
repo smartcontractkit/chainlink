@@ -36,12 +36,12 @@ describe('containers/Bridges/New', () => {
     const store = createStore()
     const wrapper = mountNew(store)
     expect(wrapper.find('form button').getDOMNode().disabled).toEqual(true)
-    formikFillIn(wrapper, 'input#name', 'someRandomBridge', 'name')
+    formikFillIn(wrapper, 'input[name="name"]', 'someRandomBridge', 'name')
 
     await syncFetch(wrapper)
     expect(wrapper.find('form button').getDOMNode().disabled).toEqual(true)
 
-    formikFillIn(wrapper, 'input#url', 'https://bridges.com', 'url')
+    formikFillIn(wrapper, 'input[name="url"]', 'https://bridges.com', 'url')
     await syncFetch(wrapper)
     expect(wrapper.find('form button').getDOMNode().disabled).toEqual(false)
   })
