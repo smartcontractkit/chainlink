@@ -9,8 +9,7 @@ import ListItemText from '@material-ui/core/ListItemText'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
-import Tabs from '@material-ui/core/Tabs'
-import Tab from '@material-ui/core/Tab'
+import Hidden from '@material-ui/core/Hidden';
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
 import Loading from 'components/Loading'
@@ -156,9 +155,11 @@ class Layout extends Component {
                 <Grid item xs={6}>
                   <Grid container justify='flex-end'>
                     <Grid item>
-                      <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
-                        <MenuIcon />
-                      </IconButton>
+                      <Hidden smUp>
+                        <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
+                          <MenuIcon />
+                        </IconButton>
+                      </Hidden>
                     </Grid>
                   </Grid>
                 </Grid>
