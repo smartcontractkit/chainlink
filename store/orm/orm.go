@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"math/big"
@@ -446,7 +447,7 @@ func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 		return "", err
 	}
 
-	if sr.Email != user.Email {
+	if !constantTimeEmailCompare(sr.Email, user.Email) {
 		return "", errors.New("Invalid email")
 	}
 
@@ -455,6 +456,17 @@ func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 		return session.ID, orm.Save(&session)
 	}
 	return "", errors.New("Invalid password")
+}
+
+const constantTimeEmailLength = 256
+
+func constantTimeEmailCompare(left, right string) bool {
+	length := utils.MaxInt(constantTimeEmailLength, len(left), len(right))
+	leftBytes := make([]byte, length)
+	rightBytes := make([]byte, length)
+	copy(leftBytes, left)
+	copy(rightBytes, right)
+	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
 // InitializeModel uses reflection on the passed klass to generate a bucket

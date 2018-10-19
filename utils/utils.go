@@ -89,6 +89,9 @@ func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
+// NewBytes32Length holds the length of bytes needed for Bytes32ID.
+const NewBytes32Length = 32
+
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
@@ -266,6 +269,17 @@ func (cs ConstantSleeper) Duration() time.Duration {
 func MaxUint64(uints ...uint64) uint64 {
 	var max uint64
 	for _, n := range uints {
+		if n > max {
+			max = n
+		}
+	}
+	return max
+}
+
+// MaxInt finds the maximum value of a list of ints.
+func MaxInt(ints ...int) int {
+	var max int
+	for _, n := range ints {
 		if n > max {
 			max = n
 		}

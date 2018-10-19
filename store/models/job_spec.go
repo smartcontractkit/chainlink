@@ -1,6 +1,7 @@
 package models
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -265,7 +266,9 @@ func (bt *BridgeType) SetID(value string) error {
 // Authenticate returns true if the passed token matches its IncomingToken, or
 // returns false with an error.
 func (bt BridgeType) Authenticate(token string) (bool, error) {
-	if token == bt.IncomingToken {
+	var asbytes [utils.NewBytes32Length]byte
+	copy(asbytes[:], token)
+	if subtle.ConstantTimeCompare(asbytes[:], []byte(bt.IncomingToken)) == 1 {
 		return true, nil
 	}
 	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
