@@ -69,7 +69,7 @@ const styles = theme => {
       display: 'inline'
     },
     horizontalNavLink: {
-      color: theme.palette.primary.dark,
+      color: theme.palette.text.primary,
       paddingTop: theme.spacing.unit * 4,
       paddingBottom: theme.spacing.unit * 4,
       textDecoration: 'none',

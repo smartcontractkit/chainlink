@@ -8,7 +8,7 @@ const MetaInfo = ({title, value}) => (
     <Typography gutterBottom variant='headline' component='h2'>
       {title}
     </Typography>
-    <Typography variant='display2' color='inherit'>
+    <Typography variant='body1' color='textSecondary'>
       {value}
     </Typography>
   </PaddedCard>

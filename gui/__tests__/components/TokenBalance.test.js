@@ -4,20 +4,20 @@ import TokenBalance from 'components/TokenBalance.js'
 
 describe('components/TokenBalance', () => {
   it('renders the title and a loading indicator when it is fetching', () => {
-    const wrapper = mount(<TokenBalance title='Ethereum' value={null} />)
+    const wrapper = mount(<TokenBalance title='Ether Balance' value={null} />)
 
-    expect(wrapper.text()).toContain('Ethereum...')
+    expect(wrapper.text()).toContain('Ether Balance...')
   })
 
   it('renders the title and the error message', () => {
-    const wrapper = mount(<TokenBalance title='Ethereum' error='An Error' />)
+    const wrapper = mount(<TokenBalance title='Ether Balance' error='An Error' />)
 
-    expect(wrapper.text()).toContain('EthereumAn Error')
+    expect(wrapper.text()).toContain('Ether BalanceAn Error')
   })
 
   it('renders the title and the formatted balance', () => {
-    const wrapper = mount(<TokenBalance title='Ethereum' value='10120000000000000000000' />)
+    const wrapper = mount(<TokenBalance title='Ether Balance' value='10120000000000000000000' />)
 
-    expect(wrapper.text()).toContain('Ethereum10.12k')
+    expect(wrapper.text()).toContain('Ether Balance10.12k')
   })
 })
