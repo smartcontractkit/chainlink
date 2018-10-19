@@ -103,6 +103,20 @@ contract('Coordinator', () => {
         /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d', '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
         /// / )
       })
+
+      it('returns the SAID', async () => {
+        const said = await coordinator.initiateServiceAgreement.call(
+          toHex(payment),
+          toHex(expiration),
+          oracles.map(toHex),
+          [oracleSignature.v],
+          [oracleSignature.r].map(toHex),
+          [oracleSignature.s].map(toHex),
+          toHex(requestDigest)
+        )
+        const expected = toHex(calculateSAID(payment, expiration, oracles, requestDigest))
+        assert.equal(said, expected)
+      })
     })
 
     context("with an invalid oracle signatures", () => {
