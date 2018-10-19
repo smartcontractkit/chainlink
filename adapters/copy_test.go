@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"log"
@@ -53,6 +54,34 @@ func TestCopy_Perform(t *testing.T) {
 				assert.NotNil(t, result.GetError())
 			} else {
 				assert.Nil(t, result.GetError())
+			}
+		})
+	}
+}
+
+func TestCopy_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		input     string
+		want      []string
+		wantError bool
+	}{
+		{"array", `{"copyPath":["1","b"]}`, []string{"1", "b"}, false},
+		{"array with dots", `{"copyPath":["1",".","b"]}`, []string{"1", ".", "b"}, false},
+		{"string", `{"copyPath":"first"}`, []string{"first"}, false},
+		{"dot delimited", `{"copyPath":"1.b"}`, []string{"1", "b"}, false},
+		{"dot delimited empty string", `{"copyPath":"1...b"}`, []string{"1", "", "", "b"}, false},
+		{"unclosed array errors", `{"copyPath":["1"}`, []string{}, true},
+		{"unclosed string errors", `{"copyPath":"1.2}`, []string{}, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			a := adapters.Copy{}
+			err := json.Unmarshal([]byte(test.input), &a)
+			cltest.AssertError(t, test.wantError, err)
+			if !test.wantError {
+				assert.Equal(t, test.want, []string(a.CopyPath))
 			}
 		})
 	}

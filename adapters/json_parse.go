@@ -16,7 +16,7 @@ import (
 // JSONParse holds a path to the desired field in a JSON object,
 // made up of an array of strings.
 type JSONParse struct {
-	Path jsonPath `json:"path"`
+	Path JSONPath `json:"path"`
 }
 
 // Perform returns the value associated to the desired field for a
@@ -128,9 +128,11 @@ func isArray(js *simplejson.Json, key string) bool {
 	return true
 }
 
-type jsonPath []string
+// JSONPath is a path to a value in a JSON object
+type JSONPath []string
 
-func (jp *jsonPath) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON implements the Unmarshaler interface
+func (jp *JSONPath) UnmarshalJSON(b []byte) error {
 	strs := []string{}
 	var err error
 	if utils.IsQuoted(b) {
@@ -138,6 +140,6 @@ func (jp *jsonPath) UnmarshalJSON(b []byte) error {
 	} else {
 		err = json.Unmarshal(b, &strs)
 	}
-	*jp = jsonPath(strs)
+	*jp = JSONPath(strs)
 	return err
 }
