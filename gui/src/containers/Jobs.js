@@ -39,10 +39,10 @@ const renderJobsList = props => {
 const renderSidebar = ({ ethBalance, linkBalance, jobCount, accountBalanceError }) => (
   <Grid container spacing={24}>
     <Grid item xs={12}>
-      <TokenBalance title='Ethereum' value={ethBalance} error={accountBalanceError} />
+      <TokenBalance title='Link Balance' value={linkBalance} error={accountBalanceError} />
     </Grid>
     <Grid item xs={12}>
-      <TokenBalance title='Link' value={linkBalance} error={accountBalanceError} />
+      <TokenBalance title='Ether Balance' value={ethBalance} error={accountBalanceError} />
     </Grid>
     <Grid item xs={12}>
       <MetaInfo title='Jobs' value={jobCount} />

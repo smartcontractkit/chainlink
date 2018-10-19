@@ -8,7 +8,6 @@ export default {
     primary: {
       light: '#776bfa',
       main: '#3c40c6',
-      dark: '#3d5170',
       contrastText: '#fff'
     },
     secondary: {
@@ -29,6 +28,10 @@ export default {
     background: {
       default: '#f5f6f8',
       appBar: '#3c40c6'
+    },
+    text: {
+      primary: '#3d5170',
+      secondary: '#818ea3'
     }
   },
   typography: {
