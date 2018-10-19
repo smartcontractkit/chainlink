@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
@@ -146,6 +147,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan store.RunReques
 			}
 
 			if jr.Status.Finished() {
+				logNodeBalances(rm.store)
 				return
 			}
 		case <-rm.done:
@@ -366,6 +368,15 @@ func wrapExecuteRunAtBlockError(run models.JobRun, err error) error {
 		return fmt.Errorf("executeRunAtBlock: Job#%v: %v", run.JobID, err)
 	}
 	return nil
+}
+
+func logNodeBalances(store *store.Store) {
+	kv, err := presenters.ShowEthBalance(store)
+	logger.WarnIf(err)
+	logger.Debugw(fmt.Sprint(kv["message"]), "address", kv["address"], "balance", kv["balance"])
+	kv, err = presenters.ShowLinkBalance(store)
+	logger.WarnIf(err)
+	logger.Debugw(fmt.Sprint(kv["message"]), "address", kv["address"], "balance", kv["balance"])
 }
 
 // RecurringScheduleJobError contains the field for the error message.
