@@ -65,25 +65,29 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		eth.Register("eth_getBlockByNumber", models.BlockHeader{})
 	})
 	assert.NoError(t, app.Start())
+	eth.EventuallyAllCalled(t)
 
 	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_sendRawTransaction", attempt1Hash)
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	eth.EventuallyAllCalled(t)
 
 	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
-		eth.Register("eth_sendRawTransaction", attempt1Hash)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
+	eth.EventuallyAllCalled(t)
+	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	eth.Context("ethTx.Perform()#3 at block 23460", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
@@ -91,13 +95,17 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
+	eth.EventuallyAllCalled(t)
+	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_sendRawTransaction", attempt2Hash)
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
+	eth.EventuallyAllCalled(t)
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
