@@ -89,6 +89,9 @@ func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
+// NewBytes32Length holds the length of bytes needed for Bytes32ID.
+const NewBytes32Length = 32
+
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
