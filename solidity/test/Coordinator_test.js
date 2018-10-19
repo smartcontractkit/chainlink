@@ -7,6 +7,7 @@ import {
   deploy,
   executeServiceAgreementBytes,
   functionSelector,
+  getLatestEvent,
   newAddress,
   newHash,
   oracleNode,
@@ -116,6 +117,22 @@ contract('Coordinator', () => {
         )
         const expected = toHex(calculateSAID(payment, expiration, oracles, requestDigest))
         assert.equal(said, expected)
+      })
+
+      it('logs an event', async () => {
+        await coordinator.initiateServiceAgreement(
+          toHex(payment),
+          toHex(expiration),
+          oracles.map(toHex),
+          [oracleSignature.v],
+          [oracleSignature.r].map(toHex),
+          [oracleSignature.s].map(toHex),
+          toHex(requestDigest)
+        )
+        
+        const event = await getLatestEvent(coordinator)
+        const expected = toHex(calculateSAID(payment, expiration, oracles, requestDigest))
+        assert.equal(expected, event.args.said)
       })
     })
 

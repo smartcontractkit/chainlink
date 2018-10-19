@@ -38,6 +38,11 @@ contract Coordinator {
     bytes data
   );
 
+  event NewServiceAgreement(
+    bytes32 indexed said,
+    bytes32 indexed requestDigest
+  );
+
   function onTokenTransfer(
     address _sender,
     uint256 _amount,
@@ -123,6 +128,8 @@ contract Coordinator {
       _oracles,
       _requestDigest
     );
+
+    emit NewServiceAgreement(serviceAgreementID, _requestDigest);
   }
 
   function getOracleAddressFromSASignature(
