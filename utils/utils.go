@@ -276,6 +276,17 @@ func MaxUint64(uints ...uint64) uint64 {
 	return max
 }
 
+// MaxInt finds the maximum value of a list of ints.
+func MaxInt(ints ...int) int {
+	var max int
+	for _, n := range ints {
+		if n > max {
+			max = n
+		}
+	}
+	return max
+}
+
 // EVMSignedHexNumber formats a number as a 32 byte hex string
 // Twos compliment representation if a minus number
 func EVMSignedHexNumber(val *big.Int) (string, error) {
