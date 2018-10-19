@@ -1,4 +1,4 @@
-import { common, green, grey } from '@material-ui/core/colors'
+import { common, green } from '@material-ui/core/colors'
 
 export default {
   palette: {
@@ -27,8 +27,7 @@ export default {
       contrastText: '#BDE5F8'
     },
     background: {
-      default: common.white,
-      paper: grey[50],
+      default: '#f5f6f8',
       appBar: '#3c40c6'
     }
   },
