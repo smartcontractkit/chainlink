@@ -45,8 +45,8 @@ describe('containers/Job', () => {
     expect(wrapper.text()).toContain('web')
     expect(wrapper.text()).toContain('2018-05-10T00:41:54.531043837Z')
 
-    expect(wrapper.text()).toContain('Ethereum10.12k')
-    expect(wrapper.text()).toContain('Link7.46k')
+    expect(wrapper.text()).toContain('Link Balance7.46k')
+    expect(wrapper.text()).toContain('Ether Balance10.12k')
 
     expect(wrapper.text()).toContain('Jobs1')
   })
@@ -94,10 +94,10 @@ describe('containers/Job', () => {
       'There was an error fetching the jobs. Please reload the page.'
     )
     expect(wrapper.text()).toContain(
-      'Ethereumerror fetching balance'
+      'Ether Balanceerror fetching balance'
     )
     expect(wrapper.text()).toContain(
-      'Linkerror fetching balance'
+      'Link Balanceerror fetching balance'
     )
   })
 })

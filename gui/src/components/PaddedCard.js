@@ -5,10 +5,10 @@ import { withStyles } from '@material-ui/core/styles'
 
 const styles = theme => ({
   card: {
-    paddingTop: theme.spacing.unit * 5,
-    paddingBottom: theme.spacing.unit * 5,
-    paddingLeft: theme.spacing.unit * 4,
-    paddingRight: theme.spacing.unit * 4
+    paddingTop: theme.spacing.unit * 2,
+    paddingBottom: theme.spacing.unit * 2,
+    paddingLeft: theme.spacing.unit * 3,
+    paddingRight: theme.spacing.unit * 3
   }
 })
 
