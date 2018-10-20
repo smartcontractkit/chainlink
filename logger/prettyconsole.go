@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -72,14 +73,25 @@ var detailsBlacklist = map[string]bool{
 }
 
 func generateDetails(js models.JSON) string {
-	var details string
-	for k, v := range js.Map() {
-		if detailsBlacklist[k] || len(v.String()) == 0 {
+	data := js.Map()
+	keys := []string{}
+
+	for k := range data {
+		if detailsBlacklist[k] || len(data[k].String()) == 0 {
 			continue
 		}
-		details += fmt.Sprintf("%s=%v ", green(k), v)
+		keys = append(keys, k)
 	}
-	return details
+
+	sort.Strings(keys)
+
+	var details strings.Builder
+
+	for _, v := range keys {
+		details.WriteString(fmt.Sprintf("%s=%v ", green(v), data[v]))
+	}
+
+	return details.String()
 }
 
 func coloredLevel(level gjson.Result) string {
