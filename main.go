@@ -112,6 +112,12 @@ func Run(client *cmd.Client, args ...string) {
 			Action:  client.CreateJobRun,
 		},
 		{
+			Name:    "showrun",
+			Aliases: []string{"sr"},
+			Usage:   "Show a job run for a RunID",
+			Action:  client.ShowJobRun,
+		},
+		{
 			Name:   "backup",
 			Usage:  "Backup the database of the running node",
 			Action: client.BackupDatabase,
