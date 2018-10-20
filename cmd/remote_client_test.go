@@ -53,6 +53,40 @@ func TestClient_GetJobSpecs(t *testing.T) {
 	assert.Equal(t, j1.ID, jobs[0].ID)
 }
 
+func TestClient_ShowJobRun_Exists(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	j, _ := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, app.Store.SaveJob(&j))
+
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
+
+	client, r := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{jr.ID})
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ShowJobRun(c))
+	assert.Equal(t, 1, len(r.Renders))
+	assert.Equal(t, jr.ID, r.Renders[0].(*presenters.JobRun).ID)
+}
+
+func TestClient_ShowJobRun_NotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	client, r := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{"bogus-ID"})
+	c := cli.NewContext(nil, set, nil)
+	assert.Error(t, client.ShowJobRun(c))
+	assert.Empty(t, r.Renders)
+}
+
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
