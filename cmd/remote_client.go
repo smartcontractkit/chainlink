@@ -65,6 +65,20 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &sa)
 }
 
+// ShowJobRun returns the status of the given Jobrun.
+func (cli *Client) ShowJobRun(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the RunID to show"))
+	}
+	resp, err := cli.HTTP.Get("/v2/runs/" + c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var job presenters.JobRun
+	return cli.renderAPIResponse(resp, &job)
+}
+
 // ShowJobSpec returns the status of the given JobID.
 func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	if !c.Args().Present() {
