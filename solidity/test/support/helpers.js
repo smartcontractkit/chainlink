@@ -1,3 +1,5 @@
+import { assertBigNum } from './matchers'
+
 process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../solidity/contracts/examples/:../../solidity/contracts/interfaces/:../../contracts/:../../node_modules/:../../node_modules/link_token/contracts:../../node_modules/openzeppelin-solidity/contracts/ownership/:../../node_modules/@ensdomains/ens/contracts/'
 
 const PRIVATE_KEY = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
@@ -13,63 +15,53 @@ const ethjsUtils = require('ethereumjs-util')
 
 const HEX_BASE = 16
 
-let consumer, defaultAccount, eth, oracleNode, stranger
 let deployer, utils, wallet
 
+// Default hard coded truffle accounts:
+// ==================
+// (0) 0x627306090abab3a6e1400e9345bc60c78a8bef57
+// (1) 0xf17f52151ebef6c7334fad080c5704d77216b732
+// (2) 0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef
+// (3) 0x821aea9a577a9b44299b9c15c88cf3087f3b5544
+// (4) 0x0d1d4e623d10f9fba5db95830f7d3839406c6af2
+// (5) 0x2932b7a2355d6fecc4b5c0b6bd44cc31df247a2e
+// (6) 0x2191ef87e392377ec08e7c08eb105ef5448eced5
+// (7) 0x0f4f2ac550a1b4e2280d04c21cea7ebd822934b5
+// (8) 0x6330a553fc93768f612722bb8c2ec78ac90b3bbc
+// (9) 0x5aeda56215b167893e80b4fe645ba6d5bab767de
+
+// Private Keys
+// ==================
+// (0) c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3
+// (1) ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f
+// (2) 0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1
+// (3) c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c
+// (4) 388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418
+// (5) 659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63
+// (6) 82d052c865f5763aad42add438569276c00d3d88a2d062d36b2bae914d58b8c8
+// (7) aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7
+// (8) 0f62d96d6675f32685bbdb8ac13cda7c23436f63efbb9d07700d8669ff12b7c4
+// (9) 8d5366123cb560bb606379f90a0bfd4769eecc0557f1b362dcae9012b548b1e5
+
+// HD Wallet
+// ==================
+// Mnemonic:      candy maple cake sugar pudding cream honey rich smooth crumble sweet treat
+// Base HD Path:  m/44'/60'/0'/0/{account_index}
+export const eth = web3.eth
+let accounts = eth.accounts
+export const defaultAccount = accounts[0]
+export const oracleNode = accounts[1]
+export const stranger = accounts[2]
+export const consumer = accounts[3]
+accounts = undefined;  //
+
 (() => {
-  eth = web3.eth
-
   before(async function () {
-    // Default hard coded truffle accounts:
-    // ==================
-    // (0) 0x627306090abab3a6e1400e9345bc60c78a8bef57
-    // (1) 0xf17f52151ebef6c7334fad080c5704d77216b732
-    // (2) 0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef
-    // (3) 0x821aea9a577a9b44299b9c15c88cf3087f3b5544
-    // (4) 0x0d1d4e623d10f9fba5db95830f7d3839406c6af2
-    // (5) 0x2932b7a2355d6fecc4b5c0b6bd44cc31df247a2e
-    // (6) 0x2191ef87e392377ec08e7c08eb105ef5448eced5
-    // (7) 0x0f4f2ac550a1b4e2280d04c21cea7ebd822934b5
-    // (8) 0x6330a553fc93768f612722bb8c2ec78ac90b3bbc
-    // (9) 0x5aeda56215b167893e80b4fe645ba6d5bab767de
-
-    // Private Keys
-    // ==================
-    // (0) c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3
-    // (1) ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f
-    // (2) 0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1
-    // (3) c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c
-    // (4) 388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418
-    // (5) 659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63
-    // (6) 82d052c865f5763aad42add438569276c00d3d88a2d062d36b2bae914d58b8c8
-    // (7) aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7
-    // (8) 0f62d96d6675f32685bbdb8ac13cda7c23436f63efbb9d07700d8669ff12b7c4
-    // (9) 8d5366123cb560bb606379f90a0bfd4769eecc0557f1b362dcae9012b548b1e5
-
-    // HD Wallet
-    // ==================
-    // Mnemonic:      candy maple cake sugar pudding cream honey rich smooth crumble sweet treat
-    // Base HD Path:  m/44'/60'/0'/0/{account_index}
-    const accounts = eth.accounts
-
-    defaultAccount = accounts[0]
-    oracleNode = accounts[1]
-    stranger = accounts[2]
-    consumer = accounts[3]
-
     utils = Utils(web3.currentProvider)
     wallet = Wallet(PRIVATE_KEY, utils)
     deployer = Deployer(wallet, utils)
   })
 })()
-
-export {
-  consumer,
-  defaultAccount,
-  eth,
-  oracleNode,
-  stranger
-}
 
 export const bigNum = number => web3.toBigNumber(number)
 
@@ -254,10 +246,12 @@ export const increaseTime5Minutes = async () => {
   })
 }
 
-export const calculateSAID = (payment, expiration, oracles, requestDigest) => {
+export const calculateSAID =
+  ({ payment, expiration, endAt, oracles, requestDigest }) => {
   const serviceAgreementIDInput = concatTypedArrays(
     payment,
     expiration,
+    endAt,
     concatTypedArrays(...(oracles.map(a => newHash(toHex(a))))),
     requestDigest)
   const serviceAgreementIDInputDigest = ethjsUtils.sha3(toHex(serviceAgreementIDInput))
@@ -293,4 +287,75 @@ export const executeServiceAgreementBytes = (sAID, to, fHash, runId, data) => {
   let encoded = abi.rawEncode(types, values)
   let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
   return funcSelector + encoded.toString('hex')
+}
+
+// Convenience functions for constructing hexadecimal representations of
+// binary serializations.
+export const padHexTo256Bit = (s) => s.padStart(64, '0')
+export const strip0x = (s) => s.startsWith('0x') ? s.slice(2) : s
+export const pad0xHexTo256Bit = (s) => padHexTo256Bit(strip0x(s))
+export const padNumTo256Bit = (n) => padHexTo256Bit(n.toString(16))
+
+export const initiateServiceAgreementArgs = ({
+  payment, expiration, endAt, oracles, oracleSignature, requestDigest }) => [
+    toHex(payment),
+    toHex(expiration),
+    toHex(endAt),
+    oracles.map(toHex),
+    [oracleSignature.v],
+    [oracleSignature.r].map(toHex),
+    [oracleSignature.s].map(toHex),
+    toHex(requestDigest)
+  ]
+
+/** Call coordinator contract to initiate the specified service agreement, and
+ * get the return value. */
+export const initiateServiceAgreementCall = async (coordinator, args) =>
+  await coordinator.initiateServiceAgreement.call(...initiateServiceAgreementArgs(args))
+
+/** Call coordinator contract to initiate the specified service agreement. */
+export const initiateServiceAgreement = async (coordinator, args) =>
+  await coordinator.initiateServiceAgreement(...initiateServiceAgreementArgs(args))
+
+/** Check that the given service agreement was stored at the correct location */
+export const checkServiceAgreementPresent =
+      async (coordinator, serviceAgreementID,
+             { payment, expiration, endAt, requestDigest }) => {
+               const sa = await coordinator.serviceAgreements.call(
+                 toHex(serviceAgreementID))
+               assertBigNum(sa[0], bigNum(toHex(payment)))
+               assertBigNum(sa[1], bigNum(toHex(expiration)))
+               assertBigNum(sa[2], bigNum(toHex(endAt)))
+               assert.equal(sa[3], toHex(requestDigest))
+
+               /// / TODO:
+
+               /// / Web3.js doesn't support generating an artifact for arrays
+               /// within a struct. / This means that we aren't returned the
+               /// list of oracles and / can't assert on their values.
+               /// /
+
+               /// / However, we can pass them into the function to generate the
+               /// ID / & solidity won't compile unless we pass the correct
+               /// number and / type of params when initializing the
+               /// ServiceAgreement struct, / so we have some indirect test
+               /// coverage.
+               /// /
+               /// / https://github.com/ethereum/web3.js/issues/1241
+               /// / assert.equal(
+               /// /   sa[2],
+               /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d',
+               /// /    '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
+               /// / )
+             }
+
+/** Check that all values for the struct at this SAID have default
+    values. I.e., nothing was changed due to invalid request */
+export const checkServiceAgreementAbsent = async (coordinator, serviceAgreementID) => {
+  const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
+  assertBigNum(sa[0], bigNum(0))
+  assertBigNum(sa[1], bigNum(0))
+  assertBigNum(sa[2], bigNum(0))
+  assert.equal(
+    sa[3], '0x0000000000000000000000000000000000000000000000000000000000000000')
 }

@@ -56,6 +56,17 @@ func NewJob() JobSpec {
 	}
 }
 
+// NewJobFromRequest creates a JobSpec from the corresponding parameters in a
+// JobSpecRequest
+func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
+	jobSpec := NewJob()
+	jobSpec.Initiators = jsr.Initiators
+	jobSpec.Tasks = jsr.Tasks
+	jobSpec.EndAt = jsr.EndAt
+	jobSpec.StartAt = jsr.StartAt
+	return jobSpec
+}
+
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
 func (j JobSpec) NewRun(i Initiator) JobRun {

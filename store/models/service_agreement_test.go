@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -26,13 +27,13 @@ func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
 				`{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},` +
 				`{"type":"jsonparse","path":["last"]},` +
 				`{"type":"ethbytes32"},{"type":"ethtx"}]}`,
-			"0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381",
+			"0x4080e87b11b47454e49e19de88af26d9c80628cff774780f4fb4260c12a7c8de",
 			assets.NewLink(1),
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var sar models.ServiceAgreementRequest
+			var sar models.JobSpecRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
 			us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(test.input))
@@ -58,13 +59,13 @@ func TestBuildServiceAgreement(t *testing.T) {
 				`{"type":"httpget","url":"https://bitstamp.net/api/ticker/"},` +
 				`{"type":"jsonparse","path":["last"]},` +
 				`{"type":"ethbytes32"},{"type":"ethtx"}]}`,
-			"0xc7106c5877b5bd321e5aac3842cd6ae68faf21e7e6ee45556b13f7b386104381",
+			"0x4080e87b11b47454e49e19de88af26d9c80628cff774780f4fb4260c12a7c8de",
 			assets.NewLink(1),
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var sar models.ServiceAgreementRequest
+			var sar models.JobSpecRequest
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
 			us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(test.input))
@@ -83,18 +84,30 @@ func TestBuildServiceAgreement(t *testing.T) {
 
 func TestEncumbrance_ABI(t *testing.T) {
 	t.Parallel()
+	endAt, _ := time.Parse("2006-01-02T15:04:05.000Z", "2007-01-02T15:04:05.000Z")
 
 	tests := []struct {
 		name       string
 		payment    *assets.Link
 		expiration int
+		endAt      models.Time
 		oracles    []models.EIP55Address
 		want       string
 	}{
-		{"basic", assets.NewLink(1), 2, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002"},
-		{"basic", assets.NewLink(3735928559), 2, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000deadbeef0000000000000000000000000000000000000000000000000000000000000002"},
-		{"empty", nil, 0, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
-		{"oracle address", nil, 0, []models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
+		{"basic", assets.NewLink(1), 2, models.Time{}, []models.EIP55Address{},
+			"0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002886e0900"},
+		{"basic dead beef payment", assets.NewLink(3735928559), 2, models.Time{}, []models.EIP55Address{},
+			"0x00000000000000000000000000000000000000000000000000000000deadbeef0000000000000000000000000000000000000000000000000000000000000002886e0900"},
+		{"empty", nil, 0, models.Time{}, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900"},
+		{"oracle address", nil, 0, models.Time{},
+			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
+			"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
+		{"oracle address", nil, 0, models.Time{},
+			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
+			"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
+		{"different endAt", nil, 0, models.Time{endAt},
+			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
+			"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000459a7465000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
 	}
 
 	for _, test := range tests {
@@ -102,12 +115,13 @@ func TestEncumbrance_ABI(t *testing.T) {
 			enc := models.Encumbrance{
 				Payment:    test.payment,
 				Expiration: uint64(test.expiration),
+				EndAt:      test.endAt,
 				Oracles:    test.oracles,
 			}
 
 			ebytes, err := enc.ABI()
 			assert.NoError(t, err)
-			assert.Equal(t, test.want, common.ToHex(ebytes))
+			assert.Equal(t, test.want, hexutil.Encode(ebytes))
 		})
 	}
 }
@@ -122,19 +136,26 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 	}{
 		{
 			"basic",
-			`{"payment":"1","initiators":[{"type":"web"}],"tasks":[{"type":"httpget",` +
-				`"url":"https://bitstamp.net/api/ticker/"},{"type":"jsonparse",` +
-				`"path":["last"]},{"type":"ethbytes32"},{"type":"ethtx"}]}`,
+			`{"encumbrance": {` +
+				`"payment":"1",` +
+				`"initiators":[{"type":"web"}],` +
+				`"tasks":[` +
+				`{"type":"HttpGet","params":{"get":"https://bitstamp.net/api/ticker/"}},` +
+				`{"type":"JsonParse","params":{"path":["last"]}},` +
+				`{"type":"EthBytes32","params":{"type":"ethtx"}}` +
+				`],` +
+				`"endAt":"2018-06-19T22:17:19Z"}` +
+				`}`,
 			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865",
 			assets.NewLink(1),
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var sar models.ServiceAgreementRequest
+			var sar models.ServiceAgreement
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &sar))
 
-			assert.Equal(t, test.wantPayment, sar.Payment)
+			assert.Equal(t, test.wantPayment, sar.Encumbrance.Payment)
 		})
 	}
 }
