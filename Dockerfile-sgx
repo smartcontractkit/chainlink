@@ -55,9 +55,9 @@ COPY --from=builder \
 ARG SGX_SIMULATION
 ENV SGX_SIMULATION $SGX_SIMULATION
 WORKDIR /root
-COPY ./chainlink-launcher.sh /root
-RUN chmod +x ./chainlink-launcher.sh
+COPY ./chainlink-launcher-sgx.sh /root
+RUN chmod +x ./chainlink-launcher-sgx.sh
 
 EXPOSE 6688
-ENTRYPOINT ["./chainlink-launcher.sh"]
+ENTRYPOINT ["./chainlink-launcher-sgx.sh"]
 CMD ["node"]
