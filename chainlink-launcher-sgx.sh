@@ -19,6 +19,8 @@ if [ "$SGXENABLED" = "yes" ] && [ "$SGX_SIMULATION" != "yes" ]; then
   aesm_pid=$!
 fi
 
+# XXX: Since chainlink has to run in the background in SGX mode, prevent it
+# from detecting a TTY so that it does not prompt for a password
 chainlink "$@" | cat &
 chainlink_pid=$!
 
