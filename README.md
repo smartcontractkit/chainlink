@@ -102,7 +102,7 @@ $ yarn install
 ```
 3. Run tests:
 ```bash
-$ truffle test
+$ yarn run test-sol
 ```
 ### Development Tips
 
