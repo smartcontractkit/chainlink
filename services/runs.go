@@ -197,10 +197,8 @@ func ResumePendingTask(
 	currentTaskRun = currentTaskRun.ApplyResult(input)
 	run.TaskRuns[currentTaskRunIndex] = currentTaskRun
 	if currentTaskRun.Status.Finished() && run.TasksRemain() {
-		fmt.Println("setting status to in progress")
 		run.Status = models.RunStatusInProgress
 	} else {
-		fmt.Println("applying result", input.Status)
 		*run = run.ApplyResult(input)
 	}
 
