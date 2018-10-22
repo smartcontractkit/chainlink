@@ -256,21 +256,36 @@ func performTaskSleep(
 		return saveAndTrigger(run, store)
 	}
 
-	go func() {
+	runCopy := models.JobRun{
+		ID:             run.ID,
+		JobID:          run.JobID,
+		Result:         run.Result,
+		Status:         run.Status,
+		TaskRuns:       make([]models.TaskRun, len(run.TaskRuns)),
+		CreatedAt:      run.CreatedAt,
+		CompletedAt:    run.CompletedAt,
+		Initiator:      run.Initiator,
+		CreationHeight: run.CreationHeight,
+		ObservedHeight: run.ObservedHeight,
+		Overrides:      run.Overrides,
+	}
+	copy(runCopy.TaskRuns, run.TaskRuns)
+
+	go func(run models.JobRun, task models.TaskRun) {
 		logger.Debugw("Task sleeping...", run.ForLogger()...)
 
 		<-store.Clock.After(duration)
 
 		task.Status = models.RunStatusCompleted
-		run.TaskRuns[currentTaskRunIndex] = *task
+		run.TaskRuns[currentTaskRunIndex] = task
 		run.Status = models.RunStatusInProgress
 
 		logger.Debugw("Waking job up after sleep", run.ForLogger()...)
 
-		if err := saveAndTrigger(run, store); err != nil {
+		if err := saveAndTrigger(&run, store); err != nil {
 			logger.Errorw("Error resuming sleeping job:", "error", err)
 		}
-	}()
+	}(runCopy, *task)
 
 	return nil
 }
