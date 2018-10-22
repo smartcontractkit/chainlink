@@ -28,6 +28,7 @@ import { isFetchingSelector } from 'selectors'
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = {loading: Loading}
+const DashboardsIndex = universal(import('./containers/Dashboards/Index'), uniOpts)
 const JobsIndex = universal(import('./containers/Jobs/Index'), uniOpts)
 const JobsShow = universal(import('./containers/Jobs/Show'), uniOpts)
 const JobsNew = universal(import('./containers/Jobs/New'), uniOpts)
@@ -125,7 +126,7 @@ class Layout extends Component {
           onClick={this.toggleDrawer}
         >
           <List className={classes.drawerList}>
-            <ListItem button component={Link} to='/' className={classes.menuitem}>
+            <ListItem button component={Link} to='/jobs' className={classes.menuitem}>
               <ListItemText primary='Jobs' />
             </ListItem>
             <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
@@ -151,7 +152,7 @@ class Layout extends Component {
       <Typography variant='body1' component='div'>
         <List className={classes.horizontalNav}>
           <ListItem className={classes.horizontalNavItem}>
-            <Link to='/' className={classes.horizontalNavLink}>Jobs</Link>
+            <Link to='/jobs' className={classes.horizontalNavLink}>Jobs</Link>
           </ListItem>
           <ListItem className={classes.horizontalNavItem}>
             <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
@@ -214,7 +215,8 @@ class Layout extends Component {
                   <Route exact path='/signin' component={SignIn} />
                   <PrivateRoute exact path='/signout' component={SignOut} />
                   {redirectTo && <Redirect to={redirectTo} />}
-                  <PrivateRoute exact path='/' component={JobsIndex} />
+                  <PrivateRoute exact path='/' component={DashboardsIndex} />
+                  <PrivateRoute exact path='/jobs' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/new' component={JobsNew} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobsShow} />
