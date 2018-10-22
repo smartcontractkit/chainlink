@@ -5,14 +5,14 @@ import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
-import { ConnectedJobSpec as JobSpec } from 'containers/JobSpec'
+import { ConnectedShow as Show } from 'containers/Jobs/Show'
 
 const classes = {}
-const mountJobSpec = (props) => (
+const mountShow = (props) => (
   mount(
     <Provider store={createStore()}>
       <Router>
-        <JobSpec classes={classes} {...props} />
+        <Show classes={classes} {...props} />
       </Router>
     </Provider>
   )
@@ -33,7 +33,7 @@ describe('containers/JobSpec', () => {
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
     const props = {match: {params: {jobSpecId: jobSpecId}}}
-    const wrapper = mountJobSpec(props)
+    const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('IDc60b9927eeae43168ddbe92584937b1b')
@@ -62,7 +62,7 @@ describe('containers/JobSpec', () => {
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
     const props = {match: {params: {jobSpecId: jobSpecId}}}
-    const wrapper = mountJobSpec(props)
+    const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Show More')

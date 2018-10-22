@@ -84,7 +84,7 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, submitJobSpecRun, fetch
                     </Button>
                   )}
                   <Button
-                    to={{ pathname: `/create/job`, state: { fromJson: definition } }}
+                    to={{ pathname: '/jobs/new', state: { fromJson: definition } }}
                     component={ReactStaticLinkComponent}
                     color='primary'
                     className={classes.duplicate}
@@ -172,7 +172,7 @@ const renderDetails = props => {
   }
 }
 
-export class JobSpec extends Component {
+export class Show extends Component {
   componentDidMount () {
     this.props.fetchJobSpec(this.props.jobSpecId)
   }
@@ -197,14 +197,14 @@ export class JobSpec extends Component {
   }
 }
 
-JobSpec.propTypes = {
+Show.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
   jobSpec: PropTypes.object,
   jobRunsCount: PropTypes.number
 }
 
-JobSpec.defaultProps = {
+Show.defaultProps = {
   latestJobRuns: []
 }
 
@@ -224,9 +224,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-export const ConnectedJobSpec = connect(
+export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobSpec, submitJobSpecRun })
-)(JobSpec)
+  matchRouteAndMapDispatchToProps({fetchJobSpec, submitJobSpecRun})
+)(Show)
 
-export default withStyles(styles)(ConnectedJobSpec)
+export default withStyles(styles)(ConnectedShow)

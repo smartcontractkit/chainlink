@@ -15,6 +15,7 @@ export default {
     return [
       {path: '/'},
       {path: '/jobs/page/_jobPage_'},
+      {path: '/jobs/new'},
       {path: '/job_specs/_jobSpecId_'},
       {path: '/job_specs/_jobSpecId_/runs'},
       {path: '/job_specs/_jobSpecId_/runs/page/_jobRunsPage_'},
@@ -26,7 +27,6 @@ export default {
       {path: '/config'},
       {path: '/signin'},
       {path: '/signout'},
-      {path: '/create/job'},
       {
         path: '/about',
         component: 'src/containers/About',

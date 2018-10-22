@@ -5,7 +5,7 @@ import AppBar from '@material-ui/core/AppBar'
 import Tabs from '@material-ui/core/Tabs'
 import Tab from '@material-ui/core/Tab'
 import Typography from '@material-ui/core/Typography'
-import JobForm from 'components/JobForm'
+import Form from 'components/Jobs/Form'
 import { Card } from '@material-ui/core'
 
 const styles = theme => ({
@@ -31,7 +31,7 @@ TabContainer.propTypes = {
   children: PropTypes.node.isRequired
 }
 
-const CreateJobSpec = props => {
+const New = props => {
   const { classes } = props
   const passJsonState = props.location && props.location.state
   return (
@@ -43,15 +43,15 @@ const CreateJobSpec = props => {
           </Tabs>
         </AppBar>
         <TabContainer>
-          <JobForm {...passJsonState} />
+          <Form {...passJsonState} />
         </TabContainer>
       </Card>
     </div>
   )
 }
 
-CreateJobSpec.propTypes = {
+New.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-export default withStyles(styles)(CreateJobSpec)
+export default withStyles(styles)(New)
