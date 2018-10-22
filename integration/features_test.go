@@ -530,5 +530,6 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 
 	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
+	assert.Equal(t, time.Unix(1571523439, 0).UTC(), sa.Encumbrance.EndAt.Time)
 	assert.NotEqual(t, "", sa.ID)
 }

@@ -30,12 +30,16 @@ import (
 // Config holds parameters used by the application which can be overridden
 // by setting environment variables.
 type Config struct {
-	AllowOrigins             string          `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
-	BridgeResponseURL        models.WebURL   `env:"BRIDGE_RESPONSE_URL" envDefault:""`
-	ChainID                  uint64          `env:"ETH_CHAIN_ID" envDefault:"0"`
-	ClientNodeURL            string          `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
-	DatabaseTimeout          Duration        `env:"DATABASE_TIMEOUT" envDefault:"500ms"`
-	Dev                      bool            `env:"CHAINLINK_DEV" envDefault:"false"`
+	AllowOrigins      string        `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
+	BridgeResponseURL models.WebURL `env:"BRIDGE_RESPONSE_URL" envDefault:""`
+	ChainID           uint64        `env:"ETH_CHAIN_ID" envDefault:"0"`
+	ClientNodeURL     string        `env:"CLIENT_NODE_URL" envDefault:"http://localhost:6688"`
+	DatabaseTimeout   Duration      `env:"DATABASE_TIMEOUT" envDefault:"500ms"`
+	Dev               bool          `env:"CHAINLINK_DEV" envDefault:"false"`
+	// How long from now that a service agreement is allowed to run. Default 1 year = 365 * 24h = 8760h
+	MaximumServiceDuration Duration `env:"MAXIMUM_SERVICE_DURATION" envDefault:"8760h"`
+	// Shortest duration from now that a service is allowed to run.
+	MinimumServiceDuration   Duration        `env:"MINIMUM_SERVICE_DURATION" envDefault:"0s"`
 	EthGasBumpThreshold      uint64          `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
 	EthGasBumpWei            big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
 	EthGasPriceDefault       big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
