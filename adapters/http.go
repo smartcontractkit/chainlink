@@ -1,5 +1,3 @@
-// +build !sgx_enclave
-
 package adapters
 
 import (
