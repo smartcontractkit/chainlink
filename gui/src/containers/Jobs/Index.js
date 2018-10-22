@@ -50,7 +50,7 @@ const renderSidebar = ({ ethBalance, linkBalance, jobCount, accountBalanceError 
   </Grid>
 )
 
-export class Jobs extends Component {
+export class Index extends Component {
   componentDidMount () {
     this.props.fetchAccountBalance()
   }
@@ -67,8 +67,8 @@ export class Jobs extends Component {
           <Grid item xs={3}>
             <Grid container justify='flex-end' >
               <Grid item>
-                <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/create/job'}>
-                  Create Job
+                <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/jobs/new'}>
+                  New Job
                 </Button>
               </Grid>
             </Grid>
@@ -88,7 +88,7 @@ export class Jobs extends Component {
   }
 }
 
-Jobs.propTypes = {
+Index.propTypes = {
   classes: PropTypes.object.isRequired,
   ethBalance: PropTypes.string,
   linkBalance: PropTypes.string,
@@ -99,7 +99,7 @@ Jobs.propTypes = {
   pageSize: PropTypes.number
 }
 
-Jobs.defaultProps = {
+Index.defaultProps = {
   pageSize: 10
 }
 
@@ -123,9 +123,9 @@ const mapStateToProps = state => {
   }
 }
 
-export const ConnectedJobs = connect(
+export const ConnectedIndex = connect(
   mapStateToProps,
   matchRouteAndMapDispatchToProps({ fetchAccountBalance, fetchJobs })
-)(Jobs)
+)(Index)
 
-export default withStyles(styles)(ConnectedJobs)
+export default withStyles(styles)(ConnectedIndex)

@@ -28,17 +28,17 @@ import { isFetchingSelector } from 'selectors'
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = {loading: Loading}
+const JobsIndex = universal(import('./containers/Jobs/Index'), uniOpts)
+const JobsShow = universal(import('./containers/Jobs/Show'), uniOpts)
+const JobsNew = universal(import('./containers/Jobs/New'), uniOpts)
 const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
-const Configuration = universal(import('./containers/Configuration'), uniOpts)
-const CreateJobSpec = universal(import('./containers/CreateJobSpec'), uniOpts)
-const About = universal(import('./containers/About'), uniOpts)
-const Jobs = universal(import('./containers/Jobs'), uniOpts)
-const JobSpec = universal(import('./containers/JobSpec'), uniOpts)
 const JobSpecRuns = universal(import('./containers/JobSpecRuns'), uniOpts)
 const JobSpecRun = universal(import('./containers/JobSpecRun'), uniOpts)
+const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const About = universal(import('./containers/About'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
 const SignOut = universal(import('./containers/SignOut'), uniOpts)
 
@@ -214,13 +214,13 @@ class Layout extends Component {
                   <Route exact path='/signin' component={SignIn} />
                   <PrivateRoute exact path='/signout' component={SignOut} />
                   {redirectTo && <Redirect to={redirectTo} />}
-                  <PrivateRoute exact path='/' component={Jobs} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobSpec} />
+                  <PrivateRoute exact path='/' component={JobsIndex} />
+                  <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
+                  <PrivateRoute exact path='/jobs/new' component={JobsNew} />
+                  <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobsShow} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
                   <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
-                  <PrivateRoute exact path='/jobs/page/:jobPage' component={Jobs} />
-                  <PrivateRoute exact path='/create/job' component={CreateJobSpec} />
                   <PrivateRoute exact path='/bridges' component={BridgesIndex} />
                   <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
                   <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
