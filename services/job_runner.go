@@ -175,10 +175,12 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 		return currentTaskRun.Result.WithError(err)
 	}
 
-	input := models.RunResult{Data: models.JSON{}}
+	input := currentTaskRun.Result
 	previousTaskRun := run.PreviousTaskRun()
 	if previousTaskRun != nil {
-		input = previousTaskRun.Result
+		if input.Data, err = previousTaskRun.Result.Data.Merge(input.Data); err != nil {
+			return currentTaskRun.Result.WithError(err)
+		}
 	}
 	if input.Data, err = run.Overrides.Data.Merge(input.Data); err != nil {
 		return currentTaskRun.Result.WithError(err)
@@ -197,6 +199,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	logger.Infow(fmt.Sprintf("Finished processing task %s", currentTaskRun.Task.Type), []interface{}{
 		"task", currentTaskRun.ID,
 		"result", result.Status,
+		"result_data", result.Data,
 	}...)
 
 	return result
