@@ -3,7 +3,7 @@ jobs:
   go:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - restore_cache:
@@ -20,7 +20,7 @@ jobs:
   gorace:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - restore_cache:
@@ -36,7 +36,7 @@ jobs:
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - restore_cache:
@@ -55,10 +55,39 @@ jobs:
           paths:
               - ~/.cargo
       - run: ./internal/ci/rust_test
+  sgx:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.12
+    environment:
+      SGX_ENABLED: yes
+      # XXX: These are set in the base image but circleci seems to wipe them out
+      PATH: "/root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sgxsdk/bin:/opt/sgxsdk/bin/x64"
+      LD_LIBRARY_PATH: "/opt/sgxsdk/sdk_libs"
+      SGX_SDK: "/opt/sgxsdk"
+    steps:
+      - checkout
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+      - restore_cache:
+          key: cargo-cache
+      - run: dep ensure -vendor-only
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - ./vendor
+      - save_cache:
+          key: cargo-cache
+          paths:
+              - ~/.cargo
+      - run: make chainlink
+      - run: ./internal/ci/sgx_test
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - restore_cache:
@@ -74,7 +103,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - restore_cache:
@@ -90,7 +119,7 @@ jobs:
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - restore_cache:
@@ -106,7 +135,7 @@ jobs:
       - run: ./internal/ci/gui_test
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.11
+      - image: smartcontract/builder:1.0.12
     steps:
       - checkout
       - run: ./internal/ci/init_gcloud
@@ -141,6 +170,7 @@ workflows:
       - geth
       - gui
       - rust
+      - sgx
       - reportcoverage:
           requires:
             - go
