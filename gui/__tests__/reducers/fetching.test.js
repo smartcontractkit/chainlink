@@ -1,4 +1,5 @@
 import reducer from 'connectors/redux/reducers'
+import { REDIRECT } from 'actions'
 
 describe('fetching reducer', () => {
   it('should return the initial state', () => {
@@ -17,9 +18,7 @@ describe('fetching reducer', () => {
   it('decrements count when the action type starts with "RECEIVE_"', () => {
     const action = {type: 'RECEIVE_FOO'}
     const previousState = {
-      fetching: {
-        count: 1
-      }
+      fetching: {count: 1}
     }
     const state = reducer(previousState, action)
 
@@ -29,6 +28,16 @@ describe('fetching reducer', () => {
   it('does not negatively decrement count', () => {
     const action = {type: 'RECEIVE_FOO'}
     const state = reducer(undefined, action)
+
+    expect(state.fetching).toEqual({count: 0})
+  })
+
+  it('resets the counter on redirect', () => {
+    const action = {type: REDIRECT}
+    const previousState = {
+      fetching: {count: 1}
+    }
+    const state = reducer(previousState, action)
 
     expect(state.fetching).toEqual({count: 0})
   })
