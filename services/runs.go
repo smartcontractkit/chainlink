@@ -256,19 +256,10 @@ func performTaskSleep(
 		return saveAndTrigger(run, store)
 	}
 
-	runCopy := models.JobRun{
-		ID:             run.ID,
-		JobID:          run.JobID,
-		Result:         run.Result,
-		Status:         run.Status,
-		TaskRuns:       make([]models.TaskRun, len(run.TaskRuns)),
-		CreatedAt:      run.CreatedAt,
-		CompletedAt:    run.CompletedAt,
-		Initiator:      run.Initiator,
-		CreationHeight: run.CreationHeight,
-		ObservedHeight: run.ObservedHeight,
-		Overrides:      run.Overrides,
-	}
+	// XXX: This is to eliminate data race that occurs because slices share their
+	// underlying array even in copies
+	runCopy := *run
+	runCopy.TaskRuns = make([]models.TaskRun, len(run.TaskRuns))
 	copy(runCopy.TaskRuns, run.TaskRuns)
 
 	go func(run models.JobRun, task models.TaskRun) {
