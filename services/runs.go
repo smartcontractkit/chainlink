@@ -19,13 +19,13 @@ func ExecuteJob(
 	job models.JobSpec,
 	initiator models.Initiator,
 	input models.RunResult,
-	creationHeight *big.Int,
+	creationHeight *hexutil.Big,
 	store *store.Store) (*models.JobRun, error) {
 
 	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type), []interface{}{
 		"job", job.ID,
 		"input_status", input.Status,
-		"creation_height", creationHeight,
+		"creation_height", creationHeight.ToInt(),
 	}...)
 
 	run, err := NewRun(job, initiator, input, creationHeight, store)
@@ -42,7 +42,7 @@ func NewRun(
 	job models.JobSpec,
 	initiator models.Initiator,
 	input models.RunResult,
-	currentHeight *big.Int,
+	currentHeight *hexutil.Big,
 	store *store.Store) (*models.JobRun, error) {
 
 	now := store.Clock.Now()
@@ -62,12 +62,8 @@ func NewRun(
 
 	run.Overrides = input
 	run = run.ApplyResult(input)
-
-	if currentHeight != nil {
-		creationHeightHex := hexutil.Big(*currentHeight)
-		run.CreationHeight = &creationHeightHex
-		run.ObservedHeight = &creationHeightHex
-	}
+	run.CreationHeight = currentHeight
+	run.ObservedHeight = currentHeight
 
 	cost := assets.NewLink(0)
 	for i, taskRun := range run.TaskRuns {
@@ -124,7 +120,7 @@ func NewRun(
 func ResumeConfirmingTask(
 	run *models.JobRun,
 	store *store.Store,
-	currentBlockHeight *big.Int,
+	currentBlockHeight *hexutil.Big,
 ) (*models.JobRun, error) {
 
 	logger.Debugw("New head resuming run", run.ForLogger()...)
@@ -138,8 +134,7 @@ func ResumeConfirmingTask(
 		return run, fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
 	}
 
-	observedHeight := hexutil.Big(*currentBlockHeight)
-	run.ObservedHeight = &observedHeight
+	run.ObservedHeight = currentBlockHeight
 
 	if meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
 		logger.Debugw("Minimum confirmations met, resuming job", []interface{}{
@@ -285,7 +280,7 @@ func meetsMinimumConfirmations(
 	run *models.JobRun,
 	taskRun *models.TaskRun,
 	currentHeight *hexutil.Big) bool {
-	if run.CreationHeight == nil {
+	if run.CreationHeight == nil || currentHeight == nil {
 		return true
 	}
 

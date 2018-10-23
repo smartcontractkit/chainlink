@@ -219,8 +219,8 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		Amount: payment,
 	}
 
-	currentHead := le.ToIndexableBlockNumber().Number.ToInt()
-	_, err = ExecuteJob(le.Job, initr, input, currentHead, le.store)
+	currentHead := le.ToIndexableBlockNumber().Number
+	_, err = ExecuteJob(le.Job, initr, input, &currentHead, le.store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
