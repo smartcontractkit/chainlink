@@ -14,6 +14,7 @@ export default {
   getRoutes: async () => {
     return [
       {path: '/'},
+      {path: '/jobs'},
       {path: '/jobs/page/_jobPage_'},
       {path: '/jobs/new'},
       {path: '/job_specs/_jobSpecId_'},

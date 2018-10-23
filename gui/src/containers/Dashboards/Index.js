@@ -3,10 +3,13 @@ import PropTypes from 'prop-types'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import JobList from 'components/JobList'
+import TokenBalance from 'components/TokenBalance'
+import MetaInfo from 'components/MetaInfo'
+import Footer from 'components/Footer'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { fetchJobs } from 'actions'
+import { fetchJobs, fetchAccountBalance } from 'actions'
 import { jobsSelector } from 'selectors'
 import Button from '@material-ui/core/Button'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
@@ -33,7 +36,25 @@ const renderJobsList = props => {
   )
 }
 
+const renderSidebar = ({ ethBalance, linkBalance, jobCount, accountBalanceError }) => (
+  <Grid container spacing={24}>
+    <Grid item xs={12}>
+      <TokenBalance title='Link Balance' value={linkBalance} error={accountBalanceError} />
+    </Grid>
+    <Grid item xs={12}>
+      <TokenBalance title='Ether Balance' value={ethBalance} error={accountBalanceError} />
+    </Grid>
+    <Grid item xs={12}>
+      <MetaInfo title='Jobs' value={jobCount} />
+    </Grid>
+  </Grid>
+)
+
 export class Index extends Component {
+  componentDidMount () {
+    this.props.fetchAccountBalance()
+  }
+
   render () {
     return (
       <div>
@@ -52,10 +73,16 @@ export class Index extends Component {
               </Grid>
             </Grid>
           </Grid>
-          <Grid item xs={12}>
+        </Grid>
+        <Grid container spacing={40}>
+          <Grid item xs={9}>
             {renderJobsList(this.props)}
           </Grid>
+          <Grid item xs={3}>
+            {renderSidebar(this.props)}
+          </Grid>
         </Grid>
+        <Footer />
       </div>
     )
   }
@@ -98,7 +125,7 @@ const mapStateToProps = state => {
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobs})
+  matchRouteAndMapDispatchToProps({ fetchAccountBalance, fetchJobs })
 )(Index)
 
 export default withStyles(styles)(ConnectedIndex)

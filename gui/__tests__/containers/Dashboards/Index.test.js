@@ -9,7 +9,7 @@ import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
 import { Router } from 'react-static'
 import { Provider } from 'react-redux'
-import { ConnectedIndex as Index } from 'containers/Jobs/Index'
+import { ConnectedIndex as Index } from 'containers/Dashboards/Index'
 
 const classes = {}
 const mountIndex = (opts = {}) => (
@@ -22,9 +22,9 @@ const mountIndex = (opts = {}) => (
   )
 )
 
-describe('containers/Jobs/Index', () => {
-  it('renders the list of jobs', async () => {
-    expect.assertions(3)
+describe('containers/Dashboards/Index', () => {
+  it('renders the list of jobs and account balance', async () => {
+    expect.assertions(6)
 
     const jobSpecsResponse = jsonApiJobSpecsFactory([{
       id: 'c60b9927eeae43168ddbe92584937b1b',
@@ -32,6 +32,11 @@ describe('containers/Jobs/Index', () => {
       createdAt: '2018-05-10T00:41:54.531043837Z'
     }])
     global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
+    const accountBalanceResponse = accountBalanceFactory(
+      '10120000000000000000000',
+      '7460000000000000000000'
+    )
+    global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
     const wrapper = mountIndex()
 
@@ -39,6 +44,11 @@ describe('containers/Jobs/Index', () => {
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('web')
     expect(wrapper.text()).toContain('2018-05-10T00:41:54.531043837Z')
+
+    expect(wrapper.text()).toContain('Link Balance7.46k')
+    expect(wrapper.text()).toContain('Ether Balance10.12k')
+
+    expect(wrapper.text()).toContain('Jobs1')
   })
 
   it('can page through the list of jobs', async () => {
@@ -73,7 +83,7 @@ describe('containers/Jobs/Index', () => {
   })
 
   it('displays an error message when the network requests fail', async () => {
-    expect.assertions(1)
+    expect.assertions(3)
 
     global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
 
@@ -82,6 +92,12 @@ describe('containers/Jobs/Index', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain(
       'There was an error fetching the jobs. Please reload the page.'
+    )
+    expect(wrapper.text()).toContain(
+      'Ether Balanceerror fetching balance'
+    )
+    expect(wrapper.text()).toContain(
+      'Link Balanceerror fetching balance'
     )
   })
 })
