@@ -1,24 +1,24 @@
 /* eslint-env jest */
 import React from 'react'
-import CreateJobSpec from 'containers/CreateJobSpec'
+import New from 'containers/Jobs/New'
 import { Provider } from 'react-redux'
 import { mount } from 'enzyme'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
-import JobForm from 'components/JobForm'
+import Form from 'components/Jobs/Form'
 import { MemoryRouter } from 'react-router'
 import { Switch, Route } from 'react-static'
 
 const classes = {}
 const TestPrompt = () => <div>Shouldn't be rendered</div>
 
-const mountCreatePage = (store, props) => {
-  const CreateWithProps = () => <CreateJobSpec {...props} />
+const mountNew = (store, props) => {
+  const NewWithProps = () => <New {...props} />
   return (mount(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/create/job']}>
+      <MemoryRouter initialEntries={['/jobs/new']}>
         <Switch>
-          <Route exact path='/create/job' component={CreateWithProps} classes={classes} />
+          <Route exact path='/jobs/new' component={NewWithProps} classes={classes} />
           <Route exact path='/' component={TestPrompt} classes={classes} />
         </Switch>
       </MemoryRouter>
@@ -27,12 +27,12 @@ const mountCreatePage = (store, props) => {
   )
 }
 
-describe('containers/CreateJobSpec', () => {
+describe('containers/Jobs/New', () => {
   it('lands correctly', async () => {
     expect.assertions(1)
-    let wrapper = mountCreatePage(createStore())
+    let wrapper = mountNew(createStore())
 
     await syncFetch(wrapper)
-    expect(wrapper.contains(<JobForm />)).toBe(true)
+    expect(wrapper.contains(<Form />)).toBe(true)
   })
 })
