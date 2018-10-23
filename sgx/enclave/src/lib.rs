@@ -24,31 +24,6 @@ use std::string::ToString;
 use utils::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
 
 #[no_mangle]
-pub extern "C" fn sgx_http_get(url_ptr: *const u8, url_len: usize) -> sgx_status_t {
-    let url = string_from_cstr_with_len(url_ptr, url_len).unwrap();
-
-    println!("Performing HTTP GET from within enclave with {:?}", url);
-    sgx_status_t::SGX_SUCCESS
-}
-
-#[no_mangle]
-pub extern "C" fn sgx_http_post(
-    url_ptr: *const u8,
-    url_len: usize,
-    body_ptr: *const u8,
-    body_len: usize,
-) -> sgx_status_t {
-    let url = string_from_cstr_with_len(url_ptr, url_len).unwrap();
-    let body = string_from_cstr_with_len(body_ptr, body_len).unwrap();
-
-    println!(
-        "Performing HTTP POST from within enclave with {:?}: {:?}",
-        url, body
-    );
-    sgx_status_t::SGX_SUCCESS
-}
-
-#[no_mangle]
 pub extern "C" fn sgx_wasm(
     wasmt_ptr: *const u8,
     wasmt_len: usize,

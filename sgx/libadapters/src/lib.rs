@@ -14,7 +14,6 @@ use errno::{set_errno, Errno};
 use sgx_types::*;
 use sgx_urts::SgxEnclave;
 
-pub mod http;
 pub mod wasm;
 pub mod multiply;
 
