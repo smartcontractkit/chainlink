@@ -161,7 +161,7 @@ fn multiply(
     let multiplicand = get_json_string(&input.data, "value")?;
     let result = parse_and_multiply(&multiplicand, &multiplier)?;
 
-    input.status = Some("completed".to_string());
+    input.status = "completed".to_string();
     input.add("value", serde_json::Value::String(result));
 
     let rr_json = serde_json::to_string(&input)?;
@@ -192,7 +192,7 @@ fn parse_and_multiply(
 struct RunResult {
     job_run_id: String,
     data: serde_json::Value,
-    status: Option<String>,
+    status: String,
     error_message: Option<String>,
     amount: Option<u64>,
 }
