@@ -1,5 +1,9 @@
 import reducer from 'connectors/redux/reducers'
-import { REQUEST_CREATE, RECEIVE_CREATE_SUCCESS, RECEIVE_CREATE_ERROR } from 'actions'
+import {
+  REQUEST_CREATE,
+  RECEIVE_CREATE_SUCCESS,
+  RECEIVE_CREATE_ERROR
+} from 'actions'
 
 describe('create reducer', () => {
   it('should return the initial state', () => {
