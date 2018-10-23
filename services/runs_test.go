@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"math/big"
 	"testing"
 	"time"
 
@@ -29,7 +28,7 @@ func TestNewRun(t *testing.T) {
 	bt.MinimumContractPayment = *assets.NewLink(10)
 	assert.Nil(t, store.Save(&bt))
 
-	creationHeight := big.NewInt(1000)
+	creationHeight := cltest.BigHexInt(1000)
 
 	jobSpec := models.NewJob()
 	jobSpec.Tasks = []models.TaskSpec{{
@@ -40,7 +39,7 @@ func TestNewRun(t *testing.T) {
 	}}
 
 	inputResult := models.RunResult{Data: input}
-	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store)
+	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, &creationHeight, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
@@ -99,7 +98,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 	inputResult := models.RunResult{Data: input}
 
-	creationHeight := big.NewInt(1000)
+	creationHeight := cltest.BigHexInt(1000)
 
 	tests := []struct {
 		name                string
@@ -120,7 +119,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 			jobSpec, initiator := cltest.NewJobWithLogInitiator()
 			jobSpec.Tasks[0].Confirmations = test.taskConfirmations
 
-			run, err := services.NewRun(jobSpec, initiator, inputResult, creationHeight, store)
+			run, err := services.NewRun(jobSpec, initiator, inputResult, &creationHeight, store)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -221,12 +220,12 @@ func TestResumeConfirmingTask(t *testing.T) {
 
 	// reject a run with an invalid state
 	run := &models.JobRun{}
-	run, err := services.ResumeConfirmingTask(run, store, big.NewInt(0))
+	run, err := services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
 	run = &models.JobRun{Status: models.RunStatusPendingConfirmations}
-	run, err = services.ResumeConfirmingTask(run, store, big.NewInt(0))
+	run, err = services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
 	// leave in pending if not enough confirmations have been met yet
@@ -237,7 +236,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns:       []models.TaskRun{models.TaskRun{MinimumConfirmations: 2, Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
 	}
-	run, err = services.ResumeConfirmingTask(run, store, big.NewInt(0))
+	run, err = services.ResumeConfirmingTask(run, store, &creationHeight)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
 
@@ -249,7 +248,8 @@ func TestResumeConfirmingTask(t *testing.T) {
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns:       []models.TaskRun{models.TaskRun{MinimumConfirmations: 1, Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
 	}
-	run, err = services.ResumeConfirmingTask(run, store, big.NewInt(1))
+	observedHeight := cltest.BigHexInt(1)
+	run, err = services.ResumeConfirmingTask(run, store, &observedHeight)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
