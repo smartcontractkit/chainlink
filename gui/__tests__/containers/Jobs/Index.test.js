@@ -9,20 +9,20 @@ import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
 import { Router } from 'react-static'
 import { Provider } from 'react-redux'
-import { ConnectedJobs as Jobs } from 'containers/Jobs'
+import { ConnectedIndex as Index } from 'containers/Jobs/Index'
 
 const classes = {}
-const mountJobs = (opts = {}) => (
+const mountIndex = (opts = {}) => (
   mount(
     <Provider store={createStore()}>
       <Router>
-        <Jobs classes={classes} pageSize={opts.pageSize} />
+        <Index classes={classes} pageSize={opts.pageSize} />
       </Router>
     </Provider>
   )
 )
 
-describe('containers/Job', () => {
+describe('containers/Jobs/Index', () => {
   it('renders the list of jobs and account balance', async () => {
     expect.assertions(6)
 
@@ -38,7 +38,7 @@ describe('containers/Job', () => {
     )
     global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
-    const wrapper = mountJobs()
+    const wrapper = mountIndex()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
@@ -60,7 +60,7 @@ describe('containers/Job', () => {
     const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
 
-    const wrapper = mountJobs({pageSize: 1})
+    const wrapper = mountIndex({pageSize: 1})
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
@@ -87,7 +87,7 @@ describe('containers/Job', () => {
 
     global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
 
-    const wrapper = mountJobs()
+    const wrapper = mountIndex()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain(
