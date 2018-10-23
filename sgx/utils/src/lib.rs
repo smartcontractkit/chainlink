@@ -56,7 +56,7 @@ pub fn copy_string_to_cstr_ptr(
     }
 
     unsafe {
-        from_raw_parts_mut(output_ptr, input_size).copy_from_slice(input_slice);
+        ptr::copy_nonoverlapping(input_slice.as_ptr(), output_ptr, input_size);
         ptr::copy(&input_size, output_len, 1);
     }
 
