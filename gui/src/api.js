@@ -38,12 +38,12 @@ const get = (path, query) => (
     .then(parseResponse)
 )
 
-const post = (path, body, shouldStringify = true) => {
+const post = (path, body) => {
   return global.fetch(
     formatURI(path),
     {
       method: 'POST',
-      body: shouldStringify ? JSON.stringify(body || '') : body || '',
+      body: JSON.stringify(body),
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
@@ -105,7 +105,7 @@ export const createBridge = data => {
   return post('/v2/bridge_types', normalizedData)
 }
 
-export const createJobSpec = (data, shouldStringify) => post('/v2/specs', data, shouldStringify)
+export const createJobSpec = data => post('/v2/specs', data)
 
 export const createJobSpecRun = id => post(`/v2/specs/${id}/runs`)
 
