@@ -8,7 +8,7 @@ import { withSiteData } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchConfiguration } from 'actions'
-import { configsSelector } from 'selectors'
+import configsSelector from 'selectors/configs'
 
 const styles = theme => ({
   title: {
