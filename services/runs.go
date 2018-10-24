@@ -134,6 +134,10 @@ func ResumeConfirmingTask(
 		return run, fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
 	}
 
+	if currentBlockHeight == nil {
+		return run, fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
+	}
+
 	run.ObservedHeight = currentBlockHeight
 
 	if meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
