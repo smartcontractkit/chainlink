@@ -234,10 +234,10 @@ const receiveCreateSuccess = response => ({
   response: response
 })
 
-function sendJobSpec (data, shouldStringify) {
+function sendJobSpec (data) {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
-    return api.createJobSpec(data, shouldStringify)
+    return api.createJobSpec(data)
       .then(res => dispatch(receiveCreateSuccess(res)))
       .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
   }
@@ -282,7 +282,7 @@ export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
 export const submitSignIn = data => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 export const submitBridgeType = data => sendBridgeType(data)
-export const submitJobSpec = (data, shouldStringify) => sendJobSpec(data, shouldStringify)
+export const submitJobSpec = data => sendJobSpec(data)
 export const submitJobSpecRun = id => sendJobSpecRun(id)
 
 export const updateBridge = (data, renderNotifySuccess, renderNotifyError) => {

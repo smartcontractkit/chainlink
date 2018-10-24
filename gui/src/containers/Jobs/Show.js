@@ -84,7 +84,7 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, submitJobSpecRun, fetch
                     </Button>
                   )}
                   <Button
-                    to={{ pathname: '/jobs/new', state: { fromJson: definition } }}
+                    to={{ pathname: '/jobs/new', state: { definition: definition } }}
                     component={ReactStaticLinkComponent}
                     color='primary'
                     className={classes.duplicate}

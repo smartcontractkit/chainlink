@@ -1,13 +1,13 @@
 /* eslint-env jest */
 import React from 'react'
-import New from 'containers/Jobs/New'
+import { MemoryRouter } from 'react-router'
+import { Switch, Route } from 'react-static'
 import { Provider } from 'react-redux'
 import { mount } from 'enzyme'
 import createStore from 'connectors/redux'
+import New from 'containers/Jobs/New'
 import syncFetch from 'test-helpers/syncFetch'
-import Form from 'components/Jobs/Form'
-import { MemoryRouter } from 'react-router'
-import { Switch, Route } from 'react-static'
+import formikFillIn from 'test-helpers/formikFillIn'
 
 const classes = {}
 const TestPrompt = () => <div>Shouldn't be rendered</div>
@@ -28,11 +28,16 @@ const mountNew = (store, props) => {
 }
 
 describe('containers/Jobs/New', () => {
-  it('lands correctly', async () => {
-    expect.assertions(1)
-    let wrapper = mountNew(createStore())
+  it('enables the create button when a value is provided', async () => {
+    expect.assertions(2)
+    const store = createStore()
+    const wrapper = mountNew(store)
 
     await syncFetch(wrapper)
-    expect(wrapper.contains(<Form />)).toBe(true)
+    expect(wrapper.find('form button').getDOMNode().disabled).toEqual(true)
+
+    formikFillIn(wrapper, 'textarea[name="json"]', '{}', 'json')
+    await syncFetch(wrapper)
+    expect(wrapper.find('form button').getDOMNode().disabled).toEqual(false)
   })
 })

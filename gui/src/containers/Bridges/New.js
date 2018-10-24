@@ -8,7 +8,7 @@ import PaddedCard from 'components/PaddedCard'
 import Typography from '@material-ui/core/Typography'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import BridgesForm from 'components/Bridges/Form'
+import Form from 'components/Bridges/Form'
 import { submitBridgeType } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
@@ -47,7 +47,7 @@ const New = props => (
     <Grid container spacing={40}>
       <Grid item xs={12}>
         <PaddedCard>
-          <BridgesForm
+          <Form
             actionText='Create Bridge'
             onSubmit={props.submitBridgeType}
             onSuccess={successNotification}
