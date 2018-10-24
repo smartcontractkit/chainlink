@@ -241,16 +241,41 @@ func NewManagedSubscription(
 	filter ethereum.FilterQuery,
 	callback func(types.Log),
 ) (*ManagedSubscription, error) {
-	logs := make(chan types.Log)
-	es, err := store.TxManager.SubscribeToLogs(logs, filter)
+	rawLogs := make(chan map[string]interface{})
+	es, err := store.TxManager.SubscribeToLogs(rawLogs, filter)
 	if err != nil {
 		return nil, err
 	}
 
+	coercedLogs := make(chan types.Log)
+	go func() {
+		for {
+			select {
+			case log, open := <-rawLogs:
+				if !open {
+					close(coercedLogs)
+					return
+				}
+				logger.Debug("Received raw eth log json: ", log)
+				data, err := json.Marshal(log)
+				if err != nil {
+					logger.Error("Failed to marshal raw log: ", err)
+					break
+				}
+				var cl types.Log
+				if err = json.Unmarshal(data, &cl); err != nil {
+					logger.Error("Failed to unmarshal raw log: ", err)
+				} else {
+					coercedLogs <- cl
+				}
+			}
+		}
+	}()
+
 	sub := &ManagedSubscription{
 		store:           store,
 		callback:        callback,
-		logs:            logs,
+		logs:            coercedLogs,
 		ethSubscription: es,
 	}
 	go sub.listenToLogs(filter)
