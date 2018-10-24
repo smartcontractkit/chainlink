@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
+import Toolbar from '@material-ui/core/Toolbar'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Drawer from '@material-ui/core/Drawer'
 import List from '@material-ui/core/List'
@@ -13,6 +14,7 @@ import Typography from '@material-ui/core/Typography'
 import Hidden from '@material-ui/core/Hidden'
 import PrivateRoute from './PrivateRoute'
 import Logo from 'components/Logo'
+import LoadingBar from 'components/LoadingBar'
 import Loading from 'components/Loading'
 import Notifications from 'components/Notifications'
 import universal from 'react-universal-component'
@@ -23,7 +25,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { submitSignOut } from 'actions'
-import isFetchingSelector from 'selectors/isFetching'
+import fetchCountSelector from 'selectors/fetchCount'
 
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
@@ -43,7 +45,6 @@ const About = universal(import('./containers/About'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
 const SignOut = universal(import('./containers/SignOut'), uniOpts)
 
-const appBarHeight = 90
 const drawerWidth = 240
 
 // Custom styles
@@ -51,9 +52,14 @@ const styles = theme => {
   return {
     appBar: {
       backgroundColor: theme.palette.common.white,
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5,
       zIndex: theme.zIndex.modal + 1
+    },
+    toolbar: {
+      paddingLeft: theme.spacing.unit * 5,
+      paddingRight: theme.spacing.unit * 5
+    },
+    main: {
+      paddingTop: 97
     },
     content: {
       margin: theme.spacing.unit * 5,
@@ -89,9 +95,6 @@ const styles = theme => {
     },
     drawerList: {
       padding: 0
-    },
-    toolbar: {
-      minHeight: appBarHeight
     }
   }
 }
@@ -108,7 +111,7 @@ class Layout extends Component {
   }
 
   render () {
-    const {classes, isFetching, redirectTo} = this.props
+    const {classes, fetchCount, redirectTo} = this.props
     const {drawerOpen} = this.state
 
     const drawer = (
@@ -182,32 +185,34 @@ class Layout extends Component {
               color='default'
               position='absolute'
             >
-              <Grid container alignItems='center' className={classes.appBarContent}>
-                <Grid item xs={6} md={4}>
-                  <Link to='/'>
-                    <Logo width={40} height={50} spin={isFetching} />
-                  </Link>
-                </Grid>
-                <Grid item xs={6} md={8}>
-                  <Grid container justify='flex-end'>
-                    <Grid item>
-                      <Hidden mdUp>
-                        <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
-                          <MenuIcon />
-                        </IconButton>
-                      </Hidden>
-                      <Hidden smDown>
-                        {nav}
-                      </Hidden>
+              <LoadingBar fetchCount={fetchCount} />
+
+              <Toolbar className={classes.toolbar}>
+                <Grid container alignItems='center' className={classes.appBarContent}>
+                  <Grid item xs={6} md={4}>
+                    <Link to='/'>
+                      <Logo width={40} height={50} />
+                    </Link>
+                  </Grid>
+                  <Grid item xs={6} md={8}>
+                    <Grid container justify='flex-end'>
+                      <Grid item>
+                        <Hidden mdUp>
+                          <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
+                            <MenuIcon />
+                          </IconButton>
+                        </Hidden>
+                        <Hidden smDown>
+                          {nav}
+                        </Hidden>
+                      </Grid>
                     </Grid>
                   </Grid>
                 </Grid>
-              </Grid>
+              </Toolbar>
             </AppBar>
 
-            <div>
-              <div className={classes.toolbar} />
-
+            <main className={classes.main}>
               <Notifications />
 
               <div className={classes.content}>
@@ -237,7 +242,7 @@ class Layout extends Component {
                   <Routes />
                 </Switch>
               </div>
-            </div>
+            </main>
 
             {drawer}
           </Grid>
@@ -249,7 +254,7 @@ class Layout extends Component {
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  isFetching: isFetchingSelector(state),
+  fetchCount: fetchCountSelector(state),
   redirectTo: state.redirect.to
 })
 
