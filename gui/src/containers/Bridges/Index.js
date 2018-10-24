@@ -9,7 +9,7 @@ import Typography from '@material-ui/core/Typography'
 import BridgeList from 'components/BridgeList'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { bridgesSelector } from 'selectors'
+import bridgesSelector from 'selectors/bridges'
 import { fetchBridges } from 'actions'
 
 const styles = theme => ({

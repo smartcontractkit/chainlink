@@ -1,15 +1,15 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import JobList from 'components/JobList'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { withStyles } from '@material-ui/core/styles'
-import { connect } from 'react-redux'
-import { fetchJobs } from 'actions'
-import { jobsSelector } from 'selectors'
 import Button from '@material-ui/core/Button'
+import JobList from 'components/JobList'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import jobsSelector from 'selectors/jobs'
+import { fetchJobs } from 'actions'
 
 const styles = theme => ({
   title: {
