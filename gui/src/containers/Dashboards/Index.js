@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Title from 'components/Title'
 import Button from '@material-ui/core/Button'
@@ -18,6 +19,12 @@ import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
+const styles = theme => ({
+  index: {
+    paddingBottom: theme.spacing.unit * 5
+  }
+})
+
 export class Index extends Component {
   componentDidMount () {
     const {props} = this
@@ -28,7 +35,7 @@ export class Index extends Component {
   render () {
     const {props} = this
     return (
-      <div>
+      <div className={this.props.classes.index}>
         <Grid container alignItems='center' >
           <Grid item xs={9}>
             <Title>Jobs</Title>
@@ -126,4 +133,4 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({fetchAccountBalance, fetchJobs, fetchRecentlyCreatedJobs})
 )(Index)
 
-export default ConnectedIndex
+export default withStyles(styles)(ConnectedIndex)

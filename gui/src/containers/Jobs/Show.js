@@ -17,11 +17,9 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { fetchJobSpec, submitJobSpecRun } from 'actions'
-import {
-  jobSpecSelector,
-  jobRunsSelector,
-  jobRunsCountSelector
-} from 'selectors'
+import jobSelector from 'selectors/job'
+import jobRunsSelector from 'selectors/jobRuns'
+import jobRunsCountSelector from 'selectors/jobRunsCount'
 import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
 import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
@@ -205,7 +203,7 @@ Show.defaultProps = {
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
-  const jobSpec = jobSpecSelector(state, jobSpecId)
+  const jobSpec = jobSelector(state, jobSpecId)
   const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
   const latestJobRuns = jobRunsSelector(state)
   const fetching = state.fetching.count
