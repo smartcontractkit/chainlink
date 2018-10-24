@@ -5,8 +5,9 @@ import { mount } from 'enzyme'
 import { MemoryRouter } from 'react-router'
 import { Switch, Route } from 'react-static'
 import createStore from 'connectors/redux'
-import syncFetch from 'test-helpers/syncFetch'
 import New from 'containers/Bridges/New'
+import syncFetch from 'test-helpers/syncFetch'
+import formikFillIn from 'test-helpers/formikFillIn'
 
 const classes = {}
 
@@ -24,10 +25,6 @@ const mountNew = (store, props) => {
       </MemoryRouter>
     </Provider>
   )
-}
-
-const formikFillIn = (wrapper, selector, value, name) => {
-  wrapper.find(selector).simulate('change', { target: { value: value, name: name } })
 }
 
 describe('containers/Bridges/New', () => {

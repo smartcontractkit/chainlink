@@ -1,11 +1,9 @@
-import React, { Fragment } from 'react'
-import { withFormik, Form } from 'formik'
+import React from 'react'
+import PropTypes from 'prop-types'
+import * as formik from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
 import { TextField, Grid } from '@material-ui/core'
-import { connect } from 'react-redux'
-import { submitJobSpec } from 'actions'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { Prompt } from 'react-static'
 
 const styles = theme => ({
@@ -22,56 +20,87 @@ const styles = theme => ({
   }
 })
 
-const JobFormLayout = ({
+const Form = ({
+  actionText,
+  dirty,
   isSubmitting,
   classes,
   handleChange,
   values,
+  touched,
+  errors,
   submitCount
 }) => {
   return (
-    <Fragment>
+    <React.Fragment>
       <Prompt
         when={values.json !== '' && submitCount === 0}
         message='You have not submitted the form, are you sure you want to leave?'
       />
-      <Form noValidate>
+      <formik.Form noValidate>
         <Grid container justify='center'>
           <Grid container justify='center'>
             <Grid item sm={8}>
-              <TextField value={values.json} onChange={handleChange} fullWidth label='Paste JSON' rows={10} rowsMax={25} placeholder='Paste JSON' multiline margin='normal' name='json' id='json' />
+              <TextField
+                value={values.json}
+                onChange={handleChange}
+                error={errors.json && touched.json}
+                fullWidth
+                label='Paste JSON'
+                rows={10}
+                rowsMax={25}
+                placeholder='Paste JSON'
+                multiline margin='normal'
+                name='json'
+                id='json'
+              />
             </Grid>
           </Grid>
-          <Button className={classes.button} variant='contained' color='primary' type='submit' disabled={isSubmitting || !values.json}>
-            Build Job
+          <Button
+            className={classes.button}
+            variant='contained'
+            color='primary'
+            type='submit'
+            disabled={isSubmitting || !values.json}
+          >
+            {actionText}
           </Button>
         </Grid>
-      </Form>
-    </Fragment>
+      </formik.Form>
+    </React.Fragment>
   )
 }
 
-const JobForm = withFormik({
-  mapPropsToValues ({ fromJson }) {
-    return {
-      json: JSON.stringify(fromJson, null, '\t') || ''
-    }
-  },
-  handleSubmit (values, { props, setSubmitting }) {
-    props.submitJobSpec(values.json.trim(), false)
-    setTimeout(() => { setSubmitting(false) }, 1000)
-  }
-})(JobFormLayout)
+Form.propTypes = {
+  actionText: PropTypes.string.isRequired,
+  onSubmit: PropTypes.func.isRequired
+}
 
-const mapStateToProps = state => {
-  return {
-    networkError: state.create.networkError
+const formikOpts = {
+  mapPropsToValues ({definition}) {
+    const json = JSON.stringify(definition, null, '\t') || ''
+    return {json}
+  },
+
+  validate (values) {
+    const errors = {}
+
+    try {
+      JSON.parse(values.json, null, '\t')
+    } catch (e) {
+      errors.json = 'Invalid JSON'
+    }
+
+    return errors
+  },
+
+  handleSubmit (values, { props, setSubmitting }) {
+    const definition = JSON.parse(values.json)
+    props.onSubmit(definition)
+    setTimeout(() => { setSubmitting(false) }, 1000)
   }
 }
 
-export const ConnectedJobForm = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ submitJobSpec })
-)(JobForm)
+const FormikForm = formik.withFormik(formikOpts)(Form)
 
-export default withStyles(styles)(ConnectedJobForm)
+export default withStyles(styles)(FormikForm)
