@@ -11,9 +11,8 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/logger"
-	"github.com/smartcontractkit/chainlink/store"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -53,7 +52,7 @@ type JobSubscription struct {
 
 // StartJobSubscription is the constructor of JobSubscription that to starts
 // listening to and keeps track of event logs corresponding to a job.
-func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (JobSubscription, error) {
+func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (JobSubscription, error) {
 	var merr error
 	var initSubs []Unsubscriber
 	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
@@ -106,7 +105,7 @@ type InitiatorSubscription struct {
 	*ManagedSubscription
 	Job       models.JobSpec
 	Initiator models.Initiator
-	store     *store.Store
+	store     *strpkg.Store
 	callback  func(InitiatorSubscriptionLogEvent)
 }
 
@@ -115,7 +114,7 @@ type InitiatorSubscription struct {
 func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
-	store *store.Store,
+	store *strpkg.Store,
 	filter ethereum.FilterQuery,
 	callback func(InitiatorSubscriptionLogEvent),
 ) (InitiatorSubscription, error) {
@@ -140,7 +139,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log types.Log) {
+func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
 	sub.callback(InitiatorSubscriptionLogEvent{
 		Job:       sub.Job,
 		Initiator: sub.Initiator,
@@ -159,13 +158,13 @@ func TopicFiltersForRunLog(jobID string) [][]common.Hash {
 }
 
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
-func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
 	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(job.ID))
 	return NewInitiatorSubscription(initr, job, store, filter, receiveRunLog)
 }
 
 // StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
-func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *store.Store) (Unsubscriber, error) {
+func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
 	filter := NewInitiatorFilterQuery(initr, head, nil)
 	return NewInitiatorSubscription(initr, job, store, filter, receiveEthLog)
 }
@@ -228,20 +227,20 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	store           *store.Store
-	logs            chan types.Log
+	store           *strpkg.Store
+	logs            chan strpkg.Log
 	ethSubscription models.EthSubscription
-	callback        func(types.Log)
+	callback        func(strpkg.Log)
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
 func NewManagedSubscription(
-	store *store.Store,
+	store *strpkg.Store,
 	filter ethereum.FilterQuery,
-	callback func(types.Log),
+	callback func(strpkg.Log),
 ) (*ManagedSubscription, error) {
-	logs := make(chan types.Log)
+	logs := make(chan strpkg.Log)
 	es, err := store.TxManager.SubscribeToLogs(logs, filter)
 	if err != nil {
 		return nil, err
@@ -306,10 +305,10 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 // InitiatorSubscriptionLogEvent encapsulates all information as a result of a received log from an
 // InitiatorSubscription.
 type InitiatorSubscriptionLogEvent struct {
-	Log       types.Log
+	Log       strpkg.Log
 	Job       models.JobSpec
 	Initiator models.Initiator
-	store     *store.Store
+	store     *strpkg.Store
 }
 
 // ForLogger formats the InitiatorSubscriptionLogEvent for easy common formatting in logs (trace statements, not ethereum events).
@@ -389,7 +388,7 @@ func (le InitiatorSubscriptionLogEvent) RunLogJSON() (models.JSON, error) {
 	return js.Merge(fullfillmentJSON)
 }
 
-func fulfillmentToJSON(el types.Log) (models.JSON, error) {
+func fulfillmentToJSON(el strpkg.Log) (models.JSON, error) {
 	var js models.JSON
 	js, err := js.Add("address", el.Address.String())
 	if err != nil {
@@ -447,15 +446,15 @@ func decodeABIToJSON(data []byte) (models.JSON, error) {
 	return models.ParseCBOR(data[start:])
 }
 
-func isRunLog(log types.Log) bool {
+func isRunLog(log strpkg.Log) bool {
 	return len(log.Topics) == 4 && log.Topics[0] == RunLogTopic
 }
 
-func jobIDFromHexEncodedTopic(log types.Log) (string, error) {
+func jobIDFromHexEncodedTopic(log strpkg.Log) (string, error) {
 	return utils.HexToString(log.Topics[RunLogTopicJobID].Hex())
 }
 
-func jobIDFromImproperEncodedTopic(log types.Log) string {
+func jobIDFromImproperEncodedTopic(log strpkg.Log) string {
 	return log.Topics[RunLogTopicJobID].String()[2:34]
 }
 

@@ -6,9 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -114,7 +114,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(store)
-			logChan := make(chan types.Log, 1)
+			logChan := make(chan strpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			j := cltest.NewJob()
@@ -129,7 +129,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			ht.Attach(el)
 			assert.Nil(t, ht.Start())
 
-			logChan <- types.Log{
+			logChan <- strpkg.Log{
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
