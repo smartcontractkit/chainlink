@@ -3,7 +3,6 @@ import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
   RECEIVE_CREATE_SUCCESS,
-  RECEIVE_CREATE_ERROR,
   NOTIFY_SUCCESS,
   NOTIFY_ERROR
 } from 'actions'
@@ -57,25 +56,6 @@ describe('connectors/reducers/notifications', () => {
     })
   })
 
-  it('RECEIVE_CREATE_ERROR adds a failure and clears successes', () => {
-    const previousState = {
-      notifications: {
-        errors: [],
-        successes: [{id: '123'}],
-        currentUrl: null
-      }
-    }
-
-    const action = {type: RECEIVE_CREATE_ERROR, error: {errors: [{detail: 'Invalid name'}]}}
-    const state = reducer(previousState, action)
-
-    expect(state.notifications).toEqual({
-      errors: [{detail: 'Invalid name'}],
-      successes: [],
-      currentUrl: null
-    })
-  })
-
   it('RECEIVE_CREATE_SUCCESS adds a success and clears errors', () => {
     const previousState = {
       notifications: {
@@ -117,24 +97,76 @@ describe('connectors/reducers/notifications', () => {
     })
   })
 
-  it('NOTIFY_ERROR adds an error component and clears success', () => {
-    const previousState = {
-      notifications: {
-        errors: [],
-        successes: [{id: '123'}],
-        currentUrl: null
+  describe('NOTIFY_ERROR', () => {
+    it('adds a notification for each JSON-API errors item detail', () => {
+      const previousState = {
+        notifications: {
+          errors: [],
+          successes: []
+        }
       }
-    }
 
-    const component = () => {}
-    const props = {}
-    const action = {type: NOTIFY_ERROR, component: component, props: props}
-    const state = reducer(previousState, action)
+      const component = () => {}
+      const error = {
+        errors: [{detail: 'Error 1'}, {detail: 'Error 2'}]
+      }
+      const action = {type: NOTIFY_ERROR, component: component, error: error}
+      const state = reducer(previousState, action)
 
-    expect(state.notifications).toEqual({
-      errors: [{type: 'component', component: component, props: props}],
-      successes: [],
-      currentUrl: null
+      expect(state.notifications.errors).toEqual([
+        {type: 'component', component: component, props: {msg: 'Error 1'}},
+        {type: 'component', component: component, props: {msg: 'Error 2'}}
+      ])
+    })
+
+    it('adds a notification for a single error message', () => {
+      const previousState = {
+        notifications: {
+          errors: [],
+          successes: []
+        }
+      }
+
+      const component = () => {}
+      const error = {message: 'Single Error'}
+      const action = {type: NOTIFY_ERROR, component: component, error: error}
+      const state = reducer(previousState, action)
+
+      expect(state.notifications.errors).toEqual([
+        {type: 'component', component: component, props: {msg: 'Single Error'}}
+      ])
+    })
+
+    it('adds a notification without a component when there are no errors or message attributes', () => {
+      const previousState = {
+        notifications: {
+          errors: [],
+          successes: []
+        }
+      }
+
+      const component = () => {}
+      const error = {}
+      const action = {type: NOTIFY_ERROR, component: component, error: error}
+      const state = reducer(previousState, action)
+
+      expect(state.notifications.errors).toEqual([{type: 'component'}])
+    })
+
+    it('clears successes', () => {
+      const previousState = {
+        notifications: {
+          errors: [],
+          successes: [{}]
+        }
+      }
+
+      const component = () => {}
+      const error = {}
+      const action = {type: NOTIFY_ERROR, component: component, error: error}
+      const state = reducer(previousState, action)
+
+      expect(state.notifications.successes).toEqual([])
     })
   })
 })

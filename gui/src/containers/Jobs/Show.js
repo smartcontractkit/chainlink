@@ -1,28 +1,30 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
+import { Link as BaseLink } from 'react-static'
+import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
+import Card from '@material-ui/core/Card'
+import { isWebInitiator, formatInitiators } from 'utils/jobSpecInitiators'
+import jobSpecDefinition from 'utils/jobSpecDefinition'
 import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import Card from '@material-ui/core/Card'
 import JobRunsList from 'components/JobRunsList'
-import { isWebInitiator, formatInitiators } from 'utils/jobSpecInitiators'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
 import Link from 'components/Link'
 import CopyJobSpec from 'components/CopyJobSpec'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
-import { fetchJobSpec, submitJobSpecRun } from 'actions'
+import { fetchJobSpec, createJobRun } from 'actions'
 import jobSelector from 'selectors/job'
 import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
 import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
 import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import ErrorMessage from 'components/Errors/Message'
 
 const styles = theme => ({
   actions: {
@@ -54,10 +56,17 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({ classes, jobSpec, jobRunsCount, submitJobSpecRun, fetching, fetchJobSpec }) => {
+const SuccessNotification = ({data}) => (
+  <React.Fragment>
+    Successfully created job run <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>{data.id}</BaseLink>
+  </React.Fragment>
+)
+
+const renderJobSpec = ({ classes, jobSpec, jobRunsCount, createJobRun, fetching, fetchJobSpec }) => {
   const definition = jobSpecDefinition(jobSpec)
   const handleClick = () => {
-    submitJobSpecRun(jobSpec.id).then(() => fetchJobSpec(jobSpec.id))
+    createJobRun(jobSpec.id, SuccessNotification, ErrorMessage)
+      .then(() => fetchJobSpec(jobSpec.id))
   }
 
   return (
@@ -219,7 +228,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobSpec, submitJobSpecRun})
+  matchRouteAndMapDispatchToProps({fetchJobSpec, createJobRun})
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

@@ -2,7 +2,6 @@ import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
   RECEIVE_CREATE_SUCCESS,
-  RECEIVE_CREATE_ERROR,
   NOTIFY_SUCCESS,
   NOTIFY_ERROR
 } from 'actions'
@@ -37,16 +36,6 @@ export default (state = initialState, action = {}) => {
         }
       )
     }
-    case RECEIVE_CREATE_ERROR: {
-      return Object.assign(
-        {},
-        state,
-        {
-          successes: [],
-          errors: action.error.errors
-        }
-      )
-    }
     case RECEIVE_CREATE_SUCCESS: {
       return Object.assign(
         {},
@@ -58,22 +47,49 @@ export default (state = initialState, action = {}) => {
       )
     }
     case NOTIFY_SUCCESS: {
+      const success = {
+        type: 'component',
+        component: action.component,
+        props: action.props
+      }
+
       return Object.assign(
         {},
         state,
         {
-          successes: [{type: 'component', component: action.component, props: action.props}],
+          successes: [success],
           errors: []
         }
       )
     }
     case NOTIFY_ERROR: {
+      const {component, error} = action
+      let notifications
+
+      if (error.errors) {
+        notifications = error.errors.map(e => ({
+          type: 'component',
+          component: component,
+          props: {msg: e.detail}
+        }))
+      } else if (error.message) {
+        notifications = [{
+          type: 'component',
+          component: component,
+          props: {msg: error.message}
+        }]
+      } else {
+        notifications = [{
+          type: 'component'
+        }]
+      }
+
       return Object.assign(
         {},
         state,
         {
           successes: [],
-          errors: [{type: 'component', component: action.component, props: action.props}]
+          errors: notifications
         }
       )
     }

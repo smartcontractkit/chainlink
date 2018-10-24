@@ -8,7 +8,8 @@ import Title from 'components/Title'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
 import Form from 'components/Bridges/Form'
-import { submitBridgeType } from 'actions'
+import ErrorMessage from 'components/Errors/Message'
+import { createBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const styles = theme => ({
@@ -18,13 +19,9 @@ const styles = theme => ({
   }
 })
 
-const successNotification = ({name}) => (<React.Fragment>
-  Successfully created <Link to={`/bridges/${name}`}>{name}</Link>
+const SuccessNotification = ({name}) => (<React.Fragment>
+  Successfully created bridge <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
-
-const errorNotification = ({name}) => (
-  <React.Fragment>Error creating {name}</React.Fragment>
-)
 
 const New = props => (
   <React.Fragment>
@@ -42,9 +39,9 @@ const New = props => (
         <PaddedCard>
           <Form
             actionText='Create Bridge'
-            onSubmit={props.submitBridgeType}
-            onSuccess={successNotification}
-            onError={errorNotification}
+            onSubmit={props.createBridge}
+            onSuccess={SuccessNotification}
+            onError={ErrorMessage}
           />
         </PaddedCard>
       </Grid>
@@ -54,7 +51,7 @@ const New = props => (
 
 export const ConnectedNew = connect(
   null,
-  matchRouteAndMapDispatchToProps({submitBridgeType})
+  matchRouteAndMapDispatchToProps({createBridge})
 )(New)
 
 export default withStyles(styles)(ConnectedNew)
