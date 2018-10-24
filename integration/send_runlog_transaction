@@ -7,8 +7,8 @@ const web3 = require('web3')
 
 process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
 
-function futureOffset(seconds) {
-  return parseInt((new Date).getTime() / 1000) + seconds
+function futureOffset (seconds) {
+  return parseInt((new Date()).getTime() / 1000) + seconds
 }
 
 const main = async () => {
@@ -30,9 +30,10 @@ const main = async () => {
 
   const job = {
     '_comment': 'A runlog has a jobid baked into the contract so chainlink knows which job to run.',
-    'initiators': [{ 'type': 'runlog' , 'params': {"requesters": [RunLog.address]}}],
+    'initiators': [{'type': 'runlog', 'params': {'requesters': [RunLog.address]}}],
     'tasks': [
-      { 'type': 'Sleep', 'params': { 'until': futureOffset(3) } },
+      // 10 seconds to ensure the time has not elapsed by the time the run is triggered
+      { 'type': 'Sleep', 'params': { 'until': futureOffset(10) } },
       { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
     ]
   }

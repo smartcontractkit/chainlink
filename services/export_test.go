@@ -6,19 +6,19 @@ import (
 )
 
 func ExportedExecuteRunAtBlock(
-	run models.JobRun,
+	run *models.JobRun,
 	store *store.Store,
-	blockNumber *models.IndexableBlockNumber,
-) (models.JobRun, error) {
-	return executeRunAtBlock(run, store, blockNumber)
+	input models.RunResult,
+) (*models.JobRun, error) {
+	return executeRun(run, store)
 }
 
-func ExportedChannelForRun(jr JobRunner, runID string) chan<- store.RunRequest {
+func ExportedChannelForRun(jr JobRunner, runID string) chan<- struct{} {
 	return jr.channelForRun(runID)
 }
 
-func ExportedResumeSleepingRuns(jr JobRunner) error {
-	return jr.resumeSleepingRuns()
+func ExportedResumeRuns(jr JobRunner) error {
+	return jr.resumeRuns()
 }
 
 func ExportedWorkerCount(jr JobRunner) int {
