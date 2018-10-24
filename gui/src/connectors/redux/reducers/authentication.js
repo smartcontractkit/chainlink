@@ -6,8 +6,7 @@ import {
   RECEIVE_SIGNIN_ERROR,
   REQUEST_SIGNOUT,
   RECEIVE_SIGNOUT_SUCCESS,
-  RECEIVE_SIGNOUT_ERROR,
-  RECEIVE_CREATE_ERROR
+  RECEIVE_SIGNOUT_ERROR
 } from 'actions'
 
 const defaultState = {
@@ -21,14 +20,6 @@ const initialState = Object.assign(
   defaultState,
   authenticationStorage.get()
 )
-
-const disallowAuthenticationStorageIf401 = errors => {
-  const statusCodes = errors.map(e => e.status)
-  if (statusCodes.includes(401)) {
-    const allowed = {allowed: false}
-    authenticationStorage.set(allowed)
-  }
-}
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
@@ -76,10 +67,6 @@ export default (state = initialState, action = {}) => {
           networkError: action.networkError
         }
       )
-    }
-    case RECEIVE_CREATE_ERROR: {
-      disallowAuthenticationStorageIf401(action.error.errors)
-      return state
     }
     default:
       return state

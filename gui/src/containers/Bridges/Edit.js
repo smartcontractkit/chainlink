@@ -10,6 +10,7 @@ import PaddedCard from 'components/PaddedCard'
 import BridgesForm from 'components/Bridges/Form'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
+import ErrorMessage from 'components/Errors/Message'
 import bridgeSelector from 'selectors/bridge'
 import {
   fetchBridgeSpec,
@@ -24,13 +25,9 @@ const styles = theme => ({
   }
 })
 
-const successNotification = ({name}) => (<React.Fragment>
+const SuccessNotification = ({name}) => (<React.Fragment>
   Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
-
-const errorNotification = ({name}) => (
-  <React.Fragment>Error updating {name}</React.Fragment>
-)
 
 export class Edit extends Component {
   componentDidMount () {
@@ -96,8 +93,8 @@ export class Edit extends Component {
                 url={bridge.url}
                 confirmations={bridge.confirmations}
                 minimumContractPayment={bridge.minimumContractPayment}
-                onSuccess={successNotification}
-                onError={errorNotification}
+                onSuccess={SuccessNotification}
+                onError={ErrorMessage}
               />
             </PaddedCard>
           ))}

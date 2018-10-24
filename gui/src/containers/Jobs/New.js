@@ -9,7 +9,8 @@ import BreadcrumbItem from 'components/BreadcrumbItem'
 import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import Form from 'components/Jobs/Form'
-import { submitJobSpec } from 'actions'
+import ErrorMessage from 'components/Errors/Message'
+import { createJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const styles = theme => ({
@@ -19,12 +20,10 @@ const styles = theme => ({
   }
 })
 
-const successNotification = ({name}) => (<React.Fragment>
-  Successfully created <Link to={`/bridges/${name}`}>{name}</Link>
-</React.Fragment>)
-
-const errorNotification = ({name}) => (
-  <React.Fragment>Error creating {name}</React.Fragment>
+const SuccessNotification = ({data}) => (
+  <React.Fragment>
+    Successfully created job <Link to={`/jobs/${data.id}`}>{data.id}</Link>
+  </React.Fragment>
 )
 
 const New = props => (
@@ -43,9 +42,9 @@ const New = props => (
         <PaddedCard>
           <Form
             actionText='Create Job'
-            onSubmit={props.submitJobSpec}
-            onSuccess={successNotification}
-            onError={errorNotification}
+            onSubmit={props.createJobSpec}
+            onSuccess={SuccessNotification}
+            onError={ErrorMessage}
             {...(props.location && props.location.state)}
           />
         </PaddedCard>
@@ -60,7 +59,7 @@ New.propTypes = {
 
 export const ConnectedNew = connect(
   null,
-  matchRouteAndMapDispatchToProps({submitJobSpec})
+  matchRouteAndMapDispatchToProps({createJobSpec})
 )(New)
 
 export default withStyles(styles)(ConnectedNew)
