@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
-	"go.uber.org/multierr"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -100,44 +99,7 @@ func (s *Store) Start() error {
 		return err
 	}
 
-	err = s.TxManager.ActivateAccount(acc)
-	if err != nil {
-		return err
-	}
-
-	return s.cleanUpAbruptShutdown()
-}
-
-func (s *Store) cleanUpAbruptShutdown() error {
-	runs, err := s.recoverInProgress()
-	if err != nil {
-		return err
-	}
-
-	return s.resumeInProgress(runs)
-}
-
-func (s *Store) recoverInProgress() ([]models.JobRun, error) {
-	runs, err := s.JobRunsWithStatus(models.RunStatusInProgress, models.RunStatusUnstarted)
-	if err != nil {
-		return runs, err
-	}
-
-	var merr error
-	for _, jr := range runs {
-		jr.Status = models.RunStatusUnstarted
-		multierr.Append(merr, s.Save(&jr))
-	}
-	return runs, merr
-}
-
-func (s *Store) resumeInProgress(runs []models.JobRun) error {
-	for _, run := range runs {
-		if err := s.RunChannel.Send(run.ID, nil); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.TxManager.ActivateAccount(acc)
 }
 
 // Close shuts down all of the working parts of the store.
@@ -195,13 +157,12 @@ func friendlyDuration(duration time.Duration) string {
 // RunRequest is the type that the RunChannel uses to package all the necessary
 // pieces to execute a Job Run.
 type RunRequest struct {
-	ID          string
-	BlockNumber *models.IndexableBlockNumber
+	ID string
 }
 
 // RunChannel manages and dispatches incoming runs.
 type RunChannel interface {
-	Send(jobRunID string, ibn *models.IndexableBlockNumber) error
+	Send(jobRunID string) error
 	Receive() <-chan RunRequest
 	Close()
 }
@@ -222,7 +183,7 @@ func NewQueuedRunChannel() RunChannel {
 }
 
 // Send adds another entry to the queue of runs.
-func (rq *QueuedRunChannel) Send(jobRunID string, ibn *models.IndexableBlockNumber) error {
+func (rq *QueuedRunChannel) Send(jobRunID string) error {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -234,10 +195,7 @@ func (rq *QueuedRunChannel) Send(jobRunID string, ibn *models.IndexableBlockNumb
 		return errors.New("QueuedRunChannel.Add: cannot add an empty jobRunID")
 	}
 
-	rq.queue <- RunRequest{
-		ID:          jobRunID,
-		BlockNumber: ibn,
-	}
+	rq.queue <- RunRequest{ID: jobRunID}
 	return nil
 }
 

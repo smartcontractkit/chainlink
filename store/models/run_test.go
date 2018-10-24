@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -34,7 +33,7 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	assert.Equal(t, "bad idea", run.Result.Error())
 }
 
-func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
+func TestJobRun_NextTaskRun(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -52,83 +51,13 @@ func TestJobRun_UnfinishedTaskRuns(t *testing.T) {
 	assert.NoError(t, store.SaveJob(&job))
 	run := job.NewRun(initiator)
 	assert.NoError(t, store.Save(&run))
-	assert.Equal(t, run.TaskRuns, run.UnfinishedTaskRuns())
+	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
 
-	store.RunChannel.Send(run.ID, nil)
+	store.RunChannel.Send(run.ID)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
 
 	store.One("ID", run.ID, &run)
-	assert.Equal(t, run.TaskRuns[1:], run.UnfinishedTaskRuns())
-}
-
-func TestTaskRun_Runnable(t *testing.T) {
-	t.Parallel()
-
-	job, initr := cltest.NewJobWithLogInitiator()
-	tests := []struct {
-		name                 string
-		creationHeight       *hexutil.Big
-		currentHeight        *models.IndexableBlockNumber
-		minimumConfirmations uint64
-		want                 bool
-	}{
-		{"creation nil current nil minconfs 0", nil, nil, 0, true},
-		{"creation 1 current nil minconfs 0", cltest.NewBigHexInt(1), nil, 0, true},
-		{"creation 1 current 1 minconfs 0", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 0, true},
-		{"creation 1 current 1 minconfs 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(1), 1, true},
-		{"creation 1 current 2 minconfs 1", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 1, true},
-		{"creation 1 current 2 minconfs 2", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 2, true},
-		{"creation 1 current 2 minconfs 3", cltest.NewBigHexInt(1), cltest.IndexableBlockNumber(2), 3, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			jr := job.NewRun(initr)
-			if test.creationHeight != nil {
-				jr.CreationHeight = test.creationHeight
-			}
-
-			assert.Equal(t, test.want, jr.Runnable(test.currentHeight, test.minimumConfirmations))
-		})
-	}
-}
-
-func TestTaskRun_Merge(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{"preserves task field",
-			`{"url":"https://NEW.example.com/api"}`,
-			`{"url":"https://OLD.example.com/api"}`},
-		{"add field",
-			`{"extra":1}`,
-			`{"url":"https://OLD.example.com/api","extra":1}`},
-		{"preserves task field and adds new field",
-			`{"url":"https://NEW.example.com/api","extra":1}`,
-			`{"url":"https://OLD.example.com/api","extra":1}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			orig := `{"url":"https://OLD.example.com/api"}`
-			tr := models.TaskRun{
-				Task: models.TaskSpec{
-					Params: models.JSON{Result: gjson.Parse(orig)},
-					Type:   adapters.TaskTypeHTTPGet,
-				},
-			}
-			input := cltest.JSONFromString(test.input)
-
-			merged, err := tr.MergeTaskParams(input)
-			assert.NoError(t, err)
-			assert.JSONEq(t, test.want, merged.Task.Params.String())
-			assert.JSONEq(t, orig, tr.Task.Params.String())
-		})
-	}
+	assert.Equal(t, &run.TaskRuns[1], run.NextTaskRun())
 }
 
 func TestRunResult_Value(t *testing.T) {

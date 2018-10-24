@@ -24,7 +24,7 @@ func (sc *SnapshotsController) CreateSnapshot(c *gin.Context) {
 		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
-	} else if jr, err := startJob(j, sc.App.Store, models.JSON{}); err != nil {
+	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{}, nil, sc.App.Store); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, gin.H{"id": jr.ID})
