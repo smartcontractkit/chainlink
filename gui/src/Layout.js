@@ -23,7 +23,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { submitSignOut } from 'actions'
-import { isFetchingSelector } from 'selectors'
+import isFetchingSelector from 'selectors/isFetching'
 
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.

@@ -10,7 +10,8 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { connect } from 'react-redux'
 import { fetchJobSpecRuns } from 'actions'
 import { withStyles } from '@material-ui/core/styles'
-import { jobRunsCountSelector, jobRunsSelector } from 'selectors'
+import jobRunsSelector from 'selectors/jobRuns'
+import jobRunsCountSelector from 'selectors/jobRunsCount'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
 const styles = theme => ({

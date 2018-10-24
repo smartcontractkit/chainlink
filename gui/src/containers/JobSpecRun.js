@@ -1,16 +1,16 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
+import Typography from '@material-ui/core/Typography'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobSpecRun } from 'actions'
-import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
-import { jobRunSelector } from 'selectors'
+import jobRunSelector from 'selectors/jobRun'
 
 const styles = theme => ({
   title: {

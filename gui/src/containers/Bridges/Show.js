@@ -1,17 +1,17 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
 import { Button } from '@material-ui/core'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
+import { fetchBridgeSpec } from 'actions'
+import bridgeSelector from 'selectors/bridge'
 import PaddedCard from 'components/PaddedCard'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { withStyles } from '@material-ui/core/styles'
-import { connect } from 'react-redux'
-import { fetchBridgeSpec } from 'actions'
-import { bridgeSelector } from 'selectors'
 
 const styles = theme => ({
   title: {
