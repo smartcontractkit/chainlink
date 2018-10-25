@@ -156,7 +156,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs/:SpecID", j.Show)
 
-		authv2.GET("/specs/:SpecID/runs", jr.Index)
+		authv2.GET("/runs", jr.Index)
 		authv2.POST("/specs/:SpecID/runs", jr.Create)
 		authv2.GET("/runs/:RunID", jr.Show)
 
