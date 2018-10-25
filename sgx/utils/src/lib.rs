@@ -10,9 +10,9 @@
 extern crate sgx_tstd as std;
 
 use std::ffi::{CStr, CString, NulError};
-use std::slice::{self, from_raw_parts_mut};
-use std::string::{FromUtf8Error, String};
 use std::ptr;
+use std::slice;
+use std::string::{FromUtf8Error, String};
 
 // cstr_len gets the length of a cstring pointer, not including the null terminator
 pub fn cstr_len(string: *const i8) -> usize {
