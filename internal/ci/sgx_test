@@ -6,8 +6,17 @@ export ENVIRONMENT=${ENVIRONMENT:-release}
 
 tmpdir=$(mktemp -d)
 trap "rm -rf $tmpdir" EXIT HUP TERM INT
+
 libs="$PWD/sgx/target/$ENVIRONMENT"
 cp ./sgx/target/$ENVIRONMENT/enclave.signed.so $tmpdir/
+
 go test -tags=sgx_enclave -ldflags "-r $libs" ./adapters/ -c -o "$tmpdir/adapters.test"
+
 cd $tmpdir
-./adapters.test -test.parallel 1 -test.v
+if [ -n "$USE_GDB" ] && [ "$ENVIRONMENT" == "debug" ]; then
+  # XXX: The sgx-gdb wrapper script will actually load the symbol table for the enclave
+  /opt/sgxsdk/bin/sgx-gdb -ex run --args ./adapters.test -test.parallel 1 -test.v
+else
+  # FIXME: Get a TCS exhausted error if go tries to run SGX performs from multiple threads/cpus
+  GOMAXPROCS=1 ./adapters.test -test.parallel 1 -test.v -test.run TestWasm_Perform
+fi

@@ -6,8 +6,8 @@ enclave {
 
   trusted {
     public sgx_status_t sgx_wasm(
-      [in, size=wasmt_len] const uint8_t* wasmt_ptr, size_t wasmt_len,
-      [in, size=arguments_len] const uint8_t* arguments_ptr, size_t arguments_len,
+      [in, size=adapter_len] const uint8_t* adapter, size_t adapter_len,
+      [in, size=input_len] const uint8_t* input, size_t input_len,
       [out, size=result_capacity] uint8_t* result_ptr, size_t result_capacity,
       [out] size_t *result_len);
     public sgx_status_t sgx_multiply(

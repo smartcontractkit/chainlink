@@ -9,7 +9,7 @@ extern crate base64;
 extern crate num;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
-extern crate serde_json;
+#[macro_use] extern crate serde_json;
 #[cfg(not(target_env = "sgx"))]
 #[macro_use] extern crate sgx_tstd as std;
 extern crate sgx_types;
@@ -17,72 +17,27 @@ extern crate sgx_types;
 extern crate wasmi;
 
 mod wasm;
+mod multiply;
+
+mod result;
 
 use sgx_types::*;
-use std::string::String;
-use std::string::ToString;
 use utils::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
+use result::RunResult;
+
+#[derive(Debug)]
+enum ShimError {
+    OutputCStrError(utils::OutputCStrError),
+    FromUtf8Error(std::string::FromUtf8Error),
+    JsonError(serde_json::Error),
+}
+
+impl_from_error!(utils::OutputCStrError, ShimError::OutputCStrError);
+impl_from_error!(std::string::FromUtf8Error, ShimError::FromUtf8Error);
+impl_from_error!(serde_json::Error, ShimError::JsonError);
 
 #[no_mangle]
 pub extern "C" fn sgx_wasm(
-    wasmt_ptr: *const u8,
-    wasmt_len: usize,
-    arguments_ptr: *const u8,
-    arguments_len: usize,
-    result_ptr: *mut u8,
-    result_capacity: usize,
-    result_len: *mut usize,
-) -> sgx_status_t {
-    match wasm(
-        wasmt_ptr,
-        wasmt_len,
-        arguments_ptr,
-        arguments_len,
-        result_ptr,
-        result_capacity,
-        result_len,
-    ) {
-        Ok(_) => sgx_status_t::SGX_SUCCESS,
-        _ => sgx_status_t::SGX_ERROR_UNEXPECTED,
-    }
-}
-
-enum WasmError {
-    FromUtf8Error(std::string::FromUtf8Error),
-    ExecError(wasm::Error),
-    OutputCStrError(utils::OutputCStrError),
-    UnexpectedOutputError,
-}
-
-impl_from_error!(std::string::FromUtf8Error, WasmError::FromUtf8Error);
-impl_from_error!(wasm::Error, WasmError::ExecError);
-impl_from_error!(utils::OutputCStrError, WasmError::OutputCStrError);
-
-fn wasm(
-    wasmt_ptr: *const u8,
-    wasmt_len: usize,
-    arguments_ptr: *const u8,
-    arguments_len: usize,
-    result_ptr: *mut u8,
-    result_capacity: usize,
-    result_len: *mut usize,
-) -> Result<(), WasmError> {
-
-    let wasmt = string_from_cstr_with_len(wasmt_ptr, wasmt_len)?;
-    let arguments = string_from_cstr_with_len(arguments_ptr, arguments_len)?;
-    let output = wasm::exec(&wasmt, &arguments)?;
-
-    let value = match output {
-        wasmi::RuntimeValue::I32(v) => format!("{}", v),
-        _ => return Err(WasmError::UnexpectedOutputError),
-    };
-
-    copy_string_to_cstr_ptr(&value, result_ptr, result_capacity, result_len)?;
-    Ok(())
-}
-
-#[no_mangle]
-pub extern "C" fn sgx_multiply(
     adapter_str_ptr: *const u8,
     adapter_str_len: usize,
     input_str_ptr: *const u8,
@@ -91,7 +46,7 @@ pub extern "C" fn sgx_multiply(
     result_capacity: usize,
     result_len: *mut usize,
 ) -> sgx_status_t {
-    match multiply(
+    match wasm_shim(
         adapter_str_ptr,
         adapter_str_len,
         input_str_ptr,
@@ -105,20 +60,7 @@ pub extern "C" fn sgx_multiply(
     }
 }
 
-enum MultiplyError {
-    ParseIntError(core::num::ParseIntError),
-    OutputCStrError(utils::OutputCStrError),
-    FromUtf8Error(std::string::FromUtf8Error),
-    JsonError(serde_json::Error),
-    InvalidArgumentError,
-}
-
-impl_from_error!(core::num::ParseIntError, MultiplyError::ParseIntError);
-impl_from_error!(utils::OutputCStrError, MultiplyError::OutputCStrError);
-impl_from_error!(std::string::FromUtf8Error, MultiplyError::FromUtf8Error);
-impl_from_error!(serde_json::Error, MultiplyError::JsonError);
-
-fn multiply(
+fn wasm_shim(
     adapter_str_ptr: *const u8,
     adapter_str_len: usize,
     input_str_ptr: *const u8,
@@ -126,54 +68,67 @@ fn multiply(
     result_ptr: *mut u8,
     result_capacity: usize,
     result_len: *mut usize,
-) -> Result<(), MultiplyError> {
+) -> Result<(), ShimError> {
+
     let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len)?;
     let adapter = serde_json::from_str(&adapter_str)?;
     let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len)?;
-    let mut input : RunResult = serde_json::from_str(&input_str)?;
+    let input : RunResult = serde_json::from_str(&input_str)?;
 
-    let multiplier = get_json_string(&adapter, "times")?;
-    let multiplicand = get_json_string(&input.data, "value")?;
-    let result = parse_and_multiply(&multiplicand, &multiplier)?;
+    let result = match wasm::perform(&adapter, &input) {
+        Ok(value) => result::new(&input).with_data(&value).with_status("completed"),
+        Err(err) => result::new(&input).with_error(&format!("{:?}", err)),
+    };
 
-    input.status = "completed".to_string();
-    input.add("value", serde_json::Value::String(result));
-
-    let rr_json = serde_json::to_string(&input)?;
+    let rr_json = serde_json::to_string(&result)?;
     copy_string_to_cstr_ptr(&rr_json, result_ptr, result_capacity, result_len)?;
     Ok(())
 }
 
-fn get_json_string(object: &serde_json::Value, key: &str) -> Result<String, MultiplyError> {
-    match &object[key] {
-        serde_json::Value::String(v) => Ok(v.clone()),
-        serde_json::Value::Number(v) => Ok(format!("{}", v)),
-        _ => return Err(MultiplyError::InvalidArgumentError),
+#[no_mangle]
+pub extern "C" fn sgx_multiply(
+    adapter_str_ptr: *const u8,
+    adapter_str_len: usize,
+    input_str_ptr: *const u8,
+    input_str_len: usize,
+    result_ptr: *mut u8,
+    result_capacity: usize,
+    result_len: *mut usize,
+) -> sgx_status_t {
+    match multiply_shim(
+        adapter_str_ptr,
+        adapter_str_len,
+        input_str_ptr,
+        input_str_len,
+        result_ptr,
+        result_capacity,
+        result_len,
+    ) {
+        Ok(_) => sgx_status_t::SGX_SUCCESS,
+        _ => sgx_status_t::SGX_ERROR_UNEXPECTED,
     }
 }
 
-fn parse_and_multiply(
-    multiplicand_str: &str,
-    multiplier_str: &str,
-) -> Result<String, MultiplyError> {
-    let multiplicand = i128::from_str_radix(multiplicand_str, 10)?;
-    let multiplier = i128::from_str_radix(multiplier_str, 10)?;
-    let result = multiplicand * multiplier;
-    Ok(format!("{}", result))
-}
+fn multiply_shim(
+    adapter_str_ptr: *const u8,
+    adapter_str_len: usize,
+    input_str_ptr: *const u8,
+    input_str_len: usize,
+    result_ptr: *mut u8,
+    result_capacity: usize,
+    result_len: *mut usize,
+) -> Result<(), ShimError> {
+    let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len)?;
+    let adapter = serde_json::from_str(&adapter_str)?;
+    let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len)?;
+    let input : RunResult = serde_json::from_str(&input_str)?;
 
-#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-struct RunResult {
-    job_run_id: String,
-    data: serde_json::Value,
-    status: String,
-    error_message: Option<String>,
-    amount: Option<u64>,
-}
+    let result = match multiply::perform(&adapter, &input) {
+        Ok(value) => result::new(&input).with_data(&value).with_status("completed"),
+        Err(err) => result::new(&input).with_error(&format!("{:?}", err)),
+    };
 
-impl RunResult {
-    fn add(&mut self, key: &str, value: serde_json::Value) {
-        self.data[key] = value;
-    }
+    let rr_json = serde_json::to_string(&result)?;
+    copy_string_to_cstr_ptr(&rr_json, result_ptr, result_capacity, result_len)?;
+    Ok(())
 }

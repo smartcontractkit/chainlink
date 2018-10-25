@@ -11,14 +11,14 @@ crate-type = ["staticlib"]
 default = []
 
 [dependencies]
-utils = { path = "../utils", default-features = false }
+base64 = { path = "/opt/rust-sgx-sdk/third_party/rust-base64" }
 num = { path = "/opt/rust-sgx-sdk/third_party/num" }
 serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }
 serde_derive = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde_derive" }
 serde_json = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/json"}
+utils = { path = "../utils", default-features = false }
 wabt-core = { path = "/opt/rust-sgx-sdk/third_party/wabt-rs-core" }
 wasmi = { path = "/opt/rust-sgx-sdk/third_party/wasmi" }
-base64 = { path = "/opt/rust-sgx-sdk/third_party/rust-base64" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
 sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }

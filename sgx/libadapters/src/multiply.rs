@@ -42,22 +42,19 @@ pub extern "C" fn multiply(
         )
     };
 
+    set_errno(Errno(0));
     match result {
-        sgx_status_t::SGX_SUCCESS => {}
+        sgx_status_t::SGX_SUCCESS => {},
         _ => {
-            println!("Call into Enclave multiplier failed: {}", result.as_str());
+            set_errno(Errno(result as i32));
+            return;
         }
     }
 
     match retval {
-        sgx_status_t::SGX_SUCCESS => {
-            println!("multiply call succeeded");
-            set_errno(Errno(0));
-        }
+        sgx_status_t::SGX_SUCCESS => {},
         _ => {
-            println!("multiply returned error: {}", retval.as_str());
             set_errno(Errno(result as i32));
-            return;
         }
     }
 }

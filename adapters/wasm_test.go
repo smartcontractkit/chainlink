@@ -14,12 +14,9 @@ import (
 )
 
 const (
-	// HelloWorldProgram was compiled then base64ed from internal/fixtures/wasm/helloworld.wat
-	// This program prints hello world then sets two globals (length, position)
-	HelloWorldProgram = "AGFzbQEAAAABBgFgAX4BfwMCAQAHCwEHcGVyZm9ybQAACgoBCABCwgMgAFML"
-	// CheckEthProgram was compiled then base64ed from internal/fixtures/wasm/checketh.wat
+	// CheckEthProgram was compiled then base64ed from internal/fixtures/wasm/checkethf.wat
 	// This program compares the input value to 450 using i64.lt_s
-	CheckEthProgram = "AGFzbQEAAAABBgFgAX4BfwMCAQAHCwEHcGVyZm9ybQAACgoBCABCwgMgAFML"
+	CheckEthProgram = "AGFzbQEAAAABBgFgAXwBfwMCAQAHCwEHcGVyZm9ybQAAChABDgBEAAAAAAAgfEAgAGML"
 )
 
 func TestWasm_Perform(t *testing.T) {
@@ -32,26 +29,26 @@ func TestWasm_Perform(t *testing.T) {
 		jsonError bool
 	}{
 		{
-			"hello world",
-			fmt.Sprintf(`{"wasm":"%s"}`, HelloWorldProgram),
-			`{"value": 0}`,
-			"",
+			"check eth less than 450",
+			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
+			`{"value": 449.9}`,
+			"0",
+			false,
+			false,
+		},
+		{
+			"check eth equals 450",
+			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
+			`{"value": 450.0}`,
+			"0",
 			false,
 			false,
 		},
 		{
 			"check eth greater than 450",
 			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
-			`{"value":"451"}`,
+			`{"value": 450.1}`,
 			"1",
-			false,
-			false,
-		},
-		{
-			"check eth less than 450",
-			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
-			`{"value":"449"}`,
-			"-1",
 			false,
 			false,
 		},
