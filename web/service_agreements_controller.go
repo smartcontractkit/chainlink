@@ -15,12 +15,12 @@ import (
 
 // ServiceAgreementsController manages service agreements.
 type ServiceAgreementsController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // Create builds and saves a new service agreement record.
 func (sac *ServiceAgreementsController) Create(c *gin.Context) {
-	if !sac.App.Store.Config.Dev {
+	if !sac.App.GetStore().Config.Dev {
 		publicError(c, 500, errors.New("Service Agreements are currently under development and not yet usable outside of development mode"))
 		return
 	}
@@ -31,16 +31,16 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		return
 	}
 
-	sa, err := sac.App.Store.FindServiceAgreement(us.ID.String())
+	sa, err := sac.App.GetStore().FindServiceAgreement(us.ID.String())
 	if err == storm.ErrNotFound {
-		sa, err = models.BuildServiceAgreement(us, sac.App.Store.KeyStore)
+		sa, err = models.BuildServiceAgreement(us, sac.App.GetStore().KeyStore)
 		if err != nil {
 			publicError(c, 422, err)
 			return
-		} else if err = services.ValidateServiceAgreement(sa, sac.App.Store); err != nil {
+		} else if err = services.ValidateServiceAgreement(sa, sac.App.GetStore()); err != nil {
 			publicError(c, 422, err)
 			return
-		} else if err = sac.App.Store.SaveServiceAgreement(&sa); err != nil {
+		} else if err = sac.App.GetStore().SaveServiceAgreement(&sa); err != nil {
 			c.AbortWithError(500, err)
 			return
 		}
@@ -58,7 +58,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 //  "<application>/service_agreements/:SAID"
 func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 	id := common.HexToHash(c.Param("SAID"))
-	if sa, err := sac.App.Store.FindServiceAgreement(id.String()); err == storm.ErrNotFound {
+	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("ServiceAgreement not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)

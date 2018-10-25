@@ -32,9 +32,10 @@ const (
 )
 
 // Router listens and responds to requests to the node for valid paths.
-func Router(app *services.ChainlinkApplication) *gin.Engine {
+func Router(app services.Application) *gin.Engine {
 	engine := gin.New()
-	config := app.Store.Config
+	store := app.GetStore()
+	config := store.Config
 	secret, err := config.SessionSecret()
 	if err != nil {
 		logger.Panic(err)
@@ -48,7 +49,7 @@ func Router(app *services.ChainlinkApplication) *gin.Engine {
 		gin.Recovery(),
 		cors,
 		sessions.Sessions(SessionName, sessionStore),
-		secureMiddleware(app.Store.Config),
+		secureMiddleware(config),
 	)
 
 	metricRoutes(app, engine)
@@ -109,21 +110,21 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 	}
 }
 
-func metricRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
-	auth := engine.Group("/", authRequired(app.Store))
+func metricRoutes(app services.Application, engine *gin.Engine) {
+	auth := engine.Group("/", authRequired(app.GetStore()))
 	auth.GET("/debug/vars", expvar.Handler())
 }
 
-func sessionRoutes(app *services.ChainlinkApplication, engine *gin.Engine) {
+func sessionRoutes(app services.Application, engine *gin.Engine) {
 	sc := SessionsController{app}
 	engine.POST("/sessions", sc.Create)
-	auth := engine.Group("/", authRequired(app.Store))
+	auth := engine.Group("/", authRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
-func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
+func v1Routes(app services.Application, engine *gin.Engine) {
 	v1 := engine.Group("/v1")
-	v1.Use(authRequired(app.Store))
+	v1.Use(authRequired(app.GetStore()))
 
 	ac := AssignmentsController{app}
 	v1.POST("/assignments", ac.Create)
@@ -134,7 +135,7 @@ func v1Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	v1.GET("/snapshots/:ID", sc.ShowSnapshot)
 }
 
-func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
+func v2Routes(app services.Application, engine *gin.Engine) {
 	v2 := engine.Group("/v2")
 
 	jr := JobRunsController{app}
@@ -143,7 +144,7 @@ func v2Routes(app *services.ChainlinkApplication, engine *gin.Engine) {
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
 
-	authv2 := engine.Group("/v2", authRequired(app.Store))
+	authv2 := engine.Group("/v2", authRequired(app.GetStore()))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
