@@ -8,7 +8,6 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -123,8 +122,8 @@ func (eth *EthClient) GetBlockByNumber(hex string) (models.BlockHeader, error) {
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]types.Log, error) {
-	var results []types.Log
+func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
+	var results []Log
 	err := eth.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
@@ -132,7 +131,7 @@ func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]types.Log, error) {
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
 func (eth *EthClient) SubscribeToLogs(
-	channel chan<- types.Log,
+	channel chan<- Log,
 	q ethereum.FilterQuery,
 ) (models.EthSubscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359

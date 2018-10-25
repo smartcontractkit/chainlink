@@ -12,11 +12,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
-	"github.com/smartcontractkit/chainlink/store"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
@@ -101,7 +100,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 
 // CreateTxAndAttempt create tx attempt with given store, from address, and sentat
 func CreateTxAndAttempt(
-	store *store.Store,
+	store *strpkg.Store,
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
@@ -188,9 +187,9 @@ func NullTime(val interface{}) null.Time {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(path string) ethtypes.Log {
+func LogFromFixture(path string) strpkg.Log {
 	value := gjson.Get(string(LoadJSON(path)), "params.result")
-	var el ethtypes.Log
+	var el strpkg.Log
 	mustNotErr(json.Unmarshal([]byte(value.String()), &el))
 
 	return el
@@ -243,15 +242,15 @@ func EasyJSONFromString(body string, args ...interface{}) EasyJSON {
 	return EasyJSON{JSON: JSONFromString(body, args...)}
 }
 
-// NewRunLog create ethtypes.Log for given jobid, address, block, and json
+// NewRunLog create strpkg.Log for given jobid, address, block, and json
 func NewRunLog(
 	jobID string,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
 	json string,
-) ethtypes.Log {
-	return ethtypes.Log{
+) strpkg.Log {
+	return strpkg.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData("internalID", json),
@@ -351,7 +350,7 @@ func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
 	return jr
 }
 
-func NewJobRunner(s *store.Store) (services.JobRunner, func()) {
+func NewJobRunner(s *strpkg.Store) (services.JobRunner, func()) {
 	rm := services.NewJobRunner(s)
 	return rm, func() { rm.Stop() }
 }
