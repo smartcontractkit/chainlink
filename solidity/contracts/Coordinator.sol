@@ -38,6 +38,11 @@ contract Coordinator {
     bytes data
   );
 
+  event NewServiceAgreement(
+    bytes32 indexed said,
+    bytes32 indexed requestDigest
+  );
+
   function onTokenTransfer(
     address _sender,
     uint256 _amount,
@@ -106,11 +111,11 @@ contract Coordinator {
     bytes32[] _rs,
     bytes32[] _ss,
     bytes32 _requestDigest
-  ) public
+  ) public returns (bytes32 serviceAgreementID)
   {
     require(_oracles.length == _vs.length && _vs.length == _rs.length && _rs.length == _ss.length, "Must pass in as many signatures as oracles");
 
-    bytes32 serviceAgreementID = getId(_payment, _expiration, _oracles, _requestDigest);
+    serviceAgreementID = getId(_payment, _expiration, _oracles, _requestDigest);
 
     for (uint i = 0; i < _oracles.length; i++) {
       address signer = getOracleAddressFromSASignature(serviceAgreementID, _vs[i], _rs[i], _ss[i]);
@@ -123,6 +128,8 @@ contract Coordinator {
       _oracles,
       _requestDigest
     );
+
+    emit NewServiceAgreement(serviceAgreementID, _requestDigest);
   }
 
   function getOracleAddressFromSASignature(
