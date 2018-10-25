@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +22,7 @@ func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
 		name        string
-		el          types.Log
+		el          strpkg.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -47,7 +47,7 @@ func TestInitiatorSubscriptionLogEvent_EthLogJSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          types.Log
+		el          strpkg.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -74,7 +74,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
-	eth.Register("eth_getLogs", []types.Log{log})
+	eth.Register("eth_getLogs", []strpkg.Log{log})
 	eth.RegisterSubscription("logs")
 
 	var count int32
@@ -122,8 +122,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
-	eth.Register("eth_getLogs", []types.Log{log}) // backfill
-	logsChan := make(chan types.Log)
+	eth.Register("eth_getLogs", []strpkg.Log{log}) // backfill
+	logsChan := make(chan strpkg.Log)
 	eth.RegisterSubscription("logs", logsChan)
 
 	var count int32

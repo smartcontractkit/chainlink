@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := build
-.PHONY: godep yarndep build install gui docker dockerpush
+.PHONY: dependencies godep yarndep build install bootstrap gui docker dockerpush
 
 ENVIRONMENT ?= release
 
@@ -28,6 +28,10 @@ endif
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 
+dependencies:
+	go get -u github.com/golang/dep/cmd/dep
+	go get -u github.com/smartcontractkit/gencodec
+
 godep: ## Ensure chainlink's go dependencies are installed.
 	dep ensure -vendor-only
 
@@ -39,9 +43,11 @@ build: godep gui chainlink ## Build chainlink.
 install: godep gui ## Install chainlink
 	go install $(GOFLAGS)
 
+bootstrap: dependencies install
+
 gui: yarndep ## Install GUI
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
-	go generate ./...
+	go generate main.go
 
 docker: ## Build the docker image.
 	docker build \
