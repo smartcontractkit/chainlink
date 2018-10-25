@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 	}
 }
 
-func TestJobSpecsController_Index(t *testing.T) {
+func TestJobSpecsController_Index_noSort(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -61,7 +62,7 @@ func TestJobSpecsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, jobs, 1)
-	assert.Equal(t, j1.Initiators[0].Schedule, jobs[0].Initiators[0].Schedule, "should have the same schedule")
+	assert.Equal(t, j1.ID, jobs[0].ID)
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
@@ -78,6 +79,55 @@ func TestJobSpecsController_Index(t *testing.T) {
 	assert.NotEqual(t, true, jobs[0].Initiators[0].Ran, "should ignore fields for other initiators")
 }
 
+func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	jobs := createJobs(app, 3)
+
+	resp, cleanup := client.Get("/v2/specs?sort=createdAt&size=2")
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+	body := cltest.ParseResponseBody(resp)
+
+	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, metaCount)
+
+	var links jsonapi.Links
+	ascJobs := []models.JobSpec{}
+	err = web.ParsePaginatedResponse(body, &ascJobs, &links)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, links["next"].Href)
+	assert.Empty(t, links["prev"].Href)
+
+	assert.Len(t, ascJobs, 2)
+	assert.Equal(t, jobs[0].ID, ascJobs[0].ID)
+	assert.Equal(t, jobs[1].ID, ascJobs[1].ID)
+
+	resp, cleanup = client.Get("/v2/specs?sort=-createdAt&size=2")
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+	body = cltest.ParseResponseBody(resp)
+
+	metaCount, err = cltest.ParseJSONAPIResponseMetaCount(body)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, metaCount)
+
+	descJobs := []models.JobSpec{}
+	err = web.ParsePaginatedResponse(body, &descJobs, &links)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, links["next"].Href)
+	assert.Empty(t, links["prev"].Href)
+
+	assert.Len(t, descJobs, 2)
+	assert.Equal(t, jobs[2].ID, descJobs[0].ID)
+	assert.Equal(t, jobs[1].ID, descJobs[1].ID)
+}
+
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
 	j1, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
 	j1.CreatedAt = models.Time{Time: time.Now().AddDate(0, 0, -1)}
@@ -89,6 +139,19 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 	j2.Initiators[0].Ran = true
 	err = app.Store.SaveJob(&j2)
 	return &j1, err
+}
+
+func createJobs(app *cltest.TestApplication, n int) (jobs []*models.JobSpec) {
+	for i := 0; i < n; i++ {
+		j, _ := cltest.NewJobWithWebInitiator()
+		err := app.Store.SaveJob(&j)
+		if err != nil {
+			panic(fmt.Sprintf("Could not save job: %v", err))
+		}
+		jobs = append(jobs, &j)
+	}
+
+	return jobs
 }
 
 func TestJobSpecsController_Create(t *testing.T) {
