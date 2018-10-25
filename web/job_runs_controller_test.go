@@ -28,12 +28,12 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	app.Start()
 	defer cleanup()
-	j := setupJobRunsControllerIndex(b, app)
+	run1, _, _ := setupJobRunsControllerIndex(b, app)
 	client := app.NewHTTPClient()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := client.Get("/v2/specs/" + j.ID + "/runs")
+		resp, cleanup := client.Get("/v2/runs?jobSpecId=" + run1.JobID)
 		defer cleanup()
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
@@ -47,61 +47,82 @@ func TestJobRunsController_Index(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j := setupJobRunsControllerIndex(t, app)
-	jr, err := app.Store.JobRunsFor(j.ID)
-	assert.NoError(t, err)
+	run1, run2, run3 := setupJobRunsControllerIndex(t, app)
 
-	resp, cleanup := client.Get("/v2/specs/" + j.ID + "/runs?size=x")
+	resp, cleanup := client.Get("/v2/runs?size=x&jobSpecId=" + run1.JobID)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = client.Get("/v2/specs/" + j.ID + "/runs?size=1")
+	resp, cleanup = client.Get("/v2/runs?size=1&jobSpecId=" + run1.JobID)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var links jsonapi.Links
 	var runs []models.JobRun
 
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &runs, &links)
+	err := web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &runs, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, runs, 1)
-	assert.Equal(t, jr[1].ID, runs[0].ID, "expected runs ordered by created at(descending)")
+	assert.Equal(t, run1.ID, runs[0].ID, "expected runs order by createdAt ascending")
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	runs = []models.JobRun{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &runs, &links)
-	assert.NoError(t, err)
-	assert.Empty(t, links["next"])
-	assert.NotEmpty(t, links["prev"])
+	var nextPageLinks jsonapi.Links
+	var nextPageRuns = []models.JobRun{}
 
-	assert.Len(t, runs, 1)
-	assert.Equal(t, jr[0].ID, runs[0].ID, "expected runs ordered by created at(descending)")
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &nextPageRuns, &nextPageLinks)
+	assert.NoError(t, err)
+	assert.Empty(t, nextPageLinks["next"])
+	assert.NotEmpty(t, nextPageLinks["prev"])
+
+	assert.Len(t, nextPageRuns, 1)
+	assert.Equal(t, run2.ID, nextPageRuns[0].ID, "expected runs order by createdAt ascending")
+
+	resp, cleanup = client.Get("/v2/runs?sort=-createdAt")
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+
+	var allJobRunLinks jsonapi.Links
+	var allJobRuns []models.JobRun
+
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &allJobRuns, &allJobRunLinks)
+	assert.NoError(t, err)
+	assert.Empty(t, allJobRunLinks["next"].Href)
+	assert.Empty(t, allJobRunLinks["prev"].Href)
+
+	assert.Len(t, allJobRuns, 3)
+	assert.Equal(t, run3.ID, allJobRuns[0].ID, "expected runs ordered by created at descending")
+	assert.Equal(t, run2.ID, allJobRuns[1].ID, "expected runs ordered by created at descending")
+	assert.Equal(t, run1.ID, allJobRuns[2].ID, "expected runs ordered by created at descending")
 }
 
-func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
-	j, initr := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, app.Store.SaveJob(&j))
-	jr1 := j.NewRun(initr)
-	jr1.ID = "runB"
-	assert.Nil(t, app.Store.Save(&jr1))
-	jr2 := j.NewRun(initr)
-	jr2.ID = "runA"
-	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
-	assert.Nil(t, app.Store.Save(&jr2))
+func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) (*models.JobRun, *models.JobRun, *models.JobRun) {
+	j1, initr := cltest.NewJobWithWebInitiator()
+	assert.Nil(t, app.Store.SaveJob(&j1))
 
 	j2, initr := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j2))
-	jr3 := j2.NewRun(initr)
-	jr3.ID = "runC"
-	assert.Nil(t, app.Store.Save(&jr3))
 
-	return &j
+	run1 := j1.NewRun(initr)
+	run1.ID = "runA"
+	assert.Nil(t, app.Store.Save(&run1))
+
+	run2 := j1.NewRun(initr)
+	run2.ID = "runB"
+	run2.CreatedAt = run1.CreatedAt.Add(time.Second)
+	assert.Nil(t, app.Store.Save(&run2))
+
+	run3 := j2.NewRun(initr)
+	run3.ID = "runC"
+	run3.CreatedAt = run1.CreatedAt.Add(2 * time.Second)
+	assert.Nil(t, app.Store.Save(&run3))
+
+	return &run1, &run2, &run3
 }
 
 func TestJobRunsController_Create_Success(t *testing.T) {
