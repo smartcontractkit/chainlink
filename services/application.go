@@ -6,6 +6,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -22,6 +23,7 @@ type Application interface {
 	AddJob(job models.JobSpec) error
 	AddAdapter(bt *models.BridgeType) error
 	RemoveAdapter(bt *models.BridgeType) error
+	NewBox() packr.Box
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -155,4 +157,10 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	}
 
 	return nil
+}
+
+// NewBox returns the packr.Box instance that holds the static assets to
+// be delivered by the router.
+func (app *ChainlinkApplication) NewBox() packr.Box {
+	return packr.NewBox("../gui/dist")
 }

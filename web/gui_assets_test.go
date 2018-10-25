@@ -1,5 +1,3 @@
-// +build test
-
 package web_test
 
 import (

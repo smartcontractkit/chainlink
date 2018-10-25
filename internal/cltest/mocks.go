@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gobuffalo/packr"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -387,6 +388,7 @@ func (*EmptyApplication) GetReaper() services.Reaper                { return nil
 func (*EmptyApplication) AddJob(job models.JobSpec) error           { return nil }
 func (*EmptyApplication) AddAdapter(bt *models.BridgeType) error    { return nil }
 func (*EmptyApplication) RemoveAdapter(bt *models.BridgeType) error { return nil }
+func (*EmptyApplication) NewBox() packr.Box                         { return packr.Box{} }
 
 // CallbackAuthenticator contains a call back authenticator method
 type CallbackAuthenticator struct {

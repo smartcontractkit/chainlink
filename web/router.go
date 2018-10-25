@@ -18,6 +18,7 @@ import (
 	"github.com/gin-contrib/expvar"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
@@ -56,7 +57,7 @@ func Router(app services.Application) *gin.Engine {
 	sessionRoutes(app, engine)
 	v1Routes(app, engine)
 	v2Routes(app, engine)
-	guiAssetRoutes(engine)
+	guiAssetRoutes(app.NewBox(), engine)
 
 	return engine
 }
@@ -179,8 +180,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 	}
 }
 
-func guiAssetRoutes(engine *gin.Engine) {
-	box := NewBox()
+func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 	boxList := box.List()
 
 	engine.NoRoute(func(c *gin.Context) {
