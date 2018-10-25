@@ -60,7 +60,7 @@ const New = props => (
       <Grid item xs={12}>
         <PaddedCard>
           <Form
-            actionText='Create Bridge'
+            actionText='Create Job'
             onSubmit={props.submitJobSpec}
             onSuccess={successNotification}
             onError={errorNotification}
