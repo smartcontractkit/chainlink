@@ -31,19 +31,19 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	store := app.GetStore()
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
 	err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
 	var user models.User
 	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(store); err != nil && err != errNoCredentialFile {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(store); err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)
 	if err := app.Start(); err != nil {
