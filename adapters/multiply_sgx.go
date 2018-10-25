@@ -70,6 +70,7 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	if _, err = C.multiply(cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
 		return input.WithError(fmt.Errorf("SGX multiply: %v", err))
 	}
+
 	sgxResult := C.GoStringN(output, outputLen)
 	var result models.RunResult
 	if err := json.Unmarshal([]byte(sgxResult), &result); err != nil {
