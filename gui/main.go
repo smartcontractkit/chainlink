@@ -8,7 +8,7 @@ import (
 	"github.com/gobuffalo/packr/builder"
 )
 
-// main builds packr boxes to serve static assets, normally from web.
+// main builds packr boxes to serve static assets.
 func main() {
 	b := builder.New(context.Background(), os.Args[1])
 	b.Compress = true

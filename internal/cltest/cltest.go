@@ -19,6 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
@@ -175,16 +176,16 @@ func NewApplication() (*TestApplication, func()) {
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
-	server := newServer(app)
+	ethMock := MockEthOnStore(app.Store)
+	ta := &TestApplication{ChainlinkApplication: app}
+
+	server := newServer(ta)
 	tc.Config.ClientNodeURL = server.URL
 	app.Store.Config = tc.Config
-	ethMock := MockEthOnStore(app.Store)
-	ta := &TestApplication{
-		ChainlinkApplication: app,
-		Config:               tc.Config,
-		Server:               server,
-		wsServer:             tc.wsServer,
-	}
+
+	ta.Config = tc.Config
+	ta.Server = server
+	ta.wsServer = tc.wsServer
 	return ta, func() {
 		if !ethMock.AllCalled() {
 			panic("mock expectations set and not used on default TestApplication ethMock!!!")
@@ -221,9 +222,13 @@ func NewApplicationWithConfigAndUnlockedAccount(tc *TestConfig) (*TestApplicatio
 	return app, cleanup
 }
 
-func newServer(app *services.ChainlinkApplication) *httptest.Server {
+func newServer(app services.Application) *httptest.Server {
 	engine := web.Router(app)
 	return httptest.NewServer(engine)
+}
+
+func (ta *TestApplication) NewBox() packr.Box {
+	return packr.NewBox("../fixtures/gui/dist")
 }
 
 // Stop will stop the test application and perform cleanup

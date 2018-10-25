@@ -47,7 +47,7 @@ bootstrap: dependencies install
 
 gui: yarndep ## Install GUI
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
-	CGO_ENABLED=0 go run gui/main.go $(shell pwd) # packr
+	CGO_ENABLED=0 go run gui/main.go $(foreach $(shell pwd),"/services")
 
 docker: ## Build the docker image.
 	docker build \
