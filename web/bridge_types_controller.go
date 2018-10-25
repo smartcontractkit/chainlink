@@ -15,7 +15,7 @@ import (
 
 // BridgeTypesController manages BridgeType requests in the node.
 type BridgeTypesController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // Create adds the BridgeType to the given context.
@@ -46,12 +46,12 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 
 	var bridges []models.BridgeType
 
-	count, err := btc.App.Store.Count(&models.BridgeType{})
+	count, err := btc.App.GetStore().Count(&models.BridgeType{})
 	if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of bridges: %+v", err))
 		return
 	}
-	if err := btc.App.Store.AllByIndex("Name", &bridges, skip, limit); err != nil {
+	if err := btc.App.GetStore().AllByIndex("Name", &bridges, skip, limit); err != nil {
 		c.AbortWithError(500, fmt.Errorf("error fetching all bridges: %+v", err))
 		return
 	}
@@ -70,7 +70,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 // Show returns the details of a specific Bridge.
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
-	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
+	if bt, err := btc.App.GetStore().FindBridge(name); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
@@ -84,7 +84,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 // Update can change the restricted attributes for a bridge
 func (btc *BridgeTypesController) Update(c *gin.Context) {
 	bn := c.Param("BridgeName")
-	form, err := forms.NewUpdateBridgeType(btc.App.Store, bn)
+	form, err := forms.NewUpdateBridgeType(btc.App.GetStore(), bn)
 
 	if err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("bridge name not found"))
@@ -110,11 +110,11 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 // Destroy removes a specific Bridge.
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
-	if bt, err := btc.App.Store.FindBridge(name); err == storm.ErrNotFound {
+	if bt, err := btc.App.GetStore().FindBridge(name); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
-	} else if jobFounds, err := btc.App.Store.AnyJobWithType(name); err != nil {
+	} else if jobFounds, err := btc.App.GetStore().AnyJobWithType(name); err != nil {
 		c.AbortWithError(500, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
 	} else if jobFounds {
 		c.AbortWithError(409, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))

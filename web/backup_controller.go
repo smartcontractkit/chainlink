@@ -9,7 +9,7 @@ import (
 
 // BackupController streams backups over GET.
 type BackupController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // Show streams a backup of the current db through a read-only transaction.

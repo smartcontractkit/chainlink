@@ -18,6 +18,10 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *store.Store
+	GetReaper() Reaper
+	AddJob(job models.JobSpec) error
+	AddAdapter(bt *models.BridgeType) error
+	RemoveAdapter(bt *models.BridgeType) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -96,6 +100,11 @@ func (app *ChainlinkApplication) Stop() error {
 // GetStore returns the pointer to the store for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStore() *store.Store {
 	return app.Store
+}
+
+// GetReaper returns the reaper service for cleaning stale items.
+func (app *ChainlinkApplication) GetReaper() Reaper {
+	return app.Reaper
 }
 
 // AddJob adds a job to the store and the scheduler. If there was
