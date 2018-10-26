@@ -1,4 +1,4 @@
-use std::string::{ToString, String};
+use std::string::{String, ToString};
 
 #[derive(Debug)]
 pub enum Error {
@@ -14,7 +14,7 @@ pub fn get_value(object: &serde_json::Value, key: &str) -> Result<String, Error>
 }
 
 pub fn new(result: &RunResult) -> RunResult {
-    RunResult{
+    RunResult {
         job_run_id: result.job_run_id.clone(),
         amount: result.amount,
         ..Default::default()
@@ -33,7 +33,7 @@ pub struct RunResult {
 
 impl RunResult {
     pub fn with_data(&self, data: &serde_json::Value) -> RunResult {
-        RunResult{
+        RunResult {
             job_run_id: self.job_run_id.clone(),
             data: data.clone(),
             status: self.status.clone(),
@@ -43,7 +43,7 @@ impl RunResult {
     }
 
     pub fn with_error(&self, error: &str) -> RunResult {
-        RunResult{
+        RunResult {
             job_run_id: self.job_run_id.clone(),
             data: self.data.clone(),
             status: "errored".to_string(),
@@ -53,7 +53,7 @@ impl RunResult {
     }
 
     pub fn with_status(&self, status: &str) -> RunResult {
-        RunResult{
+        RunResult {
             job_run_id: self.job_run_id.clone(),
             data: self.data.clone(),
             status: status.to_string(),

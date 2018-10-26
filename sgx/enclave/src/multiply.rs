@@ -1,5 +1,5 @@
+use result::{self, get_value, RunResult};
 use std::string::ToString;
-use result::{self, RunResult, get_value};
 
 #[derive(Debug)]
 pub enum MultiplyError {
@@ -23,4 +23,3 @@ pub fn perform(adapter: &serde_json::Value, input: &RunResult) -> MultiplyResult
 
     Ok(json!({"value": result.to_string()}))
 }
-

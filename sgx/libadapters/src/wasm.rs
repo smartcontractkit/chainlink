@@ -44,7 +44,7 @@ pub extern "C" fn wasm(
 
     set_errno(Errno(0));
     match result {
-        sgx_status_t::SGX_SUCCESS => {},
+        sgx_status_t::SGX_SUCCESS => {}
         _ => {
             set_errno(Errno(result as i32));
             return;
@@ -52,7 +52,7 @@ pub extern "C" fn wasm(
     }
 
     match retval {
-        sgx_status_t::SGX_SUCCESS => {},
+        sgx_status_t::SGX_SUCCESS => {}
         _ => {
             set_errno(Errno(result as i32));
         }

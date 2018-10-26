@@ -6,7 +6,8 @@ extern crate sgx_types;
 extern crate sgx_urts;
 extern crate utils;
 
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
 use std::panic;
 
@@ -14,8 +15,8 @@ use errno::{set_errno, Errno};
 use sgx_types::*;
 use sgx_urts::SgxEnclave;
 
-pub mod wasm;
 pub mod multiply;
+pub mod wasm;
 
 static ENCLAVE_FILE: &'static str = "enclave.signed.so";
 

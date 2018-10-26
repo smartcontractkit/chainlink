@@ -2,7 +2,7 @@ use base64;
 use std::{num, vec::Vec};
 use wasmi::{self, ImportsBuilder, ModuleInstance, NopExternals};
 
-use result::{self, RunResult, get_value};
+use result::{self, get_value, RunResult};
 
 #[derive(Debug)]
 pub enum WasmError {
@@ -47,7 +47,9 @@ fn wasm_as_json(input: &wasmi::RuntimeValue) -> Result<serde_json::Value, WasmEr
     }
 }
 
-fn json_as_wasm_arguments(input: &serde_json::Value) -> Result<Vec<wasmi::RuntimeValue>, WasmError> {
+fn json_as_wasm_arguments(
+    input: &serde_json::Value,
+) -> Result<Vec<wasmi::RuntimeValue>, WasmError> {
     match input {
         serde_json::Value::Array(vec) => vec.into_iter().map(json_to_wasm).collect(),
 
@@ -61,14 +63,16 @@ fn json_as_wasm_arguments(input: &serde_json::Value) -> Result<Vec<wasmi::Runtim
 fn json_to_wasm(input: &serde_json::Value) -> Result<wasmi::RuntimeValue, WasmError> {
     match input {
         serde_json::Value::Number(num) => {
-            if input.is_f64()  {
+            if input.is_f64() {
                 Ok(wasmi::RuntimeValue::F64(num.as_f64().unwrap().into()))
             } else if input.is_i64() {
-                Ok(wasmi::RuntimeValue::F64((num.as_i64().unwrap() as f64).into()))
+                Ok(wasmi::RuntimeValue::F64(
+                    (num.as_i64().unwrap() as f64).into(),
+                ))
             } else {
                 Err(WasmError::ArgumentTypeNotImplementedYet)
             }
-        },
-        _ => Err(WasmError::ArgumentTypeNotImplementedYet)
+        }
+        _ => Err(WasmError::ArgumentTypeNotImplementedYet),
     }
 }
