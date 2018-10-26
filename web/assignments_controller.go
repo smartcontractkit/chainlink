@@ -12,7 +12,7 @@ import (
 
 // AssignmentsController manages Assignment requests.
 type AssignmentsController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // Create adds validates, saves, and starts a new JobSpec from the v1
@@ -40,7 +40,7 @@ func (ac *AssignmentsController) Create(c *gin.Context) {
 func (ac *AssignmentsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 
-	if j, err := ac.App.Store.FindJob(id); err == storm.ErrNotFound {
+	if j, err := ac.App.GetStore().FindJob(id); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("ID not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)

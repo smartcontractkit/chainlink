@@ -7,7 +7,7 @@ tmp/
 
 # GUI
 gui/dist
-web/web-packr.go
+*-packr.go
 
 # Log files
 *.log

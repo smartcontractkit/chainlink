@@ -18,7 +18,7 @@ import (
 
 // UserController manages the current Session's User User.
 type UserController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
@@ -32,13 +32,13 @@ func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 
 func (c *UserController) clearNonCurrentSessions(sessionID string) error {
 	var sessions []models.Session
-	err := c.App.Store.Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
+	err := c.App.GetStore().Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
 	if err != nil && err != storm.ErrNotFound {
 		return err
 	}
 
 	for _, s := range sessions {
-		err := c.App.Store.DeleteStruct(&s)
+		err := c.App.GetStore().DeleteStruct(&s)
 		if err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func (c *UserController) saveNewPassword(user *models.User, newPassword string) 
 		return err
 	}
 	user.HashedPassword = hashedPassword
-	return c.App.Store.Save(user)
+	return c.App.GetStore().Save(user)
 }
 
 func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {
@@ -72,7 +72,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	var request models.ChangePasswordRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		publicError(ctx, http.StatusUnprocessableEntity, err)
-	} else if user, err := c.App.Store.FindUser(); err != nil {
+	} else if user, err := c.App.GetStore().FindUser(); err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 	} else if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
 		publicError(ctx, http.StatusConflict, errors.New("Old password does not match"))
@@ -89,7 +89,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 // Example:
 //  "<application>/user/balances"
 func (c *UserController) AccountBalances(ctx *gin.Context) {
-	store := c.App.Store
+	store := c.App.GetStore()
 	txm := store.TxManager
 
 	if account, err := store.KeyStore.GetAccount(); err != nil {

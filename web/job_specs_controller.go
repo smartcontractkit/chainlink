@@ -15,7 +15,7 @@ import (
 
 // JobSpecsController manages JobSpec requests.
 type JobSpecsController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // Index lists JobSpecs, one page at a time.
@@ -39,9 +39,9 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 	limit := storm.Limit(size)
 
 	var jobs []models.JobSpec
-	if count, err := jsc.App.Store.Count(&models.JobSpec{}); err != nil {
+	if count, err := jsc.App.GetStore().Count(&models.JobSpec{}); err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobSpec: %+v", err))
-	} else if err := jsc.App.Store.AllByIndex("CreatedAt", &jobs, order, skip, limit); err != nil {
+	} else if err := jsc.App.GetStore().AllByIndex("CreatedAt", &jobs, order, skip, limit); err != nil {
 		c.AbortWithError(500, fmt.Errorf("erorr fetching All JobSpecs: %+v", err))
 	} else {
 		pjs := make([]presenters.JobSpec, len(jobs))
@@ -65,7 +65,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	js := models.NewJob()
 	if err := c.ShouldBindJSON(&js); err != nil {
 		publicError(c, 400, err)
-	} else if err := services.ValidateJob(js, jsc.App.Store); err != nil {
+	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
 		publicError(c, 400, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
 		c.AbortWithError(500, err)
@@ -81,11 +81,11 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Show(c *gin.Context) {
 	id := c.Param("SpecID")
-	if j, err := jsc.App.Store.FindJob(id); err == storm.ErrNotFound {
+	if j, err := jsc.App.GetStore().FindJob(id); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("JobSpec not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
-	} else if runs, err := jsc.App.Store.JobRunsFor(j.ID); err != nil {
+	} else if runs, err := jsc.App.GetStore().JobRunsFor(j.ID); err != nil {
 		c.AbortWithError(500, err)
 	} else if doc, err := marshalSpecFromJSONAPI(j, runs); err != nil {
 		c.AbortWithError(500, err)
