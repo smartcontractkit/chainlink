@@ -1,6 +1,5 @@
 #![crate_name = "enclave"]
 #![crate_type = "staticlib"]
-
 #![cfg_attr(not(target_env = "sgx"), no_std)]
 #![cfg_attr(target_env = "sgx", feature(rustc_private))]
 #![feature(alloc)]
@@ -8,22 +7,26 @@
 extern crate base64;
 extern crate num;
 extern crate serde;
-#[macro_use] extern crate serde_derive;
-#[macro_use] extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate serde_json;
 #[cfg(not(target_env = "sgx"))]
-#[macro_use] extern crate sgx_tstd as std;
+#[macro_use]
+extern crate sgx_tstd as std;
 extern crate sgx_types;
-#[macro_use] extern crate utils;
+#[macro_use]
+extern crate utils;
 extern crate wasmi;
 
-mod wasm;
 mod multiply;
+mod wasm;
 
 mod result;
 
+use result::RunResult;
 use sgx_types::*;
 use utils::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
-use result::RunResult;
 
 #[derive(Debug)]
 enum ShimError {
@@ -69,14 +72,15 @@ fn wasm_shim(
     result_capacity: usize,
     result_len: *mut usize,
 ) -> Result<(), ShimError> {
-
     let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len)?;
     let adapter = serde_json::from_str(&adapter_str)?;
     let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len)?;
-    let input : RunResult = serde_json::from_str(&input_str)?;
+    let input: RunResult = serde_json::from_str(&input_str)?;
 
     let result = match wasm::perform(&adapter, &input) {
-        Ok(value) => result::new(&input).with_data(&value).with_status("completed"),
+        Ok(value) => result::new(&input)
+            .with_data(&value)
+            .with_status("completed"),
         Err(err) => result::new(&input).with_error(&format!("{:?}", err)),
     };
 
@@ -121,10 +125,12 @@ fn multiply_shim(
     let adapter_str = string_from_cstr_with_len(adapter_str_ptr, adapter_str_len)?;
     let adapter = serde_json::from_str(&adapter_str)?;
     let input_str = string_from_cstr_with_len(input_str_ptr, input_str_len)?;
-    let input : RunResult = serde_json::from_str(&input_str)?;
+    let input: RunResult = serde_json::from_str(&input_str)?;
 
     let result = match multiply::perform(&adapter, &input) {
-        Ok(value) => result::new(&input).with_data(&value).with_status("completed"),
+        Ok(value) => result::new(&input)
+            .with_data(&value)
+            .with_status("completed"),
         Err(err) => result::new(&input).with_error(&format!("{:?}", err)),
     };
 

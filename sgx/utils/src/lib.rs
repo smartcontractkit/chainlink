@@ -46,7 +46,6 @@ pub fn copy_string_to_cstr_ptr(
     output_capacity: usize,
     output_len: *mut usize,
 ) -> Result<(), OutputCStrError> {
-
     let input_cstring = CString::new(input)?;
     let input_slice = input_cstring.to_bytes();
     let input_size = input_slice.len();
@@ -76,8 +75,8 @@ macro_rules! impl_from_error {
 
 #[cfg(test)]
 mod tests {
+    use super::{copy_string_to_cstr_ptr, cstr_len, string_from_cstr_with_len};
     use std::ffi::CString;
-    use super::{string_from_cstr_with_len, copy_string_to_cstr_ptr, cstr_len};
 
     #[test]
     fn test_string_from_cstr_with_len() {
@@ -91,21 +90,34 @@ mod tests {
     #[test]
     fn test_copy_string_to_cstr_ptr() {
         let mut buffer: [u8; 64] = [0; 64];
-        let mut size : usize = 0;
+        let mut size: usize = 0;
 
-        let result = copy_string_to_cstr_ptr("hello world!".into(), &mut buffer[0], buffer.len(), &mut size);
+        let result = copy_string_to_cstr_ptr(
+            "hello world!".into(),
+            &mut buffer[0],
+            buffer.len(),
+            &mut size,
+        );
 
         assert!(result.is_ok());
         assert_eq!(size, 12);
-        assert_eq!(String::from_utf8_lossy(&buffer[..size]), "hello world!".to_string());
+        assert_eq!(
+            String::from_utf8_lossy(&buffer[..size]),
+            "hello world!".to_string()
+        );
     }
 
     #[test]
     fn test_copy_string_to_cstr_ptr_insufficient_capacity() {
         let mut buffer: [u8; 10] = [0; 10];
-        let mut size : usize = 0;
+        let mut size: usize = 0;
 
-        let result = copy_string_to_cstr_ptr("hello world!".into(), &mut buffer[0], buffer.len(), &mut size);
+        let result = copy_string_to_cstr_ptr(
+            "hello world!".into(),
+            &mut buffer[0],
+            buffer.len(),
+            &mut size,
+        );
         assert!(result.is_err());
     }
 
