@@ -13,7 +13,7 @@ import (
 
 // WithdrawalsController can send LINK tokens to another address
 type WithdrawalsController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 var naz = assets.NewLink(1)
@@ -22,7 +22,7 @@ var naz = assets.NewLink(1)
 // Example:
 //  "<application>/withdrawals"
 func (abc *WithdrawalsController) Create(c *gin.Context) {
-	store := abc.App.Store
+	store := abc.App.GetStore()
 	txm := store.TxManager
 	wr := models.WithdrawalRequest{}
 

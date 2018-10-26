@@ -11,7 +11,7 @@ import (
 
 // SnapshotsController manages Snapshot requests.
 type SnapshotsController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // CreateSnapshot begins the job run for the given Assignment ID
@@ -20,11 +20,11 @@ type SnapshotsController struct {
 func (sc *SnapshotsController) CreateSnapshot(c *gin.Context) {
 	id := c.Param("AID")
 
-	if j, err := sc.App.Store.FindJob(id); err == storm.ErrNotFound {
+	if j, err := sc.App.GetStore().FindJob(id); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
-	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{}, nil, sc.App.Store); err != nil {
+	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{}, nil, sc.App.GetStore()); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, gin.H{"id": jr.ID})
@@ -37,7 +37,7 @@ func (sc *SnapshotsController) CreateSnapshot(c *gin.Context) {
 func (sc *SnapshotsController) ShowSnapshot(c *gin.Context) {
 	id := c.Param("ID")
 
-	if jr, err := sc.App.Store.FindJobRun(id); err == storm.ErrNotFound {
+	if jr, err := sc.App.GetStore().FindJobRun(id); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)

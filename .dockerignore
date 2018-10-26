@@ -19,7 +19,7 @@ internal/clroot/*.jsonl
 sgx/target/
 
 gui/dist/
-web/web-packr.go
+*-packr.go
 
 Dockerfile
 chainlink

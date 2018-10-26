@@ -11,14 +11,14 @@ import (
 
 // ConfigController manages config variables
 type ConfigController struct {
-	App *services.ChainlinkApplication
+	App services.Application
 }
 
 // Show returns the whitelist of config variables
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	pc := presenters.NewConfigWhitelist(cc.App.Store.Config)
+	pc := presenters.NewConfigWhitelist(cc.App.GetStore().Config)
 	if json, err := jsonapi.Marshal(pc); err != nil {
 		c.AbortWithError(500, fmt.Errorf("failed to marshal config using jsonapi: %+v", err))
 	} else {
