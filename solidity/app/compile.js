@@ -2,7 +2,13 @@ const solc = require('solc')
 const fs = require('fs')
 const path = require('path')
 
-const INCLUDE_PATHS = ['./', '../node_modules/']
+const INCLUDE_PATHS = [
+  './',
+  './contracts',
+  './contracts/examples',
+  '../node_modules/',
+  '../node_modules/link_token/contracts'
+]
 const SCRIPT_PATH = path.dirname(process.argv[1])
 
 function solidityCompile (filename, lookupIncludeFile) {
