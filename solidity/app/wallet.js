@@ -4,7 +4,7 @@ const EthWallet = require('ethereumjs-wallet')
 module.exports = function Wallet (key, utils) {
   const privateKey = Buffer.from(key, 'hex')
   const wallet = EthWallet.fromPrivateKey(privateKey)
-  const address = wallet.getAddress().toString('hex')
+  const address = `0x${wallet.getAddress().toString('hex')}`
   const eth = utils.eth
   const nextNonce = () => {
     return eth.getTransactionCount(address)
@@ -22,6 +22,9 @@ module.exports = function Wallet (key, utils) {
       tx.sign(privateKey)
       let txHex = tx.serialize().toString('hex')
       return eth.sendRawTransaction(txHex)
+    },
+    call: async (params) => {
+      return eth.call(params)
     }
   }
 }
