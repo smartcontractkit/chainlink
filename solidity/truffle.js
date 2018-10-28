@@ -1,8 +1,6 @@
 require('babel-register');
 require('babel-polyfill');
 
-global.h = require('./helpers');
-
 module.exports = {
   network: "test",
   networks: {
