@@ -2,22 +2,14 @@ import React, { Component } from 'react'
 import { withSiteData } from 'react-static'
 import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
 import { Button } from '@material-ui/core'
 import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
+import Title from 'components/Title'
 import BridgeList from 'components/BridgeList'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import bridgesSelector from 'selectors/bridges'
 import { fetchBridges } from 'actions'
-
-const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
 
 export class Index extends Component {
   componentDidMount () {
@@ -25,15 +17,13 @@ export class Index extends Component {
   }
 
   render () {
-    const { bridges, bridgeCount, classes, pageSize, bridgesError, fetchBridges } = this.props
+    const { bridges, bridgeCount, pageSize, bridgesError, fetchBridges } = this.props
 
     return (
       <div>
         <Grid container spacing={8} alignItems='center'>
           <Grid item xs={9}>
-            <Typography variant='display2' color='inherit' className={classes.title}>
-              Bridges
-            </Typography>
+            <Title>Bridges</Title>
           </Grid>
           <Grid item xs={3}>
             <Grid container justify='flex-end'>
@@ -70,7 +60,6 @@ Index.propTypes = {
   bridgeCount: PropTypes.number.isRequired,
   bridges: PropTypes.array.isRequired,
   bridgesError: PropTypes.string,
-  classes: PropTypes.object.isRequired,
   pageSize: PropTypes.number
 }
 
@@ -96,4 +85,4 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({fetchBridges})
 )(Index)
 
-export default withSiteData(withStyles(styles)(ConnectedIndex))
+export default withSiteData(ConnectedIndex)

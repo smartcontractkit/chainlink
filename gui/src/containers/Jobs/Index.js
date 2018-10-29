@@ -1,22 +1,14 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
 import Button from '@material-ui/core/Button'
+import Title from 'components/Title'
 import JobList from 'components/JobList'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobsSelector from 'selectors/jobs'
 import { fetchJobs } from 'actions'
-
-const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
 
 const renderJobsList = props => {
   const { jobs, jobCount, pageSize, jobsError, fetchJobs, history, match } = props
@@ -39,9 +31,7 @@ export class Index extends Component {
       <div>
         <Grid container alignItems='center' >
           <Grid item xs={9}>
-            <Typography variant='display2' color='inherit' className={this.props.classes.title}>
-              Jobs
-            </Typography>
+            <Title>Jobs</Title>
           </Grid>
           <Grid item xs={3}>
             <Grid container justify='flex-end' >
@@ -62,7 +52,6 @@ export class Index extends Component {
 }
 
 Index.propTypes = {
-  classes: PropTypes.object.isRequired,
   ethBalance: PropTypes.string,
   linkBalance: PropTypes.string,
   accountBalanceError: PropTypes.string,
@@ -101,4 +90,4 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({fetchJobs})
 )(Index)
 
-export default withStyles(styles)(ConnectedIndex)
+export default ConnectedIndex

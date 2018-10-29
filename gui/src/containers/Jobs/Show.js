@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
+import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Breadcrumb from 'components/Breadcrumb'
@@ -28,10 +29,6 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 const styles = theme => ({
   actions: {
     textAlign: 'right'
-  },
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
   },
   definitionTitle: {
     marginTop: theme.spacing.unit * 2,
@@ -187,9 +184,7 @@ export class Show extends Component {
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Job ID: {jobSpecId}</BreadcrumbItem>
         </Breadcrumb>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Job Spec Detail
-        </Typography>
+        <Title>Job Spec Detail</Title>
 
         {renderDetails(this.props)}
       </div>
