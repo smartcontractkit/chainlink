@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {abi, wallet, web3} = require('./app/env.js')
+const {abi, wallet, web3} = require('../app/env.js')
 
 if (process.argv.length < 3) {
   console.error('Usage: ./check_link_balance <token address> <holder address>')

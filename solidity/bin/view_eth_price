@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {wallet, web3} = require('./app/env.js')
+const {wallet, web3} = require('../app/env.js')
 
 if (process.argv.length < 2) {
   console.error('Usage: ./view_eth_price <contract address>')

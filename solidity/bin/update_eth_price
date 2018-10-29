@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {abi, utils, wallet} = require('./app/env.js')
+const {abi, utils, wallet} = require('../app/env.js')
 
 if (process.argv.length < 2) {
   console.error('Usage: ./request_eth_price <contract address>')
