@@ -16,9 +16,9 @@ services:
       - node_password
 
   chainlink:
-    image: smartcontract/chainlink
-    command: node -d -p /run/secrets/node_password
-    restart: on-failure
+    image: smartcontract/chainlink-sgx
+    command: node -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    restart: always
     volumes:
       - ./internal/clroot/:/root/clroot
     environment:
