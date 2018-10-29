@@ -84,6 +84,8 @@ const destroy = (path) => (
 
 export const getJobs = (page, size) => get('/v2/specs', {page: page, size: size})
 
+export const getRecentlyCreatedJobs = size => get('/v2/specs', {size: size, sort: '-createdAt'})
+
 export const getJobSpec = id => get(`/v2/specs/${id}`)
 
 export const getJobSpecRuns = (id, page, size) => get(`/v2/specs/${id}/runs`, {page: page, size: size})

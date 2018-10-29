@@ -4,50 +4,29 @@ import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Title from 'components/Title'
 import Button from '@material-ui/core/Button'
-import { fetchJobs, fetchAccountBalance } from 'actions'
+import {
+  fetchJobs,
+  fetchAccountBalance,
+  fetchRecentlyCreatedJobs
+} from 'actions'
 import jobsSelector from 'selectors/jobs'
+import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import JobList from 'components/JobList'
 import TokenBalance from 'components/TokenBalance'
-import MetaInfo from 'components/MetaInfo'
+import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
-const renderJobsList = props => {
-  const { jobs, jobCount, pageSize, jobsError, fetchJobs, history, match } = props
-  return (
-    <JobList
-      jobs={jobs}
-      jobCount={jobCount}
-      pageSize={pageSize}
-      error={jobsError}
-      fetchJobs={fetchJobs}
-      history={history}
-      match={match}
-    />
-  )
-}
-
-const renderSidebar = ({ ethBalance, linkBalance, jobCount, accountBalanceError }) => (
-  <Grid container spacing={24}>
-    <Grid item xs={12}>
-      <TokenBalance title='Link Balance' value={linkBalance} error={accountBalanceError} />
-    </Grid>
-    <Grid item xs={12}>
-      <TokenBalance title='Ether Balance' value={ethBalance} error={accountBalanceError} />
-    </Grid>
-    <Grid item xs={12}>
-      <MetaInfo title='Jobs' value={jobCount} />
-    </Grid>
-  </Grid>
-)
-
 export class Index extends Component {
   componentDidMount () {
-    this.props.fetchAccountBalance()
+    const {props} = this
+    props.fetchAccountBalance()
+    props.fetchRecentlyCreatedJobs(props.recentlyCreatedPageSize)
   }
 
   render () {
+    const {props} = this
     return (
       <div>
         <Grid container alignItems='center' >
@@ -66,10 +45,36 @@ export class Index extends Component {
         </Grid>
         <Grid container spacing={40}>
           <Grid item xs={9}>
-            {renderJobsList(this.props)}
+            <JobList
+              jobs={props.jobs}
+              jobCount={props.jobCount}
+              pageSize={props.pageSize}
+              error={props.jobsError}
+              fetchJobs={props.fetchJobs}
+              history={props.history}
+              match={props.match}
+            />
           </Grid>
           <Grid item xs={3}>
-            {renderSidebar(this.props)}
+            <Grid container spacing={24}>
+              <Grid item xs={12}>
+                <TokenBalance
+                  title='Link Balance'
+                  value={props.linkBalance}
+                  error={props.accountBalanceError}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TokenBalance
+                  title='Ether Balance'
+                  value={props.ethBalance}
+                  error={props.accountBalanceError}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <RecentlyCreatedJobs jobs={props.recentlyCreatedJobs} />
+              </Grid>
+            </Grid>
           </Grid>
         </Grid>
         <Footer />
@@ -84,12 +89,15 @@ Index.propTypes = {
   accountBalanceError: PropTypes.string,
   jobCount: PropTypes.number.isRequired,
   jobs: PropTypes.array.isRequired,
+  recentlyCreatedJobs: PropTypes.array,
   jobsError: PropTypes.string,
-  pageSize: PropTypes.number
+  pageSize: PropTypes.number,
+  recentlyCreatedPageSize: PropTypes.number
 }
 
 Index.defaultProps = {
-  pageSize: 10
+  pageSize: 10,
+  recentlyCreatedPageSize: 2
 }
 
 const mapStateToProps = state => {
@@ -108,13 +116,14 @@ const mapStateToProps = state => {
     accountBalanceError: accountBalanceError,
     jobCount: state.jobs.count,
     jobs: jobsSelector(state),
+    recentlyCreatedJobs: recentlyCreatedJobsSelector(state),
     jobsError: jobsError
   }
 }
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchAccountBalance, fetchJobs })
+  matchRouteAndMapDispatchToProps({fetchAccountBalance, fetchJobs, fetchRecentlyCreatedJobs})
 )(Index)
 
 export default ConnectedIndex

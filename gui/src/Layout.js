@@ -215,7 +215,11 @@ class Layout extends Component {
                   <Route exact path='/signin' component={SignIn} />
                   <PrivateRoute exact path='/signout' component={SignOut} />
                   {redirectTo && <Redirect to={redirectTo} />}
-                  <PrivateRoute exact path='/' component={DashboardsIndex} />
+                  <PrivateRoute
+                    exact
+                    path='/'
+                    render={props => <DashboardsIndex {...props} recentlyCreatedPageSize={4} />}
+                  />
                   <PrivateRoute exact path='/jobs' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/new' component={JobsNew} />
