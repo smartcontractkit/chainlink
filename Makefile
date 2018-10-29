@@ -17,7 +17,7 @@ SGX_SIMULATION ?= yes
 SGX_ENCLAVE := enclave.signed.so
 SGX_TARGET := ./sgx/target/$(ENVIRONMENT)/
 
-ifeq ($(SGX_ENABLED),yes)
+ifneq (,$(filter yes true,$(SGX_ENABLED)))
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
 	DOCKERFILE := Dockerfile-sgx

@@ -22,17 +22,16 @@ SGX_ENCLAVE_SIGNER := $(SGX_BIN)/sgx_sign
 SGX_LIBRARY_PATH := $(SGX_SDK)/lib64
 SGX_COMMON_CFLAGS := -m64
 
-RUST_FLAGS :=
-ifeq ($(ENVIRONMENT), debug)
-	SGX_COMMON_CFLAGS += -O0 -g
-else
+ifneq (,$(filter release,$(ENVIRONMENT)))
 	SGX_COMMON_CFLAGS += -O2
 	RUST_FLAGS := --release
+else
+	SGX_COMMON_CFLAGS += -O0 -g
 endif
 
 TRTS_LIB := sgx_trts
 SERVICE_LIB := sgx_tservice
-ifeq ($(SGX_SIMULATION),yes)
+ifneq (,$(filter yes true,$(SGX_SIMULATION)))
 	TRTS_LIB := sgx_trts_sim
 	SERVICE_LIB := sgx_tservice_sim
 endif

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 workdir="/go/src/github.com/smartcontractkit/chainlink"
 image_tag=`cat Dockerfile-sgx | grep FROM | grep builder | awk '{print$2}'`
