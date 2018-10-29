@@ -52,6 +52,22 @@ func TestWasm_Perform(t *testing.T) {
 			false,
 			false,
 		},
+		{
+			"invalid wasm in adapter",
+			`{"wasm":"123is"}`,
+			"",
+			"",
+			true,
+			false,
+		},
+		{
+			"invalid input ",
+			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
+			`{"value": null}`,
+			"",
+			true,
+			false,
+		},
 	}
 
 	for _, tt := range tests {
