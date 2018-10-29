@@ -43,7 +43,7 @@ CHAINLINK_DEV=true chainlink node
 > [INFO]  Link Balance for 0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 ```
 
-In a final window save the Chainlink node's Ethereum address:
+In a final window, which you'll use for the rest of the walktrhough, save the Chainlink node's Ethereum address:
 ```bash
 ORACLE_NODE=0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 ```
@@ -52,14 +52,14 @@ ORACLE_NODE=0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 In the same windoe where you set ORACLE_NODE, move to the solidity directory: `cd solidity/`
 
 ```
-./fund_dev_wallet # fund local wallet
-./fund_dev_wallet $ORACLE_NODE # fund the oracle node's wallet
+./bin/fund_address # fund local wallet
+./bin/fund_address $ORACLE_NODE # fund the oracle node's wallet
 ```
 
 Deploy the LINK token:
 
 ```
-./deploy LinkToken.sol
+./bin/deploy LinkToken.sol
 > LinkToken.sol successfully deployed: 0x9af9c91e1f5e22d1a7ea8e8af3cb3b3f858a619d
 LINK_TOKEN=0x9af9c91e1f5e22d1a7ea8e8af3cb3b3f858a619d
 ```
@@ -67,7 +67,7 @@ LINK_TOKEN=0x9af9c91e1f5e22d1a7ea8e8af3cb3b3f858a619d
 Deploy an Oracle:
 
 ```
-./deploy Oracle.sol $LINK_TOKEN
+./bin/deploy Oracle.sol $LINK_TOKEN
 > Oracle.sol successfully deployed: 0x22f9c91E1f5E22D1a7eA8E8AF3CB3b3f858a6122
 ORACLE_CONTRACT=0x22f9c91E1f5E22D1a7eA8E8AF3CB3b3f858a6122
 ```
@@ -75,7 +75,7 @@ Transfer Oracle ownership to your node
 
 
 ```
-./transfer_owner $ORACLE_CONTRACT $ORACLE_NODE
+./bin/transfer_ownership $ORACLE_CONTRACT $ORACLE_NODE
 > ownership of 0x22f9c91E1f5E22D1a7eA8E8AF3CB3b3f858a6122 transferred to 0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 ```
 
@@ -106,7 +106,7 @@ Once it has successfully created, grab your Job Spec ID, it should look be hex a
 Deploy a data consumer:
 
 ```
-./deploy BasicConsumer.sol $LINK_TOKEN $ORACLE_CONTRACT 32bac7e83e5e478084678fb9c0ac6704
+./bin/deploy BasicConsumer.sol $LINK_TOKEN $ORACLE_CONTRACT 32bac7e83e5e478084678fb9c0ac6704
 > BasicConsumer.sol successfully deployed: 0x8e368fb378ff79efb8181d3203edd7ad4d70736e
 CONSUMER_CONTRACT=0x8e368fb378ff79efb8181d3203edd7ad4d70736e
 ```
@@ -114,34 +114,34 @@ CONSUMER_CONTRACT=0x8e368fb378ff79efb8181d3203edd7ad4d70736e
 Request an Ethereum price:
 
 ```
-./update_eth_price $CONSUMER_CONTRACT
+./bin/update_eth_price $CONSUMER_CONTRACT
 > FAILED!!!
 ```
 
 Check price on contract:
 
 ```
-./view_eth_price $CONSUMER_CONTRACT
+./bin/view_eth_price $CONSUMER_CONTRACT
 > No price listed
 ```
 
 Your Consumer needs LINK. Transfer some LINK:
 
 ```
-./transfer_tokens $LINK_TOKEN $CONSUMER_CONTRACT
+./bin/transfer_tokens $LINK_TOKEN $CONSUMER_CONTRACT
 > 1000 LINK successfully sent to 0x55ad1706ca8cf0ac593b918c105944487d0737b2
 ```
 
 Request an Ethereum price again:
 
 ```
-./update_eth_price $CONSUMER_CONTRACT
+./bin/update_eth_price $CONSUMER_CONTRACT
 > price successfully requested
 ```
 
 Check price on contract:
 
 ```
-./view_eth_price $CONSUMER_CONTRACT
+./bin/view_eth_price $CONSUMER_CONTRACT
 > current ETH price: 230.04
 ```

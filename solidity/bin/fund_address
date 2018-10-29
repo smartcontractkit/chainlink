@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {utils, wallet} = require('./app/env.js')
+const {utils, wallet} = require('../app/env.js')
 
 if (process.argv.length > 3) {
   console.error('Usage: ./fund_dev_wallet (optional address)')
