@@ -2,6 +2,8 @@ import {
   REQUEST_JOBS,
   RECEIVE_JOBS_SUCCESS,
   RECEIVE_JOBS_ERROR,
+  RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS,
+  RECEIVE_RECENTLY_CREATED_JOBS_ERROR,
   RECEIVE_JOB_SPEC_SUCCESS,
   RECEIVE_JOB_SPEC_RUNS_SUCCESS
 } from 'actions'
@@ -9,6 +11,7 @@ import {
 const initialState = {
   items: {},
   currentPage: [],
+  recentlyCreated: null,
   count: 0,
   networkError: false
 }
@@ -20,6 +23,51 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         {networkError: false}
+      )
+    case RECEIVE_JOBS_SUCCESS: {
+      const newJobs = action.items.reduce(
+        (acc, job) => { acc[job.id] = job; return acc },
+        {}
+      )
+
+      return Object.assign(
+        {},
+        state,
+        {
+          items: Object.assign({}, state.items, newJobs),
+          currentPage: action.items.map(j => j.id),
+          count: action.count,
+          networkError: false
+        }
+      )
+    }
+    case RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS: {
+      const newJobs = action.items.reduce(
+        (acc, job) => { acc[job.id] = job; return acc },
+        {}
+      )
+
+      return Object.assign(
+        {},
+        state,
+        {
+          items: Object.assign({}, state.items, newJobs),
+          recentlyCreated: action.items.map(j => j.id)
+        }
+      )
+    }
+    case RECEIVE_JOBS_ERROR:
+      return Object.assign(
+        {},
+        state,
+        {networkError: !!action.networkError}
+      )
+    case RECEIVE_RECENTLY_CREATED_JOBS_ERROR:
+      console.error(action.error)
+      return Object.assign(
+        {},
+        state,
+        {networkError: !!action.networkError}
       )
     case RECEIVE_JOB_SPEC_RUNS_SUCCESS: {
       const runs = (action.items || [])
@@ -53,29 +101,6 @@ export default (state = initialState, action = {}) => {
         {items: Object.assign({}, state.items, {[jobSpec.id]: jobSpec})}
       )
     }
-    case RECEIVE_JOBS_SUCCESS: {
-      const newJobs = action.items.reduce(
-        (acc, job) => { acc[job.id] = job; return acc },
-        {}
-      )
-
-      return Object.assign(
-        {},
-        state,
-        {
-          items: Object.assign({}, state.items, newJobs),
-          currentPage: action.items.map(j => j.id),
-          count: action.count,
-          networkError: false
-        }
-      )
-    }
-    case RECEIVE_JOBS_ERROR:
-      return Object.assign(
-        {},
-        state,
-        {networkError: !!action.networkError}
-      )
     default:
       return state
   }

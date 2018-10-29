@@ -3,16 +3,18 @@ import {
   REQUEST_JOBS,
   RECEIVE_JOBS_SUCCESS,
   RECEIVE_JOBS_ERROR,
+  RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS,
   RECEIVE_JOB_SPEC_SUCCESS
 } from 'actions'
 
-describe('jobs reducer', () => {
+describe('connectors/reducers/jobs', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 
     expect(state.jobs).toEqual({
       items: {},
       currentPage: [],
+      recentlyCreated: null,
       count: 0,
       networkError: false
     })
@@ -51,6 +53,20 @@ describe('jobs reducer', () => {
     const state = reducer(previousState, action)
 
     expect(state.jobs.networkError).toEqual(true)
+  })
+
+  it('RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS stores the job items and the order', () => {
+    const action = {
+      type: RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS,
+      items: [{id: 'b'}, {id: 'a'}]
+    }
+    const state = reducer(undefined, action)
+
+    expect(state.jobs.items).toEqual({
+      'a': {id: 'a'},
+      'b': {id: 'b'}
+    })
+    expect(state.jobs.recentlyCreated).toEqual(['b', 'a'])
   })
 
   it('RECEIVE_JOB_SPEC_SUCCESS assigns runsCount', () => {

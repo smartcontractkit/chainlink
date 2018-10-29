@@ -5,7 +5,7 @@ import {
   RECEIVE_CREATE_ERROR
 } from 'actions'
 
-describe('create reducer', () => {
+describe('connectors/reducers/create', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

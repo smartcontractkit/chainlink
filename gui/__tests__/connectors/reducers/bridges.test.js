@@ -8,7 +8,7 @@ import {
   RECEIVE_BRIDGE_ERROR
 } from 'actions'
 
-describe('bridges reducer', () => {
+describe('connectors/reducers/bridges', () => {
   it('returns the initial state', () => {
     const state = reducer(undefined, {})
 
