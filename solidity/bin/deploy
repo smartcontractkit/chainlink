@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {deployer} = require('./app/env.js')
+const {deployer} = require('../app/env.js')
 
 if (process.argv.length < 3) {
   console.error('Usage: ./deployer <solidity contract> <constructor args...>')

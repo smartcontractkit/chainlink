@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {BigNum, abi, utils, wallet} = require('./app/env.js')
+const {abi, utils, wallet} = require('../app/env.js')
 
 if (process.argv.length < 3) {
   console.error('Usage: ./transfer_token <token address> <recipient address>')
