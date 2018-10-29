@@ -2,10 +2,10 @@ import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-static'
 import { connect } from 'react-redux'
-import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import { Button } from '@material-ui/core'
 import { withStyles } from '@material-ui/core/styles'
+import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import BridgesForm from 'components/Bridges/Form'
 import Breadcrumb from 'components/Breadcrumb'
@@ -19,10 +19,6 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 
 const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  },
   breadcrumb: {
     marginTop: theme.spacing.unit * 5
   }
@@ -70,9 +66,7 @@ export class Edit extends Component {
         <Grid item xs={12} md={12} xl={6}>
           <Grid container alignItems='center'>
             <Grid item xs={9}>
-              <Typography variant='display2' color='inherit' className={classes.title}>
-                Edit Bridge
-              </Typography>
+              <Title>Edit Bridge</Title>
             </Grid>
             <Grid item xs={3}>
               <Grid container justify='flex-end'>
@@ -114,7 +108,6 @@ export class Edit extends Component {
 }
 
 Edit.propTypes = {
-  classes: PropTypes.object.isRequired,
   bridge: PropTypes.object
 }
 

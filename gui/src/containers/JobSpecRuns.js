@@ -1,25 +1,21 @@
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
+import { withStyles } from '@material-ui/core/styles'
+import Card from '@material-ui/core/Card'
+import TablePagination from '@material-ui/core/TablePagination'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { fetchJobSpecRuns } from 'actions'
+import jobRunsSelector from 'selectors/jobRuns'
+import jobRunsCountSelector from 'selectors/jobRunsCount'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
 import JobRunsList from 'components/JobRunsList'
-import PropTypes from 'prop-types'
-import React, { Component } from 'react'
-import Typography from '@material-ui/core/Typography'
-import TablePagination from '@material-ui/core/TablePagination'
-import Card from '@material-ui/core/Card'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { connect } from 'react-redux'
-import { fetchJobSpecRuns } from 'actions'
-import { withStyles } from '@material-ui/core/styles'
-import jobRunsSelector from 'selectors/jobRuns'
-import jobRunsCountSelector from 'selectors/jobRunsCount'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
+import Title from 'components/Title'
 
 const styles = theme => ({
   breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  },
-  title: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
   }
@@ -69,9 +65,7 @@ export class JobSpecRuns extends Component {
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Runs</BreadcrumbItem>
         </Breadcrumb>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Runs
-        </Typography>
+        <Title>Runs</Title>
 
         {renderDetails(this.props, this.state, this.handleChangePage)}
       </div>

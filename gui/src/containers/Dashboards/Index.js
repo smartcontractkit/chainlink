@@ -1,9 +1,8 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
+import Title from 'components/Title'
 import Button from '@material-ui/core/Button'
 import { fetchJobs, fetchAccountBalance } from 'actions'
 import jobsSelector from 'selectors/jobs'
@@ -13,13 +12,6 @@ import TokenBalance from 'components/TokenBalance'
 import MetaInfo from 'components/MetaInfo'
 import Footer from 'components/Footer'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-
-const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
 
 const renderJobsList = props => {
   const { jobs, jobCount, pageSize, jobsError, fetchJobs, history, match } = props
@@ -60,9 +52,7 @@ export class Index extends Component {
       <div>
         <Grid container alignItems='center' >
           <Grid item xs={9}>
-            <Typography variant='display2' color='inherit' className={this.props.classes.title}>
-              Jobs
-            </Typography>
+            <Title>Jobs</Title>
           </Grid>
           <Grid item xs={3}>
             <Grid container justify='flex-end' >
@@ -89,7 +79,6 @@ export class Index extends Component {
 }
 
 Index.propTypes = {
-  classes: PropTypes.object.isRequired,
   ethBalance: PropTypes.string,
   linkBalance: PropTypes.string,
   accountBalanceError: PropTypes.string,
@@ -128,4 +117,4 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({ fetchAccountBalance, fetchJobs })
 )(Index)
 
-export default withStyles(styles)(ConnectedIndex)
+export default ConnectedIndex

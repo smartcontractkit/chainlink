@@ -1,28 +1,13 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
-import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
-import ConfigList from 'components/ConfigList'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { withSiteData } from 'react-static'
-import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
+import { withSiteData } from 'react-static'
+import Grid from '@material-ui/core/Grid'
+import Title from 'components/Title'
+import ConfigList from 'components/ConfigList'
 import { fetchConfiguration } from 'actions'
 import configsSelector from 'selectors/configs'
-
-const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
-
-const renderConfigList = ({configs, error}) => (
-  <ConfigList
-    configs={configs}
-    error={error}
-  />
-)
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 export class Configuration extends Component {
   componentDidMount () {
@@ -30,17 +15,18 @@ export class Configuration extends Component {
   }
 
   render () {
-    const { classes } = this.props
+    const {props} = this
 
     return (
       <div>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Configuration
-        </Typography>
+        <Title>Configuration</Title>
 
         <Grid container spacing={40}>
           <Grid item xs={12}>
-            {renderConfigList(this.props)}
+            <ConfigList
+              configs={props.configs}
+              error={props.error}
+            />
           </Grid>
         </Grid>
       </div>
@@ -49,7 +35,6 @@ export class Configuration extends Component {
 }
 
 Configuration.propTypes = {
-  classes: PropTypes.object.isRequired,
   configs: PropTypes.array.isRequired,
   error: PropTypes.string
 }
@@ -71,4 +56,4 @@ export const ConnectedConfiguration = connect(
   matchRouteAndMapDispatchToProps({fetchConfiguration})
 )(Configuration)
 
-export default withSiteData(withStyles(styles)(ConnectedConfiguration))
+export default withSiteData(ConnectedConfiguration)
