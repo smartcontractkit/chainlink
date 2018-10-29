@@ -7,6 +7,7 @@ export ENVIRONMENT=${ENVIRONMENT:-release}
 tmpdir=$(mktemp -d)
 trap "rm -rf $tmpdir" EXIT HUP TERM INT
 
+# Put the enclave alongside the test binary so libadapters.so can find it
 libs="$PWD/sgx/target/$ENVIRONMENT"
 cp ./sgx/target/$ENVIRONMENT/enclave.signed.so $tmpdir/
 
