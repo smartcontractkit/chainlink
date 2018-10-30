@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { withSiteData } from 'react-static'
 import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
@@ -28,7 +28,7 @@ export const Index = (props) => {
               to={'/bridges/new'}
             >
               New Bridge
-                </Button>
+            </Button>
           </Grid>
         </Grid>
       </Grid>
