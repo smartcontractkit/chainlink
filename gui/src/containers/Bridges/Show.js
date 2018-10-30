@@ -5,19 +5,16 @@ import { withStyles } from '@material-ui/core/styles'
 import { Button } from '@material-ui/core'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
-import { fetchBridgeSpec } from 'actions'
-import bridgeSelector from 'selectors/bridge'
+import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { fetchBridgeSpec } from 'actions'
+import bridgeSelector from 'selectors/bridge'
 
 const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  },
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
@@ -75,9 +72,7 @@ export class Show extends Component {
         <Grid item xs={12} md={12} xl={6}>
           <Grid container alignItems='center'>
             <Grid item xs={9}>
-              <Typography variant='display2' color='inherit'>
-                Bridge Info
-              </Typography>
+              <Title>Bridge Info</Title>
             </Grid>
             <Grid item xs={3}>
               <Grid container justify='flex-end'>
@@ -107,15 +102,12 @@ export class Show extends Component {
 }
 
 Show.propTypes = {
-  classes: PropTypes.object.isRequired,
   bridge: PropTypes.object
 }
 
-const mapStateToProps = (state, ownProps) => {
-  return {
-    bridge: bridgeSelector(state, ownProps.match.params.bridgeId)
-  }
-}
+const mapStateToProps = (state, ownProps) => ({
+  bridge: bridgeSelector(state, ownProps.match.params.bridgeId)
+})
 
 export const ConnectedShow = connect(
   mapStateToProps,
