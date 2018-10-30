@@ -2,8 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
-import { Tooltip } from '@material-ui/core';
-
+import { Tooltip } from '@material-ui/core'
 
 const MetaInfo = ({title, value, unformattedValue}) => (
   <PaddedCard>
