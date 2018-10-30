@@ -39,8 +39,8 @@ waitForResponse ()
 }
 
 GIT_ROOT=`git rev-parse --show-toplevel`
-ROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
-PATH=$ROOT/internal/bin:./node_modules/.bin:$PATH
+SRCROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
+PATH=$SRCROOT/internal/bin:./node_modules/.bin:$PATH
 
 # Script cleanup and failure diagnosis helpers
 exit_handler() {
@@ -49,7 +49,7 @@ exit_handler() {
   if [ $errno -ne 0 ]; then
     printf -- "\033[31mABORTING TEST!\033[0m\n"
     printf -- "Exited with code $errno\n"
-    for log in $(find "$ROOT/integration" -maxdepth 1 -type f -iname '*.log'); do
+    for log in $(find "$SRCROOT/integration" -maxdepth 1 -type f -iname '*.log'); do
       printf -- "\n--------------------------------------------------------------------------------\n"
       printf -- "\033[31m$log\033[0m\n"
       printf -- "--------------------------------------------------------------------------------\n\n"
@@ -66,7 +66,7 @@ exit_handler() {
 
 trap "exit_handler" EXIT SIGTERM SIGINT
 
-pushd $ROOT >/dev/null
+pushd $SRCROOT >/dev/null
 
 # Install gethnet 1.8.8
 #set -x
@@ -89,7 +89,7 @@ go install $ethpkg/cmd/geth
 ########################
 
 printf -- "\033[34mStarting geth...\033[0m\n"
-gethnet &>$ROOT/integration/gethnet.log &
+gethnet &>$SRCROOT/integration/gethnet.log &
 waitForResponse http://127.0.0.1:18545
 printf -- "\033[34mGeth is running.\033[0m\n"
 
@@ -100,10 +100,10 @@ printf -- "\033[34mGeth is running.\033[0m\n"
 printf -- "\033[34mMigrating core contracts...\033[0m\n"
 pushd integration >/dev/null
 
-yarn --no-progress install &>$ROOT/integration/yarn.log
-./deploy_contracts &>$ROOT/integration/deploy.log
-export ORACLE_CONTRACT_ADDRESS=`cat $ROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
-export LINK_TOKEN_ADDRESS=`cat $ROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
+yarn --no-progress install &>$SRCROOT/integration/yarn.log
+./deploy_contracts &>$SRCROOT/integration/deploy.log
+export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
+export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
 
 popd >/dev/null
 printf -- "\033[34mMigration complete.\033[0m\n"
@@ -112,9 +112,13 @@ printf -- "\033[34mMigration complete.\033[0m\n"
 ## Run ChainLink
 ########################
 
+printf -- "\033[34mMaking chainlink...\033[0m\n"
+make install &>$SRCROOT/integration/make.log
+
 printf -- "\033[34mStarting chainlink...\033[0m\n"
-export CHAINLINK_DEV=true
-cldev &>$ROOT/integration/cldev.log &
+source $SRCROOT/internal/bin/clenv
+export ROOT=$SRCROOT/internal/clroot
+chainlink node -d -p $ROOT/password.txt -a $ROOT/apicredentials &>$SRCROOT/integration/chainlink.log &
 waitForResponse http://127.0.0.1:6688
 printf -- "\033[34mChainlink is running.\033[0m\n"
 
@@ -125,8 +129,7 @@ printf -- "\033[34mChainlink is running.\033[0m\n"
 printf -- "\033[34mStarting echo server...\033[0m\n"
 pushd integration >/dev/null
 
-yarn --no-progress install &>$ROOT/integration/yarn2.log
-./echo_server &>$ROOT/integration/echo-server.log &
+./echo_server &>$SRCROOT/integration/echo-server.log &
 waitForResponse http://127.0.0.1:6690/count
 
 popd >/dev/null
@@ -153,12 +156,12 @@ printf -- "---------------------------------------------------------------------
 assert "Echo count" "curl -sS localhost:6690/count" 1
 
 ## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-cldev login --file internal/clroot/apicredentials
-assert "Jobs count" "cldev -j j | jq length" 1
+chainlink login --file $SRCROOT/internal/clroot/apicredentials
+assert "Jobs count" "chainlink -j j | jq length" 1
 
 # Check job runs
-jid=`cldev -j j | jq 'first | .id' | tr -d '"'`
-assert "RunLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
+jid=`chainlink -j j | jq 'first | .id' | tr -d '"'`
+assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
 ########################
 ## ethlog
@@ -175,12 +178,12 @@ ethjob=`./create_ethlog_job`
 assert "Echo count" "curl -sS localhost:6690/count" 2
 
 ## Check job counts
-cldev login --file internal/clroot/apicredentials
-assert "Jobs count" "cldev -j j | jq length" 2
+chainlink login --file $SRCROOT/internal/clroot/apicredentials
+assert "Jobs count" "chainlink -j j | jq length" 2
 
 ## Check job runs
 jid=`echo $ethjob | jq .data.id | tr -d '"'`
-assert "EthLog Runs count" "cldev -j s $jid |  jq '.runs | length'" 1
+assert "EthLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
 printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
 
