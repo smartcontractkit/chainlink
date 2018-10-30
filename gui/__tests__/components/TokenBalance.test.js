@@ -16,8 +16,8 @@ describe('components/TokenBalance', () => {
   })
 
   it('renders the title and the formatted balance', () => {
-    const wrapper = mount(<TokenBalance title='Ether Balance' value='10120000000000000000000' />)
+    const wrapper = mount(<TokenBalance title='Ether Balance' value='7779070000000000000000' />)
 
-    expect(wrapper.text()).toContain('Ether Balance10.12k')
+    expect(wrapper.text()).toContain('Ether Balance7.779070k')
   })
 })
