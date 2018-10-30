@@ -1,4 +1,4 @@
-import React, { Component, Fragment } from 'react'
+import React, { Fragment } from 'react'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -53,36 +53,25 @@ const renderBody = (configs, error) => {
   }
 }
 
-export class ConfigList extends Component {
-  constructor (props) {
-    super(props)
-    this.state = {}
-  }
-
-  render () {
-    const {configs, error} = this.props
-
-    return (
-      <Card>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>Key</Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>Value</Typography>
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {renderBody(configs, error)}
-          </TableBody>
-        </Table>
-      </Card>
-    )
-  }
-}
+const ConfigList = ({configs, error}) => (
+  <Card>
+    <Table>
+      <TableHead>
+        <TableRow>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Key</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Value</Typography>
+          </TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {renderBody(configs, error)}
+      </TableBody>
+    </Table>
+  </Card>
+)
 
 ConfigList.propTypes = {
   configs: PropTypes.array.isRequired,
