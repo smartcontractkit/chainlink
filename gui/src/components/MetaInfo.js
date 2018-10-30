@@ -9,13 +9,13 @@ const MetaInfo = ({title, value, unformattedValue}) => (
     <Typography gutterBottom variant='headline' component='h2'>
       {title}
     </Typography>
-    <Typography variant='body1' color='textSecondary'>
+    {unformattedValue && <Typography variant='body1' color='textSecondary'>
       <Tooltip title={unformattedValue} placement='left'>
         <div>
           {value}
         </div>
       </Tooltip>
-    </Typography>
+    </Typography>}
   </PaddedCard>
 )
 
