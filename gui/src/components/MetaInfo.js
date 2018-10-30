@@ -11,9 +11,9 @@ const MetaInfo = ({title, value, unformattedValue}) => (
     </Typography>
     <Typography variant='body1' color='textSecondary'>
       <Tooltip title={unformattedValue} placement='left'>
-        <div>
+        <span>
           {value}
-        </div>
+        </span>
       </Tooltip>
     </Typography>
   </PaddedCard>
