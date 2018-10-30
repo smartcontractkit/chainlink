@@ -9,6 +9,7 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
+import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 
 const renderFetching = () => (
   <TableRow>
@@ -58,22 +59,48 @@ const renderBody = (bridges, fetching, error) => {
 export class BridgeList extends Component {
   constructor (props) {
     super(props)
-    this.state = {
-      page: 0
-    }
+    this.state = { page: 1 }
     this.handleChangePage = this.handleChangePage.bind(this)
   }
 
   handleChangePage (e, page) {
     const {fetchBridges, pageSize} = this.props
-
-    fetchBridges(page + 1, pageSize)
+    fetchBridges(page, pageSize)
     this.setState({page})
+  }
+
+  componentDidMount () {
+    const { pageSize, fetchBridges } = this.props
+    const queryPage = this.props.match ? (parseInt(this.props.match.params.bridgePage, 10) || FIRST_PAGE) : FIRST_PAGE
+    this.setState({ page: queryPage })
+    fetchBridges(queryPage, pageSize)
+  }
+
+  componentDidUpdate (prevProps) {
+    if (prevProps.match && this.props.match) {
+      const prevBridgePage = prevProps.match.params.bridgePage
+      const currentBridgePage = this.props.match.params.bridgePage
+
+      if (prevBridgePage !== currentBridgePage) {
+        const { pageSize, fetchBridges } = this.props
+        this.setState({page: parseInt(currentBridgePage, 10) || FIRST_PAGE})
+        fetchBridges(parseInt(currentBridgePage, 10) || FIRST_PAGE, pageSize)
+      }
+    }
   }
 
   render () {
     const {bridges, bridgeCount, pageSize, fetching, error} = this.props
-
+    const TableButtonsWithProps = () => (
+      <TableButtons
+        {...this.props}
+        count={bridgeCount}
+        onChangePage={this.handleChangePage}
+        rowsPerPage={pageSize}
+        page={this.state.page}
+        replaceWith={`/bridges/page`}
+      />
+    )
     return (
       <Card>
         <Table>
@@ -110,11 +137,10 @@ export class BridgeList extends Component {
           count={bridgeCount}
           rowsPerPage={pageSize}
           rowsPerPageOptions={[pageSize]}
-          page={this.state.page}
-          backIconButtonProps={{'aria-label': 'Previous Page'}}
-          nextIconButtonProps={{'aria-label': 'Next Page'}}
-          onChangePage={this.handleChangePage}
-          onChangeRowsPerPage={() => {} /* handler required by component, so make it a no-op */}
+          page={this.state.page - 1}
+          onChangePage={() => { } /* handler required by component, so make it a no-op */}
+          onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+          ActionsComponent={TableButtonsWithProps}
         />
       </Card>
     )
