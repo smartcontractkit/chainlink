@@ -1,5 +1,4 @@
 import React, { Component } from 'react'
-import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
@@ -8,15 +7,12 @@ import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
+import Title from 'components/Title'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobSpecRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 
 const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  },
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
@@ -75,31 +71,25 @@ export class JobSpecRun extends Component {
   }
 
   render () {
-    const {classes, jobSpecId, jobRunId} = this.props
+    const {props} = this
 
     return (
       <div>
-        <Breadcrumb className={classes.breadcrumb}>
+        <Breadcrumb className={props.classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>
-            Job ID: {jobSpecId}
+          <BreadcrumbItem href={`/job_specs/${props.jobSpecId}`}>
+            Job ID: {props.jobSpecId}
           </BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem>Job Run ID: {jobRunId}</BreadcrumbItem>
+          <BreadcrumbItem>Job Run ID: {props.jobRunId}</BreadcrumbItem>
         </Breadcrumb>
-        <Typography variant='display2' color='inherit' className={classes.title}>
-          Job Run Detail
-        </Typography>
+        <Title>Job Run Detail</Title>
 
-        {renderDetails(this.props)}
+        {renderDetails(props)}
       </div>
     )
   }
-}
-
-JobSpecRun.propTypes = {
-  classes: PropTypes.object.isRequired
 }
 
 const mapStateToProps = (state, ownProps) => {

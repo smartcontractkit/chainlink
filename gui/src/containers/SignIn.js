@@ -1,20 +1,16 @@
 import React, { Component } from 'react'
-import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
+import { Redirect } from 'react-router'
+import { withStyles } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
 import Typography from '@material-ui/core/Typography'
 import TextField from '@material-ui/core/TextField'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { Redirect } from 'react-router'
-import { withStyles } from '@material-ui/core/styles'
-import { connect } from 'react-redux'
-import { submitSignIn } from 'actions'
 import { Grid } from '@material-ui/core'
+import { submitSignIn } from 'actions'
+import Title from 'components/Title'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const styles = theme => ({
-  title: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  },
   button: {
     margin: theme.spacing.unit * 5
   }
@@ -44,9 +40,7 @@ export class SignIn extends Component {
     return (
       <form noValidate onSubmit={this.onSubmit}>
         <Grid container alignItems='center' direction='column'>
-          <Typography variant='display2' color='inherit' className={classes.title}>
-            Sign In to Chainlink
-          </Typography>
+          <Title>Sign In to Chainlink</Title>
           <TextField
             id='email'
             label='Email'
@@ -83,10 +77,6 @@ export class SignIn extends Component {
       </form>
     )
   }
-}
-
-SignIn.propTypes = {
-  classes: PropTypes.object.isRequired
 }
 
 const mapStateToProps = state => ({
