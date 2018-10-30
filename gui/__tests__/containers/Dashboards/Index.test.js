@@ -33,8 +33,8 @@ describe('containers/Dashboards/Index', () => {
     }])
     global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
     const accountBalanceResponse = accountBalanceFactory(
-      '10120000000000000000000',
-      '7460000000000000000000'
+      '10123456000000000000000',
+      '7467870000000000000000'
     )
     global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
@@ -45,8 +45,8 @@ describe('containers/Dashboards/Index', () => {
     expect(wrapper.text()).toContain('web')
     expect(wrapper.text()).toContain('2018-05-10T00:41:54.531043837Z')
 
-    expect(wrapper.text()).toContain('Link Balance7.46k')
-    expect(wrapper.text()).toContain('Ether Balance10.12k')
+    expect(wrapper.text()).toContain('Link Balance7.467870k')
+    expect(wrapper.text()).toContain('Ether Balance10.123456k')
 
     expect(wrapper.text()).toContain('Jobs1')
   })
