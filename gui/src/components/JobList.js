@@ -47,7 +47,7 @@ const renderBody = (jobs, error) => {
 export class JobList extends Component {
   constructor (props) {
     super(props)
-    this.state = { page: 1 }
+    this.state = { page: FIRST_PAGE }
     this.handleChangePage = this.handleChangePage.bind(this)
   }
 
