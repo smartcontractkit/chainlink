@@ -75,6 +75,18 @@ func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	return j, j.Initiators[0]
 }
 
+// NewJobWithRunLogInitiator creates a new JobSpec with the RunLog initiator
+func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		Type: models.InitiatorRunLog,
+		InitiatorParams: models.InitiatorParams{
+			Address: NewAddress(),
+		},
+	}}
+	return j, j.Initiators[0]
+}
+
 // NewJobWithRunAtInitiator create new Job with RunAt inititaor
 func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
