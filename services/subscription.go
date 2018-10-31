@@ -213,9 +213,15 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		logger.Errorw(err.Error(), le.ForLogger()...)
 		return
 	}
+
 	input := models.RunResult{
 		Data:   data,
 		Amount: payment,
+	}
+	if !le.validRequester() {
+		err = fmt.Errorf("Run Log didn't have have a valid requester: %v", le.Requester().Hex())
+		input = input.WithError(err)
+		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 
 	currentHead := le.ToIndexableBlockNumber().Number
@@ -354,10 +360,6 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 		return false
 	}
 
-	if !le.validRequester() {
-		logger.Errorw(fmt.Sprintf("Run Log didn't have have a valid requester: %v", le.Requester().Hex()), le.ForLogger()...)
-		return false
-	}
 	return true
 }
 

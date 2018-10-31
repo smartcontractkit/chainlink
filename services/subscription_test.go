@@ -215,7 +215,7 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 		{"runlog proper hex jobid", services.RunLogTopic, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
 		{"runlog incorrect encoded jobid", services.RunLogTopic, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
 		{"runlog correct requester", services.RunLogTopic, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
-		{"runlog incorrect requester", services.RunLogTopic, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, false},
+		{"runlog incorrect requester", services.RunLogTopic, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
 	}
 
 	for _, test := range tests {
@@ -239,6 +239,50 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 			}
 
 			assert.Equal(t, test.want, le.ValidateRunLog())
+		})
+	}
+}
+
+func TestStartRunLogSubscription_ValidateSenders(t *testing.T) {
+	requester := cltest.NewAddress()
+
+	tests := []struct {
+		name      string
+		requester common.Address
+		status    models.RunStatus
+	}{
+		{"runlog contains valid requester", requester, models.RunStatusCompleted},
+		{"runlog has wrong requester", cltest.NewAddress(), models.RunStatusErrored},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config, _ := cltest.NewConfigWithPrivateKey()
+			app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+			defer cleanup()
+
+			eth := app.MockEthClient()
+			logs := make(chan strpkg.Log, 1)
+			eth.Context("app.Start()", func(eth *cltest.EthMock) {
+				eth.Register("eth_getBlockByNumber", models.BlockHeader{})
+				eth.Register("eth_getTransactionCount", "0x1")
+				eth.RegisterSubscription("logs", logs)
+			})
+			assert.NoError(t, app.Start())
+
+			js, initr := cltest.NewJobWithRunLogInitiator()
+			initr.Requesters = []common.Address{requester}
+			_, err := services.StartRunLogSubscription(initr, js, nil, app.Store)
+			assert.NoError(t, err)
+
+			logs <- cltest.NewRunLog(js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+			eth.EventuallyAllCalled(t)
+
+			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+				var run models.JobRun
+				app.Store.One("JobID", js.ID, &run)
+				return run.Status
+			}).Should(gomega.Equal(test.status))
 		})
 	}
 }
