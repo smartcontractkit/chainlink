@@ -68,20 +68,16 @@ export default (state = initialState, action = {}) => {
 
       if (error.errors) {
         notifications = error.errors.map(e => ({
-          type: 'component',
           component: component,
           props: {msg: e.detail}
         }))
       } else if (error.message) {
         notifications = [{
-          type: 'component',
           component: component,
           props: {msg: error.message}
         }]
       } else {
-        notifications = [{
-          type: 'component'
-        }]
+        notifications = [error]
       }
 
       return Object.assign(
