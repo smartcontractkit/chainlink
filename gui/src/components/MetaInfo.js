@@ -4,17 +4,19 @@ import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
 import { Tooltip } from '@material-ui/core'
 
-const MetaInfo = ({title, value, unformattedValue}) => (
+const withTooltip = ({tooltip, value}) => (
+  <Tooltip title={tooltip} placement='left'>
+    <span>{value}</span>
+  </Tooltip>
+)
+
+const MetaInfo = props => (
   <PaddedCard>
     <Typography gutterBottom variant='headline' component='h2'>
-      {title}
+      {props.title}
     </Typography>
     <Typography variant='body1' color='textSecondary'>
-      <Tooltip title={unformattedValue} placement='left'>
-        <div>
-          {value}
-        </div>
-      </Tooltip>
+      {props.tooltip !== undefined ? withTooltip(props) : props.value}
     </Typography>
   </PaddedCard>
 )
@@ -25,7 +27,7 @@ MetaInfo.propTypes = {
     PropTypes.string,
     PropTypes.number
   ]),
-  unformattedValue: PropTypes.oneOfType([
+  tooltip: PropTypes.oneOfType([
     PropTypes.string,
     PropTypes.number
   ])
