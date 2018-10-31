@@ -51,11 +51,7 @@ const TokenBalance = props => {
 
 TokenBalance.propTypes = {
   title: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.number
-  ]),
-  className: PropTypes.string,
+  value: PropTypes.string,
   error: PropTypes.string
 }
 
