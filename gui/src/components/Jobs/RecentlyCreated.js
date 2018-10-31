@@ -47,10 +47,10 @@ const RecentlyCreated = ({classes, jobs}) => {
             <TableRow key={j.id}>
               <TableCell scope='row' className={classes.cell}>
                 <Grid container>
-                  <Grid item>
+                  <Grid item xs={12}>
                     <Link to={`/job_specs/${j.id}`}>{j.id}</Link>
                   </Grid>
-                  <Grid item>
+                  <Grid item xs={12}>
                     <Typography variant='body1' color='textSecondary'>
                       Created <TimeAgo>{j.createdAt}</TimeAgo>
                     </Typography>
