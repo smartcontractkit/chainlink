@@ -147,7 +147,7 @@ const renderLatestRuns = ({ jobSpecId, classes, latestJobRuns, jobRunsCount }) =
       <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
     </Card>
     {jobRunsCount > LATEST_JOB_RUNS_COUNT && (
-      <Link to={`/job_specs/${jobSpecId}/runs`} className={classes.showMore}>
+      <Link to={`/jobs/${jobSpecId}/runs`} className={classes.showMore}>
         Show More
       </Link>
     )}
