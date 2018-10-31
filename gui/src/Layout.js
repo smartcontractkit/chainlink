@@ -223,10 +223,10 @@ class Layout extends Component {
                   <PrivateRoute exact path='/jobs' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/new' component={JobsNew} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobsShow} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId' component={JobsShow} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobSpecRuns} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
                   <PrivateRoute exact path='/bridges' component={BridgesIndex} />
                   <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
                   <PrivateRoute exact path='/bridges/new' component={BridgesNew} />

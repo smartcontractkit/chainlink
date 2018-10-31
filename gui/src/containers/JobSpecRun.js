@@ -78,7 +78,7 @@ export class JobSpecRun extends Component {
         <Breadcrumb className={props.classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/job_specs/${props.jobSpecId}`}>
+          <BreadcrumbItem href={`/jobs/${props.jobSpecId}`}>
             Job ID: {props.jobSpecId}
           </BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>

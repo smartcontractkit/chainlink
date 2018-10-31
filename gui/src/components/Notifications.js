@@ -25,12 +25,12 @@ export class Notifications extends React.Component {
 
     if (isJob(success)) {
       return <p key={i}>
-        Job <Link to={`/job_specs/${attributes.id}`}>{attributes.id}</Link> was successfully created
+        Job <Link to={`/jobs/${attributes.id}`}>{attributes.id}</Link> was successfully created
       </p>
     }
     if (isJobRun(success)) {
       return <p key={i}>
-        Job <Link to={`/job_specs/${attributes.jobId}/runs/id/${attributes.id}`}>{attributes.id}</Link> was successfully run
+        Job <Link to={`/jobs/${attributes.jobId}/runs/id/${attributes.id}`}>{attributes.id}</Link> was successfully run
       </p>
     }
     if (isBridge(success)) {
