@@ -12,23 +12,34 @@ const formatBalance = (val) => {
   return {formatted: numeral(tokenBalance).format('0.200000a'), unformatted: tokenBalance}
 }
 
-const TokenBalance = ({title, value, className, error}) => {
-  let val
-  let unformattedVal
+const valAndTooltip = ({value, title, error}) => {
   if (error) {
-    val = error
+    return {
+      val: error,
+      tooltip: 'Error'
+    }
   } else if (value == null) {
-    val = '...'
-  } else {
-    val = formatBalance(value).formatted
-    unformattedVal = formatBalance(value).unformatted
+    return {
+      val: '...',
+      tooltip: 'Loading...'
+    }
   }
+
+  return {
+    val: formatBalance(value).formatted,
+    tooltip: formatBalance(value).unformatted
+  }
+}
+
+const TokenBalance = props => {
+  const {val, tooltip} = valAndTooltip(props)
+
   return (
     <MetaInfo
-      title={title}
+      className={props.className}
+      title={props.title}
       value={val}
-      unformattedValue={unformattedVal}
-      className={className}
+      tooltip={tooltip}
     />
   )
 }
