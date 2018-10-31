@@ -5,7 +5,7 @@ import {
   RECEIVE_CONFIGURATION_ERROR
 } from 'actions'
 
-describe('configuration reducer', () => {
+describe('connectors/reducers/configuration', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

@@ -14,7 +14,7 @@ import {
   RECEIVE_CREATE_ERROR
 } from 'actions'
 
-describe('authentication reducer', () => {
+describe('connectors/reducers/authentication', () => {
   beforeEach(() => {
     global.localStorage.clear()
   })

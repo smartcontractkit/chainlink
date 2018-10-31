@@ -8,7 +8,7 @@ import {
   NOTIFY_ERROR
 } from 'actions'
 
-describe('notifications reducer', () => {
+describe('connectors/reducers/notifications', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

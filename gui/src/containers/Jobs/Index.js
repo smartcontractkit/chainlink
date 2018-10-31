@@ -10,23 +10,9 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import jobsSelector from 'selectors/jobs'
 import { fetchJobs } from 'actions'
 
-const renderJobsList = props => {
-  const { jobs, jobCount, pageSize, jobsError, fetchJobs, history, match } = props
-  return (
-    <JobList
-      jobs={jobs}
-      jobCount={jobCount}
-      pageSize={pageSize}
-      error={jobsError}
-      fetchJobs={fetchJobs}
-      history={history}
-      match={match}
-    />
-  )
-}
-
 export class Index extends Component {
   render () {
+    const {props} = this
     return (
       <div>
         <Grid container alignItems='center' >
@@ -43,7 +29,15 @@ export class Index extends Component {
             </Grid>
           </Grid>
           <Grid item xs={12}>
-            {renderJobsList(this.props)}
+            <JobList
+              jobs={props.jobs}
+              jobCount={props.jobCount}
+              pageSize={props.pageSize}
+              error={props.jobsError}
+              fetchJobs={props.fetchJobs}
+              history={props.history}
+              match={props.match}
+            />
           </Grid>
         </Grid>
       </div>

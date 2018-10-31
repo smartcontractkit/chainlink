@@ -5,7 +5,7 @@ import {
   RECEIVE_ACCOUNT_BALANCE_ERROR
 } from 'actions'
 
-describe('accountBalance reducer', () => {
+describe('connectors/reducers/accountBalance', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

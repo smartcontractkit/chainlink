@@ -29,7 +29,7 @@ describe('containers/Jobs/Index', () => {
     const jobSpecsResponse = jsonApiJobSpecsFactory([{
       id: 'c60b9927eeae43168ddbe92584937b1b',
       initiators: [{'type': 'web'}],
-      createdAt: '2018-05-10T00:41:54.531043837Z'
+      createdAt: (new Date()).toISOString()
     }])
     global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
 
@@ -38,7 +38,7 @@ describe('containers/Jobs/Index', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('web')
-    expect(wrapper.text()).toContain('2018-05-10T00:41:54.531043837Z')
+    expect(wrapper.text()).toContain('just now')
   })
 
   it('can page through the list of jobs', async () => {

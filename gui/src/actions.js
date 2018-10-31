@@ -1,12 +1,13 @@
 import * as api from 'api'
 import { AuthenticationError } from 'errors'
 import { pascalCase } from 'change-case'
+import transformJobs from 'actions/transforms/jobs'
 
 const createAction = type => ({type: type})
 
 const createErrorAction = (error, type) => ({
   type: type,
-  error: error,
+  error: error.stack,
   networkError: true
 })
 
@@ -56,18 +57,18 @@ export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
 
 fetchActions.jobs = {
   requestActionType: REQUEST_JOBS,
-  receiveSuccess: json => ({
-    type: RECEIVE_JOBS_SUCCESS,
-    count: json.meta.count,
-    items: json.data.map(j => (
-      {
-        id: j.id,
-        createdAt: j.attributes.createdAt,
-        initiators: j.attributes.initiators
-      }
-    ))
-  }),
+  receiveSuccess: json => transformJobs(RECEIVE_JOBS_SUCCESS, json),
   receiveErrorType: RECEIVE_JOBS_ERROR
+}
+
+export const REQUEST_RECENTLY_CREATED_JOBS = 'REQUEST_RECENTLY_CREATED_JOBS'
+export const RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS = 'RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS'
+export const RECEIVE_RECENTLY_CREATED_JOBS_ERROR = 'RECEIVE_RECENTLY_CREATED_JOBS_ERROR'
+
+fetchActions.recentlyCreatedJobs = {
+  requestActionType: REQUEST_RECENTLY_CREATED_JOBS,
+  receiveSuccess: json => transformJobs(RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS, json),
+  receiveErrorType: RECEIVE_RECENTLY_CREATED_JOBS_ERROR
 }
 
 export const REQUEST_ACCOUNT_BALANCE = 'REQUEST_ACCOUNT_BALANCE'
@@ -271,6 +272,7 @@ const receiveUpdateSuccess = response => ({
 })
 
 export const fetchJobs = (page, size) => sendFetchActions('jobs', page, size)
+export const fetchRecentlyCreatedJobs = size => sendFetchActions('recentlyCreatedJobs', size)
 export const fetchAccountBalance = () => sendFetchActions('accountBalance')
 export const fetchJobSpec = id => sendFetchActions('jobSpec', id)
 export const fetchJobSpecRuns = (id, page, size) => sendFetchActions('jobSpecRuns', id, page, size)
