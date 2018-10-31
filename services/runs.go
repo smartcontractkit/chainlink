@@ -88,7 +88,7 @@ func NewRun(
 	// input.Amount is always present for runs triggered by ethlogs
 	if input.Amount != nil {
 		if cost.Cmp(input.Amount) > 0 {
-			logger.Debugw("Rejecting run with insufficient paymen", []interface{}{
+			logger.Debugw("Rejecting run with insufficient payment", []interface{}{
 				"run", run.ID,
 				"job", run.JobID,
 				"input_amount", input.Amount,
@@ -101,8 +101,11 @@ func NewRun(
 				input.Amount,
 				store.Config.MinimumContractPayment.Text(10))
 			run = run.ApplyResult(input.WithError(err))
-			return &run, nil
 		}
+	}
+
+	if !run.Status.Runnable() {
+		return &run, nil
 	}
 
 	initialTask := run.TaskRuns[0]
