@@ -61,7 +61,7 @@ export class JobSpecRuns extends Component {
         <Breadcrumb className={classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/job_specs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
+          <BreadcrumbItem href={`/jobs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Runs</BreadcrumbItem>
         </Breadcrumb>
@@ -83,7 +83,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
       page={state.page}
       specID={jobSpecId}
       rowsPerPage={pageSize}
-      replaceWith={`/job_specs/${jobSpecId}/runs/page`}
+      replaceWith={`/jobs/${jobSpecId}/runs/page`}
     />
   )
   return (

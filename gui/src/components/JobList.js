@@ -25,7 +25,7 @@ const renderJobs = jobs => (
   jobs.map(j => (
     <TableRow key={j.id}>
       <TableCell component='th' scope='row'>
-        <Link to={`/job_specs/${j.id}`}>{j.id}</Link>
+        <Link to={`/jobs/${j.id}`}>{j.id}</Link>
       </TableCell>
       <TableCell>
         <Typography variant='body1'>

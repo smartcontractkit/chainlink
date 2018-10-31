@@ -48,7 +48,7 @@ const RecentlyCreated = ({classes, jobs}) => {
               <TableCell scope='row' className={classes.cell}>
                 <Grid container>
                   <Grid item xs={12}>
-                    <Link to={`/job_specs/${j.id}`}>{j.id}</Link>
+                    <Link to={`/jobs/${j.id}`}>{j.id}</Link>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant='body1' color='textSecondary'>
