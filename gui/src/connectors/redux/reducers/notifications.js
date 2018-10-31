@@ -1,7 +1,6 @@
 import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
-  RECEIVE_CREATE_SUCCESS,
   NOTIFY_SUCCESS,
   NOTIFY_ERROR
 } from 'actions'
@@ -33,16 +32,6 @@ export default (state = initialState, action = {}) => {
         {
           successes: [],
           errors: [{detail: SIGN_IN_FAIL_MSG}]
-        }
-      )
-    }
-    case RECEIVE_CREATE_SUCCESS: {
-      return Object.assign(
-        {},
-        state,
-        {
-          successes: [action.response],
-          errors: []
         }
       )
     }
