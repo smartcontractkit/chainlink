@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import { receiveSignoutSuccess } from 'actions'
-import Flash from './Flash'
+import Flash from 'components/Flash'
 import Unhandled from 'components/Errors/Unhandled'
 
 const styles = theme => ({
