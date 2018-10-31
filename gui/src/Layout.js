@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { useState } from 'react'
 import Routes from 'react-static-routes'
 import AppBar from '@material-ui/core/AppBar'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -96,152 +96,142 @@ const styles = theme => {
   }
 }
 
-class Layout extends Component {
-  state = {drawerOpen: false}
+const Layout = ({submitSignOut, classes, isFetching, redirectTo, authenticated}) => {
+  const [drawerOpen, setDrawer] = useState(false)
 
-  toggleDrawer = () => {
-    this.setState({drawerOpen: !this.state.drawerOpen})
-  }
-
-  signOut = () => {
-    this.props.submitSignOut()
-  }
-
-  render () {
-    const {classes, isFetching, redirectTo} = this.props
-    const {drawerOpen} = this.state
-
-    const drawer = (
-      <Drawer
-        anchor='right'
-        open={drawerOpen}
-        classes={{
-          paper: classes.drawerPaper
-        }}
-        onClose={this.toggleDrawer}
+  const toggleDrawer = () => setDrawer(!drawerOpen)
+  const signOut = () => submitSignOut()
+  const drawer = (
+    <Drawer
+      anchor='right'
+      open={drawerOpen}
+      classes={{
+        paper: classes.drawerPaper
+      }}
+      onClose={toggleDrawer}
+    >
+      <div
+        tabIndex={0}
+        role='button'
+        onClick={toggleDrawer}
       >
-        <div
-          tabIndex={0}
-          role='button'
-          onClick={this.toggleDrawer}
-        >
-          <List className={classes.drawerList}>
-            <ListItem button component={Link} to='/jobs' className={classes.menuitem}>
-              <ListItemText primary='Jobs' />
-            </ListItem>
-            <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
-              <ListItemText primary='Bridges' />
-            </ListItem>
-            <ListItem button component={Link} to='/config' className={classes.menuitem}>
-              <ListItemText primary='Configuration' />
-            </ListItem>
-            <ListItem button component={Link} to='/about' className={classes.menuitem}>
-              <ListItemText primary='About' />
-            </ListItem>
-            {this.props.authenticated &&
-              <ListItem button onClick={this.signOut} className={classes.menuitem}>
-                <ListItemText primary='Sign Out' />
-              </ListItem>
-            }
-          </List>
-        </div>
-      </Drawer>
-    )
-
-    const nav = (
-      <Typography variant='body1' component='div'>
-        <List className={classes.horizontalNav}>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/jobs' className={classes.horizontalNavLink}>Jobs</Link>
+        <List className={classes.drawerList}>
+          <ListItem button component={Link} to='/jobs' className={classes.menuitem}>
+            <ListItemText primary='Jobs' />
           </ListItem>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
+          <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
+            <ListItemText primary='Bridges' />
           </ListItem>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/config' className={classes.horizontalNavLink}>Configuration</Link>
+          <ListItem button component={Link} to='/config' className={classes.menuitem}>
+            <ListItemText primary='Configuration' />
           </ListItem>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/about' className={classes.horizontalNavLink}>About</Link>
+          <ListItem button component={Link} to='/about' className={classes.menuitem}>
+            <ListItemText primary='About' />
           </ListItem>
-          {this.props.authenticated &&
-            <ListItem className={classes.horizontalNavItem}>
-              <Link to='/signout' className={classes.horizontalNavLink}>Sign Out</Link>
+          {authenticated &&
+            <ListItem button onClick={signOut} className={classes.menuitem}>
+              <ListItemText primary='Sign Out' />
             </ListItem>
           }
         </List>
-      </Typography>
-    )
+      </div>
+    </Drawer>
+  )
 
-    return (
-      <Router>
-        <Grid container>
-          <CssBaseline />
-          <Grid item xs={12}>
-            <AppBar
-              className={classes.appBar}
-              color='default'
-              position='absolute'
-            >
-              <Grid container alignItems='center' className={classes.appBarContent}>
-                <Grid item xs={6} md={4}>
-                  <Link to='/'>
-                    <Logo width={40} height={50} spin={isFetching} />
-                  </Link>
-                </Grid>
-                <Grid item xs={6} md={8}>
-                  <Grid container justify='flex-end'>
-                    <Grid item>
-                      <Hidden mdUp>
-                        <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
-                          <MenuIcon />
-                        </IconButton>
-                      </Hidden>
-                      <Hidden smDown>
-                        {nav}
-                      </Hidden>
-                    </Grid>
+  const nav = (
+    <Typography variant='body1' component='div'>
+      <List className={classes.horizontalNav}>
+        <ListItem className={classes.horizontalNavItem}>
+          <Link to='/jobs' className={classes.horizontalNavLink}>Jobs</Link>
+        </ListItem>
+        <ListItem className={classes.horizontalNavItem}>
+          <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
+        </ListItem>
+        <ListItem className={classes.horizontalNavItem}>
+          <Link to='/config' className={classes.horizontalNavLink}>Configuration</Link>
+        </ListItem>
+        <ListItem className={classes.horizontalNavItem}>
+          <Link to='/about' className={classes.horizontalNavLink}>About</Link>
+        </ListItem>
+        {authenticated &&
+          <ListItem className={classes.horizontalNavItem}>
+            <Link to='/signout' className={classes.horizontalNavLink}>Sign Out</Link>
+          </ListItem>
+        }
+      </List>
+    </Typography>
+  )
+
+  return (
+    <Router>
+      <Grid container>
+        <CssBaseline />
+        <Grid item xs={12}>
+          <AppBar
+            className={classes.appBar}
+            color='default'
+            position='absolute'
+          >
+            <Grid container alignItems='center' className={classes.appBarContent}>
+              <Grid item xs={6} md={4}>
+                <Link to='/'>
+                  <Logo width={40} height={50} spin={isFetching} />
+                </Link>
+              </Grid>
+              <Grid item xs={6} md={8}>
+                <Grid container justify='flex-end'>
+                  <Grid item>
+                    <Hidden mdUp>
+                      <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                        <MenuIcon />
+                      </IconButton>
+                    </Hidden>
+                    <Hidden smDown>
+                      {nav}
+                    </Hidden>
                   </Grid>
                 </Grid>
               </Grid>
-            </AppBar>
+            </Grid>
+          </AppBar>
 
-            <div>
-              <div className={classes.toolbar} />
+          <div>
+            <div className={classes.toolbar} />
 
-              <Notifications />
+            <Notifications />
 
-              <div className={classes.content}>
-                <Switch>
-                  <Route exact path='/signin' component={SignIn} />
-                  <PrivateRoute exact path='/signout' component={SignOut} />
-                  {redirectTo && <Redirect to={redirectTo} />}
-                  <PrivateRoute exact path='/' component={DashboardsIndex} />
-                  <PrivateRoute exact path='/jobs' component={JobsIndex} />
-                  <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
-                  <PrivateRoute exact path='/jobs/new' component={JobsNew} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobsShow} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
-                  <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
-                  <PrivateRoute exact path='/bridges' component={BridgesIndex} />
-                  <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
-                  <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
-                  <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
-                  <PrivateRoute exact path='/bridges/:bridgeId/edit' component={BridgesEdit} />
-                  <PrivateRoute exact path='/about' component={About} />
-                  <PrivateRoute exact path='/config' component={Configuration} />
-                  <Routes />
-                </Switch>
-              </div>
+            <div className={classes.content}>
+              <Switch>
+                <Route exact path='/signin' component={SignIn} />
+                <PrivateRoute exact path='/signout' component={SignOut} />
+                {redirectTo && <Redirect to={redirectTo} />}
+                <PrivateRoute exact path='/' component={DashboardsIndex} />
+                <PrivateRoute exact path='/jobs' component={JobsIndex} />
+                <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
+                <PrivateRoute exact path='/jobs/new' component={JobsNew} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId' component={JobsShow} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId/runs' component={JobSpecRuns} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
+                <PrivateRoute exact path='/job_specs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
+                <PrivateRoute exact path='/bridges' component={BridgesIndex} />
+                <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
+                <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
+                <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
+                <PrivateRoute exact path='/bridges/:bridgeId/edit' component={BridgesEdit} />
+                <PrivateRoute exact path='/about' component={About} />
+                <PrivateRoute exact path='/config' component={Configuration} />
+                <Routes />
+              </Switch>
             </div>
+          </div>
 
-            {drawer}
-          </Grid>
+          {drawer}
         </Grid>
-      </Router>
-    )
-  }
+      </Grid>
+    </Router>
+  )
 }
+
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
