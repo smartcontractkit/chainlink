@@ -1,7 +1,6 @@
 import React from 'react'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
-import { Link } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
 import { receiveSignoutSuccess } from 'actions'
 import Flash from './Flash'
@@ -14,23 +13,18 @@ const styles = theme => ({
 })
 
 export class Notifications extends React.Component {
-  errorPresenter = (err, i) => {
-    return <p key={i}>{err.detail}</p>
-  }
-
   render () {
     const { errors, successes, classes } = this.props
     return (
       <React.Fragment>
         {errors.length > 0 &&
           <Flash error className={classes.flash}>
-            {errors.map((err, i) => {
-              if (err.type === 'component' && err.component) {
-                return <p key={i}>{err.component(err.props)}</p>
-              } else if (err.type === 'component') {
-                return <p key={i}><Unhandled /></p>
+            {errors.map(({component, props}, i) => {
+              if (component) {
+                return <p key={i}>{component(props)}</p>
               }
-              return this.errorPresenter(err, i)
+
+              return <p key={i}><Unhandled /></p>
             })}
           </Flash>
         }
