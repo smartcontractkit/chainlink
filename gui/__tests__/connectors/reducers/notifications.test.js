@@ -2,7 +2,6 @@ import reducer from 'connectors/redux/reducers'
 import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
-  RECEIVE_CREATE_SUCCESS,
   NOTIFY_SUCCESS,
   NOTIFY_ERROR
 } from 'actions'
@@ -52,26 +51,6 @@ describe('connectors/reducers/notifications', () => {
     expect(state.notifications).toEqual({
       errors: [{detail: 'Your email or password is incorrect. Please try again'}],
       successes: [],
-      currentUrl: null
-    })
-  })
-
-  it('RECEIVE_CREATE_SUCCESS adds a success and clears errors', () => {
-    const previousState = {
-      notifications: {
-        errors: [{detail: 'error 1'}],
-        successes: [],
-        currentUrl: null
-      }
-    }
-
-    const response = {id: 'SOMEID', name: 'SOMENAME'}
-    const action = {type: RECEIVE_CREATE_SUCCESS, response: response}
-    const state = reducer(previousState, action)
-
-    expect(state.notifications).toEqual({
-      errors: [],
-      successes: [response],
       currentUrl: null
     })
   })
