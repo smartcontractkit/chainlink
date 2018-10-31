@@ -23,13 +23,35 @@ const mountIndex = (opts = {}) => (
 )
 
 describe('containers/Dashboards/Index', () => {
-  it('renders the list of jobs and account balance', async () => {
-    expect.assertions(6)
+  it('renders the list of jobs, account balances & recently created jobs', async () => {
+    expect.assertions(8)
+
+    const recentlyCreatedJobsResponse = {
+      data: [
+        {
+          id: 'job_b',
+          type: 'specs',
+          attributes: {
+            id: 'job_b',
+            createdAt: (new Date()).toISOString()
+          }
+        },
+        {
+          id: 'job_a',
+          type: 'specs',
+          attributes: {
+            id: 'job_a',
+            createdAt: (new Date()).toISOString()
+          }
+        }
+      ]
+    }
+    global.fetch.getOnce('/v2/specs?size=2&sort=-createdAt', recentlyCreatedJobsResponse)
 
     const jobSpecsResponse = jsonApiJobSpecsFactory([{
       id: 'c60b9927eeae43168ddbe92584937b1b',
       initiators: [{'type': 'web'}],
-      createdAt: '2018-05-10T00:41:54.531043837Z'
+      createdAt: (new Date()).toISOString()
     }])
     global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
     const accountBalanceResponse = accountBalanceFactory(
@@ -43,22 +65,28 @@ describe('containers/Dashboards/Index', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('web')
-    expect(wrapper.text()).toContain('2018-05-10T00:41:54.531043837Z')
+    expect(wrapper.text()).toContain('just now')
 
     expect(wrapper.text()).toContain('Link Balance7.467870k')
     expect(wrapper.text()).toContain('Ether Balance10.123456k')
 
-    expect(wrapper.text()).toContain('Jobs1')
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('Recently Created Jobs')
+    expect(wrapper.text()).toContain('job_bCreated just now')
+    expect(wrapper.text()).toContain('job_aCreated just now')
   })
 
   it('can page through the list of jobs', async () => {
     expect.assertions(6)
 
+    const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
+    global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
+
     const accountBalanceResponse = accountBalanceFactory('0', '0')
     global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
-    const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
-    global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
+    const recentlyCreatedJobsResponse = {data: []}
+    global.fetch.getOnce('/v2/specs?size=2\u0026sort=-createdAt', recentlyCreatedJobsResponse)
 
     const wrapper = mountIndex({pageSize: 1})
 
@@ -86,6 +114,8 @@ describe('containers/Dashboards/Index', () => {
     expect.assertions(3)
 
     global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
+    const recentlyCreatedJobsResponse = {data: []}
+    global.fetch.getOnce('/v2/specs?size=2\u0026sort=-createdAt', recentlyCreatedJobsResponse)
 
     const wrapper = mountIndex()
 

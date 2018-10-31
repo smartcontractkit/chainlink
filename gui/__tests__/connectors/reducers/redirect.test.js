@@ -4,7 +4,7 @@ import {
   REDIRECT
 } from 'actions'
 
-describe('redirect reducer', () => {
+describe('connectors/reducers/redirect', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

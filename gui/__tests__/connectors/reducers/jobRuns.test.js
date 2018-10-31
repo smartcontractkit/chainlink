@@ -4,7 +4,7 @@ import {
   RECEIVE_JOB_SPEC_RUNS_SUCCESS
 } from 'actions'
 
-describe('jobRuns reducer', () => {
+describe('connectors/reducers/jobRuns', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

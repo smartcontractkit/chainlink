@@ -1,7 +1,7 @@
 import reducer from 'connectors/redux/reducers'
 import { REDIRECT } from 'actions'
 
-describe('fetching reducer', () => {
+describe('connectors/reducers/fetching', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

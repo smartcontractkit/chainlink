@@ -2,16 +2,21 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
 
-// Your top level component
 import App from './App'
-
-// Your Material UI Custom theme
 import theme from './theme'
 
-// Export your top level component as JSX (for static rendering)
+// Human readable date & time
+import JavascriptTimeAgo from 'javascript-time-ago'
+import en from 'javascript-time-ago/locale/en'
+
+window.JavascriptTimeAgo = JavascriptTimeAgo
+
+JavascriptTimeAgo.locale(en)
+
+// Export top level component as JSX (for static rendering)
 export default App
 
-// Render your app
+// Render app
 if (typeof document !== 'undefined') {
   const renderMethod = module.hot ? ReactDOM.render : ReactDOM.hydrate
   const muiTheme = createMuiTheme(theme)
@@ -25,6 +30,5 @@ if (typeof document !== 'undefined') {
     )
   }
 
-  // Render!
   render(App)
 }
