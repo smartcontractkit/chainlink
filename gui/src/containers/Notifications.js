@@ -16,7 +16,7 @@ export class Notifications extends React.Component {
   render () {
     const { errors, successes, classes } = this.props
     return (
-      <React.Fragment>
+      <div>
         {errors.length > 0 &&
           <Flash error className={classes.flash}>
             {errors.map(({component, props}, i) => {
@@ -35,7 +35,7 @@ export class Notifications extends React.Component {
             ))}
           </Flash>
         )}
-      </React.Fragment>
+      </div>
     )
   }
 }
