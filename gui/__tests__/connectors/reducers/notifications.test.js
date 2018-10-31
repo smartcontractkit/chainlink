@@ -114,8 +114,8 @@ describe('connectors/reducers/notifications', () => {
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([
-        {type: 'component', component: component, props: {msg: 'Error 1'}},
-        {type: 'component', component: component, props: {msg: 'Error 2'}}
+        {component: component, props: {msg: 'Error 1'}},
+        {component: component, props: {msg: 'Error 2'}}
       ])
     })
 
@@ -133,7 +133,7 @@ describe('connectors/reducers/notifications', () => {
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([
-        {type: 'component', component: component, props: {msg: 'Single Error'}}
+        {component: component, props: {msg: 'Single Error'}}
       ])
     })
 
@@ -150,7 +150,7 @@ describe('connectors/reducers/notifications', () => {
       const action = {type: NOTIFY_ERROR, component: component, error: error}
       const state = reducer(previousState, action)
 
-      expect(state.notifications.errors).toEqual([{type: 'component'}])
+      expect(state.notifications.errors).toEqual([{}])
     })
 
     it('clears successes', () => {
