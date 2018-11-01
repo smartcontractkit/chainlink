@@ -21,7 +21,7 @@ const styles = theme => ({
   }
 })
 
-export class JobSpecRuns extends Component {
+export class Index extends Component {
   constructor (props) {
     super(props)
     this.state = {
@@ -113,14 +113,14 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-JobSpecRuns.propTypes = {
+Index.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
   jobRunsCount: PropTypes.number.isRequired,
   pageSize: PropTypes.number.isRequired
 }
 
-JobSpecRuns.defaultProps = {
+Index.defaultProps = {
   latestJobRuns: [],
   pageSize: 10
 }
@@ -137,8 +137,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-export const ConnectedJobSpecRuns = connect(mapStateToProps, matchRouteAndMapDispatchToProps({ fetchJobSpecRuns }))(
-  JobSpecRuns
-)
+export const ConnectedIndex = connect(
+  mapStateToProps,
+  matchRouteAndMapDispatchToProps({ fetchJobSpecRuns })
+)(Index)
 
-export default withStyles(styles)(ConnectedJobSpecRuns)
+export default withStyles(styles)(ConnectedIndex)

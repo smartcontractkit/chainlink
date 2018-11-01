@@ -65,7 +65,7 @@ const renderDetails = ({fetching, jobRun}) => {
   )
 }
 
-export class JobSpecRun extends Component {
+export class Show extends Component {
   componentDidMount () {
     this.props.fetchJobSpecRun(this.props.jobRunId)
   }
@@ -105,9 +105,9 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
-export const ConnectedJobSpecRun = connect(
+export const ConnectedShow = connect(
   mapStateToProps,
   matchRouteAndMapDispatchToProps({fetchJobSpecRun})
-)(JobSpecRun)
+)(Show)
 
-export default withStyles(styles)(ConnectedJobSpecRun)
+export default withStyles(styles)(ConnectedShow)
