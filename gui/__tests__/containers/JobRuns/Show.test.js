@@ -5,20 +5,20 @@ import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
-import { ConnectedJobSpecRun as JobSpecRun } from 'containers/JobSpecRun'
+import { ConnectedShow as Show } from 'containers/JobRuns/Show'
 
 const classes = {}
-const mountJobSpecRun = (props) => (
+const mountShow = (props) => (
   mount(
     <Provider store={createStore()}>
       <Router>
-        <JobSpecRun classes={classes} {...props} />
+        <Show classes={classes} {...props} />
       </Router>
     </Provider>
   )
 )
 
-describe('containers/JobSpecRun', () => {
+describe('containers/JobRuns/Show', () => {
   const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
 
   it('renders the details of the job spec and its latest runs', async () => {
@@ -36,7 +36,7 @@ describe('containers/JobSpecRun', () => {
     global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
 
     const props = {match: {params: {jobRunId: jobRunId}}}
-    const wrapper = mountJobSpecRun(props)
+    const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('IDad24b72c12f441b99b9877bcf6cb506e')
