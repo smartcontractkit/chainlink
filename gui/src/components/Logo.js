@@ -17,13 +17,12 @@ const styles = theme => {
   }
 }
 
-const Logo = ({width, height, spin, classes}) => (
+const Logo = ({width, height, classes}) => (
   <div>
     <Image
       src={logo}
       width={width}
       height={height}
-      spin={spin}
       alt='Chainlink Operator'
     />
     <Typography variant='headline' color='inherit' className={classes.text}>
@@ -34,8 +33,7 @@ const Logo = ({width, height, spin, classes}) => (
 
 Logo.propTypes = {
   width: PropTypes.number.isRequired,
-  height: PropTypes.number.isRequired,
-  spin: PropTypes.bool.isRequired
+  height: PropTypes.number.isRequired
 }
 
 export default withStyles(styles)(Logo)
