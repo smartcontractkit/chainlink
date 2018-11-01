@@ -106,17 +106,22 @@ func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) 
 }
 
 func arrayGet(js *simplejson.Json, key string) (*simplejson.Json, bool) {
-	input, err := strconv.ParseUint(key, 10, 64)
+	input, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
 		return js, false
 	}
 	if input > math.MaxInt32 {
 		return js, false
 	}
-	index := int(input)
 	a, err := js.Array()
-	if err != nil || len(a) < index-1 {
+	index := int(input)
+	negativeIndex := int(-1 * input)
+	reverseIndex := int(len(a)) - negativeIndex
+	if err != nil || len(a) < index-1 || (index < 0 && -1*len(a) > index) {
 		return js, false
+	}
+	if input < 0 {
+		return js.GetIndex(reverseIndex), true
 	}
 	return js.GetIndex(index), true
 }
