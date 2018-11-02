@@ -2,9 +2,12 @@ package models
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"time"
 
@@ -15,10 +18,10 @@ import (
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
 type UnsignedServiceAgreement struct {
-	Encumbrance             Encumbrance
-	ID                      common.Hash
-	RequestBody             string
-	ServiceAgreementRequest ServiceAgreementRequest
+	Encumbrance    Encumbrance
+	ID             common.Hash
+	RequestBody    string
+	JobSpecRequest JobSpecRequest
 }
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
@@ -61,18 +64,11 @@ func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceA
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
-
-	jobSpec := NewJob()
-	jobSpec.Initiators = us.ServiceAgreementRequest.Initiators
-	jobSpec.Tasks = us.ServiceAgreementRequest.Tasks
-	jobSpec.EndAt = us.ServiceAgreementRequest.EndAt
-	jobSpec.StartAt = us.ServiceAgreementRequest.StartAt
-
 	return ServiceAgreement{
 		ID:          us.ID.String(),
 		CreatedAt:   Time{time.Now()},
 		Encumbrance: us.Encumbrance,
-		JobSpec:     jobSpec,
+		JobSpec:     NewJobFromRequest(us.JobSpecRequest),
 		RequestBody: us.RequestBody,
 		Signature:   signature,
 	}, nil
@@ -81,15 +77,20 @@ func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceA
 // NewUnsignedServiceAgreementFromRequest builds the information required to
 // sign a service agreement
 func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAgreement, error) {
-	var sar ServiceAgreementRequest
+	var jsr JobSpecRequest
 
 	input, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
 	}
 
-	err = json.Unmarshal(input, &sar)
+	err = json.Unmarshal(input, &jsr)
 	if err != nil {
+		return UnsignedServiceAgreement{}, err
+	}
+
+	var encumbrance Encumbrance
+	if err := json.Unmarshal(input, &encumbrance); err != nil {
 		return UnsignedServiceAgreement{}, err
 	}
 
@@ -103,21 +104,16 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 		return UnsignedServiceAgreement{}, err
 	}
 
-	encumbrance := Encumbrance{
-		Payment:    sar.Payment,
-		Expiration: sar.Expiration,
-		Oracles:    sar.Oracles,
-	}
 	id, err := generateServiceAgreementID(encumbrance, common.BytesToHash(requestDigest))
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
 	}
 
 	us := UnsignedServiceAgreement{
-		ID:                      id,
-		Encumbrance:             encumbrance,
-		RequestBody:             normalized,
-		ServiceAgreementRequest: sar,
+		ID:             id,
+		Encumbrance:    encumbrance,
+		RequestBody:    normalized,
+		JobSpecRequest: jsr,
 	}
 
 	return us, err
@@ -156,6 +152,7 @@ func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) 
 type Encumbrance struct {
 	Payment    *assets.Link   `json:"payment"`
 	Expiration uint64         `json:"expiration"`
+	EndAt      Time           `json:"endAt"`
 	Oracles    []EIP55Address `json:"oracles"`
 }
 
@@ -172,8 +169,22 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	expirationHash := common.BigToHash((*big.Int)(new(big.Int).SetUint64(e.Expiration)))
+	expirationHash := common.BigToHash(new(big.Int).SetUint64(e.Expiration))
 	_, err = buffer.Write(expirationHash.Bytes())
+	if err != nil {
+		return []byte{}, err
+	}
+
+	// Get the absolute end date as a big-endian uint32 (unix seconds)
+	var endAt int64 = e.EndAt.Time.Unix()
+	if endAt > 0xffffffff { // Optimistically, this could be an issue in 2038...
+		return []byte{}, fmt.Errorf(
+			"endat date %s is too late to fit in uint32",
+			e.EndAt.Time)
+	}
+	endAtSerialised := make([]byte, 4)
+	binary.BigEndian.PutUint32(endAtSerialised, uint32(endAt&math.MaxUint32))
+	_, err = buffer.Write(endAtSerialised)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -195,12 +206,4 @@ func encodeOracles(buffer *bytes.Buffer, oracles []EIP55Address) error {
 		}
 	}
 	return nil
-}
-
-// ServiceAgreementRequest represents a service agreement as requested over the wire.
-type ServiceAgreementRequest struct {
-	Payment    *assets.Link   `json:"payment"`
-	Expiration uint64         `json:"expiration"`
-	Oracles    []EIP55Address `json:"oracles"`
-	JobSpecRequest
 }

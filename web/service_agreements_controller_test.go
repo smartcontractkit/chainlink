@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -47,6 +48,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				createdSA := cltest.FindServiceAgreement(app.Store, responseSA.ID)
 				assert.NotEqual(t, "", createdSA.ID)
 				assert.NotEqual(t, "", createdSA.Signature.String())
+				assert.Equal(t, time.Unix(1571523439, 0).UTC(), createdSA.Encumbrance.EndAt.Time)
 			}
 		})
 	}
