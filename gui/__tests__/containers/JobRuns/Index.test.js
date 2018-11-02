@@ -9,20 +9,20 @@ import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
-import { ConnectedJobSpecRuns as JobSpecRuns } from 'containers/JobSpecRuns'
+import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 
 const classes = {}
-const mountJobSpecRuns = (props) => (
+const mountIndex = (props) => (
   mount(
     <Provider store={createStore()}>
       <Router>
-        <JobSpecRuns classes={classes} {...props} />
+        <Index classes={classes} {...props} />
       </Router>
     </Provider>
   )
 )
 
-describe('containers/JobSpecRuns', () => {
+describe('containers/JobRuns/Index', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
 
   it('renders the runs for the job spec', async () => {
@@ -34,7 +34,7 @@ describe('containers/JobSpecRuns', () => {
     global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=10`, runsResponse)
 
     const props = {match: {params: {jobSpecId: jobSpecId}}}
-    const wrapper = mountJobSpecRuns(props)
+    const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain(jobSpecId)
@@ -54,7 +54,7 @@ describe('containers/JobSpecRuns', () => {
     global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
 
     const props = {match: {params: {jobSpecId: jobSpecId}}, pageSize: 1}
-    const wrapper = mountJobSpecRuns(props)
+    const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')

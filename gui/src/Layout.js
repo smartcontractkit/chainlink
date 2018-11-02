@@ -38,8 +38,8 @@ const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
-const JobSpecRuns = universal(import('./containers/JobSpecRuns'), uniOpts)
-const JobSpecRun = universal(import('./containers/JobSpecRun'), uniOpts)
+const JobRunsIndex = universal(import('./containers/JobRuns/Index'), uniOpts)
+const JobRunsShow = universal(import('./containers/JobRuns/Show'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
@@ -229,9 +229,9 @@ class Layout extends Component {
                   <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/new' component={JobsNew} />
                   <PrivateRoute exact path='/jobs/:jobSpecId' component={JobsShow} />
-                  <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobSpecRuns} />
-                  <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobSpecRuns} />
-                  <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobSpecRun} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobRunsShow} />
                   <PrivateRoute exact path='/bridges' component={BridgesIndex} />
                   <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
                   <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
