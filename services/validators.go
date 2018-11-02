@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/store"
@@ -122,6 +123,20 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	if err := ValidateJob(sa.JobSpec, store); err != nil {
 		fe.Add(fmt.Sprintf("Service agreement job spec error: Job spec validation: %v", err))
+	}
+
+	untilEndAt := time.Until(sa.Encumbrance.EndAt.Time)
+
+	if untilEndAt > config.MaximumServiceDuration.Duration {
+		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %s is too far in the future. Furthest allowed date is %s",
+			sa.Encumbrance.EndAt,
+			time.Now().Add(config.MaximumServiceDuration.Duration)))
+	}
+
+	if untilEndAt < config.MinimumServiceDuration.Duration {
+		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %s is too soon. Earliest allowed date is %s",
+			sa.Encumbrance.EndAt,
+			time.Now().Add(config.MinimumServiceDuration.Duration)))
 	}
 
 	return fe.CoerceEmptyToNil()

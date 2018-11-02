@@ -101,6 +101,8 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 			EthGasBumpWei:            *big.NewInt(5000000000),
 			EthGasPriceDefault:       *big.NewInt(20000000000),
 			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
+			MaximumServiceDuration:   store.Duration{MustParseDuration("31536000s")}, // one year
+			MinimumServiceDuration:   store.Duration{MustParseDuration("24h")},
 			MinIncomingConfirmations: 0,
 			MinOutgoingConfirmations: 6,
 			MinimumContractPayment:   *minimumContractPayment,
@@ -545,7 +547,7 @@ func FixtureCreateServiceAgreementViaWeb(
 ) models.ServiceAgreement {
 	client := app.NewHTTPClient()
 
-	agreementWithoutOracle := EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	agreementWithoutOracle := EasyJSONFromFixture(path)
 	account, err := app.Store.KeyStore.GetAccount()
 	assert.NoError(t, err)
 	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{account.Address.Hex()})
