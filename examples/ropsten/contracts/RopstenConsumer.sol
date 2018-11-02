@@ -570,7 +570,7 @@ contract Ownable {
 
 // File: ../examples/ropsten/contracts/RopstenConsumerBase.sol
 
-contract RopstenConsumer is Chainlinked, Ownable {
+contract ARopstenConsumer is Chainlinked, Ownable {
   uint256 public currentPrice;
   int256 public changeDay;
   bytes32 public lastMarket;

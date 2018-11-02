@@ -3,7 +3,7 @@ pragma solidity ^0.4.24;
 import "../../../solidity/contracts/Chainlinked.sol";
 import "../../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract RopstenConsumer is Chainlinked, Ownable {
+contract ARopstenConsumer is Chainlinked, Ownable {
   uint256 public currentPrice;
   int256 public changeDay;
   bytes32 public lastMarket;

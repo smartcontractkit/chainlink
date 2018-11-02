@@ -2,4 +2,6 @@
 
 cd solidity
 rm -f ../examples/ropsten/contracts/RopstenConsumer.sol
+rm -f ../examples/ropsten/contracts/Oracle.sol
 ./node_modules/.bin/truffle-flattener ../examples/ropsten/contracts/RopstenConsumerBase.sol > ../examples/ropsten/contracts/RopstenConsumer.sol
+./node_modules/.bin/truffle-flattener ../solidity/contracts/Oracle.sol > ../examples/ropsten/contracts/Oracle.sol
