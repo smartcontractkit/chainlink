@@ -18,7 +18,7 @@ const mountShow = (props) => (
   )
 )
 
-describe('containers/JobSpec', () => {
+describe('containers/Jobs/Show', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
 
   it('renders the details of the job spec and its latest runs', async () => {
