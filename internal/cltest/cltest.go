@@ -90,29 +90,19 @@ func NewConfigWithPrivateKey() (*TestConfig, func()) {
 func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	config := TestConfig{
-		Config: store.Config{
-			AllowOrigins:             "http://localhost:3000,http://localhost:6689",
-			BridgeResponseURL:        WebURL("http://localhost:6688"),
-			ChainID:                  3,
-			DatabaseTimeout:          store.Duration{Duration: time.Millisecond * 500},
-			Dev:                      true,
-			EthGasBumpThreshold:      3,
-			EthGasBumpWei:            *big.NewInt(5000000000),
-			EthGasPriceDefault:       *big.NewInt(20000000000),
-			LogLevel:                 store.LogLevel{Level: zapcore.DebugLevel},
-			MaximumServiceDuration:   store.Duration{MustParseDuration("31536000s")}, // one year
-			MinimumServiceDuration:   store.Duration{MustParseDuration("24h")},
-			MinIncomingConfirmations: 0,
-			MinOutgoingConfirmations: 6,
-			MinimumContractPayment:   *minimumContractPayment,
-			MinimumRequestExpiration: 300,
-			RootDir:                  rootdir,
-			SecretGenerator:          mockSecretGenerator{},
-			SessionTimeout:           store.Duration{MustParseDuration("2m")},
-			ReaperExpiration:         store.Duration{MustParseDuration("240h")},
-		},
-	}
+	rawConfig := store.NewConfig()
+	rawConfig.BridgeResponseURL = WebURL("http://localhost:6688")
+	rawConfig.ChainID = 3
+	rawConfig.Dev = true
+	rawConfig.EthGasBumpThreshold = 3
+	rawConfig.LogLevel = store.LogLevel{Level: zapcore.DebugLevel}
+	rawConfig.MinimumServiceDuration = store.Duration{MustParseDuration("24h")}
+	rawConfig.MinOutgoingConfirmations = 6
+	rawConfig.MinimumContractPayment = *minimumContractPayment
+	rawConfig.RootDir = rootdir
+	rawConfig.SecretGenerator = mockSecretGenerator{}
+	rawConfig.SessionTimeout = store.Duration{MustParseDuration("2m")}
+	config := TestConfig{Config: rawConfig}
 	config.SetEthereumServer(wsserver)
 	return &config
 }

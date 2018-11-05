@@ -107,6 +107,9 @@ func (a *AccountBalance) SetID(value string) error {
 }
 
 // ConfigWhitelist are the non-secret values of the node
+//
+// If you add an entry here, you should update NewConfigWhitelist and
+// ConfigWhitelist#String accordingly.
 type ConfigWhitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
@@ -118,8 +121,10 @@ type ConfigWhitelist struct {
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
+	JSONConsle               bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
 	LogLevel                 store.LogLevel  `json:"logLevel"`
+	LogToDisk                bool            `json:"logToDisk"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
 	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
@@ -146,8 +151,10 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		EthGasBumpThreshold:      config.EthGasBumpThreshold,
 		EthGasBumpWei:            &config.EthGasBumpWei,
 		EthGasPriceDefault:       &config.EthGasPriceDefault,
+		JSONConsle:               config.JSONConsole,
 		LinkContractAddress:      config.LinkContractAddress,
 		LogLevel:                 config.LogLevel,
+		LogToDisk:                config.LogToDisk,
 		MinimumContractPayment:   &config.MinimumContractPayment,
 		MinimumRequestExpiration: config.MinimumRequestExpiration,
 		MinIncomingConfirmations: config.MinIncomingConfirmations,
@@ -165,6 +172,8 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 // String returns the values as a newline delimited string
 func (c ConfigWhitelist) String() string {
 	fmtConfig := "LOG_LEVEL: %v\n" +
+		"LOG_TO_DISK: %v\n" +
+		"JSON_CONSOLE: %v\n" +
 		"ROOT: %s\n" +
 		"CHAINLINK_PORT: %d\n" +
 		"CHAINLINK_TLS_PORT: %d\n" +
@@ -195,6 +204,8 @@ func (c ConfigWhitelist) String() string {
 	return fmt.Sprintf(
 		fmtConfig,
 		c.LogLevel,
+		c.LogToDisk,
+		c.JSONConsle,
 		c.RootDir,
 		c.Port,
 		c.TLSPort,

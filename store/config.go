@@ -27,8 +27,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Config holds parameters used by the application which can be overridden
-// by setting environment variables.
+// Config holds parameters used by the application which can be overridden by
+// setting environment variables.
+//
+// If you add an entry here which does not contain sensitive information, you
+// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
 type Config struct {
 	AllowOrigins      string        `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
 	BridgeResponseURL models.WebURL `env:"BRIDGE_RESPONSE_URL" envDefault:""`
@@ -44,9 +47,10 @@ type Config struct {
 	EthGasBumpWei            big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
 	EthGasPriceDefault       big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
 	EthereumURL              string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
-	JSONStdout               bool            `env:"JSON_STDOUT" envDefault:"false"`
+	JSONConsole              bool            `env:"JSON_CONSOLE" envDefault:"false"`
 	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
+	LogToDisk                bool            `env:"LOG_TO_DISK" envDefault:"true"`
 	MinIncomingConfirmations uint64          `env:"MIN_INCOMING_CONFIRMATIONS" envDefault:"0"`
 	MinOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" envDefault:"12"`
 	MinimumContractPayment   assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" envDefault:"1000000000000000000"`
@@ -64,7 +68,7 @@ type Config struct {
 }
 
 // NewConfig returns the config with the environment variables set to their
-// respective fields, or defaults if not present.
+// respective fields, or their defaults if environment variables are not set.
 func NewConfig() Config {
 	config := Config{}
 	if err := parseEnv(&config); err != nil {
@@ -107,10 +111,12 @@ func (c Config) CertFile() string {
 	return c.TLSCertPath
 }
 
-// CreateProductionLogger returns a custom logger for the config's root directory
-// and LogLevel, with pretty printing for stdout.
+// CreateProductionLogger returns a custom logger for the config's root
+// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
+// false, the logger will only log to stdout.
 func (c Config) CreateProductionLogger() *zap.Logger {
-	return logger.CreateProductionLogger(c.RootDir, c.JSONStdout, c.LogLevel.Level)
+	return logger.CreateProductionLogger(
+		c.RootDir, c.JSONConsole, c.LogLevel.Level, c.LogToDisk)
 }
 
 // SessionSecret returns a sequence of bytes to be used as a private key for

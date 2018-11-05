@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -43,6 +44,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
+	assert.Contains(t, logs, "LOG_TO_DISK: true")
+	assert.Contains(t, logs, "JSON_CONSOLE: false")
 	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
 	assert.Contains(t, logs, "ETH_URL: ws://")
@@ -57,7 +60,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0.000000000000000100\\n")
 	assert.Contains(t, logs, "ORACLE_CONTRACT_ADDRESS: \\n")
 	assert.Contains(t, logs, "DATABASE_POLL_INTERVAL: 500ms\\n")
-	assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6689\\n")
+	assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688\\n")
 	assert.Contains(t, logs, "BRIDGE_RESPONSE_URL: http://localhost:6688\\n")
 }
 
@@ -173,4 +176,35 @@ func TestClient_ImportKey(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.Nil(t, client.ImportKey(c))
 	assert.Error(t, client.ImportKey(c))
+}
+
+func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		logToDiskValue  bool
+		fileShouldExist bool
+	}{
+		{"LogToDisk = false => no log on disk", false, false},
+		{"LogToDisk = true => log on disk (positive control)", true, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, configCleanup := cltest.NewConfig()
+			defer configCleanup()
+			config.Dev = true
+			config.LogToDisk = tt.logToDiskValue
+
+			// Test fails unless application is created with config.
+			_, cleanup := cltest.NewApplicationWithConfig(config)
+			defer cleanup()
+
+			logger.SetLogger(config.CreateProductionLogger())
+			filepath := logger.ProductionLoggerFilepath(
+				config.RootDir)
+			_, err := os.Stat(filepath)
+			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
+		})
+	}
 }

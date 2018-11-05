@@ -54,15 +54,25 @@ func SetLogger(zl *zap.Logger) {
 	logger = &Logger{zl.Sugar()}
 }
 
+// ProductionLoggerFilepath returns the full path to the file the
+// ProductionLogger logs to.
+func ProductionLoggerFilepath(configRootDir string) string {
+	return path.Join(configRootDir, "log.jsonl")
+}
+
 // CreateProductionLogger returns a log config for the passed directory
 // with the given LogLevel and customizes stdout for pretty printing.
-func CreateProductionLogger(dir string, jsonStdout bool, lvl zapcore.Level) *zap.Logger {
+func CreateProductionLogger(
+	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *zap.Logger {
 	config := zap.NewProductionConfig()
-	destination := path.Join(dir, "log.jsonl")
-	if !jsonStdout {
-		config.OutputPaths = []string{"pretty", destination}
+	if !jsonConsole {
+		config.OutputPaths = []string{"pretty"}
 	}
-	config.ErrorOutputPaths = []string{"stderr", destination}
+	if toDisk {
+		destination := ProductionLoggerFilepath(dir)
+		config.OutputPaths = append(config.OutputPaths, destination)
+		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
+	}
 	config.Level.SetLevel(lvl)
 
 	zl, err := config.Build(zap.AddCallerSkip(1))
