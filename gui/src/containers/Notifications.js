@@ -4,7 +4,7 @@ import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import { receiveSignoutSuccess } from 'actions'
 import Flash from 'components/Flash'
-import Unhandled from 'components/Errors/Unhandled'
+import Unhandled from 'components/Notifications/UnhandledError'
 
 const styles = theme => ({
   flash: {

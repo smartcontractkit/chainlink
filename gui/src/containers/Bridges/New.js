@@ -8,7 +8,7 @@ import Title from 'components/Title'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
 import Form from 'components/Bridges/Form'
-import ErrorMessage from 'components/Errors/Message'
+import ErrorMessage from 'components/Notifications/DefaultError'
 import { createBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 

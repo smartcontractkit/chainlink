@@ -24,7 +24,7 @@ import jobRunsCountSelector from 'selectors/jobRunsCount'
 import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
 import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
-import ErrorMessage from 'components/Errors/Message'
+import ErrorMessage from 'components/Notifications/DefaultError'
 
 const styles = theme => ({
   actions: {
