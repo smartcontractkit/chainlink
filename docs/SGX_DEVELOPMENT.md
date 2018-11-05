@@ -7,7 +7,7 @@ exact set of tools installed to build chainlink with.
 
 To enter the Docker image you call `internal/bin/sgx-env`.
 
-From there you can run `make build` to build the `chainlink` executable with
+From there you can run `make install` to build the `chainlink` executable with
 SGX adapters.
 
 If you don't have an SGX chip in your PC, you should set `SGX_SIMULATION=yes`.
@@ -33,5 +33,5 @@ directory as the chainlink executable at run time.
 If you want to build the SGX docker image, you can use:
 
 ```bash
-SGX_ENABLED make docker
+SGX_ENABLED=yes make docker
 ```

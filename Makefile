@@ -38,9 +38,7 @@ godep: ## Ensure chainlink's go dependencies are installed.
 yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install
 
-build: godep gui chainlink ## Build chainlink.
-
-install: godep gui ## Install chainlink
+install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
 	go install $(GOFLAGS)
 
 bootstrap: dependencies install
