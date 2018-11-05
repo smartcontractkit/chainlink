@@ -96,7 +96,7 @@ const formikOpts = {
 
   handleSubmit (values, { props, setSubmitting }) {
     const definition = JSON.parse(values.json)
-    props.onSubmit(definition)
+    props.onSubmit(definition, props.onSuccess, props.onError)
     setTimeout(() => { setSubmitting(false) }, 1000)
   }
 }

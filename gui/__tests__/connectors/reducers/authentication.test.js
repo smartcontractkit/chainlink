@@ -1,8 +1,5 @@
 import reducer from 'connectors/redux/reducers'
-import {
-  get as getAuthenticationStorage,
-  set as setAuthenticationStorage
-} from 'utils/authenticationStorage'
+import { get as getAuthenticationStorage } from 'utils/authenticationStorage'
 import {
   REQUEST_SIGNIN,
   RECEIVE_SIGNIN_SUCCESS,
@@ -10,8 +7,7 @@ import {
   RECEIVE_SIGNIN_ERROR,
   REQUEST_SIGNOUT,
   RECEIVE_SIGNOUT_SUCCESS,
-  RECEIVE_SIGNOUT_ERROR,
-  RECEIVE_CREATE_ERROR
+  RECEIVE_SIGNOUT_ERROR
 } from 'actions'
 
 describe('connectors/reducers/authentication', () => {
@@ -150,36 +146,6 @@ describe('connectors/reducers/authentication', () => {
       reducer(undefined, action)
 
       expect(getAuthenticationStorage()).toEqual({allowed: false})
-    })
-  })
-
-  describe('RECEIVE_CREATE_ERROR', () => {
-    beforeEach(() => {
-      setAuthenticationStorage({allowed: true})
-    })
-
-    describe('when the errors include a 401 status', () => {
-      it('sets the local storage to unauthenticated', () => {
-        const action = {
-          type: RECEIVE_CREATE_ERROR,
-          error: {errors: [{status: 401}]}
-        }
-        reducer(undefined, action)
-
-        expect(getAuthenticationStorage()).toEqual({allowed: false})
-      })
-    })
-
-    describe('when the errors do not include a 401 status', () => {
-      it('does not modify the local storage', () => {
-        const action = {
-          type: RECEIVE_CREATE_ERROR,
-          error: {errors: [{status: 400}]}
-        }
-        reducer(undefined, action)
-
-        expect(getAuthenticationStorage()).toEqual({allowed: true})
-      })
     })
   })
 })
