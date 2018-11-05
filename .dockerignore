@@ -2,11 +2,12 @@
 .git/objects/*
 .DS_Store
 .envrc
-tmp/
 *.log
 
 node_modules/
 **/node_modules/
+vendor/
+tmp/
 
 solidity/node_modules/
 solidity/build/
@@ -22,6 +23,7 @@ gui/dist/
 *-packr.go
 
 Dockerfile
+Dockerfile-sgx
 chainlink
 
 # codeship
@@ -30,3 +32,5 @@ codeship-*.yml
 dockercfg
 credentials.env
 gcr_creds.env
+
+coverage/
