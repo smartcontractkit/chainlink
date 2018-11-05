@@ -257,62 +257,62 @@ export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
 export const submitSignIn = data => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 
-export const createJobSpec = (data, renderNotifySuccess, renderNotifyError) => {
+export const createJobSpec = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpec(data)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(renderNotifySuccess, res))
+        dispatch(notifySuccess(successCallback, res))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
-        dispatch(notifyError(renderNotifyError, error))
+        dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const createJobRun = (id, renderNotifySuccess, renderNotifyError) => {
+export const createJobRun = (id, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createJobSpecRun(id)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(renderNotifySuccess, res))
+        dispatch(notifySuccess(successCallback, res))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
-        dispatch(notifyError(renderNotifyError, error))
+        dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const createBridge = (data, renderNotifySuccess, renderNotifyError) => {
+export const createBridge = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
     return api.createBridge(data)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(renderNotifySuccess, data))
+        dispatch(notifySuccess(successCallback, data))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
-        dispatch(notifyError(renderNotifyError, error))
+        dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const updateBridge = (data, renderNotifySuccess, renderNotifyError) => {
+export const updateBridge = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_UPDATE))
     return api.updateBridge(data)
       .then(res => {
         dispatch(receiveUpdateSuccess(res))
-        dispatch(notifySuccess(renderNotifySuccess, data))
+        dispatch(notifySuccess(successCallback, data))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)(error)
-        dispatch(notifyError(renderNotifyError, error))
+        dispatch(notifyError(errorCallback, error))
       })
   }
 }
