@@ -10,7 +10,7 @@ import PaddedCard from 'components/PaddedCard'
 import BridgesForm from 'components/Bridges/Form'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import ErrorMessage from 'components/Errors/Message'
+import ErrorMessage from 'components/Notifications/DefaultError'
 import bridgeSelector from 'selectors/bridge'
 import {
   fetchBridgeSpec,

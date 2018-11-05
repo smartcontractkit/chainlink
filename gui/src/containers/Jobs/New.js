@@ -9,7 +9,7 @@ import BreadcrumbItem from 'components/BreadcrumbItem'
 import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import Form from 'components/Jobs/Form'
-import ErrorMessage from 'components/Errors/Message'
+import ErrorMessage from 'components/Notifications/DefaultError'
 import { createJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
