@@ -43,10 +43,10 @@ export const notifySuccess = (component, props) => ({
 
 export const NOTIFY_ERROR = 'NOTIFY_ERROR'
 
-export const notifyError = (component, props) => ({
+export const notifyError = (component, error) => ({
   type: NOTIFY_ERROR,
   component: component,
-  props: props
+  error: error
 })
 
 const fetchActions = {}
@@ -235,33 +235,6 @@ const receiveCreateSuccess = response => ({
   response: response
 })
 
-function sendJobSpec (data) {
-  return dispatch => {
-    dispatch(createAction(REQUEST_CREATE))
-    return api.createJobSpec(data)
-      .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
-  }
-}
-
-function sendBridgeType (data) {
-  return dispatch => {
-    dispatch(createAction(REQUEST_CREATE))
-    return api.createBridge(data)
-      .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
-  }
-}
-
-function sendJobSpecRun (id) {
-  return dispatch => {
-    dispatch(createAction(REQUEST_CREATE))
-    return api.createJobSpecRun(id)
-      .then(res => dispatch(receiveCreateSuccess(res)))
-      .catch(curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR))
-  }
-}
-
 export const REQUEST_UPDATE = 'REQUEST_UPDATE'
 export const RECEIVE_UPDATE_SUCCESS = 'RECEIVE_UPDATE_SUCCESS'
 export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
@@ -283,21 +256,63 @@ export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
 
 export const submitSignIn = data => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
-export const submitBridgeType = data => sendBridgeType(data)
-export const submitJobSpec = data => sendJobSpec(data)
-export const submitJobSpecRun = id => sendJobSpecRun(id)
 
-export const updateBridge = (data, renderNotifySuccess, renderNotifyError) => {
+export const createJobSpec = (data, successCallback, errorCallback) => {
+  return dispatch => {
+    dispatch(createAction(REQUEST_CREATE))
+    return api.createJobSpec(data)
+      .then(res => {
+        dispatch(receiveCreateSuccess(res))
+        dispatch(notifySuccess(successCallback, res))
+      })
+      .catch(error => {
+        curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
+        dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
+export const createJobRun = (id, successCallback, errorCallback) => {
+  return dispatch => {
+    dispatch(createAction(REQUEST_CREATE))
+    return api.createJobSpecRun(id)
+      .then(res => {
+        dispatch(receiveCreateSuccess(res))
+        dispatch(notifySuccess(successCallback, res))
+      })
+      .catch(error => {
+        curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
+        dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
+export const createBridge = (data, successCallback, errorCallback) => {
+  return dispatch => {
+    dispatch(createAction(REQUEST_CREATE))
+    return api.createBridge(data)
+      .then(res => {
+        dispatch(receiveCreateSuccess(res))
+        dispatch(notifySuccess(successCallback, data))
+      })
+      .catch(error => {
+        curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
+        dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
+export const updateBridge = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_UPDATE))
     return api.updateBridge(data)
       .then(res => {
         dispatch(receiveUpdateSuccess(res))
-        dispatch(notifySuccess(renderNotifySuccess, data))
+        dispatch(notifySuccess(successCallback, data))
       })
-      .catch(() => {
-        curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)
-        dispatch(notifyError(renderNotifyError, data))
+      .catch(error => {
+        curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)(error)
+        dispatch(notifyError(errorCallback, error))
       })
   }
 }
