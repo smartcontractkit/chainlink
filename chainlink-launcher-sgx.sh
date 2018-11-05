@@ -9,7 +9,7 @@ fi
 command=`echo $1 | tr A-Z a-z`
 if [ "$command" != "n" ] && [ "$command" != "node" ]; then
   chainlink "$@"
-  exit 0
+  exit
 fi
 
 trap "kill -- -$$ 2>/dev/null || true" SIGINT SIGTERM EXIT
