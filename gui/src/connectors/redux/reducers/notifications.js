@@ -37,7 +37,6 @@ export default (state = initialState, action = {}) => {
     }
     case NOTIFY_SUCCESS: {
       const success = {
-        type: 'component',
         component: action.component,
         props: action.props
       }
