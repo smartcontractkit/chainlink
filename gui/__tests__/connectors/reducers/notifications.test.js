@@ -71,7 +71,7 @@ describe('connectors/reducers/notifications', () => {
 
     expect(state.notifications).toEqual({
       errors: [],
-      successes: [{type: 'component', component: component, props: props}],
+      successes: [{component: component, props: props}],
       currentUrl: null
     })
   })
