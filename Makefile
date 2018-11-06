@@ -67,6 +67,9 @@ $(SGX_ENCLAVE):
 	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C sgx/
 	@ln -f $(SGX_TARGET)/libadapters.so sgx/target/libadapters.so
 
+.PHONY: enclave
+enclave: $(SGX_ENCLAVE)
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
