@@ -9,7 +9,8 @@
     "lint": "standard --fix --verbose | snazzy",
     "lint-ci": "standard --verbose | snazzy",
     "test": "NODE_ENV=test jest",
-    "test-ci": "NODE_ENV=test yarn jest -i --coverage --reporters jest-silent-reporter",
+    "test-ci": "NODE_ENV=test yarn jest gui/ --coverage --reporters jest-silent-reporter",
+    "test-integration": "NODE_ENV=test yarn jest integration/ -i",
     "test-sol": "./internal/ci/truffle_test",
     "watch": "NODE_ENV=test jest --watchAll --notify",
     "flatten": "./internal/bin/flatten-ropsten"
@@ -18,8 +19,10 @@
     "@ensdomains/ens": "^0.1.1",
     "change-case": "^3.0.2",
     "formik": "^1.0.3",
+    "jest-puppeteer": "^3.5.0",
     "link_token": "^1.0.1",
     "openzeppelin-solidity": "^1.12.0",
+    "puppeteer": "^1.10.0",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
   },
   "devDependencies": {
