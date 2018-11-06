@@ -1,4 +1,5 @@
 module.exports = {
+  preset: 'jest-puppeteer',
   moduleDirectories: [
     'node_modules',
     '<rootDir>/gui/src/',
