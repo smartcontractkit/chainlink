@@ -1,13 +1,8 @@
-export default state => {
-  const runs = state.jobRuns.currentPage
+import build from 'redux-object'
 
-  return runs
-    .map(jobRunId => state.jobRuns.items[jobRunId])
+export default ({jobRuns}) => {
+  return jobRuns.currentPage && jobRuns
+    .currentPage
+    .map(id => build(jobRuns, 'items', id))
     .filter(r => r)
-    .sort((a, b) => {
-      const dateA = new Date(a.createdAt)
-      const dateB = new Date(b.createdAt)
-
-      return dateA < dateB ? 1 : -1
-    })
 }

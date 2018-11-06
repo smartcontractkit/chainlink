@@ -50,7 +50,7 @@ Index.propTypes = {
   linkBalance: PropTypes.string,
   accountBalanceError: PropTypes.string,
   jobCount: PropTypes.number.isRequired,
-  jobs: PropTypes.array.isRequired,
+  jobs: PropTypes.array,
   jobsError: PropTypes.string,
   pageSize: PropTypes.number
 }

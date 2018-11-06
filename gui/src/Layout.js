@@ -80,7 +80,11 @@ class Layout extends Component {
                   <PrivateRoute exact path='/jobs' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/new' component={JobsNew} />
-                  <PrivateRoute exact path='/jobs/:jobSpecId' component={JobsShow} />
+                  <PrivateRoute
+                    exact
+                    path='/jobs/:jobSpecId'
+                    render={props => <JobsShow {...props} showJobRunsCount={5} />}
+                  />
                   <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
                   <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
                   <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobRunsShow} />

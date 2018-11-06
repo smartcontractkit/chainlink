@@ -71,17 +71,4 @@ describe('containers/Jobs/Index', () => {
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
   })
-
-  it('displays an error message when the network requests fail', async () => {
-    expect.assertions(1)
-
-    global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
-
-    const wrapper = mountIndex()
-
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain(
-      'There was an error fetching the jobs. Please reload the page.'
-    )
-  })
 })

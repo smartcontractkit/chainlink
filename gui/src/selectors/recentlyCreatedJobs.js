@@ -1,5 +1,8 @@
-export default ({jobs}) => (jobs.recentlyCreated && jobs
-  .recentlyCreated
-  .map(id => jobs.items[id])
-  .filter(j => j)
+import build from 'redux-object'
+
+export default ({jobs}) => (
+  jobs.recentlyCreated && jobs
+    .recentlyCreated
+    .map(id => build(jobs, 'items', id))
+    .filter(j => j)
 )

@@ -13,6 +13,7 @@ export default (jobs, count) => {
       const initiators = config.initiators || [{'type': 'web'}]
       const tasks = config.tasks || [{confirmations: 0, type: 'httpget', url: 'https://bitstamp.net/api/ticker/'}]
       const createdAt = config.createdAt || (new Date()).toISOString()
+      const runs = c.runs || []
 
       return {
         type: 'specs',
@@ -22,7 +23,7 @@ export default (jobs, count) => {
           id: id,
           tasks: tasks,
           createdAt: createdAt,
-          runs: c.runs
+          runs: runs.map(r => Object.assign({}, r, {jobId: id}))
         }
       }
     })
