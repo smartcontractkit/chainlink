@@ -8407,6 +8407,13 @@ jsesc@~0.5.0:
   resolved "https://registry.yarnpkg.com/jsesc/-/jsesc-0.5.0.tgz#e7dee66e35d6fc16f710fe91d5cf69f70f08911d"
   integrity sha1-597mbjXW/Bb3EP6R1c9p9w8IkR0=
 
+json-api-normalizer@^0.4.13:
+  version "0.4.13"
+  resolved "https://registry.npmjs.org/json-api-normalizer/-/json-api-normalizer-0.4.13.tgz#6907a7daee8ead70b2095c8c5a58d23922d83725"
+  integrity sha512-oNrx9n0t+IyyEPGa0rVXAzLIMofRScyagNTmXBx3JTkCfgXs9xww829iYV6zazs/rofovKA89+7zMbU3shAgAg==
+  dependencies:
+    lodash "^4.17.10"
+
 json-loader@^0.5.4:
   version "0.5.7"
   resolved "https://registry.yarnpkg.com/json-loader/-/json-loader-0.5.7.tgz#dca14a70235ff82f0ac9a3abeb60d337a365185d"
@@ -12374,6 +12381,11 @@ redux-mock-store@^1.5.3:
   integrity sha512-ryhkkb/4D4CUGpAV2ln1GOY/uh51aczjcRz9k2L2bPx/Xja3c5pSGJJPyR25GNVRXtKIExScdAgFdiXp68GmJA==
   dependencies:
     lodash.isplainobject "^4.0.6"
+
+redux-object@^0.5.6:
+  version "0.5.6"
+  resolved "https://registry.npmjs.org/redux-object/-/redux-object-0.5.6.tgz#db573a466ea26d59a98646a748333e00c11702e3"
+  integrity sha512-g2a1xsaXXpo13ScZEqPH5j2VAs6GOz1DayckHGgqDdKqQM7QXzWzOPO8U70lAPhYHAr7F+9ZOAHXwMxVVU1tZw==
 
 redux-thunk@^2.3.0:
   version "2.3.0"

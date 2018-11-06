@@ -109,25 +109,4 @@ describe('containers/Dashboards/Index', () => {
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
   })
-
-  it('displays an error message when the network requests fail', async () => {
-    expect.assertions(3)
-
-    global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
-    const recentlyCreatedJobsResponse = {data: []}
-    global.fetch.getOnce('/v2/specs?size=2\u0026sort=-createdAt', recentlyCreatedJobsResponse)
-
-    const wrapper = mountIndex()
-
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain(
-      'There was an error fetching the jobs. Please reload the page.'
-    )
-    expect(wrapper.text()).toContain(
-      'Ether Balanceerror fetching balance'
-    )
-    expect(wrapper.text()).toContain(
-      'Link Balanceerror fetching balance'
-    )
-  })
 })

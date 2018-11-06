@@ -1,7 +1,7 @@
 import * as api from 'api'
 import { AuthenticationError } from 'errors'
 import { pascalCase } from 'change-case'
-import transformJobs from 'actions/transforms/jobs'
+import normalize from 'json-api-normalizer'
 
 const createAction = type => ({type: type})
 
@@ -51,26 +51,6 @@ export const notifyError = (component, error) => ({
 
 const fetchActions = {}
 
-export const REQUEST_JOBS = 'REQUEST_JOBS'
-export const RECEIVE_JOBS_SUCCESS = 'RECEIVE_JOBS_SUCCESS'
-export const RECEIVE_JOBS_ERROR = 'RECEIVE_JOBS_ERROR'
-
-fetchActions.jobs = {
-  requestActionType: REQUEST_JOBS,
-  receiveSuccess: json => transformJobs(RECEIVE_JOBS_SUCCESS, json),
-  receiveErrorType: RECEIVE_JOBS_ERROR
-}
-
-export const REQUEST_RECENTLY_CREATED_JOBS = 'REQUEST_RECENTLY_CREATED_JOBS'
-export const RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS = 'RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS'
-export const RECEIVE_RECENTLY_CREATED_JOBS_ERROR = 'RECEIVE_RECENTLY_CREATED_JOBS_ERROR'
-
-fetchActions.recentlyCreatedJobs = {
-  requestActionType: REQUEST_RECENTLY_CREATED_JOBS,
-  receiveSuccess: json => transformJobs(RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS, json),
-  receiveErrorType: RECEIVE_RECENTLY_CREATED_JOBS_ERROR
-}
-
 export const REQUEST_ACCOUNT_BALANCE = 'REQUEST_ACCOUNT_BALANCE'
 export const RECEIVE_ACCOUNT_BALANCE_SUCCESS = 'RECEIVE_ACCOUNT_BALANCE_SUCCESS'
 export const RECEIVE_ACCOUNT_BALANCE_ERROR = 'RECEIVE_ACCOUNT_BALANCE_ERROR'
@@ -83,46 +63,6 @@ fetchActions.accountBalance = {
     link: json.data.attributes.linkBalance
   }),
   receiveErrorType: RECEIVE_ACCOUNT_BALANCE_ERROR
-}
-
-export const REQUEST_JOB_SPEC = 'REQUEST_JOB_SPEC'
-export const RECEIVE_JOB_SPEC_SUCCESS = 'RECEIVE_JOB_SPEC_SUCCESS'
-export const RECEIVE_JOB_SPEC_ERROR = 'RECEIVE_JOB_SPEC_ERROR'
-
-fetchActions.jobSpec = {
-  requestActionType: REQUEST_JOB_SPEC,
-  receiveSuccess: json => ({
-    type: RECEIVE_JOB_SPEC_SUCCESS,
-    item: json.data.attributes
-  }),
-  receiveErrorType: RECEIVE_JOB_SPEC_ERROR
-}
-
-export const REQUEST_JOB_SPEC_RUNS = 'REQUEST_JOB_SPEC_RUNS'
-export const RECEIVE_JOB_SPEC_RUNS_SUCCESS = 'RECEIVE_JOB_SPEC_RUNS_SUCCESS'
-export const RECEIVE_JOB_SPEC_RUNS_ERROR = 'RECEIVE_JOB_SPEC_RUNS_ERROR'
-
-fetchActions.jobSpecRuns = {
-  requestActionType: REQUEST_JOB_SPEC_RUNS,
-  receiveSuccess: json => ({
-    type: RECEIVE_JOB_SPEC_RUNS_SUCCESS,
-    items: json.data.map(j => j.attributes),
-    runsCount: json.meta.count
-  }),
-  receiveErrorType: RECEIVE_JOB_SPEC_RUNS_ERROR
-}
-
-export const REQUEST_JOB_SPEC_RUN = 'REQUEST_JOB_SPEC_RUN'
-export const RECEIVE_JOB_SPEC_RUN_SUCCESS = 'RECEIVE_JOB_SPEC_RUN_SUCCESS'
-export const RECEIVE_JOB_SPEC_RUN_ERROR = 'RECEIVE_JOB_SPEC_RUN_ERROR'
-
-fetchActions.jobSpecRun = {
-  requestActionType: REQUEST_JOB_SPEC_RUN,
-  receiveSuccess: json => ({
-    type: RECEIVE_JOB_SPEC_RUN_SUCCESS,
-    item: json.data.attributes
-  }),
-  receiveErrorType: RECEIVE_JOB_SPEC_RUN_ERROR
 }
 
 export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
@@ -244,12 +184,7 @@ const receiveUpdateSuccess = response => ({
   response: response
 })
 
-export const fetchJobs = (page, size) => sendFetchActions('jobs', page, size)
-export const fetchRecentlyCreatedJobs = size => sendFetchActions('recentlyCreatedJobs', size)
 export const fetchAccountBalance = () => sendFetchActions('accountBalance')
-export const fetchJobSpec = id => sendFetchActions('jobSpec', id)
-export const fetchJobSpecRuns = (id, page, size) => sendFetchActions('jobSpecRuns', id, page, size)
-export const fetchJobSpecRun = id => sendFetchActions('jobSpecRun', id)
 export const fetchConfiguration = () => sendFetchActions('configuration')
 export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
 export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
@@ -316,3 +251,99 @@ export const updateBridge = (data, successCallback, errorCallback) => {
       })
   }
 }
+
+// DEV NOTE:
+// Above here is deprecated. Use the `request(...)` function below to wrap API
+// calls in a counter, normalize JSON-API responses and create notifications.
+//
+// The calls above will be converted gradually.
+const handleError = dispatch => error => {
+  if (error instanceof AuthenticationError) {
+    dispatch(redirectToSignOut())
+  } else {
+    dispatch(notifyError(({msg}) => msg, error))
+  }
+}
+
+const request = (type, requestData, normalizeData, ...apiArgs) => {
+  return dispatch => {
+    dispatch({type: `REQUEST_${type}`})
+    return requestData(...apiArgs)
+      .then(json => {
+        const data = normalizeData(json)
+        dispatch({type: `UPSERT_${type}`, data: data})
+      })
+      .catch(handleError(dispatch))
+      .finally(() => dispatch({type: `RESPONSE_${type}`}))
+  }
+}
+
+const normalizeFetchJob = json => {
+  const attrs = Object.assign({}, json.data.attributes)
+  const runs = attrs.runs
+  delete attrs.runs
+
+  const validJsonApi = Object.assign(
+    {},
+    json,
+    {
+      data: {
+        id: json.data.id,
+        type: json.data.type,
+        attributes: attrs,
+        relationships: {
+          runs: {
+            data: (runs || []).map(r => ({
+              type: 'runs',
+              id: r.id
+            }))
+          }
+        }
+      }
+    },
+    {
+      included: (runs || []).map(r => ({
+        type: 'runs',
+        id: r.id,
+        attributes: r
+      }))
+    }
+  )
+
+  return normalize(validJsonApi)
+}
+
+export const fetchJobs = (page, size) => request(
+  'JOBS',
+  api.getJobs,
+  json => normalize(json, {endpoint: 'currentPageJobs'}),
+  page, size
+)
+
+export const fetchRecentlyCreatedJobs = size => request(
+  'RECENTLY_CREATED_JOBS',
+  api.getRecentlyCreatedJobs,
+  json => normalize(json, {endpoint: 'recentlyCreatedJobs'}),
+  size
+)
+
+export const fetchJobSpec = id => request(
+  'JOB',
+  api.getJobSpec,
+  json => normalizeFetchJob(json),
+  id
+)
+
+export const fetchJobSpecRuns = (id, page, size) => request(
+  'JOB_RUNS',
+  api.getJobSpecRuns,
+  json => normalize(json, {endpoint: 'currentPageJobRuns'}),
+  id, page, size
+)
+
+export const fetchJobSpecRun = id => request(
+  'JOB_RUN',
+  api.getJobSpecRun,
+  json => normalize(json),
+  id
+)

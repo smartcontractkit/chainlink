@@ -1,104 +1,39 @@
-import {
-  REQUEST_JOBS,
-  RECEIVE_JOBS_SUCCESS,
-  RECEIVE_JOBS_ERROR,
-  RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS,
-  RECEIVE_RECENTLY_CREATED_JOBS_ERROR,
-  RECEIVE_JOB_SPEC_SUCCESS,
-  RECEIVE_JOB_SPEC_RUNS_SUCCESS
-} from 'actions'
-
 const initialState = {
   items: {},
-  currentPage: [],
+  currentPage: null,
   recentlyCreated: null,
-  count: 0,
-  networkError: false
+  count: 0
 }
+
+export const UPSERT_JOBS = 'UPSERT_JOBS'
+export const UPSERT_RECENTLY_CREATED_JOBS = 'UPSERT_RECENTLY_CREATED_JOBS'
+export const UPSERT_JOB = 'UPSERT_JOB'
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
-    case REQUEST_JOBS:
+    case UPSERT_JOBS: {
+      const {data} = action
       return Object.assign(
         {},
         state,
-        {networkError: false}
-      )
-    case RECEIVE_JOBS_SUCCESS: {
-      const newJobs = action.items.reduce(
-        (acc, job) => { acc[job.id] = job; return acc },
-        {}
-      )
-
-      return Object.assign(
-        {},
-        state,
-        {
-          items: Object.assign({}, state.items, newJobs),
-          currentPage: action.items.map(j => j.id),
-          count: action.count,
-          networkError: false
-        }
+        {currentPage: data.meta.currentPageJobs.data.map(j => j.id)},
+        {count: data.meta.currentPageJobs.meta.count},
+        {items: Object.assign({}, state.items, action.data.specs)}
       )
     }
-    case RECEIVE_RECENTLY_CREATED_JOBS_SUCCESS: {
-      const newJobs = action.items.reduce(
-        (acc, job) => { acc[job.id] = job; return acc },
-        {}
-      )
-
+    case UPSERT_RECENTLY_CREATED_JOBS: {
       return Object.assign(
         {},
         state,
-        {
-          items: Object.assign({}, state.items, newJobs),
-          recentlyCreated: action.items.map(j => j.id)
-        }
+        {recentlyCreated: action.data.meta['recentlyCreatedJobs'].data.map(j => j.id)},
+        {items: Object.assign({}, state.items, action.data.specs)}
       )
     }
-    case RECEIVE_JOBS_ERROR:
+    case UPSERT_JOB: {
       return Object.assign(
         {},
         state,
-        {networkError: !!action.networkError}
-      )
-    case RECEIVE_RECENTLY_CREATED_JOBS_ERROR:
-      console.error(action.error)
-      return Object.assign(
-        {},
-        state,
-        {networkError: !!action.networkError}
-      )
-    case RECEIVE_JOB_SPEC_RUNS_SUCCESS: {
-      const runs = (action.items || [])
-      if (runs.length <= 0) {
-        return state
-      }
-      const jobId = runs[0].jobId
-      const items = Object.assign(
-        {},
-        state.items,
-        {[jobId]: { runsCount: action.runsCount }}
-      )
-
-      return Object.assign(
-        {},
-        state,
-        {items: items}
-      )
-    }
-    case RECEIVE_JOB_SPEC_SUCCESS: {
-      const runs = (action.item.runs || [])
-      const jobSpec = Object.assign(
-        {},
-        action.item,
-        {runsCount: runs.length}
-      )
-
-      return Object.assign(
-        {},
-        state,
-        {items: Object.assign({}, state.items, {[jobSpec.id]: jobSpec})}
+        {items: Object.assign({}, state.items, action.data.specs)}
       )
     }
     default:

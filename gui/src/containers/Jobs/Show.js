@@ -19,9 +19,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { connect } from 'react-redux'
 import { fetchJobSpec, createJobRun } from 'actions'
 import jobSelector from 'selectors/job'
-import jobRunsSelector from 'selectors/jobRuns'
-import jobRunsCountSelector from 'selectors/jobRunsCount'
-import { LATEST_JOB_RUNS_COUNT } from 'connectors/redux/reducers/jobRuns'
+import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import ErrorMessage from 'components/Notifications/DefaultError'
@@ -62,11 +60,11 @@ const SuccessNotification = ({data}) => (
   </React.Fragment>
 )
 
-const renderJobSpec = ({ classes, jobSpec, jobRunsCount, createJobRun, fetching, fetchJobSpec }) => {
-  const definition = jobSpecDefinition(jobSpec)
+const renderJobSpec = ({ classes, job, createJobRun, fetching, fetchJobSpec }) => {
+  const definition = jobSpecDefinition(job)
   const handleClick = () => {
-    createJobRun(jobSpec.id, SuccessNotification, ErrorMessage)
-      .then(() => fetchJobSpec(jobSpec.id))
+    createJobRun(job.id, SuccessNotification, ErrorMessage)
+      .then(() => fetchJobSpec(job.id))
   }
 
   return (
@@ -82,7 +80,7 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, createJobRun, fetching,
                   </Typography>
                 </Grid>
                 <Grid item xs={8} className={classes.actions}>
-                  {isWebInitiator(jobSpec.initiators) && (
+                  {isWebInitiator(job.initiators) && (
                     <Button variant='outlined' color='primary' disabled={!!fetching} onClick={handleClick}>
                       Run
                     </Button>
@@ -112,13 +110,13 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, createJobRun, fetching,
             <Grid item xs={12}>
               <Typography variant='subheading' color='textSecondary'>ID</Typography>
               <Typography variant='body1' color='inherit'>
-                {jobSpec.id}
+                {job.id}
               </Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant='subheading' color='textSecondary'>Created</Typography>
               <Typography variant='body1' color='inherit'>
-                {jobSpec.createdAt}
+                {job.createdAt}
               </Typography>
             </Grid>
             <Grid item xs={12}>
@@ -126,13 +124,13 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, createJobRun, fetching,
                 <Grid item xs={6}>
                   <Typography variant='subheading' color='textSecondary'>Initiator</Typography>
                   <Typography variant='body1' color='inherit'>
-                    {formatInitiators(jobSpec.initiators)}
+                    {formatInitiators(job.initiators)}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant='subheading' color='textSecondary'>Run Count</Typography>
                   <Typography variant='body1' color='inherit'>
-                    {jobRunsCount}
+                    {job.runs && job.runs.length}
                   </Typography>
                 </Grid>
               </Grid>
@@ -144,17 +142,17 @@ const renderJobSpec = ({ classes, jobSpec, jobRunsCount, createJobRun, fetching,
   )
 }
 
-const renderLatestRuns = ({ jobSpecId, classes, latestJobRuns, jobRunsCount }) => (
+const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => (
   <React.Fragment>
     <Typography variant='title' className={classes.lastRun}>
       Last Run
     </Typography>
 
     <Card>
-      <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
+      <JobRunsList jobSpecId={job.id} runs={latestJobRuns} />
     </Card>
-    {jobRunsCount > LATEST_JOB_RUNS_COUNT && (
-      <Link to={`/jobs/${jobSpecId}/runs`} className={classes.showMore}>
+    {job.runs && job.runs.length > showJobRunsCount && (
+      <Link to={`/jobs/${job.id}/runs`} className={classes.showMore}>
         Show More
       </Link>
     )}
@@ -164,7 +162,7 @@ const renderLatestRuns = ({ jobSpecId, classes, latestJobRuns, jobRunsCount }) =
 const renderFetching = () => <div>Fetching...</div>
 
 const renderDetails = props => {
-  if (props.jobSpec) {
+  if (props.job) {
     return (
       <React.Fragment>
         {renderJobSpec(props)}
@@ -202,26 +200,25 @@ export class Show extends Component {
 Show.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
-  jobSpec: PropTypes.object,
-  jobRunsCount: PropTypes.number
+  job: PropTypes.object,
+  showJobRunsCount: PropTypes.number
 }
 
 Show.defaultProps = {
-  latestJobRuns: []
+  latestJobRuns: [],
+  showJobRunsCount: 2
 }
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
-  const jobSpec = jobSelector(state, jobSpecId)
-  const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
-  const latestJobRuns = jobRunsSelector(state)
+  const job = jobSelector(state, jobSpecId)
+  const latestJobRuns = jobRunsByJobIdSelector(state, jobSpecId, ownProps.showJobRunsCount)
   const fetching = state.fetching.count
 
   return {
     jobSpecId,
-    jobSpec,
+    job,
     latestJobRuns,
-    jobRunsCount,
     fetching
   }
 }

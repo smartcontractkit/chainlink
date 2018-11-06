@@ -115,8 +115,8 @@ const renderDetails = (props, state, handleChangePage) => {
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,
-  latestJobRuns: PropTypes.array.isRequired,
-  jobRunsCount: PropTypes.number.isRequired,
+  latestJobRuns: PropTypes.array,
+  jobRunsCount: PropTypes.number,
   pageSize: PropTypes.number.isRequired
 }
 
@@ -127,7 +127,7 @@ Index.defaultProps = {
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
-  const jobRunsCount = jobRunsCountSelector(state, jobSpecId)
+  const jobRunsCount = jobRunsCountSelector(state)
   const latestJobRuns = jobRunsSelector(state, jobSpecId)
 
   return {
