@@ -70,7 +70,7 @@ jobs:
           key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: make chainlink
+      - run: make enclave
       - run: ./internal/ci/sgx_test
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
