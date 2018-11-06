@@ -42,6 +42,16 @@ func TestValidateJob(t *testing.T) {
 			cltest.LoadJSON("../internal/fixtures/web/zero_initiators.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
+		{
+			"one initiator only",
+			cltest.LoadJSON("../internal/fixtures/web/initiator_only_job.json"),
+			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
+		},
+		{
+			"one task only",
+			cltest.LoadJSON("../internal/fixtures/web/task_only_job.json"),
+			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
+		},
 	}
 
 	store, cleanup := cltest.NewStore()
