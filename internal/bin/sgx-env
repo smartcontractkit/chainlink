@@ -2,4 +2,9 @@
 
 workdir="/go/src/github.com/smartcontractkit/chainlink"
 image_tag=`cat Dockerfile-sgx | grep FROM | grep builder | awk '{print$2}'`
-docker run --volume "$PWD:$workdir" --workdir="$workdir" --env "SGX_ENABLED=yes" -ti $image_tag
+docker run \
+  --volume "$PWD:$workdir" \
+  --workdir="$workdir" \
+  --env "SGX_ENABLED=yes" \
+  --env "RUST_BACKTRACE=1" \
+  -ti $image_tag
