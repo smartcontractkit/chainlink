@@ -17,7 +17,7 @@ import Link from 'components/Link'
 import CopyJobSpec from 'components/CopyJobSpec'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { connect } from 'react-redux'
-import { fetchJobSpec, createJobRun } from 'actions'
+import { fetchJob, createJobRun } from 'actions'
 import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { Divider, Button } from '@material-ui/core'
@@ -60,11 +60,11 @@ const SuccessNotification = ({data}) => (
   </React.Fragment>
 )
 
-const renderJobSpec = ({ classes, job, createJobRun, fetching, fetchJobSpec }) => {
+const renderJobSpec = ({classes, job, createJobRun, fetching, fetchJob}) => {
   const definition = jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage)
-      .then(() => fetchJobSpec(job.id))
+      .then(() => fetchJob(job.id))
   }
 
   return (
@@ -176,7 +176,7 @@ const renderDetails = props => {
 
 export class Show extends Component {
   componentDidMount () {
-    this.props.fetchJobSpec(this.props.jobSpecId)
+    this.props.fetchJob(this.props.jobSpecId)
   }
 
   render () {
@@ -225,7 +225,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobSpec, createJobRun})
+  matchRouteAndMapDispatchToProps({fetchJob, createJobRun})
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

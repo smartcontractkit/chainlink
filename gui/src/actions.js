@@ -327,7 +327,7 @@ export const fetchRecentlyCreatedJobs = size => request(
   size
 )
 
-export const fetchJobSpec = id => request(
+export const fetchJob = id => request(
   'JOB',
   api.getJobSpec,
   json => normalizeFetchJob(json),
