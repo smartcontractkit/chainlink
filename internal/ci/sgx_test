@@ -18,6 +18,5 @@ if [ -n "$USE_GDB" ] && [ "$ENVIRONMENT" == "debug" ]; then
   # XXX: The sgx-gdb wrapper script will actually load the symbol table for the enclave
   /opt/sgxsdk/bin/sgx-gdb -ex run --args ./adapters.test -test.parallel 1 -test.v
 else
-  # FIXME: Get a TCS exhausted error if go tries to run SGX performs from multiple threads/cpus
-  GOMAXPROCS=1 ./adapters.test -test.parallel 1 -test.v -test.run TestWasm_Perform
+  ./adapters.test -test.v $@
 fi
