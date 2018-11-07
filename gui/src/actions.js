@@ -334,14 +334,14 @@ export const fetchJob = id => request(
   id
 )
 
-export const fetchJobSpecRuns = (id, page, size) => request(
+export const fetchJobRuns = (id, page, size) => request(
   'JOB_RUNS',
   api.getJobSpecRuns,
   json => normalize(json, {endpoint: 'currentPageJobRuns'}),
   id, page, size
 )
 
-export const fetchJobSpecRun = id => request(
+export const fetchJobRun = id => request(
   'JOB_RUN',
   api.getJobSpecRun,
   json => normalize(json),

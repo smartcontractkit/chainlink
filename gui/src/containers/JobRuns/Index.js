@@ -5,7 +5,7 @@ import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import TablePagination from '@material-ui/core/TablePagination'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { fetchJobSpecRuns } from 'actions'
+import { fetchJobRuns } from 'actions'
 import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
 import Breadcrumb from 'components/Breadcrumb'
@@ -31,10 +31,10 @@ export class Index extends Component {
   }
 
   componentDidMount () {
-    const { jobSpecId, pageSize, fetchJobSpecRuns } = this.props
+    const { jobSpecId, pageSize, fetchJobRuns } = this.props
     const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
     this.setState({ page: queryPage })
-    fetchJobSpecRuns(jobSpecId, queryPage, pageSize)
+    fetchJobRuns(jobSpecId, queryPage, pageSize)
   }
 
   componentDidUpdate (prevProps) {
@@ -42,15 +42,15 @@ export class Index extends Component {
     const currentJobRunsPage = this.props.match.params.jobRunsPage
 
     if (prevJobRunsPage !== currentJobRunsPage) {
-      const { pageSize, fetchJobSpecRuns, jobSpecId } = this.props
+      const { pageSize, fetchJobRuns, jobSpecId } = this.props
       this.setState({ page: parseInt(currentJobRunsPage, 10) || FIRST_PAGE })
-      fetchJobSpecRuns(jobSpecId, parseInt(currentJobRunsPage, 10) || FIRST_PAGE, pageSize)
+      fetchJobRuns(jobSpecId, parseInt(currentJobRunsPage, 10) || FIRST_PAGE, pageSize)
     }
   }
 
   handleChangePage (e, page) {
-    const { fetchJobSpecRuns, jobSpecId, pageSize } = this.props
-    fetchJobSpecRuns(jobSpecId, page, pageSize)
+    const { fetchJobRuns, jobSpecId, pageSize } = this.props
+    fetchJobRuns(jobSpecId, page, pageSize)
     this.setState({ page })
   }
   render () {
@@ -139,7 +139,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobSpecRuns })
+  matchRouteAndMapDispatchToProps({ fetchJobRuns })
 )(Index)
 
 export default withStyles(styles)(ConnectedIndex)
