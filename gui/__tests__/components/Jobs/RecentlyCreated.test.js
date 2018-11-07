@@ -2,7 +2,7 @@ import React from 'react'
 import { MemoryRouter } from 'react-router'
 import { render } from 'enzyme'
 import RecentlyCreated from 'components/Jobs/RecentlyCreated'
-import isoDate from 'test-helpers/isoDate'
+import isoDate, { MINUTE_MS, TWO_MINUTES_MS } from 'test-helpers/isoDate'
 
 const renderComponent = (jobs) => (
   render(
@@ -14,12 +14,12 @@ const renderComponent = (jobs) => (
 
 describe('components/Jobs/RecentlyCreated', () => {
   it('shows the id and creation date', () => {
-    const minuteAgo = isoDate(Date.now() - 60 * 1000)
+    const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobB = {
       id: 'job_b',
       createdAt: minuteAgo
     }
-    const twoMinutesAgo = isoDate(Date.now() - 60 * 2 * 1000)
+    const twoMinutesAgo = isoDate(Date.now() - TWO_MINUTES_MS)
     const jobA = {
       id: 'job_a',
       createdAt: twoMinutesAgo
