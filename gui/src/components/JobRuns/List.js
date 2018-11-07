@@ -1,14 +1,15 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import { withStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableHead from '@material-ui/core/TableHead'
 import TableBody from '@material-ui/core/TableBody'
-import Link from 'components/Link'
 import Typography from '@material-ui/core/Typography'
 import TableRow from '@material-ui/core/TableRow'
 import TableCell from '@material-ui/core/TableCell'
 import Card from '@material-ui/core/Card'
-import { withStyles } from '@material-ui/core/styles'
+import Link from 'components/Link'
+import TimeAgo from 'components/TimeAgo'
 
 const styles = theme => ({
   jobRunsCard: {
@@ -41,7 +42,9 @@ const renderRuns = runs => {
           <Typography variant='body1' color={statusColor(r.status)}>{r.status}</Typography>
         </TableCell>
         <TableCell>
-          <Typography variant='body1'>{r.createdAt}</Typography>
+          <Typography variant='body1'>
+            <TimeAgo>{r.createdAt}</TimeAgo>
+          </Typography>
         </TableCell>
         <TableCell>
           <Typography variant='body1'>{JSON.stringify(r.result.data)}</Typography>
