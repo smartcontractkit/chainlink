@@ -33,7 +33,6 @@ export class Index extends Component {
               jobs={props.jobs}
               jobCount={props.jobCount}
               pageSize={props.pageSize}
-              error={props.jobsError}
               fetchJobs={props.fetchJobs}
               history={props.history}
               match={props.match}
@@ -46,12 +45,8 @@ export class Index extends Component {
 }
 
 Index.propTypes = {
-  ethBalance: PropTypes.string,
-  linkBalance: PropTypes.string,
-  accountBalanceError: PropTypes.string,
   jobCount: PropTypes.number.isRequired,
   jobs: PropTypes.array,
-  jobsError: PropTypes.string,
   pageSize: PropTypes.number
 }
 
@@ -60,22 +55,9 @@ Index.defaultProps = {
 }
 
 const mapStateToProps = state => {
-  let accountBalanceError
-  if (state.accountBalance.networkError) {
-    accountBalanceError = 'error fetching balance'
-  }
-  let jobsError
-  if (state.jobs.networkError) {
-    jobsError = 'There was an error fetching the jobs. Please reload the page.'
-  }
-
   return {
-    ethBalance: state.accountBalance.eth,
-    linkBalance: state.accountBalance.link,
-    accountBalanceError: accountBalanceError,
     jobCount: state.jobs.count,
-    jobs: jobsSelector(state),
-    jobsError: jobsError
+    jobs: jobsSelector(state)
   }
 }
 

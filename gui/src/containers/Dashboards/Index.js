@@ -10,6 +10,7 @@ import {
   fetchAccountBalance,
   fetchRecentlyCreatedJobs
 } from 'actions'
+import accountBalanceSelector from 'selectors/accountBalance'
 import jobsSelector from 'selectors/jobs'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
@@ -56,7 +57,6 @@ export class Index extends Component {
               jobs={props.jobs}
               jobCount={props.jobCount}
               pageSize={props.pageSize}
-              error={props.jobsError}
               fetchJobs={props.fetchJobs}
               history={props.history}
               match={props.match}
@@ -67,15 +67,13 @@ export class Index extends Component {
               <Grid item xs={12}>
                 <TokenBalance
                   title='Link Balance'
-                  value={props.linkBalance}
-                  error={props.accountBalanceError}
+                  value={props.accountBalance && props.accountBalance.linkBalance}
                 />
               </Grid>
               <Grid item xs={12}>
                 <TokenBalance
                   title='Ether Balance'
-                  value={props.ethBalance}
-                  error={props.accountBalanceError}
+                  value={props.accountBalance && props.accountBalance.ethBalance}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -91,13 +89,10 @@ export class Index extends Component {
 }
 
 Index.propTypes = {
-  ethBalance: PropTypes.string,
-  linkBalance: PropTypes.string,
-  accountBalanceError: PropTypes.string,
+  accountBalance: PropTypes.object,
   jobCount: PropTypes.number.isRequired,
   jobs: PropTypes.array,
   recentlyCreatedJobs: PropTypes.array,
-  jobsError: PropTypes.string,
   pageSize: PropTypes.number,
   recentlyCreatedPageSize: PropTypes.number
 }
@@ -108,23 +103,11 @@ Index.defaultProps = {
 }
 
 const mapStateToProps = state => {
-  let accountBalanceError
-  if (state.accountBalance.networkError) {
-    accountBalanceError = 'error fetching balance'
-  }
-  let jobsError
-  if (state.jobs.networkError) {
-    jobsError = 'There was an error fetching the jobs. Please reload the page.'
-  }
-
   return {
-    ethBalance: state.accountBalance.eth,
-    linkBalance: state.accountBalance.link,
-    accountBalanceError: accountBalanceError,
+    accountBalance: accountBalanceSelector(state),
     jobCount: state.jobs.count,
     jobs: jobsSelector(state),
-    recentlyCreatedJobs: recentlyCreatedJobsSelector(state),
-    jobsError: jobsError
+    recentlyCreatedJobs: recentlyCreatedJobsSelector(state)
   }
 }
 

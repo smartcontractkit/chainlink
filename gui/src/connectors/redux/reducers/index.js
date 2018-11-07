@@ -1,5 +1,5 @@
 import { combineReducers } from 'redux'
-import accountBalance from './accountBalance'
+import accountBalances from './accountBalances'
 import authentication from './authentication'
 import bridges from './bridges'
 import configuration from './configuration'
@@ -11,7 +11,7 @@ import notifications from './notifications'
 import redirect from './redirect'
 
 const reducer = combineReducers({
-  accountBalance,
+  accountBalances,
   authentication,
   bridges,
   configuration,
