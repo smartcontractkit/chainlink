@@ -3,7 +3,7 @@ use libc;
 use sgx_types::*;
 use utils::cstr_len;
 
-use ENCLAVE;
+use get_enclave;
 
 extern "C" {
     fn sgx_multiply(
@@ -27,10 +27,18 @@ pub extern "C" fn multiply(
     result_capacity: usize,
     result_len: *mut usize,
 ) {
+    let enclave_id = match get_enclave() {
+        Ok(e) => e,
+        Err(err) => {
+            set_errno(Errno(err as i32));
+            return;
+        }
+    };
+
     let mut retval = sgx_status_t::SGX_SUCCESS;
     let result = unsafe {
         sgx_multiply(
-            ENCLAVE.geteid(),
+            enclave_id,
             &mut retval,
             adapter as *const u8,
             cstr_len(adapter),
