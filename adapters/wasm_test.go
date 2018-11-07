@@ -61,7 +61,7 @@ func TestWasm_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"invalid input ",
+			"invalid input",
 			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
 			`{"value": null}`,
 			"",
