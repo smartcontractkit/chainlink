@@ -184,7 +184,6 @@ const receiveUpdateSuccess = response => ({
   response: response
 })
 
-export const fetchAccountBalance = () => sendFetchActions('accountBalance')
 export const fetchConfiguration = () => sendFetchActions('configuration')
 export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
 export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
@@ -312,6 +311,12 @@ const normalizeFetchJob = json => {
 
   return normalize(validJsonApi)
 }
+
+export const fetchAccountBalance = () => request(
+  'ACCOUNT_BALANCE',
+  api.getAccountBalance,
+  json => normalize(json)
+)
 
 export const fetchJobs = (page, size) => request(
   'JOBS',

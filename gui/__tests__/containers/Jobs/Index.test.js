@@ -1,7 +1,6 @@
 /* eslint-env jest */
 import React from 'react'
 import jsonApiJobSpecsFactory from 'factories/jsonApiJobSpecs'
-import accountBalanceFactory from 'factories/accountBalance'
 import syncFetch from 'test-helpers/syncFetch'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
@@ -43,9 +42,6 @@ describe('containers/Jobs/Index', () => {
 
   it('can page through the list of jobs', async () => {
     expect.assertions(6)
-
-    const accountBalanceResponse = accountBalanceFactory('0', '0')
-    global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 
     const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
