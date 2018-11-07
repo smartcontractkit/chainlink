@@ -168,7 +168,7 @@ assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 ########################
 
 printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34methlog test.\033[0m\n"
+printf -- "\033[34mEthlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
 ethjob=`./create_ethlog_job`
@@ -184,6 +184,16 @@ assert "Jobs count" "chainlink -j j | jq length" 2
 ## Check job runs
 jid=`echo $ethjob | jq .data.id | tr -d '"'`
 assert "EthLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
+
+########################
+## GUI Integration
+########################
+
+printf -- "\n--------------------------------------------------------------------------------\n"
+printf -- "\033[34mGUI Integration.\033[0m\n"
+printf -- "--------------------------------------------------------------------------------\n\n"
+
+yarn test-integration | tee $SRCROOT/integration/gui.test.log
 
 printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
 
