@@ -6,7 +6,7 @@ import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
 import { ConnectedShow as Show } from 'containers/JobRuns/Show'
-import isoDate from 'test-helpers/isoDate'
+import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
 const classes = {}
 const mountShow = (props) => (
@@ -26,7 +26,7 @@ describe('containers/JobRuns/Show', () => {
   it('renders the details of the job spec and its latest runs', async () => {
     expect.assertions(4)
 
-    const minuteAgo = isoDate(Date.now() - 60 * 1000)
+    const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobRunResponse = jsonApiJobSpecRunFactory({
       id: jobRunId,
       createdAt: minuteAgo,
