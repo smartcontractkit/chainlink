@@ -6,7 +6,7 @@ const Web3 = require('web3')
 const abi = require('ethereumjs-abi')
 
 const privateKey = process.env['PRIVATE_KEY'] || '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
-const providerURL = process.env['ETH_URL'] || 'http://localhost:8545'
+const providerURL = process.env['ETH_URL'] || 'http://localhost:18545'
 const utils = new Utils(new Eth.HttpProvider(providerURL))
 const wallet = new Wallet(privateKey, utils)
 const deployer = Deployer(wallet, utils)

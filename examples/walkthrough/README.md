@@ -23,7 +23,7 @@ If you're on a mac with [Homebrew](https://brew.sh/), you can run:
 ```bash
 go get -d github.com/smartcontractkit/chainlink
 cd $GOPATH/src/github.com/smartcontractkit/chainlink
-make install
+make bootstrap
 chainlink help
 ```
 
@@ -49,7 +49,7 @@ ORACLE_NODE=0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 ```
 
 ## Set up your LINK and Oracle contracts
-In the same windoe where you set ORACLE_NODE, move to the solidity directory: `cd solidity/`
+In the same window where you set ORACLE_NODE, move to the solidity directory: `cd solidity/`
 
 ```
 ./bin/fund_address # fund local wallet
@@ -88,7 +88,7 @@ Edit the following JSON so that it includes your Oracle address for the initiato
 {
   "initiators": [{
       "type": "runlog",
-      "params": {"address": "0x55ad1706ca8cf0ac593b918c105944487d0737b2"}
+      "params": {"address": "0x22f9c91E1f5E22D1a7eA8E8AF3CB3b3f858a6122"}
   }],
   "tasks": [
     {"type": "httpget"},
