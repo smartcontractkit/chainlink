@@ -62,6 +62,7 @@
     "moment": "^2.22.2",
     "numeral": "^2.0.6",
     "oclif": "^1.11.4",
+    "promise.prototype.finally": "^3.1.0",
     "query-string": "^6.1.0",
     "react": "^16.4.2",
     "react-copy-to-clipboard": "^5.0.1",
