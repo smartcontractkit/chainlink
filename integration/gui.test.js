@@ -5,6 +5,7 @@ describe('Integration', () => {
   beforeAll(async () => {
     browser = await puppeteer.launch()
     page = await browser.newPage()
+    page.setViewport({width: 1024, height: 768})
   })
 
   afterAll(async () => {
@@ -31,12 +32,12 @@ describe('Integration', () => {
     }`
     await expect(page).toFill('form textarea', jobJson)
     await expect(page).toClick('button', { text: 'Create Job' })
-    await expect(page).toMatch('successfully created')
+    await expect(page).toMatch(/success.+job/i)
 
     // Run Job
     await expect(page).toClick('aside a')
     await expect(page).toMatch('Job Spec Detail')
     await expect(page).toClick('button', { text: 'Run' })
-    await expect(page).toMatch('successfully run')
+    await expect(page).toMatch(/success.+run/i)
   })
 })
