@@ -10,7 +10,7 @@ import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import JobRunsList from 'components/JobRunsList'
+import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 
@@ -88,7 +88,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
   )
   return (
     <Card>
-      <JobRunsList jobSpecId={jobSpecId} runs={latestJobRuns} />
+      <List jobSpecId={jobSpecId} runs={latestJobRuns} />
       <TablePagination
         component='div'
         count={jobRunsCount}

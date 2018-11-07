@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import Table from '@material-ui/core/Table'
+import TableHead from '@material-ui/core/TableHead'
 import TableBody from '@material-ui/core/TableBody'
-import JobRunsHead from 'components/JobRunsHead'
 import Link from 'components/Link'
 import Typography from '@material-ui/core/Typography'
 import TableRow from '@material-ui/core/TableRow'
@@ -64,10 +64,28 @@ const renderRuns = runs => {
   )
 }
 
-const JobRunsList = ({jobSpecId, runs, classes}) => (
+const List = ({jobSpecId, runs, classes}) => (
   <Card className={classes.jobRunsCard}>
     <Table>
-      <JobRunsHead />
+      <TableHead>
+        <TableRow>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>ID</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Status</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Created</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Result</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Error</Typography>
+          </TableCell>
+        </TableRow>
+      </TableHead>
       <TableBody>
         {renderRuns(runs)}
       </TableBody>
@@ -75,9 +93,9 @@ const JobRunsList = ({jobSpecId, runs, classes}) => (
   </Card>
 )
 
-JobRunsList.propTypes = {
+List.propTypes = {
   jobSpecId: PropTypes.string.isRequired,
   runs: PropTypes.array.isRequired
 }
 
-export default withStyles(styles)(JobRunsList)
+export default withStyles(styles)(List)

@@ -12,7 +12,7 @@ import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
-import JobRunsList from 'components/JobRunsList'
+import List from 'components/JobRuns/List'
 import Link from 'components/Link'
 import CopyJobSpec from 'components/CopyJobSpec'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -149,7 +149,7 @@ const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => 
     </Typography>
 
     <Card>
-      <JobRunsList jobSpecId={job.id} runs={latestJobRuns} />
+      <List jobSpecId={job.id} runs={latestJobRuns} />
     </Card>
     {job.runs && job.runs.length > showJobRunsCount && (
       <Link to={`/jobs/${job.id}/runs`} className={classes.showMore}>
