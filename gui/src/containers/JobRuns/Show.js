@@ -8,6 +8,7 @@ import BreadcrumbItem from 'components/BreadcrumbItem'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Title from 'components/Title'
+import TimeAgo from 'components/TimeAgo'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
@@ -49,7 +50,7 @@ const renderDetails = ({fetching, jobRun}) => {
             <Grid item xs={12}>
               <Typography variant='subheading' color='textSecondary'>Created</Typography>
               <Typography variant='body1' color='inherit'>
-                {jobRun.createdAt}
+                <TimeAgo>{jobRun.createdAt}</TimeAgo>
               </Typography>
             </Grid>
             <Grid item xs={12}>
