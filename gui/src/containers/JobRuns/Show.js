@@ -9,7 +9,7 @@ import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 import Title from 'components/Title'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { fetchJobSpecRun } from 'actions'
+import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 
 const styles = theme => ({
@@ -67,7 +67,7 @@ const renderDetails = ({fetching, jobRun}) => {
 
 export class Show extends Component {
   componentDidMount () {
-    this.props.fetchJobSpecRun(this.props.jobRunId)
+    this.props.fetchJobRun(this.props.jobRunId)
   }
 
   render () {
@@ -107,7 +107,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobSpecRun})
+  matchRouteAndMapDispatchToProps({fetchJobRun})
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)
