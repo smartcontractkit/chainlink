@@ -3,7 +3,7 @@ jobs:
   go:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - restore_cache:
@@ -20,7 +20,7 @@ jobs:
   gorace:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - restore_cache:
@@ -36,7 +36,7 @@ jobs:
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - restore_cache:
@@ -52,7 +52,7 @@ jobs:
   sgx:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -75,7 +75,7 @@ jobs:
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - restore_cache:
@@ -91,7 +91,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - restore_cache:
@@ -107,7 +107,7 @@ jobs:
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - restore_cache:
@@ -123,7 +123,7 @@ jobs:
       - run: ./internal/ci/gui_test
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.12
+      - image: smartcontract/builder:1.0.14
     steps:
       - checkout
       - run: ./internal/ci/init_gcloud
@@ -146,7 +146,6 @@ jobs:
             | awk -F'@' '{print$2}' \
             | xargs -I'%' kubectl set image deployment.apps/chainlink-deploy \
                 "chainlink=smartcontract/chainlink:staging@%"
-
 
 workflows:
   version: 2
