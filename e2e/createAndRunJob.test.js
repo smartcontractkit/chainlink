@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer')
 const expect = require('expect-puppeteer')
 
-describe('Integration', () => {
+describe('End to end', () => {
   let browser, page
   beforeAll(async () => {
     browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']})

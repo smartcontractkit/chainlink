@@ -187,15 +187,15 @@ jid=`echo $ethjob | jq .data.id | tr -d '"'`
 assert "EthLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
 ########################
-## GUI Integration
+## End to end
 ########################
 
 printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34mGUI Integration.\033[0m\n"
+printf -- "\033[34mEnd to end tests.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
 set -o pipefail
-yarn test-integration | tee $SRCROOT/integration/gui.test.log
+yarn test-e2e | tee $SRCROOT/integration/e2e.tests.log
 set +o pipefail
 
 printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
