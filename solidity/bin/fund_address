@@ -14,10 +14,12 @@ if (!recipient) {
   recipient = wallet.address
 }
 
-utils.send({
-  to: recipient,
-  from: devnetMiner,
-  value: `0x${(10**21).toString(16)}`
-}).then(txHash => {
-  return utils.getTxReceipt(txHash)
-}).then(console.log).catch(console.error)
+(async function () {
+  await utils.send({
+    to: recipient,
+    from: devnetMiner,
+    value: `0x${(10**21).toString(16)}`
+  }).then(txHash => {
+    return utils.getTxReceipt(txHash)
+  }).then(console.log).catch(console.error)
+})
