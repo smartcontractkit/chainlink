@@ -111,9 +111,9 @@ contract Chainlinked {
   }
 
   function encodeForOracle(ChainlinkLib.Run memory self)
-    internal
-    view
-    returns (bytes memory)
+          internal
+          view
+          returns (bytes memory)
   {
     return abi.encodeWithSelector(
       oracle.requestData.selector,
@@ -125,6 +125,20 @@ contract Chainlinked {
       self.callbackFunctionId,
       self.requestId,
       self.buf.buf);
+  }
+
+  function serviceRequest(ChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns (bytes32)
+  {
+    _run.requestId = bytes32(requests);
+    requests += 1;
+    _run.close();
+    unfulfilledRequests[_run.requestId] = oracle;
+    emit ChainlinkRequested(_run.requestId);
+    require(link.transferAndCall(oracle, _amount, _run.encodeForCoordinator(clArgsVersion)), "unable to transferAndCall to oracle");
+
+    return _run.requestId;
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {

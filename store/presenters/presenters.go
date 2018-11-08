@@ -153,12 +153,12 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinIncomingConfirmations: config.MinIncomingConfirmations,
 		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:                     config.Port,
-		ReaperExpiration:         config.ReaperExpiration,
-		RootDir:                  config.RootDir,
-		SessionTimeout:           config.SessionTimeout,
-		TLSHost:                  config.TLSHost,
-		TLSPort:                  config.TLSPort,
+		Port:             config.Port,
+		ReaperExpiration: config.ReaperExpiration,
+		RootDir:          config.RootDir,
+		SessionTimeout:   config.SessionTimeout,
+		TLSHost:          config.TLSHost,
+		TLSPort:          config.TLSPort,
 	}
 }
 
