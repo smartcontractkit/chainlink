@@ -23,7 +23,8 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
-	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
 	inputValue := "0x9786856756"
 
 	ethMock := app.MockEthClient()
@@ -40,7 +41,10 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 			tx, err := utils.DecodeEthereumTx(rlp)
 			assert.NoError(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
-			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)
+			wantData := "0x" +
+				"b3f98adc" +
+				"0000000000000000000000000000000000000000000000000045746736453745" +
+				"0000000000000000000000000000000000000000000000000000009786856756"
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
@@ -53,6 +57,71 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		Address:          address,
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
+	}
+	input := cltest.RunResultWithValue(inputValue)
+	data := adapter.Perform(input, store)
+
+	assert.False(t, data.HasError())
+
+	from := cltest.GetAccountAddress(store)
+	txs := []models.Tx{}
+	assert.Nil(t, store.Where("From", from, &txs))
+	assert.Equal(t, 1, len(txs))
+	attempts, _ := store.AttemptsFor(txs[0].ID)
+	assert.Equal(t, 1, len(attempts))
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	// contains diacritic acute to check bytes counted for length not chars
+	inputValue := "cönfirmed"
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
+	hash := cltest.NewHash()
+	sentAt := uint64(23456)
+	confirmed := sentAt + 1
+	safe := confirmed + config.MinOutgoingConfirmations
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			rlp := data[0].([]interface{})[0].(string)
+			tx, err := utils.DecodeEthereumTx(rlp)
+			assert.NoError(t, err)
+			assert.Equal(t, address.String(), tx.To().String())
+			wantData := "0x" +
+				"b3f98adc" +
+				"0000000000000000000000000000000000000000000000000045746736453745" +
+				"0000000000000000000000000000000000000000000000000000000000000040" +
+				"000000000000000000000000000000000000000000000000000000000000000a" +
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000"
+			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
+			return nil
+		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		DataPrefix:       dataPrefix,
+		FunctionSelector: fHash,
+		DataFormat:       adapters.DataFormatBytes,
 	}
 	input := cltest.RunResultWithValue(inputValue)
 	data := adapter.Perform(input, store)
@@ -196,7 +265,30 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunResultWithValue("")
+	input := cltest.RunResultWithValue("0x9786856756")
+	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
+	output := adapter.Perform(input, store)
+
+	assert.True(t, output.HasError())
+	assert.Equal(t, "Cannot connect to nodes", output.Error())
+}
+
+func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	store := app.Store
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
+	adapter := adapters.EthTx{
+		Address:          cltest.NewAddress(),
+		FunctionSelector: models.HexToFunctionSelector("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1"),
+	}
+	input := cltest.RunResultWithValue("0x9786856756")
 	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 

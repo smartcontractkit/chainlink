@@ -6,30 +6,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
-
-var evmUint256Max *big.Int
-var evmInt256Max *big.Int
-var evmInt256Min *big.Int
-
-func init() {
-	var ok bool
-	evmInt256Max, ok = (&big.Int{}).SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-	if !ok {
-		panic("could not parse evmInt256Max")
-	}
-	evmInt256Min, ok = (&big.Int{}).SetString("-8fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-	if !ok {
-		panic("could not parse evmInt256Min")
-	}
-	evmUint256Max, ok = (&big.Int{}).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-	if !ok {
-		panic("could not parse evmUint256Max")
-	}
-}
 
 // EthBytes32 holds no fields.
 type EthBytes32 struct{}
@@ -43,7 +24,7 @@ type EthBytes32 struct{}
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	result := input.Get("value")
 	value := common.RightPadBytes([]byte(result.String()), utils.EVMWordByteLen)
-	hex := utils.RemoveHexPrefix(common.ToHex(value))
+	hex := utils.RemoveHexPrefix(hexutil.Encode(value))
 
 	if len(hex) > utils.EVMWordHexLen {
 		hex = hex[:utils.EVMWordHexLen]
@@ -66,16 +47,12 @@ func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunResu
 		return input.WithError(err)
 	}
 
-	if err = validateSignedRange(i); err != nil {
-		return input.WithError(err)
-	}
-
-	sh, err := utils.EVMSignedHexNumber(i)
+	sh, err := utils.EVMWordSignedBigInt(i)
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	return input.WithValue(sh)
+	return input.WithValue(hexutil.Encode(sh))
 }
 
 // EthUint256 holds no fields.
@@ -93,11 +70,12 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	if err = validateUnsignedRange(i); err != nil {
+	sh, err := utils.EVMWordBigInt(i)
+	if err != nil {
 		return input.WithError(err)
 	}
 
-	return input.WithValue(utils.EVMHexNumber(i))
+	return input.WithValue(hexutil.Encode(sh))
 }
 
 func parseBigInt(input models.RunResult) (*big.Int, error) {
@@ -108,26 +86,4 @@ func parseBigInt(input models.RunResult) (*big.Int, error) {
 		return nil, fmt.Errorf("cannot parse into big.Int: %v", val)
 	}
 	return i, nil
-}
-
-func validateSignedRange(i *big.Int) error {
-	if evmInt256Max.Cmp(i) == -1 {
-		return fmt.Errorf("ethInt256: value %v too large", i.String())
-	}
-
-	if evmInt256Min.Cmp(i) == 1 {
-		return fmt.Errorf("ethInt256: value %v too small", i.String())
-	}
-	return nil
-}
-
-func validateUnsignedRange(i *big.Int) error {
-	if i.Sign() == -1 {
-		return fmt.Errorf("ethUint256: value %v is negative", i.String())
-	}
-
-	if evmUint256Max.Cmp(i) == -1 {
-		return fmt.Errorf("ethUint256: value %v too large", i.String())
-	}
-	return nil
 }

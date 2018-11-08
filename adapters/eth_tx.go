@@ -9,12 +9,19 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
+const (
+	// DataFormatBytes instructs the EthTx Adapter to treat the input value as a
+	// bytes string, rather than a hexadecimal encoded bytes32
+	DataFormatBytes = "bytes"
+)
+
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
 	Address          common.Address          `json:"address"`
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
+	DataFormat       string                  `json:"format"`
 }
 
 // Perform creates the run result for the transaction if the existing run result
@@ -27,17 +34,42 @@ func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.Run
 	return ensureTxRunResult(input, store)
 }
 
+func abiEncodeString(str string) ([]byte, error) {
+	input := []byte(str)
+	length := len(input)
+	return utils.ConcatBytes(
+		utils.EVMWordUint64(utils.EVMWordByteLen*2),
+		utils.EVMWordUint64(uint64(length)),
+		input,
+		make([]byte, utils.EVMWordByteLen-(length%utils.EVMWordByteLen)))
+}
+
+// getTxData returns the data to save against the callback encoded according to
+// the dataFormat parameter in the job spec
+func getTxData(e *EthTx, input models.RunResult) ([]byte, error) {
+	val, err := input.Value()
+	if err != nil {
+		return nil, err
+	}
+
+	if e.DataFormat == DataFormatBytes {
+		return abiEncodeString(val)
+	}
+
+	return common.HexToHash(val).Bytes(), nil
+}
+
 func createTxRunResult(
 	e *EthTx,
 	input models.RunResult,
 	store *store.Store,
 ) models.RunResult {
-	val, err := input.Value()
+	val, err := getTxData(e, input)
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	data, err := utils.HexToBytes(e.FunctionSelector.String(), e.DataPrefix.String(), val)
+	data, err := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, val)
 	if err != nil {
 		return input.WithError(err)
 	}

@@ -278,12 +278,12 @@ func NewRunLog(
 // StringToVersionedLogData encodes a string to the log data field.
 func StringToVersionedLogData(internalID, str string) []byte {
 	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
-	buf.Write(hexutil.MustDecode(utils.EVMHexNumber(1)))
-	buf.Write(hexutil.MustDecode(utils.EVMHexNumber(common.HashLength * 3)))
+	buf.Write(utils.EVMWordUint64(1))
+	buf.Write(utils.EVMWordUint64(common.HashLength * 3))
 
 	cbor, err := JSONFromString(str).CBOR()
 	mustNotErr(err)
-	buf.Write(hexutil.MustDecode(utils.EVMHexNumber(len(cbor))))
+	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
 	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
 	buf.Write(common.RightPadBytes(cbor, paddedLength))
 

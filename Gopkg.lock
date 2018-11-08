@@ -659,6 +659,7 @@
   input-imports = [
     "github.com/araddon/dateparse",
     "github.com/asdine/storm",
+    "github.com/asdine/storm/index",
     "github.com/asdine/storm/q",
     "github.com/bitly/go-simplejson",
     "github.com/caarlos0/env",

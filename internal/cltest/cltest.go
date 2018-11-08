@@ -820,10 +820,6 @@ func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
 }
 
-func StringToAddress(s string) common.Address {
-	return common.BytesToAddress(HexToBytes(s))
-}
-
 func hasHexPrefix(str string) bool {
 	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
 }
@@ -948,12 +944,6 @@ type MockChangePasswordPrompter struct {
 
 func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 	return m.ChangePasswordRequest, m.err
-}
-
-func HexToBytes(in string) []byte {
-	b, err := utils.HexToBytes(in)
-	mustNotErr(err)
-	return b
 }
 
 func AllJobs(store *store.Store) []models.JobSpec {
