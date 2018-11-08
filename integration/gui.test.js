@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer')
+const expect = require('expect-puppeteer')
 
 describe('Integration', () => {
   let browser, page
