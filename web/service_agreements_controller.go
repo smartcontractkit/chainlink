@@ -41,13 +41,15 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 			publicError(c, 422, err)
 			return
 		} else if err = sac.App.GetStore().SaveServiceAgreement(&sa); err != nil {
-			c.AbortWithError(500, err)
+			_ = c.AbortWithError(500, err)
+			return
+		} else if err = sac.App.AddJob(sa.JobSpec); err != nil {
+			_ = c.AbortWithError(500, err)
 			return
 		}
 	}
-
 	if buffer, err := NewJSONAPIResponse(&sa); err != nil {
-		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
+		_ = c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
 		c.Data(200, MediaType, buffer)
 	}
@@ -61,9 +63,11 @@ func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); err == storm.ErrNotFound {
 		publicError(c, 404, errors.New("ServiceAgreement not found"))
 	} else if err != nil {
-		c.AbortWithError(500, err)
+		_ = c.AbortWithError(500, err)
+		return
 	} else if doc, err := jsonapi.MarshalToStruct(presenters.ServiceAgreement{ServiceAgreement: sa}, nil); err != nil {
-		c.AbortWithError(500, err)
+		_ = c.AbortWithError(500, err)
+		return
 	} else {
 		c.JSON(200, doc)
 	}

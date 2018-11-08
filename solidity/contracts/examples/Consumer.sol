@@ -7,7 +7,7 @@ contract Consumer is Chainlinked {
   bytes32 public currentPrice;
 
   event RequestFulfilled(
-    bytes32 indexed requestId,
+                         bytes32 indexed requestId,  // User-defined ID
     bytes32 indexed price
   );
 

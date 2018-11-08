@@ -56,14 +56,16 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		return validateRunAtInitiator(i, j)
 	case models.InitiatorCron:
 		return validateCronInitiator(i)
-	default:
-		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
+	case models.InitiatorServiceAgreementExecutionLog:
+		return validateServiceAgreementInitiator(i, j)
 	case models.InitiatorWeb:
 		fallthrough
 	case models.InitiatorRunLog:
 		fallthrough
 	case models.InitiatorEthLog:
 		return nil
+	default:
+		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
 }
 
@@ -84,6 +86,14 @@ func validateCronInitiator(i models.Initiator) error {
 		return models.NewJSONAPIErrorsWith("Schedule must have a cron")
 	}
 	return nil
+}
+
+func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	if len(j.Initiators) != 1 {
+		fe.Add("ServiceAgreement should have at most one initiator")
+	}
+	return fe.CoerceEmptyToNil()
 }
 
 func validateTask(task models.TaskSpec, store *store.Store) error {

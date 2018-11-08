@@ -182,6 +182,14 @@ func TestValidateServiceAgreement(t *testing.T) {
 		{"without being listed as an oracle", basic.Add("oracles", []string{}), true},
 		{"past allowed end at", basic.Add("endAt", "3000-06-19T22:17:19Z"), true},
 		{"before allowed end at", basic.Add("endAt", "2018-06-19T22:17:19Z"), true},
+		{"more than one initiator should fail",
+			basic.Add("initiators",
+				[]models.Initiator{
+					{0, "", models.InitiatorServiceAgreementExecutionLog,
+						models.InitiatorParams{}},
+					{0, "", models.InitiatorWeb, models.InitiatorParams{}},
+				}),
+			true},
 	}
 
 	for _, test := range tests {
