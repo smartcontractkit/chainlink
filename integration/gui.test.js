@@ -3,9 +3,8 @@ const puppeteer = require('puppeteer')
 describe('Integration', () => {
   let browser, page
   beforeAll(async () => {
-    browser = await puppeteer.launch()
+    browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']})
     page = await browser.newPage()
-    page.setViewport({width: 1024, height: 768})
   })
 
   afterAll(async () => {
