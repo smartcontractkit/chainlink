@@ -323,7 +323,7 @@ func (i *Int) UnmarshalText(input []byte) error {
 	input = utils.RemoveQuotes(input)
 	str := string(input)
 	var ok bool
-	if utils.IsHex(str) {
+	if utils.HasHexPrefix(str) {
 		i, ok = i.setString(utils.RemoveHexPrefix(str), 16)
 	} else {
 		i, ok = i.setString(str, 10)

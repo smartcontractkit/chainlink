@@ -133,10 +133,10 @@ func (txm *TxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, er
 	functionSelector := models.HexToFunctionSelector("f3fef3a3") // withdraw(address _recipient, uint256 _amount)
 
 	amount := (*big.Int)(wr.Amount)
-	data, err := utils.HexToBytes(
-		functionSelector.String(),
-		common.ToHex(common.LeftPadBytes(wr.Address.Bytes(), utils.EVMWordByteLen)),
-		utils.EVMHexNumber(amount),
+	data, err := utils.ConcatBytes(
+		functionSelector.Bytes(),
+		common.LeftPadBytes(wr.Address.Bytes(), utils.EVMWordByteLen),
+		common.LeftPadBytes(amount.Bytes(), utils.EVMWordByteLen),
 	)
 
 	if txm.config.OracleContractAddress == nil {

@@ -71,6 +71,9 @@ func HexToFunctionSelector(s string) FunctionSelector {
 // String returns the FunctionSelector as a string type.
 func (f FunctionSelector) String() string { return hexutil.Encode(f[:]) }
 
+// Bytes returns the FunctionSelector as a byte slice
+func (f FunctionSelector) Bytes() []byte { return f[:] }
+
 // WithoutPrefix returns the FunctionSelector as a string without the '0x' prefix.
 func (f FunctionSelector) WithoutPrefix() string { return f.String()[2:] }
 
