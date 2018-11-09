@@ -46,7 +46,7 @@ contract Chainlinked {
     _run.close();
     unfulfilledRequests[_run.requestId] = oracle;
     emit ChainlinkRequested(_run.requestId);
-    require(link.transferAndCall(oracle, _amount, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
 
     return _run.requestId;
   }
@@ -107,6 +107,23 @@ contract Chainlinked {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
     setOracle(resolver.addr(oracleSubnode));
     return oracle;
+  }
+
+  function encodeForOracle(ChainlinkLib.Run memory self)
+    internal
+    view
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      oracle.requestData.selector,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
+      clArgsVersion,
+      self.specId,
+      self.callbackAddress,
+      self.callbackFunctionId,
+      self.requestId,
+      self.buf.buf);
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
