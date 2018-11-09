@@ -9,20 +9,18 @@ if (process.argv.length < 2) {
 
 const consumer = process.argv[2]
 
-const funcSelector = "0x9d1b464a"// "currentPrice()"
+const funcSelector = '0x9d1b464a' // "currentPrice()"
 
-(async function () {
-  await wallet.call({
-    to: consumer,
-    data: funcSelector,
-    gasPrice: 100000,
-    gas: 100000,
-  }).then(hex => {
-    const res = web3.utils.hexToUtf8(hex)
-    if (res.length) {
-      console.log(`current ETH price: ${res}`)
-    } else {
-      console.log(`No price listed`)
-    }
-  }).catch(console.log)
-}())
+wallet.call({
+  to: consumer,
+  data: funcSelector,
+  gasPrice: 100000,
+  gas: 100000
+}).then(hex => {
+  const res = web3.utils.hexToUtf8(hex)
+  if (res.length) {
+    console.log(`current ETH price: ${res}`)
+  } else {
+    console.log(`No price listed`)
+  }
+}).catch(console.log)
