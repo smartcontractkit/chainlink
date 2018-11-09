@@ -60,8 +60,9 @@ exit_handler() {
     # Clear all signal handlers to prevent handler loop
     trap - 1 2 3 15
     # Kill all child subprocesses
-    kill -- -$$ || true
+    pkill -P $$
   fi
+  exit $errno
 }
 
 trap "exit_handler" EXIT SIGTERM SIGINT
@@ -168,7 +169,7 @@ assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 ########################
 
 printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34methlog test.\033[0m\n"
+printf -- "\033[34mEthlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
 ethjob=`./create_ethlog_job`
@@ -184,6 +185,18 @@ assert "Jobs count" "chainlink -j j | jq length" 2
 ## Check job runs
 jid=`echo $ethjob | jq .data.id | tr -d '"'`
 assert "EthLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
+
+########################
+## End to end
+########################
+
+printf -- "\n--------------------------------------------------------------------------------\n"
+printf -- "\033[34mEnd to end tests.\033[0m\n"
+printf -- "--------------------------------------------------------------------------------\n\n"
+
+set -o pipefail
+yarn test-e2e | tee $SRCROOT/integration/e2e.tests.log
+set +o pipefail
 
 printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
 
