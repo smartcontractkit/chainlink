@@ -5,12 +5,8 @@ enclave {
   from "sgx_tstdc.edl" import *;
 
   trusted {
-    public sgx_status_t sgx_wasm(
-      [in, size=adapter_len] const uint8_t* adapter, size_t adapter_len,
-      [in, size=input_len] const uint8_t* input, size_t input_len,
-      [out, size=result_capacity] uint8_t* result_ptr, size_t result_capacity,
-      [out] size_t *result_len);
-    public sgx_status_t sgx_multiply(
+    public sgx_status_t enclave_adapter_perform(
+      [in, size=adapter_type_len] const uint8_t* adapter_type, size_t adapter_type_len,
       [in, size=adapter_len] const uint8_t* adapter, size_t adapter_len,
       [in, size=input_len] const uint8_t* input, size_t input_len,
       [out, size=result_capacity] uint8_t* result_ptr, size_t result_capacity,

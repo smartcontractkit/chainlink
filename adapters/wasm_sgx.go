@@ -34,6 +34,9 @@ func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResu
 		return input.WithError(err)
 	}
 
+	cAdapterType := C.CString("wasm")
+	defer C.free(unsafe.Pointer(cAdapterType))
+
 	cAdapter := C.CString(string(adapterJSON))
 	defer C.free(unsafe.Pointer(cAdapter))
 	cInput := C.CString(string(inputJSON))
@@ -45,8 +48,7 @@ func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResu
 	outputLen := C.int(0)
 	outputLenPtr := (*C.int)(unsafe.Pointer(&outputLen))
 
-	_, err = C.wasm(cAdapter, cInput, output, bufferCapacity, outputLenPtr)
-	if err != nil {
+	if _, err = C.sgx_adapter_perform(cAdapterType, cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
 		return input.WithError(fmt.Errorf("SGX wasm: %v", err))
 	}
 

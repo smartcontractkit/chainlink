@@ -56,6 +56,9 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input.WithError(err)
 	}
 
+	cAdapterType := C.CString("multiply")
+	defer C.free(unsafe.Pointer(cAdapterType))
+
 	cAdapter := C.CString(string(adapterJSON))
 	defer C.free(unsafe.Pointer(cAdapter))
 	cInput := C.CString(string(inputJSON))
@@ -67,7 +70,7 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	outputLen := C.int(0)
 	outputLenPtr := (*C.int)(unsafe.Pointer(&outputLen))
 
-	if _, err = C.multiply(cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
+	if _, err = C.sgx_adapter_perform(cAdapterType, cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
 		return input.WithError(fmt.Errorf("SGX multiply: %v", err))
 	}
 

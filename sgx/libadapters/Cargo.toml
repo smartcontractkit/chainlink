@@ -16,6 +16,7 @@ global_init = []
 global_exit = []
 
 [dependencies]
+crossbeam = "0.5.0"
 errno = "0.2.3"
 libc = "*"
 utils = { path = "../utils" }
