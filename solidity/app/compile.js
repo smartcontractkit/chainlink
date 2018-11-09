@@ -5,7 +5,9 @@ const path = require('path')
 const INCLUDE_PATHS = [
   './',
   './contracts',
+  '../contracts',
   './contracts/examples',
+  '../contracts/examples',
   '../node_modules/',
   '../node_modules/link_token/contracts'
 ]
