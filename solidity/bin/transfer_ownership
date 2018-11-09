@@ -10,19 +10,17 @@ if (process.argv.length < 3) {
 const owned = process.argv[2]
 const recipient = process.argv[3]
 
-const funcSelector = "0xf2fde38b" // "transferOwnership(address)"
+const funcSelector = '0xf2fde38b' // "transferOwnership(address)"
 const encoded = abi.rawEncode(['address'], [recipient])
 
 wallet.send({
   to: owned,
-  data: (funcSelector + encoded.toString('hex')),
-})
-.then(utils.getTxReceipt)
-.then(receipt => {
+  data: (funcSelector + encoded.toString('hex'))
+}).then(utils.getTxReceipt).then(receipt => {
   console.log(receipt)
   if (receipt.logs.length) {
     console.log(`ownership of ${owned} transferred to ${recipient}`)
   } else {
-    console.log("FAILED!!!")
+    console.log('FAILED!!!')
   }
 })

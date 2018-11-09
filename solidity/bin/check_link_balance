@@ -10,12 +10,12 @@ if (process.argv.length < 3) {
 const link = process.argv[2]
 const holder = process.argv[3]
 
-const funcSelector = "0x70a08231"// "balanceOf(address)"
+const funcSelector = '0x70a08231'// "balanceOf(address)"
 const encoded = abi.rawEncode(['address'], [holder])
 
 wallet.call({
   to: link,
-  data: (funcSelector + encoded.toString('hex')),
+  data: (funcSelector + encoded.toString('hex'))
 }).then(hex => {
   const res = web3.utils.toBN(hex)
   if (res.length) {
