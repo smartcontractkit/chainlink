@@ -127,15 +127,6 @@ contract('UpdatableConsumer', () => {
         assert.equal(web3.toUtf8(currentPrice), '')
       })
 
-      it('does not accept responses from the new oracle for the old requests', async () => {
-        await assertActionThrows(async () => {
-          await uc.fulfill(requestId, response, {from: oracleNode})
-        })
-
-        const currentPrice = await uc.currentPrice.call()
-        assert.equal(web3.toUtf8(currentPrice), '')
-      })
-
       it('still allows funds to be withdrawn from the oracle', async () => {
         await increaseTime5Minutes()
         assertBigNum(toWei(0), await link.balanceOf.call(uc.address))
