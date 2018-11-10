@@ -17,6 +17,7 @@ global_exit = []
 
 [dependencies]
 errno = "0.2.3"
+lazy_static = "1.0.0"
 libc = "*"
 utils = { path = "../utils" }
 

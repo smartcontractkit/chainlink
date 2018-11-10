@@ -3,7 +3,7 @@ use libc;
 use sgx_types::*;
 use utils::cstr_len;
 
-use get_enclave;
+use use_enclave;
 
 extern "C" {
     fn sgx_wasm(
@@ -27,42 +27,36 @@ pub extern "C" fn wasm(
     result_capacity: usize,
     result_len: *mut usize,
 ) {
-    let enclave_id = match get_enclave() {
-        Ok(e) => e,
-        Err(err) => {
-            set_errno(Errno(err as i32));
-            return;
-        }
-    };
+    use_enclave(|enclave_id| {
+        let mut retval = sgx_status_t::SGX_SUCCESS;
+        let result = unsafe {
+            sgx_wasm(
+                enclave_id,
+                &mut retval,
+                adapter as *const u8,
+                cstr_len(adapter),
+                input as *const u8,
+                cstr_len(input),
+                result_ptr as *mut u8,
+                result_capacity,
+                result_len as *mut usize,
+            )
+        };
 
-    let mut retval = sgx_status_t::SGX_SUCCESS;
-    let result = unsafe {
-        sgx_wasm(
-            enclave_id,
-            &mut retval,
-            adapter as *const u8,
-            cstr_len(adapter),
-            input as *const u8,
-            cstr_len(input),
-            result_ptr as *mut u8,
-            result_capacity,
-            result_len as *mut usize,
-        )
-    };
-
-    set_errno(Errno(0));
-    match result {
-        sgx_status_t::SGX_SUCCESS => {}
-        _ => {
-            set_errno(Errno(result as i32));
-            return;
+        set_errno(Errno(0));
+        match result {
+            sgx_status_t::SGX_SUCCESS => {}
+            _ => {
+                set_errno(Errno(result as i32));
+                return;
+            }
         }
-    }
 
-    match retval {
-        sgx_status_t::SGX_SUCCESS => {}
-        _ => {
-            set_errno(Errno(result as i32));
+        match retval {
+            sgx_status_t::SGX_SUCCESS => {}
+            _ => {
+                set_errno(Errno(result as i32));
+            }
         }
-    }
+    });
 }
