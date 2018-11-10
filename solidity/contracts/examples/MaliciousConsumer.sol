@@ -11,8 +11,8 @@ contract MaliciousConsumer is Chainlinked {
     setOracle(_oracle);
   }
 
-  function requestData(string _callbackFunc) public {
-    ChainlinkLib.Run memory run = newRun("specId", this, _callbackFunc);
+  function requestData(bytes _callbackFunc) public {
+    ChainlinkLib.Run memory run = newRun("specId", this, bytes4(keccak256(_callbackFunc)));
     chainlinkRequest(run, LINK(1));
   }
 

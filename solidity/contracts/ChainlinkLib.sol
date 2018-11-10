@@ -17,12 +17,12 @@ library ChainlinkLib {
     Run memory self,
     bytes32 _specId,
     address _callbackAddress,
-    string _callbackFunctionSignature
+    bytes4 _callbackFunction
   ) internal pure returns (ChainlinkLib.Run memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
+    self.callbackFunctionId = _callbackFunction;
     self.buf.startMap();
     return self;
   }
