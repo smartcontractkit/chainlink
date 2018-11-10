@@ -54,9 +54,10 @@ contract Chainlinked {
   function cancelChainlinkRequest(bytes32 _requestId)
     internal
   {
+    OracleInterface requested = OracleInterface(unfulfilledRequests[_requestId]);
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
-    oracle.cancel(_requestId);
+    requested.cancel(_requestId);
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
