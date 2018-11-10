@@ -3,8 +3,11 @@ import {
   defaultAccount,
   deploy,
   getLatestEvent,
-  oracleNode
+  increaseTime5Minutes,
+  oracleNode,
+  toWei
 } from './support/helpers'
+import { assertBigNum } from './support/matchers'
 import namehash from 'eth-ens-namehash'
 
 contract('UpdatableConsumer', () => {
@@ -131,6 +134,15 @@ contract('UpdatableConsumer', () => {
 
         const currentPrice = await uc.currentPrice.call()
         assert.equal(web3.toUtf8(currentPrice), '')
+      })
+
+      it('still allows funds to be withdrawn from the oracle', async () => {
+        await increaseTime5Minutes()
+        assertBigNum(toWei(0), await link.balanceOf.call(uc.address))
+
+        await uc.cancelRequest(requestId)
+
+        assertBigNum(toWei(1), await link.balanceOf.call(uc.address))
       })
     })
   })
