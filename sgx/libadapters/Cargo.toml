@@ -19,6 +19,7 @@ global_exit = []
 errno = "0.2.3"
 lazy_static = "1.0.0"
 libc = "*"
+pool = "0.1.3"
 utils = { path = "../utils" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
