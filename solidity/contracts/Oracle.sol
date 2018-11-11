@@ -73,6 +73,7 @@ contract Oracle is OracleInterface, Ownable {
   )
     external
     onlyLINK
+    checkCallbackAddress(_callbackAddress)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
     callbacks[internalId] = Callback(
@@ -155,6 +156,11 @@ contract Oracle is OracleInterface, Ownable {
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    _;
+  }
+
+  modifier checkCallbackAddress(address _to) {
+    require(_to != address(LINK), "Cannot callback to LINK");
     _;
   }
 

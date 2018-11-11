@@ -99,7 +99,10 @@ export const getLatestEvent = async (contract) => {
   return events[events.length - 1]
 }
 
-export const requestDataFrom = (oc, link, amount, args) => link.transferAndCall(oc.address, amount, args)
+export const requestDataFrom = (oc, link, amount, args, options) => {
+  if (!options) options = {}
+  return link.transferAndCall(oc.address, amount, args, options)
+}
 
 export const functionSelector = signature => '0x' + web3.sha3(signature).slice(2).slice(0, 8)
 
@@ -160,9 +163,13 @@ export const runRequestId = log => {
 export const requestDataBytes = (specId, to, fHash, runId, data) => {
   let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
   let values = [0, 0, 1, specId, to, fHash, runId, data]
-  let encoded = abi.rawEncode(types, values)
+  let encoded = abiEncode(types, values)
   let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
-  return funcSelector + encoded.toString('hex')
+  return funcSelector + encoded
+}
+
+export const abiEncode = (types, values) => {
+  return abi.rawEncode(types, values).toString('hex')
 }
 
 export const newUint8ArrayFromStr = (str) => {
@@ -284,9 +291,9 @@ export const personalSign = (account, message) => {
 export const executeServiceAgreementBytes = (sAID, to, fHash, runId, data) => {
   let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
   let values = [0, 0, 1, sAID, to, fHash, runId, data]
-  let encoded = abi.rawEncode(types, values)
+  let encoded = abiEncode(types, values)
   let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
-  return funcSelector + encoded.toString('hex')
+  return funcSelector + encoded
 }
 
 // Convenience functions for constructing hexadecimal representations of
