@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 // File: openzeppelin-solidity/contracts/ownership/Ownable.sol
 
