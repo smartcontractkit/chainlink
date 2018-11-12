@@ -3,6 +3,9 @@ pragma solidity 0.4.24;
 import "solidity-cborutils/contracts/CBOR.sol";
 
 library MaliciousChainlinkLib {
+  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
+  bytes4 internal constant oracleWithdrawFid = bytes4(keccak256("withdraw(address)"));
+
   using CBOR for Buffer.buffer;
 
   struct Run {
@@ -26,12 +29,12 @@ library MaliciousChainlinkLib {
     Run memory self,
     bytes32 _specId,
     address _callbackAddress,
-    bytes4 _callbackFunction
+    string _callbackFunctionSignature
   ) internal pure returns (MaliciousChainlinkLib.Run memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = _callbackFunction;
+    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
     self.buf.startMap();
     return self;
   }
@@ -40,14 +43,40 @@ library MaliciousChainlinkLib {
     WithdrawRun memory self,
     bytes32 _specId,
     address _callbackAddress,
-    bytes4 _callbackFunction
+    string _callbackFunctionSignature
   ) internal pure returns (MaliciousChainlinkLib.WithdrawRun memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = _callbackFunction;
+    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
     self.buf.startMap();
     return self;
+  }
+
+  function encodeForOracle(
+    Run memory self,
+    uint256 _clArgsVersion
+  ) internal view returns (bytes memory) {
+    return abi.encodeWithSelector(
+      oracleRequestDataFid,
+      address(this), // overridden by onTokenTransfer
+      100 ether,     // overridden by onTokenTransfer
+      _clArgsVersion,
+      self.specId,
+      self.callbackAddress,
+      self.callbackFunctionId,
+      self.requestId,
+      self.buf.buf);
+  }
+
+  function encodeWithdrawForOracle(WithdrawRun memory self, uint256)
+    internal pure returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      oracleWithdrawFid,
+      self.callbackAddress,
+      self.amount,
+      self.buf.buf);
   }
 
   function add(Run memory self, string _key, string _value)

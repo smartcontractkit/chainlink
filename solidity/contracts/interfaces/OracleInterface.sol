@@ -13,5 +13,4 @@ interface OracleInterface {
     bytes32 externalId,
     bytes data
   ) external;
-  function withdraw(address recipient, uint256 amount) external;
 }

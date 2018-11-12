@@ -31,7 +31,7 @@ contract Chainlinked {
   function newRun(
     bytes32 _specId,
     address _callbackAddress,
-    bytes4 _callbackFunctionSignature
+    string _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
@@ -110,7 +110,7 @@ contract Chainlinked {
     return oracle;
   }
 
-  function encodeForOracle(ChainlinkLib.Run memory _run)
+  function encodeForOracle(ChainlinkLib.Run memory self)
     internal
     view
     returns (bytes memory)
@@ -120,11 +120,11 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
       clArgsVersion,
-      _run.specId,
-      _run.callbackAddress,
-      _run.callbackFunctionId,
-      _run.requestId,
-      _run.buf.buf);
+      self.specId,
+      self.callbackAddress,
+      self.callbackFunctionId,
+      self.requestId,
+      self.buf.buf);
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {

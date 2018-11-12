@@ -22,12 +22,11 @@ contract ConcreteChainlinked is Chainlinked {
   function publicNewRun(
     bytes32 _specId,
     address _address,
-    bytes _fulfillmentSignature
+    string _fulfillmentSignature
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(
-      _specId, _address, bytes4(keccak256(_fulfillmentSignature)));
+    ChainlinkLib.Run memory run = newRun(_specId, _address, _fulfillmentSignature);
     run.close();
     emit Run(
       run.specId,
@@ -40,13 +39,12 @@ contract ConcreteChainlinked is Chainlinked {
   function publicRequestRun(
     bytes32 _specId,
     address _address,
-    bytes _fulfillmentSignature,
+    string _fulfillmentSignature,
     uint256 _wei
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(
-      _specId, _address, bytes4(keccak256(_fulfillmentSignature)));
+    ChainlinkLib.Run memory run = newRun(_specId, _address, _fulfillmentSignature);
     chainlinkRequest(run, _wei);
   }
 
