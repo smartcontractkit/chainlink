@@ -5,16 +5,25 @@ extern crate libc;
 extern crate sgx_types;
 extern crate sgx_urts;
 extern crate utils;
+#[macro_use]
+extern crate lazy_static;
 
 use sgx_types::*;
 use sgx_urts::SgxEnclave;
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 
 pub mod multiply;
 pub mod wasm;
 
 static ENCLAVE_FILE: &str = "enclave.signed.so";
-thread_local!(static ENCLAVE: RefCell<Option<SgxEnclave>> = RefCell::new(None));
+
+lazy_static! {
+    static ref ENCLAVE: Arc<Mutex<SgxEnclave>> = {
+        Arc::new(Mutex::new(enclave_init().unwrap_or_else(|err| {
+            panic!("Failed to initialize the enclave: {}", err);
+        })))
+    };
+}
 
 fn enclave_init() -> SgxResult<SgxEnclave> {
     let mut launch_token: sgx_launch_token_t = [0; 1024];
@@ -33,17 +42,10 @@ fn enclave_init() -> SgxResult<SgxEnclave> {
     )
 }
 
-// get_enclave lazily initializes a thread local enclave context and returns its ID for use in
-// ECALL/OCALLs
-pub fn get_enclave() -> SgxResult<u64> {
-    ENCLAVE.with(|e| {
-        if let Some(ref e) = *e.borrow() {
-            return Ok(e.geteid());
-        }
-
-        let enclave = enclave_init()?;
-        let enclave_id = enclave.geteid();
-        *e.borrow_mut() = Some(enclave);
-        Ok(enclave_id)
-    })
+// use_enclave takes a closure and passes in an enclave ID for making enclave calls in a thread
+// safe way
+pub fn use_enclave<F>(ctx: F) 
+    where F: Fn(u64) {
+    let enclave = ENCLAVE.lock().unwrap();
+    ctx(enclave.geteid())
 }
