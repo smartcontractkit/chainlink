@@ -69,10 +69,24 @@ trap "exit_handler" EXIT SIGTERM SIGINT
 
 pushd $SRCROOT >/dev/null
 
-# Install gethnet 1.8.8
+########################
+## Retrieve gethnet version from Gopkg.lock
+########################
+
+printf -- "\033[34mRetrieving geth version...\033[0m\n"
+go get github.com/pelletier/go-toml/cmd/tomljson
+ethversion=`tomljson Gopkg.lock | jq -r '.projects | .[] | select(.name | contains("go-ethereum")) | .version'`
+
+########################
+## Install gethnet
+########################
 #set -x
+
+printf -- "\033[34mInstalling geth $ethversion...\033[0m\n"
+
 ethpkg=github.com/ethereum/go-ethereum
 ethpath=$GOPATH/src/$ethpkg
+
 if [ -d "$ethpath" ]; then
   pushd "$ethpath" >/dev/null
   git checkout master &>/dev/null
@@ -81,7 +95,7 @@ else
   go get -d $ethpkg
   pushd "$ethpath" >/dev/null
 fi
-git checkout v1.8.15 2>/dev/null
+git checkout $ethversion 2>/dev/null
 popd >/dev/null
 go install $ethpkg/cmd/geth
 
