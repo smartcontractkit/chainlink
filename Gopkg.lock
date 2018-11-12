@@ -58,11 +58,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f3abfa25be58d238021db23ebece3ae342f7926393e4e8aca738dc3b11fc4d7b"
+  digest = "1:5bcf182744e32e7fe3a28f9daa77f81bbe1f191db476a748adb25bab48bfc80d"
   name = "github.com/caarlos0/env"
   packages = ["."]
   pruneopts = ""
-  revision = "3e0f30cbf50bb82273cf60e7bb70869f4852e9b8"
+  revision = "515df9e9ee27b2dc58e4bc30b10598ebc54ffd36"
 
 [[projects]]
   digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
