@@ -6,6 +6,7 @@ import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
+import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
 const classes = {}
 const mountShow = (props) => (
@@ -24,10 +25,11 @@ describe('containers/Jobs/Show', () => {
   it('renders the details of the job spec and its latest runs', async () => {
     expect.assertions(6)
 
+    const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
       id: jobSpecId,
       initiators: [{'type': 'web'}],
-      createdAt: '2018-05-10T00:41:54.531043837Z',
+      createdAt: minuteAgo,
       runs: [{id: 'runA', result: {data: {value: '8400.00'}}}]
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
@@ -38,7 +40,7 @@ describe('containers/Jobs/Show', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('IDc60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
-    expect(wrapper.text()).toContain('Created2018-05-10T00:41:54.531043837Z')
+    expect(wrapper.text()).toContain('Createda minute ago')
     expect(wrapper.text()).toContain('Run Count1')
     expect(wrapper.text()).toContain('{"value":"8400.00"}')
     expect(wrapper.text()).not.toContain('Show More')
