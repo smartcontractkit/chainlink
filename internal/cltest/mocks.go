@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -33,7 +34,11 @@ func (ta *TestApplication) MockEthClient() *EthMock {
 func MockEthOnStore(s *store.Store) *EthMock {
 	mock := &EthMock{}
 	eth := &store.EthClient{CallerSubscriber: mock}
-	s.TxManager.EthClient = eth
+	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
+		txm.EthClient = eth
+	} else {
+		log.Panic("MockEthOnStore only works on EthTxManager")
+	}
 	return mock
 }
 

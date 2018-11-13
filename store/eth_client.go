@@ -56,16 +56,6 @@ func (eth *EthClient) GetEthBalance(address common.Address) (*assets.Eth, error)
 	return (*assets.Eth)(balance), nil
 }
 
-// GetLinkBalance returns the balance of LINK at the given address
-func (txm *TxManager) GetLinkBalance(address common.Address) (*assets.Link, error) {
-	contractAddress := common.HexToAddress(txm.config.LinkContractAddress)
-	balance, err := txm.GetERC20Balance(address, contractAddress)
-	if err != nil {
-		return assets.NewLink(0), err
-	}
-	return (*assets.Link)(balance), nil
-}
-
 // GetERC20Balance returns the balance of the given address for the token contract address.
 func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	type callArgs struct {

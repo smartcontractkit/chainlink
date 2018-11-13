@@ -360,7 +360,7 @@ func TestTxManager_ActivateAccount(t *testing.T) {
 	t.Parallel()
 
 	ethMock := &cltest.EthMock{}
-	txm := &strpkg.TxManager{
+	txm := &strpkg.EthTxManager{
 		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
 	}
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
@@ -378,7 +378,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethMock := &cltest.EthMock{}
-	txm := &strpkg.TxManager{
+	txm := &strpkg.EthTxManager{
 		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
 	}
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
