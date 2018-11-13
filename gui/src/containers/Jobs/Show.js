@@ -23,6 +23,7 @@ import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import ErrorMessage from 'components/Notifications/DefaultError'
+import TimeAgo from 'components/TimeAgo'
 
 const styles = theme => ({
   actions: {
@@ -116,7 +117,7 @@ const renderJobSpec = ({classes, job, createJobRun, fetching, fetchJob}) => {
             <Grid item xs={12}>
               <Typography variant='subheading' color='textSecondary'>Created</Typography>
               <Typography variant='body1' color='inherit'>
-                {job.createdAt}
+                <TimeAgo>{job.createdAt}</TimeAgo>
               </Typography>
             </Grid>
             <Grid item xs={12}>
