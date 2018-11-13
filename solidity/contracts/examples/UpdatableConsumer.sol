@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 import "./Consumer.sol";
 
@@ -16,7 +16,7 @@ contract UpdatableConsumer is Consumer {
   function getChainlinkToken() public view returns (address) {
     return chainlinkToken();
   }
-  
+
   function getOracle() public view returns (address) {
     return oracleAddress();
   }

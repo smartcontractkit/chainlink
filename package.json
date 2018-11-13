@@ -79,7 +79,7 @@
     "request-promise": "^4.2.2",
     "serve": "^10.0.0",
     "snazzy": "^7.1.1",
-    "solc": "^0.4.24",
+    "solc": "0.4.24",
     "solium": "^1.1.8",
     "solium-plugin-zeppelin": "^0.0.2",
     "standard": "^11.0.1",
