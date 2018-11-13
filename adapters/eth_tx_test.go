@@ -1,13 +1,16 @@
 package adapters_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/golang/mock/gomock"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/mock_store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -317,4 +320,38 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testi
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
+}
+
+func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	ctrl := gomock.NewController(t)
+	txmMock := mock_store.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
+	txmMock.EXPECT().CreateTx(gomock.Any(), []byte{
+		0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0b,
+		0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	}).Return(&models.Tx{}, nil)
+	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
+
+	task := models.TaskSpec{}
+	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
+	assert.NoError(t, err)
+	assert.Equal(t, task.Type, adapters.TaskTypeEthTx)
+
+	adapter, err := adapters.For(task, store)
+	assert.NoError(t, err)
+	ethtx, ok := adapter.BaseAdapter.(*adapters.EthTx)
+	assert.True(t, ok)
+	assert.Equal(t, ethtx.DataFormat, adapters.DataFormatBytes)
+
+	input := models.RunResult{
+		Data:   cltest.JSONFromString(`{"value": "hello world"}`),
+		Status: models.RunStatusInProgress,
+	}
+	result := adapter.Perform(input, store)
+	assert.False(t, result.HasError())
+	assert.Equal(t, result.Error(), "")
 }

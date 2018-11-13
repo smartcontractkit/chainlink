@@ -7,10 +7,12 @@ import (
 	"regexp"
 	"sync"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -20,9 +22,25 @@ import (
 const defaultGasLimit uint64 = 500000
 const nonceReloadLimit uint = 1
 
-// TxManager contains fields for the Ethereum client, the KeyStore,
+// TxManager represents an interface for interacting with the blockchain
+type TxManager interface {
+	CreateTx(to common.Address, data []byte) (*models.Tx, error)
+	ActivateAccount(account accounts.Account) error
+	MeetsMinConfirmations(hash common.Hash) (bool, error)
+	WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error)
+	GetLinkBalance(address common.Address) (*assets.Link, error)
+	GetActiveAccount() *ActiveAccount
+
+	GetEthBalance(address common.Address) (*assets.Eth, error)
+	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
+	GetBlockByNumber(hex string) (models.BlockHeader, error)
+	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (models.EthSubscription, error)
+	GetLogs(q ethereum.FilterQuery) ([]Log, error)
+}
+
+// EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
-type TxManager struct {
+type EthTxManager struct {
 	*EthClient
 	keyStore      *KeyStore
 	config        Config
@@ -31,11 +49,11 @@ type TxManager struct {
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
-func (txm *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
+func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	return txm.createTxWithNonceReload(to, data, 0)
 }
 
-func (txm *TxManager) createTxWithNonceReload(to common.Address, data []byte, nrc uint) (*models.Tx, error) {
+func (txm *EthTxManager) createTxWithNonceReload(to common.Address, data []byte, nrc uint) (*models.Tx, error) {
 	if txm.activeAccount == nil {
 		return nil, errors.New("Must activate an account before creating a transaction")
 	}
@@ -98,9 +116,19 @@ func (txm *TxManager) createTxWithNonceReload(to common.Address, data []byte, nr
 	return tx, err
 }
 
+// GetLinkBalance returns the balance of LINK at the given address
+func (txm *EthTxManager) GetLinkBalance(address common.Address) (*assets.Link, error) {
+	contractAddress := common.HexToAddress(txm.config.LinkContractAddress)
+	balance, err := txm.GetERC20Balance(address, contractAddress)
+	if err != nil {
+		return assets.NewLink(0), err
+	}
+	return (*assets.Link)(balance), nil
+}
+
 // MeetsMinConfirmations returns true if the given transaction hash has been
 // confirmed on the blockchain.
-func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
+func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return false, err
@@ -129,7 +157,7 @@ func (txm *TxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 }
 
 // WithdrawLink withdraws the given amount of LINK from the contract to the configured withdrawal address
-func (txm *TxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error) {
+func (txm *EthTxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error) {
 	functionSelector := models.HexToFunctionSelector("f3fef3a3") // withdraw(address _recipient, uint256 _amount)
 
 	amount := (*big.Int)(wr.Amount)
@@ -150,7 +178,7 @@ func (txm *TxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, er
 	return tx.Hash, nil
 }
 
-func (txm *TxManager) createAttempt(
+func (txm *EthTxManager) createAttempt(
 	tx *models.Tx,
 	gasPrice *big.Int,
 	blkNum uint64,
@@ -168,7 +196,7 @@ func (txm *TxManager) createAttempt(
 	return a, txm.sendTransaction(etx)
 }
 
-func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
+func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
 	hex, err := utils.EncodeTxToHex(tx)
 	if err != nil {
 		return err
@@ -179,7 +207,7 @@ func (txm *TxManager) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-func (txm *TxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {
+func (txm *EthTxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {
 	attempt := &models.TxAttempt{}
 	if err := txm.orm.One("Hash", hash, attempt); err != nil {
 		return []models.TxAttempt{}, err
@@ -191,7 +219,7 @@ func (txm *TxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) 
 	return attempts, nil
 }
 
-func (txm *TxManager) checkAttempt(
+func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
@@ -207,7 +235,7 @@ func (txm *TxManager) checkAttempt(
 	return txm.handleConfirmed(tx, txat, receipt, blkNum)
 }
 
-func (txm *TxManager) handleConfirmed(
+func (txm *EthTxManager) handleConfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	rcpt *TxReceipt,
@@ -229,7 +257,7 @@ func (txm *TxManager) handleConfirmed(
 	return true, nil
 }
 
-func (txm *TxManager) handleUnconfirmed(
+func (txm *EthTxManager) handleUnconfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
@@ -242,7 +270,7 @@ func (txm *TxManager) handleUnconfirmed(
 	return false, nil
 }
 
-func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
+func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	tx := &models.Tx{}
 	if err := txm.orm.One("ID", txat.TxID, tx); err != nil {
 		return err
@@ -255,7 +283,7 @@ func (txm *TxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 
 // GetActiveAccount returns a copy of the TxManager's active nonce managed
 // account.
-func (txm *TxManager) GetActiveAccount() *ActiveAccount {
+func (txm *EthTxManager) GetActiveAccount() *ActiveAccount {
 	if txm.activeAccount == nil {
 		return nil
 	}
@@ -267,7 +295,7 @@ func (txm *TxManager) GetActiveAccount() *ActiveAccount {
 
 // ActivateAccount retrieves an account's nonce from the blockchain for client
 // side management in ActiveAccount.
-func (txm *TxManager) ActivateAccount(account accounts.Account) error {
+func (txm *EthTxManager) ActivateAccount(account accounts.Account) error {
 	nonce, err := txm.GetNonce(account.Address)
 	if err != nil {
 		return err
@@ -278,7 +306,7 @@ func (txm *TxManager) ActivateAccount(account accounts.Account) error {
 }
 
 // ReloadNonce fetch and update the current nonce via eth_getTransactionCount
-func (txm *TxManager) ReloadNonce() error {
+func (txm *EthTxManager) ReloadNonce() error {
 	nonce, err := txm.GetNonce(txm.activeAccount.Address)
 	if err != nil {
 		return fmt.Errorf("TxManager ReloadNonce: %v", err)
