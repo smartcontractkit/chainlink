@@ -14,6 +14,7 @@ export default ({id, jobId, status, result, createdAt}) => {
   return {
     data: {
       id: _id,
+      type: 'runs',
       attributes: {
         id: _id,
         jobId: _jobId,

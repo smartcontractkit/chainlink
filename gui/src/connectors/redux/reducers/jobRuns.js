@@ -1,55 +1,36 @@
-import {
-  RECEIVE_JOB_SPEC_SUCCESS,
-  RECEIVE_JOB_SPEC_RUNS_SUCCESS,
-  RECEIVE_JOB_SPEC_RUN_SUCCESS
-} from 'actions'
-
 const initialState = {
-  currentPage: [],
-  items: {}
+  items: {},
+  currentPage: null,
+  currentJobRunsCount: null
 }
 
-export const LATEST_JOB_RUNS_COUNT = 5
+export const UPSERT_JOB_RUNS = 'UPSERT_JOB_RUNS'
+export const UPSERT_JOB_RUN = 'UPSERT_JOB_RUN'
+export const UPSERT_JOB = 'UPSERT_JOB'
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
-    case RECEIVE_JOB_SPEC_RUNS_SUCCESS: {
-      const runs = (action.items || [])
-      const mapped = runs.reduce(
-        (acc, r) => { acc[r.id] = r; return acc },
-        {}
-      )
-
+    case UPSERT_JOB_RUNS: {
       return Object.assign(
         {},
         state,
-        {
-          currentPage: runs.map(jr => jr.id),
-          items: Object.assign({}, state.items, mapped)
-        }
+        {items: Object.assign({}, state.items, action.data.runs)},
+        {currentPage: action.data.meta.currentPageJobRuns.data.map(r => r.id)},
+        {currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count}
       )
     }
-    case RECEIVE_JOB_SPEC_RUN_SUCCESS: {
+    case UPSERT_JOB_RUN: {
       return Object.assign(
         {},
         state,
-        {items: Object.assign({}, state.items, {[action.item.id]: action.item})}
+        {items: Object.assign({}, state.items, action.data.runs)}
       )
     }
-    case RECEIVE_JOB_SPEC_SUCCESS: {
-      const runs = action.item.runs || []
-      const runsMap = runs.reduce(
-        (acc, r) => { acc[r.id] = r; return acc },
-        {}
-      )
-
+    case UPSERT_JOB: {
       return Object.assign(
         {},
         state,
-        {
-          currentPage: runs.map(jr => jr.id).slice(0, LATEST_JOB_RUNS_COUNT),
-          items: Object.assign({}, state.items, runsMap)
-        }
+        {items: Object.assign({}, state.items, action.data.runs)}
       )
     }
     default:

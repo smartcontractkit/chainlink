@@ -1,7 +1,6 @@
 /* eslint-env jest */
 import React from 'react'
 import jsonApiJobSpecsFactory from 'factories/jsonApiJobSpecs'
-import accountBalanceFactory from 'factories/accountBalance'
 import syncFetch from 'test-helpers/syncFetch'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
@@ -44,9 +43,6 @@ describe('containers/Jobs/Index', () => {
   it('can page through the list of jobs', async () => {
     expect.assertions(6)
 
-    const accountBalanceResponse = accountBalanceFactory('0', '0')
-    global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
-
     const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
 
@@ -70,18 +66,5 @@ describe('containers/Jobs/Index', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
-  })
-
-  it('displays an error message when the network requests fail', async () => {
-    expect.assertions(1)
-
-    global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
-
-    const wrapper = mountIndex()
-
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain(
-      'There was an error fetching the jobs. Please reload the page.'
-    )
   })
 })
