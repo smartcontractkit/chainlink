@@ -1,0 +1,19 @@
+[package]
+name = "bigdecimal"
+version = "0.0.14"
+authors = ["Andrew Kubera"]
+description = "Arbitrary percision decimal numbers"
+documentation = "https://docs.rs/bigdecimal"
+homepage = "https://github.com/akubera/bigdecimal-rs"
+repository = "https://github.com/akubera/bigdecimal-rs"
+keywords = ["mathematics", "numerics", "decimal", "arbitrary-precision", "floating-point"]
+license = "MIT/Apache-2.0"
+
+[dependencies]
+num-bigint = "0.2"
+num-integer = "0.1.39"
+num-traits = "0.2"
+serde = { version = "1.0", optional = true }
+
+[dev-dependencies.serde_json]
+version = "1.0"
