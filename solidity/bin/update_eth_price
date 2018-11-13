@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+
+const {abi, utils, wallet} = require('../app/env.js')
+
+if (process.argv.length < 2) {
+  console.error('Usage: ./request_eth_price <contract address>')
+  process.exit(1)
+}
+
+const consumer = process.argv[2]
+
+const funcSelector = '0x6c0cae68' // "requestEthereumPrice(string)",
+const encoded = abi.rawEncode(['string'], ["USD"])
+
+wallet.send({
+  to: consumer,
+  data: (funcSelector + encoded.toString('hex'))
+}).then(utils.getTxReceipt).then(receipt => {
+  console.log(receipt)
+  if (receipt.logs.length) {
+    console.log(receipt.logs[3].topics)
+    console.log(`price successfully requested`)
+  } else {
+    console.log('FAILED!!!')
+  }
+})
