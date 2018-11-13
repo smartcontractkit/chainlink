@@ -46,9 +46,9 @@ describe('containers/Jobs/Show', () => {
 
   it('displays a show more link if there are more runs than the display count', async () => {
     const runs = [
-      {id: 'runA', jobId: jobSpecId, result: {}},
-      {id: 'runB', jobId: jobSpecId, result: {}},
-      {id: 'runC', jobId: jobSpecId, result: {}}
+      {id: 'runA', jobId: jobSpecId},
+      {id: 'runB', jobId: jobSpecId},
+      {id: 'runC', jobId: jobSpecId}
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
