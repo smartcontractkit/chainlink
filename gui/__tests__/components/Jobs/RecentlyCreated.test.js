@@ -11,15 +11,19 @@ const renderComponent = (jobs) => (
   )
 )
 
+const createdAt = i => (new Date(i)).toISOString()
+
 describe('components/Jobs/RecentlyCreated', () => {
   it('shows the id and creation date', () => {
+    const minuteAgo = createdAt(Date.now() - 60 * 1000)
     const jobB = {
       id: 'job_b',
-      createdAt: Date.now() - 60 * 1000
+      createdAt: minuteAgo
     }
+    const twoMinutesAgo = createdAt(Date.now() - 60 * 2 * 1000)
     const jobA = {
       id: 'job_a',
-      createdAt: Date.now() - 60 * 2 * 1000
+      createdAt: twoMinutesAgo
     }
 
     let wrapper = renderComponent([jobB, jobA])

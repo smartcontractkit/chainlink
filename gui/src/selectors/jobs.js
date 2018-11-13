@@ -1,7 +1,8 @@
-export default state => (
-  state
-    .jobs
+import build from 'redux-object'
+
+export default ({jobs}) => (
+  jobs.currentPage && jobs
     .currentPage
-    .map(id => state.jobs.items[id])
+    .map(id => build(jobs, 'items', id))
     .filter(j => j)
 )

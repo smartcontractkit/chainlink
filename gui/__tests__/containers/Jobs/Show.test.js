@@ -44,14 +44,11 @@ describe('containers/Jobs/Show', () => {
     expect(wrapper.text()).not.toContain('Show More')
   })
 
-  it('displays a show more link if there are more than 5 runs', async () => {
+  it('displays a show more link if there are more runs than the display count', async () => {
     const runs = [
-      {id: 'runA', result: {data: {value: '8400.00'}}},
-      {id: 'runB', result: {data: {value: '8400.00'}}},
-      {id: 'runC', result: {data: {value: '8400.00'}}},
-      {id: 'runD', result: {data: {value: '8400.00'}}},
-      {id: 'runE', result: {data: {value: '8400.00'}}},
-      {id: 'runE', result: {data: {value: '8400.00'}}}
+      {id: 'runA', jobId: jobSpecId, result: {}},
+      {id: 'runB', jobId: jobSpecId, result: {}},
+      {id: 'runC', jobId: jobSpecId, result: {}}
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({

@@ -19,14 +19,16 @@ const mountShow = (props) => (
 )
 
 describe('containers/JobRuns/Show', () => {
+  const jobSpecId = '942e8b218d414e10a053-000455fdd470'
   const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
 
   it('renders the details of the job spec and its latest runs', async () => {
     expect.assertions(4)
 
     const jobRunResponse = jsonApiJobSpecRunFactory({
-      id: 'ad24b72c12f441b99b9877bcf6cb506e',
+      id: jobRunId,
       createdAt: '2018-06-19T15:39:53.315919143-07:00',
+      jobId: jobSpecId,
       result: {
         data: {
           value: '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
@@ -35,7 +37,7 @@ describe('containers/JobRuns/Show', () => {
     })
     global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
 
-    const props = {match: {params: {jobRunId: jobRunId}}}
+    const props = {match: {params: {jobSpecId: jobSpecId, jobRunId: jobRunId}}}
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)

@@ -3,9 +3,9 @@ import TimeAgo from 'react-time-ago/no-tooltip'
 import Tooltip from '@material-ui/core/Tooltip'
 
 export default ({children}) => (
-  <Tooltip title={new Date(children).toISOString()}>
+  <Tooltip title={children}>
     <span>
-      <TimeAgo>{children}</TimeAgo>
+      <TimeAgo>{Date.parse(children)}</TimeAgo>
     </span>
   </Tooltip>
 )

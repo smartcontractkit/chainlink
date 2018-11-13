@@ -25,8 +25,25 @@ describe('connectors/reducers/fetching', () => {
     expect(state.fetching).toEqual({count: 0})
   })
 
-  it('does not negatively decrement count', () => {
+  it('does not negatively decrement count on "RECEIVE_"', () => {
     const action = {type: 'RECEIVE_FOO'}
+    const state = reducer(undefined, action)
+
+    expect(state.fetching).toEqual({count: 0})
+  })
+
+  it('decrements count when the action type starts with "RESPONSE_"', () => {
+    const action = {type: 'RESPONSE_FOO'}
+    const previousState = {
+      fetching: {count: 1}
+    }
+    const state = reducer(previousState, action)
+
+    expect(state.fetching).toEqual({count: 0})
+  })
+
+  it('does not negatively decrement count on "RESPONSE_"', () => {
+    const action = {type: 'RESPONSE_FOO'}
     const state = reducer(undefined, action)
 
     expect(state.fetching).toEqual({count: 0})

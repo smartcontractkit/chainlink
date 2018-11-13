@@ -1,1 +1,3 @@
-export default (state, id) => state.jobRuns.items[id]
+import build from 'redux-object'
+
+export default ({jobRuns}, id) => build(jobRuns, 'items', id)

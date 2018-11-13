@@ -13,38 +13,50 @@ import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
 
-const renderError = error => (
-  <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>
-      {error}
-    </TableCell>
-  </TableRow>
-)
-
-const renderJobs = jobs => (
-  jobs.map(j => (
-    <TableRow key={j.id}>
-      <TableCell component='th' scope='row'>
-        <Link to={`/jobs/${j.id}`}>{j.id}</Link>
-      </TableCell>
-      <TableCell>
-        <Typography variant='body1'>
-          <TimeAgo>{j.createdAt}</TimeAgo>
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant='body1'>{formatInitiators(j.initiators)}</Typography>
-      </TableCell>
-    </TableRow>
-  ))
-)
-
 const renderBody = (jobs, error) => {
   if (error) {
-    return renderError(error)
-  } else {
-    return renderJobs(jobs)
+    return (
+      <TableRow>
+        <TableCell component='th' scope='row' colSpan={3}>
+          {error}
+        </TableCell>
+      </TableRow>
+    )
+  } else if (jobs && jobs.length === 0) {
+    return (
+      <TableRow>
+        <TableCell component='th' scope='row' colSpan={3}>
+          You haven't created any jobs yet. Create a new job <Link to={`/jobs/new`}>here</Link>
+        </TableCell>
+      </TableRow>
+    )
+  } else if (jobs) {
+    return jobs.map(j => (
+      <TableRow key={j.id}>
+        <TableCell component='th' scope='row'>
+          <Link to={`/jobs/${j.id}`}>{j.id}</Link>
+        </TableCell>
+        <TableCell>
+          <Typography variant='body1'>
+            <TimeAgo>{j.createdAt}</TimeAgo>
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant='body1'>
+            {formatInitiators(j.initiators)}
+          </Typography>
+        </TableCell>
+      </TableRow>
+    ))
   }
+
+  return (
+    <TableRow>
+      <TableCell component='th' scope='row' colSpan={3}>
+        Loading...
+      </TableCell>
+    </TableRow>
+  )
 }
 
 export class JobList extends Component {
@@ -129,7 +141,7 @@ export class JobList extends Component {
 }
 
 JobList.propTypes = {
-  jobs: PropTypes.array.isRequired,
+  jobs: PropTypes.array,
   jobCount: PropTypes.number.isRequired,
   pageSize: PropTypes.number.isRequired,
   error: PropTypes.string,
