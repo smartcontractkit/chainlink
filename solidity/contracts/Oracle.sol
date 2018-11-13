@@ -1,10 +1,11 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./interfaces/OracleInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 
-contract Oracle is Ownable {
+contract Oracle is OracleInterface, Ownable {
   using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
@@ -70,8 +71,9 @@ contract Oracle is Ownable {
     bytes32 _externalId,
     bytes _data
   )
-    public
+    external
     onlyLINK
+    checkCallbackAddress(_callbackAddress)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
     callbacks[internalId] = Callback(
@@ -93,7 +95,7 @@ contract Oracle is Ownable {
     uint256 _internalId,
     bytes32 _data
   )
-    public
+    external
     onlyOwner
     hasInternalId(_internalId)
     returns (bool)
@@ -108,7 +110,7 @@ contract Oracle is Ownable {
   }
 
   function withdraw(address _recipient, uint256 _amount)
-    public
+    external
     onlyOwner
     hasAvailableFunds(_amount)
   {
@@ -154,6 +156,11 @@ contract Oracle is Ownable {
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    _;
+  }
+
+  modifier checkCallbackAddress(address _to) {
+    require(_to != address(LINK), "Cannot callback to LINK");
     _;
   }
 

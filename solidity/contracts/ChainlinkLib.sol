@@ -1,10 +1,8 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 import "solidity-cborutils/contracts/CBOR.sol";
 
 library ChainlinkLib {
-  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
-
   using CBOR for Buffer.buffer;
 
   struct Run {
@@ -27,22 +25,6 @@ library ChainlinkLib {
     self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
     self.buf.startMap();
     return self;
-  }
-
-  function encodeForOracle(
-    Run memory self,
-    uint256 _clArgsVersion
-  ) internal pure returns (bytes memory) {
-    return abi.encodeWithSelector(
-      oracleRequestDataFid,
-      0, // overridden by onTokenTransfer
-      0, // overridden by onTokenTransfer
-      _clArgsVersion,
-      self.specId,
-      self.callbackAddress,
-      self.callbackFunctionId,
-      self.requestId,
-      self.buf.buf);
   }
 
   function add(Run memory self, string _key, string _value)

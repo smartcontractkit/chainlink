@@ -1,4 +1,5 @@
 import * as h from './support/helpers'
+import { assertBigNum } from './support/matchers'
 
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'
@@ -205,14 +206,22 @@ contract('Oracle', () => {
     context('with a malicious requester', () => {
       const paymentAmount = h.toWei(1)
 
-      beforeEach(async () => {
+      it('cannot cancel before the expiration', async () => {
         mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)
-      })
 
-      it('cannot cancel before the expiration', async () => {
         await h.assertActionThrows(async () => {
           await mock.maliciousRequestCancel()
+        })
+      })
+
+      it('cannot call functions on the LINK token through callbacks', async () => {
+        const fHash = h.functionSelector('transfer(address,uint256)')
+        const addressAsRequestId = h.abiEncode(['address'], [h.stranger])
+        const args = h.requestDataBytes(specId, link.address, fHash, addressAsRequestId, '')
+
+        h.assertActionThrows(async () => {
+          await h.requestDataFrom(oc, link, paymentAmount, args)
         })
       })
     })
