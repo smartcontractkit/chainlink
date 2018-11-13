@@ -1,14 +1,15 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import { withStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
+import TableHead from '@material-ui/core/TableHead'
 import TableBody from '@material-ui/core/TableBody'
-import JobRunsHead from 'components/JobRunsHead'
-import Link from 'components/Link'
 import Typography from '@material-ui/core/Typography'
 import TableRow from '@material-ui/core/TableRow'
 import TableCell from '@material-ui/core/TableCell'
 import Card from '@material-ui/core/Card'
-import { withStyles } from '@material-ui/core/styles'
+import Link from 'components/Link'
+import TimeAgo from 'components/TimeAgo'
 
 const styles = theme => ({
   jobRunsCard: {
@@ -41,7 +42,9 @@ const renderRuns = runs => {
           <Typography variant='body1' color={statusColor(r.status)}>{r.status}</Typography>
         </TableCell>
         <TableCell>
-          <Typography variant='body1'>{r.createdAt}</Typography>
+          <Typography variant='body1'>
+            <TimeAgo>{r.createdAt}</TimeAgo>
+          </Typography>
         </TableCell>
         <TableCell>
           <Typography variant='body1'>{JSON.stringify(r.result.data)}</Typography>
@@ -64,10 +67,28 @@ const renderRuns = runs => {
   )
 }
 
-const JobRunsList = ({jobSpecId, runs, classes}) => (
+const List = ({jobSpecId, runs, classes}) => (
   <Card className={classes.jobRunsCard}>
     <Table>
-      <JobRunsHead />
+      <TableHead>
+        <TableRow>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>ID</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Status</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Created</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Result</Typography>
+          </TableCell>
+          <TableCell>
+            <Typography variant='body1' color='textSecondary'>Error</Typography>
+          </TableCell>
+        </TableRow>
+      </TableHead>
       <TableBody>
         {renderRuns(runs)}
       </TableBody>
@@ -75,9 +96,9 @@ const JobRunsList = ({jobSpecId, runs, classes}) => (
   </Card>
 )
 
-JobRunsList.propTypes = {
+List.propTypes = {
   jobSpecId: PropTypes.string.isRequired,
   runs: PropTypes.array.isRequired
 }
 
-export default withStyles(styles)(JobRunsList)
+export default withStyles(styles)(List)

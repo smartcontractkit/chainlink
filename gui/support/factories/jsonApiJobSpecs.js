@@ -1,5 +1,6 @@
 import uuid from 'uuid/v4'
 import { decamelizeKeys } from 'humps'
+import isoDate from 'test-helpers/isoDate'
 
 export default (jobs, count) => {
   const j = jobs || []
@@ -23,7 +24,13 @@ export default (jobs, count) => {
           id: id,
           tasks: tasks,
           createdAt: createdAt,
-          runs: runs.map(r => Object.assign({}, r, {jobId: id}))
+          runs: runs.map(r => Object.assign(
+            {},
+            {createdAt: isoDate(Date.now())},
+            {result: {}},
+            {jobId: id},
+            r
+          ))
         }
       }
     })
