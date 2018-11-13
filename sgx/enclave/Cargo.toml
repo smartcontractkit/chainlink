@@ -12,6 +12,7 @@ default = []
 
 [dependencies]
 base64 = { path = "/opt/rust-sgx-sdk/third_party/rust-base64" }
+bigdecimal = { path = "../bigdecimal-rs" }
 num = { path = "/opt/rust-sgx-sdk/third_party/num" }
 serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }
 serde_derive = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde_derive" }

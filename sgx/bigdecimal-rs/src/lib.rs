@@ -40,12 +40,19 @@
 //! println!("Input ({}) with 10 decimals: {} vs {})", input, dec, float);
 //! ```
 
+#![cfg_attr(not(target_env = "sgx"), no_std)]
+#![cfg_attr(target_env = "sgx", feature(rustc_private))]
+
+#[macro_use]
+extern crate sgx_tstd as std;
+
 extern crate num_bigint;
 extern crate num_integer;
 extern crate num_traits as traits;
 #[cfg(feature = "serde")]
 extern crate serde;
 
+use std::string::{String, ToString};
 use std::cmp::Ordering;
 use std::default::Default;
 use std::error::Error;
