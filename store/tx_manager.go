@@ -138,6 +138,10 @@ func (txm *TxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, er
 		common.ToHex(common.LeftPadBytes(wr.Address.Bytes(), utils.EVMWordByteLen)),
 		utils.EVMHexNumber(amount),
 	)
+
+	if txm.config.OracleContractAddress == nil {
+		return common.Hash{}, errors.New("OracleContractAddress not set can not withdraw")
+	}
 	tx, err := txm.CreateTx(*txm.config.OracleContractAddress, data)
 	if err != nil {
 		return common.Hash{}, err
