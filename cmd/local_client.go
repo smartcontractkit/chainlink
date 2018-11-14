@@ -43,6 +43,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(store); err != nil {
+		if err == ErrorNoAPICredentialsAvailable {
+			return cli.errorOut(err)
+		}
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)

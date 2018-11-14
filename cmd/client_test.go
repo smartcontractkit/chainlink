@@ -111,28 +111,35 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	tests := []struct {
 		name           string
 		enteredStrings []string
+		isTerminal     bool
+		isError        bool
 	}{
-		{"correct", []string{"good@email.com", "password"}},
-		{"incorrect pwd then correct", []string{"good@email.com", "", "good@email.com", "password"}},
-		{"incorrect email then correct", []string{"", "password", "good@email.com", "password"}},
+		{"correct", []string{"good@email.com", "password"}, true, false},
+		{"incorrect pwd then correct", []string{"good@email.com", "", "good@email.com", "password"}, true, false},
+		{"incorrect email then correct", []string{"", "password", "good@email.com", "password"}, true, false},
+		{"not a terminal", []string{}, false, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore()
 			defer cleanup()
 
-			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings}
+			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			user, err := tai.Initialize(store)
-			assert.NoError(t, err)
-			assert.Equal(t, len(test.enteredStrings), mock.Count)
+			if test.isError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, len(test.enteredStrings), mock.Count)
 
-			persistedUser, err := store.FindUser()
-			assert.NoError(t, err)
+				persistedUser, err := store.FindUser()
+				assert.NoError(t, err)
 
-			assert.Equal(t, user.Email, persistedUser.Email)
-			assert.Equal(t, user.HashedPassword, persistedUser.HashedPassword)
+				assert.Equal(t, user.Email, persistedUser.Email)
+				assert.Equal(t, user.HashedPassword, persistedUser.HashedPassword)
+			}
 		})
 	}
 }
