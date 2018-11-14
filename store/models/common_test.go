@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -42,14 +43,14 @@ func Test_ParseCBOR(t *testing.T) {
 			cltest.JSONFromString(`{"params":{"msg":"hello_chainlink","url":"http://localhost:6690"},"tasks":["httppost"]}`),
 			false,
 		},
-		{"empty object", `a0`, cltest.JSONFromString(`{}`), false},
-		{"empty string", ``, models.JSON{}, true},
-		{"invalid CBOR", `ff`, models.JSON{}, true},
+		{"empty object", `0xa0`, cltest.JSONFromString(`{}`), false},
+		{"empty string", `0x`, models.JSON{}, true},
+		{"invalid CBOR", `0xff`, models.JSON{}, true},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			b, err := utils.HexToBytes(test.in)
+			b, err := hexutil.Decode(test.in)
 			assert.NoError(t, err)
 
 			json, err := models.ParseCBOR(b)

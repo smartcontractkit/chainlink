@@ -352,10 +352,8 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
 		return false
 	}
 
-	if jid, err := jobIDFromHexEncodedTopic(el); err != nil {
-		logger.Errorw("Failed to retrieve Job ID from log", le.ForLogger("err", err.Error())...)
-		return false
-	} else if jid != le.Job.ID && jobIDFromImproperEncodedTopic(el) != le.Job.ID {
+	jid := jobIDFromHexEncodedTopic(el)
+	if jid != le.Job.ID && jobIDFromImproperEncodedTopic(el) != le.Job.ID {
 		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
 		return false
 	}
@@ -453,8 +451,8 @@ func isRunLog(log strpkg.Log) bool {
 	return len(log.Topics) == 4 && log.Topics[0] == RunLogTopic
 }
 
-func jobIDFromHexEncodedTopic(log strpkg.Log) (string, error) {
-	return utils.HexToString(log.Topics[RunLogTopicJobID].Hex())
+func jobIDFromHexEncodedTopic(log strpkg.Log) string {
+	return string(log.Topics[RunLogTopicJobID].Bytes())
 }
 
 func jobIDFromImproperEncodedTopic(log strpkg.Log) string {

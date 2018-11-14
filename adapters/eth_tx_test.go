@@ -1,13 +1,16 @@
 package adapters_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/golang/mock/gomock"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/mock_store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +26,8 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
-	dataPrefix := hexutil.Bytes(hexutil.MustDecode("0x45746736453745"))
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
 	inputValue := "0x9786856756"
 
 	ethMock := app.MockEthClient()
@@ -40,7 +44,10 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 			tx, err := utils.DecodeEthereumTx(rlp)
 			assert.NoError(t, err)
 			assert.Equal(t, address.String(), tx.To().String())
-			wantData := utils.HexConcat(fHash.String(), dataPrefix.String(), inputValue)
+			wantData := "0x" +
+				"b3f98adc" +
+				"0000000000000000000000000000000000000000000000000045746736453745" +
+				"0000000000000000000000000000000000000000000000000000009786856756"
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
@@ -53,6 +60,71 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		Address:          address,
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
+	}
+	input := cltest.RunResultWithValue(inputValue)
+	data := adapter.Perform(input, store)
+
+	assert.False(t, data.HasError())
+
+	from := cltest.GetAccountAddress(store)
+	txs := []models.Tx{}
+	assert.Nil(t, store.Where("From", from, &txs))
+	assert.Equal(t, 1, len(txs))
+	attempts, _ := store.AttemptsFor(txs[0].ID)
+	assert.Equal(t, 1, len(attempts))
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	// contains diacritic acute to check bytes counted for length not chars
+	inputValue := "cönfirmed"
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
+	hash := cltest.NewHash()
+	sentAt := uint64(23456)
+	confirmed := sentAt + 1
+	safe := confirmed + config.MinOutgoingConfirmations
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			rlp := data[0].([]interface{})[0].(string)
+			tx, err := utils.DecodeEthereumTx(rlp)
+			assert.NoError(t, err)
+			assert.Equal(t, address.String(), tx.To().String())
+			wantData := "0x" +
+				"b3f98adc" +
+				"0000000000000000000000000000000000000000000000000045746736453745" +
+				"0000000000000000000000000000000000000000000000000000000000000040" +
+				"000000000000000000000000000000000000000000000000000000000000000a" +
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000"
+			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
+			return nil
+		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		DataPrefix:       dataPrefix,
+		FunctionSelector: fHash,
+		DataFormat:       adapters.DataFormatBytes,
 	}
 	input := cltest.RunResultWithValue(inputValue)
 	data := adapter.Perform(input, store)
@@ -196,7 +268,30 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunResultWithValue("")
+	input := cltest.RunResultWithValue("0x9786856756")
+	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
+	output := adapter.Perform(input, store)
+
+	assert.True(t, output.HasError())
+	assert.Equal(t, "Cannot connect to nodes", output.Error())
+}
+
+func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	store := app.Store
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
+	adapter := adapters.EthTx{
+		Address:          cltest.NewAddress(),
+		FunctionSelector: models.HexToFunctionSelector("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1"),
+	}
+	input := cltest.RunResultWithValue("0x9786856756")
 	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
@@ -225,4 +320,38 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testi
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
+}
+
+func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	ctrl := gomock.NewController(t)
+	txmMock := mock_store.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
+	txmMock.EXPECT().CreateTx(gomock.Any(), []byte{
+		0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0b,
+		0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	}).Return(&models.Tx{}, nil)
+	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
+
+	task := models.TaskSpec{}
+	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
+	assert.NoError(t, err)
+	assert.Equal(t, task.Type, adapters.TaskTypeEthTx)
+
+	adapter, err := adapters.For(task, store)
+	assert.NoError(t, err)
+	ethtx, ok := adapter.BaseAdapter.(*adapters.EthTx)
+	assert.True(t, ok)
+	assert.Equal(t, ethtx.DataFormat, adapters.DataFormatBytes)
+
+	input := models.RunResult{
+		Data:   cltest.JSONFromString(`{"value": "hello world"}`),
+		Status: models.RunStatusInProgress,
+	}
+	result := adapter.Perform(input, store)
+	assert.False(t, result.HasError())
+	assert.Equal(t, result.Error(), "")
 }

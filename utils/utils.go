@@ -4,8 +4,10 @@ package utils
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -68,7 +70,7 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 	if err := tx.EncodeRLP(rlp); err != nil {
 		return "", err
 	}
-	return common.ToHex(rlp.Bytes()), nil
+	return hexutil.Encode(rlp.Bytes()), nil
 }
 
 // ISO8601UTC formats given time to ISO8601.
@@ -98,32 +100,17 @@ func NewBytes32ID() string {
 	return strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
 }
 
-// HexToBytes converts the given array of strings and returns bytes.
-func HexToBytes(strs ...string) ([]byte, error) {
-	return hex.DecodeString(RemoveHexPrefix(HexConcat(strs...)))
-}
-
-// HexConcat concatenates a given array of strings to return a single
-// string.
-func HexConcat(strs ...string) string {
-	hex := "0x"
-	for _, str := range strs {
-		hex = hex + RemoveHexPrefix(str)
-	}
-	return hex
-}
-
 // RemoveHexPrefix removes the prefix (0x) of a given hex string.
 func RemoveHexPrefix(str string) string {
-	if IsHex(str) {
+	if HasHexPrefix(str) {
 		return str[2:]
 	}
 	return str
 }
 
-// IsHex returns true if the string starts with 0x.
-func IsHex(str string) bool {
-	return len(str) > 1 && strings.ToLower(str[0:2]) == "0x"
+// HasHexPrefix returns true if the string starts with 0x.
+func HasHexPrefix(str string) bool {
+	return len(str) >= 2 && str[0] == '0' && str[1] == 'x'
 }
 
 // DecodeEthereumTx takes an RLP hex encoded Ethereum transaction and
@@ -158,12 +145,6 @@ func AddHexPrefix(str string) string {
 		str = "0x" + str
 	}
 	return str
-}
-
-// HexToString decodes a hex encoded string.
-func HexToString(hex string) (string, error) {
-	b, err := HexToBytes(hex)
-	return string(b), err
 }
 
 // ToFilterQueryFor returns a struct that encapsulates desired arguments used to filter
@@ -287,25 +268,50 @@ func MaxInt(ints ...int) int {
 	return max
 }
 
-// EVMSignedHexNumber formats a number as a 32 byte hex string
-// Twos compliment representation if a minus number
-func EVMSignedHexNumber(val *big.Int) (string, error) {
-	var sh string
-	if val.Sign() == -1 {
-		evmUint256Max, ok := (&big.Int{}).SetString(strings.Repeat("f", 64), 16)
-		if !ok {
-			return sh, fmt.Errorf("could not parse evmUint256 max")
+// ConcatBytes appends a bunch of byte arrays into a single byte array
+func ConcatBytes(bufs ...[]byte) ([]byte, error) {
+	buffer := bytes.NewBuffer([]byte{})
+	for _, b := range bufs {
+		_, err := buffer.Write(b)
+		if err != nil {
+			return nil, err
 		}
-		sh = EVMHexNumber((&big.Int{}).Add(evmUint256Max, val.Add(val, big.NewInt(1))))
-	} else {
-		sh = EVMHexNumber(val)
 	}
-	return sh, nil
+	return buffer.Bytes(), nil
 }
 
-// EVMHexNumber formats a number as a 32 byte hex string.
-func EVMHexNumber(val interface{}) string {
-	return fmt.Sprintf("0x%064x", val)
+// EVMWordUint64 returns a uint64 as an EVM word byte array.
+func EVMWordUint64(val uint64) []byte {
+	word := make([]byte, EVMWordByteLen)
+	binary.BigEndian.PutUint64(word[EVMWordByteLen-8:], val)
+	return word
+}
+
+// EVMWordSignedBigInt returns a big.Int as an EVM word byte array, with
+// support for a signed representation. Returns error on overflow.
+func EVMWordSignedBigInt(val *big.Int) ([]byte, error) {
+	bytes := val.Bytes()
+	if val.BitLen() > (8*EVMWordByteLen - 1) {
+		return nil, fmt.Errorf("Overflow saving signed big.Int to EVM word: %v", val)
+	}
+	if val.Sign() == -1 {
+		twosComplement := new(big.Int).Add(val, MaxUint256)
+		bytes = new(big.Int).Add(twosComplement, big.NewInt(1)).Bytes()
+	}
+	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
+}
+
+// EVMWordBigInt returns a big.Int as an EVM word byte array, with support for
+// a signed representation. Returns error on overflow.
+func EVMWordBigInt(val *big.Int) ([]byte, error) {
+	if val.Sign() == -1 {
+		return nil, errors.New("Uint256 cannot be negative")
+	}
+	bytes := val.Bytes()
+	if len(bytes) > EVMWordByteLen {
+		return nil, fmt.Errorf("Overflow saving big.Int to EVM word: %v", val)
+	}
+	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
 }
 
 // CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
@@ -407,4 +413,24 @@ func RemoveQuotes(input []byte) []byte {
 		return input[1 : len(input)-1]
 	}
 	return input
+}
+
+// "Constants" used by EVM words
+var (
+	maxUint257 = &big.Int{}
+	// MaxUint256 represents the largest number represented by an EVM word
+	MaxUint256 = &big.Int{}
+	// MaxInt256 represents the largest number represented by an EVM word using
+	// signed encoding.
+	MaxInt256 = &big.Int{}
+	// MinInt256 represents the smallest number represented by an EVM word using
+	// signed encoding.
+	MinInt256 = &big.Int{}
+)
+
+func init() {
+	maxUint257 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil)
+	MaxUint256 = new(big.Int).Sub(maxUint257, big.NewInt(1))
+	MaxInt256 = new(big.Int).Div(MaxUint256, big.NewInt(2))
+	MinInt256 = new(big.Int).Neg(MaxInt256)
 }

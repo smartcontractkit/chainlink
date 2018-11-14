@@ -1,12 +1,14 @@
 package utils_test
 
 import (
+	"math"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -53,30 +55,6 @@ func TestUtils_StringToHex(t *testing.T) {
 		t.Run(test.utf8, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, test.hex, utils.StringToHex(test.utf8))
-		})
-	}
-}
-
-func TestUtils_HexToString(t *testing.T) {
-	tests := []struct {
-		hex     string
-		utf8    string
-		errored bool
-	}{
-		{"0x616263", "abc", false},
-		{"616263", "abc", false},
-		{"0x4869204d6f6d21", "Hi Mom!", false},
-		{"0x", "", false},
-		{"uh oh", "", true},
-	}
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.hex, func(t *testing.T) {
-			t.Parallel()
-			actualUtf8, err := utils.HexToString(test.hex)
-			assert.Equal(t, test.errored, err != nil)
-			assert.Equal(t, test.utf8, actualUtf8)
 		})
 	}
 }
@@ -195,18 +173,97 @@ func TestKeccak256(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"basic", "f00b", "0x2433bb36d5f9b14e4fea87c2d32d79abfe34e56808b891e471f4400fca2a336c"},
-		{"long input", "f00b2433bb36d5f9b14e4fea87c2d32d79abfe34e56808b891e471f4400fca2a336c", "0x6b917c56ad7bea7d09132b9e1e29bb5d9aa7d32d067c638dfa886bbbf6874cdf"},
+		{"basic", "0xf00b", "0x2433bb36d5f9b14e4fea87c2d32d79abfe34e56808b891e471f4400fca2a336c"},
+		{"long input", "0xf00b2433bb36d5f9b14e4fea87c2d32d79abfe34e56808b891e471f4400fca2a336c", "0x6b917c56ad7bea7d09132b9e1e29bb5d9aa7d32d067c638dfa886bbbf6874cdf"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input, err := utils.HexToBytes(test.input)
+			input, err := hexutil.Decode(test.input)
 			assert.NoError(t, err)
 			result, err := utils.Keccak256(input)
 			assert.NoError(t, err)
 
-			assert.Equal(t, test.want, common.ToHex(result))
+			assert.Equal(t, test.want, hexutil.Encode(result))
 		})
 	}
+}
+
+func TestEVMWordUint64(t *testing.T) {
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		utils.EVMWordUint64(1))
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+		utils.EVMWordUint64(256))
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		utils.EVMWordUint64(math.MaxUint64))
+}
+
+func TestEVMWordSignedBigInt(t *testing.T) {
+	val, err := utils.EVMWordSignedBigInt(&big.Int{})
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		val)
+
+	val, err = utils.EVMWordSignedBigInt(new(big.Int).SetInt64(1))
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		val)
+
+	val, err = utils.EVMWordSignedBigInt(new(big.Int).SetInt64(256))
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+		val)
+
+	val, err = utils.EVMWordSignedBigInt(new(big.Int).SetInt64(-1))
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		val)
+
+	val, err = utils.EVMWordSignedBigInt(utils.MaxInt256)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		val)
+
+	val, err = utils.EVMWordSignedBigInt(new(big.Int).Add(utils.MaxInt256, big.NewInt(1)))
+	assert.Error(t, err)
+}
+
+func TestEVMWordBigInt(t *testing.T) {
+	val, err := utils.EVMWordBigInt(&big.Int{})
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		val)
+
+	val, err = utils.EVMWordBigInt(new(big.Int).SetInt64(1))
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		val)
+
+	val, err = utils.EVMWordBigInt(new(big.Int).SetInt64(256))
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+		val)
+
+	val, err = utils.EVMWordBigInt(new(big.Int).SetInt64(-1))
+	assert.Error(t, err)
+
+	val, err = utils.EVMWordBigInt(utils.MaxInt256)
+	assert.NoError(t, err)
+	assert.Equal(t,
+		[]byte{0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		val)
+
+	val, err = utils.EVMWordBigInt(new(big.Int).Add(utils.MaxUint256, big.NewInt(1)))
+	assert.Error(t, err)
 }

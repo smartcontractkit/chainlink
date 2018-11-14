@@ -175,8 +175,8 @@ func TestInitiatorSubscriptionLogEvent_Requester(t *testing.T) {
 		want  common.Address
 	}{
 		{"basic",
-			common.BytesToHash(cltest.HexToBytes("00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee")),
-			cltest.StringToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
+			common.HexToHash("0x00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee"),
+			common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
 		},
 	}
 
