@@ -64,7 +64,6 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
-		eth.Register("eth_getBlockByNumber", models.BlockHeader{})
 	})
 	assert.NoError(t, app.Start())
 	eth.EventuallyAllCalled(t)
@@ -524,12 +523,36 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
 
-	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/hello_world_agreement.json")
+	eth := app.MockEthClient()
+	logs := make(chan store.Log, 1)
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+		eth.Register("eth_getBlockByNumber", models.BlockHeader{}) // services.(*HeadTracker).fastForwardHeadFromEth
+		eth.Register("eth_getTransactionCount", `0x100`)
+	})
+	assert.NoError(t, app.Start())
+	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/noop_agreement.json")
+
 	assert.NotEqual(t, "", sa.ID)
-	cltest.FindJob(app.Store, sa.JobSpecID)
+	j := cltest.FindJob(app.Store, sa.JobSpecID)
 
 	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
+
 	assert.Equal(t, time.Unix(1571523439, 0).UTC(), sa.Encumbrance.EndAt.Time)
 	assert.NotEqual(t, "", sa.ID)
+
+	// Request execution of the job associated with this ServiceAgreement
+	logs <- cltest.NewServiceAgreementExecutionLog(
+		j.ID,
+		cltest.NewAddress(),
+		cltest.NewAddress(),
+		1,
+		`{}`)
+
+	runs := cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, runs[0])
+
+	eth.EventuallyAllCalled(t)
+
 }
