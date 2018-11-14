@@ -13,12 +13,9 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchBridgeSpec } from 'actions'
 import bridgeSelector from 'selectors/bridge'
+import Content from 'components/Content'
 
 const styles = theme => ({
-  breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  },
   main: {
     marginTop: theme.spacing.unit * 5
   }
@@ -59,44 +56,46 @@ export class Show extends Component {
 
   render () {
     return (
-      <Grid container>
-        <Grid item xs={12}>
-          <Breadcrumb className={this.props.classes.breadcrumb}>
-            <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-            <BreadcrumbItem>></BreadcrumbItem>
-            <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
-            <BreadcrumbItem>></BreadcrumbItem>
-            <BreadcrumbItem>{this.props.bridge && this.props.bridge.id}</BreadcrumbItem>
-          </Breadcrumb>
-        </Grid>
-        <Grid item xs={12} md={12} xl={6}>
-          <Grid container alignItems='center'>
-            <Grid item xs={9}>
-              <Title>Bridge Info</Title>
-            </Grid>
-            <Grid item xs={3}>
-              <Grid container justify='flex-end'>
-                <Grid item>
-                  {this.props.bridge &&
-                    <Button
-                      variant='outlined'
-                      color='primary'
-                      component={ReactStaticLinkComponent}
-                      to={`/bridges/${this.props.bridge.id}/edit`}
-                    >
-                      Edit
-                    </Button>
-                  }
+      <Content>
+        <Grid container>
+          <Grid item xs={12}>
+            <Breadcrumb>
+              <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+              <BreadcrumbItem>></BreadcrumbItem>
+              <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
+              <BreadcrumbItem>></BreadcrumbItem>
+              <BreadcrumbItem>{this.props.bridge && this.props.bridge.id}</BreadcrumbItem>
+            </Breadcrumb>
+          </Grid>
+          <Grid item xs={12} md={12} xl={6}>
+            <Grid container alignItems='center'>
+              <Grid item xs={9}>
+                <Title>Bridge Info</Title>
+              </Grid>
+              <Grid item xs={3}>
+                <Grid container justify='flex-end'>
+                  <Grid item>
+                    {this.props.bridge &&
+                      <Button
+                        variant='outlined'
+                        color='primary'
+                        component={ReactStaticLinkComponent}
+                        to={`/bridges/${this.props.bridge.id}/edit`}
+                      >
+                        Edit
+                      </Button>
+                    }
+                  </Grid>
                 </Grid>
               </Grid>
             </Grid>
-          </Grid>
 
-          <div className={this.props.classes.main}>
-            {renderDetails(this.props)}
-          </div>
+            <div className={this.props.classes.main}>
+              {renderDetails(this.props)}
+            </div>
+          </Grid>
         </Grid>
-      </Grid>
+      </Content>
     )
   }
 }

@@ -35,8 +35,8 @@ const SignOut = universal(import('./containers/SignOut'), uniOpts)
 const styles = theme => {
   return {
     content: {
-      margin: theme.spacing.unit * 5,
-      marginTop: 0
+      marginTop: 0,
+      marginBottom: theme.spacing.unit * 5
     }
   }
 }

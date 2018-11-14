@@ -10,43 +10,46 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import bridgesSelector from 'selectors/bridges'
 import { fetchBridges } from 'actions'
+import Content from 'components/Content'
 
 export const Index = (props) => {
   const { bridges, bridgeCount, pageSize, bridgesError, fetchBridges, history, match } = props
-  return <div>
-    <Grid container spacing={8} alignItems='center'>
-      <Grid item xs={9}>
-        <Title>Bridges</Title>
-      </Grid>
-      <Grid item xs={3}>
-        <Grid container justify='flex-end'>
-          <Grid item>
-            <Button
-              variant='outlined'
-              color='primary'
-              component={ReactStaticLinkComponent}
-              to={'/bridges/new'}
-            >
-              New Bridge
-            </Button>
+  return (
+    <Content>
+      <Grid container spacing={8} alignItems='center'>
+        <Grid item xs={9}>
+          <Title>Bridges</Title>
+        </Grid>
+        <Grid item xs={3}>
+          <Grid container justify='flex-end'>
+            <Grid item>
+              <Button
+                variant='outlined'
+                color='primary'
+                component={ReactStaticLinkComponent}
+                to={'/bridges/new'}
+              >
+                New Bridge
+              </Button>
+            </Grid>
           </Grid>
         </Grid>
       </Grid>
-    </Grid>
-    <Grid container spacing={40}>
-      <Grid item xs={12}>
-        <BridgeList
-          bridges={bridges}
-          bridgeCount={bridgeCount}
-          pageSize={pageSize}
-          error={bridgesError}
-          fetchBridges={fetchBridges}
-          history={history}
-          match={match}
-        />
+      <Grid container spacing={40}>
+        <Grid item xs={12}>
+          <BridgeList
+            bridges={bridges}
+            bridgeCount={bridgeCount}
+            pageSize={pageSize}
+            error={bridgesError}
+            fetchBridges={fetchBridges}
+            history={history}
+            match={match}
+          />
+        </Grid>
       </Grid>
-    </Grid>
-  </div>
+    </Content>
+  )
 }
 
 Index.propTypes = {
