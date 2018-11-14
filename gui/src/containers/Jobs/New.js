@@ -2,7 +2,6 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Link } from 'react-static'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Breadcrumb from 'components/Breadcrumb'
 import BreadcrumbItem from 'components/BreadcrumbItem'
@@ -10,15 +9,9 @@ import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
 import Form from 'components/Jobs/Form'
 import ErrorMessage from 'components/Notifications/DefaultError'
+import Content from 'components/Content'
 import { createJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-
-const styles = theme => ({
-  breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
 
 const SuccessNotification = ({data}) => (
   <React.Fragment>
@@ -27,8 +20,8 @@ const SuccessNotification = ({data}) => (
 )
 
 const New = props => (
-  <React.Fragment>
-    <Breadcrumb className={props.classes.breadcrumb}>
+  <Content>
+    <Breadcrumb>
       <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
       <BreadcrumbItem>></BreadcrumbItem>
       <BreadcrumbItem href='/jobs'>Jobs</BreadcrumbItem>
@@ -50,16 +43,12 @@ const New = props => (
         </PaddedCard>
       </Grid>
     </Grid>
-  </React.Fragment>
+  </Content>
 )
-
-New.propTypes = {
-  classes: PropTypes.object.isRequired
-}
 
 export const ConnectedNew = connect(
   null,
   matchRouteAndMapDispatchToProps({createJobSpec})
 )(New)
 
-export default withStyles(styles)(ConnectedNew)
+export default ConnectedNew

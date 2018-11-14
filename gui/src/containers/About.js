@@ -3,12 +3,13 @@ import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
+import Content from 'components/Content'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { withRouteData } from 'react-static'
 import { connect } from 'react-redux'
 
-const About = ({classes, version, sha}) => (
-  <React.Fragment>
+const About = ({version, sha}) => (
+  <Content>
     <Title>About</Title>
 
     <Grid container spacing={40}>
@@ -25,7 +26,7 @@ const About = ({classes, version, sha}) => (
         </PaddedCard>
       </Grid>
     </Grid>
-  </React.Fragment>
+  </Content>
 )
 
 export const ConnectedAbout = connect(

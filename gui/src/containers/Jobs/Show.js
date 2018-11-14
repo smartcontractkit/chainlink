@@ -24,6 +24,7 @@ import { Divider, Button } from '@material-ui/core'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import TimeAgo from 'components/TimeAgo'
+import Content from 'components/Content'
 
 const styles = theme => ({
   actions: {
@@ -36,10 +37,6 @@ const styles = theme => ({
   divider: {
     marginTop: theme.spacing.unit,
     marginBottom: theme.spacing.unit * 3
-  },
-  breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
   },
   lastRun: {
     marginTop: theme.spacing.unit * 5,
@@ -184,8 +181,8 @@ export class Show extends Component {
     const { classes, jobSpecId } = this.props
 
     return (
-      <div>
-        <Breadcrumb className={classes.breadcrumb}>
+      <Content>
+        <Breadcrumb>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
           <BreadcrumbItem>Job ID: {jobSpecId}</BreadcrumbItem>
@@ -193,7 +190,7 @@ export class Show extends Component {
         <Title>Job Spec Detail</Title>
 
         {renderDetails(this.props)}
-      </div>
+      </Content>
     )
   }
 }

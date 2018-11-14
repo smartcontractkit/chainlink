@@ -12,6 +12,7 @@ import TimeAgo from 'components/TimeAgo'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
+import Content from 'components/Content'
 
 const styles = theme => ({
   breadcrumb: {
@@ -75,7 +76,7 @@ export class Show extends Component {
     const {props} = this
 
     return (
-      <div>
+      <Content>
         <Breadcrumb className={props.classes.breadcrumb}>
           <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
           <BreadcrumbItem>></BreadcrumbItem>
@@ -88,7 +89,7 @@ export class Show extends Component {
         <Title>Job Run Detail</Title>
 
         {renderDetails(props)}
-      </div>
+      </Content>
     )
   }
 }
