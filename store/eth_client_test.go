@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
-	ec := store.TxManager.EthClient
+	ec := store.TxManager.(*strpkg.EthTxManager).EthClient
 
 	hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
 	receipt, err := ec.GetTxReceipt(hash)
@@ -32,7 +32,7 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 
 func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 	jsonStr := `{"blockNumber":3857489,"transactionHash":"0x6941ab7592a5f8ec5158b0de17129939170db06675b10c8b3e4e9f6ca2d0882b"}`
-	var receipt store.TxReceipt
+	var receipt strpkg.TxReceipt
 	err := json.Unmarshal([]byte(jsonStr), &receipt)
 	require.NoError(t, err)
 }
@@ -42,7 +42,7 @@ func TestEthClient_GetNonce(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
-	ethClientObject := app.Store.TxManager.EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 	ethMock.Register("eth_getTransactionCount", "0x0100")
 	result, err := ethClientObject.GetNonce(cltest.NewAddress())
 	assert.NoError(t, err)
@@ -55,7 +55,7 @@ func TestEthClient_GetBlockNumber(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
-	ethClientObject := app.Store.TxManager.EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 	ethMock.Register("eth_blockNumber", "0x0100")
 	result, err := ethClientObject.GetBlockNumber()
 	assert.NoError(t, err)
@@ -68,7 +68,7 @@ func TestEthClient_SendRawTx(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	ethMock := app.MockEthClient()
-	ethClientObject := app.Store.TxManager.EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
 	result, err := ethClientObject.SendRawTx("test")
 	assert.NoError(t, err)
@@ -92,7 +92,7 @@ func TestEthClient_GetEthBalance(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ethMock := app.MockEthClient()
-			ethClientObject := app.Store.TxManager.EthClient
+			ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 
 			ethMock.Register("eth_getBalance", test.input)
 			result, err := ethClientObject.GetEthBalance(cltest.NewAddress())
@@ -108,7 +108,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
-	ethClientObject := app.Store.TxManager.EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 
 	ethMock.Register("eth_call", "0x0100") // 256
 	result, err := ethClientObject.GetERC20Balance(cltest.NewAddress(), cltest.NewAddress())

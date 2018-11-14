@@ -24,7 +24,7 @@ type Store struct {
 	Clock      AfterNower
 	KeyStore   *KeyStore
 	RunChannel RunChannel
-	TxManager  *TxManager
+	TxManager  TxManager
 	closed     bool
 }
 
@@ -82,7 +82,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		KeyStore:   keyStore,
 		ORM:        orm,
 		RunChannel: NewQueuedRunChannel(),
-		TxManager: &TxManager{
+		TxManager: &EthTxManager{
 			EthClient: &EthClient{ethrpc},
 			config:    config,
 			keyStore:  keyStore,
