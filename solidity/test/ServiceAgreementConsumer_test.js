@@ -3,39 +3,36 @@ import {
   assertActionThrows,
   consumer,
   decodeRunRequest,
-  defaultAccount,
   deploy,
   eth,
+  executeServiceAgreementBytes,
   functionSelector,
   getLatestEvent,
   hexToInt,
   newHash,
   oracleNode,
-  requestDataBytes,
   requestDataFrom,
-  toHex,
-  increaseTime5Minutes
+  toHex
 } from './support/helpers'
 
-contract('BasicConsumer', () => {
-  const sourcePath = 'examples/BasicConsumer.sol'
+contract('ServiceAgreementConsumer', () => {
+  const sourcePath = 'examples/ServiceAgreementConsumer.sol'
   let specId = newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
   let currency = 'USD'
-  let link, oc, cc
+  let link, coord, cc
 
   beforeEach(async () => {
     link = await deploy('LinkToken.sol')
-    oc = await deploy('Oracle.sol', link.address)
-    await oc.transferOwnership(oracleNode, { from: defaultAccount })
-    cc = await deploy(sourcePath, link.address, oc.address, toHex(specId))
+    coord = await deploy('Coordinator.sol', link.address)
+    cc = await deploy(sourcePath, link.address, coord.address, toHex(specId))
   })
 
-  it('has a predictable gas price', async () => {
+  it('gas price of contract deployment is predictable', async () => {
     const rec = await eth.getTransactionReceipt(cc.transactionHash)
     assert.isBelow(rec.gasUsed, 1700000)
   })
 
-  describe('#requestEthereumPrice', () => {
+  describe('#requestEthereumPrice works', () => {
     context('without LINK', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
@@ -49,12 +46,12 @@ contract('BasicConsumer', () => {
         await link.transfer(cc.address, web3.toWei('1', 'ether'))
       })
 
-      it('triggers a log event in the Oracle contract', async () => {
+      it('triggers a log event in the Coordinator contract', async () => {
         let tx = await cc.requestEthereumPrice(currency)
         let log = tx.receipt.logs[3]
-        assert.equal(log.address, oc.address)
+        assert.equal(log.address, coord.address)
 
-        let [jId, requester, wei, id, ver, cborData] = decodeRunRequest(log)
+        let [jId, requester, wei, id, ver, cborData] = decodeRunRequest(log) // eslint-disable-line no-unused-vars
         let params = await cbor.decodeFirst(cborData)
         let expected = {
           'path': ['USD'],
@@ -70,7 +67,7 @@ contract('BasicConsumer', () => {
 
       it('has a reasonable gas cost', async () => {
         let tx = await cc.requestEthereumPrice(currency)
-        assert.isBelow(tx.receipt.gasUsed, 167500)
+        assert.isBelow(tx.receipt.gasUsed, 169000)
       })
     })
   })
@@ -82,19 +79,19 @@ contract('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'))
       await cc.requestEthereumPrice(currency)
-      let event = await getLatestEvent(oc)
+      let event = await getLatestEvent(coord)
       internalId = event.args.internalId
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oc.fulfillData(internalId, response, {from: oracleNode})
+      await coord.fulfillData(internalId, response, { from: oracleNode })
 
       let currentPrice = await cc.currentPrice.call()
       assert.equal(web3.toUtf8(currentPrice), response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      let tx = await oc.fulfillData(internalId, response, {from: oracleNode})
+      let tx = await coord.fulfillData(internalId, response, { from: oracleNode })
       assert.equal(2, tx.receipt.logs.length)
       let log = tx.receipt.logs[0]
 
@@ -106,14 +103,14 @@ contract('BasicConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector('fulfill(bytes32,bytes32)')
-        let args = requestDataBytes(toHex(specId), cc.address, funcSig, 42, '')
-        await requestDataFrom(oc, link, 0, args)
-        let event = await getLatestEvent(oc)
+        let args = executeServiceAgreementBytes(toHex(specId), cc.address, funcSig, 42, '')
+        await requestDataFrom(coord, link, 0, args)
+        let event = await getLatestEvent(coord)
         otherId = event.args.internalId
       })
 
       it('does not accept the data provided', async () => {
-        await oc.fulfillData(otherId, response, {from: oracleNode})
+        await coord.fulfillData(otherId, response, { from: oracleNode })
 
         let received = await cc.currentPrice.call()
         assert.equal(web3.toUtf8(received), '')
@@ -123,36 +120,10 @@ contract('BasicConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await assertActionThrows(async () => {
-          await cc.fulfill(internalId, response, {from: oracleNode})
+          await cc.fulfill(internalId, response, { from: oracleNode })
         })
-
         let received = await cc.currentPrice.call()
         assert.equal(web3.toUtf8(received), '')
-      })
-    })
-  })
-
-  describe('#cancelRequest', () => {
-    let requestId
-
-    beforeEach(async () => {
-      await link.transfer(cc.address, web3.toWei('1', 'ether'))
-      await cc.requestEthereumPrice(currency)
-      requestId = (await getLatestEvent(cc)).args.id
-    })
-
-    context("before 5 minutes", () => {
-      it('cant cancel the request', async () => {
-        await assertActionThrows(async () => {
-          await cc.cancelRequest(requestId, {from: consumer})
-        })
-      })
-    })
-
-    context("after 5 minutes", () => {
-      it('can cancel the request', async () => {
-        await increaseTime5Minutes();
-        await cc.cancelRequest(requestId, {from: consumer})
       })
     })
   })
@@ -160,16 +131,16 @@ contract('BasicConsumer', () => {
   describe('#withdrawLink', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'))
-      const balance = await link.balanceOf(cc.address);
-      assert.equal(balance.toString(), web3.toWei('1', 'ether'));
+      const balance = await link.balanceOf(cc.address)
+      assert.equal(balance.toString(), web3.toWei('1', 'ether'))
     })
 
     it('transfers LINK out of the contract', async () => {
-      await cc.withdrawLink({from: consumer});
-      const ccBalance = await link.balanceOf(cc.address);
-      const consumerBalance = await link.balanceOf(consumer);
-      assert.equal(ccBalance.toString(), '0');
-      assert.equal(consumerBalance.toString(), web3.toWei('1', 'ether'));
+      await cc.withdrawLink({ from: consumer })
+      const ccBalance = await link.balanceOf(cc.address)
+      const consumerBalance = await link.balanceOf(consumer)
+      assert.equal(ccBalance.toString(), '0')
+      assert.equal(consumerBalance.toString(), web3.toWei('1', 'ether'))
     })
   })
 })

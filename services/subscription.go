@@ -31,8 +31,12 @@ const (
 // RunLogTopic is the signature for the RunRequest(...) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-// If updating this, be sure to update the truffle suite's "expected event signature" test.
 var RunLogTopic = mustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
+
+// ServiceAgreementExecutionLogTopic is the signature for the
+// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
+// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
+var ServiceAgreementExecutionLogTopic = mustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
 // method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
@@ -50,33 +54,52 @@ type JobSubscription struct {
 	unsubscribers []Unsubscriber
 }
 
-// StartJobSubscription is the constructor of JobSubscription that to starts
-// listening to and keeps track of event logs corresponding to a job.
+// scanInitiatorsLogsStartSubscriptions attempts to subscribe to each type of
+// initiator log, and adds the unsubscriber to unsubscribers if successful, or
+// the resulting error to merr, if not. Returns the extended unsubscribers, merr
+func scanInitiatorLogsStartSubscriptions(
+	initiators []models.Initiator,
+	subscribe func(models.Initiator) (Unsubscriber, error),
+	unsubscribers []Unsubscriber, merr error) ([]Unsubscriber, error) {
+	for _, initr := range initiators {
+		unsubscriber, err := subscribe(initr)
+		if err == nil {
+			unsubscribers = append(unsubscribers, unsubscriber)
+		} else {
+			merr = multierr.Append(merr, err)
+		}
+	}
+	return unsubscribers, merr
+}
+
+// StartJobSubscription constructs a JobSubscription which listens for and
+// tracks event logs corresponding to the specified job. Ignores any errors if
+// there is at least one successful subscription to an initiator log.
 func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (JobSubscription, error) {
 	var merr error
-	var initSubs []Unsubscriber
-	for _, initr := range job.InitiatorsFor(models.InitiatorEthLog) {
-		sub, err := StartEthLogSubscription(initr, job, head, store)
-		merr = multierr.Append(merr, err)
-		if err == nil {
-			initSubs = append(initSubs, sub)
-		}
-	}
+	var unsubscribers []Unsubscriber
+	unsubscribers, merr = scanInitiatorLogsStartSubscriptions(
+		job.InitiatorsFor(models.InitiatorEthLog),
+		func(initr models.Initiator) (Unsubscriber, error) {
+			return StartEthLogSubscription(initr, job, head, store)
+		}, unsubscribers, merr)
+	unsubscribers, merr = scanInitiatorLogsStartSubscriptions(
+		job.InitiatorsFor(models.InitiatorRunLog),
+		func(initr models.Initiator) (Unsubscriber, error) {
+			return StartRunLogSubscription(initr, job, head, store)
+		}, unsubscribers, merr)
+	unsubscribers, merr = scanInitiatorLogsStartSubscriptions(
+		job.InitiatorsFor(models.InitiatorServiceAgreementExecutionLog),
+		func(initr models.Initiator) (Unsubscriber, error) {
+			return StartSALogSubscription(initr, job, head, store)
+		}, unsubscribers, merr)
 
-	for _, initr := range job.InitiatorsFor(models.InitiatorRunLog) {
-		sub, err := StartRunLogSubscription(initr, job, head, store)
-		merr = multierr.Append(merr, err)
-		if err == nil {
-			initSubs = append(initSubs, sub)
-		}
+	if len(unsubscribers) == 0 {
+		return JobSubscription{}, multierr.Append(
+			merr, errors.New(
+				"unable to subscribe to any logs, check earlier errors in this message, and the initiator types"))
 	}
-
-	if len(initSubs) == 0 {
-		return JobSubscription{}, multierr.Append(merr, errors.New("Job must have a valid log initiator"))
-	}
-
-	js := JobSubscription{Job: job, unsubscribers: initSubs}
-	return js, merr
+	return JobSubscription{Job: job, unsubscribers: unsubscribers}, merr
 }
 
 // Unsubscribe stops the subscription and cleans up associated resources.
@@ -149,24 +172,39 @@ func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
 }
 
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
-// possibly be entered. There is the ID, hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(jobID string) [][]common.Hash {
+// possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
+// hex encoded and the ID zero padded.
+func TopicFiltersForRunLog(logTopic common.Hash, jobID string) [][]common.Hash {
 	hexJobID := common.BytesToHash([]byte(jobID))
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
 	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{{RunLogTopic}, {hexJobID, jobIDZeroPadded}}
+	return [][]common.Hash{{logTopic}, {hexJobID, jobIDZeroPadded}}
 }
 
-// StartRunLogSubscription starts an InitiatorSubscription tailored for use with RunLogs.
-func StartRunLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(job.ID))
-	return NewInitiatorSubscription(initr, job, store, filter, receiveRunLog)
+// StartRunLogSubscription starts an InitiatorSubscription tailored for use with
+// RunLogs
+func StartRunLogSubscription(initr models.Initiator, job models.JobSpec,
+	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
+	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(
+		RunLogTopic, job.ID))
+	return NewInitiatorSubscription(initr, job, store, filter, receiveRunOrSALog)
 }
 
 // StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
-func StartEthLogSubscription(initr models.Initiator, job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
+func StartEthLogSubscription(initr models.Initiator, job models.JobSpec,
+	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
 	filter := NewInitiatorFilterQuery(initr, head, nil)
 	return NewInitiatorSubscription(initr, job, store, filter, receiveEthLog)
+}
+
+// StartSALogSubscription starts an InitiatorSubscription tailored for use with
+// ServiceAgreementExecutionLogs.
+func StartSALogSubscription(initr models.Initiator, job models.JobSpec,
+	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
+	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(
+		ServiceAgreementExecutionLogTopic, job.ID))
+	return NewInitiatorSubscription(initr, job, store, filter,
+		receiveRunOrSALog)
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -179,8 +217,9 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 	logger.Infow(msg)
 }
 
-// Parse the log and run the job specific to this initiator log event.
-func receiveRunLog(le InitiatorSubscriptionLogEvent) {
+// receiveRunOrSALog parses the log and runs the job indicated by a RunLog or
+// ServiceAgreementExecutionLog. (Both log events have the same format.)
+func receiveRunOrSALog(le InitiatorSubscriptionLogEvent) {
 	if !le.ValidateRunLog() {
 		return
 	}
@@ -195,7 +234,8 @@ func receiveRunLog(le InitiatorSubscriptionLogEvent) {
 	runJob(le, data, le.Initiator)
 }
 
-// Parse the log and run the job specific to this initiator log event.
+// receiveEthLog parses the log and runs the job specific to this initiator log
+// event.
 func receiveEthLog(le InitiatorSubscriptionLogEvent) {
 	le.ToDebug()
 	data, err := le.EthLogJSON()
@@ -448,7 +488,8 @@ func decodeABIToJSON(data []byte) (models.JSON, error) {
 }
 
 func isRunLog(log strpkg.Log) bool {
-	return len(log.Topics) == 4 && log.Topics[0] == RunLogTopic
+	return len(log.Topics) == 4 && (log.Topics[0] == RunLogTopic ||
+		log.Topics[0] == ServiceAgreementExecutionLogTopic)
 }
 
 func jobIDFromHexEncodedTopic(log strpkg.Log) string {
