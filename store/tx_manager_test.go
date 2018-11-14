@@ -440,6 +440,27 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 	assert.Equal(t, hash, tx.Hash)
 }
 
+func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	nonce := uint64(256)
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+	})
+	assert.NoError(t, app.Start())
+
+	wr := models.WithdrawalRequest{
+		Address: cltest.NewAddress(),
+		Amount:  assets.NewLink(10),
+	}
+
+	_, err := app.Store.TxManager.WithdrawLink(wr)
+	assert.EqualError(t, err, "OracleContractAddress not set can not withdraw")
+}
+
 func TestActiveAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	activeAccount := strpkg.ActiveAccount{
