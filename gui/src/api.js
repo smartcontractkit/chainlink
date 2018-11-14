@@ -88,6 +88,11 @@ export const getRecentlyCreatedJobs = size => get('/v2/specs', {size: size, sort
 
 export const getJobSpec = id => get(`/v2/specs/${id}`)
 
+export const getRecentJobRuns = size => get(
+  `/v2/runs`,
+  {sort: '-createdAt', size: size}
+)
+
 export const getJobSpecRuns = (id, page, size) => get(
   `/v2/runs`,
   {jobSpecId: id, sort: '-createdAt', page: page, size: size}

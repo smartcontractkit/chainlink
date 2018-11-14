@@ -346,6 +346,13 @@ export const fetchJobRuns = (id, page, size) => request(
   id, page, size
 )
 
+export const fetchRecentJobRuns = size => request(
+  'RECENT_JOB_RUNS',
+  api.getRecentJobRuns,
+  json => normalize(json, {endpoint: 'recentJobRuns'}),
+  size
+)
+
 export const fetchJobRun = id => request(
   'JOB_RUN',
   api.getJobSpecRun,

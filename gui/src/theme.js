@@ -1,4 +1,5 @@
-import { common, green } from '@material-ui/core/colors'
+import { common, green, grey } from '@material-ui/core/colors'
+import { darken } from '@material-ui/core/styles/colorManipulator'
 
 export default {
   palette: {
@@ -11,26 +12,30 @@ export default {
       contrastText: '#fff'
     },
     secondary: {
-      light: green[300],
-      main: green[500],
-      dark: green[700]
+      main: '#3d5170'
     },
     success: {
-      light: green.A400,
+      light: green.A100,
       main: green.A700,
       dark: green['700'],
       contrastText: common.white
     },
     warning: {
-      main: '#00529B',
-      contrastText: '#BDE5F8'
+      main: '#fff6b6',
+      contrastText: '#fad27a'
+    },
+    error: {
+      light: '#ffdada',
+      main: '#f44336',
+      dark: '#d32f2f',
+      contrastText: '#fff'
     },
     background: {
       default: '#f5f6f8',
       appBar: '#3c40c6'
     },
     text: {
-      primary: '#3d5170',
+      primary: darken(grey['A700'], 0.7),
       secondary: '#818ea3'
     }
   },
@@ -76,5 +81,4 @@ export default {
     '0px 11px 14px -7px rgba(0, 0, 0, 0.1),0px 23px 36px 3px rgba(0, 0, 0, 0.04),0px 9px 44px 8px rgba(0, 0, 0, 0.02)',
     '0px 11px 15px -7px rgba(0, 0, 0, 0.1),0px 24px 38px 3px rgba(0, 0, 0, 0.04),0px 9px 46px 8px rgba(0, 0, 0, 0.02)'
   ]
-
 }
