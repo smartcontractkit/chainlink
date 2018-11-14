@@ -3,31 +3,32 @@ import { withStyles } from '@material-ui/core/styles'
 import Icon from '@material-ui/core/Icon'
 
 const styles = theme => {
+  const iconShared = {
+    borderRadius: theme.spacing.unit * 3,
+    padding: 3,
+    width: '1.22em',
+    height: '1.25em'
+  }
+
   return {
-    waiting: {
-      backgroundColor: theme.palette.warning.main,
-      color: theme.palette.warning.contrastText,
-      borderRadius: theme.spacing.unit * 3,
-      padding: 3,
-      width: '1.22em',
-      height: '1.25em'
-    },
-    completed: {
-      backgroundColor: theme.palette.success.light,
-      color: theme.palette.success.main,
-      borderRadius: theme.spacing.unit * 3,
-      padding: 3,
-      width: '1.22em',
-      height: '1.25em'
-    },
-    errored: {
-      backgroundColor: theme.palette.error.light,
-      color: theme.palette.error.main,
-      borderRadius: theme.spacing.unit * 3,
-      padding: 3,
-      width: '1.22em',
-      height: '1.25em'
-    }
+    waiting: Object.assign(
+      {},
+      iconShared,
+      {backgroundColor: theme.palette.warning.main},
+      {color: theme.palette.warning.contrastText}
+    ),
+    completed: Object.assign(
+      {},
+      iconShared,
+      {backgroundColor: theme.palette.success.light},
+      {color: theme.palette.success.main}
+    ),
+    errored: Object.assign(
+      {},
+      iconShared,
+      {backgroundColor: theme.palette.error.light},
+      {color: theme.palette.error.main}
+    )
   }
 }
 
