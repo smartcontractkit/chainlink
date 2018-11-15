@@ -18,5 +18,5 @@ if [ -n "$USE_GDB" ] && [ "$ENVIRONMENT" == "debug" ]; then
   # XXX: The sgx-gdb wrapper script will actually load the symbol table for the enclave
   /opt/sgxsdk/bin/sgx-gdb -ex run --args ./adapters.test -test.parallel 1 -test.v
 else
-  ./adapters.test -test.v $@
+  ./adapters.test -test.parallel 2 -test.v $@
 fi
