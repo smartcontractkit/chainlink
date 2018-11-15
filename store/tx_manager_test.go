@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -497,4 +498,68 @@ func TestActiveAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsEx
 	})
 	assert.Error(t, err)
 	assert.Equal(t, uint64(0), activeAccount.GetNonce())
+}
+
+func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
+	t.Parallel()
+
+	logsToCheckForBalance := cltest.ObserveLogs()
+
+	config, configCleanup := cltest.NewConfig()
+	defer configCleanup()
+	oracleAddress := "0xDEADB3333333F"
+	oca := common.HexToAddress(oracleAddress)
+	config.OracleContractAddress = &oca
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+
+	manager := app.Store.TxManager
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+	hash := cltest.NewHash()
+	nonce := uint64(256)
+	sentAt := uint64(23456)
+	ethMock := app.MockEthClient()
+	mockedEthBalance := "0x100"
+	mockedLinkBalance := "256000000000000000000"
+	confirmedHeight := sentAt + config.MinOutgoingConfirmations
+	confirmedReceipt := strpkg.TxReceipt{
+		Hash:        hash,
+		BlockNumber: cltest.Int(sentAt),
+	}
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_blockNumber", "0x1")
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+		ethMock.Register("eth_sendRawTransaction", hash)
+		ethMock.Register("eth_getTransactionReceipt", confirmedReceipt)
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(
+			confirmedHeight))
+		ethMock.Register("eth_getBalance", mockedEthBalance)
+		ethMock.Register("eth_call", mockedLinkBalance)
+	})
+	assert.NoError(t, app.Start())
+
+	confirmedTx, err := manager.CreateTx(to, data)
+	assert.NoError(t, err)
+	txTransmissionAttempts, err := app.Store.AttemptsFor(confirmedTx.ID)
+	assert.NoError(t, err)
+	initialSuccessfulAttempt := txTransmissionAttempts[0]
+
+	txWasConfirmed, err := manager.MeetsMinConfirmations(
+		initialSuccessfulAttempt.Hash)
+	assert.NoError(t, err)
+	assert.True(t, txWasConfirmed)
+
+	ethMock.EventuallyAllCalled(t)
+
+	targetLog := "New ETH balance: 256. New LINK balance: 256.000000000000000000"
+	targetLogSeen := false
+	for _, log := range logsToCheckForBalance.All() {
+		if strings.Contains(log.Entry.Message, targetLog) {
+			targetLogSeen = true
+			break
+		}
+	}
+	assert.True(t, targetLogSeen)
 }
