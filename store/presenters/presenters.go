@@ -132,6 +132,7 @@ func (a *AccountBalance) SetID(value string) error {
 // If you add an entry here, you should update NewConfigWhitelist and
 // ConfigWhitelist#String accordingly.
 type ConfigWhitelist struct {
+	AccountAddress           string          `json:"accountAddress"`
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  uint64          `json:"ethChainId"`
@@ -163,7 +164,11 @@ type ConfigWhitelist struct {
 func NewConfigWhitelist(store *store.Store) ConfigWhitelist {
 	config := store.Config
 
+	account, _ := store.KeyStore.GetFirstAccount()
+	accountAddress := account.Address.Hex()
+
 	return ConfigWhitelist{
+		AccountAddress:           accountAddress,
 		AllowOrigins:             config.AllowOrigins,
 		BridgeResponseURL:        config.BridgeResponseURL.String(),
 		ChainID:                  config.ChainID,
@@ -183,12 +188,12 @@ func NewConfigWhitelist(store *store.Store) ConfigWhitelist {
 		MinIncomingConfirmations: config.MinIncomingConfirmations,
 		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:                     config.Port,
-		ReaperExpiration:         config.ReaperExpiration,
-		RootDir:                  config.RootDir,
-		SessionTimeout:           config.SessionTimeout,
-		TLSHost:                  config.TLSHost,
-		TLSPort:                  config.TLSPort,
+		Port:             config.Port,
+		ReaperExpiration: config.ReaperExpiration,
+		RootDir:          config.RootDir,
+		SessionTimeout:   config.SessionTimeout,
+		TLSHost:          config.TLSHost,
+		TLSPort:          config.TLSPort,
 	}
 }
 
