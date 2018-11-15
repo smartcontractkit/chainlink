@@ -18,6 +18,7 @@ export default {
       {path: '/jobs/page/_jobPage_'},
       {path: '/jobs/new'},
       {path: '/jobs/_jobSpecId_'},
+      {path: '/jobs/_jobSpecId_/definition'},
       {path: '/jobs/_jobSpecId_/runs'},
       {path: '/jobs/_jobSpecId_/runs/page/_jobRunsPage_'},
       {path: '/jobs/_jobSpecId_/runs/id/_jobRunId_'},

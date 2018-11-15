@@ -20,6 +20,7 @@ const uniOpts = {loading: Loading}
 const DashboardsIndex = universal(import('./containers/Dashboards/Index'), uniOpts)
 const JobsIndex = universal(import('./containers/Jobs/Index'), uniOpts)
 const JobsShow = universal(import('./containers/Jobs/Show'), uniOpts)
+const JobsDefinition = universal(import('./containers/Jobs/Definition'), uniOpts)
 const JobsNew = universal(import('./containers/Jobs/New'), uniOpts)
 const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
@@ -91,6 +92,7 @@ class Layout extends Component {
                     path='/jobs/:jobSpecId'
                     render={props => <JobsShow {...props} showJobRunsCount={5} />}
                   />
+                  <PrivateRoute exact path='/jobs/:jobSpecId/definition' component={JobsDefinition} />
                   <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
                   <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
                   <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobRunsShow} />
