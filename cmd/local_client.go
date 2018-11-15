@@ -54,7 +54,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	defer app.Stop()
 	logNodeBalance(store)
-	logConfigVariables(config)
+	logConfigVariables(store)
 	logIfNonceOutOfSync(store)
 
 	return cli.errorOut(cli.Runner.Run(app))
@@ -114,8 +114,8 @@ func logAccountBalance(kv map[string]interface{}) {
 	logger.Infow(fmt.Sprint(kv["message"]), "address", kv["address"], "balance", kv["balance"])
 }
 
-func logConfigVariables(config strpkg.Config) {
-	wlc := presenters.NewConfigWhitelist(config)
+func logConfigVariables(store *strpkg.Store) {
+	wlc := presenters.NewConfigWhitelist(store)
 	logger.Debug("Environment variables\n", wlc)
 }
 

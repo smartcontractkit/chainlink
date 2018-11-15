@@ -18,7 +18,7 @@ type ConfigController struct {
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	pc := presenters.NewConfigWhitelist(cc.App.GetStore().Config)
+	pc := presenters.NewConfigWhitelist(cc.App.GetStore())
 	if json, err := jsonapi.Marshal(pc); err != nil {
 		c.AbortWithError(500, fmt.Errorf("failed to marshal config using jsonapi: %+v", err))
 	} else {
