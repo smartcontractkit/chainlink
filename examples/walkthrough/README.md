@@ -23,7 +23,7 @@ If you're on a mac with [Homebrew](https://brew.sh/), you can run:
 ```bash
 go get -d github.com/smartcontractkit/chainlink
 cd $GOPATH/src/github.com/smartcontractkit/chainlink
-make bootstrap
+make install
 chainlink help
 ```
 
