@@ -7,4 +7,5 @@ docker run \
   --workdir="$workdir" \
   --env "SGX_ENABLED=yes" \
   --env "RUST_BACKTRACE=1" \
+  --cap-add=SYS_PTRACE \
   -ti $image_tag
