@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -32,23 +33,20 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		return
 	}
 
-	var runs []models.JobRun
 	var countErr error
 	var query storm.Query
 	var count int
-
 	if id == "" {
-		count, countErr = jrc.App.GetStore().Count(&models.JobRun{})
-		query = jrc.App.GetStore().Select().OrderBy("CreatedAt").Limit(size).Skip(offset)
+		query, count, countErr = allJobRuns(jrc.App.GetStore(), size, offset)
 	} else {
-		count, countErr = jrc.App.GetStore().JobRunsCountFor(id)
-		query = jrc.App.GetStore().Select(q.Eq("JobID", id)).OrderBy("CreatedAt").Limit(size).Skip(offset)
+		query, count, countErr = runsForJob(id, jrc.App.GetStore(), size, offset)
 	}
 
 	if c.Query("sort") == "-createdAt" {
 		query = query.Reverse()
 	}
 
+	var runs []models.JobRun
 	if countErr != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
 	} else if err := query.Find(&runs); err != nil {
@@ -58,6 +56,20 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	} else {
 		c.Data(200, MediaType, buffer)
 	}
+}
+
+func allJobRuns(store *store.Store, size int, offset int) (query storm.Query, count int, countErr error) {
+	count, countErr = store.Count(&models.JobRun{})
+	query = store.Select().OrderBy("CreatedAt").Limit(size).Skip(offset)
+
+	return query, count, countErr
+}
+
+func runsForJob(jobID string, store *store.Store, size int, offset int) (query storm.Query, count int, countErr error) {
+	count, countErr = store.JobRunsCountFor(jobID)
+	query = store.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Limit(size).Skip(offset)
+
+	return query, count, countErr
 }
 
 // Create starts a new Run for the requested JobSpec.
