@@ -417,6 +417,7 @@ func (r EmptyRunner) Run(app services.Application) error {
 type MockCountingPrompter struct {
 	EnteredStrings []string
 	Count          int
+	NotTerminal    bool
 }
 
 // Prompt returns an entered string
@@ -435,7 +436,7 @@ func (p *MockCountingPrompter) PasswordPrompt(string) string {
 
 // IsTerminal always returns true in tests
 func (p *MockCountingPrompter) IsTerminal() bool {
-	return true
+	return !p.NotTerminal
 }
 
 // NewHTTPMockServer create http test server with passed in parameters

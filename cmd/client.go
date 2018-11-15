@@ -23,6 +23,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var (
+	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
+	// and no API credentials have been provided
+	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
+)
+
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
@@ -328,6 +334,10 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 func (t *promptingAPIInitializer) Initialize(store *store.Store) (models.User, error) {
 	if user, err := store.FindUser(); err == nil {
 		return user, err
+	}
+
+	if !t.prompter.IsTerminal() {
+		return models.User{}, ErrorNoAPICredentialsAvailable
 	}
 
 	for {
