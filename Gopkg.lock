@@ -340,11 +340,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a5df69f27293a1872c9ef21dfb4eb160acf1b623866f7ac9fe1e9074c8dc313d"
+  digest = "1:2ef27527b97c96d8d7be2611881bc52082e6e102799f9074a65a420f89bb7e84"
   name = "github.com/mrwonko/cron"
   packages = ["."]
   pruneopts = ""
-  revision = "4f4eb26d696f4ef13acad8270f31e4a334ed7f5d"
+  revision = "e0ddd0f7e7db6a7f6b1a36197aaa3e57f23d318e"
 
 [[projects]]
   branch = "master"
