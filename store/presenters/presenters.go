@@ -161,14 +161,15 @@ type ConfigWhitelist struct {
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
-func NewConfigWhitelist(store *store.Store) ConfigWhitelist {
+func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 	config := store.Config
-
-	account, _ := store.KeyStore.GetFirstAccount()
-	accountAddress := account.Address.Hex()
+	account, err := store.KeyStore.GetFirstAccount()
+	if err != nil {
+		return ConfigWhitelist{}, err
+	}
 
 	return ConfigWhitelist{
-		AccountAddress:           accountAddress,
+		AccountAddress:           account.Address.Hex(),
 		AllowOrigins:             config.AllowOrigins,
 		BridgeResponseURL:        config.BridgeResponseURL.String(),
 		ChainID:                  config.ChainID,
@@ -194,7 +195,7 @@ func NewConfigWhitelist(store *store.Store) ConfigWhitelist {
 		SessionTimeout:   config.SessionTimeout,
 		TLSHost:          config.TLSHost,
 		TLSPort:          config.TLSPort,
-	}
+	}, nil
 }
 
 // String returns the values as a newline delimited string

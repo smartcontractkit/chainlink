@@ -17,7 +17,8 @@ import (
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	config, _ := cltest.NewConfigWithPrivateKey()
+	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 	client := app.NewHTTPClient()
 

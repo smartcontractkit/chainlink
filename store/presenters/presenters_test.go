@@ -177,16 +177,30 @@ func TestServiceAgreement_MarshalJSON(t *testing.T) {
 	assert.Equal(t, cltest.NormalizedJSON(input), string(output))
 }
 
-func TestPresenter_NewConfigWhitelist(t *testing.T) {
-	config, cleanup := cltest.NewConfig()
-	defer cleanup()
-	config.AllowOrigins = "http://localhost:1234"
+func TestPresenter_NewConfigWhitelist_Ok(t *testing.T) {
+	t.Parallel()
 
+	config, cleanup := cltest.NewConfigWithPrivateKey()
+	defer cleanup()
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
-	cw := presenters.NewConfigWhitelist(store)
+	cw, err := presenters.NewConfigWhitelist(store)
+	assert.NoError(t, err)
 
-	assert.Equal(t, "http://localhost:1234", cw.AllowOrigins)
-	assert.Equal(t, "0x0000000000000000000000000000000000000000", cw.AccountAddress)
+	assert.Equal(t, "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", cw.AccountAddress)
+}
+
+func TestPresenter_NewConfigWhitelist_Error(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig()
+	defer cleanup()
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	cw, err := presenters.NewConfigWhitelist(store)
+	assert.Error(t, err)
+
+	assert.Equal(t, "", cw.AccountAddress)
 }
