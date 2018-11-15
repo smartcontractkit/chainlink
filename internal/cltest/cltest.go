@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -57,6 +59,11 @@ const (
 	SessionSecret = "clsession_test_secret"
 )
 
+var (
+	_, b, _, _ = runtime.Caller(0)
+	basepath   = filepath.Dir(b)
+)
+
 var storeCounter uint64
 
 var minimumContractPayment = assets.NewLink(100)
@@ -82,7 +89,8 @@ func NewConfig() (*TestConfig, func()) {
 func NewConfigWithPrivateKey() (*TestConfig, func()) {
 	wsserver, cleanup := newWSServer()
 	config := NewConfigWithWSServer(wsserver)
-	AddPrivateKey(config, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	keyPath := path.Join(basepath, "../fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	AddPrivateKey(config, keyPath)
 	return config, cleanup
 }
 
