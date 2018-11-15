@@ -160,7 +160,9 @@ type ConfigWhitelist struct {
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
-func NewConfigWhitelist(config store.Config) ConfigWhitelist {
+func NewConfigWhitelist(store *store.Store) ConfigWhitelist {
+	config := store.Config
+
 	return ConfigWhitelist{
 		AllowOrigins:             config.AllowOrigins,
 		BridgeResponseURL:        config.BridgeResponseURL.String(),
