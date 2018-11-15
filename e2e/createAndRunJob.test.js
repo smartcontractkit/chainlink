@@ -4,7 +4,11 @@ const expect = require('expect-puppeteer')
 describe('End to end', () => {
   let browser, page
   beforeAll(async () => {
-    browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']})
+    browser = await puppeteer.launch({
+      devtools: false,
+      headless: true,
+      args: ['--no-sandbox']
+    })
     page = await browser.newPage()
   })
 

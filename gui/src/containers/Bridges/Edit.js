@@ -42,7 +42,7 @@ export class Edit extends Component {
   }
 
   render () {
-    const {bridge, classes, updateBridge} = this.props
+    const {bridge, updateBridge} = this.props
     return (
       <Content>
         <Grid container>

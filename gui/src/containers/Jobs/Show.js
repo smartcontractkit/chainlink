@@ -1,43 +1,23 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
-import { Link as BaseLink } from 'react-static'
+import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
-import { isWebInitiator, formatInitiators } from 'utils/jobSpecInitiators'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
-import Title from 'components/Title'
 import PaddedCard from 'components/PaddedCard'
-import PrettyJson from 'components/PrettyJson'
-import Breadcrumb from 'components/Breadcrumb'
-import BreadcrumbItem from 'components/BreadcrumbItem'
-import List from 'components/JobRuns/List'
+import JobRunsList from 'components/JobRuns/List'
 import Link from 'components/Link'
-import CopyJobSpec from 'components/CopyJobSpec'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { connect } from 'react-redux'
-import { fetchJob, createJobRun } from 'actions'
+import Content from 'components/Content'
+import RegionalNav from 'components/Jobs/RegionalNav'
+import TimeAgo from 'components/TimeAgo'
+import { fetchJob } from 'actions'
 import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
-import { Divider, Button } from '@material-ui/core'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
-import ErrorMessage from 'components/Notifications/DefaultError'
-import TimeAgo from 'components/TimeAgo'
-import Content from 'components/Content'
+import { formatInitiators } from 'utils/jobSpecInitiators'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const styles = theme => ({
-  actions: {
-    textAlign: 'right'
-  },
-  definitionTitle: {
-    marginTop: theme.spacing.unit * 2,
-    marginBottom: theme.spacing.unit * 2
-  },
-  divider: {
-    marginTop: theme.spacing.unit,
-    marginBottom: theme.spacing.unit * 3
-  },
   lastRun: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
@@ -46,62 +26,12 @@ const styles = theme => ({
     marginTop: theme.spacing.unit * 3,
     marginLeft: theme.spacing.unit * 3,
     display: 'block'
-  },
-  duplicate: {
-    margin: theme.spacing.unit
   }
 })
 
-const SuccessNotification = ({data}) => (
-  <React.Fragment>
-    Successfully created job run <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>{data.id}</BaseLink>
-  </React.Fragment>
-)
-
-const renderJobSpec = ({classes, job, createJobRun, fetching, fetchJob}) => {
-  const definition = jobSpecDefinition(job)
-  const handleClick = () => {
-    createJobRun(job.id, SuccessNotification, ErrorMessage)
-      .then(() => fetchJob(job.id))
-  }
-
+const renderJobSpec = ({classes, job, fetchJob}) => {
   return (
     <Grid container spacing={40}>
-      <Grid item xs={8}>
-        <PaddedCard>
-          <Grid container>
-            <Grid item xs={12}>
-              <Grid container alignItems='baseline'>
-                <Grid item xs={4}>
-                  <Typography variant='title' className={classes.definitionTitle}>
-                    Definition
-                  </Typography>
-                </Grid>
-                <Grid item xs={8} className={classes.actions}>
-                  {isWebInitiator(job.initiators) && (
-                    <Button variant='outlined' color='primary' disabled={!!fetching} onClick={handleClick}>
-                      Run
-                    </Button>
-                  )}
-                  <Button
-                    to={{ pathname: '/jobs/new', state: { definition: definition } }}
-                    component={ReactStaticLinkComponent}
-                    color='primary'
-                    className={classes.duplicate}
-                    variant='outlined'>
-                    Duplicate
-                  </Button>
-                  <CopyJobSpec JobSpec={definition} />
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item xs={12}>
-              <Divider light className={classes.divider} />
-            </Grid>
-            <PrettyJson object={definition} />
-          </Grid>
-        </PaddedCard>
-      </Grid>
       <Grid item xs={4}>
         <PaddedCard>
           <Grid container spacing={16}>
@@ -147,7 +77,7 @@ const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => 
     </Typography>
 
     <Card>
-      <List jobSpecId={job.id} runs={latestJobRuns} />
+      <JobRunsList jobSpecId={job.id} runs={latestJobRuns} />
     </Card>
     {job.runs && job.runs.length > showJobRunsCount && (
       <Link to={`/jobs/${job.id}/runs`} className={classes.showMore}>
@@ -157,8 +87,6 @@ const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => 
   </React.Fragment>
 )
 
-const renderFetching = () => <div>Fetching...</div>
-
 const renderDetails = props => {
   if (props.job) {
     return (
@@ -167,9 +95,9 @@ const renderDetails = props => {
         {renderLatestRuns(props)}
       </React.Fragment>
     )
-  } else {
-    return renderFetching()
   }
+
+  return <div>Fetching...</div>
 }
 
 export class Show extends Component {
@@ -178,19 +106,16 @@ export class Show extends Component {
   }
 
   render () {
-    const { classes, jobSpecId } = this.props
+    const {jobSpecId, job} = this.props
 
     return (
-      <Content>
-        <Breadcrumb>
-          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem>Job ID: {jobSpecId}</BreadcrumbItem>
-        </Breadcrumb>
-        <Title>Job Spec Detail</Title>
+      <div>
+        <RegionalNav jobSpecId={jobSpecId} job={job} />
 
-        {renderDetails(this.props)}
-      </Content>
+        <Content>
+          {renderDetails(this.props)}
+        </Content>
+      </div>
     )
   }
 }
@@ -211,19 +136,13 @@ const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const job = jobSelector(state, jobSpecId)
   const latestJobRuns = jobRunsByJobIdSelector(state, jobSpecId, ownProps.showJobRunsCount)
-  const fetching = state.fetching.count
 
-  return {
-    jobSpecId,
-    job,
-    latestJobRuns,
-    fetching
-  }
+  return {jobSpecId, job, latestJobRuns}
 }
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJob, createJobRun})
+  matchRouteAndMapDispatchToProps({fetchJob})
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)
