@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/asdine/storm"
-	"github.com/asdine/storm/index"
+	"github.com/asdine/storm/q"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
@@ -32,42 +32,31 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		return
 	}
 
-	var order func(opts *index.Options)
-	if c.Query("sort") == "-createdAt" {
-		order = storm.Reverse()
-	} else {
-		order = func(opts *index.Options) {}
-	}
-
-	limit := storm.Limit(size)
-	skip := storm.Skip(offset)
-
 	var runs []models.JobRun
+	var countErr error
+	var query storm.Query
+	var count int
 
 	if id == "" {
-		count, err := jrc.App.GetStore().Count(&models.JobRun{})
-
-		if err != nil {
-			c.AbortWithError(500, fmt.Errorf("error getting count of all JobRuns: %+v", err))
-		} else if err := jrc.App.GetStore().All(&runs, limit, skip, order); err != nil {
-			c.AbortWithError(500, fmt.Errorf("error getting all paged JobRuns: %+v", err))
-		} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, runs); err != nil {
-			c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
-		} else {
-			c.Data(200, MediaType, buffer)
-		}
+		count, countErr = jrc.App.GetStore().Count(&models.JobRun{})
+		query = jrc.App.GetStore().Select().OrderBy("CreatedAt").Limit(size).Skip(offset)
 	} else {
-		count, err := jrc.App.GetStore().JobRunsCountFor(id)
+		count, countErr = jrc.App.GetStore().JobRunsCountFor(id)
+		query = jrc.App.GetStore().Select(q.Eq("JobID", id)).OrderBy("CreatedAt").Limit(size).Skip(offset)
+	}
 
-		if err != nil {
-			c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
-		} else if err := jrc.App.GetStore().Find("JobID", id, &runs, limit, skip, order); err != nil {
-			c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
-		} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, runs); err != nil {
-			c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
-		} else {
-			c.Data(200, MediaType, buffer)
-		}
+	if c.Query("sort") == "-createdAt" {
+		query = query.Reverse()
+	}
+
+	if countErr != nil {
+		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
+	} else if err := query.Find(&runs); err != nil {
+		c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
+	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, runs); err != nil {
+		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
+	} else {
+		c.Data(200, MediaType, buffer)
 	}
 }
 

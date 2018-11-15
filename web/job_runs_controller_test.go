@@ -47,13 +47,13 @@ func TestJobRunsController_Index(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	run1, run2, run3 := setupJobRunsControllerIndex(t, app)
+	runA, runB, runC := setupJobRunsControllerIndex(t, app)
 
-	resp, cleanup := client.Get("/v2/runs?size=x&jobSpecId=" + run1.JobID)
+	resp, cleanup := client.Get("/v2/runs?size=x&jobSpecId=" + runA.JobID)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 
-	resp, cleanup = client.Get("/v2/runs?size=1&jobSpecId=" + run1.JobID)
+	resp, cleanup = client.Get("/v2/runs?size=1&jobSpecId=" + runA.JobID)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -66,7 +66,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, runs, 1)
-	assert.Equal(t, run1.ID, runs[0].ID, "expected runs order by createdAt ascending")
+	assert.Equal(t, runA.ID, runs[0].ID, "expected runs order by createdAt ascending")
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
@@ -81,7 +81,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.NotEmpty(t, nextPageLinks["prev"])
 
 	assert.Len(t, nextPageRuns, 1)
-	assert.Equal(t, run2.ID, nextPageRuns[0].ID, "expected runs order by createdAt ascending")
+	assert.Equal(t, runB.ID, nextPageRuns[0].ID, "expected runs order by createdAt ascending")
 
 	resp, cleanup = client.Get("/v2/runs?sort=-createdAt")
 	defer cleanup()
@@ -96,9 +96,9 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.Empty(t, allJobRunLinks["prev"].Href)
 
 	assert.Len(t, allJobRuns, 3)
-	assert.Equal(t, run3.ID, allJobRuns[0].ID, "expected runs ordered by created at descending")
-	assert.Equal(t, run2.ID, allJobRuns[1].ID, "expected runs ordered by created at descending")
-	assert.Equal(t, run1.ID, allJobRuns[2].ID, "expected runs ordered by created at descending")
+	assert.Equal(t, runC.ID, allJobRuns[0].ID, "expected runs ordered by created at descending")
+	assert.Equal(t, runB.ID, allJobRuns[1].ID, "expected runs ordered by created at descending")
+	assert.Equal(t, runA.ID, allJobRuns[2].ID, "expected runs ordered by created at descending")
 }
 
 func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) (*models.JobRun, *models.JobRun, *models.JobRun) {
@@ -108,21 +108,24 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 	j2, initr := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j2))
 
-	run1 := j1.NewRun(initr)
-	run1.ID = "runA"
-	assert.Nil(t, app.Store.Save(&run1))
+	now := time.Now()
 
-	run2 := j1.NewRun(initr)
-	run2.ID = "runB"
-	run2.CreatedAt = run1.CreatedAt.Add(time.Second)
-	assert.Nil(t, app.Store.Save(&run2))
+	runA := j1.NewRun(initr)
+	runA.ID = "runA"
+	runA.CreatedAt = now.Add(-2 * time.Second)
+	assert.Nil(t, app.Store.Save(&runA))
 
-	run3 := j2.NewRun(initr)
-	run3.ID = "runC"
-	run3.CreatedAt = run1.CreatedAt.Add(2 * time.Second)
-	assert.Nil(t, app.Store.Save(&run3))
+	runB := j1.NewRun(initr)
+	runB.ID = "runB"
+	runB.CreatedAt = now.Add(-time.Second)
+	assert.Nil(t, app.Store.Save(&runB))
 
-	return &run1, &run2, &run3
+	runC := j2.NewRun(initr)
+	runC.ID = "runC"
+	runC.CreatedAt = now
+	assert.Nil(t, app.Store.Save(&runC))
+
+	return &runA, &runB, &runC
 }
 
 func TestJobRunsController_Create_Success(t *testing.T) {
