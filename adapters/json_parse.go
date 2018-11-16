@@ -3,7 +3,6 @@ package adapters
 import (
 	"encoding/json"
 	"errors"
-	"math"
 	"strconv"
 	"strings"
 
@@ -106,22 +105,22 @@ func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) 
 }
 
 func arrayGet(js *simplejson.Json, key string) (*simplejson.Json, bool) {
-	input, err := strconv.ParseInt(key, 10, 64)
+	input, err := strconv.ParseInt(key, 10, 32)
 	if err != nil {
 		return js, false
 	}
-	if input > math.MaxInt32 {
-		return js, false
-	}
 	a, err := js.Array()
-	index := int(input)
-	negativeIndex := int(-1 * input)
-	reverseIndex := int(len(a)) - negativeIndex
-	if err != nil || len(a) < index-1 || (index < 0 && -1*len(a) > index) {
+	if err != nil {
 		return js, false
 	}
-	if input < 0 {
-		return js.GetIndex(reverseIndex), true
+
+	index := int(input)
+	if index < 0 {
+		index = len(a) + index
+	}
+
+	if index >= len(a) || index < 0 {
+		return js, false
 	}
 	return js.GetIndex(index), true
 }
