@@ -4,10 +4,8 @@ package utils
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -268,52 +266,6 @@ func MaxInt(ints ...int) int {
 	return max
 }
 
-// ConcatBytes appends a bunch of byte arrays into a single byte array
-func ConcatBytes(bufs ...[]byte) ([]byte, error) {
-	buffer := bytes.NewBuffer([]byte{})
-	for _, b := range bufs {
-		_, err := buffer.Write(b)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return buffer.Bytes(), nil
-}
-
-// EVMWordUint64 returns a uint64 as an EVM word byte array.
-func EVMWordUint64(val uint64) []byte {
-	word := make([]byte, EVMWordByteLen)
-	binary.BigEndian.PutUint64(word[EVMWordByteLen-8:], val)
-	return word
-}
-
-// EVMWordSignedBigInt returns a big.Int as an EVM word byte array, with
-// support for a signed representation. Returns error on overflow.
-func EVMWordSignedBigInt(val *big.Int) ([]byte, error) {
-	bytes := val.Bytes()
-	if val.BitLen() > (8*EVMWordByteLen - 1) {
-		return nil, fmt.Errorf("Overflow saving signed big.Int to EVM word: %v", val)
-	}
-	if val.Sign() == -1 {
-		twosComplement := new(big.Int).Add(val, MaxUint256)
-		bytes = new(big.Int).Add(twosComplement, big.NewInt(1)).Bytes()
-	}
-	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
-}
-
-// EVMWordBigInt returns a big.Int as an EVM word byte array, with support for
-// a signed representation. Returns error on overflow.
-func EVMWordBigInt(val *big.Int) ([]byte, error) {
-	if val.Sign() == -1 {
-		return nil, errors.New("Uint256 cannot be negative")
-	}
-	bytes := val.Bytes()
-	if len(bytes) > EVMWordByteLen {
-		return nil, fmt.Errorf("Overflow saving big.Int to EVM word: %v", val)
-	}
-	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
-}
-
 // CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
 // map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
 // Relevant when serializing between CBOR and JSON.
@@ -355,15 +307,6 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 	default:
 		return in, nil
 	}
-}
-
-// ParseUintHex parses an unsigned integer out of a hex string.
-func ParseUintHex(hex string) (*big.Int, error) {
-	amount, ok := new(big.Int).SetString(hex, 0)
-	if !ok {
-		return amount, fmt.Errorf("unable to decode hex to integer: %s", hex)
-	}
-	return amount, nil
 }
 
 // HashPassword wraps around bcrypt.GenerateFromPassword for a friendlier API.
@@ -413,24 +356,4 @@ func RemoveQuotes(input []byte) []byte {
 		return input[1 : len(input)-1]
 	}
 	return input
-}
-
-// "Constants" used by EVM words
-var (
-	maxUint257 = &big.Int{}
-	// MaxUint256 represents the largest number represented by an EVM word
-	MaxUint256 = &big.Int{}
-	// MaxInt256 represents the largest number represented by an EVM word using
-	// signed encoding.
-	MaxInt256 = &big.Int{}
-	// MinInt256 represents the smallest number represented by an EVM word using
-	// signed encoding.
-	MinInt256 = &big.Int{}
-)
-
-func init() {
-	maxUint257 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil)
-	MaxUint256 = new(big.Int).Sub(maxUint257, big.NewInt(1))
-	MaxInt256 = new(big.Int).Div(MaxUint256, big.NewInt(2))
-	MinInt256 = new(big.Int).Neg(MaxInt256)
 }
