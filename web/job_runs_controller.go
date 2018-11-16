@@ -7,9 +7,11 @@ import (
 	"net/http"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -22,24 +24,52 @@ type JobRunsController struct {
 
 // Index returns paginated JobRuns for a given JobSpec
 // Example:
-//  "<application>/specs/:SpecID/runs?size=1&page=2"
+//  "<application>/runs?jobSpecId=:jobSpecId&size=1&page=2"
 func (jrc *JobRunsController) Index(c *gin.Context) {
-	id := c.Param("SpecID")
+	id := c.Query("jobSpecId")
 	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 	if err != nil {
 		c.AbortWithError(422, err)
 		return
 	}
-	var jrs []models.JobRun
-	if count, err := jrc.App.GetStore().JobRunsCountFor(id); err != nil {
+
+	var countErr error
+	var query storm.Query
+	var count int
+	if id == "" {
+		query, count, countErr = allJobRuns(jrc.App.GetStore(), size, offset)
+	} else {
+		query, count, countErr = runsForJob(id, jrc.App.GetStore(), size, offset)
+	}
+
+	if c.Query("sort") == "-createdAt" {
+		query = query.Reverse()
+	}
+
+	var runs []models.JobRun
+	if countErr != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
-	} else if err := jrc.App.GetStore().Find("JobID", id, &jrs, storm.Limit(size), storm.Skip(offset), storm.Reverse()); err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting JobRuns: %+v", err))
-	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, jrs); err != nil {
+	} else if err := query.Find(&runs); err != nil {
+		c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
+	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, runs); err != nil {
 		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
 		c.Data(200, MediaType, buffer)
 	}
+}
+
+func allJobRuns(store *store.Store, size int, offset int) (query storm.Query, count int, countErr error) {
+	count, countErr = store.Count(&models.JobRun{})
+	query = store.Select().OrderBy("CreatedAt").Limit(size).Skip(offset)
+
+	return query, count, countErr
+}
+
+func runsForJob(jobID string, store *store.Store, size int, offset int) (query storm.Query, count int, countErr error) {
+	count, countErr = store.JobRunsCountFor(jobID)
+	query = store.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Limit(size).Skip(offset)
+
+	return query, count, countErr
 }
 
 // Create starts a new Run for the requested JobSpec.

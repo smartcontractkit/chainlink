@@ -31,7 +31,10 @@ describe('containers/JobRuns/Index', () => {
     const runsResponse = jsonApiJobSpecRunFactory([{
       jobId: jobSpecId
     }], jobSpecId)
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=10`, runsResponse)
+    global.fetch.getOnce(
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=10`,
+      runsResponse
+    )
 
     const props = {match: {params: {jobSpecId: jobSpecId}}}
     const wrapper = mountIndex(props)
@@ -51,7 +54,10 @@ describe('containers/JobRuns/Index', () => {
       jobSpecId,
       3
     )
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
+    global.fetch.getOnce(
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=1`,
+      pageOneResponse
+    )
 
     const props = {match: {params: {jobSpecId: jobSpecId}}, pageSize: 1}
     const wrapper = mountIndex(props)
@@ -65,14 +71,20 @@ describe('containers/JobRuns/Index', () => {
       jobSpecId,
       3
     )
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=2&size=1`, pageTwoResponse)
+    global.fetch.getOnce(
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=2&size=1`,
+      pageTwoResponse
+    )
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
+    global.fetch.getOnce(
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=1`,
+      pageOneResponse
+    )
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)
@@ -84,7 +96,10 @@ describe('containers/JobRuns/Index', () => {
       jobSpecId,
       3
     )
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=3&size=1`, pageThreeResponse)
+    global.fetch.getOnce(
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=3&size=1`,
+      pageThreeResponse
+    )
     clickLastPage(wrapper)
 
     await syncFetch(wrapper)
@@ -92,7 +107,10 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}/runs?page=1&size=1`, pageOneResponse)
+    global.fetch.getOnce(
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=1`,
+      pageOneResponse
+    )
     clickFirstPage(wrapper)
 
     await syncFetch(wrapper)
