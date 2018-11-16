@@ -34,29 +34,23 @@ func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.Run
 	return ensureTxRunResult(input, store)
 }
 
-func abiEncodeString(str string) ([]byte, error) {
-	input := []byte(str)
-	length := len(input)
-	return utils.ConcatBytes(
-		utils.EVMWordUint64(utils.EVMWordByteLen*2),
-		utils.EVMWordUint64(uint64(length)),
-		input,
-		make([]byte, utils.EVMWordByteLen-(length%utils.EVMWordByteLen)))
-}
-
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
 func getTxData(e *EthTx, input models.RunResult) ([]byte, error) {
-	val, err := input.Value()
+	value := input.Get("value")
+	if e.DataFormat == "" {
+		return common.HexToHash(value.Str).Bytes(), nil
+	}
+
+	payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
+	if len(e.DataPrefix) > 0 {
+		payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
+	}
+	output, err := utils.EVMTranscodeJSONWithFormat(value, e.DataFormat)
 	if err != nil {
-		return nil, err
+		return []byte{}, err
 	}
-
-	if e.DataFormat == DataFormatBytes {
-		return abiEncodeString(val)
-	}
-
-	return common.HexToHash(val).Bytes(), nil
+	return utils.ConcatBytes(payloadOffset, output)
 }
 
 func createTxRunResult(
@@ -64,12 +58,12 @@ func createTxRunResult(
 	input models.RunResult,
 	store *store.Store,
 ) models.RunResult {
-	val, err := getTxData(e, input)
+	value, err := getTxData(e, input)
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	data, err := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, val)
+	data, err := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
 	if err != nil {
 		return input.WithError(err)
 	}
