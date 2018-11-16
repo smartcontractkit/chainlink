@@ -30,8 +30,8 @@ func TestConfigController_Show(t *testing.T) {
 
 	assert.Equal(t, store.LogLevel{Level: -1}, cwl.LogLevel)
 	assert.Contains(t, cwl.RootDir, "/tmp/chainlink_test/")
-	assert.Equal(t, uint16(0), cwl.Port)
-	assert.Equal(t, uint16(0), cwl.TLSPort)
+	assert.Equal(t, uint16(6688), cwl.Port)
+	assert.Equal(t, uint16(6689), cwl.TLSPort)
 	assert.Equal(t, "", cwl.TLSHost)
 	assert.Contains(t, cwl.EthereumURL, "ws://127.0.0.1:")
 	assert.Equal(t, uint64(3), cwl.ChainID)
@@ -42,7 +42,8 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint64(300), cwl.MinimumRequestExpiration)
 	assert.Equal(t, big.NewInt(5000000000), cwl.EthGasBumpWei)
 	assert.Equal(t, big.NewInt(20000000000), cwl.EthGasPriceDefault)
-	assert.Equal(t, "", cwl.LinkContractAddress)
+	assert.Equal(t, store.NewConfig().LinkContractAddress,
+		cwl.LinkContractAddress)
 	assert.Equal(t, assets.NewLink(100), cwl.MinimumContractPayment)
 	assert.Equal(t, (*common.Address)(nil), cwl.OracleContractAddress)
 	assert.Equal(t, store.Duration{Duration: time.Millisecond * 500}, cwl.DatabaseTimeout)
