@@ -54,7 +54,7 @@ contract('ServiceAgreementConsumer', () => {
         let [jId, requester, wei, id, ver, cborData] = decodeRunRequest(log) // eslint-disable-line no-unused-vars
         let params = await cbor.decodeFirst(cborData)
         let expected = {
-          'path': ['USD'],
+          'path': 'USD',
           'url': 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
         }
 
