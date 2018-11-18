@@ -207,11 +207,7 @@ contract Coordinator is CoordinatorInterface {
     returns (bool)
   {
     Callback memory callback = callbacks[_internalId];
-
-    // TODO: Handle multiple responses, and compensation / fines.
-    // https://www.pivotaltracker.com/story/show/159584617
     delete callbacks[_internalId];
-
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted. See:
     // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
