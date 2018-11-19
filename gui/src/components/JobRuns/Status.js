@@ -35,13 +35,13 @@ const styles = theme => {
 const Status = ({children, classes}) => {
   if (children === 'completed') {
     return (
-      <Icon className={classes.completed} title='completed'>
+      <Icon className={classes.completed} title={children}>
         done
       </Icon>
     )
   } else if (children === 'errored') {
     return (
-      <Icon className={classes.errored} title='error'>
+      <Icon className={classes.errored} title={children}>
         error_outline
       </Icon>
     )
