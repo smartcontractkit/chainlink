@@ -45,9 +45,10 @@ const styles = theme => {
 }
 
 const RecentActivity = ({classes, runs}) => {
+  const loading = !runs
   let activity
 
-  if (!runs) {
+  if (loading) {
     activity = (
       <CardContent>
         <Typography variant='body1' color='textSecondary'>...</Typography>
