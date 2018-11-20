@@ -638,12 +638,12 @@
   version = "v8.18.2"
 
 [[projects]]
-  digest = "1:1e0f96a0ecf78dee693c241caddfd7148c65c7a86d0fddc19236b2486cd8b9dc"
+  digest = "1:1582dd711e6e5ef92d6245a5dd0646da19d0d0acb94ea615d43896b7b6c6620b"
   name = "gopkg.in/guregu/null.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "e81d6d8d57747b34d7c5fe0d20ebf57692f04ea9"
-  version = "v3.3.0"
+  revision = "80515d440932108546bcade467bb7d6968e812e2"
+  version = "v3.4.0"
 
 [[projects]]
   branch = "v2"
