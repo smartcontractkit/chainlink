@@ -480,12 +480,12 @@
   revision = "1731857f09b1f38450e2c12409748407822dc6be"
 
 [[projects]]
-  digest = "1:ca969d3e75ed5b3003f4f5864bb5c13d99471ef57f9049bf78562d7ee1ac019c"
+  digest = "1:ad057e82ce7685350bb4096e9468ce25abd21dc26dc1f97d6597ccc2080b0b6f"
   name = "github.com/tidwall/sjson"
   packages = ["."]
   pruneopts = ""
-  revision = "48d34adceb39a5bd6ed7c12f38c78cd425436442"
-  version = "v1.0.2"
+  revision = "c943cc8c8d751d9b33444adf78ae04c2fc8be754"
+  version = "v1.0.3"
 
 [[projects]]
   digest = "1:2e7f653483e51243b6cd6de60ce39bde0d6927d10a3c24295ab0f82cb1efeae2"
