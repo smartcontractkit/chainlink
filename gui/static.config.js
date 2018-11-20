@@ -22,6 +22,7 @@ export default {
       {path: '/jobs/_jobSpecId_/runs'},
       {path: '/jobs/_jobSpecId_/runs/page/_jobRunsPage_'},
       {path: '/jobs/_jobSpecId_/runs/id/_jobRunId_'},
+      {path: '/jobs/_jobSpecId_/runs/id/_jobRunId_/json'},
       {path: '/bridges'},
       {path: '/bridges/page/_bridgePage_'},
       {path: '/bridges/new'},

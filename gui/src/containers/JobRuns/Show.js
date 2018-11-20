@@ -1,19 +1,16 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { useHooks, useEffect } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import Breadcrumb from 'components/Breadcrumb'
-import BreadcrumbItem from 'components/BreadcrumbItem'
 import PaddedCard from 'components/PaddedCard'
-import PrettyJson from 'components/PrettyJson'
-import Title from 'components/Title'
 import TimeAgo from 'components/TimeAgo'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
-import { useHooks, useEffect } from 'use-react-hooks'
+import RegionalNav from 'components/JobRuns/RegionalNav'
 
 const styles = theme => ({
   breadcrumb: {
@@ -30,11 +27,6 @@ const renderDetails = ({fetching, jobRun}) => {
   return (
     <Grid container spacing={40}>
       <Grid item xs={8}>
-        <PaddedCard>
-          <PrettyJson object={jobRun} />
-        </PaddedCard>
-      </Grid>
-      <Grid item xs={4}>
         <PaddedCard>
           <Grid container spacing={16}>
             <Grid item xs={12}>
@@ -68,24 +60,21 @@ const renderDetails = ({fetching, jobRun}) => {
   )
 }
 
-export const Show = useHooks((props) => {
+export const Show = useHooks(props => {
   useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
 
-  return <Content>
-    <Breadcrumb className={props.classes.breadcrumb}>
-      <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-      <BreadcrumbItem>></BreadcrumbItem>
-      <BreadcrumbItem href={`/jobs/${props.jobSpecId}`}>
-              Job ID: {props.jobSpecId}
-      </BreadcrumbItem>
-      <BreadcrumbItem>></BreadcrumbItem>
-      <BreadcrumbItem>Job Run ID: {props.jobRunId}</BreadcrumbItem>
-    </Breadcrumb>
-    <Title>Job Run Detail</Title>
-    {renderDetails(props)}
-  </Content>
-}
-)
+  return (<div>
+    <RegionalNav
+      jobSpecId={props.jobSpecId}
+      jobRunId={props.jobRunId}
+      jobRun={props.jobRun}
+    />
+
+    <Content>
+      {renderDetails(props)}
+    </Content>
+  </div>)
+})
 
 const mapStateToProps = (state, ownProps) => {
   const {jobSpecId, jobRunId} = ownProps.match.params
