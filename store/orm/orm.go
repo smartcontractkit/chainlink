@@ -11,11 +11,11 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
-	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	bolt "go.etcd.io/bbolt"
 )
 
 var (
