@@ -18,7 +18,7 @@
   revision = "70dca2f27708bcf7323c078bad4af7e71eb0fc24"
 
 [[projects]]
-  digest = "1:d94e06cc453e02f13d157c022d51e63dd661fad75807fcdb81eda562d43327c5"
+  digest = "1:526e8f3d76cbe61ad8638dc582278745e814739da4c3b98e550e468b79376ec9"
   name = "github.com/asdine/storm"
   packages = [
     ".",
@@ -29,8 +29,8 @@
     "q",
   ]
   pruneopts = ""
-  revision = "bda68dab90fc908ee5dbccb36400edf4f54972d6"
-  version = "v2.1.1"
+  revision = "5a6fe65e3993f63951c8e3f64c812536c9e23595"
+  version = "v2.1.2"
 
 [[projects]]
   digest = "1:512883404c2a99156e410e9880e3bb35ecccc0c07c1159eb204b5f3ef3c431b3"
@@ -518,6 +518,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "b3d7806010228b1a954b4d9c4ee4cf6cb476b063"
+
+[[projects]]
+  digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
+  name = "go.etcd.io/bbolt"
+  packages = ["."]
+  pruneopts = ""
+  revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
