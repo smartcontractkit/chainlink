@@ -10,6 +10,7 @@ import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
 import RegionalNav from 'components/JobRuns/RegionalNav'
+import StatusCard from 'components/JobRuns/StatusCard'
 
 const styles = theme => ({
   breadcrumb: {
@@ -29,6 +30,11 @@ const renderDetails = ({fetching, jobRun}) => {
         <PaddedCard>
           <PrettyJson object={jobRun} />
         </PaddedCard>
+      </Grid>
+      <Grid item xs={4}>
+        <StatusCard>
+          {jobRun.status}
+        </StatusCard>
       </Grid>
     </Grid>
   )

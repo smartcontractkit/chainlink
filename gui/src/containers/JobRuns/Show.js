@@ -11,6 +11,7 @@ import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
 import RegionalNav from 'components/JobRuns/RegionalNav'
+import StatusCard from 'components/JobRuns/StatusCard'
 
 const styles = theme => ({
   breadcrumb: {
@@ -19,7 +20,7 @@ const styles = theme => ({
   }
 })
 
-const renderDetails = ({fetching, jobRun}) => {
+const renderDetails = ({classes, fetching, jobRun}) => {
   if (fetching || !jobRun) {
     return <div>Fetching job run...</div>
   }
@@ -55,6 +56,11 @@ const renderDetails = ({fetching, jobRun}) => {
             </Grid>
           </Grid>
         </PaddedCard>
+      </Grid>
+      <Grid item xs={4}>
+        <StatusCard>
+          {jobRun.status}
+        </StatusCard>
       </Grid>
     </Grid>
   )
