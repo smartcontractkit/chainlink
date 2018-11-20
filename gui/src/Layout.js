@@ -29,6 +29,7 @@ const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
 const JobRunsIndex = universal(import('./containers/JobRuns/Index'), uniOpts)
 const JobRunsShow = universal(import('./containers/JobRuns/Show'), uniOpts)
+const JobRunsShowJson = universal(import('./containers/JobRuns/ShowJson'), uniOpts)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
 const About = universal(import('./containers/About'), uniOpts)
 const SignIn = universal(import('./containers/SignIn'), uniOpts)
@@ -43,7 +44,7 @@ const styles = theme => {
   }
 }
 
-const Layout = useHooks((props) => {
+const Layout = useHooks(props => {
   const [headerHeight, resizeHeaderHeight] = useState(0)
 
   const onHeaderResize = (_width, height) => {
@@ -95,6 +96,7 @@ const Layout = useHooks((props) => {
               <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
               <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
               <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobRunsShow} />
+              <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId/json' component={JobRunsShowJson} />
               <PrivateRoute exact path='/bridges' component={BridgesIndex} />
               <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
               <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
@@ -109,8 +111,7 @@ const Layout = useHooks((props) => {
       </Grid>
     </Grid>
   </Router>)
-}
-)
+})
 
 const mapStateToProps = state => ({
   redirectTo: state.redirect.to
@@ -121,6 +122,9 @@ const mapDispatchToProps = dispatch => bindActionCreators(
   dispatch
 )
 
-export const ConnectedLayout = connect(mapStateToProps, mapDispatchToProps)(Layout)
+export const ConnectedLayout = connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Layout)
 
 export default hot(module)(withStyles(styles)(ConnectedLayout))
