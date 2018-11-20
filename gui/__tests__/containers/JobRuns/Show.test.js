@@ -24,13 +24,20 @@ describe('containers/JobRuns/Show', () => {
   const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
 
   it('renders the details of the job spec and its latest runs', async () => {
-    expect.assertions(4)
+    expect.assertions(3)
 
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobRunResponse = jsonApiJobSpecRunFactory({
       id: jobRunId,
       createdAt: minuteAgo,
       jobId: jobSpecId,
+      initiator: {
+        type: 'web',
+        params: {}
+      },
+      taskRuns: [
+        {id: 'taskRunA', status: 'completed', task: {type: 'noop', params: {}}}
+      ],
       result: {
         data: {
           value: '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
@@ -43,9 +50,8 @@ describe('containers/JobRuns/Show', () => {
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('IDad24b72c12f441b99b9877bcf6cb506e')
-    expect(wrapper.text()).toContain('Statuscompleted')
-    expect(wrapper.text()).toContain('Createda minute ago')
-    expect(wrapper.text()).toContain('Result{"value":"0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5"}')
+    expect(wrapper.text()).toContain('Web')
+    expect(wrapper.text()).toContain('Noop')
+    expect(wrapper.text()).toContain('completed')
   })
 })
