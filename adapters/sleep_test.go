@@ -15,7 +15,7 @@ func TestSleep_Perform(t *testing.T) {
 	defer cleanup()
 
 	adapter := adapters.Sleep{}
-	err := json.Unmarshal([]byte(`{"until": 872835240}`), &adapter)
+	err := json.Unmarshal([]byte(`{"until": 1332151919}`), &adapter)
 	assert.NoError(t, err)
 
 	result := adapter.Perform(models.RunResult{}, store)
