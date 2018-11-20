@@ -14,7 +14,7 @@ if (!recipient) {
   recipient = wallet.address
 }
 
-await utils.send({
+utils.send({
   to: recipient,
   from: devnetMiner,
   value: `0x${(10 ** 21).toString(16)}`

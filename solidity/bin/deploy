@@ -12,4 +12,9 @@ const args = process.argv.slice(3)
 
 deployer.perform(filePath, ...args).then(contract => {
   console.log(`${filePath} successfully deployed: ${contract.address}`)
+}).catch(error => {
+  console.error(`failed to deploy contract "${filePath}", error: ${error.message}`)
+  if (error.message.includes('insufficient funds')) {
+    console.log('use `fund_address` to credit your deployer address with funds before deploying a contract')
+  }
 })
