@@ -34,6 +34,15 @@ func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
+func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
+	t.Parallel()
+	literalSelectorBytes := []byte(`"setBytes(bytes)"`)
+	var fid models.FunctionSelector
+	err := json.Unmarshal(literalSelectorBytes, &fid)
+	assert.NoError(t, err)
+	assert.Equal(t, "0xda359dc8", fid.String())
+}
+
 func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 	t.Parallel()
 	bytes := []byte(`"0xb3f98adc123456"`)
