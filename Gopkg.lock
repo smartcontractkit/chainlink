@@ -65,14 +65,6 @@
   revision = "515df9e9ee27b2dc58e4bc30b10598ebc54ffd36"
 
 [[projects]]
-  digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
-  name = "github.com/coreos/bbolt"
-  packages = ["."]
-  pruneopts = ""
-  revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:56c130d885a4aacae1dd9c7b71cfe39912c7ebc1ff7d2b46083c8812996dc43b"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -679,7 +671,6 @@
     "github.com/asdine/storm/q",
     "github.com/bitly/go-simplejson",
     "github.com/caarlos0/env",
-    "github.com/coreos/bbolt",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",
     "github.com/ethereum/go-ethereum/accounts/keystore",
@@ -715,6 +706,7 @@
     "github.com/unrolled/secure",
     "github.com/urfave/cli",
     "github.com/willf/pad",
+    "go.etcd.io/bbolt",
     "go.uber.org/multierr",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
