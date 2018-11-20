@@ -22,7 +22,7 @@
 
 [[constraint]]
   name = "github.com/asdine/storm"
-  version = "2.1.1"
+  version = "2.1.2"
 
 [[constraint]]
   name = "github.com/gin-gonic/gin"
