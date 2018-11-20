@@ -124,7 +124,7 @@
 
 [[constraint]]
   name = "github.com/tidwall/sjson"
-  version = "1.0.2"
+  version = "1.0.3"
 
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
