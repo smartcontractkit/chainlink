@@ -13,6 +13,7 @@ import BreadcrumbItem from 'components/BreadcrumbItem'
 import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
+import Content from 'components/Content'
 
 const styles = theme => ({
   breadcrumb: {
@@ -20,58 +21,6 @@ const styles = theme => ({
     marginBottom: theme.spacing.unit * 5
   }
 })
-
-export class Index extends Component {
-  constructor (props) {
-    super(props)
-    this.state = {
-      page: 0
-    }
-    this.handleChangePage = this.handleChangePage.bind(this)
-  }
-
-  componentDidMount () {
-    const { jobSpecId, pageSize, fetchJobRuns } = this.props
-    const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
-    this.setState({ page: queryPage })
-    fetchJobRuns(jobSpecId, queryPage, pageSize)
-  }
-
-  componentDidUpdate (prevProps) {
-    const prevJobRunsPage = prevProps.match.params.jobRunsPage
-    const currentJobRunsPage = this.props.match.params.jobRunsPage
-
-    if (prevJobRunsPage !== currentJobRunsPage) {
-      const { pageSize, fetchJobRuns, jobSpecId } = this.props
-      this.setState({ page: parseInt(currentJobRunsPage, 10) || FIRST_PAGE })
-      fetchJobRuns(jobSpecId, parseInt(currentJobRunsPage, 10) || FIRST_PAGE, pageSize)
-    }
-  }
-
-  handleChangePage (e, page) {
-    const { fetchJobRuns, jobSpecId, pageSize } = this.props
-    fetchJobRuns(jobSpecId, page, pageSize)
-    this.setState({ page })
-  }
-  render () {
-    const { classes, jobSpecId } = this.props
-
-    return (
-      <div>
-        <Breadcrumb className={classes.breadcrumb}>
-          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/jobs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem>Runs</BreadcrumbItem>
-        </Breadcrumb>
-        <Title>Runs</Title>
-
-        {renderDetails(this.props, this.state, this.handleChangePage)}
-      </div>
-    )
-  }
-}
 
 const renderLatestRuns = (props, state, handleChangePage) => {
   const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
@@ -110,6 +59,58 @@ const renderDetails = (props, state, handleChangePage) => {
     return renderLatestRuns(props, state, handleChangePage)
   } else {
     return renderFetching()
+  }
+}
+
+export class Index extends Component {
+  constructor (props) {
+    super(props)
+    this.state = {
+      page: 0
+    }
+    this.handleChangePage = this.handleChangePage.bind(this)
+  }
+
+  componentDidMount () {
+    const { jobSpecId, pageSize, fetchJobRuns } = this.props
+    const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
+    this.setState({ page: queryPage })
+    fetchJobRuns(jobSpecId, queryPage, pageSize)
+  }
+
+  componentDidUpdate (prevProps) {
+    const prevJobRunsPage = prevProps.match.params.jobRunsPage
+    const currentJobRunsPage = this.props.match.params.jobRunsPage
+
+    if (prevJobRunsPage !== currentJobRunsPage) {
+      const { pageSize, fetchJobRuns, jobSpecId } = this.props
+      this.setState({ page: parseInt(currentJobRunsPage, 10) || FIRST_PAGE })
+      fetchJobRuns(jobSpecId, parseInt(currentJobRunsPage, 10) || FIRST_PAGE, pageSize)
+    }
+  }
+
+  handleChangePage (e, page) {
+    const { fetchJobRuns, jobSpecId, pageSize } = this.props
+    fetchJobRuns(jobSpecId, page, pageSize)
+    this.setState({ page })
+  }
+  render () {
+    const { classes, jobSpecId } = this.props
+
+    return (
+      <Content>
+        <Breadcrumb className={classes.breadcrumb}>
+          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
+          <BreadcrumbItem href={`/jobs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
+          <BreadcrumbItem>></BreadcrumbItem>
+          <BreadcrumbItem>Runs</BreadcrumbItem>
+        </Breadcrumb>
+        <Title>Runs</Title>
+
+        {renderDetails(this.props, this.state, this.handleChangePage)}
+      </Content>
+    )
   }
 }
 
