@@ -1,0 +1,13 @@
+language: rust
+rust:
+  - 1.16.0
+  - 1.22.0
+  - 1.26.0
+  - stable
+  - beta
+  - nightly
+sudo: false
+script:
+  - cargo build --verbose
+  - cargo test
+  - cargo test --features serde

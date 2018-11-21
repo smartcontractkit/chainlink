@@ -5,6 +5,7 @@
 #![feature(alloc)]
 
 extern crate base64;
+extern crate bigdecimal;
 extern crate num;
 extern crate serde;
 #[macro_use]

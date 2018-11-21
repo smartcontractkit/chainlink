@@ -1,0 +1,20 @@
+[package]
+name = "bigdecimal"
+version = "0.0.14"
+authors = ["Andrew Kubera"]
+description = "Arbitrary percision decimal numbers"
+documentation = "https://docs.rs/bigdecimal"
+homepage = "https://github.com/akubera/bigdecimal-rs"
+repository = "https://github.com/akubera/bigdecimal-rs"
+keywords = ["mathematics", "numerics", "decimal", "arbitrary-precision", "floating-point"]
+license = "MIT/Apache-2.0"
+
+[dependencies]
+num-bigint = { path = "/opt/rust-sgx-sdk/third_party/num/bigint/" }
+num-integer = { path = "/opt/rust-sgx-sdk/third_party/num/integer/" }
+num-traits = { path = "/opt/rust-sgx-sdk/third_party/num/traits/" }
+serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }
+
+[target.'cfg(not(target_env = "sgx"))'.dependencies]
+sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }
+sgx_types = { path = "/opt/rust-sgx-sdk/sgx_types" }

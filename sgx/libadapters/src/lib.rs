@@ -47,7 +47,7 @@ fn enclave_init() -> SgxResult<SgxEnclave> {
 
 // use_enclave takes a closure and passes in an enclave ID for making enclave calls in a thread
 // safe way
-pub fn use_enclave<F>(ctx: F) 
+pub fn use_enclave<F>(ctx: F)
     where F: Fn(u64) {
     let enclave = ENCLAVE.lock().unwrap();
     ctx(enclave.geteid())
