@@ -75,7 +75,13 @@ class Layout extends Component {
                   <PrivateRoute
                     exact
                     path='/'
-                    render={props => <DashboardsIndex {...props} recentlyCreatedPageSize={4} />}
+                    render={props => (
+                      <DashboardsIndex
+                        {...props}
+                        recentJobRunsCount={5}
+                        recentlyCreatedPageSize={4}
+                      />
+                    )}
                   />
                   <PrivateRoute exact path='/jobs' component={JobsIndex} />
                   <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />

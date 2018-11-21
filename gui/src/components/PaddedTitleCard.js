@@ -13,7 +13,7 @@ const styles = theme => ({
 const PaddedTitleCard = ({title, children, classes}) => (
   <Card className={classes.card}>
     <CardContent>
-      <Typography variant='headline' component='h2'>
+      <Typography variant='headline' component='h2' color='secondary'>
         {title}
       </Typography>
     </CardContent>

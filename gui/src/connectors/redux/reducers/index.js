@@ -9,6 +9,7 @@ import jobRuns from './jobRuns'
 import jobs from './jobs'
 import notifications from './notifications'
 import redirect from './redirect'
+import dashboardIndex from './dashboardIndex'
 
 const reducer = combineReducers({
   accountBalances,
@@ -20,7 +21,8 @@ const reducer = combineReducers({
   jobRuns,
   jobs,
   notifications,
-  redirect
+  redirect,
+  dashboardIndex
 })
 
 export default reducer

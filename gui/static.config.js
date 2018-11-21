@@ -71,9 +71,13 @@ export default {
               rel='stylesheet'
             />
             <link
+              href='https://fonts.googleapis.com/icon?family=Material+Icons'
+              rel='stylesheet'
+            />
+            <link
+              href='/favicon.ico'
               rel='shortcut icon'
               type='image/x-icon'
-              href='/favicon.ico'
             />
           </Head>
           <Body>
