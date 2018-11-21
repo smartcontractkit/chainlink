@@ -25,7 +25,7 @@ DOCKER="docker run -ti \
     $REPO:$TAG"
 
 source $PROJECT_ROOT/internal/bin/clenv
-export ETH_URL="ws://docker.for.mac.localhost:$ETH_PORT"
+export ETH_URL="ws://docker.for.mac.localhost:$ETH_WS_PORT"
 if [ "$#" == 0 ]; then
   $DOCKER node -d -p /root/.chainlink/password.txt -a /root/.chainlink/apicredentials
 elif [ "$1" == "node" ]; then
