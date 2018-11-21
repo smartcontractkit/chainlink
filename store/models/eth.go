@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // Tx contains fields necessary for an Ethereum transaction with
@@ -89,12 +90,20 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	bytes := common.FromHex(s)
-	if len(bytes) != FunctionSelectorLength {
-		return errors.New("Function ID must be 4 bytes in length")
+	if utils.HasHexPrefix(string(s)) {
+		bytes := common.FromHex(s)
+		if len(bytes) != FunctionSelectorLength {
+			return errors.New("Function ID must be 4 bytes in length")
+		}
+		f.SetBytes(bytes)
+	} else {
+		bytes, err := utils.Keccak256([]byte(s))
+		if err != nil {
+			return err
+		}
+		f.SetBytes(bytes[0:4])
 	}
 
-	f.SetBytes(bytes)
 	return nil
 }
 
