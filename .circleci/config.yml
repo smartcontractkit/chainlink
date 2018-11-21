@@ -6,13 +6,14 @@ jobs:
       - image: smartcontract/builder:1.0.14
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
       - run: dep ensure -vendor-only
       - save_cache:
           name: Save Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
       - run: ./internal/ci/init_gcloud
@@ -23,13 +24,14 @@ jobs:
       - image: smartcontract/builder:1.0.14
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
       - run: dep ensure -vendor-only
       - save_cache:
           name: Save Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
       - run: ./internal/ci/gorace_test
@@ -39,13 +41,14 @@ jobs:
       - image: smartcontract/builder:1.0.14
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
       - run: dep ensure -vendor-only
       - save_cache:
           name: Save Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
       - run: ./internal/ci/rust_test
@@ -61,13 +64,14 @@ jobs:
       SGX_SDK: "/opt/sgxsdk"
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
       - run: dep ensure -vendor-only
       - save_cache:
           name: Save Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
       - run: make enclave
@@ -78,13 +82,14 @@ jobs:
       - image: smartcontract/builder:1.0.14
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
       - run: dep ensure -vendor-only
       - save_cache:
           name: Save Go Vendor Cache
-          key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
       - run: ./internal/ci/ethereum_test
@@ -94,13 +99,14 @@ jobs:
       - image: smartcontract/builder:1.0.14
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Yarn Package Cache
-          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
       - run: yarn install
       - save_cache:
           name: Save Yarn Package Cache
-          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
       - run: ./internal/ci/truffle_test
@@ -110,13 +116,14 @@ jobs:
       - image: smartcontract/builder:1.0.14
     steps:
       - checkout
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Yarn Package Cache
-          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
       - run: yarn install
       - save_cache:
           name: Save Yarn Package Cache
-          key: v1-yarn-packages-{{ checksum "yarn.lock" }}
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
       - run: ./internal/ci/init_gcloud
