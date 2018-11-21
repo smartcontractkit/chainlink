@@ -5,6 +5,7 @@ package logger
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path"
 
@@ -28,8 +29,8 @@ func init() {
 	SetLogger(zl)
 }
 
-func prettyConsoleSink(s zap.Sink) func() (zap.Sink, error) {
-	return func() (zap.Sink, error) {
+func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
+	return func(*url.URL) (zap.Sink, error) {
 		return PrettyConsole{s}, nil
 	}
 }
@@ -66,7 +67,7 @@ func CreateProductionLogger(
 	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *zap.Logger {
 	config := zap.NewProductionConfig()
 	if !jsonConsole {
-		config.OutputPaths = []string{"pretty"}
+		config.OutputPaths = []string{"pretty://console"}
 	}
 	if toDisk {
 		destination := ProductionLoggerFilepath(dir)
@@ -88,7 +89,7 @@ func CreateTestLogger() *zap.Logger {
 	color.NoColor = false
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(zapcore.DebugLevel)
-	config.OutputPaths = []string{"pretty"}
+	config.OutputPaths = []string{"pretty://console"}
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
