@@ -1,7 +1,7 @@
 use result::{self, get_value, RunResult};
-use std::string::ToString;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
+use std::string::String;
 
 #[derive(Debug)]
 pub enum MultiplyError {
@@ -23,5 +23,14 @@ pub fn perform(adapter: &serde_json::Value, input: &RunResult) -> MultiplyResult
 
     let result = multiplicand * multiplier;
 
-    Ok(json!({"value": result.to_string()}))
+    Ok(json!({"value": format_decimal(&result)}))
+}
+
+// format_decimal returns the result without any trailing 0s
+fn format_decimal(value: &BigDecimal) -> String {
+    let output = format!("{}", value);
+    if output.contains(".") {
+        return output.trim_end_matches('0').trim_end_matches('.').into()
+    }
+    output
 }
