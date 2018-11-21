@@ -7,6 +7,8 @@
 # 3. cd solidity && truffle migrate && cd ..
 # 4. ./internal/bin/cldev
 
+set -e
+
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
 LDFLAGS=`$PROJECT_ROOT/internal/bin/ldflags`
@@ -14,8 +16,6 @@ LDFLAGS=`$PROJECT_ROOT/internal/bin/ldflags`
 pushd $PROJECT_ROOT >/dev/null
 source internal/bin/clenv
 export ROOT=$PROJECT_ROOT/internal/clroot
-
-set -e
 
 mainexec() {
   mkdir -p tmp
