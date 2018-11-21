@@ -5,6 +5,7 @@ import Grid from '@material-ui/core/Grid'
 import Button from '@material-ui/core/Button'
 import Title from 'components/Title'
 import JobList from 'components/JobList'
+import Content from 'components/Content'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobsSelector from 'selectors/jobs'
@@ -14,7 +15,7 @@ export class Index extends Component {
   render () {
     const {props} = this
     return (
-      <div>
+      <Content>
         <Grid container alignItems='center' >
           <Grid item xs={9}>
             <Title>Jobs</Title>
@@ -39,7 +40,7 @@ export class Index extends Component {
             />
           </Grid>
         </Grid>
-      </div>
+      </Content>
     )
   }
 }

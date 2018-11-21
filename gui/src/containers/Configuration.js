@@ -5,6 +5,7 @@ import { withSiteData } from 'react-static'
 import Grid from '@material-ui/core/Grid'
 import Title from 'components/Title'
 import ConfigList from 'components/ConfigList'
+import Content from 'components/Content'
 import { fetchConfiguration } from 'actions'
 import configsSelector from 'selectors/configs'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -18,7 +19,7 @@ export class Configuration extends Component {
     const {props} = this
 
     return (
-      <div>
+      <Content>
         <Title>Configuration</Title>
 
         <Grid container spacing={40}>
@@ -29,7 +30,7 @@ export class Configuration extends Component {
             />
           </Grid>
         </Grid>
-      </div>
+      </Content>
     )
   }
 }

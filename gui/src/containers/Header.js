@@ -154,7 +154,7 @@ class Header extends Component {
           <LoadingBar fetchCount={fetchCount} />
 
           <Toolbar className={classes.toolbar}>
-            <Grid container alignItems='center' className={classes.appBarContent}>
+            <Grid container alignItems='center'>
               <Grid item xs={11} sm={6} md={4}>
                 <Link to='/'>
                   <Logo width={40} height={50} />
