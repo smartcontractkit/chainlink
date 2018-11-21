@@ -3,12 +3,12 @@ import PropTypes from 'prop-types'
 import Typography from '@material-ui/core/Typography'
 import { Link as ReactStaticLink } from 'react-static'
 import { withStyles } from '@material-ui/core/styles'
-import { blue } from '@material-ui/core/colors'
+import { grey } from '@material-ui/core/colors'
 import classNames from 'classnames'
 
 const styles = () => ({
   link: {
-    color: blue[600],
+    color: grey[900],
     textDecoration: 'none'
   },
   linkContent: {
