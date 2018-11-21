@@ -171,16 +171,16 @@
 
 [[projects]]
   branch = "staticfs-noroute"
-  digest = "1:231ac0858cbbe03dd36570348f7f1f75bd48c1936d70c66f2bcc93451fc92f5a"
+  digest = "1:c9a44c41da76b04aef8fff70e6c16e51277893323220fe9e7b1f4f6e8068f829"
   name = "github.com/gin-gonic/gin"
   packages = [
     ".",
     "binding",
-    "json",
+    "internal/json",
     "render",
   ]
   pruneopts = ""
-  revision = "c4a2f1006ca6f9414597d42e695e6a3234f2dc8e"
+  revision = "af4c7e6093da0b9fd5959765739da2929941147d"
   source = "github.com/smartcontractkit/gin"
 
 [[projects]]
