@@ -148,7 +148,7 @@ func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	var merr error
 	for _, txat := range attempts {
 		success, err := txm.checkAttempt(&tx, &txat, blkNum)
-		merr = multierr.Combine(merr, err)
+		merr = multierr.Append(merr, err)
 		if success {
 			return success, merr
 		}
@@ -235,13 +235,44 @@ func (txm *EthTxManager) checkAttempt(
 	return txm.handleConfirmed(tx, txat, receipt, blkNum)
 }
 
+// GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
+// the latest ETH and LINK balances for the ActiveAccount on the txm, or an
+// error on failure.
+func (txm *EthTxManager) GetETHAndLINKBalances() (*big.Int, *assets.Link, error) {
+	if txm.activeAccount == nil {
+		return big.NewInt(0), assets.NewLink(0), fmt.Errorf(
+			"Could not find activeAccount for which to report new balances")
+	}
+	address := txm.activeAccount.Account.Address
+	linkBalance, linkErr := txm.GetLinkBalance(address)
+	ethBalance, ethErr := txm.EthClient.GetWeiBalance(address)
+	merr := multierr.Append(linkErr, ethErr)
+	return ethBalance, linkBalance, merr
+}
+
+// ethAndLINKBalancesReport constructs the log message reporting on the current
+// ETH and LINK balances, or the error which occurred while retrieving them from
+// the ethereum node (merr)
+func ethAndLINKBalancesReport(ethBalance *big.Int, linkBalance *assets.Link, merr error) string {
+	if merr == nil {
+		return fmt.Sprintf(
+			"New ETH balance: %v. New LINK balance: %v",
+			ethBalance, linkBalance)
+	}
+	return fmt.Sprintf(
+		"Failed to retrieve LINK or ETH balance following confirmation! %v",
+		merr)
+}
+
+// handleConfirmed checks whether a tx is confirmed, and records and reports it
+// as such if so. Its bool return value is true if the tx is confirmed and it
+// was successfully recorded as confirmed.
 func (txm *EthTxManager) handleConfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	rcpt *TxReceipt,
 	blkNum uint64,
 ) (bool, error) {
-
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations))
 	rcptBlkNum := rcpt.BlockNumber.ToBig()
 	safeAt := minConfs.Add(rcptBlkNum, minConfs)
@@ -253,7 +284,13 @@ func (txm *EthTxManager) handleConfirmed(
 	if err := txm.orm.ConfirmTx(tx, txat); err != nil {
 		return false, err
 	}
-	logger.Infow(fmt.Sprintf("Confirmed tx %v", txat.Hash.String()), "txat", txat, "receipt", rcpt)
+
+	logMessage := fmt.Sprintf("Confirmed tx %v", txat.Hash.String())
+	ethBalance, linkBalance, merr := txm.GetETHAndLINKBalances()
+	balanceMessage := ethAndLINKBalancesReport(ethBalance, linkBalance, merr)
+	logger.Infow(logMessage+" "+balanceMessage,
+		"txat", txat, "receipt", rcpt)
+
 	return true, nil
 }
 
