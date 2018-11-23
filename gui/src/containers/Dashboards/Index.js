@@ -18,7 +18,7 @@ import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
 import { useHooks, useEffect } from 'use-react-hooks'
 
-export const Index = useHooks((props) => {
+export const Index = useHooks(props => {
   useEffect(() => {
     props.fetchAccountBalance()
     props.fetchRecentJobRuns(props.recentJobRunsCount)
