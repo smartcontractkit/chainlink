@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
@@ -16,48 +16,46 @@ import {
 import accountBalanceSelector from 'selectors/accountBalance'
 import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
+import { useHooks, useEffect } from 'use-react-hooks'
 
-export class Index extends Component {
-  componentDidMount () {
-    const {props} = this
+export const Index = useHooks((props) => {
+  useEffect(() => {
     props.fetchAccountBalance()
     props.fetchRecentJobRuns(props.recentJobRunsCount)
     props.fetchRecentlyCreatedJobs(props.recentlyCreatedPageSize)
-  }
+  }, [])
 
-  render () {
-    const {props} = this
-    return (
-      <Content>
-        <Grid container spacing={40}>
-          <Grid item xs={9}>
-            <RecentActivity runs={props.recentJobRuns} />
-          </Grid>
-          <Grid item xs={3}>
-            <Grid container spacing={24}>
-              <Grid item xs={12}>
-                <TokenBalance
-                  title='Link Balance'
-                  value={props.accountBalance && props.accountBalance.linkBalance}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TokenBalance
-                  title='Ether Balance'
-                  value={props.accountBalance && props.accountBalance.ethBalance}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <RecentlyCreatedJobs jobs={props.recentlyCreatedJobs} />
-              </Grid>
+  return (
+    <Content>
+      <Grid container spacing={40}>
+        <Grid item xs={9}>
+          <RecentActivity runs={props.recentJobRuns} />
+        </Grid>
+        <Grid item xs={3}>
+          <Grid container spacing={24}>
+            <Grid item xs={12}>
+              <TokenBalance
+                title='Link Balance'
+                value={props.accountBalance && props.accountBalance.linkBalance}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TokenBalance
+                title='Ether Balance'
+                value={props.accountBalance && props.accountBalance.ethBalance}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <RecentlyCreatedJobs jobs={props.recentlyCreatedJobs} />
             </Grid>
           </Grid>
         </Grid>
-        <Footer />
-      </Content>
-    )
-  }
+      </Grid>
+      <Footer />
+    </Content>
+  )
 }
+)
 
 Index.propTypes = {
   accountBalance: PropTypes.object,
