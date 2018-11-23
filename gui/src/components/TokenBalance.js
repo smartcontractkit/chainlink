@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import numeral from 'numeral'
 import { BigNumber } from 'bignumber.js'
-import { Tooltip } from '@material-ui/core'
+import StyledTooltip from 'components/Tooltip'
 import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
 
@@ -41,9 +41,9 @@ const TokenBalance = props => {
         {props.title}
       </Typography>
       <Typography variant='body1' color='textSecondary'>
-        <Tooltip title={tooltip} placement='left'>
+        <StyledTooltip title={tooltip} placement='left'>
           <span>{val}</span>
-        </Tooltip>
+        </StyledTooltip>
       </Typography>
     </PaddedCard>
   )
