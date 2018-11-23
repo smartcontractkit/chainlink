@@ -52,6 +52,12 @@ export default {
       fontWeight: 500,
       lineHeight: '1.71429em',
       color: 'rgba(0, 0, 0, 0.87)'
+    },
+    h6: {
+      fontSize: '0.8rem',
+      fontWeight: 450,
+      lineHeight: '1.71429em',
+      color: 'rgba(0, 0, 0, 0.87)'
     }
   },
   shadows: [
