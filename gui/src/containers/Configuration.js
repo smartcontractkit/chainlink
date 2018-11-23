@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withSiteData } from 'react-static'
@@ -9,31 +9,23 @@ import Content from 'components/Content'
 import { fetchConfiguration } from 'actions'
 import configsSelector from 'selectors/configs'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { useHooks, useEffect } from 'use-react-hooks'
 
-export class Configuration extends Component {
-  componentDidMount () {
-    this.props.fetchConfiguration()
-  }
-
-  render () {
-    const {props} = this
-
-    return (
-      <Content>
-        <Title>Configuration</Title>
-
-        <Grid container spacing={40}>
-          <Grid item xs={12}>
-            <ConfigList
-              configs={props.configs}
-              error={props.error}
-            />
-          </Grid>
-        </Grid>
-      </Content>
-    )
-  }
+export const Configuration = useHooks(props => {
+  useEffect(() => { props.fetchConfiguration() }, [])
+  return <Content>
+    <Title>Configuration</Title>
+    <Grid container spacing={40}>
+      <Grid item xs={12}>
+        <ConfigList
+          configs={props.configs}
+          error={props.error}
+        />
+      </Grid>
+    </Grid>
+  </Content>
 }
+)
 
 Configuration.propTypes = {
   configs: PropTypes.array.isRequired,

@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -14,6 +14,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchBridgeSpec } from 'actions'
 import bridgeSelector from 'selectors/bridge'
 import Content from 'components/Content'
+import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   main: {
@@ -49,56 +50,52 @@ const renderLoaded = props => (
 
 const renderDetails = props => props.bridge ? renderLoaded(props) : renderLoading(props)
 
-export class Show extends Component {
-  componentDidMount () {
-    this.props.fetchBridgeSpec(this.props.match.params.bridgeId)
-  }
-
-  render () {
-    return (
-      <Content>
-        <Grid container>
-          <Grid item xs={12}>
-            <Breadcrumb>
-              <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-              <BreadcrumbItem>></BreadcrumbItem>
-              <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
-              <BreadcrumbItem>></BreadcrumbItem>
-              <BreadcrumbItem>{this.props.bridge && this.props.bridge.id}</BreadcrumbItem>
-            </Breadcrumb>
-          </Grid>
-          <Grid item xs={12} md={12} xl={6}>
-            <Grid container alignItems='center'>
-              <Grid item xs={9}>
-                <Title>Bridge Info</Title>
-              </Grid>
-              <Grid item xs={3}>
-                <Grid container justify='flex-end'>
-                  <Grid item>
-                    {this.props.bridge &&
-                      <Button
-                        variant='outlined'
-                        color='primary'
-                        component={ReactStaticLinkComponent}
-                        to={`/bridges/${this.props.bridge.id}/edit`}
-                      >
-                        Edit
-                      </Button>
-                    }
-                  </Grid>
+export const Show = useHooks(props => {
+  useEffect(() => { props.fetchBridgeSpec(props.match.params.bridgeId) }, [])
+  return (
+    <Content>
+      <Grid container>
+        <Grid item xs={12}>
+          <Breadcrumb>
+            <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+            <BreadcrumbItem>></BreadcrumbItem>
+            <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
+            <BreadcrumbItem>></BreadcrumbItem>
+            <BreadcrumbItem>{props.bridge && props.bridge.id}</BreadcrumbItem>
+          </Breadcrumb>
+        </Grid>
+        <Grid item xs={12} md={12} xl={6}>
+          <Grid container alignItems='center'>
+            <Grid item xs={9}>
+              <Title>Bridge Info</Title>
+            </Grid>
+            <Grid item xs={3}>
+              <Grid container justify='flex-end'>
+                <Grid item>
+                  {props.bridge &&
+                    <Button
+                      variant='outlined'
+                      color='primary'
+                      component={ReactStaticLinkComponent}
+                      to={`/bridges/${props.bridge.id}/edit`}
+                    >
+                      Edit
+                    </Button>
+                  }
                 </Grid>
               </Grid>
             </Grid>
-
-            <div className={this.props.classes.main}>
-              {renderDetails(this.props)}
-            </div>
           </Grid>
+
+          <div className={props.classes.main}>
+            {renderDetails(props)}
+          </div>
         </Grid>
-      </Content>
-    )
-  }
+      </Grid>
+    </Content>
+  )
 }
+)
 
 Show.propTypes = {
   bridge: PropTypes.object

@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { connect } from 'react-redux'
 import { Redirect } from 'react-router'
 import { withStyles } from '@material-ui/core/styles'
@@ -9,6 +9,7 @@ import { Grid } from '@material-ui/core'
 import { submitSignIn } from 'actions'
 import Title from 'components/Title'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { useHooks, useState } from 'use-react-hooks'
 
 const styles = theme => ({
   button: {
@@ -16,68 +17,62 @@ const styles = theme => ({
   }
 })
 
-export class SignIn extends Component {
-  state = { email: '', password: '' }
-
-  handleChange = name => event => {
-    this.setState({
-      [name]: event.target.value
-    })
+export const SignIn = useHooks((props) => {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const handleChange = name => event => {
+    if (name === 'email') setEmail(event.target.value)
+    if (name === 'password') setPassword(event.target.value)
   }
-
-  onSubmit = e => {
+  const onSubmit = e => {
     e.preventDefault()
-    const { email, password } = this.state
-    this.props.submitSignIn({ email: email, password: password })
+    props.submitSignIn({ email, password })
   }
+  const { classes, fetching, authenticated } = props
+  const enabled = email.length > 0 && password.length > 0
 
-  render () {
-    const { classes, fetching, authenticated } = this.props
-    const enabled = this.state.email.length > 0 && this.state.password.length > 0
-    if (authenticated) {
-      return <Redirect to='/' />
-    }
-    return (
-      <form noValidate onSubmit={this.onSubmit}>
-        <Grid container alignItems='center' direction='column'>
-          <Title>Sign In to Chainlink</Title>
-          <TextField
-            id='email'
-            label='Email'
-            className={classes.textField}
-            margin='normal'
-            value={this.state.email}
-            onChange={this.handleChange('email')}
-          />
-          <TextField
-            id='password'
-            label='Password'
-            className={classes.textField}
-            type='password'
-            autoComplete='password'
-            margin='normal'
-            value={this.state.password}
-            onChange={this.handleChange('password')}
-          />
-          <Button
-            type='submit'
-            disabled={!enabled}
-            variant='contained'
-            color='primary'
-            className={classes.button}
-          >
+  if (authenticated) return <Redirect to='/' />
+  return (
+    <form noValidate onSubmit={onSubmit}>
+      <Grid container alignItems='center' direction='column'>
+        <Title>Sign In to Chainlink</Title>
+        <TextField
+          id='email'
+          label='Email'
+          className={classes.textField}
+          margin='normal'
+          value={email}
+          onChange={handleChange('email')}
+        />
+        <TextField
+          id='password'
+          label='Password'
+          className={classes.textField}
+          type='password'
+          autoComplete='password'
+          margin='normal'
+          value={password}
+          onChange={handleChange('password')}
+        />
+        <Button
+          type='submit'
+          disabled={!enabled}
+          variant='contained'
+          color='primary'
+          className={classes.button}
+        >
             Sign In
-          </Button>
-          {fetching && (
-            <Typography variant='body1' color='textSecondary'>
+        </Button>
+        {fetching && (
+          <Typography variant='body1' color='textSecondary'>
               Signing in...
-            </Typography>
-          )}
-        </Grid>
-      </form>
-    )
-  }
+          </Typography>
+        )}
+      </Grid>
+    </form>
+  )
 }
+)
 
 const mapStateToProps = state => ({
   fetching: state.authentication.fetching,

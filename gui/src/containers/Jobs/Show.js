@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -16,6 +16,7 @@ import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   lastRun: {
@@ -29,7 +30,7 @@ const styles = theme => ({
   }
 })
 
-const renderJobSpec = ({classes, job, fetchJob}) => {
+const renderJobSpec = ({ job }) => {
   return (
     <Grid container spacing={40}>
       <Grid item xs={4}>
@@ -100,25 +101,19 @@ const renderDetails = props => {
   return <div>Fetching...</div>
 }
 
-export class Show extends Component {
-  componentDidMount () {
-    this.props.fetchJob(this.props.jobSpecId)
-  }
-
-  render () {
-    const {jobSpecId, job} = this.props
-
-    return (
-      <div>
-        <RegionalNav jobSpecId={jobSpecId} job={job} />
-
-        <Content>
-          {renderDetails(this.props)}
-        </Content>
-      </div>
-    )
-  }
+export const Show = useHooks(props => {
+  const { jobSpecId, job, fetchJob } = props
+  useEffect(() => { fetchJob(jobSpecId) }, [])
+  return (
+    <div>
+      <RegionalNav jobSpecId={jobSpecId} job={job} />
+      <Content>
+        {renderDetails(props)}
+      </Content>
+    </div>
+  )
 }
+)
 
 Show.propTypes = {
   classes: PropTypes.object.isRequired,
