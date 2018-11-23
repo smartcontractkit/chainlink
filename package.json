@@ -23,7 +23,8 @@
     "link_token": "^1.0.1",
     "openzeppelin-solidity": "^1.12.0",
     "puppeteer": "^1.10.0",
-    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
+    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
+    "use-react-hooks": "^1.0.7"
   },
   "devDependencies": {
     "@material-ui/core": "^3.1.0",

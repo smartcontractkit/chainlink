@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
@@ -13,6 +13,7 @@ import { fetchJob, createJobRun } from 'actions'
 import jobSelector from 'selectors/job'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   definitionTitle: {
@@ -49,29 +50,22 @@ const renderDetails = ({job, classes}) => {
   return <React.Fragment>Fetching ...</React.Fragment>
 }
 
-class Definition extends Component {
-  componentDidMount () {
-    this.props.fetchJob(this.props.jobSpecId)
-  }
+const Definition = useHooks((props) => {
+  useEffect(() => { props.fetchJob(props.jobSpecId) }, [])
+  const { jobSpecId, job } = props
 
-  render () {
-    const { jobSpecId, job } = this.props
-
-    return (
-      <div>
-        <RegionalNav jobSpecId={jobSpecId} job={job} />
-
-        <Content>
-          <Card>
-            <CardContent>
-              {renderDetails(this.props)}
-            </CardContent>
-          </Card>
-        </Content>
-      </div>
-    )
-  }
+  return <div>
+    <RegionalNav jobSpecId={jobSpecId} job={job} />
+    <Content>
+      <Card>
+        <CardContent>
+          {renderDetails(props)}
+        </CardContent>
+      </Card>
+    </Content>
+  </div>
 }
+)
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId

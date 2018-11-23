@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -12,6 +12,7 @@ import { formatInitiators } from 'utils/jobSpecInitiators'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
+import { useHooks, useState, useEffect } from 'use-react-hooks'
 
 const renderBody = (jobs, error) => {
   if (error) {
@@ -59,86 +60,65 @@ const renderBody = (jobs, error) => {
   )
 }
 
-export class JobList extends Component {
-  constructor (props) {
-    super(props)
-    this.state = { page: FIRST_PAGE }
-    this.handleChangePage = this.handleChangePage.bind(this)
-  }
-
-  componentDidMount () {
-    const { pageSize, fetchJobs } = this.props
-    const queryPage = this.props.match ? (parseInt(this.props.match.params.jobPage, 10) || FIRST_PAGE) : FIRST_PAGE
-    this.setState({ page: queryPage })
-    fetchJobs(queryPage, pageSize)
-  }
-
-  componentDidUpdate (prevProps) {
-    if (prevProps.match && this.props.match) {
-      const prevJobPage = prevProps.match.params.jobPage
-      const currentJobPage = this.props.match.params.jobPage
-
-      if (prevJobPage !== currentJobPage) {
-        const { pageSize, fetchJobs } = this.props
-        this.setState({page: parseInt(currentJobPage, 10) || FIRST_PAGE})
-        fetchJobs(parseInt(currentJobPage, 10) || FIRST_PAGE, pageSize)
-      }
-    }
-  }
-
-  handleChangePage (e, page) {
-    const { fetchJobs, pageSize } = this.props
+export const JobList = useHooks(props => {
+  const { jobs, jobCount, fetchJobs, pageSize, error } = props
+  const handleChangePage = (e, page) => {
     fetchJobs(page, pageSize)
-    this.setState({ page })
+    setPage(page)
   }
+  const TableButtonsWithProps = () => (
+    <TableButtons
+      {...props}
+      count={jobCount}
+      onChangePage={handleChangePage}
+      rowsPerPage={pageSize}
+      page={page}
+      replaceWith={`/jobs/page`}
+    />
+  )
 
-  render () {
-    const { jobs, jobCount, pageSize, error } = this.props
-    const TableButtonsWithProps = () => (
-      <TableButtons
-        {...this.props}
+  const [ page, setPage ] = useState(FIRST_PAGE)
+  useEffect(() => {
+    const { pageSize, fetchJobs } = props
+    const queryPage = props.match ? (parseInt(props.match.params.jobPage, 10) || FIRST_PAGE) : FIRST_PAGE
+    setPage(queryPage)
+    fetchJobs(queryPage, pageSize)
+  }, [])
+
+  return (
+    <Card>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>ID</Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>Created</Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>Initiator</Typography>
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {renderBody(jobs, error)}
+        </TableBody>
+      </Table>
+      <TablePagination
+        component='div'
         count={jobCount}
-        onChangePage={this.handleChangePage}
         rowsPerPage={pageSize}
-        page={this.state.page}
-        replaceWith={`/jobs/page`}
+        rowsPerPageOptions={[pageSize]}
+        page={page - 1}
+        onChangePage={() => { } /* handler required by component, so make it a no-op */}
+        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+        ActionsComponent={TableButtonsWithProps}
       />
-    )
-
-    return (
-      <Card>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>ID</Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>Created</Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>Initiator</Typography>
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {renderBody(jobs, error)}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component='div'
-          count={jobCount}
-          rowsPerPage={pageSize}
-          rowsPerPageOptions={[pageSize]}
-          page={this.state.page - 1}
-          onChangePage={() => { } /* handler required by component, so make it a no-op */}
-          onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
-          ActionsComponent={TableButtonsWithProps}
-        />
-      </Card>
-    )
-  }
+    </Card>
+  )
 }
+)
 
 JobList.propTypes = {
   jobs: PropTypes.array,

@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
@@ -13,6 +13,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
+import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   breadcrumb: {
@@ -67,32 +68,24 @@ const renderDetails = ({fetching, jobRun}) => {
   )
 }
 
-export class Show extends Component {
-  componentDidMount () {
-    this.props.fetchJobRun(this.props.jobRunId)
-  }
+export const Show = useHooks((props) => {
+  useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
 
-  render () {
-    const {props} = this
-
-    return (
-      <Content>
-        <Breadcrumb className={props.classes.breadcrumb}>
-          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/jobs/${props.jobSpecId}`}>
-            Job ID: {props.jobSpecId}
-          </BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem>Job Run ID: {props.jobRunId}</BreadcrumbItem>
-        </Breadcrumb>
-        <Title>Job Run Detail</Title>
-
-        {renderDetails(props)}
-      </Content>
-    )
-  }
+  return <Content>
+    <Breadcrumb className={props.classes.breadcrumb}>
+      <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+      <BreadcrumbItem>></BreadcrumbItem>
+      <BreadcrumbItem href={`/jobs/${props.jobSpecId}`}>
+              Job ID: {props.jobSpecId}
+      </BreadcrumbItem>
+      <BreadcrumbItem>></BreadcrumbItem>
+      <BreadcrumbItem>Job Run ID: {props.jobRunId}</BreadcrumbItem>
+    </Breadcrumb>
+    <Title>Job Run Detail</Title>
+    {renderDetails(props)}
+  </Content>
 }
+)
 
 const mapStateToProps = (state, ownProps) => {
   const {jobSpecId, jobRunId} = ownProps.match.params

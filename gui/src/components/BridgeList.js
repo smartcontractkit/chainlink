@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import Link from 'components/Link'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
@@ -10,6 +10,7 @@ import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
+import { useHooks, useState, useEffect } from 'use-react-hooks'
 
 const renderFetching = () => (
   <TableRow>
@@ -56,96 +57,76 @@ const renderBody = (bridges, fetching, error) => {
   }
 }
 
-export class BridgeList extends Component {
-  constructor (props) {
-    super(props)
-    this.state = { page: FIRST_PAGE }
-    this.handleChangePage = this.handleChangePage.bind(this)
-  }
-
-  handleChangePage (e, page) {
-    const {fetchBridges, pageSize} = this.props
+export const BridgeList = useHooks(props => {
+  const { bridges, bridgeCount, fetchBridges, pageSize, fetching, error } = props
+  const TableButtonsWithProps = () => (
+    <TableButtons
+      {...props}
+      count={bridgeCount}
+      onChangePage={handleChangePage}
+      rowsPerPage={pageSize}
+      page={page}
+      replaceWith={`/bridges/page`}
+    />
+  )
+  const handleChangePage = (e, page) => {
     fetchBridges(page, pageSize)
-    this.setState({page})
+    setPage(page)
   }
 
-  componentDidMount () {
-    const { pageSize, fetchBridges } = this.props
-    const queryPage = this.props.match ? (parseInt(this.props.match.params.bridgePage, 10) || FIRST_PAGE) : FIRST_PAGE
-    this.setState({ page: queryPage })
+  const [page, setPage] = useState(FIRST_PAGE)
+  useEffect(() => {
+    const { pageSize, fetchBridges } = props
+    const queryPage = props.match ? (parseInt(props.match.params.bridgePage, 10) || FIRST_PAGE) : FIRST_PAGE
+    setPage(queryPage)
     fetchBridges(queryPage, pageSize)
-  }
+  }, [])
 
-  componentDidUpdate (prevProps) {
-    if (prevProps.match && this.props.match) {
-      const prevBridgePage = prevProps.match.params.bridgePage
-      const currentBridgePage = this.props.match.params.bridgePage
-
-      if (prevBridgePage !== currentBridgePage) {
-        const { pageSize, fetchBridges } = this.props
-        this.setState({page: parseInt(currentBridgePage, 10) || FIRST_PAGE})
-        fetchBridges(parseInt(currentBridgePage, 10) || FIRST_PAGE, pageSize)
-      }
-    }
-  }
-
-  render () {
-    const {bridges, bridgeCount, pageSize, fetching, error} = this.props
-    const TableButtonsWithProps = () => (
-      <TableButtons
-        {...this.props}
+  return (
+    <Card>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>
+                Name
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>
+                URL
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>
+                Default Confirmations
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>
+                Minimum Contract Payment
+              </Typography>
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {renderBody(bridges, fetching, error)}
+        </TableBody>
+      </Table>
+      <TablePagination
+        component='div'
         count={bridgeCount}
-        onChangePage={this.handleChangePage}
         rowsPerPage={pageSize}
-        page={this.state.page}
-        replaceWith={`/bridges/page`}
+        rowsPerPageOptions={[pageSize]}
+        page={page - 1}
+        onChangePage={() => { } /* handler required by component, so make it a no-op */}
+        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+        ActionsComponent={TableButtonsWithProps}
       />
-    )
-    return (
-      <Card>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>
-                  Name
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>
-                  URL
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>
-                  Default Confirmations
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant='body1' color='textSecondary'>
-                  Minimum Contract Payment
-                </Typography>
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {renderBody(bridges, fetching, error)}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component='div'
-          count={bridgeCount}
-          rowsPerPage={pageSize}
-          rowsPerPageOptions={[pageSize]}
-          page={this.state.page - 1}
-          onChangePage={() => { } /* handler required by component, so make it a no-op */}
-          onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
-          ActionsComponent={TableButtonsWithProps}
-        />
-      </Card>
-    )
-  }
+    </Card>
+  )
 }
+)
 
 BridgeList.propTypes = {
   bridges: PropTypes.array.isRequired,

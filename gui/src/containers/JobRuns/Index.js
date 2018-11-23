@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -14,6 +14,7 @@ import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
+import { useHooks, useEffect, useState } from 'use-react-hooks'
 
 const styles = theme => ({
   breadcrumb: {
@@ -62,57 +63,36 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-export class Index extends Component {
-  constructor (props) {
-    super(props)
-    this.state = {
-      page: 0
-    }
-    this.handleChangePage = this.handleChangePage.bind(this)
+export const Index = useHooks((props) => {
+  const [ page, setPage ] = useState(0)
+  const { classes, jobSpecId, fetchJobRuns, pageSize } = props
+  const handleChangePage = (e, pageNum) => {
+    fetchJobRuns(jobSpecId, pageNum, pageSize)
+    setPage(pageNum)
   }
 
-  componentDidMount () {
-    const { jobSpecId, pageSize, fetchJobRuns } = this.props
-    const queryPage = this.props.match ? parseInt(this.props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
-    this.setState({ page: queryPage })
+  useEffect(() => {
+    const { jobSpecId, pageSize, fetchJobRuns } = props
+    const queryPage = props.match ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
+    setPage(queryPage)
     fetchJobRuns(jobSpecId, queryPage, pageSize)
-  }
+  }, [])
 
-  componentDidUpdate (prevProps) {
-    const prevJobRunsPage = prevProps.match.params.jobRunsPage
-    const currentJobRunsPage = this.props.match.params.jobRunsPage
-
-    if (prevJobRunsPage !== currentJobRunsPage) {
-      const { pageSize, fetchJobRuns, jobSpecId } = this.props
-      this.setState({ page: parseInt(currentJobRunsPage, 10) || FIRST_PAGE })
-      fetchJobRuns(jobSpecId, parseInt(currentJobRunsPage, 10) || FIRST_PAGE, pageSize)
-    }
-  }
-
-  handleChangePage (e, page) {
-    const { fetchJobRuns, jobSpecId, pageSize } = this.props
-    fetchJobRuns(jobSpecId, page, pageSize)
-    this.setState({ page })
-  }
-  render () {
-    const { classes, jobSpecId } = this.props
-
-    return (
-      <Content>
-        <Breadcrumb className={classes.breadcrumb}>
-          <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem href={`/jobs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
-          <BreadcrumbItem>></BreadcrumbItem>
-          <BreadcrumbItem>Runs</BreadcrumbItem>
-        </Breadcrumb>
-        <Title>Runs</Title>
-
-        {renderDetails(this.props, this.state, this.handleChangePage)}
-      </Content>
-    )
-  }
+  return (
+    <Content>
+      <Breadcrumb className={classes.breadcrumb}>
+        <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+        <BreadcrumbItem>></BreadcrumbItem>
+        <BreadcrumbItem href={`/jobs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
+        <BreadcrumbItem>></BreadcrumbItem>
+        <BreadcrumbItem>Runs</BreadcrumbItem>
+      </Breadcrumb>
+      <Title>Runs</Title>
+      {renderDetails(props, {page}, handleChangePage)}
+    </Content>
+  )
 }
+)
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,
