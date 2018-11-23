@@ -1,11 +1,11 @@
 import React from 'react'
 import TimeAgo from 'react-time-ago/no-tooltip'
-import Tooltip from '@material-ui/core/Tooltip'
+import StyledTooltip from 'components/Tooltip'
 
 export default ({children}) => (
-  <Tooltip title={children}>
+  <StyledTooltip title={children}>
     <span>
-      <TimeAgo>{Date.parse(children)}</TimeAgo>
+      <TimeAgo tooltip={false}>{Date.parse(children)}</TimeAgo>
     </span>
-  </Tooltip>
+  </StyledTooltip>
 )
