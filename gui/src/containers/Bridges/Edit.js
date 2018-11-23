@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-static'
 import { connect } from 'react-redux'
@@ -18,87 +18,81 @@ import {
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Content from 'components/Content'
+import { useHooks, useEffect } from 'use-react-hooks'
 
 const SuccessNotification = ({name}) => (<React.Fragment>
   Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
 
-export class Edit extends Component {
-  componentDidMount () {
-    const {fetchBridgeSpec, match} = this.props
-    fetchBridgeSpec(match.params.bridgeId)
-  }
-
-  checkLoaded () {
-    return this.props.bridge
-  }
-
-  onLoad (buildLoadedComponent) {
-    if (this.checkLoaded()) {
-      return buildLoadedComponent(this.props)
-    }
-
+export const Edit = useHooks((props) => {
+  const {bridge, updateBridge} = props
+  const checkLoaded = () => props.bridge
+  const onLoad = (buildLoadedComponent) => {
+    if (checkLoaded()) return buildLoadedComponent(props)
     return <div>Loading...</div>
   }
 
-  render () {
-    const {bridge, updateBridge} = this.props
-    return (
-      <Content>
-        <Grid container>
-          <Grid item xs={12}>
-            <Breadcrumb>
-              <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-              <BreadcrumbItem>></BreadcrumbItem>
-              <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
-              <BreadcrumbItem>></BreadcrumbItem>
-              <BreadcrumbItem>{bridge && bridge.id}</BreadcrumbItem>
-            </Breadcrumb>
-          </Grid>
-          <Grid item xs={12} md={12} xl={6}>
-            <Grid container alignItems='center'>
-              <Grid item xs={9}>
-                <Title>Edit Bridge</Title>
-              </Grid>
-              <Grid item xs={3}>
-                <Grid container justify='flex-end'>
-                  <Grid item>
-                    {bridge &&
-                      <Button
-                        variant='outlined'
-                        color='primary'
-                        component={ReactStaticLinkComponent}
-                        to={`/bridges/${bridge.id}`}
-                      >
+  useEffect(() => {
+    const {fetchBridgeSpec, match} = props
+    fetchBridgeSpec(match.params.bridgeId)
+  }, [])
+
+  return (
+    <Content>
+      <Grid container>
+        <Grid item xs={12}>
+          <Breadcrumb>
+            <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+            <BreadcrumbItem>></BreadcrumbItem>
+            <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
+            <BreadcrumbItem>></BreadcrumbItem>
+            <BreadcrumbItem>{bridge && bridge.id}</BreadcrumbItem>
+          </Breadcrumb>
+        </Grid>
+        <Grid item xs={12} md={12} xl={6}>
+          <Grid container alignItems='center'>
+            <Grid item xs={9}>
+              <Title>Edit Bridge</Title>
+            </Grid>
+            <Grid item xs={3}>
+              <Grid container justify='flex-end'>
+                <Grid item>
+                  {bridge &&
+                  <Button
+                    variant='outlined'
+                    color='primary'
+                    component={ReactStaticLinkComponent}
+                    to={`/bridges/${bridge.id}`}
+                  >
                         Cancel
-                      </Button>
-                    }
-                  </Grid>
+                  </Button>
+                  }
                 </Grid>
               </Grid>
             </Grid>
-
-            {this.onLoad(({bridge}) => (
-              <PaddedCard>
-                <BridgesForm
-                  actionText='Save Bridge'
-                  onSubmit={updateBridge}
-                  name={bridge.name}
-                  nameDisabled
-                  url={bridge.url}
-                  confirmations={bridge.confirmations}
-                  minimumContractPayment={bridge.minimumContractPayment}
-                  onSuccess={SuccessNotification}
-                  onError={ErrorMessage}
-                />
-              </PaddedCard>
-            ))}
           </Grid>
+
+          {onLoad(({bridge}) => (
+            <PaddedCard>
+              <BridgesForm
+                actionText='Save Bridge'
+                onSubmit={updateBridge}
+                name={bridge.name}
+                nameDisabled
+                url={bridge.url}
+                confirmations={bridge.confirmations}
+                minimumContractPayment={bridge.minimumContractPayment}
+                onSuccess={SuccessNotification}
+                onError={ErrorMessage}
+              />
+            </PaddedCard>
+          ))}
         </Grid>
-      </Content>
-    )
-  }
+      </Grid>
+    </Content>
+  )
 }
+)
 
 Edit.propTypes = {
   bridge: PropTypes.object

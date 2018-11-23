@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-static'
 import { connect } from 'react-redux'
@@ -21,6 +21,7 @@ import LoadingBar from 'components/LoadingBar'
 import Logo from 'components/Logo'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
+import { useHooks, useState } from 'use-react-hooks'
 
 const drawerWidth = 240
 
@@ -68,122 +69,111 @@ const styles = theme => {
   }
 }
 
-class Header extends Component {
-  state = {drawerOpen: false}
+const Header = useHooks((props) => {
+  const [ drawerOpen, setDrawerState ] = useState(false)
+  const toggleDrawer = () => setDrawerState(!drawerOpen)
+  const signOut = () => props.submitSignOut()
+  const {classes, fetchCount} = props
 
-  toggleDrawer = () => {
-    this.setState({drawerOpen: !this.state.drawerOpen})
-  }
+  const drawer = (<Drawer
+    anchor='right'
+    open={drawerOpen}
+    classes={{
+      paper: classes.drawerPaper
+    }}
+    onClose={toggleDrawer}
+  >
+    <div
+      tabIndex={0}
+      role='button'
+      onClick={toggleDrawer}
+    >
+      <List className={classes.drawerList}>
+        <ListItem button component={Link} to='/jobs' className={classes.menuitem}>
+          <ListItemText primary='Jobs' />
+        </ListItem>
+        <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
+          <ListItemText primary='Bridges' />
+        </ListItem>
+        <ListItem button component={Link} to='/config' className={classes.menuitem}>
+          <ListItemText primary='Configuration' />
+        </ListItem>
+        <ListItem button component={Link} to='/about' className={classes.menuitem}>
+          <ListItemText primary='About' />
+        </ListItem>
+        {props.authenticated &&
+        <ListItem button onClick={signOut} className={classes.menuitem}>
+          <ListItemText primary='Sign Out' />
+        </ListItem>
+        }
+      </List>
+    </div>
+  </Drawer>
+  )
 
-  signOut = () => {
-    this.props.submitSignOut()
-  }
+  const nav = (<Typography variant='body1' component='div'>
+    <List className={classes.horizontalNav}>
+      <ListItem className={classes.horizontalNavItem}>
+        <Link to='/jobs' className={classes.horizontalNavLink}>Jobs</Link>
+      </ListItem>
+      <ListItem className={classes.horizontalNavItem}>
+        <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
+      </ListItem>
+      <ListItem className={classes.horizontalNavItem}>
+        <Link to='/config' className={classes.horizontalNavLink}>Configuration</Link>
+      </ListItem>
+      <ListItem className={classes.horizontalNavItem}>
+        <Link to='/about' className={classes.horizontalNavLink}>About</Link>
+      </ListItem>
+      {props.authenticated &&
+      <ListItem className={classes.horizontalNavItem}>
+        <Link to='/signout' className={classes.horizontalNavLink}>Sign Out</Link>
+      </ListItem>
+      }
+    </List>
+  </Typography>
+  )
 
-  render () {
-    const {classes, fetchCount} = this.props
-    const {drawerOpen} = this.state
+  return (
+    <AppBar
+      className={classes.appBar}
+      color='default'
+      position='absolute'
+    >
+      <ReactResizeDetector handleHeight onResize={props.onResize}>
+        <LoadingBar fetchCount={fetchCount} />
 
-    const drawer = (
-      <Drawer
-        anchor='right'
-        open={drawerOpen}
-        classes={{
-          paper: classes.drawerPaper
-        }}
-        onClose={this.toggleDrawer}
-      >
-        <div
-          tabIndex={0}
-          role='button'
-          onClick={this.toggleDrawer}
-        >
-          <List className={classes.drawerList}>
-            <ListItem button component={Link} to='/jobs' className={classes.menuitem}>
-              <ListItemText primary='Jobs' />
-            </ListItem>
-            <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
-              <ListItemText primary='Bridges' />
-            </ListItem>
-            <ListItem button component={Link} to='/config' className={classes.menuitem}>
-              <ListItemText primary='Configuration' />
-            </ListItem>
-            <ListItem button component={Link} to='/about' className={classes.menuitem}>
-              <ListItemText primary='About' />
-            </ListItem>
-            {this.props.authenticated &&
-              <ListItem button onClick={this.signOut} className={classes.menuitem}>
-                <ListItemText primary='Sign Out' />
-              </ListItem>
-            }
-          </List>
-        </div>
-      </Drawer>
-    )
-
-    const nav = (
-      <Typography variant='body1' component='div'>
-        <List className={classes.horizontalNav}>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/jobs' className={classes.horizontalNavLink}>Jobs</Link>
-          </ListItem>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
-          </ListItem>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/config' className={classes.horizontalNavLink}>Configuration</Link>
-          </ListItem>
-          <ListItem className={classes.horizontalNavItem}>
-            <Link to='/about' className={classes.horizontalNavLink}>About</Link>
-          </ListItem>
-          {this.props.authenticated &&
-            <ListItem className={classes.horizontalNavItem}>
-              <Link to='/signout' className={classes.horizontalNavLink}>Sign Out</Link>
-            </ListItem>
-          }
-        </List>
-      </Typography>
-    )
-
-    return (
-      <AppBar
-        className={classes.appBar}
-        color='default'
-        position='absolute'
-      >
-        <ReactResizeDetector handleHeight onResize={this.props.onResize}>
-          <LoadingBar fetchCount={fetchCount} />
-
-          <Toolbar className={classes.toolbar}>
-            <Grid container alignItems='center'>
-              <Grid item xs={11} sm={6} md={4}>
-                <Link to='/'>
-                  <Logo width={40} height={50} />
-                </Link>
-              </Grid>
-              <Grid item xs={1} sm={6} md={8}>
-                <Grid container justify='flex-end'>
-                  <Grid item>
-                    <Hidden mdUp>
-                      <IconButton aria-label='open drawer' onClick={this.toggleDrawer}>
-                        <MenuIcon />
-                      </IconButton>
-                    </Hidden>
-                    <Hidden smDown>
-                      {nav}
-                    </Hidden>
-                  </Grid>
+        <Toolbar className={classes.toolbar}>
+          <Grid container alignItems='center'>
+            <Grid item xs={11} sm={6} md={4}>
+              <Link to='/'>
+                <Logo width={40} height={50} />
+              </Link>
+            </Grid>
+            <Grid item xs={1} sm={6} md={8}>
+              <Grid container justify='flex-end'>
+                <Grid item>
+                  <Hidden mdUp>
+                    <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                      <MenuIcon />
+                    </IconButton>
+                  </Hidden>
+                  <Hidden smDown>
+                    {nav}
+                  </Hidden>
                 </Grid>
               </Grid>
             </Grid>
-          </Toolbar>
-        </ReactResizeDetector>
-        <Portal container={this.props.drawerContainer}>
-          {drawer}
-        </Portal>
-      </AppBar>
-    )
-  }
+          </Grid>
+        </Toolbar>
+      </ReactResizeDetector>
+      <Portal container={props.drawerContainer}>
+        {drawer}
+      </Portal>
+    </AppBar>
+  )
 }
+)
 
 Header.propTypes = {
   onResize: PropTypes.func.isRequired,
