@@ -102,8 +102,8 @@ const renderDetails = props => {
 }
 
 export const Show = useHooks(props => {
-  const { jobSpecId, job, fetchJob } = props
   useEffect(() => { fetchJob(jobSpecId) }, [])
+  const { jobSpecId, job, fetchJob } = props
   return (
     <div>
       <RegionalNav jobSpecId={jobSpecId} job={job} />

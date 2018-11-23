@@ -14,7 +14,7 @@ const formatBalance = (val) => {
   return {formatted: numeral(tokenBalance).format('0.200000a'), unformatted: tokenBalance}
 }
 
-const valAndTooltip = ({value, title, error}) => {
+const valAndTooltip = ({value, error}) => {
   let val, tooltip
 
   if (error) {

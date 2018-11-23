@@ -61,6 +61,12 @@ const renderBody = (jobs, error) => {
 }
 
 export const JobList = useHooks(props => {
+  const [ page, setPage ] = useState(FIRST_PAGE)
+  useEffect(() => {
+    const queryPage = props.match && parseInt(props.match.params.jobPage, 10) || FIRST_PAGE
+    setPage(queryPage)
+    fetchJobs(queryPage, pageSize)
+  }, [])
   const { jobs, jobCount, fetchJobs, pageSize, error } = props
   const handleChangePage = (e, page) => {
     fetchJobs(page, pageSize)
@@ -76,14 +82,6 @@ export const JobList = useHooks(props => {
       replaceWith={`/jobs/page`}
     />
   )
-
-  const [ page, setPage ] = useState(FIRST_PAGE)
-  useEffect(() => {
-    const { pageSize, fetchJobs } = props
-    const queryPage = props.match ? (parseInt(props.match.params.jobPage, 10) || FIRST_PAGE) : FIRST_PAGE
-    setPage(queryPage)
-    fetchJobs(queryPage, pageSize)
-  }, [])
 
   return (
     <Card>
