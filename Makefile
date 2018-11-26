@@ -38,7 +38,7 @@ godep: ## Ensure chainlink's go dependencies are installed.
 	dep ensure -vendor-only
 
 yarndep: ## Ensure the frontend's dependencies are installed.
-	yarn install
+	yarn install --frozen-lockfile
 
 install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
 	go install $(GOFLAGS)
