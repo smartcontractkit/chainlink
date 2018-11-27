@@ -1,6 +1,7 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { withStyles } from '@material-ui/core/styles'
 import { Link } from 'react-static'
+import { useHooks, useState, useRef } from 'use-react-hooks'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
 import Button from '@material-ui/core/Button'
@@ -29,71 +30,62 @@ const styles = theme => {
   }
 }
 
-class AvatarMenu extends Component {
-  state = {open: false}
+const AvatarMenu = useHooks(({classes}) => {
+  const anchorEl = useRef(null)
+  const [open, toggleOpenState] = useState(false)
+  const handleToggle = () => toggleOpenState(!open)
 
-  handleToggle = () => {
-    this.setState(state => ({ open: !state.open }))
-  }
-
-  handleClose = event => {
-    if (this.anchorEl.contains(event.target)) {
+  const handleClose = event => {
+    if (anchorEl.current.contains(event.target)) {
       return
     }
 
-    this.setState({open: false})
+    toggleOpenState(false)
   }
 
-  render () {
-    const { classes } = this.props
-    const { open } = this.state
-
-    return (
-      <React.Fragment>
-        <Button
-          variant='fab'
-          mini
-          color='primary'
-          aria-label='Profile'
-          className={classes.button}
-          buttonRef={node => {
-            this.anchorEl = node
-          }}
-          aria-owns={open ? 'menu-list-grow' : undefined}
-          aria-haspopup='true'
-          onClick={this.handleToggle}
-        >
-          <Icon>perm_identity</Icon>
-        </Button>
-        <Popper open={open} anchorEl={this.anchorEl} transition disablePortal>
-          {({ TransitionProps, placement }) => (
-            <Grow
-              {...TransitionProps}
-              id='menu-list-grow'
-              style={{ transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom' }}
-            >
-              <Paper>
-                <ClickAwayListener onClickAway={this.handleClose}>
-                  <MenuList>
-                    <MenuItem onClick={this.handleClose} className={classes.menuItem}>
-                      <Link to='/signout' className={classes.link}>
-                        <Typography
-                          variant='body1'
-                          className={classes.link}
-                        >
-                          Log out
-                        </Typography>
-                      </Link>
-                    </MenuItem>
-                  </MenuList>
-                </ClickAwayListener>
-              </Paper>
-            </Grow>
-          )}
-        </Popper>
-      </React.Fragment>
-    )
-  }
-}
+  return (
+    <React.Fragment>
+      <Button
+        variant='fab'
+        mini
+        color='primary'
+        aria-label='Profile'
+        className={classes.button}
+        buttonRef={anchorEl}
+        aria-owns={open ? 'menu-list-grow' : undefined}
+        aria-haspopup='true'
+        onClick={handleToggle}
+      >
+        <Icon>perm_identity</Icon>
+      </Button>
+      <Popper open={open} anchorEl={anchorEl.current} transition disablePortal>
+        {({ TransitionProps, placement }) => (
+          <Grow
+            {...TransitionProps}
+            id='menu-list-grow'
+            style={{ transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom' }}
+          >
+            <Paper>
+              <ClickAwayListener onClickAway={handleClose}>
+                <MenuList>
+                  <MenuItem onClick={handleClose} className={classes.menuItem}>
+                    <Link to='/signout' className={classes.link}>
+                      <Typography
+                        variant='body1'
+                        className={classes.link}
+                      >
+                        Log out
+                      </Typography>
+                    </Link>
+                  </MenuItem>
+                </MenuList>
+              </ClickAwayListener>
+            </Paper>
+          </Grow>
+        )}
+      </Popper>
+    </React.Fragment>
+  )
+})
 
 export default withStyles(styles)(AvatarMenu)
