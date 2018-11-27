@@ -49,11 +49,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticateWithPwd(store *store.Store
 }
 
 func checkPassword(store *store.Store, phrase string) error {
-	if err := store.KeyStore.Unlock(phrase); err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	return nil
+	return store.KeyStore.Unlock(phrase)
 }
 
 func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) error {
