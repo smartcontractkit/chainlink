@@ -103,9 +103,9 @@ func (mr *MockTxManagerMockRecorder) GetLinkBalance(address interface{}) *gomock
 }
 
 // GetActiveAccount mocks base method
-func (m *MockTxManager) GetActiveAccount() *store.ActiveAccount {
+func (m *MockTxManager) GetActiveAccount() *store.ManagedAccount {
 	ret := m.ctrl.Call(m, "GetActiveAccount")
-	ret0, _ := ret[0].(*store.ActiveAccount)
+	ret0, _ := ret[0].(*store.ManagedAccount)
 	return ret0
 }
 
