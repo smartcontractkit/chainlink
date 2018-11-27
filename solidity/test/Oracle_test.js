@@ -10,39 +10,46 @@ contract('Oracle', () => {
   beforeEach(async () => {
     link = await h.deploy('link_token/contracts/LinkToken.sol')
     oc = await h.deploy(sourcePath, link.address)
-    await oc.transferOwnership(h.oracleNode, { from: h.defaultAccount })
+    await oc.setFulfillmentPermission(h.oracleNode, true, { from: h.defaultAccount })
   })
 
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
+      'authorizedNodes',
       'cancel',
       'fulfillData',
       'onTokenTransfer',
       'owner',
       'renounceOwnership',
       'requestData',
+      'setFulfillmentPermission',
       'transferOwnership',
       'withdraw'
     ])
   })
 
-  describe('#transferOwnership', () => {
+  describe('#setFulfillmentPermission', () => {
     context('when called by the owner', () => {
       beforeEach(async () => {
-        await oc.transferOwnership(h.stranger, { from: h.oracleNode })
+        await oc.setFulfillmentPermission(h.stranger, true, { from: h.defaultAccount })
       })
 
-      it('can change the owner', async () => {
-        let owner = await oc.owner.call()
-        assert.isTrue(web3.isAddress(owner))
-        assert.equal(h.stranger, owner)
+      it('adds an authorized node', async () => {
+        let authorized = await oc.authorizedNodes.call(h.stranger)
+        assert.equal(true, authorized)
+      })
+
+      it('removes an authorized node', async () => {
+        await oc.setFulfillmentPermission(h.stranger, false, { from: h.defaultAccount })
+        let authorized = await oc.authorizedNodes.call(h.stranger)
+        assert.equal(false, authorized)
       })
     })
 
     context('when called by a non-owner', () => {
-      it('cannot change the owner', async () => {
+      it('cannot add an authorized node', async () => {
         await h.assertActionThrows(async () => {
-          await oc.transferOwnership(h.stranger, { from: h.stranger })
+          await oc.setFulfillmentPermission(h.stranger, true, { from: h.stranger })
         })
       })
     })
@@ -168,15 +175,17 @@ contract('Oracle', () => {
         internalId = h.runRequestId(req.receipt.logs[2])
       })
 
-      context('when called by a non-owner', () => {
+      context('when called by an unauthorized node', () => {
         it('raises an error', async () => {
+          let unauthorized = await oc.authorizedNodes.call(h.stranger)
+          assert.equal(false, unauthorized)
           await h.assertActionThrows(async () => {
             await oc.fulfillData(internalId, 'Hello World!', { from: h.stranger })
           })
         })
       })
 
-      context('when called by an owner', () => {
+      context('when called by an authorized node', () => {
         it('raises an error if the request ID does not exist', async () => {
           await h.assertActionThrows(async () => {
             await oc.fulfillData(0xdeadbeef, 'Hello World!', { from: h.oracleNode })
@@ -245,7 +254,7 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.oracleNode })
+          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
@@ -271,7 +280,7 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.oracleNode })
+          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
@@ -295,7 +304,7 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.oracleNode })
+          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(paymentAmount.equals(newBalance))
         })
@@ -354,7 +363,7 @@ contract('Oracle', () => {
         let balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
         await h.assertActionThrows(async () => {
-          await oc.withdraw(h.oracleNode, h.toWei(1), { from: h.oracleNode })
+          await oc.withdraw(h.oracleNode, h.toWei(1), { from: h.defaultAccount })
         })
         balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
@@ -376,7 +385,7 @@ contract('Oracle', () => {
       context('but not freeing funds w fulfillData', () => {
         it('does not transfer funds', async () => {
           await h.assertActionThrows(async () => {
-            await oc.withdraw(h.oracleNode, amount, { from: h.oracleNode })
+            await oc.withdraw(h.oracleNode, amount, { from: h.defaultAccount })
           })
           let balance = await link.balanceOf(h.oracleNode)
           assert.equal(0, balance)
@@ -395,7 +404,7 @@ contract('Oracle', () => {
 
           assert.isAbove(withdrawAmount, originalOracleBalance.toNumber())
           await h.assertActionThrows(async () => {
-            await oc.withdraw(h.stranger, withdrawAmount, { from: h.oracleNode })
+            await oc.withdraw(h.stranger, withdrawAmount, { from: h.defaultAccount })
           })
 
           let newOracleBalance = await link.balanceOf(oc.address)
@@ -408,7 +417,7 @@ contract('Oracle', () => {
         it('allows transfer of partial balance by owner to specified address', async () => {
           let partialAmount = 6
           let difference = amount - partialAmount
-          await oc.withdraw(h.stranger, partialAmount, { from: h.oracleNode })
+          await oc.withdraw(h.stranger, partialAmount, { from: h.defaultAccount })
           let strangerBalance = await link.balanceOf(h.stranger)
           let oracleBalance = await link.balanceOf(oc.address)
           assert.equal(partialAmount, strangerBalance)
@@ -416,7 +425,7 @@ contract('Oracle', () => {
         })
 
         it('allows transfer of entire balance by owner to specified address', async () => {
-          await oc.withdraw(h.stranger, amount, { from: h.oracleNode })
+          await oc.withdraw(h.stranger, amount, { from: h.defaultAccount })
           let balance = await link.balanceOf(h.stranger)
           assert.equal(amount, balance)
         })
