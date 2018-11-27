@@ -32,15 +32,15 @@ const styles = theme => {
 
 const AvatarMenu = useHooks(({classes}) => {
   const anchorEl = useRef(null)
-  const [open, toggleOpenState] = useState(false)
-  const handleToggle = () => toggleOpenState(!open)
+  const [open, setOpenState] = useState(false)
+  const handleToggle = () => setOpenState(!open)
 
   const handleClose = event => {
     if (anchorEl.current.contains(event.target)) {
       return
     }
 
-    toggleOpenState(false)
+    setOpenState(false)
   }
 
   return (
