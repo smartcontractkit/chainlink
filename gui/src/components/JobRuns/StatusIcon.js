@@ -1,6 +1,8 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { withStyles } from '@material-ui/core/styles'
 import Icon from '@material-ui/core/Icon'
+import classNames from 'classnames'
 
 const styles = theme => {
   const iconShared = {
@@ -32,26 +34,30 @@ const styles = theme => {
   }
 }
 
-const Status = ({children, classes}) => {
+const StatusIcon = ({children, classes, className}) => {
   if (children === 'completed') {
     return (
-      <Icon className={classes.completed} title={children}>
+      <Icon className={classNames(classes.completed, className)} title={children}>
         done
       </Icon>
     )
   } else if (children === 'errored') {
     return (
-      <Icon className={classes.errored} title={children}>
+      <Icon className={classNames(classes.errored, className)} title={children}>
         error_outline
       </Icon>
     )
   }
 
   return (
-    <Icon className={classes.waiting} title='waiting'>
+    <Icon className={classNames(classes.waiting, className)} title='waiting'>
       access_time
     </Icon>
   )
 }
 
-export default withStyles(styles)(Status)
+StatusIcon.propTypes = {
+  className: PropTypes.string
+}
+
+export default withStyles(styles)(StatusIcon)

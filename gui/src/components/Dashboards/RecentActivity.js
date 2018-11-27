@@ -14,7 +14,7 @@ import Card from '@material-ui/core/Card'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
-import RunStatus from 'components/JobRuns/Status'
+import StatusIcon from 'components/JobRuns/StatusIcon'
 
 const styles = theme => {
   return {
@@ -71,7 +71,7 @@ const RecentActivity = ({classes, runs}) => {
               <TableCell scope='row' className={classes.cell}>
                 <div style={{position: 'relative', paddingLeft: '50px'}}>
                   <div className={classes.status}>
-                    <RunStatus>{r.status}</RunStatus>
+                    <StatusIcon>{r.status}</StatusIcon>
                   </div>
                   <div className={classes.runDetails}>
                     <Grid container>
