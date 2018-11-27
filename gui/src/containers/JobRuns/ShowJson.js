@@ -1,5 +1,6 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { connect } from 'react-redux'
+import { useHooks, useEffect } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import PaddedCard from 'components/PaddedCard'
@@ -33,29 +34,23 @@ const renderDetails = ({fetching, jobRun}) => {
   )
 }
 
-export class Show extends Component {
-  componentDidMount () {
-    this.props.fetchJobRun(this.props.jobRunId)
-  }
+const Show = useHooks(props => {
+  useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
 
-  render () {
-    const {props} = this
+  return (
+    <div>
+      <RegionalNav
+        jobSpecId={props.jobSpecId}
+        jobRunId={props.jobRunId}
+        jobRun={props.jobRun}
+      />
 
-    return (
-      <div>
-        <RegionalNav
-          jobSpecId={props.jobSpecId}
-          jobRunId={props.jobRunId}
-          jobRun={props.jobRun}
-        />
-
-        <Content>
-          {renderDetails(props)}
-        </Content>
-      </div>
-    )
-  }
-}
+      <Content>
+        {renderDetails(props)}
+      </Content>
+    </div>
+  )
+})
 
 const mapStateToProps = (state, ownProps) => {
   const {jobSpecId, jobRunId} = ownProps.match.params
