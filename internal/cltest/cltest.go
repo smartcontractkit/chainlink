@@ -856,7 +856,9 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 	if resp.StatusCode >= 300 && resp.StatusCode < 600 {
 		var result map[string][]string
 		err := json.Unmarshal(ParseResponseBody(resp), &result)
-		mustNotErr(err)
+		if err != nil {
+			assert.FailNowf(t, "Unable to unmarshal json", err.Error())
+		}
 
 		assert.FailNowf(t, "Request failed", "Expected %d response, got %d with errors: %s", expectedStatusCode, resp.StatusCode, result["errors"])
 	} else {
