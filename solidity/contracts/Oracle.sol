@@ -24,6 +24,7 @@ contract Oracle is OracleInterface, Ownable {
   uint256 private withdrawableWei = oneForConsistentGasCost;
 
   mapping(uint256 => Callback) private callbacks;
+  mapping(address => bool) public authorizedNodes;
 
   event RunRequest(
     bytes32 indexed specId,
@@ -96,7 +97,7 @@ contract Oracle is OracleInterface, Ownable {
     bytes32 _data
   )
     external
-    onlyOwner
+    onlyAuthorizedNode
     hasInternalId(_internalId)
     returns (bool)
   {
@@ -107,6 +108,10 @@ contract Oracle is OracleInterface, Ownable {
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
     return callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
+  }
+
+  function setFulfillmentPermission(address _node, bool _allowed) external onlyOwner {
+    authorizedNodes[_node] = _allowed;
   }
 
   function withdraw(address _recipient, uint256 _amount)
@@ -139,6 +144,11 @@ contract Oracle is OracleInterface, Ownable {
 
   modifier hasInternalId(uint256 _internalId) {
     require(callbacks[_internalId].addr != address(0), "Must have a valid internalId");
+    _;
+  }
+
+  modifier onlyAuthorizedNode() {
+    require(authorizedNodes[msg.sender] == true || msg.sender == owner, "Not an authorized node to fulfill requests");
     _;
   }
 
