@@ -1,10 +1,10 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import { withStyles } from '@material-ui/core/styles'
 import { Link } from 'react-static'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import ReactResizeDetector from 'react-resize-detector'
-import { withStyles } from '@material-ui/core/styles'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
@@ -19,6 +19,7 @@ import MenuIcon from '@material-ui/icons/Menu'
 import Portal from '@material-ui/core/Portal'
 import LoadingBar from 'components/LoadingBar'
 import Logo from 'components/Logo'
+import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
 import { useHooks, useState } from 'use-react-hooks'
@@ -69,8 +70,15 @@ const styles = theme => {
   }
 }
 
-const Header = useHooks((props) => {
-  const [ drawerOpen, setDrawerState ] = useState(false)
+const SHARED_NAV_ITEMS = [
+  ['/jobs', 'Jobs'],
+  ['/bridges', 'Bridges'],
+  ['/config', 'Configuration'],
+  ['/about', 'About']
+]
+
+const Header = useHooks(props => {
+  const [drawerOpen, setDrawerState] = useState(false)
   const toggleDrawer = () => setDrawerState(!drawerOpen)
   const signOut = () => props.submitSignOut()
   const {classes, fetchCount} = props
@@ -89,46 +97,31 @@ const Header = useHooks((props) => {
       onClick={toggleDrawer}
     >
       <List className={classes.drawerList}>
-        <ListItem button component={Link} to='/jobs' className={classes.menuitem}>
-          <ListItemText primary='Jobs' />
-        </ListItem>
-        <ListItem button component={Link} to='/bridges' className={classes.menuitem}>
-          <ListItemText primary='Bridges' />
-        </ListItem>
-        <ListItem button component={Link} to='/config' className={classes.menuitem}>
-          <ListItemText primary='Configuration' />
-        </ListItem>
-        <ListItem button component={Link} to='/about' className={classes.menuitem}>
-          <ListItemText primary='About' />
-        </ListItem>
+        {SHARED_NAV_ITEMS.map(([to, text]) => (
+          <ListItem key={to} button component={Link} to={to} className={classes.menuitem}>
+            <ListItemText primary={text} />
+          </ListItem>
+        ))}
         {props.authenticated &&
-        <ListItem button onClick={signOut} className={classes.menuitem}>
-          <ListItemText primary='Sign Out' />
-        </ListItem>
+          <ListItem button onClick={signOut} className={classes.menuitem}>
+            <ListItemText primary='Sign Out' />
+          </ListItem>
         }
       </List>
     </div>
-  </Drawer>
-  )
+  </Drawer>)
 
   const nav = (<Typography variant='body1' component='div'>
     <List className={classes.horizontalNav}>
-      <ListItem className={classes.horizontalNavItem}>
-        <Link to='/jobs' className={classes.horizontalNavLink}>Jobs</Link>
-      </ListItem>
-      <ListItem className={classes.horizontalNavItem}>
-        <Link to='/bridges' className={classes.horizontalNavLink}>Bridges</Link>
-      </ListItem>
-      <ListItem className={classes.horizontalNavItem}>
-        <Link to='/config' className={classes.horizontalNavLink}>Configuration</Link>
-      </ListItem>
-      <ListItem className={classes.horizontalNavItem}>
-        <Link to='/about' className={classes.horizontalNavLink}>About</Link>
-      </ListItem>
+      {SHARED_NAV_ITEMS.map(([to, text]) => (
+        <ListItem key={to} className={classes.horizontalNavItem}>
+          <Link to={to} className={classes.horizontalNavLink}>{text}</Link>
+        </ListItem>
+      ))}
       {props.authenticated &&
-      <ListItem className={classes.horizontalNavItem}>
-        <Link to='/signout' className={classes.horizontalNavLink}>Sign Out</Link>
-      </ListItem>
+        <ListItem className={classes.horizontalNavItem}>
+          <AvatarMenu />
+        </ListItem>
       }
     </List>
   </Typography>
