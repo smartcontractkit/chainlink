@@ -5,7 +5,7 @@
     "ethereumjs-util": "^5.1.5",
     "express": "^4.16.2",
     "link_token": "^1.0.1",
-    "openzeppelin-solidity": "^1.6.0",
+    "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
     "truffle": "^4.1.12",
