@@ -24,7 +24,7 @@ contract Oracle is OracleInterface, Ownable {
   uint256 private withdrawableWei = oneForConsistentGasCost;
 
   mapping(uint256 => Callback) private callbacks;
-  mapping(address => bool) public authorizedNodes;
+  mapping(address => bool) private authorizedNodes;
 
   event RunRequest(
     bytes32 indexed specId,
@@ -108,6 +108,10 @@ contract Oracle is OracleInterface, Ownable {
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
     return callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
+  }
+
+  function getAuthorizationStatus(address _node) external view returns (bool) {
+    return authorizedNodes[_node];
   }
 
   function setFulfillmentPermission(address _node, bool _allowed) external onlyOwner {
