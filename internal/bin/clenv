@@ -6,7 +6,7 @@ export LOG_LEVEL=debug
 export ETH_WS_PORT=18546
 export ETH_RPC_PORT=18545
 export ETH_URL=ws://localhost:$ETH_WS_PORT
-export ETH_CHAIN_ID=17
+export ETH_CHAIN_ID=1337
 export TX_MIN_CONFIRMATIONS=2
 export MINIMUM_CONTRACT_PAYMENT=1000000000000
 if [ -z "$CHAINLINK_DEV" ]; then
