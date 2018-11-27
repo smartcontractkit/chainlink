@@ -13,11 +13,9 @@ const styles = theme => ({
 
 const StyledTooltip = ({ title, children, classes }) => {
   return (
-    <div>
-      <Tooltip title={title} classes={{ tooltip: classes.lightTooltip }}>
-        {children}
-      </Tooltip>
-    </div>
+    <Tooltip title={title} classes={{ tooltip: classes.lightTooltip }}>
+      {children}
+    </Tooltip>
   )
 }
 
