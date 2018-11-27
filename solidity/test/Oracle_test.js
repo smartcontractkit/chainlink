@@ -316,6 +316,35 @@ contract('Oracle', () => {
           assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
         })
       })
+
+      context('tries to steal funds from node', () => {
+        it('is not successful with call', async () => {
+          const req = await mock.requestData('stealEthCall(bytes32,bytes32)')
+          internalId = h.runRequestId(req.receipt.logs[3])
+
+          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
+          assert.equal(mockBalance, 0)
+        })
+
+        it('is not successful with send', async () => {
+          const req = await mock.requestData('stealEthSend(bytes32,bytes32)')
+          internalId = h.runRequestId(req.receipt.logs[3])
+
+          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
+          assert.equal(mockBalance, 0)
+        })
+
+        it('is not successful with transfer', async () => {
+          const req = await mock.requestData('stealEthTransfer(bytes32,bytes32)')
+          internalId = h.runRequestId(req.receipt.logs[3])
+
+          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
+          assert.equal(mockBalance, 0)
+        })
+      })
     })
   })
 
