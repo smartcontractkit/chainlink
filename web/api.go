@@ -121,7 +121,7 @@ func ParseJSONAPIResponse(input []byte, resource interface{}) error {
 	// as is api2go will discard the links
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
+		return fmt.Errorf("web: unable to unmarshal data of type %T, %+v", resource, err)
 	}
 
 	return nil
