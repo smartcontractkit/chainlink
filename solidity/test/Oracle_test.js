@@ -15,9 +15,9 @@ contract('Oracle', () => {
 
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
-      'authorizedNodes',
       'cancel',
       'fulfillData',
+      'getAuthorizationStatus',
       'onTokenTransfer',
       'owner',
       'renounceOwnership',
@@ -35,13 +35,13 @@ contract('Oracle', () => {
       })
 
       it('adds an authorized node', async () => {
-        let authorized = await oc.authorizedNodes.call(h.stranger)
+        let authorized = await oc.getAuthorizationStatus(h.stranger)
         assert.equal(true, authorized)
       })
 
       it('removes an authorized node', async () => {
         await oc.setFulfillmentPermission(h.stranger, false, { from: h.defaultAccount })
-        let authorized = await oc.authorizedNodes.call(h.stranger)
+        let authorized = await oc.getAuthorizationStatus(h.stranger)
         assert.equal(false, authorized)
       })
     })
@@ -177,7 +177,7 @@ contract('Oracle', () => {
 
       context('when called by an unauthorized node', () => {
         it('raises an error', async () => {
-          let unauthorized = await oc.authorizedNodes.call(h.stranger)
+          let unauthorized = await oc.getAuthorizationStatus(h.stranger)
           assert.equal(false, unauthorized)
           await h.assertActionThrows(async () => {
             await oc.fulfillData(internalId, 'Hello World!', { from: h.stranger })
