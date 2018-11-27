@@ -2,9 +2,9 @@ import React from 'react'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 
-export default ({children, classes}) => (
+export default ({children, classes, className}) => (
   <Card>
-    <CardContent>
+    <CardContent className={className}>
       {children}
     </CardContent>
   </Card>
