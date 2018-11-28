@@ -10,9 +10,8 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobsSelector from 'selectors/jobs'
 import { fetchJobs } from 'actions'
-import { useHooks } from 'use-react-hooks'
 
-export const Index = useHooks(props =>
+export const Index = props => (
   <Content>
     <Grid container alignItems='center' >
       <Grid item xs={9}>

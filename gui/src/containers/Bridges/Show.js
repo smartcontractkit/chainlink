@@ -22,7 +22,7 @@ const styles = theme => ({
   }
 })
 
-const renderLoading = props => (
+const renderLoading = () => (
   <div>Loading...</div>
 )
 

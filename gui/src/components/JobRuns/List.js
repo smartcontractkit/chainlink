@@ -11,7 +11,7 @@ import Card from '@material-ui/core/Card'
 import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
 
-const styles = theme => ({
+const styles = () => ({
   jobRunsCard: {
     overflow: 'auto'
   }
@@ -67,7 +67,7 @@ const renderRuns = runs => {
   )
 }
 
-const List = ({jobSpecId, runs, classes}) => (
+const List = ({runs, classes}) => (
   <Card className={classes.jobRunsCard}>
     <Table>
       <TableHead>

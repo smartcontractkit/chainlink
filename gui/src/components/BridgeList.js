@@ -58,6 +58,13 @@ const renderBody = (bridges, fetching, error) => {
 }
 
 export const BridgeList = useHooks(props => {
+  const [page, setPage] = useState(FIRST_PAGE)
+  useEffect(() => {
+    const queryPage = props.match && parseInt(props.match.params.bridgePage, 10) || FIRST_PAGE
+    setPage(queryPage)
+    fetchBridges(queryPage, pageSize)
+  }, [])
+
   const { bridges, bridgeCount, fetchBridges, pageSize, fetching, error } = props
   const TableButtonsWithProps = () => (
     <TableButtons
@@ -73,14 +80,6 @@ export const BridgeList = useHooks(props => {
     fetchBridges(page, pageSize)
     setPage(page)
   }
-
-  const [page, setPage] = useState(FIRST_PAGE)
-  useEffect(() => {
-    const { pageSize, fetchBridges } = props
-    const queryPage = props.match ? (parseInt(props.match.params.bridgePage, 10) || FIRST_PAGE) : FIRST_PAGE
-    setPage(queryPage)
-    fetchBridges(queryPage, pageSize)
-  }, [])
 
   return (
     <Card>
