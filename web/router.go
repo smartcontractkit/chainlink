@@ -177,6 +177,9 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
+
+		txs := TxAttemptsController{app}
+		authv2.GET("/txattempts", txs.Index)
 	}
 }
 

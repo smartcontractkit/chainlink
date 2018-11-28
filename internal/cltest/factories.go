@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"github.com/urfave/cli"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -402,4 +404,9 @@ func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
 		return models.ServiceAgreement{}, err
 	}
 	return models.BuildServiceAgreement(us, MockSigner{})
+}
+
+func EmptyCLIContext() *cli.Context {
+	set := flag.NewFlagSet("test", 0)
+	return cli.NewContext(nil, set, nil)
 }
