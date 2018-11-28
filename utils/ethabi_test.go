@@ -455,3 +455,23 @@ func TestRoundToEVMWordBorder(t *testing.T) {
 	assert.Equal(t, 31, roundToEVMWordBorder(1))
 	assert.Equal(t, 1, roundToEVMWordBorder(31))
 }
+
+func TestParseNumericString(t *testing.T) {
+	tests := []struct {
+		input  string
+		output string
+	}{
+		{"0", "0"},
+		{"1", "1"},
+		{"1.0E+0", "1"},
+		{"1E+0", "1"},
+		{"1e+0", "1"},
+		{"0.01e+02", "1"},
+	}
+
+	for _, test := range tests {
+		out, err := parseNumericString(test.input)
+		assert.NoError(t, err)
+		assert.Equal(t, out.String(), test.output)
+	}
+}
