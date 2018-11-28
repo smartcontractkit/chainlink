@@ -169,9 +169,9 @@ contract('Oracle', () => {
     context('cooperative consumer', () => {
       beforeEach(async () => {
         mock = await h.deploy('examples/GetterSetter.sol')
-        let fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
-        let args = h.requestDataBytes(specId, mock.address, fHash, requestId, '')
-        let req = await h.requestDataFrom(oc, link, 0, args)
+        const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
+        const args = h.requestDataBytes(specId, mock.address, fHash, requestId, '')
+        const req = await h.requestDataFrom(oc, link, 0, args)
         internalId = h.runRequestId(req.receipt.logs[2])
       })
 
