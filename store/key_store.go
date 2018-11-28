@@ -8,8 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"go.uber.org/multierr"
 )
 
 // KeyStore manages a key storage directory on disk.
@@ -37,13 +39,16 @@ func (ks *KeyStore) HasAccounts() bool {
 // Unlock uses the given password to try to unlock accounts located in the
 // keystore directory.
 func (ks *KeyStore) Unlock(phrase string) error {
+	var merr error
 	for _, account := range ks.Accounts() {
 		err := ks.KeyStore.Unlock(account, phrase)
 		if err != nil {
-			return fmt.Errorf("Invalid password for account: %s\n\nPlease try again...\n ", account.Address.Hex())
+			merr = multierr.Combine(merr, fmt.Errorf("invalid password for account %s", account.Address.Hex()), err)
+		} else {
+			logger.Infow(fmt.Sprint("Unlocked account: ", account.Address.Hex()), "address", account.Address.Hex())
 		}
 	}
-	return nil
+	return merr
 }
 
 // SignTx uses the unlocked account to sign the given transaction.
