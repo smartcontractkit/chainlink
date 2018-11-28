@@ -2,9 +2,10 @@ pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/CoordinatorInterface.sol";
 
 // Coordinator handles oracle service aggreements between one or more oracles.
-contract Coordinator {
+contract Coordinator is CoordinatorInterface {
   using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
@@ -75,7 +76,7 @@ contract Coordinator {
     bytes32 _externalId,
     bytes _data
   )
-    public
+    external
     onlyLINK
     sufficientLINK(_amount, _sAId)
   {
@@ -103,8 +104,10 @@ contract Coordinator {
     uint256 _endAt,
     address[] _oracles,
     bytes32 _requestDigest
-                              )
-    public pure returns (bytes)
+  )
+    public
+    pure
+    returns (bytes)
   {
     return abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest);
   }
@@ -130,7 +133,10 @@ contract Coordinator {
     bytes32[] _rs,
     bytes32[] _ss,
     bytes32 _requestDigest
-  ) public returns (bytes32 serviceAgreementID) {
+  )
+    public
+    returns (bytes32 serviceAgreementID)
+  {
     require(_oracles.length == _vs.length && _vs.length == _rs.length && _rs.length == _ss.length, "Must pass in as many signatures as oracles"); /* solium-disable-line max-len */
     require(_endAt > block.timestamp, "End of ServiceAgreement must be in the future");
 
