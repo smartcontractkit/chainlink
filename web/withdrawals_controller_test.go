@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// verifyLinkBalanceCheck(t) is used to check that the address checked in a
+// mocked call to the balance method of the LINK contract is correct
+func verifyLinkBalanceCheck(address common.Address, t *testing.T) func(interface{}, ...interface{}) error {
+	return func(_ interface{}, arg ...interface{}) error {
+		balanceAddress :=
+			cltest.ExtractTargetAddressFromERC20EthEthCallMock(t, arg)
+		assert.Equal(t, balanceAddress, address)
+		return nil
+	}
+}
+
 func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
@@ -30,7 +41,9 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	})
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
+		ethMock.Register(
+			"eth_call", "0xDE0B6B3A7640000",
+			verifyLinkBalanceCheck(oca, t))
 		ethMock.Register("eth_sendRawTransaction", hash)
 		ethMock.Register("eth_blockNumber", sentAt)
 	})
@@ -38,8 +51,8 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	assert.NoError(t, app.Start())
 
 	wr := models.WithdrawalRequest{
-		Address: common.HexToAddress("0xDEADEAFDEADEAFDEADEAFDEADEAFDEAD00000000"),
-		Amount:  assets.NewLink(1000000000000000000),
+		DestinationAddress: common.HexToAddress("0xDEADEAFDEADEAFDEADEAFDEADEAFDEAD00000000"),
+		Amount:             assets.NewLink(1000000000000000000),
 	}
 
 	body, err := json.Marshal(&wr)
@@ -50,5 +63,45 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 
 	cltest.AssertServerResponse(t, resp, 200)
 
+	assert.True(t, ethMock.AllCalled(), "Not Called")
+}
+
+func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
+	config, _ := cltest.NewConfigWithPrivateKey()
+	oca := common.HexToAddress("0xDEADB3333333F")
+	config.OracleContractAddress = &oca
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	contractAddress :=
+		common.HexToAddress("0x3141592653589793238462643383279502884197")
+
+	wr := models.WithdrawalRequest{
+		DestinationAddress: common.HexToAddress("0xDEADEAFDEADEAFDEADEAFDEADEAFDEAD00000000"),
+		ContractAddress:    contractAddress,
+		Amount:             assets.NewLink(1000000000000000000),
+	}
+
+	ethMock := app.MockEthClient()
+
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_getTransactionCount", "0x101")
+	})
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_call", "0x0",
+			verifyLinkBalanceCheck(contractAddress, t))
+	})
+
+	assert.NoError(t, app.Start())
+
+	body, err := json.Marshal(&wr)
+	assert.NoError(t, err)
+
+	resp, cleanup := client.Post("/v2/withdrawals", bytes.NewBuffer(body))
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, 400)
 	assert.True(t, ethMock.AllCalled(), "Not Called")
 }

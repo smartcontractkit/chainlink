@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -416,14 +417,14 @@ func TestClient_RemoteLogin(t *testing.T) {
 }
 
 func TestClient_WithdrawSuccess(t *testing.T) {
-	app, cleanup := setupWithdrawalsApplication()
+	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
 	assert.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("withdraw", 0)
-	set.Parse([]string{"0x342156c8d3ba54abc67920d35ba1d1e67201ac9c", "1"})
+	set.Parse([]string{"0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C", "1"})
 
 	c := cli.NewContext(nil, set, nil)
 
@@ -431,7 +432,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 }
 
 func TestClient_WithdrawNoArgs(t *testing.T) {
-	app, cleanup := setupWithdrawalsApplication()
+	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
 	assert.NoError(t, app.Start())
@@ -444,10 +445,28 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 
 	wr := client.Withdraw(c)
 	assert.Error(t, wr)
-	assert.Equal(t, "withdrawal requires an address and amount", wr.Error())
+	assert.Equal(t,
+		"withdraw expects two arguments: an address and an amount",
+		wr.Error())
 }
 
-func setupWithdrawalsApplication() (*cltest.TestApplication, func()) {
+func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
+	app, cleanup, ethMockCheck := setupWithdrawalsApplication()
+	defer cleanup()
+
+	assert.NoError(t, app.Start())
+
+	client, _ := app.NewClientAndRenderer()
+	cliParserRouter := cmd.NewApp(client)
+	assert.Nil(t, cliParserRouter.Run([]string{
+		"chainlink", "withdraw",
+		"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", "1234",
+		"--from-oracle-contract-address=" +
+			"0x3141592653589793238462643383279502884197"}))
+	ethMockCheck(t)
+}
+
+func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testing.T)) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.OracleContractAddress = &oca
@@ -468,7 +487,7 @@ func setupWithdrawalsApplication() (*cltest.TestApplication, func()) {
 		ethMock.Register("eth_blockNumber", sentAt)
 	})
 
-	return app, cleanup
+	return app, cleanup, ethMock.EventuallyAllCalled
 }
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {

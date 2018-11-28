@@ -27,8 +27,9 @@ type TxManager interface {
 	Start(accounts []accounts.Account) error
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	MeetsMinConfirmations(hash common.Hash) (bool, error)
-	WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error)
-	GetLinkBalance(address common.Address) (*assets.Link, error)
+	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
+	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
+	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
@@ -118,8 +119,8 @@ func (txm *EthTxManager) createTxWithNonceReload(ma *ManagedAccount, to common.A
 	return tx, err
 }
 
-// GetLinkBalance returns the balance of LINK at the given address
-func (txm *EthTxManager) GetLinkBalance(address common.Address) (*assets.Link, error) {
+// GetLINKBalance returns the balance of LINK at the given address
+func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, error) {
 	contractAddress := common.HexToAddress(txm.config.LinkContractAddress)
 	balance, err := txm.GetERC20Balance(address, contractAddress)
 	if err != nil {
@@ -158,21 +159,56 @@ func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	return false, merr
 }
 
-// WithdrawLink withdraws the given amount of LINK from the contract to the configured withdrawal address
-func (txm *EthTxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error) {
+// ContractLINKBalance returns the balance for the contract associated with this
+// withdrawal request, or any errors
+func (txm *EthTxManager) ContractLINKBalance(
+	wr models.WithdrawalRequest) (assets.Link, error) {
+	contractAddress := &wr.ContractAddress
+	if (*contractAddress == common.Address{}) {
+		if txm.config.OracleContractAddress == nil {
+			return assets.Link{}, errors.New(
+				"OracleContractAddress not set; cannot check LINK balance")
+		}
+		contractAddress = txm.config.OracleContractAddress
+	}
+
+	linkBalance, err := txm.GetLINKBalance(*contractAddress)
+	if err != nil {
+		return assets.Link{}, multierr.Combine(
+			fmt.Errorf("Could not check LINK balance for %v",
+				contractAddress),
+			err)
+	}
+	return *linkBalance, nil
+}
+
+// WithdrawLINK withdraws the given amount of LINK from the contract to the
+// configured withdrawal address. If wr.ContractAddress is empty (zero address),
+// funds are withdrawn from configured OracleContractAddress.
+func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
 	functionSelector := models.HexToFunctionSelector("f3fef3a3") // withdraw(address _recipient, uint256 _amount)
 
 	amount := (*big.Int)(wr.Amount)
 	data, err := utils.ConcatBytes(
 		functionSelector.Bytes(),
-		common.LeftPadBytes(wr.Address.Bytes(), utils.EVMWordByteLen),
+		common.LeftPadBytes(wr.DestinationAddress.Bytes(), utils.EVMWordByteLen),
 		common.LeftPadBytes(amount.Bytes(), utils.EVMWordByteLen),
 	)
 
-	if txm.config.OracleContractAddress == nil {
-		return common.Hash{}, errors.New("OracleContractAddress not set can not withdraw")
+	if err != nil {
+		return common.Hash{}, err
 	}
-	tx, err := txm.CreateTx(*txm.config.OracleContractAddress, data)
+
+	contractAddress := &wr.ContractAddress
+	if (*contractAddress == common.Address{}) {
+		if txm.config.OracleContractAddress == nil {
+			return common.Hash{}, errors.New(
+				"OracleContractAddress not set; cannot withdraw")
+		}
+		contractAddress = txm.config.OracleContractAddress
+	}
+
+	tx, err := txm.CreateTx(*contractAddress, data)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -245,7 +281,7 @@ func (txm *EthTxManager) checkAttempt(
 // the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
 func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int, *assets.Link, error) {
-	linkBalance, linkErr := txm.GetLinkBalance(address)
+	linkBalance, linkErr := txm.GetLINKBalance(address)
 	ethBalance, ethErr := txm.EthClient.GetWeiBalance(address)
 	merr := multierr.Append(linkErr, ethErr)
 	return ethBalance, linkBalance, merr

@@ -311,8 +311,9 @@ func (c Cron) String() string {
 
 // WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
-	Address common.Address `json:"address"`
-	Amount  *assets.Link   `json:"amount"`
+	DestinationAddress common.Address `json:"address"`
+	ContractAddress    common.Address `json:"contractAddress"`
+	Amount             *assets.Link   `json:"amount"`
 }
 
 // Int stores large integers and can deserialize a variety of inputs.

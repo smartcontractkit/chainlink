@@ -523,11 +523,11 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 	})
 
 	wr := models.WithdrawalRequest{
-		Address: to,
-		Amount:  assets.NewLink(10),
+		DestinationAddress: to,
+		Amount:             assets.NewLink(10),
 	}
 
-	hash, err := txm.WithdrawLink(wr)
+	hash, err := txm.WithdrawLINK(wr)
 	assert.NoError(t, err)
 	assert.True(t, ethMock.AllCalled(), "Not Called")
 
@@ -550,12 +550,12 @@ func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 	assert.NoError(t, app.Start())
 
 	wr := models.WithdrawalRequest{
-		Address: cltest.NewAddress(),
-		Amount:  assets.NewLink(10),
+		DestinationAddress: cltest.NewAddress(),
+		Amount:             assets.NewLink(10),
 	}
 
-	_, err := app.Store.TxManager.WithdrawLink(wr)
-	assert.EqualError(t, err, "OracleContractAddress not set can not withdraw")
+	_, err := app.Store.TxManager.WithdrawLINK(wr)
+	assert.EqualError(t, err, "OracleContractAddress not set; cannot withdraw")
 }
 
 func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {

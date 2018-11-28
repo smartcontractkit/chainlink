@@ -357,3 +357,31 @@ func RemoveQuotes(input []byte) []byte {
 	}
 	return input
 }
+
+// EIP55CapitalizedAddress returns true iff possibleAddressString has the correct
+// capitalization for an Ethereum address, per EIP 55
+func EIP55CapitalizedAddress(possibleAddressString string) bool {
+	if !HasHexPrefix(possibleAddressString) {
+		possibleAddressString = "0x" + possibleAddressString
+	}
+	EIP55Capitalized := common.HexToAddress(possibleAddressString).Hex()
+	return possibleAddressString == EIP55Capitalized
+}
+
+// ParseEthereumAddress returns addressString as a go-ethereum Address, or an
+// error if it's invalid, e.g. if EIP 55 capitalization check fails
+func ParseEthereumAddress(addressString string) (common.Address, error) {
+	if !common.IsHexAddress(addressString) {
+		return common.Address{}, fmt.Errorf(
+			"not a valid Ethereum address: %s", addressString)
+	}
+	address := common.HexToAddress(addressString)
+	if !EIP55CapitalizedAddress(addressString) {
+		return common.Address{}, fmt.Errorf(
+			"%s treated as Ethereum address, but it has an invalid capitalization! "+
+				"The correctly-capitalized address would be %s, but "+
+				"check carefully before copying and pasting! ",
+			addressString, address.Hex())
+	}
+	return address, nil
+}

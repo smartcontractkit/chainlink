@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/multierr"
 )
 
 func TestUtils_NewBytes32ID(t *testing.T) {
@@ -150,4 +152,46 @@ func TestKeccak256(t *testing.T) {
 			assert.Equal(t, test.want, hexutil.Encode(result))
 		})
 	}
+}
+
+// From https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md#test-cases
+var testAddresses = []string{
+	"0x52908400098527886E0F7030069857D2E4169EE7",
+	"0x8617E340B3D01FA5F11F306F4090FD50E238070D",
+	"0xde709f2102306220921060314715629080e2fb77",
+	"0x27b1fdb04752bbc536007a920d24acb045561c26",
+	"0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+	"0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359",
+	"0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB",
+	"0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb",
+}
+
+func TestClient_EIP55CapitalizedAddress(t *testing.T) {
+	valid := utils.EIP55CapitalizedAddress
+	for _, address := range testAddresses {
+		assert.True(t, valid(address))
+		assert.False(t, valid(strings.ToLower(address)) &&
+			valid(strings.ToUpper(address)))
+	}
+}
+
+func TestClient_ParseEthereumAddress(t *testing.T) {
+	parse := utils.ParseEthereumAddress
+	for _, address := range testAddresses {
+		a1, err := parse(address)
+		assert.NoError(t, err)
+		no0xPrefix := address[2:]
+		a2, err := parse(no0xPrefix)
+		assert.NoError(t, err)
+		assert.True(t, a1 == a2)
+		_, lowerErr := parse(strings.ToLower(address))
+		_, upperErr := parse(strings.ToUpper(address))
+		shouldBeError := multierr.Combine(lowerErr, upperErr)
+		assert.Error(t, shouldBeError)
+		assert.True(t, strings.Contains(shouldBeError.Error(), no0xPrefix))
+	}
+	_, notHexErr := parse("0xCeci n'est pas une chaîne hexadécimale")
+	assert.Error(t, notHexErr)
+	_, tooLongErr := parse("0x0123456789abcdef0123456789abcdef0123456789abcdef")
+	assert.Error(t, tooLongErr)
 }

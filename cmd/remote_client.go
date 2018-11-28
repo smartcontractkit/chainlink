@@ -19,6 +19,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
@@ -264,19 +265,41 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 
 // Withdraw will withdraw LINK to an address authorized by the node
 func (cli *Client) Withdraw(c *clipkg.Context) error {
-	if len(c.Args()) < 2 {
-		return cli.errorOut(errors.New("withdrawal requires an address and amount"))
+	if c.NArg() != 2 {
+		return cli.errorOut(errors.New("withdraw expects two arguments: an address and an amount"))
 	}
 
-	i, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
+	linkAmount, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
 
 	if err != nil {
-		return err
+		return cli.errorOut(multierr.Combine(
+			errors.New("while parsing LINK withdrawal amount"), err))
+	}
+
+	contractAddress := common.Address{}
+	unParsedOracleContractAddress := c.String("from-oracle-contract-address")
+	if unParsedOracleContractAddress != "" {
+		contractAddress, err = utils.ParseEthereumAddress(
+			unParsedOracleContractAddress)
+		if err != nil {
+			return cli.errorOut(multierr.Combine(
+				errors.New("while parsing source contract withdrawal address"),
+				err,
+			))
+		}
+	}
+	unparsedDestinationAddress := c.Args().First()
+	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
+	if err != nil {
+		return cli.errorOut(multierr.Combine(
+			fmt.Errorf("while parsing withdrawal destination address %v",
+				unparsedDestinationAddress), err))
 	}
 
 	wR := models.WithdrawalRequest{
-		Address: common.HexToAddress(c.Args().First()),
-		Amount:  assets.NewLink(i),
+		DestinationAddress: destinationAddress,
+		ContractAddress:    contractAddress,
+		Amount:             assets.NewLink(linkAmount),
 	}
 
 	requestData, err := json.Marshal(wR)
