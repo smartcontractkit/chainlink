@@ -2,7 +2,6 @@ import {
   abiEncode,
   assertActionThrows,
   bigNum,
-  calculateSAID,
   consumer,
   checkPublicABI,
   checkServiceAgreementPresent,
@@ -15,6 +14,7 @@ import {
   initiateServiceAgreementCall,
   newAddress,
   newHash,
+  newServiceAgreement,
   oracleNode,
   pad0xHexTo256Bit,
   padNumTo256Bit,
@@ -23,6 +23,7 @@ import {
   requestDataBytes,
   requestDataFrom,
   runRequestId,
+  sixMonthsFromNow,
   stranger,
   strip0x,
   toHex,
@@ -53,7 +54,7 @@ contract('Coordinator', () => {
 
   const agreedPayment = 1
   const agreedExpiration = 2
-  const endAt = Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60 // six months from now
+  const endAt = sixMonthsFromNow()
   const agreedOracles = [
     '0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d',
     '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07'
@@ -86,54 +87,37 @@ contract('Coordinator', () => {
   })
 
   describe('#initiateServiceAgreement', () => {
-    const oracle = newAddress(oracleNode)
-    const unsignedDefaultServiceAgreement = {
-      payment: newHash('1000000000000000000'),
-      expiration: newHash('300'),
-      endAt: newHash(endAt.toString()),
-      oracles: [oracle],
-      requestDigest: newHash(
-        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
-    }
-    const serviceAgreementID = calculateSAID(unsignedDefaultServiceAgreement)
-    const oracleSignature = personalSign(oracle, serviceAgreementID)
-    const requestDigestAddr =
-          recoverPersonalSignature(serviceAgreementID, oracleSignature)
-    assert.equal(toHex(oracle), toHex(requestDigestAddr))
-    const defaultArgs = Object.assign(
-      unsignedDefaultServiceAgreement, { oracleSignature })
+    const agreement = newServiceAgreement({oracles: [oracleNode]})
 
     context('with valid oracle signatures', () => {
       it('saves a service agreement struct from the parameters', async () => {
-        initiateServiceAgreement(coordinator, defaultArgs)
-        checkServiceAgreementPresent(coordinator, serviceAgreementID, defaultArgs)
+        initiateServiceAgreement(coordinator, agreement)
+        await checkServiceAgreementPresent(coordinator, agreement)
       })
 
       it('returns the SAID', async () => {
-        const said = await initiateServiceAgreementCall(coordinator, defaultArgs)
-        assert.equal(said, toHex(serviceAgreementID))
+        const sAID = await initiateServiceAgreementCall(coordinator, agreement)
+        assert.equal(sAID, agreement.id)
       })
 
       it('logs an event', async () => {
-        await initiateServiceAgreement(coordinator, defaultArgs)
+        await initiateServiceAgreement(coordinator, agreement)
         const event = await getLatestEvent(coordinator)
-        assert.equal(toHex(serviceAgreementID), event.args.said)
+        assert.equal(agreement.id, event.args.said)
       })
     })
 
     context('with an invalid oracle signatures', () => {
       const badOracleSignature =
-            personalSign(newAddress(stranger), serviceAgreementID)
-      const badRequestDigestAddr =
-            recoverPersonalSignature(serviceAgreementID, badOracleSignature)
-      assert.notEqual(toHex(oracle), toHex(badRequestDigestAddr))
+        personalSign(newAddress(stranger), agreement.id)
+      const badRequestDigestAddr = recoverPersonalSignature(agreement.id, badOracleSignature)
+      assert.notEqual(toHex(newAddress(oracleNode)), toHex(badRequestDigestAddr))
+
       it('saves no service agreement struct, if signatures invalid', async () => {
         assertActionThrows(
-          async () =>
-            initiateServiceAgreement(
-              coordinator,
-              Object.assign(defaultArgs, { oracleSignature: badOracleSignature })))
-        checkServiceAgreementAbsent(coordinator, serviceAgreementID)
+          async () => initiateServiceAgreement(coordinator,
+            Object.assign(agreement, { oracleSignature: badOracleSignature })))
+        checkServiceAgreementAbsent(coordinator, agreement.id)
       })
     })
 
@@ -142,45 +126,34 @@ contract('Coordinator', () => {
         assertActionThrows(
           async () => initiateServiceAgreement(
             coordinator,
-            Object.assign(defaultArgs, { endAt: newHash('1000') })))
-        checkServiceAgreementAbsent(coordinator, serviceAgreementID)
+            Object.assign(agreement, { endAt: newHash('1000') })))
+        checkServiceAgreementAbsent(coordinator, agreement.id)
       })
     })
   })
 
   describe('#executeServiceAgreement', () => {
-    let tx, log
     const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
     const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-    const payment = 1000000000000000000
-    const requestDigest = newHash('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
-    const oracle = newAddress(oracleNode)
-    const unsignedArgs = {
-      payment: newHash(payment.toString()),
-      expiration: newHash('300'),
-      endAt: newHash(endAt.toString()),
-      oracles: [oracle],
-      requestDigest }
-
-    const sAID = calculateSAID(unsignedArgs)
-    const oracleSignature = personalSign(oracle, sAID)
-    const signedArgs = Object.assign(unsignedArgs, { oracleSignature })
+    const agreement = newServiceAgreement({oracles: [oracleNode]})
 
     beforeEach(async () => {
-      await initiateServiceAgreement(coordinator, signedArgs)
+      await initiateServiceAgreement(coordinator, agreement)
       await link.transfer(consumer, toWei(1000))
     })
 
     context('when called through the LINK token with enough payment', () => {
-      const payload = executeServiceAgreementBytes(toHex(sAID), to, fHash, '1', '')
+      const payload = executeServiceAgreementBytes(agreement.id, to, fHash, '1', '')
+      let tx
+
       beforeEach(async () => {
-        tx = await link.transferAndCall(coordinator.address, payment, payload, {
+        tx = await link.transferAndCall(coordinator.address, agreement.payment, payload, {
           from: consumer
         })
-        log = tx.receipt.logs[2]
       })
 
       it('logs an event', async () => {
+        const log = tx.receipt.logs[2]
         assert.equal(coordinator.address, log.address)
 
         // If updating this test, be sure to update services.ServiceAgreementExecutionLogTopic.
@@ -188,19 +161,19 @@ contract('Coordinator', () => {
         let eventSignature = '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
         assert.equal(eventSignature, log.topics[0])
 
-        assert.equal(toHex(sAID), log.topics[1])
+        assert.equal(agreement.id, log.topics[1])
         assert.equal(consumer, web3.toDecimal(log.topics[2]))
-        assert.equal(payment, web3.toDecimal(log.topics[3]))
+        assert.equal(agreement.payment, web3.toDecimal(log.topics[3]))
       })
     })
 
     context('when called through the LINK token with not enough payment', () => {
       it('throws an error', async () => {
-        const calldata = executeServiceAgreementBytes(toHex(sAID), to, fHash, '1', '')
-        const underPaid = bigNum(payment).sub(1)
+        const calldata = executeServiceAgreementBytes(agreement.id, to, fHash, '1', '')
+        const underPaid = bigNum(agreement.payment).sub(1)
 
         await assertActionThrows(async () => {
-          tx = await link.transferAndCall(coordinator.address, underPaid, calldata, {
+          await link.transferAndCall(coordinator.address, underPaid, calldata, {
             from: consumer
           })
         })
@@ -210,42 +183,26 @@ contract('Coordinator', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
-          await coordinator.executeServiceAgreement(0, 0, 1, toHex(sAID), to, fHash, 'id', '', { from: consumer })
+          await coordinator.executeServiceAgreement(0, 0, 1, agreement.id, to, fHash, 'id', '', { from: consumer })
         })
       })
     })
   })
 
   describe('#fulfillData', () => {
-    let mock, internalId
-
-    const oracle = newAddress(oracleNode)
-    const payment = 1000000000000000000
-    const unsignedDefaultServiceAgreement = {
-      payment: newHash(payment.toString()),
-      expiration: newHash('300'),
-      endAt: newHash(endAt.toString()),
-      oracles: [oracle],
-      requestDigest: newHash(
-        '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
-    }
-    const sAID = calculateSAID(unsignedDefaultServiceAgreement)
-    const oracleSignature = personalSign(oracle, sAID)
-    const requestDigestAddr =
-      recoverPersonalSignature(sAID, oracleSignature)
-    assert.equal(toHex(oracle), toHex(requestDigestAddr))
-    const defaultArgs = Object.assign(
-      unsignedDefaultServiceAgreement, { oracleSignature })
+    const agreement = newServiceAgreement({oracles: [oracleNode]})
     const externalId = '17'
 
+    let mock, internalId
+
     beforeEach(async () => {
-      await initiateServiceAgreement(coordinator, defaultArgs)
+      await initiateServiceAgreement(coordinator, agreement)
 
       mock = await deploy('examples/GetterSetter.sol')
       const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
 
-      const payload = executeServiceAgreementBytes(toHex(sAID), mock.address, fHash, externalId, '')
-      const tx = await link.transferAndCall(coordinator.address, payment, payload)
+      const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, externalId, '')
+      const tx = await link.transferAndCall(coordinator.address, agreement.payment, payload)
       internalId = runRequestId(tx.receipt.logs[2])
     })
 
@@ -269,7 +226,7 @@ contract('Coordinator', () => {
           await coordinator.fulfillData(internalId, 'Hello World!', { from: oracleNode })
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(externalId.toString(), web3.toUtf8(mockRequestId))
+          assert.equal(externalId, web3.toUtf8(mockRequestId))
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', web3.toUtf8(currentValue))
@@ -299,7 +256,7 @@ contract('Coordinator', () => {
       it('cannot call functions on the LINK token through callbacks', async () => {
         const fHash = functionSelector('transfer(address,uint256)')
         const addressAsRequestId = abiEncode(['address'], [stranger])
-        const args = requestDataBytes(toHex(sAID), link.address, fHash, addressAsRequestId, '')
+        const args = requestDataBytes(agreement.id, link.address, fHash, addressAsRequestId, '')
 
         assertActionThrows(async () => {
           await requestDataFrom(coordinator, link, paymentAmount, args)

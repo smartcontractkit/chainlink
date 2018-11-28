@@ -250,10 +250,10 @@ export const increaseTime5Minutes = async () => {
 export const calculateSAID =
   ({ payment, expiration, endAt, oracles, requestDigest }) => {
     const serviceAgreementIDInput = concatTypedArrays(
-      payment,
-      expiration,
-      endAt,
-      concatTypedArrays(...(oracles.map(a => newHash(toHex(a))))),
+      newHash(payment.toString()),
+      newHash(expiration.toString()),
+      newHash(endAt.toString()),
+      concatTypedArrays(...oracles.map(newAddress).map(toHex).map(newHash)),
       requestDigest)
     const serviceAgreementIDInputDigest = ethjsUtils.sha3(toHex(serviceAgreementIDInput))
     return newHash(toHex(serviceAgreementIDInputDigest))
@@ -299,10 +299,10 @@ export const padNumTo256Bit = (n) => padHexTo256Bit(n.toString(16))
 
 export const initiateServiceAgreementArgs = ({
   payment, expiration, endAt, oracles, oracleSignature, requestDigest }) => [
-  toHex(payment),
-  toHex(expiration),
-  toHex(endAt),
-  oracles.map(toHex),
+  toHex(newHash(payment.toString())),
+  toHex(newHash(expiration.toString())),
+  toHex(newHash(endAt.toString())),
+  oracles.map(newAddress).map(toHex),
   [oracleSignature.v],
   [oracleSignature.r].map(toHex),
   [oracleSignature.s].map(toHex),
@@ -319,14 +319,12 @@ export const initiateServiceAgreement = async (coordinator, args) =>
   coordinator.initiateServiceAgreement(...initiateServiceAgreementArgs(args))
 
 /** Check that the given service agreement was stored at the correct location */
-export const checkServiceAgreementPresent =
-      async (coordinator, serviceAgreementID,
-        { payment, expiration, endAt, requestDigest }) => {
-        const sa = await coordinator.serviceAgreements.call(
-          toHex(serviceAgreementID))
-        assertBigNum(sa[0], bigNum(toHex(payment)))
-        assertBigNum(sa[1], bigNum(toHex(expiration)))
-        assertBigNum(sa[2], bigNum(toHex(endAt)))
+export const checkServiceAgreementPresent = async (coordinator,
+        { payment, expiration, endAt, requestDigest, id }) => {
+        const sa = await coordinator.serviceAgreements.call(id)
+        assertBigNum(sa[0], bigNum(payment))
+        assertBigNum(sa[1], bigNum(expiration))
+        assertBigNum(sa[2], bigNum(endAt))
         assert.equal(sa[3], toHex(requestDigest))
 
         /// / TODO:
@@ -360,3 +358,26 @@ export const checkServiceAgreementAbsent = async (coordinator, serviceAgreementI
   assert.equal(
     sa[3], '0x0000000000000000000000000000000000000000000000000000000000000000')
 }
+
+export const newServiceAgreement = (params) => {
+  const agreement = {}
+  params = params || {}
+  agreement.payment = params.payment || 1000000000000000000
+  agreement.expiration = params.expiration || 300
+  agreement.endAt = params.endAt || sixMonthsFromNow()
+  agreement.oracles = params.oracles || [oracleNode]
+  agreement.requestDigest = params.requestDigest || newHash('0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
+
+  const sAID = calculateSAID(agreement)
+  agreement.id = toHex(sAID)
+
+  const oracle = newAddress(agreement.oracles[0])
+  const oracleSignature = personalSign(oracle, sAID)
+  const requestDigestAddr = recoverPersonalSignature(sAID, oracleSignature)
+  assert.equal(toHex(oracle), toHex(requestDigestAddr))
+  agreement.oracleSignature = oracleSignature
+
+  return agreement
+}
+
+export const sixMonthsFromNow = () => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
