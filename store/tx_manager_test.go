@@ -462,9 +462,9 @@ func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 	assert.EqualError(t, err, "OracleContractAddress not set can not withdraw")
 }
 
-func TestActiveAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {
+func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
-	activeAccount := strpkg.ActiveAccount{
+	activeAccount := strpkg.ManagedAccount{
 		Account: account,
 	}
 
@@ -481,9 +481,9 @@ func TestActiveAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *t
 	assert.Equal(t, uint64(2), activeAccount.GetNonce())
 }
 
-func TestActiveAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsException(t *testing.T) {
+func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsException(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
-	activeAccount := strpkg.ActiveAccount{
+	activeAccount := strpkg.ManagedAccount{
 		Account: account,
 	}
 

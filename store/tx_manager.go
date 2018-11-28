@@ -29,7 +29,7 @@ type TxManager interface {
 	MeetsMinConfirmations(hash common.Hash) (bool, error)
 	WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLinkBalance(address common.Address) (*assets.Link, error)
-	GetActiveAccount() *ActiveAccount
+	GetActiveAccount() *ManagedAccount
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
@@ -45,7 +45,7 @@ type EthTxManager struct {
 	keyStore      *KeyStore
 	config        Config
 	orm           *orm.ORM
-	activeAccount *ActiveAccount
+	activeAccount *ManagedAccount
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
@@ -236,7 +236,7 @@ func (txm *EthTxManager) checkAttempt(
 }
 
 // GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
-// the latest ETH and LINK balances for the ActiveAccount on the txm, or an
+// the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
 func (txm *EthTxManager) GetETHAndLINKBalances() (*big.Int, *assets.Link, error) {
 	if txm.activeAccount == nil {
@@ -320,25 +320,25 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 
 // GetActiveAccount returns a copy of the TxManager's active nonce managed
 // account.
-func (txm *EthTxManager) GetActiveAccount() *ActiveAccount {
+func (txm *EthTxManager) GetActiveAccount() *ManagedAccount {
 	if txm.activeAccount == nil {
 		return nil
 	}
-	return &ActiveAccount{
+	return &ManagedAccount{
 		Account: txm.activeAccount.Account,
 		nonce:   txm.activeAccount.nonce,
 	}
 }
 
 // ActivateAccount retrieves an account's nonce from the blockchain for client
-// side management in ActiveAccount.
+// side management in ManagedAccount.
 func (txm *EthTxManager) ActivateAccount(account accounts.Account) error {
 	nonce, err := txm.GetNonce(account.Address)
 	if err != nil {
 		return err
 	}
 
-	txm.activeAccount = &ActiveAccount{Account: account, nonce: nonce}
+	txm.activeAccount = &ManagedAccount{Account: account, nonce: nonce}
 	return nil
 }
 
@@ -352,22 +352,22 @@ func (txm *EthTxManager) ReloadNonce() error {
 	return nil
 }
 
-// ActiveAccount holds the account information alongside a client managed nonce
+// ManagedAccount holds the account information alongside a client managed nonce
 // to coordinate outgoing transactions.
-type ActiveAccount struct {
+type ManagedAccount struct {
 	accounts.Account
 	nonce uint64
 	mutex sync.Mutex
 }
 
 // GetNonce returns the client side managed nonce.
-func (a *ActiveAccount) GetNonce() uint64 {
+func (a *ManagedAccount) GetNonce() uint64 {
 	return a.nonce
 }
 
 // GetAndIncrementNonce will Yield the current nonce to a callback function and increment it once the
 // callback has finished executing
-func (a *ActiveAccount) GetAndIncrementNonce(callback func(uint64) error) error {
+func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
