@@ -5,6 +5,7 @@ import "./ENSResolver.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/OracleInterface.sol";
+import "./interfaces/CoordinatorInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Chainlinked {
@@ -127,6 +128,23 @@ contract Chainlinked {
       _run.buf.buf);
   }
 
+  function encodeForCoordinator(ChainlinkLib.Run memory _run)
+    internal
+    view
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      CoordinatorInterface(oracle).executeServiceAgreement.selector,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
+      clArgsVersion,
+      _run.specId,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.requestId,
+      _run.buf.buf);
+  }
+
   function serviceRequest(ChainlinkLib.Run memory _run, uint256 _amount)
     internal
     returns (bytes32)
@@ -136,7 +154,7 @@ contract Chainlinked {
     _run.close();
     unfulfilledRequests[_run.requestId] = oracle;
     emit ChainlinkRequested(_run.requestId);
-    require(link.transferAndCall(oracle, _amount, _run.encodeForCoordinator(clArgsVersion)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracle, _amount, encodeForCoordinator(_run)), "unable to transferAndCall to oracle");
 
     return _run.requestId;
   }
