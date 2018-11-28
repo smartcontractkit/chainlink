@@ -29,9 +29,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	set := flag.NewFlagSet("test", 0)
-	c := cli.NewContext(nil, set, nil)
-	assert.Nil(t, client.DisplayAccountBalance(c))
+	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, account.Address.Hex(), r.Renders[0].(*presenters.AccountBalance).Address)
 }
@@ -47,7 +45,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	assert.Nil(t, client.GetJobSpecs(nil))
+	assert.Nil(t, client.GetJobSpecs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
 	assert.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
@@ -303,7 +301,7 @@ func TestClient_GetBridges(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	assert.Nil(t, client.GetBridges(nil))
+	assert.Nil(t, client.GetBridges(cltest.EmptyCLIContext()))
 	bridges := *r.Renders[0].(*[]models.BridgeType)
 	assert.Equal(t, 2, len(bridges))
 	assert.Equal(t, bt1.Name, bridges[0].Name)
@@ -510,4 +508,35 @@ func TestClient_ChangePassword(t *testing.T) {
 	err = otherClient.GetBridges(c)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "401 Unauthorized")
+}
+
+func TestClient_GetTxAttempts(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	store := app.GetStore()
+	from := cltest.GetAccountAddress(store)
+	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	attempts, err := store.AttemptsFor(tx.ID)
+	require.NoError(t, err)
+
+	client, r := app.NewClientAndRenderer()
+
+	// page 1
+	set := flag.NewFlagSet("test txattempts", 0)
+	set.Int("page", 1, "doc")
+	c := cli.NewContext(nil, set, nil)
+	require.Equal(t, 1, c.Int("page"))
+	assert.NoError(t, client.GetTxAttempts(c))
+
+	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
+	assert.Equal(t, 1, len(renderedAttempts))
+	assert.Equal(t, attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+
+	// page 2 which doesn't exist
+	set = flag.NewFlagSet("test txattempts", 0)
+	set.Int("page", 2, "doc")
+	c = cli.NewContext(nil, set, nil)
+	require.Equal(t, 2, c.Int("page"))
+	assert.Error(t, client.GetTxAttempts(c))
 }

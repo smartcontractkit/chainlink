@@ -50,6 +50,22 @@ type TxAttempt struct {
 	SentAt    uint64
 }
 
+// GetID returns the ID of this structure for jsonapi serialization.
+func (txa TxAttempt) GetID() string {
+	return txa.Hash.Hex()
+}
+
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (txa TxAttempt) GetName() string {
+	return "txattempts"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (txa *TxAttempt) SetID(value string) error {
+	txa.Hash = common.HexToHash(value)
+	return nil
+}
+
 // FunctionSelector is the first four bytes of the call data for a
 // function call and specifies the function to be called.
 type FunctionSelector [FunctionSelectorLength]byte

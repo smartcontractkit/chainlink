@@ -53,6 +53,7 @@ func ExampleRun() {
 	//      agree, createsa           Creates a service agreement
 	//      withdraw, w               Withdraw LINK to an authorized address
 	//      chpass                    Change your password
+	//      txattempts                List the transaction attempts in descending order
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:

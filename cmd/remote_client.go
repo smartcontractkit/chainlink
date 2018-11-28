@@ -95,14 +95,9 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 
 // GetJobSpecs returns all job specs.
 func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
-	page := 0
-	if c != nil && c.IsSet("page") {
-		page = c.Int("page")
-	}
-
 	var links jsonapi.Links
 	var jobs []models.JobSpec
-	err := cli.getPage("/v2/specs", page, &jobs, &links)
+	err := cli.getPage("/v2/specs", c.Int("page"), &jobs, &links)
 	if err != nil {
 		return err
 	}
@@ -200,14 +195,9 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 
 // GetBridges returns all bridges.
 func (cli *Client) GetBridges(c *clipkg.Context) error {
-	page := 0
-	if c != nil && c.IsSet("page") {
-		page = c.Int("page")
-	}
-
 	var links jsonapi.Links
 	var bridges []models.BridgeType
-	err := cli.getPage("/v2/bridge_types", page, &bridges, &links)
+	err := cli.getPage("/v2/bridge_types", c.Int("page"), &bridges, &links)
 	if err != nil {
 		return err
 	}
@@ -333,6 +323,18 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 		return cli.printResponseBody(resp)
 	}
 	return nil
+}
+
+// GetTxAttempts returns the list of transaction attempts in descending order,
+// taking an optional page parameter
+func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
+	var links jsonapi.Links
+	attempts := []models.TxAttempt{}
+	err := cli.getPage("/v2/txattempts", c.Int("page"), &attempts, &links)
+	if err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&attempts))
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {

@@ -25,6 +25,11 @@ const (
 	KeyPreviousLink = "prev"
 )
 
+var (
+	// EmptyJSON is {}
+	emptyJSON = []byte(`{}`)
+)
+
 // ParsePaginatedRequest parses the parameters that control pagination for a
 // collection request, returning the size and offset if specified, or a
 // sensible default.
@@ -121,7 +126,7 @@ func ParseJSONAPIResponse(input []byte, resource interface{}) error {
 	// as is api2go will discard the links
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
+		return fmt.Errorf("web: unable to unmarshal data of type %T, %+v", resource, err)
 	}
 
 	return nil
