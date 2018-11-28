@@ -8,7 +8,8 @@ library Buffer {
         uint capacity;
     }
 
-    function init(buffer memory buf, uint capacity) internal pure {
+    function init(buffer memory buf, uint _capacity) internal pure {
+        uint capacity = _capacity;
         if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
         // Allocate space for the buffer data
         buf.capacity = capacity;
@@ -206,8 +207,6 @@ library CBOR {
 // File: ../solidity/contracts/ChainlinkLib.sol
 
 library ChainlinkLib {
-  bytes4 internal constant oracleRequestDataFid = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
-
   using CBOR for Buffer.buffer;
 
   struct Run {
@@ -222,30 +221,14 @@ library ChainlinkLib {
     Run memory self,
     bytes32 _specId,
     address _callbackAddress,
-    string _callbackFunctionSignature
+    bytes4 _callbackFunction
   ) internal pure returns (ChainlinkLib.Run memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = bytes4(keccak256(bytes(_callbackFunctionSignature)));
+    self.callbackFunctionId = _callbackFunction;
     self.buf.startMap();
     return self;
-  }
-
-  function encodeForOracle(
-    Run memory self,
-    uint256 _clArgsVersion
-  ) internal pure returns (bytes memory) {
-    return abi.encodeWithSelector(
-      oracleRequestDataFid,
-      0, // overridden by onTokenTransfer
-      0, // overridden by onTokenTransfer
-      _clArgsVersion,
-      self.specId,
-      self.callbackAddress,
-      self.callbackFunctionId,
-      self.requestId,
-      self.buf.buf);
   }
 
   function add(Run memory self, string _key, string _value)
@@ -328,16 +311,51 @@ interface ENSInterface {
 // File: ../solidity/contracts/interfaces/LinkTokenInterface.sol
 
 interface LinkTokenInterface {
-  function balanceOf(address _owner) external returns (uint256 balance);
-  function transfer(address _to, uint _value) external returns (bool success);
-  function transferAndCall(address _to, uint _value, bytes _data) external returns (bool success);
+  function allowance(address owner, address spender) external returns (bool success);
+  function approve(address spender, uint256 value) external returns (bool success);
+  function balanceOf(address owner) external returns (uint256 balance);
+  function decimals() external returns (uint8 decimalPlaces);
+  function decreaseApproval(address spender, uint256 addedValue) external returns (bool success);
+  function increaseApproval(address spender, uint256 subtractedValue) external;
+  function name() external returns (string tokenName);
+  function symbol() external returns (string tokenSymbol);
+  function totalSupply() external returns (uint256 totalTokensIssued);
+  function transfer(address to, uint256 value) external returns (bool success);
+  function transferAndCall(address to, uint256 value, bytes data) external returns (bool success);
+  function transferFrom(address from, address to, uint256 value) external returns (bool success);
 }
 
 // File: ../solidity/contracts/interfaces/OracleInterface.sol
 
 interface OracleInterface {
-  function fulfillData(uint256 _internalId, bytes32 _data) external returns (bool);
-  function cancel(bytes32 _externalId) external;
+  function cancel(bytes32 externalId) external;
+  function fulfillData(uint256 internalId, bytes32 data) external returns (bool);
+  function requestData(
+    address sender,
+    uint256 amount,
+    uint256 version,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    bytes32 externalId,
+    bytes data
+  ) external;
+  function withdraw(address recipient, uint256 amount) external;
+}
+
+// File: ../solidity/contracts/interfaces/CoordinatorInterface.sol
+
+interface CoordinatorInterface {
+  function executeServiceAgreement(
+    address sender,
+    uint256 amount,
+    uint256 version,
+    bytes32 sAId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    bytes32 externalId,
+    bytes data
+  ) external;
 }
 
 // File: openzeppelin-solidity/contracts/math/SafeMath.sol
@@ -418,7 +436,7 @@ contract Chainlinked {
   function newRun(
     bytes32 _specId,
     address _callbackAddress,
-    string _callbackFunctionSignature
+    bytes4 _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
@@ -433,7 +451,7 @@ contract Chainlinked {
     _run.close();
     unfulfilledRequests[_run.requestId] = oracle;
     emit ChainlinkRequested(_run.requestId);
-    require(link.transferAndCall(oracle, _amount, _run.encodeForOracle(clArgsVersion)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
 
     return _run.requestId;
   }
@@ -441,9 +459,10 @@ contract Chainlinked {
   function cancelChainlinkRequest(bytes32 _requestId)
     internal
   {
+    OracleInterface requested = OracleInterface(unfulfilledRequests[_requestId]);
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
-    oracle.cancel(_requestId);
+    requested.cancel(_requestId);
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
@@ -494,6 +513,54 @@ contract Chainlinked {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
     setOracle(resolver.addr(oracleSubnode));
     return oracle;
+  }
+
+  function encodeForOracle(ChainlinkLib.Run memory _run)
+    internal
+    view
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      oracle.requestData.selector,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
+      clArgsVersion,
+      _run.specId,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.requestId,
+      _run.buf.buf);
+  }
+
+  function encodeForCoordinator(ChainlinkLib.Run memory _run)
+    internal
+    view
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      CoordinatorInterface(oracle).executeServiceAgreement.selector,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
+      clArgsVersion,
+      _run.specId,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.requestId,
+      _run.buf.buf);
+  }
+
+  function serviceRequest(ChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns (bytes32)
+  {
+    _run.requestId = bytes32(requests);
+    requests += 1;
+    _run.close();
+    unfulfilledRequests[_run.requestId] = oracle;
+    emit ChainlinkRequested(_run.requestId);
+    require(link.transferAndCall(oracle, _amount, encodeForCoordinator(_run)), "unable to transferAndCall to oracle");
+
+    return _run.requestId;
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {

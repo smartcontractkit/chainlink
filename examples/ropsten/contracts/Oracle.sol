@@ -116,17 +116,44 @@ library SafeMath {
   }
 }
 
+// File: contracts/interfaces/OracleInterface.sol
+
+interface OracleInterface {
+  function cancel(bytes32 externalId) external;
+  function fulfillData(uint256 internalId, bytes32 data) external returns (bool);
+  function requestData(
+    address sender,
+    uint256 amount,
+    uint256 version,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    bytes32 externalId,
+    bytes data
+  ) external;
+  function withdraw(address recipient, uint256 amount) external;
+}
+
 // File: contracts/interfaces/LinkTokenInterface.sol
 
 interface LinkTokenInterface {
-  function balanceOf(address _owner) external returns (uint256 balance);
-  function transfer(address _to, uint _value) external returns (bool success);
-  function transferAndCall(address _to, uint _value, bytes _data) external returns (bool success);
+  function allowance(address owner, address spender) external returns (bool success);
+  function approve(address spender, uint256 value) external returns (bool success);
+  function balanceOf(address owner) external returns (uint256 balance);
+  function decimals() external returns (uint8 decimalPlaces);
+  function decreaseApproval(address spender, uint256 addedValue) external returns (bool success);
+  function increaseApproval(address spender, uint256 subtractedValue) external;
+  function name() external returns (string tokenName);
+  function symbol() external returns (string tokenSymbol);
+  function totalSupply() external returns (uint256 totalTokensIssued);
+  function transfer(address to, uint256 value) external returns (bool success);
+  function transferAndCall(address to, uint256 value, bytes data) external returns (bool success);
+  function transferFrom(address from, address to, uint256 value) external returns (bool success);
 }
 
 // File: contracts/Oracle.sol
 
-contract Oracle is Ownable {
+contract Oracle is OracleInterface, Ownable {
   using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
@@ -192,8 +219,9 @@ contract Oracle is Ownable {
     bytes32 _externalId,
     bytes _data
   )
-    public
+    external
     onlyLINK
+    checkCallbackAddress(_callbackAddress)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
     callbacks[internalId] = Callback(
@@ -215,7 +243,7 @@ contract Oracle is Ownable {
     uint256 _internalId,
     bytes32 _data
   )
-    public
+    external
     onlyOwner
     hasInternalId(_internalId)
     returns (bool)
@@ -230,7 +258,7 @@ contract Oracle is Ownable {
   }
 
   function withdraw(address _recipient, uint256 _amount)
-    public
+    external
     onlyOwner
     hasAvailableFunds(_amount)
   {
@@ -276,6 +304,11 @@ contract Oracle is Ownable {
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    _;
+  }
+
+  modifier checkCallbackAddress(address _to) {
+    require(_to != address(LINK), "Cannot callback to LINK");
     _;
   }
 
