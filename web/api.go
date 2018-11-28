@@ -25,6 +25,11 @@ const (
 	KeyPreviousLink = "prev"
 )
 
+var (
+	// EmptyJSON is {}
+	emptyJSON = []byte(`{}`)
+)
+
 // ParsePaginatedRequest parses the parameters that control pagination for a
 // collection request, returning the size and offset if specified, or a
 // sensible default.

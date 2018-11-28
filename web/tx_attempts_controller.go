@@ -27,7 +27,9 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 	query, count, countErr := getTxAttempts(tac.App.GetStore(), size, offset)
 	if countErr != nil {
 		c.AbortWithError(500, err)
-	} else if err := query.Find(&attempts); err != nil {
+	} else if err := query.Find(&attempts); err == storm.ErrNotFound {
+		c.Data(404, MediaType, emptyJSON)
+	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged TxAttempts: %+v", err))
 	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, attempts); err != nil {
 		c.AbortWithError(500, err)
