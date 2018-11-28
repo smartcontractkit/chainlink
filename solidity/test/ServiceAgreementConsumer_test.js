@@ -1,7 +1,6 @@
 import cbor from 'cbor'
 import {
   assertActionThrows,
-  consumer,
   decodeRunRequest,
   deploy,
   eth,
@@ -9,27 +8,26 @@ import {
   functionSelector,
   getLatestEvent,
   hexToInt,
-  newHash,
+  newServiceAgreement,
   oracleNode,
-  requestDataFrom,
-  toHex
+  requestDataFrom
 } from './support/helpers'
 
 contract('ServiceAgreementConsumer', () => {
   const sourcePath = 'examples/ServiceAgreementConsumer.sol'
-  let specId = newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
-  let currency = 'USD'
+  const agreement = newServiceAgreement()
+  const currency = 'USD'
   let link, coord, cc
 
   beforeEach(async () => {
     link = await deploy('LinkToken.sol')
     coord = await deploy('Coordinator.sol', link.address)
-    cc = await deploy(sourcePath, link.address, coord.address, toHex(specId))
+    cc = await deploy(sourcePath, link.address, coord.address, agreement.id)
   })
 
   it('gas price of contract deployment is predictable', async () => {
     const rec = await eth.getTransactionReceipt(cc.transactionHash)
-    assert.isBelow(rec.gasUsed, 1700000)
+    assert.isBelow(rec.gasUsed, 1500000)
   })
 
   describe('#requestEthereumPrice', () => {
@@ -58,7 +56,7 @@ contract('ServiceAgreementConsumer', () => {
           'url': 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
         }
 
-        assert.equal(toHex(specId), jId)
+        assert.equal(agreement.id, jId)
         assert.equal(web3.toWei('1', 'ether'), hexToInt(wei))
         assert.equal(cc.address.slice(2), requester.slice(26))
         assert.equal(1, ver)
@@ -95,7 +93,7 @@ contract('ServiceAgreementConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector('fulfill(bytes32,bytes32)')
-        let args = executeServiceAgreementBytes(toHex(specId), cc.address, funcSig, 42, '')
+        let args = executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 42, '')
         await requestDataFrom(coord, link, 0, args)
         let event = await getLatestEvent(coord)
         otherId = event.args.internalId
