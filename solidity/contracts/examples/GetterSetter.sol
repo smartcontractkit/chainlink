@@ -18,14 +18,19 @@ contract GetterSetter {
     emit SetBytes32(msg.sender, _value);
   }
 
-  function setBytes(bytes32 _requestID, bytes _value) public {
+  function requestedBytes32(bytes32 _requestId, bytes32 _value) public {
+    requestId = _requestId;
+    setBytes32(_value);
+  }
+
+  function setBytes(bytes _value) public {
     getBytes = _value;
     emit SetBytes(msg.sender, _value);
   }
 
-  function requestedBytes32(bytes32 _requestId, bytes32 _value) public {
+  function requestedBytes(bytes32 _requestId, bytes _value) public {
     requestId = _requestId;
-    setBytes32(_value);
+    setBytes(_value);
   }
 
   function setUint256(uint256 _value) public {
