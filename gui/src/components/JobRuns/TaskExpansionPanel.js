@@ -1,15 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import StatusItem from 'components/StatusItem'
 import PrettyJson from 'components/PrettyJson'
 import capitalize from 'lodash/capitalize'
-
-const styles = theme => {
-  return {
-  }
-}
 
 const renderConfirmations = (confirmations, minimumConfirmations) => {
   if (minimumConfirmations) {
@@ -17,7 +11,7 @@ const renderConfirmations = (confirmations, minimumConfirmations) => {
   }
 }
 
-const TaskExpansionPanel = ({children, classes}) => {
+const TaskExpansionPanel = ({children}) => {
   const initiator = children.initiator
   const taskRuns = children.taskRuns
 
@@ -47,4 +41,4 @@ TaskExpansionPanel.propTypes = {
   children: PropTypes.object.isRequired
 }
 
-export default withStyles(styles)(TaskExpansionPanel)
+export default TaskExpansionPanel
