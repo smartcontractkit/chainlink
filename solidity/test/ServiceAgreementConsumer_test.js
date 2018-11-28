@@ -32,7 +32,7 @@ contract('ServiceAgreementConsumer', () => {
     assert.isBelow(rec.gasUsed, 1700000)
   })
 
-  describe('#requestEthereumPrice works', () => {
+  describe('#requestEthereumPrice', () => {
     context('without LINK', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
@@ -90,14 +90,6 @@ contract('ServiceAgreementConsumer', () => {
       assert.equal(web3.toUtf8(currentPrice), response)
     })
 
-    it('logs the data given to it by the oracle', async () => {
-      let tx = await coord.fulfillData(internalId, response, { from: oracleNode })
-      assert.equal(2, tx.receipt.logs.length)
-      let log = tx.receipt.logs[0]
-
-      assert.equal(web3.toUtf8(log.topics[2]), response)
-    })
-
     context('when the consumer does not recognize the request ID', () => {
       let otherId
 
@@ -125,22 +117,6 @@ contract('ServiceAgreementConsumer', () => {
         let received = await cc.currentPrice.call()
         assert.equal(web3.toUtf8(received), '')
       })
-    })
-  })
-
-  describe('#withdrawLink', () => {
-    beforeEach(async () => {
-      await link.transfer(cc.address, web3.toWei('1', 'ether'))
-      const balance = await link.balanceOf(cc.address)
-      assert.equal(balance.toString(), web3.toWei('1', 'ether'))
-    })
-
-    it('transfers LINK out of the contract', async () => {
-      await cc.withdrawLink({ from: consumer })
-      const ccBalance = await link.balanceOf(cc.address)
-      const consumerBalance = await link.balanceOf(consumer)
-      assert.equal(ccBalance.toString(), '0')
-      assert.equal(consumerBalance.toString(), web3.toWei('1', 'ether'))
     })
   })
 })
