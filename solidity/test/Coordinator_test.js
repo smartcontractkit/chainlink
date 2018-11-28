@@ -1,4 +1,5 @@
 import {
+  abiEncode,
   assertActionThrows,
   bigNum,
   calculateSAID,
@@ -19,6 +20,9 @@ import {
   padNumTo256Bit,
   personalSign,
   recoverPersonalSignature,
+  requestDataBytes,
+  requestDataFrom,
+  runRequestId,
   stranger,
   strip0x,
   toHex,
@@ -207,6 +211,194 @@ contract('Coordinator', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
           await coordinator.executeServiceAgreement(0, 0, 1, toHex(sAID), to, fHash, 'id', '', { from: consumer })
+        })
+      })
+    })
+  })
+
+  describe('#fulfillData', () => {
+    let mock, internalId
+
+    const oracle = newAddress(oracleNode)
+    const payment = 1000000000000000000
+    const unsignedDefaultServiceAgreement = {
+      payment: newHash(payment.toString()),
+      expiration: newHash('300'),
+      endAt: newHash(endAt.toString()),
+      oracles: [oracle],
+      requestDigest: newHash(
+        '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
+    }
+    const sAID = calculateSAID(unsignedDefaultServiceAgreement)
+    const oracleSignature = personalSign(oracle, sAID)
+    const requestDigestAddr =
+      recoverPersonalSignature(sAID, oracleSignature)
+    assert.equal(toHex(oracle), toHex(requestDigestAddr))
+    const defaultArgs = Object.assign(
+      unsignedDefaultServiceAgreement, { oracleSignature })
+    const externalId = '17'
+
+    beforeEach(async () => {
+      await initiateServiceAgreement(coordinator, defaultArgs)
+
+      mock = await deploy('examples/GetterSetter.sol')
+      const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
+
+      const payload = executeServiceAgreementBytes(toHex(sAID), mock.address, fHash, externalId, '')
+      const tx = await link.transferAndCall(coordinator.address, payment, payload)
+      internalId = runRequestId(tx.receipt.logs[2])
+    })
+
+    context('cooperative consumer', () => {
+      context('when called by a non-owner', () => {
+        xit('raises an error', async () => {
+          await assertActionThrows(async () => {
+            await coordinator.fulfillData(internalId, 'Hello World!', { from: stranger })
+          })
+        })
+      })
+
+      context('when called by an owner', () => {
+        it('raises an error if the request ID does not exist', async () => {
+          await assertActionThrows(async () => {
+            await coordinator.fulfillData(0xdeadbeef, 'Hello World!', { from: oracleNode })
+          })
+        })
+
+        it('sets the value on the requested contract', async () => {
+          await coordinator.fulfillData(internalId, 'Hello World!', { from: oracleNode })
+
+          const mockRequestId = await mock.requestId.call()
+          assert.equal(externalId.toString(), web3.toUtf8(mockRequestId))
+
+          const currentValue = await mock.getBytes32.call()
+          assert.equal('Hello World!', web3.toUtf8(currentValue))
+        })
+
+        it('does not allow a request to be fulfilled twice', async () => {
+          await coordinator.fulfillData(internalId, 'First message!', { from: oracleNode })
+          await assertActionThrows(async () => {
+            await coordinator.fulfillData(internalId, 'Second message!!', { from: oracleNode })
+          })
+        })
+      })
+    })
+
+    context('with a malicious requester', () => {
+      const paymentAmount = toWei(1)
+
+      it('cannot cancel before the expiration', async () => {
+        mock = await deploy('examples/MaliciousRequester.sol', link.address, coordinator.address)
+        await link.transfer(mock.address, paymentAmount)
+
+        await assertActionThrows(async () => {
+          await mock.maliciousRequestCancel()
+        })
+      })
+
+      it('cannot call functions on the LINK token through callbacks', async () => {
+        const fHash = functionSelector('transfer(address,uint256)')
+        const addressAsRequestId = abiEncode(['address'], [stranger])
+        const args = requestDataBytes(toHex(sAID), link.address, fHash, addressAsRequestId, '')
+
+        assertActionThrows(async () => {
+          await requestDataFrom(coordinator, link, paymentAmount, args)
+        })
+      })
+    })
+
+    context('with a malicious consumer', () => {
+      const paymentAmount = toWei(1)
+
+      beforeEach(async () => {
+        mock = await deploy('examples/MaliciousServiceAgreementConsumer.sol', link.address, coordinator.address)
+        await link.transfer(mock.address, paymentAmount)
+      })
+
+      context('fails during fulfillment', () => {
+        beforeEach(async () => {
+          const req = await mock.requestData('assertFail(bytes32,bytes32)')
+          internalId = runRequestId(req.receipt.logs[3])
+        })
+
+        // needs coordinator withdrawal functionality to meet parity
+        xit('allows the oracle node to receive their payment', async () => {
+          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await coordinator.withdraw(oracleNode, paymentAmount, { from: oracleNode })
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
+        })
+
+        it("can't fulfill the data again", async () => {
+          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await assertActionThrows(async () => {
+            await coordinator.fulfillData(internalId, 'hack the planet 102', { from: oracleNode })
+          })
+        })
+      })
+
+      context('calls selfdestruct', () => {
+        beforeEach(async () => {
+          const req = await mock.requestData('doesNothing(bytes32,bytes32)')
+          internalId = runRequestId(req.receipt.logs[3])
+          await mock.remove()
+        })
+
+        // needs coordinator withdrawal functionality to meet parity
+        xit('allows the oracle node to receive their payment', async () => {
+          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await coordinator.withdraw(oracleNode, paymentAmount, { from: oracleNode })
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
+        })
+      })
+
+      context('request is canceled during fulfillment', () => {
+        beforeEach(async () => {
+          const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
+          internalId = runRequestId(req.receipt.logs[3])
+
+          const mockBalance = await link.balanceOf.call(mock.address)
+          assert.isTrue(mockBalance.equals(0))
+        })
+
+        // needs coordinator withdrawal functionality to meet parity
+        xit('allows the oracle node to receive their payment', async () => {
+          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+
+          const mockBalance = await link.balanceOf.call(mock.address)
+          assert.isTrue(mockBalance.equals(0))
+
+          const balance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(balance.equals(0))
+
+          await coordinator.withdraw(oracleNode, paymentAmount, { from: oracleNode })
+          const newBalance = await link.balanceOf.call(oracleNode)
+          assert.isTrue(paymentAmount.equals(newBalance))
+        })
+
+        it("can't fulfill the data again", async () => {
+          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await assertActionThrows(async () => {
+            await coordinator.fulfillData(internalId, 'hack the planet 102', { from: oracleNode })
+          })
+        })
+      })
+
+      context('requester lies about amount of LINK sent', () => {
+        it('the oracle uses the amount of LINK actually paid', async () => {
+          const req = await mock.requestData('assertFail(bytes32,bytes32)')
+          const log = req.receipt.logs[3]
+
+          assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
         })
       })
     })
