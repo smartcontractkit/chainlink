@@ -3,8 +3,6 @@ pragma solidity ^0.4.24;
 import "../Chainlinked.sol";
 
 contract ServiceAgreementConsumer is Chainlinked {
-  // NB: `Chainlinked` covers both the single-Oracle and Service-Agreement
-  // frameworks. Some of the terminology there is in terms of a single Oracle.
   bytes32 internal sAId;
   bytes32 public currentPrice;
 
@@ -20,7 +18,7 @@ contract ServiceAgreementConsumer is Chainlinked {
   }
 
   function requestEthereumPrice(string _currency) public {
-    ChainlinkLib.Run memory run = newRun(sAId, this, "fulfill(bytes32,bytes32)");
+    ChainlinkLib.Run memory run = newRun(sAId, this, this.fulfill.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
@@ -32,7 +30,6 @@ contract ServiceAgreementConsumer is Chainlinked {
     public
     checkChainlinkFulfillment(_requestId)
   {
-    // TODO: Example which deals with multiple responses. (Here, or in Coordinator?)
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
   }
