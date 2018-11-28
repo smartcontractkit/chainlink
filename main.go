@@ -171,8 +171,14 @@ func Run(client *cmd.Client, args ...string) {
 		},
 		{
 			Name:   "txattempts",
-			Usage:  "List the transaction attempts",
+			Usage:  "List the transaction attempts in descending order",
 			Action: client.GetTxAttempts,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "page",
+					Usage: "page of results to display",
+				},
+			},
 		},
 	}
 	logger.WarnIf(app.Run(args))
