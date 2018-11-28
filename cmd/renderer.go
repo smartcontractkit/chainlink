@@ -56,8 +56,10 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderAccountBalance(*typed)
 	case *presenters.ServiceAgreement:
 		rt.renderServiceAgreement(*typed)
+	case *[]models.TxAttempt:
+		rt.renderTxAttempts(*typed)
 	default:
-		return fmt.Errorf("Unable to render object: %v", typed)
+		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
 	}
 
 	return nil
@@ -230,4 +232,20 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader(headers)
 	return table
+}
+
+func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
+	table := rt.newTable([]string{"TxID", "Hash", "GasPrice", "SentAt", "Confirmed"})
+	for _, a := range attempts {
+		table.Append([]string{
+			fmt.Sprint(a.TxID),
+			a.Hash.Hex(),
+			fmt.Sprint(a.GasPrice),
+			fmt.Sprint(a.SentAt),
+			fmt.Sprint(a.Confirmed),
+		})
+	}
+
+	render("Tx Attempts", table)
+	return nil
 }

@@ -511,3 +511,20 @@ func TestClient_ChangePassword(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "401 Unauthorized")
 }
+
+func TestClient_GetTxAttempts(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	store := app.GetStore()
+	from := cltest.GetAccountAddress(store)
+	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	attempts, err := store.AttemptsFor(tx.ID)
+	require.NoError(t, err)
+
+	client, r := app.NewClientAndRenderer()
+	assert.Nil(t, client.GetTxAttempts(nil))
+	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
+	assert.Equal(t, 1, len(renderedAttempts))
+	assert.Equal(t, attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+}
