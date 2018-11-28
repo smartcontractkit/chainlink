@@ -75,49 +75,49 @@ func TestEVMTranscodeBytes(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
-		output []byte
+		output string
 	}{
 		{
 			"value is string",
 			`"hello world"`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"000000000000000000000000000000000000000000000000000000000000000b" +
-				"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
+				"68656c6c6f20776f726c64000000000000000000000000000000000000000000",
 		},
 		{
 			"value is bool true",
 			`true`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"0000000000000000000000000000000000000000000000000000000000000001"),
+				"0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		{
 			"value is bool false",
 			`false`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"0000000000000000000000000000000000000000000000000000000000000000"),
+				"0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"value is positive integer",
 			`19`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"0000000000000000000000000000000000000000000000000000000000000013"),
+				"0000000000000000000000000000000000000000000000000000000000000013",
 		},
 		{
 			"value is negative integer",
 			`-23`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe9"),
+				"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe9",
 		},
 		{
 			"value has decimal places",
 			`19.99`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"0000000000000000000000000000000000000000000000000000000000000013"),
+				"0000000000000000000000000000000000000000000000000000000000000013",
 		},
 	}
 
@@ -127,7 +127,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			input := gjson.Parse(test.input)
 			out, err := EVMTranscodeBytes(input)
 			assert.NoError(t, err)
-			assert.Equal(t, test.output, out)
+			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}
 }
@@ -142,62 +142,62 @@ func TestEVMTranscodeBool(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  gjson.Result
-		output []byte
+		output string
 	}{
 		{
 			"true",
 			gjson.Result{Type: gjson.True},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			"0x0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		{
 			"false",
 			gjson.Result{Type: gjson.False},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"null",
 			gjson.Result{Type: gjson.Null},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"empty string",
 			gjson.Result{Type: gjson.String, Str: ""},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"string",
 			gjson.Result{Type: gjson.String, Str: "hello world"},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			"0x0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		{
 			"zero",
 			gjson.Result{Type: gjson.Number, Num: 0.0},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"positive integer",
 			gjson.Result{Type: gjson.Number, Num: 1239812},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			"0x0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		{
 			"empty object",
 			gjson.Result{Type: gjson.JSON, Raw: "{}"},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"object with keys",
 			gjson.Result{Type: gjson.JSON, Raw: `{"key": "value"}`},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			"0x0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		{
 			"empty array",
 			gjson.Result{Type: gjson.JSON, Raw: "[]"},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
 			"array with values",
 			gjson.Result{Type: gjson.JSON, Raw: `["value"]`},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			"0x0000000000000000000000000000000000000000000000000000000000000001",
 		},
 	}
 
@@ -207,7 +207,7 @@ func TestEVMTranscodeBool(t *testing.T) {
 
 			out, err := EVMTranscodeBool(test.input)
 			assert.NoError(t, err)
-			assert.Equal(t, test.output, out)
+			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}
 }
@@ -216,73 +216,73 @@ func TestEVMTranscodeUint256(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     gjson.Result
-		output    []byte
+		output    string
 		wantError bool
 	}{
 		{
 			"true",
 			gjson.Result{Type: gjson.True},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"false",
 			gjson.Result{Type: gjson.False},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"null",
 			gjson.Result{Type: gjson.Null},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			false,
 		},
 		{
 			"empty string",
 			gjson.Result{Type: gjson.String, Str: ""},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"string",
 			gjson.Result{Type: gjson.String, Str: "hello world"},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"string decimal",
 			gjson.Result{Type: gjson.String, Str: "120"},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000078"),
+			"0x0000000000000000000000000000000000000000000000000000000000000078",
 			false,
 		},
 		{
 			"string hex",
 			gjson.Result{Type: gjson.String, Str: "0xba"},
-			hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000ba"),
+			"0x00000000000000000000000000000000000000000000000000000000000000ba",
 			false,
 		},
 		{
 			"zero",
 			gjson.Result{Type: gjson.Number, Num: 0.0},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			false,
 		},
 		{
 			"positive integer",
 			gjson.Result{Type: gjson.Number, Num: 231},
-			hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000e7"),
+			"0x00000000000000000000000000000000000000000000000000000000000000e7",
 			false,
 		},
 		{
 			"negative integer",
 			gjson.Result{Type: gjson.Number, Num: -912},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"unsupported encoding",
 			gjson.Result{Type: gjson.JSON},
-			[]byte{},
+			"",
 			true,
 		},
 	}
@@ -296,7 +296,7 @@ func TestEVMTranscodeUint256(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, out, test.output)
+				assert.Equal(t, test.output, hexutil.Encode(out))
 			}
 		})
 	}
@@ -306,73 +306,73 @@ func TestEVMTranscodeInt256(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     gjson.Result
-		output    []byte
+		output    string
 		wantError bool
 	}{
 		{
 			"true",
 			gjson.Result{Type: gjson.True},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"false",
 			gjson.Result{Type: gjson.False},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"null",
 			gjson.Result{Type: gjson.Null},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			false,
 		},
 		{
 			"empty string",
 			gjson.Result{Type: gjson.String, Str: ""},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"string",
 			gjson.Result{Type: gjson.String, Str: "hello world"},
-			[]byte{},
+			"",
 			true,
 		},
 		{
 			"string decimal",
 			gjson.Result{Type: gjson.String, Str: "120"},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000078"),
+			"0x0000000000000000000000000000000000000000000000000000000000000078",
 			false,
 		},
 		{
 			"string hex",
 			gjson.Result{Type: gjson.String, Str: "0xba"},
-			hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000ba"),
+			"0x00000000000000000000000000000000000000000000000000000000000000ba",
 			false,
 		},
 		{
 			"zero",
 			gjson.Result{Type: gjson.Number, Num: 0.0},
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			false,
 		},
 		{
 			"positive integer",
 			gjson.Result{Type: gjson.Number, Num: 231},
-			hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000e7"),
+			"0x00000000000000000000000000000000000000000000000000000000000000e7",
 			false,
 		},
 		{
 			"negative integer",
 			gjson.Result{Type: gjson.Number, Num: -912},
-			hexutil.MustDecode("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc70"),
+			"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc70",
 			false,
 		},
 		{
 			"unsupported encoding",
 			gjson.Result{Type: gjson.JSON},
-			[]byte{},
+			"",
 			true,
 		},
 	}
@@ -386,7 +386,7 @@ func TestEVMTranscodeInt256(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, test.output, out)
+				assert.Equal(t, test.output, hexutil.Encode(out))
 			}
 		})
 	}
@@ -397,39 +397,39 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 		name   string
 		format string
 		input  string
-		output []byte
+		output string
 	}{
 		{
 			"value is string",
 			FormatBytes,
 			`{"value": "hello world"}`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"000000000000000000000000000000000000000000000000000000000000000b" +
-				"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
+				"68656c6c6f20776f726c64000000000000000000000000000000000000000000",
 		},
 		{
 			"value is number",
 			FormatUint256,
 			`{"value": 31223}`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"00000000000000000000000000000000000000000000000000000000000079f7"),
+				"00000000000000000000000000000000000000000000000000000000000079f7",
 		},
 		{
 			"value is negative number",
 			FormatInt256,
 			`{"value": -123481273.1}`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"fffffffffffffffffffffffffffffffffffffffffffffffffffffffff8a3d347"),
+				"fffffffffffffffffffffffffffffffffffffffffffffffffffffffff8a3d347",
 		},
 		{
 			"value is true",
 			FormatBool,
 			`{"value": true}`,
-			hexutil.MustDecode("0x" +
+			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"0000000000000000000000000000000000000000000000000000000000000001"),
+				"0000000000000000000000000000000000000000000000000000000000000001",
 		},
 	}
 
@@ -439,7 +439,7 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 			input := gjson.GetBytes([]byte(test.input), "value")
 			out, err := EVMTranscodeJSONWithFormat(input, test.format)
 			assert.NoError(t, err)
-			assert.Equal(t, test.output, out)
+			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}
 }
@@ -472,6 +472,6 @@ func TestParseNumericString(t *testing.T) {
 	for _, test := range tests {
 		out, err := parseNumericString(test.input)
 		assert.NoError(t, err)
-		assert.Equal(t, out.String(), test.output)
+		assert.Equal(t, test.output, out.String())
 	}
 }
