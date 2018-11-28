@@ -2,7 +2,9 @@ package cmd_test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"math/big"
 	"regexp"
 	"testing"
 
@@ -126,6 +128,32 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			assert.Equal(t, test.wantFound, tw.found)
 		})
 	}
+}
+
+func TestRendererTable_Render_TxAttempts(t *testing.T) {
+	t.Parallel()
+
+	attempts := []models.TxAttempt{
+		models.TxAttempt{
+			Hash:      cltest.NewHash(),
+			TxID:      1,
+			GasPrice:  big.NewInt(1),
+			Confirmed: false,
+			Hex:       "0xdeadbeef",
+			SentAt:    1,
+		},
+	}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+
+	assert.NoError(t, r.Render(&attempts))
+	output := buffer.String()
+	assert.Contains(t, output, fmt.Sprint(attempts[0].TxID))
+	assert.Contains(t, output, attempts[0].Hash.Hex())
+	assert.Contains(t, output, fmt.Sprint(attempts[0].GasPrice))
+	assert.Contains(t, output, fmt.Sprint(attempts[0].SentAt))
+	assert.Contains(t, output, fmt.Sprint(attempts[0].Confirmed))
 }
 
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {

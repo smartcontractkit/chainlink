@@ -34,7 +34,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	_, err = store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
 
-	resp, cleanup := client.Get("/v2/transactions?size=2")
+	resp, cleanup := client.Get("/v2/txattempts?size=2")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -60,7 +60,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
+	resp, cleanup := client.Get("/v2/txattempts?size=TrainingDay")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 }

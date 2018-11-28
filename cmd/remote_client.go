@@ -335,6 +335,21 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	return nil
 }
 
+func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/v2/txattempts")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var links jsonapi.Links
+	attempts := []models.TxAttempt{}
+	if err = cli.deserializeAPIResponse(resp, &attempts, &links); err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&attempts))
+}
+
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)

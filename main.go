@@ -169,6 +169,11 @@ func Run(client *cmd.Client, args ...string) {
 			Usage:  "Change your password",
 			Action: client.ChangePassword,
 		},
+		{
+			Name:   "txattempts",
+			Usage:  "List the transaction attempts",
+			Action: client.GetTxAttempts,
+		},
 	}
 	logger.WarnIf(app.Run(args))
 }
