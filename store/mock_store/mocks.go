@@ -76,8 +76,17 @@ func (mr *MockTxManagerMockRecorder) MeetsMinConfirmations(hash interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MeetsMinConfirmations", reflect.TypeOf((*MockTxManager)(nil).MeetsMinConfirmations), hash)
 }
 
-// WithdrawLink mocks base method
-func (m *MockTxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error) {
+// ContractLINKBalance wraps base method
+func (m *MockTxManager) ContractLINKBalance(
+	wr models.WithdrawalRequest) (assets.Link, error) {
+	ret := m.ctrl.Call(m, "ContractLINKBalance", wr)
+	ret0, _ := ret[0].(assets.Link)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WithdrawLINK mocks base method
+func (m *MockTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
 	ret := m.ctrl.Call(m, "WithdrawLink", wr)
 	ret0, _ := ret[0].(common.Hash)
 	ret1, _ := ret[1].(error)
@@ -86,20 +95,20 @@ func (m *MockTxManager) WithdrawLink(wr models.WithdrawalRequest) (common.Hash, 
 
 // WithdrawLink indicates an expected call of WithdrawLink
 func (mr *MockTxManagerMockRecorder) WithdrawLink(wr interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithdrawLink", reflect.TypeOf((*MockTxManager)(nil).WithdrawLink), wr)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithdrawLINK", reflect.TypeOf((*MockTxManager)(nil).WithdrawLINK), wr)
 }
 
-// GetLinkBalance mocks base method
-func (m *MockTxManager) GetLinkBalance(address common.Address) (*assets.Link, error) {
-	ret := m.ctrl.Call(m, "GetLinkBalance", address)
+// GetLINKBalance mocks base method
+func (m *MockTxManager) GetLINKBalance(address common.Address) (*assets.Link, error) {
+	ret := m.ctrl.Call(m, "GetLINKBalance", address)
 	ret0, _ := ret[0].(*assets.Link)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetLinkBalance indicates an expected call of GetLinkBalance
-func (mr *MockTxManagerMockRecorder) GetLinkBalance(address interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLinkBalance", reflect.TypeOf((*MockTxManager)(nil).GetLinkBalance), address)
+// GetLINKBalance indicates an expected call of GetLINKBalance
+func (mr *MockTxManagerMockRecorder) GetLINKBalance(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLINKBalance", reflect.TypeOf((*MockTxManager)(nil).GetLINKBalance), address)
 }
 
 // NextActiveAccount mocks base method

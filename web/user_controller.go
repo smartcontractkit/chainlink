@@ -113,7 +113,7 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 	txm := store.TxManager
 	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
 		ctx.AbortWithError(500, err)
-	} else if linkBalance, err := txm.GetLinkBalance(account.Address); err != nil {
+	} else if linkBalance, err := txm.GetLINKBalance(account.Address); err != nil {
 		ctx.AbortWithError(500, err)
 	} else {
 		return presenters.AccountBalance{
