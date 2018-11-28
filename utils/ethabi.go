@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tidwall/gjson"
@@ -109,51 +110,35 @@ func EVMTranscodeBool(value gjson.Result) ([]byte, error) {
 	return EVMWordUint64(output), nil
 }
 
-// EVMTranscodeUint256 converts a json input to an EVM uint256
-func EVMTranscodeUint256(value gjson.Result) ([]byte, error) {
-	output := new(big.Int)
-
-	switch value.Type {
-	case gjson.String:
-		var ok bool
-		if HasHexPrefix(value.Str) {
-			output, ok = output.SetString(RemoveHexPrefix(value.Str), 16)
-		} else {
-			output, ok = output.SetString(value.Str, 10)
-		}
+func parseNumericString(input string) (*big.Int, error) {
+	if HasHexPrefix(input) {
+		output, ok := big.NewInt(0).SetString(RemoveHexPrefix(input), 16)
 		if !ok {
-			return []byte{}, fmt.Errorf("error parsing %s", value.Str)
+			return nil, fmt.Errorf("error parsing %s", input)
 		}
-
-	case gjson.Number:
-		if value.Num < 0 {
-			return []byte{}, errors.New("cannot format negative number as uint256")
-		}
-		output.SetUint64(uint64(value.Num))
-
-	case gjson.Null:
-
-	default:
-		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
+		return output, nil
 	}
 
-	return EVMWordBigInt(output)
+	output, ok := big.NewInt(0).SetString(input, 10)
+	if !ok {
+		parseValue, err := strconv.ParseFloat(input, 64)
+		if err != nil {
+			return nil, err
+		}
+		output = big.NewInt(0).SetInt64(int64(parseValue))
+	}
+	return output, nil
 }
 
-// EVMTranscodeInt256 converts a json input to an EVM int256
-func EVMTranscodeInt256(value gjson.Result) ([]byte, error) {
+func parseJSONAsEVMWord(value gjson.Result) (*big.Int, error) {
 	output := new(big.Int)
 
 	switch value.Type {
 	case gjson.String:
-		var ok bool
-		if HasHexPrefix(value.Str) {
-			output, ok = output.SetString(RemoveHexPrefix(value.Str), 16)
-		} else {
-			output, ok = output.SetString(value.Str, 10)
-		}
-		if !ok {
-			return []byte{}, fmt.Errorf("error parsing %s", value.Str)
+		var err error
+		output, err = parseNumericString(value.Str)
+		if err != nil {
+			return nil, err
 		}
 
 	case gjson.Number:
@@ -162,7 +147,31 @@ func EVMTranscodeInt256(value gjson.Result) ([]byte, error) {
 	case gjson.Null:
 
 	default:
-		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
+		return nil, fmt.Errorf("unsupported encoding for value: %s", value.Type)
+	}
+
+	return output, nil
+}
+
+// EVMTranscodeUint256 converts a json input to an EVM uint256
+func EVMTranscodeUint256(value gjson.Result) ([]byte, error) {
+	output, err := parseJSONAsEVMWord(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if output.Cmp(big.NewInt(0)) < 0 {
+		return nil, fmt.Errorf("%v cannot be represented as uint256", output)
+	}
+
+	return EVMWordBigInt(output)
+}
+
+// EVMTranscodeInt256 converts a json input to an EVM int256
+func EVMTranscodeInt256(value gjson.Result) ([]byte, error) {
+	output, err := parseJSONAsEVMWord(value)
+	if err != nil {
+		return nil, err
 	}
 
 	return EVMWordSignedBigInt(output)
