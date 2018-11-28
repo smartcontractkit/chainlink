@@ -24,18 +24,17 @@ const SuccessNotification = ({name}) => (<React.Fragment>
   Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
 
-export const Edit = useHooks((props) => {
-  const {bridge, updateBridge} = props
-  const checkLoaded = () => props.bridge
-  const onLoad = (buildLoadedComponent) => {
-    if (checkLoaded()) return buildLoadedComponent(props)
-    return <div>Loading...</div>
-  }
-
+export const Edit = useHooks(props => {
   useEffect(() => {
     const {fetchBridgeSpec, match} = props
     fetchBridgeSpec(match.params.bridgeId)
   }, [])
+  const {bridge, updateBridge} = props
+  const checkLoaded = () => bridge
+  const onLoad = (buildLoadedComponent) => {
+    if (checkLoaded()) return buildLoadedComponent(props)
+    return <div>Loading...</div>
+  }
 
   return (
     <Content>

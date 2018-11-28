@@ -64,19 +64,17 @@ const renderDetails = (props, state, handleChangePage) => {
 }
 
 export const Index = useHooks((props) => {
-  const [ page, setPage ] = useState(0)
+  const [ page, setPage ] = useState(FIRST_PAGE)
+  useEffect(() => {
+    const queryPage = props.match ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
+    setPage(queryPage)
+    fetchJobRuns(jobSpecId, queryPage, pageSize)
+  }, [])
   const { classes, jobSpecId, fetchJobRuns, pageSize } = props
   const handleChangePage = (e, pageNum) => {
     fetchJobRuns(jobSpecId, pageNum, pageSize)
     setPage(pageNum)
   }
-
-  useEffect(() => {
-    const { jobSpecId, pageSize, fetchJobRuns } = props
-    const queryPage = props.match ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
-    setPage(queryPage)
-    fetchJobRuns(jobSpecId, queryPage, pageSize)
-  }, [])
 
   return (
     <Content>

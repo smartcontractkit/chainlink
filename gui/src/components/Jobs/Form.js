@@ -22,7 +22,6 @@ const styles = theme => ({
 
 const Form = ({
   actionText,
-  dirty,
   isSubmitting,
   classes,
   handleChange,

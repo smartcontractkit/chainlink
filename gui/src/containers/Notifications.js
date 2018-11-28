@@ -5,7 +5,6 @@ import { withStyles } from '@material-ui/core/styles'
 import { receiveSignoutSuccess } from 'actions'
 import Flash from 'components/Flash'
 import Unhandled from 'components/Notifications/UnhandledError'
-import { useHooks } from 'use-react-hooks'
 
 const styles = theme => ({
   flash: {
@@ -13,7 +12,7 @@ const styles = theme => ({
   }
 })
 
-export const Notifications = useHooks(props => {
+export const Notifications = props => {
   const { errors, successes, classes } = props
   return (
     <div>
@@ -35,7 +34,6 @@ export const Notifications = useHooks(props => {
     </div>
   )
 }
-)
 
 const mapStateToProps = state => ({
   errors: state.notifications.errors,
