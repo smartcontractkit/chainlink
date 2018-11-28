@@ -1,10 +1,6 @@
 package adapters
 
 import (
-	"fmt"
-	"math/big"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store"
@@ -42,17 +38,12 @@ type EthInt256 struct{}
 // ABI, it would be:
 // "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85"
 func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	i, err := parseBigInt(input)
+	value, err := utils.EVMTranscodeInt256(input.Get("value"))
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	sh, err := utils.EVMWordSignedBigInt(i)
-	if err != nil {
-		return input.WithError(err)
-	}
-
-	return input.WithValue(hexutil.Encode(sh))
+	return input.WithValue(hexutil.Encode(value))
 }
 
 // EthUint256 holds no fields.
@@ -65,25 +56,10 @@ type EthUint256 struct{}
 // ABI, it would be:
 // "0x000000000000000000000000000000000000000000000000000000000000007b"
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	i, err := parseBigInt(input)
+	value, err := utils.EVMTranscodeUint256(input.Get("value"))
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	sh, err := utils.EVMWordBigInt(i)
-	if err != nil {
-		return input.WithError(err)
-	}
-
-	return input.WithValue(hexutil.Encode(sh))
-}
-
-func parseBigInt(input models.RunResult) (*big.Int, error) {
-	val := input.Get("value")
-	parts := strings.Split(val.String(), ".")
-	i, ok := (&big.Int{}).SetString(parts[0], 10)
-	if !ok {
-		return nil, fmt.Errorf("cannot parse into big.Int: %v", val)
-	}
-	return i, nil
+	return input.WithValue(hexutil.Encode(value))
 }

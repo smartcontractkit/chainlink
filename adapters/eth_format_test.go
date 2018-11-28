@@ -21,6 +21,8 @@ func TestEthBytes32_Perform(t *testing.T) {
 		{"empty string", `{"value":""}`, "0x0000000000000000000000000000000000000000000000000000000000000000"},
 		{"string of number", `{"value":"16800.01"}`, "0x31363830302e3031000000000000000000000000000000000000000000000000"},
 		{"float", `{"value":16800.01}`, "0x31363830302e3031000000000000000000000000000000000000000000000000"},
+		{"scientific float", `{"value":1.68e+4}`,
+			"0x3136383030000000000000000000000000000000000000000000000000000000"},
 		{"roundable float", `{"value":16800.00}`, "0x3136383030000000000000000000000000000000000000000000000000000000"},
 		{"integer", `{"value":16800}`, "0x3136383030000000000000000000000000000000000000000000000000000000"},
 		{"boolean true", `{"value":true}`, "0x7472756500000000000000000000000000000000000000000000000000000000"},
@@ -39,9 +41,9 @@ func TestEthBytes32_Perform(t *testing.T) {
 			result := adapter.Perform(past, nil)
 
 			val, err := result.Value()
-			assert.Equal(t, test.expected, val)
 			assert.NoError(t, err)
 			assert.NoError(t, result.GetError())
+			assert.Equal(t, test.expected, val)
 		})
 	}
 }
@@ -62,8 +64,14 @@ func TestEthInt256_Perform(t *testing.T) {
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
 		{"rounded float", `{"value":123.99}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"negative string", `{"value":"-123"}`, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85", false},
-		{"negative float", `{"value":-123.99}`, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85", false},
+		{"negative string", `{"value":"-123"}`,
+			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85", false},
+		{"scientific", `{"value":1.68e+4}`,
+			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
+		{"scientific string", `{"value":"1.68e+4"}`,
+			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
+		{"negative float", `{"value":-123.99}`,
+			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85", false},
 		{"object", `{"value":{"a": "b"}}`, "", true},
 	}
 
@@ -103,6 +111,10 @@ func TestEthUint256_Perform(t *testing.T) {
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
 		{"rounded float", `{"value":123.99}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
+		{"scientific", `{"value":1.68e+4}`,
+			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
+		{"scientific string", `{"value":"1.68e+4"}`,
+			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
 		{"negative integer", `{"value":-123}`, "", true},
 		{"negative string", `{"value":"-123"}`, "", true},
 		{"negative float", `{"value":-123.99}`, "", true},

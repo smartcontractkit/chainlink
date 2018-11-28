@@ -141,6 +141,67 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	// contains diacritic acute to check bytes counted for length not chars
+	inputValue := "cönfirmed"
+
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
+	hash := cltest.NewHash()
+	sentAt := uint64(23456)
+	confirmed := sentAt + 1
+	safe := confirmed + config.MinOutgoingConfirmations
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			rlp := data[0].([]interface{})[0].(string)
+			tx, err := utils.DecodeEthereumTx(rlp)
+			assert.NoError(t, err)
+			assert.Equal(t, address.String(), tx.To().String())
+			wantData := "0x" +
+				"b3f98adc" +
+				"0000000000000000000000000000000000000000000000000000000000000020" +
+				"000000000000000000000000000000000000000000000000000000000000000a" +
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000"
+			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
+			return nil
+		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		FunctionSelector: fHash,
+		DataFormat:       adapters.DataFormatBytes,
+	}
+	input := cltest.RunResultWithValue(inputValue)
+	data := adapter.Perform(input, store)
+
+	assert.False(t, data.HasError())
+
+	from := cltest.GetAccountAddress(store)
+	txs := []models.Tx{}
+	assert.Nil(t, store.Where("From", from, &txs))
+	assert.Equal(t, 1, len(txs))
+	attempts, _ := store.AttemptsFor(txs[0].ID)
+	assert.Equal(t, 1, len(attempts))
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T) {
 	t.Parallel()
 
@@ -328,12 +389,12 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	txmMock := mock_store.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().CreateTx(gomock.Any(), []byte{
-		0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0b,
-		0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	}).Return(&models.Tx{}, nil)
+	txmMock.EXPECT().CreateTx(gomock.Any(), hexutil.MustDecode(
+		"0x00000000"+
+			"0000000000000000000000000000000000000000000000000000000000000020"+
+			"000000000000000000000000000000000000000000000000000000000000000b"+
+			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
+	).Return(&models.Tx{}, nil)
 	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
 
 	task := models.TaskSpec{}
