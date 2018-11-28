@@ -461,6 +461,9 @@ func TestParseNumericString(t *testing.T) {
 		input  string
 		output string
 	}{
+		{"0x0", "0"},
+		{"0xfffffffffffffffff", "295147905179352825855"},
+		{"1.0", "1"},
 		{"0", "0"},
 		{"1", "1"},
 		{"1.0E+0", "1"},
