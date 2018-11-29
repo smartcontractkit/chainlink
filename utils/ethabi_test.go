@@ -476,6 +476,11 @@ func TestParseNumericString(t *testing.T) {
 	}
 }
 
+func TestParseNumericString_InvalidHex(t *testing.T) {
+	_, err := parseNumericString("0xfZ")
+	assert.Error(t, err)
+}
+
 func TestParseDecimalString(t *testing.T) {
 	tests := []struct {
 		input  string
