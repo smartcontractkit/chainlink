@@ -128,7 +128,7 @@ contract Oracle is OracleInterface, Ownable {
   }
 
   function cancel(bytes32 _externalId)
-    public
+    external
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(msg.sender, _externalId)));
     require(msg.sender == callbacks[internalId].addr, "Must be called from requester");
