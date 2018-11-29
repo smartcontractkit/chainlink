@@ -15,11 +15,11 @@ const About = ({version, sha}) => (
     <Grid container spacing={40}>
       <Grid item xs={12}>
         <PaddedCard>
-          <Typography variant='subheading' color='textSecondary'>Version</Typography>
+          <Typography variant='subtitle1' color='textSecondary'>Version</Typography>
           <Typography variant='body1' color='inherit'>
             {version}
           </Typography>
-          <Typography variant='subheading' color='textSecondary'>SHA</Typography>
+          <Typography variant='subtitle1' color='textSecondary'>SHA</Typography>
           <Typography variant='body1' color='inherit'>
             {sha}
           </Typography>

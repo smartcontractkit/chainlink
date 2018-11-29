@@ -13,7 +13,7 @@ import { fetchJobs } from 'actions'
 
 export const Index = props => (
   <Content>
-    <Grid container alignItems='center' >
+    <Grid container>
       <Grid item xs={9}>
         <Title>Jobs</Title>
       </Grid>

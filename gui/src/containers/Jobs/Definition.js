@@ -33,7 +33,7 @@ const renderDetails = ({job, classes}) => {
     return (
       <Grid container>
         <Grid item xs={12}>
-          <Typography variant='title' className={classes.definitionTitle}>
+          <Typography variant='h5' className={classes.definitionTitle}>
             Definition
           </Typography>
         </Grid>

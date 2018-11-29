@@ -82,14 +82,14 @@ const RecentActivity = ({classes, runs}) => {
                       </Grid>
                       <Grid item xs={12}>
                         <Link to={`/jobs/${r.jobId}`}>
-                          <Typography variant='headline' color='textPrimary' component='span'>
+                          <Typography variant='h6' color='textPrimary' component='span'>
                             @{r.jobId}
                           </Typography>
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
                         <Link to={`/jobs/${r.jobId}/runs/id/${r.id}`}>
-                          <Typography variant='body1' color='textSecondary' component='span'>
+                          <Typography variant='subtitle1' color='textSecondary' component='span'>
                             #{r.id}
                           </Typography>
                         </Link>
@@ -110,7 +110,7 @@ const RecentActivity = ({classes, runs}) => {
       <CardContent>
         <Grid container>
           <Grid item xs={12} sm={8}>
-            <Typography variant='headline' component='h2' color='secondary'>
+            <Typography variant='h5' color='secondary'>
               Activity
             </Typography>
           </Grid>

@@ -1,9 +1,19 @@
 import React from 'react'
+import { withStyles } from '@material-ui/core/styles'
+import classNames from 'classnames'
 
-const Breadcrumb = ({children, className}) => (
-  <div className={className}>
+const styles = theme => {
+  return {
+    breadcrumb: {
+      marginBottom: theme.spacing.unit * 3
+    }
+  }
+}
+
+const Breadcrumb = ({children, className, classes}) => (
+  <div className={classNames(className, classes.breadcrumb)}>
     {children}
   </div>
 )
 
-export default Breadcrumb
+export default withStyles(styles)(Breadcrumb)

@@ -37,7 +37,7 @@ const TokenBalance = props => {
 
   return (
     <PaddedCard>
-      <Typography variant='headline' component='h2' color='secondary'>
+      <Typography variant='h5' color='secondary'>
         {props.title}
       </Typography>
       <Typography variant='body1' color='textSecondary'>
