@@ -14,7 +14,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 
 const SuccessNotification = ({data}) => (
   <React.Fragment>
-    Successfully created job <Link to={`/jobs/${data.id}`}>{data.id}</Link>
+    Successfully created job <Link id='created-job' to={`/jobs/${data.id}`}>{data.id}</Link>
   </React.Fragment>
 )
 
