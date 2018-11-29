@@ -14,11 +14,12 @@ import {
 contract('ConcreteChainlinked', () => {
   const sourcePath = 'examples/ConcreteChainlinked.sol'
   let specId = '4c7b7ffb66b344fbaa64995af81e355a'
-  let cc, gs, oc, link
+  let cc, gs, oc, newoc, link
 
   beforeEach(async () => {
     link = await deploy('LinkToken.sol')
     oc = await deploy('Oracle.sol', link.address)
+    newoc = await deploy('Oracle.sol', link.address)
     gs = await deploy('examples/GetterSetter.sol')
     cc = await deploy(sourcePath, link.address, oc.address)
   })
@@ -43,12 +44,39 @@ contract('ConcreteChainlinked', () => {
 
   describe('#chainlinkRequest(Run)', () => {
     it('emits an event from the contract showing the run ID', async () => {
-      let tx = await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
 
       let events = await getEvents(cc)
       assert.equal(1, events.length)
       let event = events[0]
       assert.equal(event.event, 'ChainlinkRequested')
+    })
+  })
+
+  describe('#chainlinkRequestTo(Run)', () => {
+    it('emits an event from the contract showing the run ID', async () => {
+      await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+
+      let events = await getEvents(cc)
+      assert.equal(1, events.length)
+      let event = events[0]
+      assert.equal(event.event, 'ChainlinkRequested')
+    })
+
+    it('emits an event on the target oracle contract', async () => {
+      await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+
+      let events = await getEvents(newoc)
+      assert.equal(1, events.length)
+      let event = events[0]
+      assert.equal(event.event, 'RunRequest')
+    })
+
+    it('does not modify the stored oracle address', async () => {
+      await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+
+      const actualOracleAddress = await cc.publicOracleAddress()
+      assert.equal(oc.address, actualOracleAddress)
     })
   })
 
