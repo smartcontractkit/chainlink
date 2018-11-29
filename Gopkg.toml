@@ -128,7 +128,7 @@
 
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
-  version = "1.8.18"
+  version = "1.8.19"
 
 [[constraint]]
   branch = "master"

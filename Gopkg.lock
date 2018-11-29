@@ -2,6 +2,17 @@
 
 
 [[projects]]
+  digest = "1:48a213e9dc4880bbbd6999309a476fa4d3cc67560aa7127154cf8ea95bd464c2"
+  name = "github.com/allegro/bigcache"
+  packages = [
+    ".",
+    "queue",
+  ]
+  pruneopts = ""
+  revision = "f31987a23e44c5121ef8c8b2f2ea2e8ffa37b068"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   digest = "1:fe15592f1ee97e2dc5acdaf5b5423afb145cc2953bff25f8d54b61316c79f59e"
   name = "github.com/araddon/dateparse"
@@ -111,7 +122,7 @@
   revision = "f664265f5a662fb4d1df7f3533b1e8d0e0277120"
 
 [[projects]]
-  digest = "1:c205f1963071408c1fac73c1b37c86ef9b98d80f17e690a2239853cde255ad3d"
+  digest = "1:66b5afaeff211ae1a51a2dced87c0419aa51aac5b423ec76c0effe514a46cef9"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -137,8 +148,8 @@
     "trie",
   ]
   pruneopts = ""
-  revision = "58632d44021bf095b43a1bb2443e6e3690a94739"
-  version = "v1.8.18"
+  revision = "dae82f098570e15d44584f0d7f350713f4774727"
+  version = "v1.8.19"
 
 [[projects]]
   digest = "1:e988ed0ca0d81f4d28772760c02ee95084961311291bdfefc1b04617c178b722"
