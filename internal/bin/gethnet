@@ -41,10 +41,12 @@ case "$1" in
     ./gethnet topoff
     sleep 1
     printf "\n\nStarting node...\n"
-    geth $GETH_ARGS \
-      --ws --wsorigins "*" --wsport $ETH_WS_PORT \
-      --rpc --rpcapi "$RPCAPI" --rpccorsdomain "null" --rpcaddr 127.0.0.1 --rpcport $ETH_RPC_PORT \
-      --dev.period 2
+    ( set -x;
+      geth $GETH_ARGS \
+        --ws --wsorigins "*" --wsport $ETH_WS_PORT \
+        --rpc --rpcapi "$RPCAPI" --rpccorsdomain "null" --rpcaddr 127.0.0.1 --rpcport $ETH_RPC_PORT \
+        --dev.period 2
+    )
     ;;
 esac
 
