@@ -60,7 +60,7 @@ const renderBody = (jobs, error) => {
   )
 }
 
-export const JobList = useHooks(props => {
+export const List = useHooks(props => {
   const [ page, setPage ] = useState(FIRST_PAGE)
   useEffect(() => {
     const queryPage = props.match && parseInt(props.match.params.jobPage, 10) || FIRST_PAGE
@@ -118,7 +118,7 @@ export const JobList = useHooks(props => {
 }
 )
 
-JobList.propTypes = {
+List.propTypes = {
   jobs: PropTypes.array,
   jobCount: PropTypes.number.isRequired,
   pageSize: PropTypes.number.isRequired,
@@ -126,4 +126,4 @@ JobList.propTypes = {
   fetchJobs: PropTypes.func.isRequired
 }
 
-export default JobList
+export default List
