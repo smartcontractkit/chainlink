@@ -9,12 +9,17 @@ import Paper from '@material-ui/core/Paper'
 import MenuItem from '@material-ui/core/MenuItem'
 import MenuList from '@material-ui/core/MenuList'
 import ClickAwayListener from '@material-ui/core/ClickAwayListener'
-import Icon from '@material-ui/core/Icon'
+import Avatar from '@material-ui/core/Avatar'
 import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
+import face from 'images/face.svg'
 
 const styles = theme => {
   return {
+    avatar: {
+      width: 21,
+      height: 25
+    },
     menuItem: {
       '&:hover': {
         backgroundColor: 'transparent'
@@ -56,7 +61,7 @@ const AvatarMenu = useHooks(({classes}) => {
         aria-haspopup='true'
         onClick={handleToggle}
       >
-        <Icon>perm_identity</Icon>
+        <Avatar alt='Profile' src={face} className={classes.avatar} />
       </Button>
       <Popper open={open} anchorEl={anchorEl.current} transition disablePortal>
         {({ TransitionProps, placement }) => (
