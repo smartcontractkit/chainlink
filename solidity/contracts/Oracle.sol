@@ -124,7 +124,7 @@ contract Oracle is OracleInterface, Ownable {
     hasAvailableFunds(_amount)
   {
     withdrawableWei = withdrawableWei.sub(_amount);
-    LINK.transfer(_recipient, _amount);
+    require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
   }
 
   function cancel(bytes32 _externalId)
