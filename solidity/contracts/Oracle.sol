@@ -161,15 +161,13 @@ contract Oracle is OracleInterface, Ownable {
     _;
   }
 
-  bytes4 constant private permittedFunc = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
-
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
     assembly {
       // solium-disable-next-line security/no-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
     _;
   }
 
