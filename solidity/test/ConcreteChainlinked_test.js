@@ -78,19 +78,6 @@ contract('ConcreteChainlinked', () => {
         await cc.publicCancelRequest("bogus ID")
       })
     })
-
-    context('when the request ID is no longer unfulfilled', () => {
-      beforeEach(async () => {
-        await increaseTime5Minutes();
-        await cc.publicCancelRequest(requestId)
-      })
-
-      it('throws an error', async () => {
-        await assertActionThrows(async () => {
-          await cc.publicCancelRequest(requestId)
-        })
-      })
-    })
   })
 
   describe('#checkChainlinkFulfillment(modifier)', () => {
