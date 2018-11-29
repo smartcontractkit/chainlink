@@ -467,13 +467,35 @@ func TestParseNumericString(t *testing.T) {
 		{"0", "0"},
 		{"1", "1"},
 		{"1.0E+0", "1"},
-		{"1E+0", "1"},
-		{"1e+0", "1"},
-		{"0.01e+02", "1"},
 	}
 
 	for _, test := range tests {
 		out, err := parseNumericString(test.input)
+		assert.NoError(t, err)
+		assert.Equal(t, test.output, out.String())
+	}
+}
+
+func TestParseDecimalString(t *testing.T) {
+	tests := []struct {
+		input  string
+		output string
+	}{
+		{"1.0", "1"},
+		{"0", "0"},
+		{"1", "1"},
+		{"1.0E+0", "1"},
+		{"1E+0", "1"},
+		{"1e+0", "1"},
+		{"0.01e+02", "1"},
+		{"12072e-4", "1"},
+		{"1.2072e+20", "120720000000000000000"},
+		{"-1.2072e+20", "-120720000000000000000"},
+		{"1.55555555555555555555e+20", "155555555555555540992"},
+	}
+
+	for _, test := range tests {
+		out, err := parseDecimalString(test.input)
 		assert.NoError(t, err)
 		assert.Equal(t, test.output, out.String())
 	}

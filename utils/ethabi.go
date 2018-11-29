@@ -110,22 +110,30 @@ func EVMTranscodeBool(value gjson.Result) ([]byte, error) {
 	return EVMWordUint64(output), nil
 }
 
+func parseDecimalString(input string) (*big.Int, error) {
+	parseValue, err := strconv.ParseFloat(input, 64)
+	if err != nil {
+		return nil, err
+	}
+	output, ok := big.NewInt(0).SetString(fmt.Sprintf("%.f", parseValue), 10)
+	if !ok {
+		return nil, fmt.Errorf("error parsing decimal %s", input)
+	}
+	return output, nil
+}
+
 func parseNumericString(input string) (*big.Int, error) {
 	if HasHexPrefix(input) {
 		output, ok := big.NewInt(0).SetString(RemoveHexPrefix(input), 16)
 		if !ok {
-			return nil, fmt.Errorf("error parsing %s", input)
+			return nil, fmt.Errorf("error parsing hex %s", input)
 		}
 		return output, nil
 	}
 
 	output, ok := big.NewInt(0).SetString(input, 10)
 	if !ok {
-		parseValue, err := strconv.ParseFloat(input, 64)
-		if err != nil {
-			return nil, err
-		}
-		output = big.NewInt(0).SetInt64(int64(parseValue))
+		return parseDecimalString(input)
 	}
 	return output, nil
 }
