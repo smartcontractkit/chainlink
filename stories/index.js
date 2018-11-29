@@ -21,55 +21,9 @@ JavascriptTimeAgo.locale(en)
 
 const customTheme = createMuiTheme(theme)
 
-storiesOf('Buttons', module)
-  .addDecorator(muiTheme([customTheme]))
-  .add('Contained', () => (
-    <React.Fragment>
-      <Button variant='contained'>Default Button</Button>
-      <Button variant='contained' color='primary'>Primary Button</Button>
-      <Button variant='contained' color='secondary'>Secondary</Button>
-      <Button variant='contained' color='secondary' disabled>Disabled</Button>
-      <Button variant='contained' href='#contained-buttons'>Link</Button>
-      <input
-        accept='image/*'
-        id='contained-button-file'
-        multiple
-        type='file'
-      />
-      <label htmlFor='contained-button-file'>
-        <Button variant='contained' component='span'>
-          Upload
-        </Button>
-      </label>
-    </React.Fragment>
-  ))
-
-storiesOf('Cards', module)
-  .addDecorator(muiTheme([customTheme]))
-  .add('SimpleList', () => (
-    <Grid container>
-      <Grid xs={4}>
-        <SimpleListCard title='Recently Created'>
-          {['jobs', 'distribution', 'jump'].map(text => (
-            <SimpleListCardItem>
-              <Typography>{text}</Typography>
-            </SimpleListCardItem>
-          ))}
-        </SimpleListCard>
-      </Grid>
-    </Grid>
-  ))
-  .add('TokenBalance', () => (
-    <Grid container>
-      <Grid xs={4}>
-        <TokenBalanceCard title='Ether Balance' value={'10000000000000000000000'} />
-      </Grid>
-    </Grid>
-  ))
-
 storiesOf('Typography', module)
   .addDecorator(muiTheme([customTheme]))
-  .add('Current API', () => (
+  .add('V2 Variants', () => (
     <React.Fragment>
       <Typography component='h2' variant='h1' gutterBottom>
         h1. Heading
@@ -117,7 +71,84 @@ storiesOf('Typography', module)
     </React.Fragment>
   ))
 
-storiesOf('Custom Components', module)
+storiesOf('Buttons', module)
+  .addDecorator(muiTheme([customTheme]))
+  .add('Contained', () => (
+    <React.Fragment>
+      <Button variant='contained'>Default Button</Button>
+      <Button variant='contained' color='primary'>Primary Button</Button>
+      <Button variant='contained' color='secondary'>Secondary</Button>
+      <Button variant='contained' color='secondary' disabled>Disabled</Button>
+      <Button variant='contained' href='#contained-buttons'>Link</Button>
+      <input
+        accept='image/*'
+        id='contained-button-file'
+        multiple
+        type='file'
+      />
+      <label htmlFor='contained-button-file'>
+        <Button variant='contained' component='span'>
+          Upload
+        </Button>
+      </label>
+    </React.Fragment>
+  ))
+  .add('Outlined', () => (
+    <React.Fragment>
+      <Button variant='outlined'>Default Button</Button>
+      <Button variant='outlined' color='primary'>Primary Button</Button>
+      <Button variant='outlined' color='secondary'>Secondary</Button>
+      <Button variant='outlined' color='secondary' disabled>Disabled</Button>
+      <Button variant='outlined' href='#outlined-buttons'>Link</Button>
+      <input
+        accept='image/*'
+        id='outlined-button-file'
+        multiple
+        type='file'
+      />
+      <label htmlFor='outlined-button-file'>
+        <Button variant='outlined' component='span'>
+          Upload
+        </Button>
+      </label>
+    </React.Fragment>
+  ))
+
+storiesOf('Cards', module)
+  .addDecorator(muiTheme([customTheme]))
+  .add('SimpleList', () => (
+    <Grid container>
+      <Grid xs={4}>
+        <SimpleListCard title='Recently Created'>
+          {['jobs', 'distribution', 'jump'].map(text => (
+            <SimpleListCardItem>
+              <Typography>{text}</Typography>
+            </SimpleListCardItem>
+          ))}
+        </SimpleListCard>
+      </Grid>
+    </Grid>
+  ))
+  .add('TokenBalance', () => (
+    <Grid container>
+      <Grid xs={4}>
+        <TokenBalanceCard title='Ether Balance' value={'10000000000000000000000'} />
+      </Grid>
+    </Grid>
+  ))
+
+storiesOf('Tabular Data', module)
+  .addDecorator(muiTheme([customTheme]))
+  .add('Job Runs', () => (
+    <Router>
+      <JobRunsList runs={[
+        {createdAt: '2018-11-26T18:26:42.133809-08:00', result: {}},
+        {createdAt: '2018-11-23T09:18:14.120683-08:00', result: {}}
+      ]} />
+    </Router>
+  ))
+
+storiesOf('Custom', module)
   .addDecorator(muiTheme([customTheme]))
   .add('Logo', () => (
     <Logo width={40} height={50} />
@@ -126,12 +157,4 @@ storiesOf('Custom Components', module)
     <Typography>
       <TimeAgo>2018-11-27T02:26:42.014852Z</TimeAgo>
     </Typography>
-  ))
-  .add('Job Runs', () => (
-    <Router>
-      <JobRunsList runs={[
-        {createdAt: '2018-11-26T18:26:42.133809-08:00', result: {}},
-        {createdAt: '2018-11-23T09:18:14.120683-08:00', result: {}}
-      ]} />
-    </Router>
   ))
