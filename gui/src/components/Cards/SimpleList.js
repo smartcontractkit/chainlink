@@ -9,7 +9,7 @@ const SimpleList = ({children, title}) => {
   return (
     <Card>
       <CardContent>
-        <Typography variant='headline' component='h2' color='secondary'>
+        <Typography variant='h5' color='secondary'>
           {title}
         </Typography>
       </CardContent>

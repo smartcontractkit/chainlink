@@ -37,13 +37,13 @@ const renderJobSpec = ({ job }) => {
         <PaddedCard>
           <Grid container spacing={16}>
             <Grid item xs={12}>
-              <Typography variant='subheading' color='textSecondary'>ID</Typography>
+              <Typography variant='subtitle1' color='textSecondary'>ID</Typography>
               <Typography variant='body1' color='inherit'>
                 {job.id}
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant='subheading' color='textSecondary'>Created</Typography>
+              <Typography variant='subtitle1' color='textSecondary'>Created</Typography>
               <Typography variant='body1' color='inherit'>
                 <TimeAgo>{job.createdAt}</TimeAgo>
               </Typography>
@@ -51,13 +51,13 @@ const renderJobSpec = ({ job }) => {
             <Grid item xs={12}>
               <Grid container spacing={16}>
                 <Grid item xs={6}>
-                  <Typography variant='subheading' color='textSecondary'>Initiator</Typography>
+                  <Typography variant='subtitle1' color='textSecondary'>Initiator</Typography>
                   <Typography variant='body1' color='inherit'>
                     {formatInitiators(job.initiators)}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant='subheading' color='textSecondary'>Run Count</Typography>
+                  <Typography variant='subtitle1' color='textSecondary'>Run Count</Typography>
                   <Typography variant='body1' color='inherit'>
                     {job.runs && job.runs.length}
                   </Typography>
@@ -73,7 +73,7 @@ const renderJobSpec = ({ job }) => {
 
 const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => (
   <React.Fragment>
-    <Typography variant='title' className={classes.lastRun}>
+    <Typography variant='h5' className={classes.lastRun}>
       Last Run
     </Typography>
 

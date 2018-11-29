@@ -5,8 +5,8 @@ import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
 
-import App from './App'
-import theme from './theme'
+import App from 'App'
+import theme from 'theme'
 
 promiseFinally.shim(Promise)
 

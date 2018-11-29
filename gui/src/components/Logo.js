@@ -25,7 +25,7 @@ const Logo = ({width, height, classes}) => (
       height={height}
       alt='Chainlink Operator'
     />
-    <Typography variant='headline' color='inherit' className={classes.text}>
+    <Typography variant='h5' color='inherit' className={classes.text}>
       Chainlink Operator
     </Typography>
   </div>

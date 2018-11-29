@@ -2,19 +2,19 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
+import classNames from 'classnames'
 
 const styles = theme => ({
   title: {
-    marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
   }
 })
 
-const Title = ({children, classes}) => (
+const Title = ({children, classes, className}) => (
   <Typography
-    variant='display2'
+    variant='h4'
     color='inherit'
-    className={classes.title}
+    className={classNames(className, classes.title)}
   >
     {children}
   </Typography>

@@ -116,49 +116,6 @@ storiesOf('Typography', module)
       </Typography>
     </React.Fragment>
   ))
-  .add('Deprecated API', () => (
-    <React.Fragment>
-      <Typography component='h2' variant='display4' gutterBottom>
-        Display 4
-      </Typography>
-      <Typography component='h2' variant='display3' gutterBottom>
-        Display 3
-      </Typography>
-      <Typography component='h2' variant='display2' gutterBottom>
-        Display 2
-      </Typography>
-      <Typography component='h2' variant='display1' gutterBottom>
-        Display 1
-      </Typography>
-      <Typography component='h2' variant='headline' gutterBottom>
-        Headline
-      </Typography>
-      <Typography variant='title' gutterBottom>
-        Title
-      </Typography>
-      <Typography variant='subheading' gutterBottom>
-        Subheading
-      </Typography>
-      <Typography variant='body2' gutterBottom>
-        Body 2
-      </Typography>
-      <Typography variant='body1' gutterBottom align='right'>
-        Body 1
-      </Typography>
-      <Typography variant='caption' gutterBottom align='center'>
-        Caption
-      </Typography>
-      <Typography gutterBottom noWrap>
-        {`
-          Lorem ipsum dolor sit amet, consectetur adipisicing elit,
-          sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-        `}
-      </Typography>
-      <Typography variant='button' gutterBottom>
-        Button
-      </Typography>
-    </React.Fragment>
-  ))
 
 storiesOf('Custom Components', module)
   .addDecorator(muiTheme([customTheme]))
