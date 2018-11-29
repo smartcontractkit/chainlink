@@ -45,7 +45,7 @@ const applyClass = ({base, success, error, warning, classes, className}) => {
 
 const Flash = (props) => (
   <Card className={applyClass(props)} square>
-    <Typography variant='body2' color='inherit'>
+    <Typography variant='body2' color='inherit' component='div'>
       {props.children}
     </Typography>
   </Card>

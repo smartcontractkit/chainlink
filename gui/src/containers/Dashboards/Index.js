@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import RecentActivity from 'components/Dashboards/RecentActivity'
-import TokenBalance from 'components/TokenBalance'
+import TokenBalanceCard from 'components/Cards/TokenBalance'
 import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
 import Content from 'components/Content'
@@ -34,13 +34,13 @@ export const Index = useHooks(props => {
         <Grid item xs={3}>
           <Grid container spacing={24}>
             <Grid item xs={12}>
-              <TokenBalance
+              <TokenBalanceCard
                 title='Link Balance'
                 value={props.accountBalance && props.accountBalance.linkBalance}
               />
             </Grid>
             <Grid item xs={12}>
-              <TokenBalance
+              <TokenBalanceCard
                 title='Ether Balance'
                 value={props.accountBalance && props.accountBalance.ethBalance}
               />
