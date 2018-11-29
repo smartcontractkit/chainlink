@@ -56,19 +56,27 @@ contract('ConcreteChainlinked', () => {
     let requestId
 
     beforeEach(async () => {
+      oc = await deploy('examples/EmptyOracle.sol')
+      cc = await deploy(sourcePath, link.address, oc.address)
+
       await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
       requestId = (await getLatestEvent(cc)).args.id
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
-      await increaseTime5Minutes();
-      let tx = await cc.publicCancelRequest(requestId)
+      const tx = await cc.publicCancelRequest(requestId)
 
-      let events = await getEvents(cc)
+      const events = await getEvents(cc)
       assert.equal(1, events.length)
       let event = events[0]
       assert.equal(event.event, 'ChainlinkCancelled')
       assert.equal(requestId, event.args.id)
+    })
+
+    it('throws if given a bogus event ID', async () => {
+      await assertActionThrows(async () => {
+        await cc.publicCancelRequest("bogus ID")
+      })
     })
 
     context('when the request ID is no longer unfulfilled', () => {
