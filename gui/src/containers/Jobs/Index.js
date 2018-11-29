@@ -4,7 +4,7 @@ import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Button from '@material-ui/core/Button'
 import Title from 'components/Title'
-import JobList from 'components/JobList'
+import List from 'components/Jobs/List'
 import Content from 'components/Content'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -27,7 +27,7 @@ export const Index = props => (
         </Grid>
       </Grid>
       <Grid item xs={12}>
-        <JobList
+        <List
           jobs={props.jobs}
           jobCount={props.jobCount}
           pageSize={props.pageSize}
