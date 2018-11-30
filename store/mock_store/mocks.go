@@ -38,6 +38,18 @@ func (m *MockTxManager) EXPECT() *MockTxManagerMockRecorder {
 	return m.recorder
 }
 
+// Start mocks base method
+func (m *MockTxManager) Start(accounts []accounts.Account) error {
+	ret := m.ctrl.Call(m, "Start", accounts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start
+func (mr *MockTxManagerMockRecorder) Start(accounts interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTxManager)(nil).Start), accounts)
+}
+
 // CreateTx mocks base method
 func (m *MockTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	ret := m.ctrl.Call(m, "CreateTx", to, data)
@@ -49,18 +61,6 @@ func (m *MockTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, er
 // CreateTx indicates an expected call of CreateTx
 func (mr *MockTxManagerMockRecorder) CreateTx(to, data interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTx", reflect.TypeOf((*MockTxManager)(nil).CreateTx), to, data)
-}
-
-// ActivateAccount mocks base method
-func (m *MockTxManager) ActivateAccount(account accounts.Account) error {
-	ret := m.ctrl.Call(m, "ActivateAccount", account)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ActivateAccount indicates an expected call of ActivateAccount
-func (mr *MockTxManagerMockRecorder) ActivateAccount(account interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActivateAccount", reflect.TypeOf((*MockTxManager)(nil).ActivateAccount), account)
 }
 
 // MeetsMinConfirmations mocks base method

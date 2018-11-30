@@ -538,9 +538,8 @@ func FixtureCreateServiceAgreementViaWeb(
 	client := app.NewHTTPClient()
 
 	agreementWithoutOracle := EasyJSONFromFixture(path)
-	account, err := app.Store.KeyStore.GetAccount()
-	assert.NoError(t, err)
-	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{account.Address.Hex()})
+	from := GetAccountAddress(app.ChainlinkApplication.GetStore())
+	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{from.Hex()})
 
 	b, err := json.Marshal(agreementWithOracle)
 	assert.NoError(t, err)
@@ -800,7 +799,7 @@ func mustNotErr(err error) {
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
 func GetAccountAddress(store *store.Store) common.Address {
-	account, err := store.KeyStore.GetAccount()
+	account, err := store.KeyStore.GetFirstAccount()
 	mustNotErr(err)
 
 	return account.Address

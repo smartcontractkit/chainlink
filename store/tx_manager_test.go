@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTxManager_CreateTx_Success(t *testing.T) {
@@ -45,7 +46,6 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	assert.NoError(t, err)
 	tx := models.Tx{}
 	assert.NoError(t, store.One("ID", a.TxID, &tx))
-	assert.NoError(t, err)
 	assert.Equal(t, nonce, tx.Nonce)
 	assert.Equal(t, data, tx.Data)
 	assert.Equal(t, to, tx.To)
@@ -55,6 +55,75 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	attempts, err := store.AttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(attempts))
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
+	t.Parallel()
+	config, _ := cltest.NewConfigWithPrivateKey() // second account
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+	accounts := store.KeyStore.Accounts()
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+	sentAt := uint64(23456)
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x00")
+		ethMock.Register("eth_getTransactionCount", "0x10")
+	})
+	assert.NoError(t, app.Start())
+
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
+
+	createdTx1, err := manager.CreateTx(to, data)
+	require.NoError(t, err)
+
+	attempts, err := store.AttemptsFor(createdTx1.ID)
+	require.NoError(t, err)
+	require.Len(t, attempts, 1)
+
+	// bump gas
+	ethMock.Context("manager.bumpGas#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
+	})
+
+	_, err = manager.MeetsMinConfirmations(attempts[0].Hash)
+	require.NoError(t, err)
+
+	// retrieve new gas bumped second attempt
+	attempts, err = store.AttemptsFor(createdTx1.ID)
+	require.NoError(t, err)
+	require.Len(t, attempts, 2)
+	a2 := attempts[1]
+
+	// ensure gas bumped attempt does not round robin on the From Address
+	// best way to ensure the same from address atm is to compare Hashes, since
+	// tx attempts don't have From but rely on parent Tx model.
+	etx := createdTx1.EthTx(a2.GasPrice)
+	etx, err = store.KeyStore.SignTx(accounts[0], etx, config.ChainID)
+	assert.Equal(t, etx.Hash().Hex(), a2.Hash.Hex(), "should be same since they have the same input, include From address")
+
+	// ensure second tx round robins
+	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	})
+
+	createdTx2, err := manager.CreateTx(to, data)
+	assert.NoError(t, err)
+
+	require.NotEqual(t, createdTx1.From.Hex(), createdTx2.From.Hex(), "should come from a different account")
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -233,10 +302,13 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionCount", "0x0")
+	require.NoError(t, app.Start())
+
 	store := app.Store
 	config := store.Config
 	txm := store.TxManager
-	ethMock := app.MockEthClient()
 	from := cltest.GetAccountAddress(store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold
@@ -357,7 +429,7 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 	}
 }
 
-func TestTxManager_ActivateAccount(t *testing.T) {
+func TestTxManager_Start(t *testing.T) {
 	t.Parallel()
 
 	ethMock := &cltest.EthMock{}
@@ -367,7 +439,7 @@ func TestTxManager_ActivateAccount(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
-	assert.NoError(t, txm.ActivateAccount(account))
+	assert.NoError(t, txm.Start([]accounts.Account{account}))
 	ethMock.EventuallyAllCalled(t)
 
 	aa := txm.GetActiveAccount()
@@ -383,21 +455,14 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
 	}
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
-
-	ethMock.Register("eth_getTransactionCount", `0x2D0`)
-	assert.NoError(t, txm.ActivateAccount(account))
-
-	aa := txm.GetActiveAccount()
-	assert.Equal(t, account.Address, aa.Address)
-	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
+	ma := strpkg.NewManagedAccount(account, 0)
 
 	ethMock.Register("eth_getTransactionCount", `0x2D1`)
-	assert.NoError(t, txm.ReloadNonce())
+	assert.NoError(t, txm.ReloadNonce(ma))
 	ethMock.EventuallyAllCalled(t)
 
-	aa = txm.GetActiveAccount()
-	assert.Equal(t, account.Address, aa.Address)
-	assert.Equal(t, uint64(0x2d1), aa.GetNonce())
+	assert.Equal(t, account.Address, ma.Address)
+	assert.Equal(t, uint64(0x2d1), ma.GetNonce())
 }
 
 func TestTxManager_WithdrawLink(t *testing.T) {
@@ -464,40 +529,36 @@ func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 
 func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
-	activeAccount := strpkg.ManagedAccount{
-		Account: account,
-	}
+	managedAccount := strpkg.NewManagedAccount(account, 0)
 
-	activeAccount.GetAndIncrementNonce(func(y uint64) error {
+	managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(0), y)
 		return nil
 	})
-	assert.Equal(t, uint64(1), activeAccount.GetNonce())
+	assert.Equal(t, uint64(1), managedAccount.GetNonce())
 
-	activeAccount.GetAndIncrementNonce(func(y uint64) error {
+	managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(1), y)
 		return nil
 	})
-	assert.Equal(t, uint64(2), activeAccount.GetNonce())
+	assert.Equal(t, uint64(2), managedAccount.GetNonce())
 }
 
 func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsException(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
-	activeAccount := strpkg.ManagedAccount{
-		Account: account,
-	}
+	managedAccount := strpkg.NewManagedAccount(account, 0)
 
-	err := activeAccount.GetAndIncrementNonce(func(y uint64) error {
+	err := managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(0), y)
 		return errors.New("Should not increment")
 	})
 	assert.Error(t, err)
-	err = activeAccount.GetAndIncrementNonce(func(y uint64) error {
+	err = managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(0), y)
 		return errors.New("Should not increment again")
 	})
 	assert.Error(t, err)
-	assert.Equal(t, uint64(0), activeAccount.GetNonce())
+	assert.Equal(t, uint64(0), managedAccount.GetNonce())
 }
 
 func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {

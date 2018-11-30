@@ -32,7 +32,7 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 		publicError(c, 400, fmt.Errorf("Must withdraw at least %v LINK", naz.String()))
 	} else if wr.Address == utils.ZeroAddress { // address is unmarshalled to ZeroAddres if invalid
 		publicError(c, 400, errors.New("Invalid withdrawal address"))
-	} else if account, err := store.KeyStore.GetAccount(); err != nil {
+	} else if account, err := store.KeyStore.GetFirstAccount(); err != nil {
 		c.AbortWithError(500, err)
 	} else if linkBalance, err := txm.GetLinkBalance(account.Address); err != nil {
 		c.AbortWithError(500, err)

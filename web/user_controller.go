@@ -92,7 +92,7 @@ func (c *UserController) AccountBalances(ctx *gin.Context) {
 	store := c.App.GetStore()
 	txm := store.TxManager
 
-	if account, err := store.KeyStore.GetAccount(); err != nil {
+	if account, err := store.KeyStore.GetFirstAccount(); err != nil {
 		publicError(ctx, 400, err)
 	} else if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
 		ctx.AbortWithError(500, err)
