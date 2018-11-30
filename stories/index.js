@@ -15,6 +15,7 @@ import SimpleListCard from 'components/Cards/SimpleList'
 import SimpleListCardItem from 'components/Cards/SimpleListItem'
 import Logo from 'components/Logo'
 import JobRunsList from 'components/JobRuns/List'
+import StatusCard from 'components/JobRuns/StatusCard'
 
 window.JavascriptTimeAgo = JavascriptTimeAgo
 JavascriptTimeAgo.locale(en)
@@ -135,6 +136,13 @@ storiesOf('Cards', module)
         <TokenBalanceCard title='Ether Balance' value={'10000000000000000000000'} />
       </Grid>
     </Grid>
+  ))
+  .add('Status', () => (
+    <React.Fragment>
+      <StatusCard>unstarted</StatusCard>
+      <StatusCard>completed</StatusCard>
+      <StatusCard>errored</StatusCard>
+    </React.Fragment>
   ))
 
 storiesOf('Tabular Data', module)
