@@ -89,6 +89,14 @@ func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
 	return j, j.Initiators[0]
 }
 
+// NewJobWithSALogInitiator creates new JobSpec with the ServiceAgreement
+// initiator
+func NewJobWithSALogInitiator() (models.JobSpec, models.Initiator) {
+	j, initiators := NewJobWithRunLogInitiator()
+	j.Initiators[0].Type = models.InitiatorServiceAgreementExecutionLog
+	return j, initiators
+}
+
 // NewJobWithRunAtInitiator create new Job with RunAt inititaor
 func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
