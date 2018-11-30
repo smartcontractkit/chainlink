@@ -28,6 +28,14 @@ const (
 	RunLogTopicAmount
 )
 
+// Descriptive indices of a ServiceAgreementExecutionLog's Topic array
+const (
+	ServiceAgreementExecutionLogTopicSignature = iota
+	ServiceAgreementExecutionLogTopicJobID
+	ServiceAgreementExecutionLogTopicRequester
+	ServiceAgreementExecutionLogTopicAmount
+)
+
 // RunLogTopic is the signature for the RunRequest(...) event
 // which Chainlink RunLog initiators watch for.
 // See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
@@ -222,7 +230,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 // receiveRunOrSALog parses the log and runs the job indicated by a RunLog or
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
 func receiveRunOrSALog(le InitiatorSubscriptionLogEvent) {
-	if !le.ValidateRunLog() {
+	if !le.ValidateRunOrSALog() {
 		return
 	}
 
@@ -388,9 +396,9 @@ func (le InitiatorSubscriptionLogEvent) ToIndexableBlockNumber() *models.Indexab
 	return models.NewIndexableBlockNumber(num, le.Log.BlockHash)
 }
 
-// ValidateRunLog returns whether or not the contained log is a RunLog,
+// ValidateRunOrSALog returns whether or not the contained log is a RunLog,
 // a specific Chainlink event trigger from smart contracts.
-func (le InitiatorSubscriptionLogEvent) ValidateRunLog() bool {
+func (le InitiatorSubscriptionLogEvent) ValidateRunOrSALog() bool {
 	el := le.Log
 	if !isRunLog(el) {
 		logger.Errorw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)

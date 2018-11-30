@@ -191,7 +191,34 @@ func TestInitiatorSubscriptionLogEvent_Requester(t *testing.T) {
 	}
 }
 
-func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
+func TestInitiatorSubscriptionServiceAgreementExecutionLogEvent_Requester(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input common.Hash
+		want  common.Address
+	}{
+		{"basic",
+			common.HexToHash("0x00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee"),
+			common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rl := cltest.NewServiceAgreementExecutionLog(
+				"id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
+			rl.Topics[services.ServiceAgreementExecutionLogTopicRequester] =
+				test.input
+			le := services.InitiatorSubscriptionLogEvent{Log: rl}
+
+			assert.Equal(t, test.want, le.Requester())
+		})
+	}
+}
+
+func TestInitiatorSubscriptionLogEvent_ValidateRunOrSALog(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJob()
@@ -218,32 +245,39 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunLog(t *testing.T) {
 		{"runlog incorrect requester", services.RunLogTopic, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
 	}
 
+	logConstructors := [](func(string, common.Address, common.Address, int, string) strpkg.Log){
+		cltest.NewRunLog, cltest.NewServiceAgreementExecutionLog}
+
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			log := cltest.NewRunLog(job.ID, cltest.NewAddress(), test.requesterAddress, 1, "{}")
-			log.Topics = []common.Hash{
-				test.eventLogTopic,
-				test.jobIDTopic,
-				test.requesterAddress.Hash(),
-				common.Hash{},
-			}
+		for _, logConstructor := range logConstructors {
+			t.Run(test.name, func(t *testing.T) {
+				log := logConstructor(
+					job.ID, cltest.NewAddress(),
+					test.requesterAddress, 1, "{}")
+				log.Topics = []common.Hash{
+					test.eventLogTopic,
+					test.jobIDTopic,
+					test.requesterAddress.Hash(),
+					common.Hash{},
+				}
 
-			le := services.InitiatorSubscriptionLogEvent{
-				Job: job,
-				Log: log,
-				Initiator: models.Initiator{
-					InitiatorParams: models.InitiatorParams{
-						Requesters: test.initiatorRequesters,
+				le := services.InitiatorSubscriptionLogEvent{
+					Job: job,
+					Log: log,
+					Initiator: models.Initiator{
+						InitiatorParams: models.InitiatorParams{
+							Requesters: test.initiatorRequesters,
+						},
 					},
-				},
-			}
+				}
 
-			assert.Equal(t, test.want, le.ValidateRunLog())
-		})
+				assert.Equal(t, test.want, le.ValidateRunOrSALog())
+			})
+		}
 	}
 }
 
-func TestStartRunLogSubscription_ValidateSenders(t *testing.T) {
+func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 	requester := cltest.NewAddress()
 
 	tests := []struct {
@@ -255,35 +289,49 @@ func TestStartRunLogSubscription_ValidateSenders(t *testing.T) {
 		{"runlog has wrong requester", cltest.NewAddress(), models.RunStatusErrored},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config, _ := cltest.NewConfigWithPrivateKey()
-			app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
-			defer cleanup()
+	logFunctions := []struct {
+		logConstructor (func(string, common.Address, common.Address, int,
+			string) strpkg.Log)
+		subscriber func(models.Initiator, models.JobSpec,
+			*models.IndexableBlockNumber, *strpkg.Store) (
+			services.Unsubscriber, error)
+		jobConstructor func() (models.JobSpec, models.Initiator)
+	}{
+		{cltest.NewRunLog, services.StartRunLogSubscription, cltest.NewJobWithRunLogInitiator},
+		{cltest.NewServiceAgreementExecutionLog, services.StartSALogSubscription, cltest.NewJobWithSALogInitiator},
+	}
 
-			eth := app.MockEthClient()
-			logs := make(chan strpkg.Log, 1)
-			eth.Context("app.Start()", func(eth *cltest.EthMock) {
-				eth.Register("eth_getBlockByNumber", models.BlockHeader{})
-				eth.Register("eth_getTransactionCount", "0x1")
-				eth.RegisterSubscription("logs", logs)
+	for _, logFuncs := range logFunctions {
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				config, _ := cltest.NewConfigWithPrivateKey()
+				app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+				defer cleanup()
+
+				eth := app.MockEthClient()
+				logs := make(chan strpkg.Log, 1)
+				eth.Context("app.Start()", func(eth *cltest.EthMock) {
+					eth.Register("eth_getBlockByNumber", models.BlockHeader{})
+					eth.Register("eth_getTransactionCount", "0x1")
+					eth.RegisterSubscription("logs", logs)
+				})
+				assert.NoError(t, app.Start())
+
+				js, initr := logFuncs.jobConstructor()
+				initr.Requesters = []common.Address{requester}
+				_, err := logFuncs.subscriber(initr, js, nil, app.Store)
+				assert.NoError(t, err)
+
+				logs <- logFuncs.logConstructor(js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+				eth.EventuallyAllCalled(t)
+
+				gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+					var run models.JobRun
+					app.Store.One("JobID", js.ID, &run)
+					return run.Status
+				}).Should(gomega.Equal(test.status))
 			})
-			assert.NoError(t, app.Start())
-
-			js, initr := cltest.NewJobWithRunLogInitiator()
-			initr.Requesters = []common.Address{requester}
-			_, err := services.StartRunLogSubscription(initr, js, nil, app.Store)
-			assert.NoError(t, err)
-
-			logs <- cltest.NewRunLog(js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
-			eth.EventuallyAllCalled(t)
-
-			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-				var run models.JobRun
-				app.Store.One("JobID", js.ID, &run)
-				return run.Status
-			}).Should(gomega.Equal(test.status))
-		})
+		}
 	}
 }
 
