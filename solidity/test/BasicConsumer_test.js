@@ -96,7 +96,7 @@ contract('BasicConsumer', () => {
     it('logs the data given to it by the oracle', async () => {
       let tx = await oc.fulfillData(internalId, response, {from: oracleNode})
       assert.equal(2, tx.receipt.logs.length)
-      let log = tx.receipt.logs[0]
+      let log = tx.receipt.logs[1]
 
       assert.equal(web3.toUtf8(log.topics[2]), response)
     })
