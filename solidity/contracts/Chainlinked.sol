@@ -161,8 +161,8 @@ contract Chainlinked {
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
     require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
-    _;
     delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
+    _;
   }
 }
