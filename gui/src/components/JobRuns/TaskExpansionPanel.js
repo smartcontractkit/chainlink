@@ -18,7 +18,11 @@ const TaskExpansionPanel = ({children}) => {
   return (
     <Grid container>
       <Grid item xs={12}>
-        <StatusItem summary={capitalize(initiator.type)} status={children.status}>
+        <StatusItem
+          summary={capitalize(initiator.type)}
+          status={children.status}
+          borderTop={false}
+        >
           <PrettyJson object={initiator.params} />
         </StatusItem>
       </Grid>

@@ -8,12 +8,15 @@ import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails'
 import Typography from '@material-ui/core/Typography'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import StatusIcon from 'components/JobRuns/StatusIcon'
+import classNames from 'classnames'
 
 const styles = theme => {
   return {
-    item: {
+    borderTop: {
       borderTop: 'solid 1px',
-      borderTopColor: theme.palette.divider,
+      borderTopColor: theme.palette.divider
+    },
+    item: {
       position: 'relative',
       paddingLeft: 50
     },
@@ -43,7 +46,7 @@ const styles = theme => {
   }
 }
 
-const render = (summary, children, classes) => {
+const render = (summary, borderTop, children, classes) => {
   if (children) {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
@@ -64,23 +67,28 @@ const render = (summary, children, classes) => {
   return <Typography>{summary}</Typography>
 }
 
-const StatusItem = ({status, summary, children, classes}) => (
-  <div className={classes.item}>
+const StatusItem = ({status, summary, borderTop, children, classes}) => (
+  <div className={classNames(classes.item, {[classes.borderTop]: borderTop})}>
     <div className={classes.status}>
       <StatusIcon>{status}</StatusIcon>
     </div>
     <div className={classes.details}>
       <Grid container>
         <Grid item xs={12}>
-          {render(summary, children, classes)}
+          {render(summary, borderTop, children, classes)}
         </Grid>
       </Grid>
     </div>
   </div>
 )
 
+StatusItem.defaultProps = {
+  borderTop: true
+}
+
 StatusItem.propTypes = {
-  status: PropTypes.string.isRequired
+  status: PropTypes.string.isRequired,
+  borderTop: PropTypes.bool.isRequired
 }
 
 export default withStyles(styles)(StatusItem)
