@@ -53,9 +53,9 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#chainlinkRequestTo(Run)', () => {
+  describe('#chainlinkRequestFrom(Run)', () => {
     it('emits an event from the contract showing the run ID', async () => {
-      await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      await cc.publicRequestRunFrom(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
 
       let events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -64,7 +64,7 @@ contract('ConcreteChainlinked', () => {
     })
 
     it('emits an event on the target oracle contract', async () => {
-      await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      await cc.publicRequestRunFrom(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
 
       let events = await getEvents(newoc)
       assert.equal(1, events.length)
@@ -73,7 +73,7 @@ contract('ConcreteChainlinked', () => {
     })
 
     it('does not modify the stored oracle address', async () => {
-      await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      await cc.publicRequestRunFrom(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
 
       const actualOracleAddress = await cc.publicOracleAddress()
       assert.equal(oc.address, actualOracleAddress)
