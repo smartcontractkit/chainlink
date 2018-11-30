@@ -21,8 +21,7 @@
     "formik": "^1.0.3",
     "link_token": "^1.0.1",
     "openzeppelin-solidity": "^1.12.0",
-    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
-    "use-react-hooks": "^1.0.7"
+    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
   },
   "devDependencies": {
     "@material-ui/core": "^3.1.0",
@@ -63,11 +62,12 @@
     "numeral": "^2.0.6",
     "oclif": "^1.11.4",
     "promise.prototype.finally": "^3.1.0",
+    "prop-types": "^15.6.2",
     "puppeteer": "^1.10.0",
     "query-string": "^6.1.0",
-    "react": "^16.4.2",
+    "react": "^16.6.3",
     "react-copy-to-clipboard": "^5.0.1",
-    "react-dom": "^16.4.2",
+    "react-dom": "^16.6.3",
     "react-hot-loader": "^4.3.4",
     "react-redux": "^5.0.7",
     "react-resize-detector": "^3.2.0",
@@ -92,6 +92,7 @@
     "truffle-flattener": "^1.2.8",
     "url": "^0.11.0",
     "uuid": "^3.3.2",
+    "use-react-hooks": "^1.0.7",
     "web3": "^1.0.0-beta.35",
     "wscat": "^2.2.1"
   },
