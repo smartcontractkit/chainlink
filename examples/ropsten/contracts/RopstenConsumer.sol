@@ -207,6 +207,8 @@ library CBOR {
 // File: ../solidity/contracts/ChainlinkLib.sol
 
 library ChainlinkLib {
+  uint256 internal constant defaultBufferSize = 256;
+
   using CBOR for Buffer.buffer;
 
   struct Run {
@@ -223,7 +225,7 @@ library ChainlinkLib {
     address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (ChainlinkLib.Run memory) {
-    Buffer.init(self.buf, 128);
+    Buffer.init(self.buf, defaultBufferSize);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
@@ -448,12 +450,19 @@ contract Chainlinked {
     internal
     returns (bytes32)
   {
+    return chainlinkRequestFrom(oracle, _run, _amount);
+  }
+
+  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns (bytes32)
+  {
     _run.requestId = bytes32(requests);
     requests += 1;
     _run.close();
-    unfulfilledRequests[_run.requestId] = oracle;
+    unfulfilledRequests[_run.requestId] = _oracle;
     emit ChainlinkRequested(_run.requestId);
-    require(link.transferAndCall(oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(_oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
 
     return _run.requestId;
   }
@@ -567,9 +576,9 @@ contract Chainlinked {
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
     require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
-    _;
     delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
+    _;
   }
 }
 
@@ -670,7 +679,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, "fulfillEthereumPrice(bytes32,uint256)");
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
@@ -683,7 +692,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, "fulfillEthereumChange(bytes32,int256)");
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -699,7 +708,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, "fulfillEthereumLastMarket(bytes32,bytes32)");
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";

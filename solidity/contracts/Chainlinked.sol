@@ -42,17 +42,10 @@ contract Chainlinked {
     internal
     returns (bytes32)
   {
-    _run.requestId = bytes32(requests);
-    requests += 1;
-    _run.close();
-    unfulfilledRequests[_run.requestId] = oracle;
-    emit ChainlinkRequested(_run.requestId);
-    require(link.transferAndCall(oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
-
-    return _run.requestId;
+    return chainlinkRequestFrom(oracle, _run, _amount);
   }
 
-  function chainlinkRequestTo(address _oracle, ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _amount)
     internal
     returns (bytes32)
   {

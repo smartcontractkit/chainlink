@@ -274,11 +274,11 @@ contract Oracle is OracleInterface, Ownable {
     hasAvailableFunds(_amount)
   {
     withdrawableWei = withdrawableWei.sub(_amount);
-    LINK.transfer(_recipient, _amount);
+    require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
   }
 
   function cancel(bytes32 _externalId)
-    public
+    external
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(msg.sender, _externalId)));
     require(msg.sender == callbacks[internalId].addr, "Must be called from requester");
@@ -311,15 +311,13 @@ contract Oracle is OracleInterface, Ownable {
     _;
   }
 
-  bytes4 constant private permittedFunc = bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)"));
-
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
     assembly {
       // solium-disable-next-line security/no-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
     _;
   }
 
