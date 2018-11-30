@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -27,50 +28,70 @@ func LogListeningAddress(address common.Address) string {
 	return address.String()
 }
 
+type requestType int
+
+const (
+	ethRequest requestType = iota
+	linkRequest
+)
+
 // ShowEthBalance returns the current Eth Balance for current Account
-func ShowEthBalance(store *store.Store) (map[string]interface{}, error) {
-	keysAndValues := make(map[string]interface{})
+func ShowEthBalance(store *store.Store) ([]map[string]interface{}, error) {
+	return showBalanceFor(store, ethRequest)
+}
+
+// ShowLinkBalance returns the current Link Balance for current Account
+func ShowLinkBalance(store *store.Store) ([]map[string]interface{}, error) {
+	return showBalanceFor(store, linkRequest)
+}
+
+func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]interface{}, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
-	account, err := store.KeyStore.GetAccount()
+
+	info := []map[string]interface{}{}
+	for _, account := range store.KeyStore.Accounts() {
+		b, err := showBalanceForAccount(store, account, balanceType)
+		if err != nil {
+			return info, err
+		}
+		info = append(info, b)
+	}
+	return info, nil
+}
+
+// ShowEthBalance returns the current Eth Balance for current Account
+func showBalanceForAccount(store *store.Store, account accounts.Account, balanceType requestType) (map[string]interface{}, error) {
+	keysAndValues := make(map[string]interface{})
+	balance, err := getBalance(store, account, balanceType)
 	if err != nil {
 		return keysAndValues, err
 	}
 	address := account.Address
-	balance, err := store.TxManager.GetEthBalance(address)
-	if err != nil {
-		return keysAndValues, err
-	}
-	keysAndValues["message"] = fmt.Sprintf("ETH Balance for %v: %v", address.Hex(), balance)
-	keysAndValues["address"] = account.Address
-	keysAndValues["balance"] = balance
-	if balance.IsZero() {
+	keysAndValues["message"] = fmt.Sprintf("%v Balance for %v: %v", balance.Symbol(), address.Hex(), balance.String())
+	keysAndValues["balance"] = balance.String()
+	keysAndValues["address"] = address
+	if balance.IsZero() && balanceType == ethRequest {
 		return keysAndValues, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return keysAndValues, nil
 }
 
-// ShowLinkBalance returns the current Link Balance for current Account
-func ShowLinkBalance(store *store.Store) (map[string]interface{}, error) {
-	keysAndValues := make(map[string]interface{})
-	if !store.KeyStore.HasAccounts() {
-		logger.Panic("KeyStore must have an account in order to show balance")
+func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
+	switch balanceType {
+	case ethRequest:
+		return store.TxManager.GetEthBalance(account.Address)
+	case linkRequest:
+		return store.TxManager.GetLinkBalance(account.Address)
 	}
-	account, err := store.KeyStore.GetAccount()
-	if err != nil {
-		return keysAndValues, err
-	}
+	return nil, fmt.Errorf("Impossible to get balance for %T with value %v", balanceType, balanceType)
+}
 
-	address := account.Address
-	linkBalance, err := store.TxManager.GetLinkBalance(address)
-	if err != nil {
-		return keysAndValues, err
-	}
-	keysAndValues["address"] = account.Address
-	keysAndValues["balance"] = linkBalance.String()
-	keysAndValues["message"] = fmt.Sprintf("Link Balance for %v: %v", address.Hex(), linkBalance.String())
-	return keysAndValues, nil
+type balanceable interface {
+	IsZero() bool
+	String() string
+	Symbol() string
 }
 
 // BridgeType holds a bridge.

@@ -52,12 +52,7 @@ func (ks *KeyStore) Unlock(phrase string) error {
 }
 
 // SignTx uses the unlocked account to sign the given transaction.
-func (ks *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transaction, error) {
-	account, err := ks.GetAccount()
-	if err != nil {
-		return nil, err
-	}
-
+func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chainID uint64) (*types.Transaction, error) {
 	return ks.KeyStore.SignTx(
 		account,
 		tx,
@@ -67,7 +62,7 @@ func (ks *KeyStore) SignTx(tx *types.Transaction, chainID uint64) (*types.Transa
 
 // Sign creates an HMAC from some input data using the account's private key
 func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
-	account, err := ks.GetAccount()
+	account, err := ks.GetFirstAccount()
 	if err != nil {
 		return models.Signature{}, err
 	}
@@ -85,9 +80,9 @@ func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
 	return signature, nil
 }
 
-// GetAccount returns the unlocked account in the KeyStore object. The client
+// GetFirstAccount returns the unlocked account in the KeyStore object. The client
 // ensures that an account exists during authentication.
-func (ks *KeyStore) GetAccount() (accounts.Account, error) {
+func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 	if len(ks.Accounts()) == 0 {
 		return accounts.Account{}, errors.New("No Ethereum Accounts configured")
 	}

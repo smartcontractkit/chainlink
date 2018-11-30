@@ -94,12 +94,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
-	acc, err := s.KeyStore.GetAccount()
-	if err != nil {
-		return err
-	}
-
-	return s.TxManager.ActivateAccount(acc)
+	return s.TxManager.Start(s.KeyStore.Accounts())
 }
 
 // Close shuts down all of the working parts of the store.

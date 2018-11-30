@@ -160,7 +160,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 	assert.NoError(t, err)
 	defer cleanup()
 
-	account, err := store.KeyStore.GetAccount()
+	account, err := store.KeyStore.GetFirstAccount()
 	assert.NoError(t, err)
 
 	oracles := []string{account.Address.Hex()}
