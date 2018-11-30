@@ -28,6 +28,12 @@ const styles = theme => {
       width: 50,
       height: '100%'
     },
+    summary: {
+      minHeight: '0 !important'
+    },
+    content: {
+      margin: '12px 0 !important'
+    },
     details: {
       padding: theme.spacing.unit * 2
     },
@@ -41,7 +47,11 @@ const render = (summary, children, classes) => {
   if (children) {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
-        <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
+        <ExpansionPanelSummary
+          className={classes.summary}
+          classes={{content: classes.content}}
+          expandIcon={<ExpandMoreIcon />}
+        >
           <Typography variant='title'>{summary}</Typography>
         </ExpansionPanelSummary>
         <ExpansionPanelDetails>
