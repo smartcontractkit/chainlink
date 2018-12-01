@@ -74,7 +74,6 @@ func (ht *HeadTracker) Start() error {
 	if err := ht.updateHeadFromDb(); err != nil {
 		return err
 	}
-	ht.fastForwardHeadFromEth()
 	number := ht.Head()
 	if number != nil {
 		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.String())
@@ -87,6 +86,7 @@ func (ht *HeadTracker) Start() error {
 	go ht.listenForNewHeads()
 	<-ht.subscriptionSucceeded
 
+	ht.fastForwardHeadFromEth()
 	ht.started = true
 	return nil
 }
