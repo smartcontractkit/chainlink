@@ -102,16 +102,16 @@ func (mr *MockTxManagerMockRecorder) GetLinkBalance(address interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLinkBalance", reflect.TypeOf((*MockTxManager)(nil).GetLinkBalance), address)
 }
 
-// GetActiveAccount mocks base method
-func (m *MockTxManager) GetActiveAccount() *store.ManagedAccount {
-	ret := m.ctrl.Call(m, "GetActiveAccount")
+// NextActiveAccount mocks base method
+func (m *MockTxManager) NextActiveAccount() *store.ManagedAccount {
+	ret := m.ctrl.Call(m, "NextActiveAccount")
 	ret0, _ := ret[0].(*store.ManagedAccount)
 	return ret0
 }
 
-// GetActiveAccount indicates an expected call of GetActiveAccount
-func (mr *MockTxManagerMockRecorder) GetActiveAccount() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveAccount", reflect.TypeOf((*MockTxManager)(nil).GetActiveAccount))
+// NextActiveAccount indicates an expected call of NextActiveAccount
+func (mr *MockTxManagerMockRecorder) NextActiveAccount() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextActiveAccount", reflect.TypeOf((*MockTxManager)(nil).NextActiveAccount))
 }
 
 // GetEthBalance mocks base method
