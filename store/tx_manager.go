@@ -29,7 +29,7 @@ type TxManager interface {
 	MeetsMinConfirmations(hash common.Hash) (bool, error)
 	WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLinkBalance(address common.Address) (*assets.Link, error)
-	GetActiveAccount() *ManagedAccount
+	NextActiveAccount() *ManagedAccount
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
@@ -51,7 +51,7 @@ type EthTxManager struct {
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	ma := txm.GetActiveAccount()
+	ma := txm.NextActiveAccount()
 	if ma == nil {
 		return nil, errors.New("Must activate an account before creating a transaction")
 	}
@@ -245,7 +245,7 @@ func (txm *EthTxManager) checkAttempt(
 // the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
 func (txm *EthTxManager) GetETHAndLINKBalances() (*big.Int, *assets.Link, error) {
-	ma := txm.GetActiveAccount()
+	ma := txm.NextActiveAccount()
 	if ma == nil {
 		return big.NewInt(0), assets.NewLink(0), fmt.Errorf(
 			"Could not find activeAccount for which to report new balances")
@@ -328,9 +328,9 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	return nil
 }
 
-// GetActiveAccount uses round robing to select a managed account
+// NextActiveAccount uses round robing to select a managed account
 // from the list of available accounts as defined in Start(...)
-func (txm *EthTxManager) GetActiveAccount() *ManagedAccount {
+func (txm *EthTxManager) NextActiveAccount() *ManagedAccount {
 	if len(txm.availableAccounts) == 0 {
 		return nil
 	}

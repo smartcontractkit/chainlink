@@ -69,7 +69,7 @@ func passwordFromFile(pwdFile string) (string, error) {
 }
 
 func logIfNonceOutOfSync(store *strpkg.Store) {
-	account := store.TxManager.GetActiveAccount()
+	account := store.TxManager.NextActiveAccount()
 	lastNonce, err := store.GetLastNonce(account.Address)
 	if err != nil {
 		logger.Error("database error when checking nonce: ", err)

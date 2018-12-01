@@ -442,9 +442,39 @@ func TestTxManager_Start(t *testing.T) {
 	assert.NoError(t, txm.Start([]accounts.Account{account}))
 	ethMock.EventuallyAllCalled(t)
 
-	aa := txm.GetActiveAccount()
+	aa := txm.NextActiveAccount()
 	assert.Equal(t, account.Address, aa.Address)
 	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
+}
+
+func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
+	t.Parallel()
+
+	ethMock := &cltest.EthMock{}
+	txm := &strpkg.EthTxManager{
+		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
+	}
+	accounts := []accounts.Account{
+		accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca001")},
+		accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca002")},
+	}
+
+	ethMock.Register("eth_getTransactionCount", `0x1D0`)
+	ethMock.Register("eth_getTransactionCount", `0x2D0`)
+
+	assert.NoError(t, txm.Start(accounts))
+	ethMock.EventuallyAllCalled(t)
+
+	a0 := txm.NextActiveAccount()
+	assert.Equal(t, accounts[0].Address, a0.Address)
+	assert.Equal(t, uint64(0x1d0), a0.GetNonce())
+
+	a1 := txm.NextActiveAccount()
+	assert.Equal(t, accounts[1].Address, a1.Address)
+	assert.Equal(t, uint64(0x2d0), a1.GetNonce())
+
+	a2 := txm.NextActiveAccount()
+	assert.Equal(t, a0, a2)
 }
 
 func TestTxManager_ReloadNonce(t *testing.T) {
