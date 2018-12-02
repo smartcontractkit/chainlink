@@ -79,8 +79,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	var count int32
 	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
-	head := cltest.IndexableBlockNumber(0)
-	filter := services.NewInitiatorFilterQuery(initr, head, nil)
+	fromBlock := cltest.IndexableBlockNumber(0)
+	filter := services.NewInitiatorFilterQuery(initr, fromBlock, nil)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()

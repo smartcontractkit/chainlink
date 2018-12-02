@@ -115,6 +115,7 @@ func NewInitiatorFilterQuery(
 	head *models.IndexableBlockNumber,
 	topics [][]common.Hash,
 ) ethereum.FilterQuery {
+	// Exclude current block from future log subscription to prevent replay.
 	listenFromNumber := head.NextInt()
 	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
 	q.Topics = topics
@@ -333,7 +334,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 
 func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
 	backfilledSet := map[string]bool{}
-	if q.FromBlock.Cmp(big.NewInt(0)) <= 0 {
+	if q.FromBlock == nil {
 		return backfilledSet
 	}
 

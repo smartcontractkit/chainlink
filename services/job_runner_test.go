@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJobRunner_resumeRuns(t *testing.T) {
+func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(store)
@@ -36,7 +36,7 @@ func TestJobRunner_resumeRuns(t *testing.T) {
 	inProgressRun.Status = models.RunStatusInProgress
 	assert.NoError(t, store.Save(&inProgressRun))
 
-	assert.NoError(t, services.ExportedResumeRuns(rm))
+	assert.NoError(t, services.ExportedResumeRunsSinceLastShutdown(rm))
 	messages := []string{}
 
 	rr, open := <-store.RunChannel.Receive()
