@@ -15,7 +15,7 @@ import (
 type JobRunner interface {
 	Start() error
 	Stop()
-	resumeRuns() error
+	resumeRunsSinceLastShutdown() error
 	channelForRun(string) chan<- struct{}
 	workerCount() int
 }
@@ -56,7 +56,7 @@ func (rm *jobRunner) Start() error {
 	starterWg.Wait()
 
 	rm.demultiplexStopperWg.Add(1)
-	return rm.resumeRuns()
+	return rm.resumeRunsSinceLastShutdown()
 }
 
 // Stop closes all open worker channels.
@@ -72,7 +72,7 @@ func (rm *jobRunner) Stop() {
 	rm.demultiplexStopperWg.Wait()
 }
 
-func (rm *jobRunner) resumeRuns() error {
+func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	sleepingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
 		return err

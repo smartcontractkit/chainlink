@@ -135,7 +135,7 @@ func TestModels_IndexableBlockNumber_NextInt(t *testing.T) {
 		bn   *models.IndexableBlockNumber
 		want *big.Int
 	}{
-		{"nil", nil, big.NewInt(0)},
+		{"nil", nil, nil},
 		{"one", cltest.IndexableBlockNumber(1), big.NewInt(2)},
 	}
 	for _, test := range tests {

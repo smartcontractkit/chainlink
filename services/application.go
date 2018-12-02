@@ -80,9 +80,13 @@ func (app *ChainlinkApplication) Start() error {
 
 	return multierr.Combine(
 		app.Store.Start(),
-		app.HeadTracker.Start(),
-		app.Scheduler.Start(),
 		app.JobRunner.Start(),
+		app.Scheduler.Start(),
+		// HeadTracker deliberately started after JobRunner to prevent race
+		// condition between HeadTracker#Connect->JobSubscriber initiating
+		// runs from logs and JobRunner#Start resuming runs since last shutdown.
+		// https://www.pivotaltracker.com/story/show/162230780
+		app.HeadTracker.Start(),
 		app.SessionReaper.Start(),
 		app.BulkRunDeleter.Start(),
 	)
