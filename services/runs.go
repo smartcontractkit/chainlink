@@ -303,11 +303,11 @@ func saveAndTrigger(run *models.JobRun, store *store.Store) error {
 	}
 
 	if run.Status == models.RunStatusInProgress {
-		logger.Debugw(fmt.Sprintf("Executing new run initiated by %s", run.Initiator.Type), run.ForLogger()...)
+		logger.Debugw(fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type), run.ForLogger()...)
 		return store.RunChannel.Send(run.ID)
 	}
 
-	logger.Debugw(fmt.Sprintf("Queueing run initiated by %s", run.Initiator.Type), run.ForLogger()...)
+	logger.Debugw(fmt.Sprintf("Pausing run originally initiated by %s", run.Initiator.Type), run.ForLogger()...)
 	return nil
 }
 

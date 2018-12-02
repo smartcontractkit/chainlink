@@ -208,5 +208,6 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	assert.Nil(t, ht.Start())
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, lastSavedBN, connectedBN)
+	assert.Equal(t, currentBN, ht.Head().ToInt())
 	assert.NoError(t, ht.Stop())
 }

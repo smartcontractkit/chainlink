@@ -243,7 +243,6 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
 	} else if run.TasksRemain() {
-		logger.Debugw("All tasks completed, marking run complete", []interface{}{"run", run.ID, "task", currentTaskRun.ID}...)
 		run = queueNextTask(run, store)
 	}
 
