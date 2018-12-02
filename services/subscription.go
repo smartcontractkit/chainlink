@@ -163,6 +163,8 @@ func NewInitiatorSubscription(
 }
 
 func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
+	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %v", sub.Initiator.Type, sub.Job.ID),
+		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID)
 	sub.callback(InitiatorSubscriptionLogEvent{
 		Job:       sub.Job,
 		Initiator: sub.Initiator,
@@ -185,8 +187,7 @@ func TopicFiltersForRunLog(logTopic common.Hash, jobID string) [][]common.Hash {
 // RunLogs
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec,
 	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(
-		RunLogTopic, job.ID))
+	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(RunLogTopic, job.ID))
 	return NewInitiatorSubscription(initr, job, store, filter, receiveRunOrSALog)
 }
 
@@ -336,9 +337,10 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 		return backfilledSet
 	}
 
+	// Must manually retrieve old logs since subscribing after the fact doesn't trigger logs.
 	logs, err := sub.store.TxManager.GetLogs(q)
 	if err != nil {
-		logger.Errorw("Unable to backfill logs", "err", err)
+		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 		return backfilledSet
 	}
 

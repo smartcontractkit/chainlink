@@ -181,6 +181,11 @@ func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockN
 	}
 }
 
+// String returns a string representation of this number.
+func (l *IndexableBlockNumber) String() string {
+	return l.ToInt().String()
+}
+
 // ToInt Coerces the value into *big.Int. Also handles nil *IndexableBlockNumber values to
 // nil *big.Int.
 func (l *IndexableBlockNumber) ToInt() *big.Int {

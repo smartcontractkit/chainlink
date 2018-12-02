@@ -278,7 +278,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 func (ht *HeadTracker) fastForwardHeadFromEth() {
 	header, err := ht.store.TxManager.GetBlockByNumber("latest")
 	if err != nil {
-		logger.Errorw("Unable to update latest block header", "err", err)
+		logger.Errorw("Fast Forward: Unable to update to latest block header", "err", err, "currentHead", ht.Head().String())
 		return
 	}
 
