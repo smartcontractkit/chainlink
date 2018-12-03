@@ -4,7 +4,7 @@ import { Link } from 'react-static'
 import { useHooks, useState, useRef } from 'use-react-hooks'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
-import Button from '@material-ui/core/Button'
+import Fab from '@material-ui/core/Fab'
 import Paper from '@material-ui/core/Paper'
 import MenuItem from '@material-ui/core/MenuItem'
 import MenuList from '@material-ui/core/MenuList'
@@ -50,9 +50,8 @@ const AvatarMenu = useHooks(({classes}) => {
 
   return (
     <React.Fragment>
-      <Button
-        variant='fab'
-        mini
+      <Fab
+        size='small'
         color='primary'
         aria-label='Profile'
         className={classes.button}
@@ -62,7 +61,7 @@ const AvatarMenu = useHooks(({classes}) => {
         onClick={handleToggle}
       >
         <Avatar alt='Profile' src={face} className={classes.avatar} />
-      </Button>
+      </Fab>
       <Popper open={open} anchorEl={anchorEl.current} transition disablePortal>
         {({ TransitionProps, placement }) => (
           <Grow

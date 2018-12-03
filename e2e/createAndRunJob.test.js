@@ -39,7 +39,7 @@ describe('End to end', () => {
     await expect(page).toMatch(/success.+job/i)
 
     // Run Job
-    await expect(page).toClick('aside a')
+    await expect(page).toClick('#created-job')
     await expect(page).toMatch('Job Spec Detail')
     await expect(page).toClick('button', { text: 'Run' })
     await expect(page).toMatch(/success.+run/i)

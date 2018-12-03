@@ -47,12 +47,12 @@ const RegionalNav = ({classes, jobSpecId, jobRunId, jobRun}) => {
     <Card className={classes.container}>
       <Grid container>
         <Grid item xs={12}>
-          <Typography variant='display2' component='h2' color='secondary'>
+          <Typography variant='h3' color='secondary'>
             Job Run Detail
           </Typography>
         </Grid>
         <Grid item xs={12}>
-          <Typography variant='body1' component='h2' color='textSecondary'>
+          <Typography variant='subtitle1' color='textSecondary'>
             #{jobRunId}
           </Typography>
         </Grid>

@@ -1,5 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import { useHooks, useState } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
 import { Link } from 'react-static'
 import { connect } from 'react-redux'
@@ -22,7 +23,6 @@ import Logo from 'components/Logo'
 import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
-import { useHooks, useState } from 'use-react-hooks'
 
 const drawerWidth = 240
 

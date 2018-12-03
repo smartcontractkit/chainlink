@@ -16,7 +16,7 @@ export const Index = (props) => {
   const { bridges, bridgeCount, pageSize, bridgesError, fetchBridges, history, match } = props
   return (
     <Content>
-      <Grid container spacing={8} alignItems='center'>
+      <Grid container spacing={8}>
         <Grid item xs={9}>
           <Title>Bridges</Title>
         </Grid>

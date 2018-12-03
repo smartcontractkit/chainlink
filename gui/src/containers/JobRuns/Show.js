@@ -31,25 +31,25 @@ const renderDetails = ({classes, fetching, jobRun}) => {
         <PaddedCard>
           <Grid container spacing={16}>
             <Grid item xs={12}>
-              <Typography variant='subheading' color='textSecondary'>ID</Typography>
+              <Typography variant='subtitle1' color='textSecondary'>ID</Typography>
               <Typography variant='body1' color='inherit'>
                 {jobRun.id}
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant='subheading' color='textSecondary'>Status</Typography>
+              <Typography variant='subtitle1' color='textSecondary'>Status</Typography>
               <Typography variant='body1' color='inherit'>
                 {jobRun.status}
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant='subheading' color='textSecondary'>Created</Typography>
+              <Typography variant='subtitle1' color='textSecondary'>Created</Typography>
               <Typography variant='body1' color='inherit'>
                 <TimeAgo>{jobRun.createdAt}</TimeAgo>
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant='subheading' color='textSecondary'>Result</Typography>
+              <Typography variant='subtitle1' color='textSecondary'>Result</Typography>
               <Typography variant='body1' color='inherit'>
                 {jobRun.result && JSON.stringify(jobRun.result.data)}
               </Typography>

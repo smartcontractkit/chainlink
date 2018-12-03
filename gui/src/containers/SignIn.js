@@ -14,6 +14,9 @@ import { useHooks, useState } from 'use-react-hooks'
 const styles = theme => ({
   button: {
     margin: theme.spacing.unit * 5
+  },
+  title: {
+    marginTop: theme.spacing.unit * 5
   }
 })
 
@@ -35,7 +38,7 @@ export const SignIn = useHooks((props) => {
   return (
     <form noValidate onSubmit={onSubmit}>
       <Grid container alignItems='center' direction='column'>
-        <Title>Sign In to Chainlink</Title>
+        <Title className={classes.title}>Sign In to Chainlink</Title>
         <TextField
           id='email'
           label='Email'
