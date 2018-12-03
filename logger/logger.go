@@ -76,7 +76,7 @@ func CreateProductionLogger(
 	}
 	config.Level.SetLevel(lvl)
 
-	zl, err := config.Build(zap.AddCallerSkip(1))
+	zl, err := config.Build(zap.AddCallerSkip(1), zap.AddStacktrace(zapcore.WarnLevel))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func CreateTestLogger() *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(zapcore.DebugLevel)
 	config.OutputPaths = []string{"pretty://console"}
-	zl, err := config.Build(zap.AddCallerSkip(1))
+	zl, err := config.Build(zap.AddCallerSkip(1), zap.AddStacktrace(zapcore.WarnLevel))
 	if err != nil {
 		log.Fatal(err)
 	}
