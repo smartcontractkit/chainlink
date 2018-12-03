@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import { Button } from '@material-ui/core'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
@@ -16,34 +15,28 @@ import bridgeSelector from 'selectors/bridge'
 import Content from 'components/Content'
 import { useHooks, useEffect } from 'use-react-hooks'
 
-const styles = theme => ({
-  main: {
-    marginTop: theme.spacing.unit * 5
-  }
-})
-
 const renderLoading = () => (
   <div>Loading...</div>
 )
 
 const renderLoaded = props => (
   <PaddedCard>
-    <Typography variant='subheading' color='textSecondary'>Name</Typography>
+    <Typography variant='subtitle1' color='textSecondary'>Name</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.name}</Typography>
 
-    <Typography variant='subheading' color='textSecondary'>URL</Typography>
+    <Typography variant='subtitle1' color='textSecondary'>URL</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.url}</Typography>
 
-    <Typography variant='subheading' color='textSecondary'>Confirmations</Typography>
+    <Typography variant='subtitle1' color='textSecondary'>Confirmations</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.confirmations}</Typography>
 
-    <Typography variant='subheading' color='textSecondary'>Minimum Contract Payment</Typography>
+    <Typography variant='subtitle1' color='textSecondary'>Minimum Contract Payment</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.minimumContractPayment}</Typography>
 
-    <Typography variant='subheading' color='textSecondary'>Incoming Token</Typography>
+    <Typography variant='subtitle1' color='textSecondary'>Incoming Token</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.incomingToken}</Typography>
 
-    <Typography variant='subheading' color='textSecondary'>Outgoing Token</Typography>
+    <Typography variant='subtitle1' color='textSecondary'>Outgoing Token</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.outgoingToken}</Typography>
   </PaddedCard>
 )
@@ -65,7 +58,7 @@ export const Show = useHooks(props => {
           </Breadcrumb>
         </Grid>
         <Grid item xs={12} md={12} xl={6}>
-          <Grid container alignItems='center'>
+          <Grid container>
             <Grid item xs={9}>
               <Title>Bridge Info</Title>
             </Grid>
@@ -87,9 +80,7 @@ export const Show = useHooks(props => {
             </Grid>
           </Grid>
 
-          <div className={props.classes.main}>
-            {renderDetails(props)}
-          </div>
+          {renderDetails(props)}
         </Grid>
       </Grid>
     </Content>
@@ -110,4 +101,4 @@ export const ConnectedShow = connect(
   matchRouteAndMapDispatchToProps({fetchBridgeSpec})
 )(Show)
 
-export default withStyles(styles)(ConnectedShow)
+export default ConnectedShow

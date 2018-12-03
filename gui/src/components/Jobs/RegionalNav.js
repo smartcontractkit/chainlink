@@ -65,18 +65,18 @@ const RegionalNav = ({classes, createJobRun, fetchJob, jobSpecId, job}) => {
     <Card className={classes.container}>
       <Grid container>
         <Grid item xs={12}>
-          <Typography variant='display2' component='h2' color='secondary'>
+          <Typography variant='h3' color='secondary'>
             Job Spec Detail
           </Typography>
         </Grid>
         <Grid item xs={12}>
           <Grid container alignItems='center'>
-            <Grid item xs={9}>
-              <Typography variant='body1' component='h2' color='textSecondary'>
+            <Grid item xs={7}>
+              <Typography variant='subtitle1' color='textSecondary'>
                 @{jobSpecId}
               </Typography>
             </Grid>
-            <Grid item align='right' xs={3}>
+            <Grid item align='right' xs={5}>
               {job && isWebInitiator(job.initiators) && (
                 <Button variant='outlined' color='primary' onClick={handleClick}>
                   Run

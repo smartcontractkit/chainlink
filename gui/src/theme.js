@@ -40,6 +40,7 @@ export default {
     }
   },
   typography: {
+    useNextVariants: true,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Roboto", "Helvetica", "Arial", sans-serif',
     body1: {
       fontSize: '1.0rem',

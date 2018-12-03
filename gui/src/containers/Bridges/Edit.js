@@ -49,7 +49,7 @@ export const Edit = useHooks(props => {
           </Breadcrumb>
         </Grid>
         <Grid item xs={12} md={12} xl={6}>
-          <Grid container alignItems='center'>
+          <Grid container>
             <Grid item xs={9}>
               <Title>Edit Bridge</Title>
             </Grid>
@@ -57,14 +57,14 @@ export const Edit = useHooks(props => {
               <Grid container justify='flex-end'>
                 <Grid item>
                   {bridge &&
-                  <Button
-                    variant='outlined'
-                    color='primary'
-                    component={ReactStaticLinkComponent}
-                    to={`/bridges/${bridge.id}`}
-                  >
-                        Cancel
-                  </Button>
+                    <Button
+                      variant='outlined'
+                      color='primary'
+                      component={ReactStaticLinkComponent}
+                      to={`/bridges/${bridge.id}`}
+                    >
+                      Cancel
+                    </Button>
                   }
                 </Grid>
               </Grid>
