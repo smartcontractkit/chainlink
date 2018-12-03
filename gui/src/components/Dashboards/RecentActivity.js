@@ -82,7 +82,7 @@ const RecentActivity = ({classes, runs}) => {
                       </Grid>
                       <Grid item xs={12}>
                         <Link to={`/jobs/${r.jobId}`}>
-                          <Typography variant='h6' color='textPrimary' component='span'>
+                          <Typography variant='h5' color='textPrimary' component='span'>
                             @{r.jobId}
                           </Typography>
                         </Link>
