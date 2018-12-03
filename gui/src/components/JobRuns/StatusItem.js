@@ -46,7 +46,7 @@ const styles = theme => {
   }
 }
 
-const render = (summary, borderTop, children, classes) => {
+const render = (summary, children, classes) => {
   if (children) {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
@@ -75,7 +75,7 @@ const StatusItem = ({status, summary, borderTop, children, classes}) => (
     <div className={classes.details}>
       <Grid container>
         <Grid item xs={12}>
-          {render(summary, borderTop, children, classes)}
+          {render(summary, children, classes)}
         </Grid>
       </Grid>
     </div>
