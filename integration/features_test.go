@@ -556,3 +556,47 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 
 }
+
+func TestIntegration_BulkDeleteRuns(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	eth := app.MockEthClient()
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.Register("eth_getBlockByNumber", models.BlockHeader{})
+	})
+	app.Start()
+
+	job, initiator := cltest.NewJobWithWebInitiator()
+	completedRun := job.NewRun(initiator)
+	completedRun.Status = models.RunStatusCompleted
+	completedRun.UpdatedAt = cltest.ParseISO8601("2018-11-02T10:14:18Z")
+	err := app.GetStore().ORM.Save(&completedRun)
+	assert.NoError(t, err)
+
+	client := app.NewHTTPClient()
+	request := `{
+		"status": ["completed", "errored"],
+		"updatedBefore": "2018-11-28T21:24:03Z"
+	}`
+	resp, cleanup := client.Post("/v2/bulk_delete_runs", bytes.NewBufferString(request))
+	defer cleanup()
+	assert.Equal(t, 201, resp.StatusCode)
+	task := models.BulkDeleteRunTask{}
+	err = cltest.ParseJSONAPIResponse(resp, &task)
+	assert.NoError(t, err)
+
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		resp, cleanup = client.Get("/v2/bulk_delete_runs/" + task.ID)
+		defer cleanup()
+		assert.Equal(t, 200, resp.StatusCode)
+		err = cltest.ParseJSONAPIResponse(resp, &task)
+		assert.NoError(t, err)
+		return task.Status == "completed"
+	}).Should(gomega.BeTrue())
+
+	runCount, err := app.Store.Count(&models.JobRun{})
+	assert.NoError(t, err)
+	assert.Equal(t, 0, runCount)
+}

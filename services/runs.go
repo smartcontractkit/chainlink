@@ -22,11 +22,11 @@ func ExecuteJob(
 	creationHeight *hexutil.Big,
 	store *store.Store) (*models.JobRun, error) {
 
-	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type), []interface{}{
+	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
 		"job", job.ID,
 		"input_status", input.Status,
 		"creation_height", creationHeight.ToInt(),
-	}...)
+	)
 
 	run, err := NewRun(job, initiator, input, creationHeight, store)
 	if err != nil {
@@ -193,7 +193,7 @@ func ResumePendingTask(
 	if run.Overrides, err = run.Overrides.Merge(input); err != nil {
 		run.TaskRuns[currentTaskRunIndex] = currentTaskRun.ApplyResult(input.WithError(err))
 		*run = run.ApplyResult(input.WithError(err))
-		return run, store.Save(run)
+		return run, store.SaveJobRun(run)
 	}
 
 	currentTaskRun = currentTaskRun.ApplyResult(input)
@@ -232,7 +232,7 @@ func QueueSleepingTask(
 	if err != nil {
 		run.TaskRuns[currentTaskRunIndex] = currentTaskRun.ApplyResult(run.Result.WithError(err))
 		*run = run.ApplyResult(run.Result.WithError(err))
-		return run, store.Save(run)
+		return run, store.SaveJobRun(run)
 	}
 
 	if sleepAdapter, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
@@ -298,7 +298,7 @@ func meetsMinimumConfirmations(
 }
 
 func saveAndTrigger(run *models.JobRun, store *store.Store) error {
-	if err := store.Save(run); err != nil {
+	if err := store.SaveJobRun(run); err != nil {
 		return err
 	}
 

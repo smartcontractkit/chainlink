@@ -21,6 +21,7 @@ type JobRun struct {
 	TaskRuns       []TaskRun    `json:"taskRuns" storm:"inline"`
 	CreatedAt      time.Time    `json:"createdAt" storm:"index"`
 	CompletedAt    null.Time    `json:"completedAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
 	Initiator      Initiator    `json:"initiator"`
 	CreationHeight *hexutil.Big `json:"creationHeight"`
 	ObservedHeight *hexutil.Big `json:"observedHeight"`
