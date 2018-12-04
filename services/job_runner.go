@@ -56,7 +56,7 @@ func (rm *jobRunner) Start() error {
 	starterWg.Wait()
 
 	rm.demultiplexStopperWg.Add(1)
-	return rm.resumeRunsSinceLastShutdown()
+	return nil
 }
 
 // Stop closes all open worker channels.
@@ -72,6 +72,16 @@ func (rm *jobRunner) Stop() {
 	rm.demultiplexStopperWg.Wait()
 }
 
+// resumeRunsSinceLastShutdown queries the db for job runs that should be resumed
+// since a previous node shutdown.
+//
+// As a result of its reliance on the database, it must run before anything
+// persists a job RunStatus to the db to ensure that it only captures pending and in progress
+// jobs as a result of the last shutdown, and not as a result of what's happening now.
+//
+// To recap: This must run before anything else writes job run status to the db,
+// ie. tries to run a job.
+// https://github.com/smartcontractkit/chainlink/pull/807
 func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	sleepingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
