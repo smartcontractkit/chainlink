@@ -106,6 +106,12 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 	return jr, err
 }
 
+// SaveJobRun updates UpdatedAt for a JobRun and saves it
+func (orm *ORM) SaveJobRun(run *models.JobRun) error {
+	run.UpdatedAt = time.Now()
+	return orm.Save(run)
+}
+
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
 func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
 	var sa models.ServiceAgreement

@@ -19,7 +19,8 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *store.Store
-	GetReaper() Reaper
+	WakeSessionReaper()
+	WakeBulkRunDeleter()
 	AddJob(job models.JobSpec) error
 	AddAdapter(bt *models.BridgeType) error
 	RemoveAdapter(bt *models.BridgeType) error
@@ -36,7 +37,8 @@ type ChainlinkApplication struct {
 	JobSubscriber   JobSubscriber
 	Scheduler       *Scheduler
 	Store           *store.Store
-	Reaper          Reaper
+	SessionReaper   SleeperTask
+	BulkRunDeleter  SleeperTask
 	bridgeTypeMutex sync.Mutex
 	jobSubscriberID string
 }
@@ -49,13 +51,14 @@ func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:   ht,
-		JobSubscriber: NewJobSubscriber(store),
-		JobRunner:     NewJobRunner(store),
-		Scheduler:     NewScheduler(store),
-		Store:         store,
-		Reaper:        NewStoreReaper(store),
-		Exiter:        os.Exit,
+		HeadTracker:    ht,
+		JobSubscriber:  NewJobSubscriber(store),
+		JobRunner:      NewJobRunner(store),
+		Scheduler:      NewScheduler(store),
+		Store:          store,
+		SessionReaper:  NewStoreReaper(store),
+		BulkRunDeleter: NewBulkRunDeleter(store),
+		Exiter:         os.Exit,
 	}
 }
 
@@ -80,7 +83,8 @@ func (app *ChainlinkApplication) Start() error {
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
 		app.JobRunner.Start(),
-		app.Reaper.Start(),
+		app.SessionReaper.Start(),
+		app.BulkRunDeleter.Start(),
 	)
 }
 
@@ -94,7 +98,8 @@ func (app *ChainlinkApplication) Stop() error {
 	app.Scheduler.Stop()
 	merr = multierr.Append(merr, app.HeadTracker.Stop())
 	app.JobRunner.Stop()
-	merr = multierr.Append(merr, app.Reaper.Stop())
+	merr = multierr.Append(merr, app.SessionReaper.Stop())
+	merr = multierr.Append(merr, app.BulkRunDeleter.Stop())
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	return multierr.Append(merr, app.Store.Close())
 }
@@ -104,9 +109,14 @@ func (app *ChainlinkApplication) GetStore() *store.Store {
 	return app.Store
 }
 
-// GetReaper returns the reaper service for cleaning stale items.
-func (app *ChainlinkApplication) GetReaper() Reaper {
-	return app.Reaper
+// WakeSessionReaper wakes up the reaper to do its reaping.
+func (app *ChainlinkApplication) WakeSessionReaper() {
+	app.SessionReaper.WakeUp()
+}
+
+// WakeBulkRunDeleter wakes up the bulk task runner to process tasks.
+func (app *ChainlinkApplication) WakeBulkRunDeleter() {
+	app.BulkRunDeleter.WakeUp()
 }
 
 // AddJob adds a job to the store and the scheduler. If there was

@@ -88,9 +88,9 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 	}
 
 	ibn := head.ToIndexableBlockNumber().Number
-	logger.Debugw("Received new head", []interface{}{
+	logger.Debugw("Received new head",
 		"current_height", ibn,
-		"pending_run_count", len(pendingRuns)}...,
+		"pending_run_count", len(pendingRuns),
 	)
 	for _, jr := range pendingRuns {
 		_, err := ResumeConfirmingTask(&jr, js.store, &ibn)
