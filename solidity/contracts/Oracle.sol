@@ -77,6 +77,7 @@ contract Oracle is OracleInterface, Ownable {
     checkCallbackAddress(_callbackAddress)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
+    require(callbacks[internalId].externalId != _externalId, "Must use a unique ID");
     callbacks[internalId] = Callback(
       _externalId,
       _amount,
