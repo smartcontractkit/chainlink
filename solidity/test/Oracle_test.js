@@ -151,6 +151,13 @@ contract('Oracle', () => {
         let eventSignature = '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
         assert.equal(eventSignature, log.topics[0])
       })
+
+      it('does not allow the same requestId to be used twice', async () => {
+        let args2 = h.requestDataBytes(specId, to, fHash, 'id', '')
+        await h.assertActionThrows(async () => {
+          await h.requestDataFrom(oc, link, paid, args2)
+        })
+      })
     })
 
     context('when not called through the LINK token', () => {
