@@ -80,13 +80,16 @@ func (app *ChainlinkApplication) Start() error {
 
 	return multierr.Combine(
 		app.Store.Start(),
+
+		// Deliberately started immediately after Store, to start the RunChannel consumer
 		app.JobRunner.Start(),
-		app.Scheduler.Start(),
-		// HeadTracker deliberately started after JobRunner to prevent race
-		// condition between HeadTracker#Connect->JobSubscriber initiating
-		// runs from logs and JobRunner#Start resuming runs since last shutdown.
+		app.JobRunner.resumeRunsSinceLastShutdown(), // Started before any other service writes RunStatus to db.
+
+		// HeadTracker deliberately started after JobRunner#resumeRunsSinceLastShutdown
+		// since it Connects JobSubscriber which leads to writes of JobRuns RunStatus to the db.
 		// https://www.pivotaltracker.com/story/show/162230780
 		app.HeadTracker.Start(),
+		app.Scheduler.Start(),
 		app.SessionReaper.Start(),
 		app.BulkRunDeleter.Start(),
 	)
