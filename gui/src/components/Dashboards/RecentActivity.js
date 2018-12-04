@@ -8,8 +8,8 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import CardContent from '@material-ui/core/CardContent'
 import Button from '@material-ui/core/Button'
+import CardContent from '@material-ui/core/CardContent'
 import Card from '@material-ui/core/Card'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Link from 'components/Link'
@@ -82,7 +82,7 @@ const RecentActivity = ({classes, runs}) => {
                       </Grid>
                       <Grid item xs={12}>
                         <Link to={`/jobs/${r.jobId}`}>
-                          <Typography variant='h6' color='textPrimary' component='span'>
+                          <Typography variant='h5' color='textPrimary' component='span'>
                             @{r.jobId}
                           </Typography>
                         </Link>
