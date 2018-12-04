@@ -389,7 +389,8 @@ type EmptyApplication struct{}
 func (*EmptyApplication) Start() error                              { return nil }
 func (*EmptyApplication) Stop() error                               { return nil }
 func (*EmptyApplication) GetStore() *store.Store                    { return nil }
-func (*EmptyApplication) GetReaper() services.Reaper                { return nil }
+func (*EmptyApplication) WakeSessionReaper()                        {}
+func (*EmptyApplication) WakeBulkRunDeleter()                       {}
 func (*EmptyApplication) AddJob(job models.JobSpec) error           { return nil }
 func (*EmptyApplication) AddAdapter(bt *models.BridgeType) error    { return nil }
 func (*EmptyApplication) RemoveAdapter(bt *models.BridgeType) error { return nil }

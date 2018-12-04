@@ -41,7 +41,7 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 			session.LastUsed = models.Time{test.lastUsed}
 			require.NoError(t, store.Save(&session))
 
-			r.ReapSessions()
+			r.WakeUp()
 
 			if test.wantReap {
 				gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
