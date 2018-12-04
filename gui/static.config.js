@@ -28,14 +28,12 @@ export default {
       {path: '/bridges/new'},
       {path: '/bridges/_bridgeId_'},
       {path: '/bridges/_bridgeId_/edit'},
-      {path: '/config'},
-      {path: '/signin'},
-      {path: '/signout'},
       {
-        path: '/about',
-        component: 'src/containers/About',
+        path: '/config',
         getData: () => buildInfo
       },
+      {path: '/signin'},
+      {path: '/signout'},
       {is404: true, component: 'src/containers/404'}
     ]
   },
