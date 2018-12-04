@@ -207,7 +207,7 @@ func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
 	return l.ToInt().Cmp(r.ToInt()) > 0
 }
 
-// NextInt returns the next BlockNumber as big.int
+// NextInt returns the next BlockNumber as big.int, or nil if nil to represent latest.
 func (l *IndexableBlockNumber) NextInt() *big.Int {
 	if l == nil {
 		return nil
