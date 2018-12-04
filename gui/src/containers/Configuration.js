@@ -1,6 +1,6 @@
 import React from 'react'
-import { useHooks, useEffect } from 'use-react-hooks'
 import PropTypes from 'prop-types'
+import { useHooks, useEffect } from 'use-react-hooks'
 import { connect } from 'react-redux'
 import { withRouteData } from 'react-static'
 import Grid from '@material-ui/core/Grid'
@@ -11,6 +11,7 @@ import Divider from '@material-ui/core/Divider'
 import PaddedCard from 'components/PaddedCard'
 import ConfigList from 'components/ConfigList'
 import Content from 'components/Content'
+import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import { fetchConfiguration } from 'actions'
 import configsSelector from 'selectors/configs'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -21,7 +22,7 @@ export const Configuration = useHooks(props => {
   return (
     <Content>
       <Grid container spacing={40}>
-        <Grid item xs={8}>
+        <Grid item sm={12} md={8}>
           <Card>
             <CardContent>
               <Typography variant='h5' color='secondary'>
@@ -31,20 +32,17 @@ export const Configuration = useHooks(props => {
 
             <Divider />
 
-            <ConfigList
-              configs={props.configs}
-              error={props.error}
-            />
+            <ConfigList configs={props.configs} error={props.error} />
           </Card>
         </Grid>
-        <Grid item xs={4}>
+        <Grid item sm={12} md={4}>
           <Grid container spacing={40}>
             <Grid item xs={12}>
               <PaddedCard>
                 <Typography variant='h5' color='secondary'>
                   Version
                 </Typography>
-                <Typography variant='body1'>
+                <Typography variant='body1' color='textSecondary'>
                   {props.version}
                 </Typography>
               </PaddedCard>
@@ -54,10 +52,13 @@ export const Configuration = useHooks(props => {
                 <Typography variant='h5' color='secondary'>
                   SHA
                 </Typography>
-                <Typography variant='body1'>
+                <Typography variant='body1' color='textSecondary'>
                   {props.sha}
                 </Typography>
               </PaddedCard>
+            </Grid>
+            <Grid item xs={12}>
+              <DeleteJobRuns />
             </Grid>
           </Grid>
         </Grid>

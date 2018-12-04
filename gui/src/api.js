@@ -125,3 +125,11 @@ export const updateBridge = data => {
 }
 
 export const destroySession = () => destroy(`/sessions`)
+
+export const bulkDeleteJobRuns = (status, updatedBefore) => post(
+  '/v2/bulk_delete_runs',
+  {
+    status: status,
+    updatedBefore: updatedBefore
+  }
+)
