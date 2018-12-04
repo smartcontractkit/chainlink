@@ -133,7 +133,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.JobSubscriber.AddJob(job, app.HeadTracker.Head())
+	return app.JobSubscriber.AddJob(job, nil) // nil for latest
 }
 
 // AddAdapter adds an adapter to the store. If another
