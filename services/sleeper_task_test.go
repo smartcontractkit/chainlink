@@ -25,7 +25,10 @@ func TestSleeperTask(t *testing.T) {
 	sleeper := NewSleeperTask(&worker)
 
 	assert.Equal(t, uint64(0), worker.Counter())
-	sleeper.Start()
+	startErr := sleeper.Start()
+	if startErr != nil {
+		return
+	}
 
 	assert.Equal(t, uint64(0), worker.Counter())
 
@@ -34,6 +37,8 @@ func TestSleeperTask(t *testing.T) {
 		return worker.Counter() == 1
 	}).Should(gomega.Equal(true))
 
-	sleeper.Stop()
-	assert.Equal(t, uint64(1), worker.Counter())
+	stopErr := sleeper.Stop()
+	if stopErr == nil {
+		assert.Equal(t, uint64(1), worker.Counter())
+	}
 }
