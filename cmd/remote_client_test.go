@@ -20,8 +20,6 @@ import (
 func TestClient_DisplayAccountBalance(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	account, err := app.Store.KeyStore.GetAccount()
-	assert.NoError(t, err)
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getBalance", "0x0100")
@@ -31,7 +29,8 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 
 	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	assert.Equal(t, account.Address.Hex(), r.Renders[0].(*presenters.AccountBalance).Address)
+	from := cltest.GetAccountAddress(app.GetStore())
+	assert.Equal(t, from.Hex(), r.Renders[0].(*presenters.AccountBalance).Address)
 }
 
 func TestClient_GetJobSpecs(t *testing.T) {
@@ -448,7 +447,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 }
 
 func setupWithdrawalsApplication() (*cltest.TestApplication, func()) {
-	config, _ := cltest.NewConfigWithPrivateKey()
+	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.OracleContractAddress = &oca
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)

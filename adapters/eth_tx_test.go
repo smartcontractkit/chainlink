@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
@@ -244,6 +245,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	config := store.Config
 
 	ethMock := app.MockEthClient()
+	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
@@ -258,6 +260,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
 
+	require.NoError(t, app.Start())
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
@@ -389,6 +392,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	txmMock := mock_store.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
+	txmMock.EXPECT().Start(gomock.Any())
 	txmMock.EXPECT().CreateTx(gomock.Any(), hexutil.MustDecode(
 		"0x00000000"+
 			"0000000000000000000000000000000000000000000000000000000000000020"+

@@ -87,6 +87,17 @@ func (l *Link) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// IsZero returns true when the value is 0 and false otherwise
+func (l *Link) IsZero() bool {
+	zero := big.NewInt(0)
+	return (*big.Int)(l).Cmp(zero) == 0
+}
+
+// Symbol returns LINK
+func (*Link) Symbol() string {
+	return "LINK"
+}
+
 // Eth contains a field to represent the smallest units of ETH
 type Eth big.Int
 
@@ -132,4 +143,9 @@ func (e *Eth) UnmarshalText(text []byte) error {
 func (e *Eth) IsZero() bool {
 	zero := big.NewInt(0)
 	return (*big.Int)(e).Cmp(zero) == 0
+}
+
+// Symbol returns ETH
+func (*Eth) Symbol() string {
+	return "ETH"
 }

@@ -24,12 +24,12 @@ const nonceReloadLimit uint = 1
 
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
+	Start(accounts []accounts.Account) error
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
-	ActivateAccount(account accounts.Account) error
 	MeetsMinConfirmations(hash common.Hash) (bool, error)
 	WithdrawLink(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLinkBalance(address common.Address) (*assets.Link, error)
-	GetActiveAccount() *ManagedAccount
+	NextActiveAccount() *ManagedAccount
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
@@ -42,31 +42,33 @@ type TxManager interface {
 // the local Config for the application, and the database.
 type EthTxManager struct {
 	*EthClient
-	keyStore      *KeyStore
-	config        Config
-	orm           *orm.ORM
-	activeAccount *ManagedAccount
+	keyStore            *KeyStore
+	config              Config
+	orm                 *orm.ORM
+	availableAccounts   []*ManagedAccount
+	availableAccountIdx int
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	return txm.createTxWithNonceReload(to, data, 0)
-}
-
-func (txm *EthTxManager) createTxWithNonceReload(to common.Address, data []byte, nrc uint) (*models.Tx, error) {
-	if txm.activeAccount == nil {
+	ma := txm.NextActiveAccount()
+	if ma == nil {
 		return nil, errors.New("Must activate an account before creating a transaction")
 	}
 
+	return txm.createTxWithNonceReload(ma, to, data, 0)
+}
+
+func (txm *EthTxManager) createTxWithNonceReload(ma *ManagedAccount, to common.Address, data []byte, nrc uint) (*models.Tx, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return nil, err
 	}
 
 	var tx *models.Tx
-	err = txm.activeAccount.GetAndIncrementNonce(func(nonce uint64) error {
+	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
 		tx, err = txm.orm.CreateTx(
-			txm.activeAccount.Address,
+			ma.Address,
 			nonce,
 			to,
 			data,
@@ -77,7 +79,7 @@ func (txm *EthTxManager) createTxWithNonceReload(to common.Address, data []byte,
 			return err
 		}
 
-		logger.Infow(fmt.Sprintf("Created ETH transaction, attempt #: %v", nrc), "from", txm.activeAccount.Address.String(), "to", to.String())
+		logger.Infow(fmt.Sprintf("Created ETH transaction, attempt #: %v", nrc), "from", ma.Address.String(), "to", to.String())
 		gasPrice := txm.config.EthGasPriceDefault
 		var txa *models.TxAttempt
 		txa, err = txm.createAttempt(tx, &gasPrice, blkNum)
@@ -104,12 +106,12 @@ func (txm *EthTxManager) createTxWithNonceReload(to common.Address, data []byte,
 			}
 
 			logger.Warnw("Transaction nonce is too low. Reloading the nonce from the network and reattempting the transaction.")
-			err = txm.ReloadNonce()
+			err = txm.ReloadNonce(ma)
 			if err != nil {
 				return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
 			}
 
-			return txm.createTxWithNonceReload(to, data, nrc+1)
+			return txm.createTxWithNonceReload(ma, to, data, nrc+1)
 		}
 	}
 
@@ -183,8 +185,12 @@ func (txm *EthTxManager) createAttempt(
 	gasPrice *big.Int,
 	blkNum uint64,
 ) (*models.TxAttempt, error) {
+	ma := txm.getAccount(tx.From)
+	if ma == nil {
+		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
+	}
 	etx := tx.EthTx(gasPrice)
-	etx, err := txm.keyStore.SignTx(etx, txm.config.ChainID)
+	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,11 +245,12 @@ func (txm *EthTxManager) checkAttempt(
 // the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
 func (txm *EthTxManager) GetETHAndLINKBalances() (*big.Int, *assets.Link, error) {
-	if txm.activeAccount == nil {
+	ma := txm.NextActiveAccount()
+	if ma == nil {
 		return big.NewInt(0), assets.NewLink(0), fmt.Errorf(
 			"Could not find activeAccount for which to report new balances")
 	}
-	address := txm.activeAccount.Account.Address
+	address := ma.Account.Address
 	linkBalance, linkErr := txm.GetLinkBalance(address)
 	ethBalance, ethErr := txm.EthClient.GetWeiBalance(address)
 	merr := multierr.Append(linkErr, ethErr)
@@ -314,41 +321,68 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.config.EthGasBumpWei)
 	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
+	if err != nil {
+		return err
+	}
 	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
-	return err
+	return nil
 }
 
-// GetActiveAccount returns a copy of the TxManager's active nonce managed
-// account.
-func (txm *EthTxManager) GetActiveAccount() *ManagedAccount {
-	if txm.activeAccount == nil {
+// NextActiveAccount uses round robing to select a managed account
+// from the list of available accounts as defined in Start(...)
+func (txm *EthTxManager) NextActiveAccount() *ManagedAccount {
+	if len(txm.availableAccounts) == 0 {
 		return nil
 	}
-	return &ManagedAccount{
-		Account: txm.activeAccount.Account,
-		nonce:   txm.activeAccount.nonce,
+
+	current := txm.availableAccountIdx
+	txm.availableAccountIdx++
+	if txm.availableAccountIdx >= len(txm.availableAccounts) {
+		txm.availableAccountIdx = 0
 	}
+	return txm.availableAccounts[current]
+}
+
+func (txm *EthTxManager) getAccount(from common.Address) *ManagedAccount {
+	for _, a := range txm.availableAccounts {
+		if a.Address == from {
+			return a
+		}
+	}
+
+	return nil
+}
+
+// Start activates accounts for outgoing transactions and client side
+// nonce management.
+func (txm *EthTxManager) Start(accounts []accounts.Account) error {
+	var merr error
+	for _, a := range accounts {
+		merr = multierr.Append(merr, txm.activateAccount(a))
+	}
+
+	return merr
 }
 
 // ActivateAccount retrieves an account's nonce from the blockchain for client
 // side management in ManagedAccount.
-func (txm *EthTxManager) ActivateAccount(account accounts.Account) error {
+func (txm *EthTxManager) activateAccount(account accounts.Account) error {
 	nonce, err := txm.GetNonce(account.Address)
 	if err != nil {
 		return err
 	}
 
-	txm.activeAccount = &ManagedAccount{Account: account, nonce: nonce}
+	txm.availableAccounts = append(txm.availableAccounts, NewManagedAccount(account, nonce))
 	return nil
 }
 
 // ReloadNonce fetch and update the current nonce via eth_getTransactionCount
-func (txm *EthTxManager) ReloadNonce() error {
-	nonce, err := txm.GetNonce(txm.activeAccount.Address)
+func (txm *EthTxManager) ReloadNonce(ma *ManagedAccount) error {
+	nonce, err := txm.GetNonce(ma.Address)
 	if err != nil {
 		return fmt.Errorf("TxManager ReloadNonce: %v", err)
 	}
-	txm.activeAccount.nonce = nonce
+	ma.nonce = nonce
 	return nil
 }
 
@@ -357,7 +391,13 @@ func (txm *EthTxManager) ReloadNonce() error {
 type ManagedAccount struct {
 	accounts.Account
 	nonce uint64
-	mutex sync.Mutex
+	mutex *sync.Mutex
+}
+
+// NewManagedAccount creates a managed account that handles nonce increments
+// locally.
+func NewManagedAccount(a accounts.Account, nonce uint64) *ManagedAccount {
+	return &ManagedAccount{Account: a, nonce: nonce, mutex: &sync.Mutex{}}
 }
 
 // GetNonce returns the client side managed nonce.
