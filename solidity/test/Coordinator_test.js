@@ -139,11 +139,11 @@ contract('Coordinator', () => {
 
     beforeEach(async () => {
       await initiateServiceAgreement(coordinator, agreement)
-      await link.transfer(consumer, toWei(1000))
+      await link.transfer(consumer, web3.toWei('1', 'ether'))
     })
 
     context('when called through the LINK token with enough payment', () => {
-      const payload = executeServiceAgreementBytes(agreement.id, to, fHash, '1', '')
+      const payload = executeServiceAgreementBytes(consumer, agreement.id, fHash, '1', '')
       let tx
 
       beforeEach(async () => {
@@ -165,11 +165,19 @@ contract('Coordinator', () => {
         assert.equal(consumer, web3.toDecimal(log.topics[2]))
         assert.equal(agreement.payment, web3.toDecimal(log.topics[3]))
       })
+
+      it('does not allow the same requestId to be used twice', async () => {
+        await assertActionThrows(async () => {
+          await link.transferAndCall(coordinator.address, agreement.payment, payload, {
+            from: consumer
+          })
+        })
+      })
     })
 
     context('when called through the LINK token with not enough payment', () => {
       it('throws an error', async () => {
-        const calldata = executeServiceAgreementBytes(agreement.id, to, fHash, '1', '')
+        const calldata = executeServiceAgreementBytes(consumer, agreement.id, fHash, '1', '')
         const underPaid = bigNum(agreement.payment).sub(1)
 
         await assertActionThrows(async () => {
@@ -183,7 +191,7 @@ contract('Coordinator', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
-          await coordinator.executeServiceAgreement(0, 0, 1, agreement.id, to, fHash, 'id', '', { from: consumer })
+          await coordinator.executeServiceAgreement(to, 0, 1, agreement.id, fHash, 'id', '', { from: consumer })
         })
       })
     })
@@ -192,18 +200,18 @@ contract('Coordinator', () => {
   describe('#fulfillData', () => {
     const agreement = newServiceAgreement({oracles: [oracleNode]})
     const externalId = '17'
+    let currency = 'USD'
 
     let mock, internalId
 
     beforeEach(async () => {
       await initiateServiceAgreement(coordinator, agreement)
 
-      mock = await deploy('examples/GetterSetter.sol')
-      const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
-
-      const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, externalId, '')
-      const tx = await link.transferAndCall(coordinator.address, agreement.payment, payload)
-      internalId = runRequestId(tx.receipt.logs[2])
+      mock = await deploy('examples/ServiceAgreementConsumer.sol', link.address, coordinator.address, agreement.id)
+      await link.transfer(mock.address, web3.toWei('1', 'ether'))
+      await mock.requestEthereumPrice(currency)
+      let event = await getLatestEvent(coordinator)
+      internalId = event.args.internalId
     })
 
     context('cooperative consumer', () => {
@@ -225,10 +233,7 @@ contract('Coordinator', () => {
         it('sets the value on the requested contract', async () => {
           await coordinator.fulfillData(internalId, 'Hello World!', { from: oracleNode })
 
-          const mockRequestId = await mock.requestId.call()
-          assert.equal(externalId, web3.toUtf8(mockRequestId))
-
-          const currentValue = await mock.getBytes32.call()
+          const currentValue = await mock.currentPrice.call()
           assert.equal('Hello World!', web3.toUtf8(currentValue))
         })
 
@@ -250,16 +255,6 @@ contract('Coordinator', () => {
 
         await assertActionThrows(async () => {
           await mock.maliciousRequestCancel()
-        })
-      })
-
-      it('cannot call functions on the LINK token through callbacks', async () => {
-        const fHash = functionSelector('transfer(address,uint256)')
-        const addressAsRequestId = abiEncode(['address'], [stranger])
-        const args = requestDataBytes(agreement.id, link.address, fHash, addressAsRequestId, '')
-
-        assertActionThrows(async () => {
-          await requestDataFrom(coordinator, link, paymentAmount, args)
         })
       })
     })

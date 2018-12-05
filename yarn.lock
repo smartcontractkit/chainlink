@@ -17652,9 +17652,9 @@ web3@^0.19.1:
     xhr2 "*"
     xmlhttprequest "*"
 
-web3@^1.0.0-beta.35:
+web3@^1.0.0-beta.36:
   version "1.0.0-beta.36"
-  resolved "https://registry.yarnpkg.com/web3/-/web3-1.0.0-beta.36.tgz#2954da9e431124c88396025510d840ba731c8373"
+  resolved "https://registry.npmjs.org/web3/-/web3-1.0.0-beta.36.tgz#2954da9e431124c88396025510d840ba731c8373"
   integrity sha512-fZDunw1V0AQS27r5pUN3eOVP7u8YAvyo6vOapdgVRolAu5LgaweP7jncYyLINqIX9ZgWdS5A090bt+ymgaYHsw==
   dependencies:
     web3-bzz "1.0.0-beta.36"

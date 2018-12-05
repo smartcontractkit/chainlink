@@ -71,7 +71,6 @@ contract Coordinator is CoordinatorInterface {
     uint256 _amount,
     uint256 _version,
     bytes32 _sAId,
-    address _callbackAddress,
     bytes4 _callbackFunctionId,
     bytes32 _externalId,
     bytes _data
@@ -81,10 +80,11 @@ contract Coordinator is CoordinatorInterface {
     sufficientLINK(_amount, _sAId)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
+    require(callbacks[internalId].externalId != _externalId, "Must use a unique ID");
     callbacks[internalId] = Callback(
       _externalId,
       _amount,
-      _callbackAddress,
+      _sender,
       _callbackFunctionId,
       uint64(now.add(5 minutes)));
     emit RunRequest(
@@ -176,7 +176,7 @@ contract Coordinator is CoordinatorInterface {
   }
 
   bytes4 constant private permittedFunc =
-    bytes4(keccak256("executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)")); /* solium-disable-line indentation */
+    bytes4(keccak256("executeServiceAgreement(address,uint256,uint256,bytes32,bytes4,bytes32,bytes)")); /* solium-disable-line indentation */
 
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;

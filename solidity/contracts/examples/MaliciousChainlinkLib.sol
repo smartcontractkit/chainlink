@@ -3,11 +3,12 @@ pragma solidity 0.4.24;
 import "solidity-cborutils/contracts/CBOR.sol";
 
 library MaliciousChainlinkLib {
+  uint256 internal constant defaultBufferSize = 256;
+
   using CBOR for Buffer.buffer;
 
   struct Run {
     bytes32 specId;
-    address callbackAddress;
     bytes4 callbackFunctionId;
     bytes32 requestId;
     Buffer.buffer buf;
@@ -15,7 +16,6 @@ library MaliciousChainlinkLib {
 
   struct WithdrawRun {
     bytes32 specId;
-    address callbackAddress;
     bytes4 callbackFunctionId;
     bytes32 requestId;
     uint256 amount;
@@ -25,12 +25,10 @@ library MaliciousChainlinkLib {
   function initialize(
     Run memory self,
     bytes32 _specId,
-    address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (MaliciousChainlinkLib.Run memory) {
-    Buffer.init(self.buf, 128);
+    Buffer.init(self.buf, defaultBufferSize);
     self.specId = _specId;
-    self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
     self.buf.startMap();
     return self;
@@ -39,12 +37,10 @@ library MaliciousChainlinkLib {
   function initializeWithdraw(
     WithdrawRun memory self,
     bytes32 _specId,
-    address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (MaliciousChainlinkLib.WithdrawRun memory) {
-    Buffer.init(self.buf, 128);
+    Buffer.init(self.buf, defaultBufferSize);
     self.specId = _specId;
-    self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
     self.buf.startMap();
     return self;

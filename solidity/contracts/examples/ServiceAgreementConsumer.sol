@@ -13,7 +13,7 @@ contract ServiceAgreementConsumer is Chainlinked {
   }
 
   function requestEthereumPrice(string _currency) public {
-    ChainlinkLib.Run memory run = newRun(sAId, this, this.fulfill.selector);
+    ChainlinkLib.Run memory run = newRun(sAId, this.fulfill.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     run.add("path", _currency);
     serviceRequest(run, LINK(1));

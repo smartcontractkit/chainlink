@@ -119,7 +119,7 @@ contract('UptimeSLA', () => {
     context('when the consumer does not recognize the request ID', () => {
       beforeEach(async () => {
         let fid = functionSelector("report(uint256,bytes32)")
-        let args = requestDataBytes(specId, sla.address, fid, "xid", "")
+        let args = requestDataBytes(sla.address, specId, fid, "xid", "")
         await requestDataFrom(oc, link, 0, args)
         let event = await getLatestEvent(oc)
         requestId = event.args.internalId

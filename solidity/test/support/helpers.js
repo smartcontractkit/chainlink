@@ -138,7 +138,7 @@ export const checkPublicABI = (contract, expectedPublic) => {
 
 export const decodeRunABI = log => {
   let runABI = util.toBuffer(log.data)
-  let types = ['bytes32', 'address', 'bytes4', 'bytes']
+  let types = ['bytes32', 'bytes4', 'bytes']
   return abi.rawDecode(types, runABI)
 }
 
@@ -154,11 +154,11 @@ export const runRequestId = log => {
   return internalId
 }
 
-export const requestDataBytes = (specId, to, fHash, runId, data) => {
-  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
-  let values = [0, 0, 1, specId, to, fHash, runId, data]
+export const requestDataBytes = (sender, specId, fHash, runId, data) => {
+  let types = ['address', 'uint256', 'uint256', 'bytes32', 'bytes4', 'bytes32', 'bytes']
+  let values = [sender, 0, 1, specId, fHash, runId, data]
   let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
+  let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,bytes4,bytes32,bytes)')
   return funcSelector + encoded
 }
 
@@ -282,11 +282,11 @@ export const personalSign = (account, message) => {
   )
 }
 
-export const executeServiceAgreementBytes = (sAID, to, fHash, runId, data) => {
-  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
-  let values = [0, 0, 1, sAID, to, fHash, runId, data]
+export const executeServiceAgreementBytes = (sender, sAID, fHash, runId, data) => {
+  let types = ['address', 'uint256', 'uint256', 'bytes32', 'bytes4', 'bytes32', 'bytes']
+  let values = [sender, 0, 1, sAID, fHash, runId, data]
   let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
+  let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,bytes4,bytes32,bytes)')
   return funcSelector + encoded
 }
 

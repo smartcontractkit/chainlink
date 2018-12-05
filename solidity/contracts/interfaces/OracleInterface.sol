@@ -9,7 +9,6 @@ interface OracleInterface {
     uint256 amount,
     uint256 version,
     bytes32 specId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     bytes32 externalId,
     bytes data

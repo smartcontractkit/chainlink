@@ -93,7 +93,7 @@ contract('ServiceAgreementConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector('fulfill(bytes32,bytes32)')
-        let args = executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 42, '')
+        let args = executeServiceAgreementBytes(cc.address, agreement.id, funcSig, 42, '')
         await requestDataFrom(coord, link, 0, args)
         let event = await getLatestEvent(coord)
         otherId = event.args.internalId

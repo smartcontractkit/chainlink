@@ -14,7 +14,7 @@ contract MaliciousServiceAgreementConsumer is Chainlinked, MaliciousConsumer {
 
   function requestData(string _callbackFunc) public {
     bytes4 callbackFID = bytes4(keccak256(bytes(_callbackFunc)));
-    ChainlinkLib.Run memory run = newRun("specId", this, callbackFID);
+    ChainlinkLib.Run memory run = newRun("specId", callbackFID);
     serviceRequest(run, LINK(1));
   }
 

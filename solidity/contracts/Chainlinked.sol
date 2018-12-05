@@ -31,11 +31,10 @@ contract Chainlinked {
 
   function newRun(
     bytes32 _specId,
-    address _callbackAddress,
     bytes4 _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
-    return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
+    return run.initialize(_specId, _callbackFunctionSignature);
   }
 
   function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _amount)
@@ -129,7 +128,6 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       clArgsVersion,
       _run.specId,
-      _run.callbackAddress,
       _run.callbackFunctionId,
       _run.requestId,
       _run.buf.buf);
@@ -146,7 +144,6 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       clArgsVersion,
       _run.specId,
-      _run.callbackAddress,
       _run.callbackFunctionId,
       _run.requestId,
       _run.buf.buf);

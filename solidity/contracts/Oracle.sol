@@ -67,21 +67,19 @@ contract Oracle is OracleInterface, Ownable {
     uint256 _amount,
     uint256 _version,
     bytes32 _specId,
-    address _callbackAddress,
     bytes4 _callbackFunctionId,
     bytes32 _externalId,
     bytes _data
   )
     external
     onlyLINK
-    checkCallbackAddress(_callbackAddress)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
     require(callbacks[internalId].externalId != _externalId, "Must use a unique ID");
     callbacks[internalId] = Callback(
       _externalId,
       _amount,
-      _callbackAddress,
+      _sender,
       _callbackFunctionId,
       uint64(now.add(5 minutes)));
     emit RunRequest(
@@ -169,11 +167,6 @@ contract Oracle is OracleInterface, Ownable {
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
-    _;
-  }
-
-  modifier checkCallbackAddress(address _to) {
-    require(_to != address(LINK), "Cannot callback to LINK");
     _;
   }
 

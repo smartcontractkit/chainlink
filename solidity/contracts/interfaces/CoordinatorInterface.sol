@@ -6,7 +6,6 @@ interface CoordinatorInterface {
     uint256 amount,
     uint256 version,
     bytes32 sAId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     bytes32 externalId,
     bytes data

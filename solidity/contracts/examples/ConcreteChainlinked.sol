@@ -14,24 +14,21 @@ contract ConcreteChainlinked is Chainlinked {
 
   event Run(
     bytes32 specId,
-    address callbackAddress,
     bytes4 callbackfunctionSelector,
     bytes data
   );
 
   function publicNewRun(
     bytes32 _specId,
-    address _address,
     bytes _fulfillmentSignature
   )
     public
   {
     ChainlinkLib.Run memory run = newRun(
-      _specId, _address, bytes4(keccak256(_fulfillmentSignature)));
+      _specId, bytes4(keccak256(_fulfillmentSignature)));
     run.close();
     emit Run(
       run.specId,
-      run.callbackAddress,
       run.callbackFunctionId,
       run.buf.buf
     );
@@ -39,27 +36,25 @@ contract ConcreteChainlinked is Chainlinked {
 
   function publicRequestRun(
     bytes32 _specId,
-    address _address,
     bytes _fulfillmentSignature,
     uint256 _wei
   )
     public
   {
     ChainlinkLib.Run memory run = newRun(
-      _specId, _address, bytes4(keccak256(_fulfillmentSignature)));
+      _specId, bytes4(keccak256(_fulfillmentSignature)));
     chainlinkRequest(run, _wei);
   }
 
   function publicRequestRunFrom(
     address _oracle,
     bytes32 _specId,
-    address _address,
     bytes _fulfillmentSignature,
     uint256 _wei
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(_specId, _address, bytes4(keccak256(_fulfillmentSignature)));
+    ChainlinkLib.Run memory run = newRun(_specId, bytes4(keccak256(_fulfillmentSignature)));
     chainlinkRequestFrom(_oracle, run, _wei);
   }
 

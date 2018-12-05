@@ -106,7 +106,7 @@ contract('BasicConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector('fulfill(bytes32,bytes32)')
-        let args = requestDataBytes(toHex(specId), cc.address, funcSig, 42, '')
+        let args = requestDataBytes(cc.address, toHex(specId), funcSig, 42, '')
         await requestDataFrom(oc, link, 0, args)
         let event = await getLatestEvent(oc)
         otherId = event.args.internalId
