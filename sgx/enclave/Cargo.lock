@@ -48,6 +48,7 @@ dependencies = [
  "serde 1.0.71",
  "serde_derive 1.0.71",
  "serde_json 1.0.24",
+ "sgx_tse 1.0.4",
  "sgx_tstd 1.0.4",
  "sgx_types 1.0.4",
  "utils 0.1.0",
@@ -210,6 +211,13 @@ dependencies = [
 
 [[package]]
 name = "sgx_trts"
+version = "1.0.4"
+dependencies = [
+ "sgx_types 1.0.4",
+]
+
+[[package]]
+name = "sgx_tse"
 version = "1.0.4"
 dependencies = [
  "sgx_types 1.0.4",

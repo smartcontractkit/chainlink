@@ -15,19 +15,21 @@ extern crate serde_json;
 #[cfg(not(target_env = "sgx"))]
 #[macro_use]
 extern crate sgx_tstd as std;
+extern crate sgx_tse as tse;
 extern crate sgx_types;
 #[macro_use]
 extern crate utils;
 extern crate wasmi;
 
+mod attestation;
 mod multiply;
-mod wasm;
-
 mod result;
+mod wasm;
 
 use result::RunResult;
 use sgx_types::*;
 use utils::{copy_string_to_cstr_ptr, string_from_cstr_with_len};
+use std::string::ToString;
 
 #[derive(Debug)]
 enum ShimError {
@@ -137,5 +139,40 @@ fn multiply_shim(
 
     let rr_json = serde_json::to_string(&result)?;
     copy_string_to_cstr_ptr(&rr_json, result_ptr, result_capacity, result_len)?;
+    Ok(())
+}
+
+#[no_mangle]
+pub extern "C" fn sgx_report(
+    result_ptr: *mut u8,
+    result_capacity: usize,
+    result_len: *mut usize,
+) -> sgx_status_t {
+    match report_shim(
+        result_ptr,
+        result_capacity,
+        result_len,
+    ) {
+        Ok(_) => sgx_status_t::SGX_SUCCESS,
+        _ => sgx_status_t::SGX_ERROR_UNEXPECTED,
+    }
+}
+
+fn report_shim(
+    result_ptr: *mut u8,
+    result_capacity: usize,
+    result_len: *mut usize,
+) -> Result<(), ShimError> {
+    let output = match attestation::report() {
+        Ok(report) => json!({
+                "report": {
+                    "key_id": report.key_id.id,
+                    "mac": report.mac,
+                }
+            }).to_string(),
+        Err(err) => format!("error: {:?}", err),
+    };
+
+    copy_string_to_cstr_ptr(&output, result_ptr, result_capacity, result_len)?;
     Ok(())
 }
