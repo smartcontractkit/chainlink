@@ -69,7 +69,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode)
 
-	account, err := appWithAccount.Store.KeyStore.GetAccount()
+	account, err := appWithAccount.Store.KeyStore.GetFirstAccount()
 	assert.NoError(t, err)
 
 	ab := presenters.AccountBalance{}

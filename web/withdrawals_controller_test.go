@@ -13,7 +13,7 @@ import (
 )
 
 func TestWithdrawalsController_CreateSuccess(t *testing.T) {
-	config, _ := cltest.NewConfigWithPrivateKey()
+	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.OracleContractAddress = &oca
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
