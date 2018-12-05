@@ -34,7 +34,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this.fulfillEthereumPrice.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
@@ -47,7 +47,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this.fulfillEthereumChange.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -63,7 +63,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this.fulfillEthereumLastMarket.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";

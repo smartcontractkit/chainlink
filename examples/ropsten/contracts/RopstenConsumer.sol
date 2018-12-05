@@ -213,7 +213,6 @@ library ChainlinkLib {
 
   struct Run {
     bytes32 specId;
-    address callbackAddress;
     bytes4 callbackFunctionId;
     bytes32 requestId;
     Buffer.buffer buf;
@@ -222,12 +221,10 @@ library ChainlinkLib {
   function initialize(
     Run memory self,
     bytes32 _specId,
-    address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (ChainlinkLib.Run memory) {
     Buffer.init(self.buf, defaultBufferSize);
     self.specId = _specId;
-    self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
     self.buf.startMap();
     return self;
@@ -338,7 +335,6 @@ interface OracleInterface {
     uint256 amount,
     uint256 version,
     bytes32 specId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     bytes32 externalId,
     bytes data
@@ -355,7 +351,6 @@ interface CoordinatorInterface {
     uint256 amount,
     uint256 version,
     bytes32 sAId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     bytes32 externalId,
     bytes data
@@ -439,11 +434,10 @@ contract Chainlinked {
 
   function newRun(
     bytes32 _specId,
-    address _callbackAddress,
     bytes4 _callbackFunctionSignature
   ) internal pure returns (ChainlinkLib.Run memory) {
     ChainlinkLib.Run memory run;
-    return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
+    return run.initialize(_specId, _callbackFunctionSignature);
   }
 
   function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _amount)
@@ -537,7 +531,6 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       clArgsVersion,
       _run.specId,
-      _run.callbackAddress,
       _run.callbackFunctionId,
       _run.requestId,
       _run.buf.buf);
@@ -554,7 +547,6 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       clArgsVersion,
       _run.specId,
-      _run.callbackAddress,
       _run.callbackFunctionId,
       _run.requestId,
       _run.buf.buf);
@@ -679,7 +671,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this.fulfillEthereumPrice.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
@@ -692,7 +684,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this.fulfillEthereumChange.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -708,7 +700,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
+    ChainlinkLib.Run memory run = newRun(stringToBytes32(_jobId), this.fulfillEthereumLastMarket.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
