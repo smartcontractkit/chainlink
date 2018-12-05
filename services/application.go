@@ -80,9 +80,16 @@ func (app *ChainlinkApplication) Start() error {
 
 	return multierr.Combine(
 		app.Store.Start(),
+
+		// Deliberately started immediately after Store, to start the RunChannel consumer
+		app.JobRunner.Start(),
+		app.JobRunner.resumeRunsSinceLastShutdown(), // Started before any other service writes RunStatus to db.
+
+		// HeadTracker deliberately started after JobRunner#resumeRunsSinceLastShutdown
+		// since it Connects JobSubscriber which leads to writes of JobRuns RunStatus to the db.
+		// https://www.pivotaltracker.com/story/show/162230780
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
-		app.JobRunner.Start(),
 		app.SessionReaper.Start(),
 		app.BulkRunDeleter.Start(),
 	)
@@ -129,7 +136,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	return app.JobSubscriber.AddJob(job, app.HeadTracker.Head())
+	return app.JobSubscriber.AddJob(job, nil) // nil for latest
 }
 
 // AddAdapter adds an adapter to the store. If another

@@ -510,13 +510,17 @@ type MockCronEntry struct {
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
 	connectedCount    int32
+	ConnectedCallback func(bn *models.IndexableBlockNumber)
 	disconnectedCount int32
 	onNewHeadCount    int32
 }
 
 // Connect increases the connected count by one
-func (m *MockHeadTrackable) Connect(*models.IndexableBlockNumber) error {
+func (m *MockHeadTrackable) Connect(bn *models.IndexableBlockNumber) error {
 	atomic.AddInt32(&m.connectedCount, 1)
+	if m.ConnectedCallback != nil {
+		m.ConnectedCallback(bn)
+	}
 	return nil
 }
 

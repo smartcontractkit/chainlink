@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
 
@@ -195,14 +196,11 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			defer configCleanup()
 			config.Dev = true
 			config.LogToDisk = tt.logToDiskValue
-
-			// Test fails unless application is created with config.
-			_, cleanup := cltest.NewApplicationWithConfig(config)
-			defer cleanup()
+			require.NoError(t, os.MkdirAll(config.KeysDir(), os.FileMode(0700)))
+			defer os.RemoveAll(config.RootDir)
 
 			logger.SetLogger(config.CreateProductionLogger())
-			filepath := logger.ProductionLoggerFilepath(
-				config.RootDir)
+			filepath := logger.ProductionLoggerFilepath(config.RootDir)
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})

@@ -5,11 +5,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHeadTracker_New(t *testing.T) {
@@ -180,5 +182,32 @@ func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
 	// stop
+	assert.NoError(t, ht.Stop())
+}
+
+func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	eth := cltest.MockEthOnStore(store)
+	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
+
+	lastSavedBN := big.NewInt(1)
+	currentBN := big.NewInt(2)
+	var connectedBN *big.Int
+
+	require.NoError(t, ht.Save(models.NewIndexableBlockNumber(lastSavedBN, cltest.NewHash())))
+	eth.Register("eth_getBlockByNumber", models.BlockHeader{Number: hexutil.Big(*currentBN)})
+	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.IndexableBlockNumber) {
+		connectedBN = bn.ToInt()
+	}}
+
+	ht.Attach(checker)
+
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, int32(1), checker.ConnectedCount())
+	assert.Equal(t, lastSavedBN, connectedBN)
+	assert.Equal(t, currentBN, ht.Head().ToInt())
 	assert.NoError(t, ht.Stop())
 }

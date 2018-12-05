@@ -17,8 +17,8 @@ func ExportedChannelForRun(jr JobRunner, runID string) chan<- struct{} {
 	return jr.channelForRun(runID)
 }
 
-func ExportedResumeRuns(jr JobRunner) error {
-	return jr.resumeRuns()
+func ExportedResumeRunsSinceLastShutdown(jr JobRunner) error {
+	return jr.resumeRunsSinceLastShutdown()
 }
 
 func ExportedWorkerCount(jr JobRunner) int {

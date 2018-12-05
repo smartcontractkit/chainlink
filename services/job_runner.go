@@ -15,7 +15,7 @@ import (
 type JobRunner interface {
 	Start() error
 	Stop()
-	resumeRuns() error
+	resumeRunsSinceLastShutdown() error
 	channelForRun(string) chan<- struct{}
 	workerCount() int
 }
@@ -56,7 +56,7 @@ func (rm *jobRunner) Start() error {
 	starterWg.Wait()
 
 	rm.demultiplexStopperWg.Add(1)
-	return rm.resumeRuns()
+	return nil
 }
 
 // Stop closes all open worker channels.
@@ -72,7 +72,17 @@ func (rm *jobRunner) Stop() {
 	rm.demultiplexStopperWg.Wait()
 }
 
-func (rm *jobRunner) resumeRuns() error {
+// resumeRunsSinceLastShutdown queries the db for job runs that should be resumed
+// since a previous node shutdown.
+//
+// As a result of its reliance on the database, it must run before anything
+// persists a job RunStatus to the db to ensure that it only captures pending and in progress
+// jobs as a result of the last shutdown, and not as a result of what's happening now.
+//
+// To recap: This must run before anything else writes job run status to the db,
+// ie. tries to run a job.
+// https://github.com/smartcontractkit/chainlink/pull/807
+func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	sleepingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
 	if err != nil {
 		return err
@@ -243,7 +253,6 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
 	} else if run.TasksRemain() {
-		logger.Debugw("All tasks completed, marking run complete", []interface{}{"run", run.ID, "task", currentTaskRun.ID}...)
 		run = queueNextTask(run, store)
 	}
 
