@@ -112,10 +112,11 @@ func (js JobSubscription) Unsubscribe() {
 // NewInitiatorFilterQuery returns a new InitiatorSubscriber with initialized filter.
 func NewInitiatorFilterQuery(
 	initr models.Initiator,
-	head *models.IndexableBlockNumber,
+	fromBlock *models.IndexableBlockNumber,
 	topics [][]common.Hash,
 ) ethereum.FilterQuery {
-	listenFromNumber := head.NextInt()
+	// Exclude current block from future log subscription to prevent replay.
+	listenFromNumber := fromBlock.NextInt()
 	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
 	q.Topics = topics
 	return q
@@ -163,6 +164,8 @@ func NewInitiatorSubscription(
 }
 
 func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
+	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %v", sub.Initiator.Type, sub.Job.ID),
+		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID)
 	sub.callback(InitiatorSubscriptionLogEvent{
 		Job:       sub.Job,
 		Initiator: sub.Initiator,
@@ -184,24 +187,23 @@ func TopicFiltersForRunLog(logTopic common.Hash, jobID string) [][]common.Hash {
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with
 // RunLogs
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec,
-	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(
-		RunLogTopic, job.ID))
+	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
+	filter := NewInitiatorFilterQuery(initr, from, TopicFiltersForRunLog(RunLogTopic, job.ID))
 	return NewInitiatorSubscription(initr, job, store, filter, receiveRunOrSALog)
 }
 
 // StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.JobSpec,
-	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, head, nil)
+	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
+	filter := NewInitiatorFilterQuery(initr, from, nil)
 	return NewInitiatorSubscription(initr, job, store, filter, receiveEthLog)
 }
 
 // StartSALogSubscription starts an InitiatorSubscription tailored for use with
 // ServiceAgreementExecutionLogs.
 func StartSALogSubscription(initr models.Initiator, job models.JobSpec,
-	head *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, head, TopicFiltersForRunLog(
+	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
+	filter := NewInitiatorFilterQuery(initr, from, TopicFiltersForRunLog(
 		ServiceAgreementExecutionLogTopic, job.ID))
 	return NewInitiatorSubscription(initr, job, store, filter,
 		receiveRunOrSALog)
@@ -330,15 +332,18 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	}
 }
 
+// Manually retrieve old logs since SubscribeToLogs(logs, filter) only returns newly
+// imported blocks: https://github.com/ethereum/go-ethereum/wiki/RPC-PUB-SUB#logs
+// Therefore TxManager.GetLogs does a one time retrieval of old logs.
 func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
 	backfilledSet := map[string]bool{}
-	if q.FromBlock.Cmp(big.NewInt(0)) <= 0 {
+	if q.FromBlock == nil {
 		return backfilledSet
 	}
 
 	logs, err := sub.store.TxManager.GetLogs(q)
 	if err != nil {
-		logger.Errorw("Unable to backfill logs", "err", err)
+		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 		return backfilledSet
 	}
 
