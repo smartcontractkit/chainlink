@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -37,7 +38,7 @@ func (btr *bulkRunDeleter) Work() {
 		}
 		return err
 	})
-	if err != nil {
+	if err != nil && err != storm.ErrNotFound {
 		logger.Errorw("Error querying bulk tasks", "error", err)
 	}
 }
