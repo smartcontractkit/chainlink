@@ -22,5 +22,6 @@ wabt-core = { path = "/opt/rust-sgx-sdk/third_party/wabt-rs-core" }
 wasmi = { path = "/opt/rust-sgx-sdk/third_party/wasmi" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
+sgx_tse = { path = "/opt/rust-sgx-sdk/sgx_tse" }
 sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }
 sgx_types = { path = "/opt/rust-sgx-sdk/sgx_types" }

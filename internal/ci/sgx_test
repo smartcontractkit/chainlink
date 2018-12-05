@@ -12,6 +12,7 @@ libs="$PWD/sgx/target/$ENVIRONMENT"
 cp ./sgx/target/$ENVIRONMENT/enclave.signed.so $tmpdir/
 
 go test -tags=sgx_enclave -ldflags "-r $libs" ./adapters/ -c -o "$tmpdir/adapters.test"
+go test -tags=sgx_enclave -ldflags "-r $libs" ./services/attestation/ -c -o "$tmpdir/attestation.test"
 
 cd $tmpdir
 if [ -n "$USE_GDB" ] && [ "$ENVIRONMENT" == "debug" ]; then
@@ -19,4 +20,5 @@ if [ -n "$USE_GDB" ] && [ "$ENVIRONMENT" == "debug" ]; then
   /opt/sgxsdk/bin/sgx-gdb -ex run --args ./adapters.test -test.parallel 1 -test.v
 else
   ./adapters.test -test.parallel 2 -test.v $@
+  ./attestation.test -test.parallel 2 -test.v $@
 fi

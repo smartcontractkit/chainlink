@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex};
 
 pub mod multiply;
 pub mod wasm;
+pub mod attestation;
 
 static ENCLAVE_FILE: &str = "enclave.signed.so";
 
