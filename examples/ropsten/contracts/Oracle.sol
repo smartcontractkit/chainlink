@@ -134,6 +134,7 @@ interface OracleInterface {
   ) external;
   function setFulfillmentPermission(address node, bool allowed) external;
   function withdraw(address recipient, uint256 amount) external;
+  function withdrawable() external view returns (uint256);
 }
 
 // File: contracts/interfaces/LinkTokenInterface.sol
@@ -227,6 +228,7 @@ contract Oracle is OracleInterface, Ownable {
     checkCallbackAddress(_callbackAddress)
   {
     uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
+    require(callbacks[internalId].externalId != _externalId, "Must use a unique ID");
     callbacks[internalId] = Callback(
       _externalId,
       _amount,
@@ -275,6 +277,10 @@ contract Oracle is OracleInterface, Ownable {
   {
     withdrawableWei = withdrawableWei.sub(_amount);
     require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
+  }
+
+  function withdrawable() external view onlyOwner returns (uint256) {
+    return withdrawableWei.sub(oneForConsistentGasCost);
   }
 
   function cancel(bytes32 _externalId)
