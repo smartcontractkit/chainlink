@@ -11,5 +11,6 @@ contract EmptyOracle is OracleInterface {
   function requestData(address, uint256, uint256, bytes32, address, bytes4, bytes32, bytes) external {}
   function setFulfillmentPermission(address, bool) external {}
   function withdraw(address, uint256) external {}
-
+  function withdrawable() external view returns (uint256) {}
+  
 }
