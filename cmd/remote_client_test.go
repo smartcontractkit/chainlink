@@ -30,7 +30,8 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 	from := cltest.GetAccountAddress(app.GetStore())
-	assert.Equal(t, from.Hex(), r.Renders[0].(*presenters.AccountBalance).Address)
+	balances := *r.Renders[0].(*[]presenters.AccountBalance)
+	assert.Equal(t, from.Hex(), balances[0].Address)
 }
 
 func TestClient_GetJobSpecs(t *testing.T) {

@@ -37,11 +37,11 @@ func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var links jsonapi.Links
-	a := presenters.AccountBalance{}
-	if err = cli.deserializeAPIResponse(resp, &a, &links); err != nil {
+	balances := []presenters.AccountBalance{}
+	if err = cli.deserializeAPIResponse(resp, &balances, &links); err != nil {
 		return err
 	}
-	return cli.errorOut(cli.Render(&a))
+	return cli.errorOut(cli.Render(&balances))
 }
 
 // CreateServiceAgreement creates a ServiceAgreement based on JSON input
