@@ -128,6 +128,10 @@ contract Oracle is OracleInterface, Ownable {
     require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
   }
 
+  function withdrawable() external view onlyOwner returns (uint256) {
+    return withdrawableWei.sub(oneForConsistentGasCost);
+  }
+
   function cancel(bytes32 _externalId)
     external
   {

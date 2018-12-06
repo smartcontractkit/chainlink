@@ -24,7 +24,8 @@ contract('Oracle', () => {
       'requestData',
       'setFulfillmentPermission',
       'transferOwnership',
-      'withdraw'
+      'withdraw',
+      'withdrawable'
     ])
   })
 
@@ -445,6 +446,25 @@ contract('Oracle', () => {
           assert.equal(0, balance)
         })
       })
+    })
+  })
+
+  describe('#withdrawable', () => {
+    let internalId, amount
+
+    beforeEach(async () => {
+      amount = web3.toWei('1', 'ether')
+      const mock = await h.deploy('examples/GetterSetter.sol')
+      const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
+      const tx = await h.requestDataFrom(oc, link, amount, args)
+      assert.equal(3, tx.receipt.logs.length)
+      internalId = h.runRequestId(tx.receipt.logs[2])
+      await oc.fulfillData(internalId, 'Hello World!', { from: h.oracleNode })
+    })
+
+    it('returns the correct value', async () => {
+      const withdrawAmount = await oc.withdrawable.call()
+      assert.equal(withdrawAmount.toNumber(), amount)
     })
   })
 
