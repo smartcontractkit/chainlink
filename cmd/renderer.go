@@ -178,6 +178,7 @@ func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
 
 func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
 	table := rt.newTable([]string{"Type", "Config", "Value"})
+	table.SetAutoWrapText(false)
 	for _, t := range j.Tasks {
 		p := presenters.TaskSpec{TaskSpec: t}
 		keys, values := p.FriendlyParams()
