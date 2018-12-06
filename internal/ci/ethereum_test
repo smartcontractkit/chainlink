@@ -65,48 +65,70 @@ exit_handler() {
   exit $errno
 }
 
+get_ethnet_version() {
+  go get github.com/pelletier/go-toml/cmd/tomljson
+  tomljson Gopkg.lock | jq -r '.projects | .[] | select(.name | contains("go-ethereum")) | .version'
+}
+
+install_gethnet() {
+  ethpkg=github.com/ethereum/go-ethereum
+  ethpath=$GOPATH/src/$ethpkg
+
+  if [ -d "$ethpath" ]; then
+    pushd "$ethpath" >/dev/null
+    git checkout master &>/dev/null
+    go get -d -u $ethpkg
+  else
+    go get -d $ethpkg
+    pushd "$ethpath" >/dev/null
+  fi
+  git checkout $ethversion 2>/dev/null
+  popd >/dev/null
+  go install $ethpkg/cmd/geth
+}
+
+launch_gethnet() {
+  gethnet_url="http://127.0.0.1:18545"
+  if curl -s $gethnet_url >/dev/null; then
+    printf -- "\033[34mUsing locally running geth...\033[0m\n"
+    return
+  fi
+
+  printf -- "\033[34mRetrieving geth version...\033[0m\n"
+  ethversion=$(get_ethnet_version)
+
+  printf -- "\033[34mInstalling geth $ethversion...\033[0m\n"
+  install_gethnet
+
+  printf -- "\033[34mStarting geth...\033[0m\n"
+  gethnet &>$SRCROOT/integration/gethnet.log &
+  waitForResponse $gethnet_url
+  printf -- "\033[34mGeth is running.\033[0m\n"
+}
+
+launch_chainlink() {
+  chainlink_url="http://127.0.0.1:6688"
+  if curl -s $chainlink_url >/dev/null; then
+    printf -- "\033[34mUsing locally running chainlink...\033[0m\n"
+    return
+  fi
+
+  printf -- "\033[34mMaking chainlink...\033[0m\n"
+  make install &>$SRCROOT/integration/make.log
+
+  printf -- "\033[34mStarting chainlink...\033[0m\n"
+  source $SRCROOT/internal/bin/clenv
+  export ROOT=$SRCROOT/internal/clroot
+  chainlink node -d -p $ROOT/password.txt -a $ROOT/apicredentials &>$SRCROOT/integration/chainlink.log &
+  waitForResponse $chainlink_url
+  printf -- "\033[34mChainlink is running.\033[0m\n"
+}
+
 trap "exit_handler" EXIT SIGTERM SIGINT
 
 pushd $SRCROOT >/dev/null
 
-########################
-## Retrieve gethnet version from Gopkg.lock
-########################
-
-printf -- "\033[34mRetrieving geth version...\033[0m\n"
-go get github.com/pelletier/go-toml/cmd/tomljson
-ethversion=`tomljson Gopkg.lock | jq -r '.projects | .[] | select(.name | contains("go-ethereum")) | .version'`
-
-########################
-## Install gethnet
-########################
-#set -x
-
-printf -- "\033[34mInstalling geth $ethversion...\033[0m\n"
-
-ethpkg=github.com/ethereum/go-ethereum
-ethpath=$GOPATH/src/$ethpkg
-
-if [ -d "$ethpath" ]; then
-  pushd "$ethpath" >/dev/null
-  git checkout master &>/dev/null
-  go get -d -u $ethpkg
-else
-  go get -d $ethpkg
-  pushd "$ethpath" >/dev/null
-fi
-git checkout $ethversion 2>/dev/null
-popd >/dev/null
-go install $ethpkg/cmd/geth
-
-########################
-# Run gethnet
-########################
-
-printf -- "\033[34mStarting geth...\033[0m\n"
-gethnet &>$SRCROOT/integration/gethnet.log &
-waitForResponse http://127.0.0.1:18545
-printf -- "\033[34mGeth is running.\033[0m\n"
+launch_gethnet
 
 ########################
 ## Deploy Oracle and LinkToken contracts
@@ -127,15 +149,7 @@ printf -- "\033[34mMigration complete.\033[0m\n"
 ## Run ChainLink
 ########################
 
-printf -- "\033[34mMaking chainlink...\033[0m\n"
-make install &>$SRCROOT/integration/make.log
-
-printf -- "\033[34mStarting chainlink...\033[0m\n"
-source $SRCROOT/internal/bin/clenv
-export ROOT=$SRCROOT/internal/clroot
-chainlink node -d -p $ROOT/password.txt -a $ROOT/apicredentials &>$SRCROOT/integration/chainlink.log &
-waitForResponse http://127.0.0.1:6688
-printf -- "\033[34mChainlink is running.\033[0m\n"
+launch_chainlink
 
 ########################
 ## Run echo_server
@@ -178,9 +192,12 @@ assert "Jobs count" "chainlink -j j | jq length" 1
 jid=`chainlink -j j | jq 'first | .id' | tr -d '"'`
 assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
-########################
-## ethlog
-########################
+# Check for fullfillment event
+assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
+
+#######################
+# ethlog
+#######################
 
 printf -- "\n--------------------------------------------------------------------------------\n"
 printf -- "\033[34mEthlog test.\033[0m\n"
@@ -192,17 +209,17 @@ ethjob=`./create_ethlog_job`
 # Check echo count
 assert "Echo count" "curl -sS localhost:6690/count" 2
 
-## Check job counts
+# Check job counts
 chainlink login --file $SRCROOT/internal/clroot/apicredentials
 assert "Jobs count" "chainlink -j j | jq length" 2
 
-## Check job runs
+# Check job runs
 jid=`echo $ethjob | jq .data.id | tr -d '"'`
 assert "EthLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
-########################
-## End to end
-########################
+#######################
+# End to end
+#######################
 
 printf -- "\n--------------------------------------------------------------------------------\n"
 printf -- "\033[34mEnd to end tests.\033[0m\n"
