@@ -30,9 +30,9 @@ func TestSleeperTask(t *testing.T) {
 	assert.Equal(t, uint64(0), worker.Counter())
 
 	sleeper.WakeUp()
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		return worker.Counter() == 1
-	}).Should(gomega.Equal(true))
+	gomega.NewGomegaWithT(t).Eventually(func() uint64 {
+		return worker.Counter()
+	}).Should(gomega.Equal(uint64(1)))
 
 	sleeper.Stop()
 	assert.Equal(t, uint64(1), worker.Counter())
