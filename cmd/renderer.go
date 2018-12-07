@@ -52,8 +52,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderBridge(*typed)
 	case *[]models.BridgeType:
 		rt.renderBridges(*typed)
-	case *presenters.AccountBalance:
-		rt.renderAccountBalance(*typed)
+	case *[]presenters.AccountBalance:
+		rt.renderAccountBalances(*typed)
 	case *presenters.ServiceAgreement:
 		rt.renderServiceAgreement(*typed)
 	case *[]models.TxAttempt:
@@ -206,13 +206,15 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	return nil
 }
 
-func (rt RendererTable) renderAccountBalance(ab presenters.AccountBalance) error {
+func (rt RendererTable) renderAccountBalances(balances []presenters.AccountBalance) error {
 	table := rt.newTable([]string{"Address", "ETH", "LINK"})
-	table.Append([]string{
-		ab.Address,
-		ab.EthBalance.String(),
-		ab.LinkBalance.String(),
-	})
+	for _, ab := range balances {
+		table.Append([]string{
+			ab.Address,
+			ab.EthBalance.String(),
+			ab.LinkBalance.String(),
+		})
+	}
 	render("Account Balance", table)
 	return nil
 }

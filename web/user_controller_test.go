@@ -40,7 +40,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-func TestUserController_AccountBalances_Error(t *testing.T) {
+func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 	t.Parallel()
 
 	appWithoutAccount, cleanup := cltest.NewApplication()
@@ -49,34 +49,49 @@ func TestUserController_AccountBalances_Error(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
-	errors := cltest.ParseJSONAPIErrors(resp.Body)
-	assert.Equal(t, 400, resp.StatusCode)
-	assert.Equal(t, "No Ethereum Accounts configured", errors.Errors[0].Detail)
+
+	balances := []presenters.AccountBalance{}
+	err := cltest.ParseJSONAPIResponse(resp, &balances)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Len(t, balances, 0)
 }
 
 func TestUserController_AccountBalances_Success(t *testing.T) {
 	t.Parallel()
 
-	appWithAccount, cleanup := cltest.NewApplicationWithKeyStore()
+	cfg, _ := cltest.NewConfigWithPrivateKey()                                 // first wallet
+	appWithAccount, cleanup := cltest.NewApplicationWithConfigAndKeyStore(cfg) // second wallet
 	defer cleanup()
 	client := appWithAccount.NewHTTPClient()
 
 	ethMock := appWithAccount.MockEthClient()
-	ethMock.Register("eth_getBalance", "0x0100")
-	ethMock.Register("eth_call", "0x0100")
+	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getBalance", "0x0100")
+		ethMock.Register("eth_call", "0x0100")
+	})
+	ethMock.Context("second wallet", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getBalance", "0x01")
+		ethMock.Register("eth_call", "0x01")
+	})
 
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode)
 
-	account, err := appWithAccount.Store.KeyStore.GetFirstAccount()
+	expectedAccounts := appWithAccount.Store.KeyStore.Accounts()
+	actualBalances := []presenters.AccountBalance{}
+	err := cltest.ParseJSONAPIResponse(resp, &actualBalances)
 	assert.NoError(t, err)
 
-	ab := presenters.AccountBalance{}
-	err = cltest.ParseJSONAPIResponse(resp, &ab)
-	assert.NoError(t, err)
+	first := actualBalances[0]
+	assert.Equal(t, expectedAccounts[0].Address.Hex(), first.Address)
+	assert.Equal(t, "0.000000000000000256", first.EthBalance.String())
+	assert.Equal(t, "0.000000000000000256", first.LinkBalance.String())
 
-	assert.Equal(t, account.Address.Hex(), ab.Address)
-	assert.Equal(t, "0.000000000000000256", ab.EthBalance.String())
-	assert.Equal(t, "0.000000000000000256", ab.LinkBalance.String())
+	second := actualBalances[1]
+	assert.Equal(t, expectedAccounts[1].Address.Hex(), second.Address)
+	assert.Equal(t, "0.000000000000000001", second.EthBalance.String())
+	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
 }
