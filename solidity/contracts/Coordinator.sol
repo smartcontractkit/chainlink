@@ -175,16 +175,13 @@ contract Coordinator is CoordinatorInterface {
     _;
   }
 
-  bytes4 constant private permittedFunc =
-    bytes4(keccak256("executeServiceAgreement(address,uint256,uint256,bytes32,bytes4,bytes32,bytes)")); /* solium-disable-line indentation */
-
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
     assembly {
       // solium-disable-next-line security/no-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    require(funcSelector[0] == this.executeServiceAgreement.selector, "Must use whitelisted functions");
     _;
   }
 
