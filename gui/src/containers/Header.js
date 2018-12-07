@@ -73,7 +73,7 @@ const styles = theme => {
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
   ['/bridges', 'Bridges'],
-  ['/config', 'Configuration'],
+  ['/config', 'Configuration']
 ]
 
 const Header = useHooks(props => {
