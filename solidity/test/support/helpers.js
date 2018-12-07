@@ -1,7 +1,26 @@
+import {resolve, join } from 'path'
 import { assertBigNum } from './matchers'
 
-process.env.SOLIDITY_INCLUDE = '../../solidity/contracts/:../../solidity/contracts/examples/:../../solidity/contracts/interfaces/:../../contracts/:../../node_modules/:../../node_modules/link_token/contracts:../../node_modules/openzeppelin-solidity/contracts/ownership/:../../node_modules/@ensdomains/ens/contracts/'
+const contractPathHead = resolve(__dirname + '/../..')
 
+// Paths for finding solidity files during compilation via deployer.
+// See compile.js for more info.
+process.env.SOLIDITY_INCLUDE = [
+  'contracts/',
+  'contracts/examples/',
+  'contracts/interfaces/',
+  'node_modules/',
+  'node_modules/link_token/contracts',
+  'node_modules/openzeppelin-solidity/contracts/ownership/',
+  'node_modules/@ensdomains/ens/contracts/',
+].map(p => join(contractPathHead, p)).join(':')
+
+// Relative paths needed for chainlink/examples/{uptime_sla,echo_server}
+// Note that these will be relative to the truffle script
+// (usually executed as ./node_modules/.bin/truffle)
+process.env.SOLIDITY_INCLUDE += ':../../../../:../../contracts'
+
+// Key for defaultAccount, defined below.
 const PRIVATE_KEY = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
 
 const Wallet = require('../../app/wallet.js')
@@ -15,53 +34,58 @@ const ethjsUtils = require('ethereumjs-util')
 
 const HEX_BASE = 16
 
-export const eth = web3.eth
+// https://github.com/ethereum/web3.js/issues/1119#issuecomment-394217563
+web3.providers.HttpProvider.prototype.sendAsync =
+  web3.providers.HttpProvider.prototype.send
+export const eth = web3.eth;
 
-// Default hard coded truffle accounts:
-// ==================
-// (0) 0x627306090abab3a6e1400e9345bc60c78a8bef57
-// (1) 0xf17f52151ebef6c7334fad080c5704d77216b732
-// (2) 0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef
-// (3) 0x821aea9a577a9b44299b9c15c88cf3087f3b5544
-// (4) 0x0d1d4e623d10f9fba5db95830f7d3839406c6af2
-// (5) 0x2932b7a2355d6fecc4b5c0b6bd44cc31df247a2e
-// (6) 0x2191ef87e392377ec08e7c08eb105ef5448eced5
-// (7) 0x0f4f2ac550a1b4e2280d04c21cea7ebd822934b5
-// (8) 0x6330a553fc93768f612722bb8c2ec78ac90b3bbc
-// (9) 0x5aeda56215b167893e80b4fe645ba6d5bab767de
+const INVALIDVALUE = {
+  // If you got this value, you probably tried to use one of the variables below
+  // before they were initialized. Do any test initialization which requires
+  // them in a callback passed to Mocha's `before` or `beforeEach`.
+  // https://mochajs.org/#asynchronous-hooks
+  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null
+}
+export let [accounts, defaultAccount, oracleNode, stranger, consumer] =
+  Array(1000).fill(INVALIDVALUE)
+before(async function queryEthClientForConstants () {
+  accounts = (await eth.getAccounts());
+  [defaultAccount, oracleNode, stranger, consumer] = accounts.slice(0, 4)
+  })
 
-// Private Keys
-// ==================
-// (0) c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3
-// (1) ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f
-// (2) 0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1
-// (3) c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c
-// (4) 388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418
-// (5) 659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63
-// (6) 82d052c865f5763aad42add438569276c00d3d88a2d062d36b2bae914d58b8c8
-// (7) aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7
-// (8) 0f62d96d6675f32685bbdb8ac13cda7c23436f63efbb9d07700d8669ff12b7c4
-// (9) 8d5366123cb560bb606379f90a0bfd4769eecc0557f1b362dcae9012b548b1e5
-
-// HD Wallet
-// ==================
-// Mnemonic:      candy maple cake sugar pudding cream honey rich smooth crumble sweet treat
-// Base HD Path:  m/44'/60'/0'/0/{account_index}
-const accounts = eth.accounts
-
-export const defaultAccount = accounts[0]
-export const oracleNode = accounts[1]
-export const stranger = accounts[2]
-export const consumer = accounts[3]
 export const utils = Utils(web3.currentProvider)
 export const wallet = Wallet(PRIVATE_KEY, utils)
 export const deployer = Deployer(wallet, utils)
 
-export const bigNum = number => web3.toBigNumber(number)
+const bNToStringOrIdentity = a => BN.isBN(a) ? a.toString() : a
 
-export const toWei = number => bigNum(web3.toWei(number))
+// Deal with transfer amount type truffle doesn't currently handle. (BN)
+export const wrappedERC20 = contract => ({
+  ...contract,
+  transfer: async (address, amount) => 
+    await contract.transfer(address, bNToStringOrIdentity(amount)),
+  transferAndCall: async (address, amount, payload, options) =>
+    await contract.transferAndCall(
+      address, bNToStringOrIdentity(amount), payload, options)
+});
 
-export const hexToInt = string => web3.toBigNumber(string)
+export const linkContract = async () =>
+  wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
+
+export const bigNum = number => web3.utils.toBN(number)
+assertBigNum(bigNum("1"), bigNum(1),
+             "Different representations should give same BNs")
+
+// toWei(n) is n * 10**18, as a BN.
+export const toWei = number => bigNum(web3.utils.toWei(bigNum(number)))
+assertBigNum(toWei("1"), toWei(1),
+             "Different representations should give same BNs")
+
+export const toUtf8 = web3.utils.toUtf8
+
+export const keccack = web3.utils.sha3
+
+export const hexToInt = string => bigNum(string).toNumber()
 
 export const toHexWithoutPrefix = arg => {
   if (arg instanceof Buffer || arg instanceof BN) {
@@ -77,28 +101,31 @@ export const toHex = value => {
   return `0x${toHexWithoutPrefix(value)}`
 }
 
-export const deploy = (filePath, ...args) => deployer.perform(filePath, ...args)
+// True if h is a standard representation of a byte array, false otherwise
+export const isByteRepresentation = h => {
+  return (h instanceof Buffer || h instanceof BN || h instanceof Uint8Array )
+}
 
-export const getEvents = contract => (
-  new Promise(
-    (resolve, reject) =>
-      contract
-        .allEvents()
-        .get((error, events) => (error ? reject(error) : resolve(events)))
-  )
-)
+export const deploy = async (filePath, ...args) =>
+  await deployer.perform(filePath, ...args)
+
+export const getEvents = contract => 
+  new Promise((resolve, reject) => contract.allEvents()
+              .get((error, events) => (error ? reject(error) : resolve(events))))
 
 export const getLatestEvent = async (contract) => {
   let events = await getEvents(contract)
   return events[events.length - 1]
 }
 
+// link param must be from linkContract(), if amount is a BN
 export const requestDataFrom = (oc, link, amount, args, options) => {
   if (!options) options = {}
   return link.transferAndCall(oc.address, amount, args, options)
 }
 
-export const functionSelector = signature => '0x' + web3.sha3(signature).slice(2).slice(0, 8)
+export const functionSelector = signature =>
+  '0x' + keccack(signature).slice(2).slice(0, 8)
 
 export const assertActionThrows = action => (
   Promise
@@ -112,8 +139,11 @@ export const assertActionThrows = action => (
     .then(errorMessage => {
       assert(errorMessage, 'Expected an error to be raised')
       const invalidOpcode = errorMessage.includes('invalid opcode')
-      const reverted = errorMessage.includes('VM Exception while processing transaction: revert')
-      assert.isTrue(invalidOpcode || reverted, 'expected error message to include "invalid JUMP" or "revert"')
+      const reverted = errorMessage.includes(
+        'VM Exception while processing transaction: revert')
+      assert(invalidOpcode || reverted,
+             'expected following error message to include "invalid JUMP" or ' +
+             `"revert": "${errorMessage}"`)
       // see https://github.com/ethereumjs/testrpc/issues/39
       // for why the "invalid JUMP" is the throw related error when using TestRPC
     })
@@ -244,6 +274,11 @@ export const increaseTime5Minutes = async () => {
     method: 'evm_increaseTime',
     params: [300],
     id: 0
+  }, (error, result) => {
+    if (error) {
+      console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
+      throw error
+    }
   })
 }
 
@@ -275,11 +310,11 @@ export const recoverPersonalSignature = (message, signature) => {
   return ethjsUtils.pubToAddress(requestDigestPubKey)
 }
 
-export const personalSign = (account, message) => {
-  return newSignature(web3.eth.sign(
-    toHexWithoutPrefix(account),
-    toHexWithoutPrefix(message))
-  )
+export const personalSign = async (account, message) => {
+  if (!isByteRepresentation(message)) {
+    throw new Error(`Message ${message} is not a recognized representation of a byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended hexadecimal string.)`)
+  }
+  return newSignature(await web3.eth.sign(toHex(message), account))
 }
 
 export const executeServiceAgreementBytes = (sAID, to, fHash, nonce, data) => {
@@ -359,24 +394,24 @@ export const checkServiceAgreementAbsent = async (coordinator, serviceAgreementI
     sa[3], '0x0000000000000000000000000000000000000000000000000000000000000000')
 }
 
-export const newServiceAgreement = (params) => {
+export const newServiceAgreement = async (params) => {
   const agreement = {}
   params = params || {}
   agreement.payment = params.payment || 1000000000000000000
   agreement.expiration = params.expiration || 300
   agreement.endAt = params.endAt || sixMonthsFromNow()
   agreement.oracles = params.oracles || [oracleNode]
-  agreement.requestDigest = params.requestDigest || newHash('0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
+  agreement.requestDigest = params.requestDigest ||
+    newHash('0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
 
   const sAID = calculateSAID(agreement)
   agreement.id = toHex(sAID)
 
-  const oracle = newAddress(agreement.oracles[0])
-  const oracleSignature = personalSign(oracle, sAID)
+  const oracle = agreement.oracles[0]
+  const oracleSignature = await personalSign(oracle, sAID)
   const requestDigestAddr = recoverPersonalSignature(sAID, oracleSignature)
-  assert.equal(toHex(oracle), toHex(requestDigestAddr))
+  assert.equal(oracle.toLowerCase(), toHex(requestDigestAddr))
   agreement.oracleSignature = oracleSignature
-
   return agreement
 }
 

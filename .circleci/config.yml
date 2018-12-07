@@ -3,7 +3,7 @@ jobs:
   go:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -21,7 +21,7 @@ jobs:
   gorace:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -38,7 +38,7 @@ jobs:
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -55,7 +55,7 @@ jobs:
   sgx:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -79,7 +79,7 @@ jobs:
   geth:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -96,7 +96,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -113,7 +113,7 @@ jobs:
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -130,7 +130,7 @@ jobs:
       - run: ./internal/ci/gui_test
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.14
+      - image: smartcontract/builder:1.0.15
     steps:
       - checkout
       - run: ./internal/ci/init_gcloud

@@ -54,3 +54,7 @@ The API returns the percentage as a float, for example the current value is `0.9
 2. `./deploy` in another window
 3. `./send_sla_transaction.js` to trigger an update to the SLA
 4. `./get_uptime.js` get the latest uptime
+
+## Development
+
+To run the tests, call `./node_modules/.bin/truffle --network=test test`
