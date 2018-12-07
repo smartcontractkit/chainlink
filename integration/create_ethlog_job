@@ -1,16 +1,16 @@
 #!/bin/bash
 
-mkdir tmp
+tmpdir=$(mktemp -d)
+trap "rm -rf $tmpdir" EXIT HUP TERM INT
 
 set -e
 
-curl -c tmp/cookiefile \
+curl -s -c "$tmpdir/cookiefile" \
   -d '{"email":"notreal@fakeemail.ch", "password":"twochains"}' \
   -X POST -H 'Content-Type: application/json' \
    http://localhost:6688/sessions \
    >/dev/null
 
 curl -sS -X POST -H 'Content-Type: application/json' \
-  -b tmp/cookiefile \
+  -b "$tmpdir/cookiefile" \
   -d @./broadcast_logs_job.json http://localhost:6688/v2/specs
-
