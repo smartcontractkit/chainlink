@@ -89,10 +89,12 @@ install_gethnet() {
 
 launch_gethnet() {
   gethnet_url="http://127.0.0.1:18545"
+  printf -- "\033[34m%-50s\033[0m" "Checking for local geth"
   if curl -s $gethnet_url >/dev/null; then
-    printf -- "\033[34mUsing locally running geth...\033[0m\n"
+    printf -- "[\033[32mrunning\033[0m]\n"
     return
   fi
+  printf -- "[\033[31mstopped\033[0m]\n"
 
   printf -- "\033[34mRetrieving geth version...\033[0m\n"
   ethversion=$(get_ethnet_version)
@@ -108,10 +110,12 @@ launch_gethnet() {
 
 launch_chainlink() {
   chainlink_url="http://127.0.0.1:6688"
+  printf -- "\033[34m%-50s\033[0m" "Checking for local chainlink"
   if curl -s $chainlink_url >/dev/null; then
-    printf -- "\033[34mUsing locally running chainlink...\033[0m\n"
+    printf -- "[\033[32mrunning\033[0m]\n"
     return
   fi
+  printf -- "[\033[31mstopped\033[0m]\n"
 
   printf -- "\033[34mMaking chainlink...\033[0m\n"
   make install &>$SRCROOT/integration/make.log
@@ -124,45 +128,38 @@ launch_chainlink() {
   printf -- "\033[34mChainlink is running.\033[0m\n"
 }
 
+deploy_oracle_and_linktoken_contracts() {
+  printf -- "\033[34mMigrating core contracts...\033[0m\n"
+  pushd integration >/dev/null
+
+  yarn --no-progress install &>$SRCROOT/integration/yarn.log
+  ./deploy_contracts &>$SRCROOT/integration/deploy.log
+  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
+  export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
+
+  popd >/dev/null
+  printf -- "\033[34mMigration complete.\033[0m\n"
+}
+
+launch_echo_server() {
+  printf -- "\033[34mStarting echo server...\033[0m\n"
+  pushd integration >/dev/null
+
+  ./echo_server &>$SRCROOT/integration/echo-server.log &
+  waitForResponse http://127.0.0.1:6690/count
+
+  popd >/dev/null
+  printf -- "\033[34mEcho server is running.\033[0m\n\n"
+}
+
 trap "exit_handler" EXIT SIGTERM SIGINT
 
 pushd $SRCROOT >/dev/null
 
 launch_gethnet
-
-########################
-## Deploy Oracle and LinkToken contracts
-########################
-
-printf -- "\033[34mMigrating core contracts...\033[0m\n"
-pushd integration >/dev/null
-
-yarn --no-progress install &>$SRCROOT/integration/yarn.log
-./deploy_contracts &>$SRCROOT/integration/deploy.log
-export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
-export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
-
-popd >/dev/null
-printf -- "\033[34mMigration complete.\033[0m\n"
-
-########################
-## Run ChainLink
-########################
-
+deploy_oracle_and_linktoken_contracts
 launch_chainlink
-
-########################
-## Run echo_server
-########################
-
-printf -- "\033[34mStarting echo server...\033[0m\n"
-pushd integration >/dev/null
-
-./echo_server &>$SRCROOT/integration/echo-server.log &
-waitForResponse http://127.0.0.1:6690/count
-
-popd >/dev/null
-printf -- "\033[34mEcho server is running.\033[0m\n\n"
+launch_echo_server
 
 #------------------------------------------------------------------------------
 # TESTS
@@ -171,15 +168,16 @@ printf -- "\033[34mEcho server is running.\033[0m\n\n"
 printf -- "\n\033[34mRunning tests...\033[0m\n"
 pushd integration >/dev/null
 
-#########################
-### runlog
-#########################
+#######################
+# runlog
+#######################
 
 printf -- "\n--------------------------------------------------------------------------------\n"
 printf -- "\033[34mRunlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
-./send_runlog_transaction
+./send_runlog_transaction | tee send_runlog_transaction.log
+export RUNLOG_ADDRESS=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
 
 # Check echo count
 assert "Echo count" "curl -sS localhost:6690/count" 1
@@ -195,6 +193,12 @@ assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 # Check for fullfillment event
 assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
+#txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
+./count_transaction_events $RUNLOG_ADDRESS
+assert "Contract Events" "./count_transaction_events $RUNLOG_ADDRESS" 1
+
+exit 0
+
 #######################
 # ethlog
 #######################
@@ -204,7 +208,7 @@ printf -- "\033[34mEthlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
 ethjob=`./create_ethlog_job`
-./send_ethlog_transaction
+./send_ethlog_transaction | tee send_ethlog_transaction.log
 
 # Check echo count
 assert "Echo count" "curl -sS localhost:6690/count" 2
