@@ -177,7 +177,7 @@ printf -- "\033[34mRunlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
 ./send_runlog_transaction | tee send_runlog_transaction.log
-export RUNLOG_ADDRESS=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
+runlog_address=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
 
 # Check echo count
 assert "Echo count" "curl -sS localhost:6690/count" 1
@@ -190,14 +190,15 @@ assert "Jobs count" "chainlink -j j | jq length" 1
 jid=`chainlink -j j | jq 'first | .id' | tr -d '"'`
 assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
 
-# Check for fullfillment event
-assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
+# Check for the Fullfillment event
+txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
 
-#txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
-./count_transaction_events $RUNLOG_ADDRESS
-assert "Contract Events" "./count_transaction_events $RUNLOG_ADDRESS" 1
+while sleep 1; do
+  ./count_transaction_events RunLog.sol $txid
+  ./count_contract_events RunLog.sol $runlog_address
+done
 
-exit 0
+assert "Contract Events" "./count_contract_events RunLog.sol $runlog_address" 1
 
 #######################
 # ethlog
@@ -207,19 +208,27 @@ printf -- "\n-------------------------------------------------------------------
 printf -- "\033[34mEthlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
-ethjob=`./create_ethlog_job`
 ./send_ethlog_transaction | tee send_ethlog_transaction.log
+ethlog_address=`cat send_ethlog_transaction.log | grep EthLog | awk '{print$4}'`
+jid=`cat send_ethlog_transaction.log | grep Job | awk '{print$4}'`
+
+# Check the logEvent created a log event
+assert "Transaction Events" "./count_contract_events EthLog.sol $ethlog_address" 1
 
 # Check echo count
-assert "Echo count" "curl -sS localhost:6690/count" 2
+assert "Echo count" "curl -sS localhost:6690/count" 1
 
 # Check job counts
 chainlink login --file $SRCROOT/internal/clroot/apicredentials
-assert "Jobs count" "chainlink -j j | jq length" 2
+assert "Jobs count" "chainlink -j j | jq length" 1
 
 # Check job runs
-jid=`echo $ethjob | jq .data.id | tr -d '"'`
-assert "EthLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
+assert "EthLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
+
+# Check for the Fullfillment event
+assert "Transaction Events" "./count_contract_events EthLog.sol $ethlog_address" 2
+txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
+assert "Transaction Events" "./count_transaction_events EthLog.sol $txid" 1
 
 #######################
 # End to end

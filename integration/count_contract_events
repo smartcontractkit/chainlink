@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+
+const { deployer, abort } = require('./common.js')
+
+process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+
+const main = async (contractName, contractAddress) => {
+  let RunLog = await deployer.load(contractName, contractAddress)
+    .catch(abort('Error deploying RunLog.sol'))
+
+  console.log('Loading RunLog at', contractAddress)
+
+  let count = 0
+  RunLog.allEvents().get((error, event) => {
+    if (error) {
+      abort('Error fetching RunLog.events')(error)
+    }
+    count++
+  })
+  console.log(count)
+}
+
+main(...process.argv.slice(2))
