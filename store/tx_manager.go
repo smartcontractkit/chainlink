@@ -244,31 +244,11 @@ func (txm *EthTxManager) checkAttempt(
 // GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
 // the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
-func (txm *EthTxManager) GetETHAndLINKBalances() (*big.Int, *assets.Link, error) {
-	ma := txm.NextActiveAccount()
-	if ma == nil {
-		return big.NewInt(0), assets.NewLink(0), fmt.Errorf(
-			"Could not find activeAccount for which to report new balances")
-	}
-	address := ma.Account.Address
+func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int, *assets.Link, error) {
 	linkBalance, linkErr := txm.GetLinkBalance(address)
 	ethBalance, ethErr := txm.EthClient.GetWeiBalance(address)
 	merr := multierr.Append(linkErr, ethErr)
 	return ethBalance, linkBalance, merr
-}
-
-// ethAndLINKBalancesReport constructs the log message reporting on the current
-// ETH and LINK balances, or the error which occurred while retrieving them from
-// the ethereum node (merr)
-func ethAndLINKBalancesReport(ethBalance *big.Int, linkBalance *assets.Link, merr error) string {
-	if merr == nil {
-		return fmt.Sprintf(
-			"New ETH balance: %v. New LINK balance: %v",
-			ethBalance, linkBalance)
-	}
-	return fmt.Sprintf(
-		"Failed to retrieve LINK or ETH balance following confirmation! %v",
-		merr)
 }
 
 // handleConfirmed checks whether a tx is confirmed, and records and reports it
@@ -292,11 +272,16 @@ func (txm *EthTxManager) handleConfirmed(
 		return false, err
 	}
 
-	logMessage := fmt.Sprintf("Confirmed tx %v", txat.Hash.String())
-	ethBalance, linkBalance, merr := txm.GetETHAndLINKBalances()
-	balanceMessage := ethAndLINKBalancesReport(ethBalance, linkBalance, merr)
-	logger.Infow(logMessage+" "+balanceMessage,
-		"txat", txat, "receipt", rcpt)
+	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
+	logger.Infow(
+		fmt.Sprintf("Confirmed tx %v", txat.Hash.String()),
+		"txHash", txat.Hash.String(),
+		"ethBalance", ethBalance,
+		"linkBalance", linkBalance,
+		"receipt", rcpt,
+		"txat", txat,
+		"err", balanceErr,
+	)
 
 	return true, nil
 }
