@@ -52,7 +52,6 @@ module.exports = function Deployer (wallet, utils) {
         gas: 2500000,
         gasPrice: 10000000000,
         from: wallet.address,
-        nonce: await wallet.nextNonce(),
         data: `0x${getBytecode(compiled)}${encodedArgs}`
       })
       const receipt = await utils.getTxReceipt(txHash)

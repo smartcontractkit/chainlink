@@ -150,7 +150,7 @@ contract Chainlinked {
   }
 
   modifier isUnfulfilledRequest(bytes32 _requestId) {
-    require(unfulfilledRequests[_requestId] == address(0), "Request is already unfulfilled");
+    require(unfulfilledRequests[_requestId] == address(0), "Request is already fulfilled");
     _;
   }
 }

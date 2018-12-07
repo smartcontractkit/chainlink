@@ -1,16 +1,20 @@
-'use strict';
+import {resolve, join } from 'path'
+import {
+  deploy,
+  linkContract,
+  toWei
+} from '../../../solidity/test/support/helpers'
 
 contract('RunLog', () => {
-  let LinkToken = artifacts.require("LinkToken");
-  let Oracle = artifacts.require("Oracle");
-  let RunLog = artifacts.require("RunLog");
+  const arbitraryJobID =
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
   let link, logger, oc;
 
   beforeEach(async () => {
-    link = await LinkToken.new();
-    oc = await Oracle.new(link.address);
-    logger = await RunLog.new(link.address, oc.address, "SOME_JOB_ID");
-    await link.transfer(logger.address, web3.toWei(1));
+    link = await linkContract()
+    oc = await deploy('Oracle.sol', link.address)
+    logger = await deploy('RunLog.sol', link.address, oc.address, arbitraryJobID)
+    await link.transfer(logger.address, toWei("1"));
   });
 
   it("has a limited public interface", async () => {

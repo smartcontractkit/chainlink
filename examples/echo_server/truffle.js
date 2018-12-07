@@ -1,3 +1,6 @@
+require('babel-register')
+require('babel-polyfill')
+
 module.exports = {
   networks: {
     development: {
@@ -6,5 +9,10 @@ module.exports = {
       network_id: "*",
       gas: 4700000
     }
-  }
+  },
+  compilers: {
+    solc: {
+      version: "0.4.24",
+    }
+  },
 };
