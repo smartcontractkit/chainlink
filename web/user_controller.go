@@ -7,10 +7,12 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -90,24 +92,35 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 //  "<application>/user/balances"
 func (c *UserController) AccountBalances(ctx *gin.Context) {
 	store := c.App.GetStore()
-	txm := store.TxManager
+	accounts := store.KeyStore.Accounts()
+	balances := []presenters.AccountBalance{}
+	for _, a := range accounts {
+		pa := getAccountBalanceFor(ctx, store, a)
+		if ctx.IsAborted() {
+			return
+		}
+		balances = append(balances, pa)
+	}
 
-	if account, err := store.KeyStore.GetFirstAccount(); err != nil {
-		publicError(ctx, 400, err)
-	} else if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
+	if json, err := jsonapi.Marshal(balances); err != nil {
+		ctx.AbortWithError(500, fmt.Errorf("failed to marshal account balances using jsonapi: %+v", err))
+	} else {
+		ctx.Data(200, MediaType, json)
+	}
+}
+
+func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
+	txm := store.TxManager
+	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
 		ctx.AbortWithError(500, err)
 	} else if linkBalance, err := txm.GetLinkBalance(account.Address); err != nil {
 		ctx.AbortWithError(500, err)
 	} else {
-		ab := presenters.AccountBalance{
+		return presenters.AccountBalance{
 			Address:     account.Address.Hex(),
 			EthBalance:  ethBalance,
 			LinkBalance: linkBalance,
 		}
-		if json, err := jsonapi.Marshal(ab); err != nil {
-			ctx.AbortWithError(500, fmt.Errorf("failed to marshal account using jsonapi: %+v", err))
-		} else {
-			ctx.Data(200, MediaType, json)
-		}
 	}
+	return presenters.AccountBalance{}
 }
