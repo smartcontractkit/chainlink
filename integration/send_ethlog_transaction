@@ -20,7 +20,7 @@ const main = async () => {
       { 'type': 'EthTx',
         'params': {
           'address': EthLog.address,
-          'functionSelector': 'logEvent()'
+          'functionSelector': 'fulfill(bytes32,bytes32)'
         }
       }
     ]

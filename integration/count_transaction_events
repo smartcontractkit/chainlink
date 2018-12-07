@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+
+const { deployer, abort } = require('./common.js')
+const Web3 = require('web3')
+
+process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+
+const main = async (contractName, txID) => {
+  const provider = new Web3.providers.HttpProvider('http://localhost:18545')
+  const web3 = new Web3(provider)
+
+  const transaction = await web3.eth.getTransaction(txID)
+    .catch(abort('Error getting transaction'))
+
+  console.log('Loading RunLog at', transaction.to)
+
+  let RunLog = await deployer.load(contractName, transaction.to)
+    .catch(abort('Error deploying RunLog.sol'))
+
+  let count = 0
+  RunLog.allEvents().get((error, event) => {
+    if (error) {
+      abort('Error fetching RunLog.events')(error)
+    }
+    count++
+  })
+  console.log(count)
+}
+
+main(...process.argv.slice(2))
