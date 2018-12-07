@@ -3,6 +3,7 @@ package store_test
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -644,7 +645,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	ethMock.EventuallyAllCalled(t)
 
-	targetLog := "New ETH balance: 256. New LINK balance: 256.000000000000000000"
+	targetLog := fmt.Sprintf("Confirmed tx %v", initialSuccessfulAttempt.Hash.String())
 	targetLogSeen := false
 	for _, log := range logsToCheckForBalance.All() {
 		if strings.Contains(log.Entry.Message, targetLog) {
