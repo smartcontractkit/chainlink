@@ -70,6 +70,21 @@ contract MaliciousChainlinked {
     return requestId;
   }
 
+  function chainlinkTargetRequest(address _target, MaliciousChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns(bytes32 requestId)
+  {
+    requestId = keccak256(abi.encodePacked(_target, requests));
+    _run.nonce = requests;
+    _run.close();
+    unfulfilledRequests[requestId] = oracle;
+    emit ChainlinkRequested(requestId);
+    require(link.transferAndCall(oracle, _amount, encodeForOracle(_run)), "Unable to transferAndCall to oracle");
+    requests += 1;
+
+    return requestId;
+  }
+
   function chainlinkWithdrawRequest(MaliciousChainlinkLib.WithdrawRun memory _run, uint256 _wei)
     internal
     returns(bytes32 requestId)

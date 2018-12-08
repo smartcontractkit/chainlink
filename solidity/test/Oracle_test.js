@@ -85,7 +85,7 @@ contract('Oracle', () => {
     })
 
     context('malicious requester', () => {
-      let mock
+      let mock, requester
       const paymentAmount = web3.toWei('1', 'ether')
 
       beforeEach(async () => {
@@ -106,6 +106,25 @@ contract('Oracle', () => {
 
         assert.isTrue(ocOriginalBalance.equals(ocNewBalance))
         assert.isTrue(mockNewBalance.equals(mockOriginalBalance))
+      })
+
+      context('if the requester tries to create a requestId for another contract', () => {
+        let specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
+
+        it('the requesters ID will not match with the oracle contract', async () => {
+          const tx = await mock.maliciousTargetConsumer(to)
+          let events = await h.getEvents(oc)
+          const mockRequestId = tx.receipt.logs[0].data
+          const requestId = events[0].args.requestId
+          assert.notEqual(mockRequestId, requestId)
+        })
+
+        it('the target requester can still create valid requests', async () => {
+          requester = await h.deploy('examples/BasicConsumer.sol', link.address, oc.address, h.toHex(specId))
+          await link.transfer(requester.address, paymentAmount)
+          await mock.maliciousTargetConsumer(requester.address)
+          await requester.requestEthereumPrice('USD')
+        })
       })
     })
 
@@ -251,8 +270,9 @@ contract('Oracle', () => {
 
       context('fails during fulfillment', () => {
         beforeEach(async () => {
-          const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          requestId = h.runRequestId(req.receipt.logs[3])
+          await mock.requestData('assertFail(bytes32,bytes32)')
+          let events = await h.getEvents(oc)
+          requestId = events[0].args.requestId
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -276,8 +296,9 @@ contract('Oracle', () => {
 
       context('calls selfdestruct', () => {
         beforeEach(async () => {
-          const req = await mock.requestData('doesNothing(bytes32,bytes32)')
-          requestId = h.runRequestId(req.receipt.logs[3])
+          await mock.requestData('doesNothing(bytes32,bytes32)')
+          let events = await h.getEvents(oc)
+          requestId = events[0].args.requestId
           await mock.remove()
         })
 
@@ -336,8 +357,9 @@ contract('Oracle', () => {
 
       context('tries to steal funds from node', () => {
         it('is not successful with call', async () => {
-          const req = await mock.requestData('stealEthCall(bytes32,bytes32)')
-          requestId = h.runRequestId(req.receipt.logs[3])
+          await mock.requestData('stealEthCall(bytes32,bytes32)')
+          let events = await h.getEvents(oc)
+          requestId = events[0].args.requestId
 
           await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
@@ -345,8 +367,9 @@ contract('Oracle', () => {
         })
 
         it('is not successful with send', async () => {
-          const req = await mock.requestData('stealEthSend(bytes32,bytes32)')
-          requestId = h.runRequestId(req.receipt.logs[3])
+          await mock.requestData('stealEthSend(bytes32,bytes32)')
+          let events = await h.getEvents(oc)
+          requestId = events[0].args.requestId
 
           await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
@@ -354,8 +377,9 @@ contract('Oracle', () => {
         })
 
         it('is not successful with transfer', async () => {
-          const req = await mock.requestData('stealEthTransfer(bytes32,bytes32)')
-          requestId = h.runRequestId(req.receipt.logs[3])
+          await mock.requestData('stealEthTransfer(bytes32,bytes32)')
+          let events = await h.getEvents(oc)
+          requestId = events[0].args.requestId
 
           await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
