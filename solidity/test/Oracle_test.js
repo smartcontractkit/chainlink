@@ -86,7 +86,7 @@ contract('Oracle', () => {
 
     context('malicious requester', () => {
       let mock
-      const paymentAmount = 1
+      const paymentAmount = web3.toWei('1', 'ether')
 
       beforeEach(async () => {
         mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
