@@ -171,7 +171,7 @@ contract('Oracle', () => {
   })
 
   describe('#fulfillData', () => {
-    let mock, internalId
+    let mock, requestId
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
@@ -179,7 +179,7 @@ contract('Oracle', () => {
         const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
         const args = h.requestDataBytes(specId, mock.address, fHash, 1, '')
         const req = await h.requestDataFrom(oc, link, 0, args)
-        internalId = h.runRequestId(req.receipt.logs[2])
+        requestId = h.runRequestId(req.receipt.logs[2])
       })
 
       context('when called by an unauthorized node', () => {
@@ -187,7 +187,7 @@ contract('Oracle', () => {
           let unauthorized = await oc.getAuthorizationStatus(h.stranger)
           assert.equal(false, unauthorized)
           await h.assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'Hello World!', { from: h.stranger })
+            await oc.fulfillData(requestId, 'Hello World!', { from: h.stranger })
           })
         })
       })
@@ -200,19 +200,19 @@ contract('Oracle', () => {
         })
 
         it('sets the value on the requested contract', async () => {
-          await oc.fulfillData(internalId, 'Hello World!', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'Hello World!', { from: h.oracleNode })
 
           let mockRequestId = await mock.requestId.call()
-          assert.equal(internalId, mockRequestId)
+          assert.equal(requestId, mockRequestId)
 
           let currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', web3.toUtf8(currentValue))
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await oc.fulfillData(internalId, 'First message!', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'First message!', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'Second message!!', { from: h.oracleNode })
+            await oc.fulfillData(requestId, 'Second message!!', { from: h.oracleNode })
           })
         })
       })
@@ -252,11 +252,11 @@ contract('Oracle', () => {
       context('fails during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          internalId = h.runRequestId(req.receipt.logs[3])
+          requestId = h.runRequestId(req.receipt.logs[3])
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -267,9 +267,9 @@ contract('Oracle', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'hack the planet 102', { from: h.oracleNode })
+            await oc.fulfillData(requestId, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })
@@ -277,12 +277,12 @@ contract('Oracle', () => {
       context('calls selfdestruct', () => {
         beforeEach(async () => {
           const req = await mock.requestData('doesNothing(bytes32,bytes32)')
-          internalId = h.runRequestId(req.receipt.logs[3])
+          requestId = h.runRequestId(req.receipt.logs[3])
           await mock.remove()
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -297,14 +297,14 @@ contract('Oracle', () => {
         beforeEach(async () => {
           const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
           let event = await h.getLatestEvent(oc)
-          internalId = event.args.requestId
+          requestId = event.args.requestId
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -318,9 +318,9 @@ contract('Oracle', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await oc.fulfillData(internalId, 'hack the planet 102', { from: h.oracleNode })
+            await oc.fulfillData(requestId, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })
@@ -337,27 +337,27 @@ contract('Oracle', () => {
       context('tries to steal funds from node', () => {
         it('is not successful with call', async () => {
           const req = await mock.requestData('stealEthCall(bytes32,bytes32)')
-          internalId = h.runRequestId(req.receipt.logs[3])
+          requestId = h.runRequestId(req.receipt.logs[3])
 
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
           assert.equal(mockBalance, 0)
         })
 
         it('is not successful with send', async () => {
           const req = await mock.requestData('stealEthSend(bytes32,bytes32)')
-          internalId = h.runRequestId(req.receipt.logs[3])
+          requestId = h.runRequestId(req.receipt.logs[3])
 
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
           assert.equal(mockBalance, 0)
         })
 
         it('is not successful with transfer', async () => {
           const req = await mock.requestData('stealEthTransfer(bytes32,bytes32)')
-          internalId = h.runRequestId(req.receipt.logs[3])
+          requestId = h.runRequestId(req.receipt.logs[3])
 
-          await oc.fulfillData(internalId, 'hack the planet 101', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
           const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
           assert.equal(mockBalance, 0)
         })
@@ -379,7 +379,7 @@ contract('Oracle', () => {
     })
 
     context('reserving funds via requestData', () => {
-      let internalId, amount
+      let requestId, amount
 
       beforeEach(async () => {
         amount = 15
@@ -387,7 +387,7 @@ contract('Oracle', () => {
         const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
         const tx = await h.requestDataFrom(oc, link, amount, args)
         assert.equal(3, tx.receipt.logs.length)
-        internalId = h.runRequestId(tx.receipt.logs[2])
+        requestId = h.runRequestId(tx.receipt.logs[2])
       })
 
       context('but not freeing funds w fulfillData', () => {
@@ -402,7 +402,7 @@ contract('Oracle', () => {
 
       context('and freeing funds', () => {
         beforeEach(async () => {
-          await oc.fulfillData(internalId, 'Hello World!', { from: h.oracleNode })
+          await oc.fulfillData(requestId, 'Hello World!', { from: h.oracleNode })
         })
 
         it('does not allow input greater than the balance', async () => {
@@ -479,7 +479,7 @@ contract('Oracle', () => {
     })
 
     context('with a pending request', () => {
-      let internalId, tx, mock, requestAmount, startingBalance
+      let requestId, tx, mock, requestAmount, startingBalance
       assert(mock === undefined, 'silence linter')
       beforeEach(async () => {
         startingBalance = 100
@@ -491,7 +491,7 @@ contract('Oracle', () => {
         let args = h.requestDataBytes(specId, h.consumer, fHash, 1, '')
         tx = await link.transferAndCall(oc.address, requestAmount, args, { from: h.consumer })
         assert.equal(3, tx.receipt.logs.length)
-        internalId = h.runRequestId(tx.receipt.logs[2])
+        requestId = h.runRequestId(tx.receipt.logs[2])
       })
 
       it('has correct initial balances', async () => {
@@ -505,7 +505,7 @@ contract('Oracle', () => {
       context('from a stranger', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await oc.cancel(internalId, { from: h.stranger })
+            await oc.cancel(requestId, { from: h.stranger })
           })
         })
       })
@@ -513,25 +513,25 @@ contract('Oracle', () => {
       context('from the requester', () => {
         it('refunds the correct amount', async () => {
           await h.increaseTime5Minutes()
-          await oc.cancel(internalId, { from: h.consumer })
+          await oc.cancel(requestId, { from: h.consumer })
           let balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 
         it('triggers a cancellation event', async () => {
           await h.increaseTime5Minutes()
-          const tx = await oc.cancel(internalId, { from: h.consumer })
+          const tx = await oc.cancel(requestId, { from: h.consumer })
 
           assert.equal(tx.receipt.logs.length, 2)
-          assert.equal(internalId, tx.receipt.logs[1].data)
+          assert.equal(requestId, tx.receipt.logs[1].data)
         })
 
         context('canceling twice', () => {
           it('fails', async () => {
             await h.increaseTime5Minutes()
-            await oc.cancel(internalId, { from: h.consumer })
+            await oc.cancel(requestId, { from: h.consumer })
             await h.assertActionThrows(async () => {
-              await oc.cancel(internalId, { from: h.consumer })
+              await oc.cancel(requestId, { from: h.consumer })
             })
           })
         })

@@ -145,13 +145,13 @@ export const decodeRunABI = log => {
 export const decodeRunRequest = log => {
   let runABI = util.toBuffer(log.data)
   let types = ['uint256', 'uint256', 'bytes']
-  let [internalId, version, data] = abi.rawDecode(types, runABI)
-  return [log.topics[1], log.topics[2], log.topics[3], toHex(internalId), version, data]
+  let [requestId, version, data] = abi.rawDecode(types, runABI)
+  return [log.topics[1], log.topics[2], log.topics[3], toHex(requestId), version, data]
 }
 
 export const runRequestId = log => {
-  var [_, _, _, internalId, _, _] = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
-  return internalId
+  var [_, _, _, requestId, _, _] = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
+  return requestId
 }
 
 export const requestDataBytes = (specId, to, fHash, nonce, data) => {
