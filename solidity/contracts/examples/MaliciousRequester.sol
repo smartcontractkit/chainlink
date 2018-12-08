@@ -25,9 +25,13 @@ contract MaliciousRequester is MaliciousChainlinked {
     internal
     returns (bytes32 requestId)
   {
-    MaliciousChainlinkLib.Run memory run = newRun(
-      "specId", this, this.doesNothing.selector);
+    MaliciousChainlinkLib.Run memory run = newRun("specId", this, this.doesNothing.selector);
     requestId = chainlinkRequest(run, LINK(1));
+  }
+
+  function maliciousTargetConsumer(address _target) public returns (bytes32 requestId) {
+    MaliciousChainlinkLib.Run memory run = newRun("specId", _target, bytes4(keccak256("fulfill(bytes32,bytes32)")));
+    requestId = chainlinkTargetRequest(_target, run, LINK(1));
   }
 
   function maliciousRequestCancel() public {
