@@ -1,8 +1,11 @@
 pragma solidity 0.4.24;
 
 import "./MaliciousChainlinkLib.sol";
-import "../interfaces/OracleInterface.sol";
+import "../ENSResolver.sol";
+import "../interfaces/ENSInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/OracleInterface.sol";
+import "../interfaces/CoordinatorInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract MaliciousChainlinked {
@@ -10,15 +13,22 @@ contract MaliciousChainlinked {
   using MaliciousChainlinkLib for MaliciousChainlinkLib.WithdrawRun;
   using SafeMath for uint256;
 
-  uint256 constant clArgsVersion = 1;
+  uint256 constant private clArgsVersion = 1;
+  uint256 constant private linkDivisibility = 10**18;
 
-  LinkTokenInterface internal link;
-  OracleInterface internal oracle;
-  uint256 internal requests = 1;
-  mapping(bytes32 => bool) internal unfulfilledRequests;
+  LinkTokenInterface private link;
+  OracleInterface private oracle;
+  uint256 private requests = 1;
+  mapping(bytes32 => address) private unfulfilledRequests;
+
+  ENSInterface private ens;
+  bytes32 private ensNode;
+  bytes32 constant private ensTokenSubname = keccak256("link");
+  bytes32 constant private ensOracleSubname = keccak256("oracle");
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
+  event ChainlinkCancelled(bytes32 id);
 
   function newRun(
     bytes32 _specId,
@@ -38,34 +48,53 @@ contract MaliciousChainlinked {
     return run.initializeWithdraw(_specId, _callbackAddress, _callbackFunction);
   }
 
-  function chainlinkRequest(MaliciousChainlinkLib.Run memory _run, uint256 _wei)
+  function chainlinkRequest(MaliciousChainlinkLib.Run memory _run, uint256 _amount)
     internal
-    returns(bytes32)
+    returns (bytes32)
   {
-    requests += 1;
-    _run.requestId = bytes32(requests);
+    return chainlinkRequestFrom(oracle, _run, _amount);
+  }
+
+  function chainlinkRequestFrom(address _oracle, MaliciousChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns (bytes32 requestId)
+  {
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _run.nonce = requests;
     _run.close();
-    require(link.transferAndCall(oracle, _wei, encodeForOracle(_run)), "Unable to transferAndCall to oracle");
-    emit ChainlinkRequested(_run.requestId);
-    unfulfilledRequests[_run.requestId] = true;
-    return _run.requestId;
+    unfulfilledRequests[requestId] = _oracle;
+    emit ChainlinkRequested(requestId);
+    require(link.transferAndCall(_oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
+    requests += 1;
+
+    return requestId;
   }
 
   function chainlinkWithdrawRequest(MaliciousChainlinkLib.WithdrawRun memory _run, uint256 _wei)
     internal
-    returns(bytes32)
+    returns(bytes32 requestId)
   {
-    requests += 1;
-    _run.requestId = bytes32(requests);
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _run.nonce = requests;
     _run.closeWithdraw();
+    unfulfilledRequests[requestId] = oracle;
+    emit ChainlinkRequested(requestId);
     require(link.transferAndCall(oracle, _wei, encodeWithdrawForOracle(_run)), "Unable to transferAndCall to oracle");
-    emit ChainlinkRequested(_run.requestId);
-    unfulfilledRequests[_run.requestId] = true;
-    return _run.requestId;
+    requests += 1;
+    return requestId;
+  }
+
+  function cancelChainlinkRequest(bytes32 _requestId)
+    internal
+  {
+    OracleInterface requested = OracleInterface(unfulfilledRequests[_requestId]);
+    delete unfulfilledRequests[_requestId];
+    emit ChainlinkCancelled(_requestId);
+    requested.cancel(_requestId);
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
-    return _amount.mul(10**18);
+    return _amount.mul(linkDivisibility);
   }
 
   function setOracle(address _oracle) internal {
@@ -76,18 +105,56 @@ contract MaliciousChainlinked {
     link = LinkTokenInterface(_link);
   }
 
+  function chainlinkToken()
+    internal
+    view
+    returns (address)
+  {
+    return address(link);
+  }
+
+  function oracleAddress()
+    internal
+    view
+    returns (address)
+  {
+    return address(oracle);
+  }
+
+  function newChainlinkWithENS(address _ens, bytes32 _node)
+    internal
+    returns (address, address)
+  {
+    ens = ENSInterface(_ens);
+    ensNode = _node;
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
+    setLinkToken(resolver.addr(linkSubnode));
+    return (link, updateOracleWithENS());
+  }
+
+  function updateOracleWithENS()
+    internal
+    returns (address)
+  {
+    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
+    setOracle(resolver.addr(oracleSubnode));
+    return oracle;
+  }
+
   function encodeForOracle(MaliciousChainlinkLib.Run memory _run)
     internal view returns (bytes memory)
   {
     return abi.encodeWithSelector(
       oracle.requestData.selector,
-      address(this), // overridden by onTokenTransfer
-      100 ether,     // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
       clArgsVersion,
       _run.specId,
       _run.callbackAddress,
       _run.callbackFunctionId,
-      _run.requestId,
+      _run.nonce,
       _run.buf.buf);
   }
 
@@ -96,15 +163,47 @@ contract MaliciousChainlinked {
   {
     return abi.encodeWithSelector(
       oracle.withdraw.selector,
-      _run.callbackAddress,
-      _run.amount,
+      0,
+      0,
       _run.buf.buf);
   }
 
+  function encodeForCoordinator(MaliciousChainlinkLib.Run memory _run)
+    internal
+    view
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      CoordinatorInterface(oracle).executeServiceAgreement.selector,
+      0, // overridden by onTokenTransfer
+      0, // overridden by onTokenTransfer
+      clArgsVersion,
+      _run.specId,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.nonce,
+      _run.buf.buf);
+  }
+
+  function serviceRequest(MaliciousChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns (bytes32 requestId)
+  {
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _run.nonce = requests;
+    _run.close();
+    unfulfilledRequests[requestId] = oracle;
+    emit ChainlinkRequested(requestId);
+    require(link.transferAndCall(oracle, _amount, encodeForCoordinator(_run)), "unable to transferAndCall to oracle");
+    requests += 1;
+
+    return requestId;
+  }
+
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == address(oracle) && unfulfilledRequests[_requestId], "Source must be oracle with a valid requestId");
-    _;
-    unfulfilledRequests[_requestId] = false;
+    require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
+    delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
+    _;
   }
 }

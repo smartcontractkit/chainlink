@@ -18,7 +18,6 @@ contract MaliciousRequester is MaliciousChainlinked {
   {
     MaliciousChainlinkLib.WithdrawRun memory run = newWithdrawRun(
       "specId", this, this.doesNothing.selector);
-    run.amount = link.balanceOf(address(oracle));
     chainlinkWithdrawRequest(run, LINK(1));
   }
 
@@ -32,6 +31,7 @@ contract MaliciousRequester is MaliciousChainlinked {
   }
 
   function maliciousRequestCancel() public {
+    OracleInterface oracle = OracleInterface(oracleAddress());
     oracle.cancel(request());
   }
 
