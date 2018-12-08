@@ -11,7 +11,6 @@ contract Oracle is OracleInterface, Ownable {
   LinkTokenInterface internal LINK;
 
   struct Callback {
-    bytes32 externalId;
     uint256 amount;
     address addr;
     bytes4 functionId;
@@ -23,20 +22,20 @@ contract Oracle is OracleInterface, Ownable {
   uint256 constant private oneForConsistentGasCost = 1;
   uint256 private withdrawableWei = oneForConsistentGasCost;
 
-  mapping(uint256 => Callback) private callbacks;
+  mapping(bytes32 => Callback) private callbacks;
   mapping(address => bool) private authorizedNodes;
 
   event RunRequest(
     bytes32 indexed specId,
     address indexed requester,
     uint256 indexed amount,
-    uint256 internalId,
+    bytes32 requestId,
     uint256 version,
     bytes data
   );
 
   event CancelRequest(
-    uint256 internalId
+    bytes32 requestId
   );
 
   constructor(address _link) Ownable() public {
@@ -69,17 +68,16 @@ contract Oracle is OracleInterface, Ownable {
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
-    bytes32 _externalId,
+    uint256 _nonce,
     bytes _data
   )
     external
     onlyLINK
     checkCallbackAddress(_callbackAddress)
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
-    require(callbacks[internalId].externalId != _externalId, "Must use a unique ID");
-    callbacks[internalId] = Callback(
-      _externalId,
+    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+    callbacks[requestId] = Callback(
       _amount,
       _callbackAddress,
       _callbackFunctionId,
@@ -88,27 +86,27 @@ contract Oracle is OracleInterface, Ownable {
       _specId,
       _sender,
       _amount,
-      internalId,
+      requestId,
       _version,
       _data);
   }
 
   function fulfillData(
-    uint256 _internalId,
+    bytes32 _requestId,
     bytes32 _data
   )
     external
     onlyAuthorizedNode
-    hasInternalId(_internalId)
+    isValidRequest(_requestId)
     returns (bool)
   {
-    Callback memory callback = callbacks[_internalId];
+    Callback memory callback = callbacks[_requestId];
     withdrawableWei = withdrawableWei.add(callback.amount);
-    delete callbacks[_internalId];
+    delete callbacks[_requestId];
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
+    return callback.addr.call(callback.functionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function getAuthorizationStatus(address _node) external view returns (bool) {
@@ -135,13 +133,12 @@ contract Oracle is OracleInterface, Ownable {
   function cancel(bytes32 _externalId)
     external
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(msg.sender, _externalId)));
-    require(msg.sender == callbacks[internalId].addr, "Must be called from requester");
-    require(callbacks[internalId].cancelExpiration <= now, "Request is not expired");
-    Callback memory cb = callbacks[internalId];
+    require(msg.sender == callbacks[_requestId].addr, "Must be called from requester");
+    require(callbacks[_requestId].cancelExpiration <= now, "Request is not expired");
+    Callback memory cb = callbacks[_requestId];
     require(LINK.transfer(cb.addr, cb.amount), "Unable to transfer");
-    delete callbacks[internalId];
-    emit CancelRequest(internalId);
+    delete callbacks[_requestId];
+    emit CancelRequest(_requestId);
   }
 
   // MODIFIERS
@@ -151,8 +148,8 @@ contract Oracle is OracleInterface, Ownable {
     _;
   }
 
-  modifier hasInternalId(uint256 _internalId) {
-    require(callbacks[_internalId].addr != address(0), "Must have a valid internalId");
+  modifier isValidRequest(bytes32 _requestId) {
+    require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
     _;
   }
 

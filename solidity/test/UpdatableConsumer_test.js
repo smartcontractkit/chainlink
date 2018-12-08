@@ -91,7 +91,7 @@ contract('UpdatableConsumer', () => {
       await link.transfer(uc.address, web3.toWei('1', 'ether'))
       await uc.requestEthereumPrice(currency)
       const event = await getLatestEvent(oc)
-      internalId = event.args.internalId
+      internalId = event.args.requestId
 
       const event2 = await getLatestEvent(uc)
       requestId = event2.args.id
