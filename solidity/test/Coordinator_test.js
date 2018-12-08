@@ -192,7 +192,7 @@ contract('Coordinator', () => {
   describe('#fulfillData', () => {
     const agreement = newServiceAgreement({oracles: [oracleNode]})
 
-    let mock, internalId
+    let mock, requestId
 
     beforeEach(async () => {
       await initiateServiceAgreement(coordinator, agreement)
@@ -202,14 +202,14 @@ contract('Coordinator', () => {
 
       const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
       const tx = await link.transferAndCall(coordinator.address, agreement.payment, payload)
-      internalId = runRequestId(tx.receipt.logs[2])
+      requestId = runRequestId(tx.receipt.logs[2])
     })
 
     context('cooperative consumer', () => {
       context('when called by a non-owner', () => {
         xit('raises an error', async () => {
           await assertActionThrows(async () => {
-            await coordinator.fulfillData(internalId, 'Hello World!', { from: stranger })
+            await coordinator.fulfillData(requestId, 'Hello World!', { from: stranger })
           })
         })
       })
@@ -222,19 +222,19 @@ contract('Coordinator', () => {
         })
 
         it('sets the value on the requested contract', async () => {
-          await coordinator.fulfillData(internalId, 'Hello World!', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'Hello World!', { from: oracleNode })
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(internalId, mockRequestId)
+          assert.equal(requestId, mockRequestId)
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', web3.toUtf8(currentValue))
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await coordinator.fulfillData(internalId, 'First message!', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'First message!', { from: oracleNode })
           await assertActionThrows(async () => {
-            await coordinator.fulfillData(internalId, 'Second message!!', { from: oracleNode })
+            await coordinator.fulfillData(requestId, 'Second message!!', { from: oracleNode })
           })
         })
       })
@@ -274,12 +274,12 @@ contract('Coordinator', () => {
       context('fails during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          internalId = runRequestId(req.receipt.logs[3])
+          requestId = runRequestId(req.receipt.logs[3])
         })
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
 
           const balance = await link.balanceOf.call(oracleNode)
           assert.isTrue(balance.equals(0))
@@ -290,9 +290,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
           await assertActionThrows(async () => {
-            await coordinator.fulfillData(internalId, 'hack the planet 102', { from: oracleNode })
+            await coordinator.fulfillData(requestId, 'hack the planet 102', { from: oracleNode })
           })
         })
       })
@@ -300,13 +300,13 @@ contract('Coordinator', () => {
       context('calls selfdestruct', () => {
         beforeEach(async () => {
           const req = await mock.requestData('doesNothing(bytes32,bytes32)')
-          internalId = runRequestId(req.receipt.logs[3])
+          requestId = runRequestId(req.receipt.logs[3])
           await mock.remove()
         })
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
 
           const balance = await link.balanceOf.call(oracleNode)
           assert.isTrue(balance.equals(0))
@@ -320,7 +320,7 @@ contract('Coordinator', () => {
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
           const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
-          internalId = runRequestId(req.receipt.logs[3])
+          requestId = runRequestId(req.receipt.logs[3])
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -328,7 +328,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -342,9 +342,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(internalId, 'hack the planet 101', { from: oracleNode })
+          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
           await assertActionThrows(async () => {
-            await coordinator.fulfillData(internalId, 'hack the planet 102', { from: oracleNode })
+            await coordinator.fulfillData(requestId, 'hack the planet 102', { from: oracleNode })
           })
         })
       })
