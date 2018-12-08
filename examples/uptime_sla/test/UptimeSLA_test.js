@@ -70,7 +70,7 @@ contract('UptimeSLA', () => {
     beforeEach(async () => {
       await sla.updateUptime('0')
       const event = await getLatestEvent(oc)
-      requestId = event.args.internalId
+      requestId = event.args.requestId
     })
 
     context("when the value is below 9999", async () => {
@@ -122,7 +122,7 @@ contract('UptimeSLA', () => {
         let args = requestDataBytes(specId, sla.address, fid, "xid", "")
         await requestDataFrom(oc, link, 0, args)
         let event = await getLatestEvent(oc)
-        requestId = event.args.internalId
+        requestId = event.args.requestId
       })
 
       it("does not accept the data provided", async () => {
