@@ -114,7 +114,7 @@ contract('ConcreteChainlinked', () => {
     beforeEach(async () => {
       await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
       requestId = (await getLatestEvent(cc)).args.id
-      internalId = (await getLatestEvent(oc)).args.internalId
+      internalId = (await getLatestEvent(oc)).args.requestId
     })
 
     it('emits an event marking the request cancelled', async () => {

@@ -78,7 +78,7 @@ contract('ServiceAgreementConsumer', () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'))
       await cc.requestEthereumPrice(currency)
       let event = await getLatestEvent(coord)
-      internalId = event.args.internalId
+      internalId = event.args.requestId
     })
 
     it('records the data given to it by the oracle', async () => {
@@ -93,10 +93,10 @@ contract('ServiceAgreementConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector('fulfill(bytes32,bytes32)')
-        let args = executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 42, '')
+        let args = executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 1, '')
         await requestDataFrom(coord, link, 0, args)
         let event = await getLatestEvent(coord)
-        otherId = event.args.internalId
+        otherId = event.args.requestId
       })
 
       it('does not accept the data provided', async () => {

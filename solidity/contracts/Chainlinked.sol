@@ -47,16 +47,17 @@ contract Chainlinked {
 
   function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _amount)
     internal
-    returns (bytes32)
+    returns (bytes32 requestId)
   {
-    _run.requestId = bytes32(requests);
-    requests += 1;
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _run.nonce = requests;
     _run.close();
-    unfulfilledRequests[_run.requestId] = _oracle;
-    emit ChainlinkRequested(_run.requestId);
+    unfulfilledRequests[requestId] = _oracle;
+    emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _amount, encodeForOracle(_run)), "unable to transferAndCall to oracle");
+    requests += 1;
 
-    return _run.requestId;
+    return requestId;
   }
 
   function cancelChainlinkRequest(bytes32 _requestId)
@@ -131,7 +132,7 @@ contract Chainlinked {
       _run.specId,
       _run.callbackAddress,
       _run.callbackFunctionId,
-      _run.requestId,
+      _run.nonce,
       _run.buf.buf);
   }
 
@@ -148,22 +149,23 @@ contract Chainlinked {
       _run.specId,
       _run.callbackAddress,
       _run.callbackFunctionId,
-      _run.requestId,
+      _run.nonce,
       _run.buf.buf);
   }
 
   function serviceRequest(ChainlinkLib.Run memory _run, uint256 _amount)
     internal
-    returns (bytes32)
+    returns (bytes32 requestId)
   {
-    _run.requestId = bytes32(requests);
-    requests += 1;
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _run.nonce = requests;
     _run.close();
-    unfulfilledRequests[_run.requestId] = oracle;
-    emit ChainlinkRequested(_run.requestId);
+    unfulfilledRequests[requestId] = oracle;
+    emit ChainlinkRequested(requestId);
     require(link.transferAndCall(oracle, _amount, encodeForCoordinator(_run)), "unable to transferAndCall to oracle");
+    requests += 1;
 
-    return _run.requestId;
+    return requestId;
   }
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {

@@ -2,7 +2,7 @@ pragma solidity 0.4.24;
 
 interface OracleInterface {
   function cancel(bytes32 externalId) external;
-  function fulfillData(uint256 internalId, bytes32 data) external returns (bool);
+  function fulfillData(bytes32 requestId, bytes32 data) external returns (bool);
   function getAuthorizationStatus(address node) external view returns (bool);
   function requestData(
     address sender,
@@ -11,7 +11,7 @@ interface OracleInterface {
     bytes32 specId,
     address callbackAddress,
     bytes4 callbackFunctionId,
-    bytes32 externalId,
+    uint256 nonce,
     bytes data
   ) external;
   function setFulfillmentPermission(address node, bool allowed) external;
