@@ -19,14 +19,13 @@ contract Coordinator is CoordinatorInterface {
   }
 
   struct Callback {
-    bytes32 externalId;
     uint256 amount;
     address addr;
     bytes4 functionId;
     uint64 cancelExpiration;
   }
 
-  mapping(uint256 => Callback) private callbacks;
+  mapping(bytes32 => Callback) private callbacks;
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
 
   constructor(address _link) public {
@@ -37,7 +36,7 @@ contract Coordinator is CoordinatorInterface {
     bytes32 indexed sAId,
     address indexed requester,
     uint256 indexed amount,
-    uint256 internalId,
+    bytes32 requestId,
     uint256 version,
     bytes data
   );
@@ -73,16 +72,16 @@ contract Coordinator is CoordinatorInterface {
     bytes32 _sAId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
-    bytes32 _externalId,
+    uint256 _nonce,
     bytes _data
   )
     external
     onlyLINK
     sufficientLINK(_amount, _sAId)
   {
-    uint256 internalId = uint256(keccak256(abi.encodePacked(_sender, _externalId)));
-    callbacks[internalId] = Callback(
-      _externalId,
+    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+    callbacks[requestId] = Callback(
       _amount,
       _callbackAddress,
       _callbackFunctionId,
@@ -91,7 +90,7 @@ contract Coordinator is CoordinatorInterface {
       _sAId,
       _sender,
       _amount,
-      internalId,
+      requestId,
       _version,
       _data);
   }
@@ -175,16 +174,13 @@ contract Coordinator is CoordinatorInterface {
     _;
   }
 
-  bytes4 constant private permittedFunc =
-    bytes4(keccak256("executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)")); /* solium-disable-line indentation */
-
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
     assembly {
       // solium-disable-next-line security/no-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == permittedFunc, "Must use whitelisted functions");
+    require(funcSelector[0] == this.executeServiceAgreement.selector, "Must use whitelisted functions");
     _;
   }
 
@@ -193,24 +189,24 @@ contract Coordinator is CoordinatorInterface {
     _;
   }
 
-  modifier hasInternalId(uint256 _internalId) {
-    require(callbacks[_internalId].addr != address(0), "Must have a valid internalId");
+  modifier hasInternalId(bytes32 _requestId) {
+    require(callbacks[_requestId].addr != address(0), "Must have a valid internalId");
     _;
   }
 
   function fulfillData(
-    uint256 _internalId,
+    bytes32 _requestId,
     bytes32 _data
   )
     public
-    hasInternalId(_internalId)
+    hasInternalId(_requestId)
     returns (bool)
   {
-    Callback memory callback = callbacks[_internalId];
-    delete callbacks[_internalId];
+    Callback memory callback = callbacks[_requestId];
+    delete callbacks[_requestId];
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted. See:
     // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return callback.addr.call(callback.functionId, callback.externalId, _data); // solium-disable-line security/no-low-level-calls
+    return callback.addr.call(callback.functionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 }

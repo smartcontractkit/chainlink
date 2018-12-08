@@ -8,7 +8,7 @@ interface CoordinatorInterface {
     bytes32 sAId,
     address callbackAddress,
     bytes4 callbackFunctionId,
-    bytes32 externalId,
+    uint256 nonce,
     bytes data
   ) external;
 }

@@ -154,11 +154,11 @@ export const runRequestId = log => {
   return internalId
 }
 
-export const requestDataBytes = (specId, to, fHash, runId, data) => {
-  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
-  let values = [0, 0, 1, specId, to, fHash, runId, data]
+export const requestDataBytes = (specId, to, fHash, nonce, data) => {
+  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
+  let values = [0, 0, 1, specId, to, fHash, nonce, data]
   let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
+  let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
   return funcSelector + encoded
 }
 
@@ -282,11 +282,11 @@ export const personalSign = (account, message) => {
   )
 }
 
-export const executeServiceAgreementBytes = (sAID, to, fHash, runId, data) => {
-  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'bytes32', 'bytes']
-  let values = [0, 0, 1, sAID, to, fHash, runId, data]
+export const executeServiceAgreementBytes = (sAID, to, fHash, nonce, data) => {
+  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
+  let values = [0, 0, 1, sAID, to, fHash, nonce, data]
   let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,bytes32,bytes)')
+  let funcSelector = functionSelector('executeServiceAgreement(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
   return funcSelector + encoded
 }
 

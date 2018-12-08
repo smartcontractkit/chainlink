@@ -11,7 +11,7 @@ library ChainlinkLib {
     bytes32 specId;
     address callbackAddress;
     bytes4 callbackFunctionId;
-    bytes32 requestId;
+    uint256 nonce;
     Buffer.buffer buf;
   }
 

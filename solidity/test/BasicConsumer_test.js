@@ -77,24 +77,24 @@ contract('BasicConsumer', () => {
 
   describe('#fulfillData', () => {
     let response = '1,000,000.00'
-    let internalId
+    let requestId
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'))
       await cc.requestEthereumPrice(currency)
       let event = await getLatestEvent(oc)
-      internalId = event.args.internalId
+      requestId = event.args.requestId
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oc.fulfillData(internalId, response, {from: oracleNode})
+      await oc.fulfillData(requestId, response, {from: oracleNode})
 
       let currentPrice = await cc.currentPrice.call()
       assert.equal(web3.toUtf8(currentPrice), response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      let tx = await oc.fulfillData(internalId, response, {from: oracleNode})
+      let tx = await oc.fulfillData(requestId, response, {from: oracleNode})
       assert.equal(2, tx.receipt.logs.length)
       let log = tx.receipt.logs[1]
 
@@ -106,10 +106,10 @@ contract('BasicConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = functionSelector('fulfill(bytes32,bytes32)')
-        let args = requestDataBytes(toHex(specId), cc.address, funcSig, 42, '')
+        let args = requestDataBytes(toHex(specId), cc.address, funcSig, 43, '')
         await requestDataFrom(oc, link, 0, args)
         let event = await getLatestEvent(oc)
-        otherId = event.args.internalId
+        otherId = event.args.requestId
       })
 
       it('does not accept the data provided', async () => {
@@ -123,7 +123,7 @@ contract('BasicConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await assertActionThrows(async () => {
-          await cc.fulfill(internalId, response, {from: oracleNode})
+          await cc.fulfill(requestId, response, {from: oracleNode})
         })
 
         let received = await cc.currentPrice.call()
@@ -138,7 +138,8 @@ contract('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'))
       await cc.requestEthereumPrice(currency)
-      requestId = (await getLatestEvent(cc)).args.id
+      let event = await getLatestEvent(oc)
+      requestId = event.args.requestId
     })
 
     context("before 5 minutes", () => {

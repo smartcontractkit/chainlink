@@ -158,7 +158,7 @@ contract('Coordinator', () => {
 
         // If updating this test, be sure to update services.ServiceAgreementExecutionLogTopic.
         // (Which see for the calculation of this hash.)
-        let eventSignature = '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
+        let eventSignature = '0x162abc71bbcd0462b6e89c346f395cff0446e018d1b6edeb6621a9c8d1be7029'
         assert.equal(eventSignature, log.topics[0])
 
         assert.equal(agreement.id, log.topics[1])
@@ -183,7 +183,7 @@ contract('Coordinator', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
-          await coordinator.executeServiceAgreement(0, 0, 1, agreement.id, to, fHash, 'id', '', { from: consumer })
+          await coordinator.executeServiceAgreement(0, 0, 1, agreement.id, to, fHash, 1, '', { from: consumer })
         })
       })
     })
@@ -191,7 +191,6 @@ contract('Coordinator', () => {
 
   describe('#fulfillData', () => {
     const agreement = newServiceAgreement({oracles: [oracleNode]})
-    const externalId = '17'
 
     let mock, internalId
 
@@ -201,7 +200,7 @@ contract('Coordinator', () => {
       mock = await deploy('examples/GetterSetter.sol')
       const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
 
-      const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, externalId, '')
+      const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
       const tx = await link.transferAndCall(coordinator.address, agreement.payment, payload)
       internalId = runRequestId(tx.receipt.logs[2])
     })
@@ -226,7 +225,7 @@ contract('Coordinator', () => {
           await coordinator.fulfillData(internalId, 'Hello World!', { from: oracleNode })
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(externalId, web3.toUtf8(mockRequestId))
+          assert.equal(internalId, mockRequestId)
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', web3.toUtf8(currentValue))
