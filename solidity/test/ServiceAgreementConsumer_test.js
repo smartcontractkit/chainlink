@@ -72,17 +72,17 @@ contract('ServiceAgreementConsumer', () => {
 
   describe('#fulfillData', () => {
     let response = '1,000,000.00'
-    let internalId
+    let requestId
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.toWei('1', 'ether'))
       await cc.requestEthereumPrice(currency)
       let event = await getLatestEvent(coord)
-      internalId = event.args.requestId
+      requestId = event.args.requestId
     })
 
     it('records the data given to it by the oracle', async () => {
-      await coord.fulfillData(internalId, response, { from: oracleNode })
+      await coord.fulfillData(requestId, response, { from: oracleNode })
 
       let currentPrice = await cc.currentPrice.call()
       assert.equal(web3.toUtf8(currentPrice), response)
@@ -110,7 +110,7 @@ contract('ServiceAgreementConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await assertActionThrows(async () => {
-          await cc.fulfill(internalId, response, { from: oracleNode })
+          await cc.fulfill(requestId, response, { from: oracleNode })
         })
         let received = await cc.currentPrice.call()
         assert.equal(web3.toUtf8(received), '')
