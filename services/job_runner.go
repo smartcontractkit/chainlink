@@ -52,10 +52,11 @@ func (rm *jobRunner) Start() error {
 
 	var starterWg sync.WaitGroup
 	starterWg.Add(1)
-	go rm.demultiplexRuns(&starterWg)
-	starterWg.Wait()
 
+	go rm.demultiplexRuns(&starterWg)
 	rm.demultiplexStopperWg.Add(1)
+
+	starterWg.Wait()
 	return nil
 }
 
