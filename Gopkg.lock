@@ -252,12 +252,12 @@
   version = "v1.11.0"
 
 [[projects]]
-  digest = "1:73a7106c799f98af4f3da7552906efc6a2570329f4cd2d2f5fb8f9d6c053ff2f"
+  digest = "1:530233672f656641b365f8efb38ed9fba80e420baff2ce87633813ab3755ed6d"
   name = "github.com/golang/mock"
   packages = ["gomock"]
   pruneopts = ""
-  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
-  version = "v1.1.1"
+  revision = "51421b967af1f557f93a59e0057aaf15ca02e29c"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:f958a1c137db276e52f0b50efee41a1a389dcdded59a69711f3e872757dab34b"
