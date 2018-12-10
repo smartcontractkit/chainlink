@@ -39,6 +39,25 @@ func TestSleeperTask_WakeupBeforeStarted(t *testing.T) {
 	sleeper.Stop()
 }
 
+func TestSleeperTask_Restart(t *testing.T) {
+	worker := testWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+	sleeper.WakeUp()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+
+	sleeper.Start()
+	sleeper.WakeUp()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+}
+
 func TestSleeperTask_SenderNotBlockedWhileWorking(t *testing.T) {
 	worker := testWorker{output: make(chan struct{})}
 	sleeper := NewSleeperTask(&worker)
