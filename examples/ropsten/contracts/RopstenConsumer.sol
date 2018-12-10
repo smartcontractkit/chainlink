@@ -331,7 +331,7 @@ interface LinkTokenInterface {
 
 interface OracleInterface {
   function cancel(bytes32 externalId) external;
-  function fulfillData(bytes32 requestId, bytes32 data) external returns (bool);
+  function fulfillData(uint256 requestId, bytes32 data) external returns (bool);
   function getAuthorizationStatus(address node) external view returns (bool);
   function requestData(
     address sender,
