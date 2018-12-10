@@ -120,7 +120,7 @@ library SafeMath {
 
 interface OracleInterface {
   function cancel(bytes32 externalId) external;
-  function fulfillData(bytes32 requestId, bytes32 data) external returns (bool);
+  function fulfillData(uint256 requestId, bytes32 data) external returns (bool);
   function getAuthorizationStatus(address node) external view returns (bool);
   function requestData(
     address sender,
@@ -180,7 +180,7 @@ contract Oracle is OracleInterface, Ownable {
     bytes32 indexed specId,
     address indexed requester,
     uint256 indexed amount,
-    bytes32 requestId,
+    uint256 requestId,
     uint256 version,
     bytes data
   );
@@ -237,13 +237,13 @@ contract Oracle is OracleInterface, Ownable {
       _specId,
       _sender,
       _amount,
-      requestId,
+      uint256(requestId),
       _version,
       _data);
   }
 
   function fulfillData(
-    bytes32 _requestId,
+    uint256 _requestId,
     bytes32 _data
   )
     external
@@ -251,13 +251,14 @@ contract Oracle is OracleInterface, Ownable {
     isValidRequest(_requestId)
     returns (bool)
   {
-    Callback memory callback = callbacks[_requestId];
+    bytes32 requestId = bytes32(_requestId);
+    Callback memory callback = callbacks[requestId];
     withdrawableWei = withdrawableWei.add(callback.amount);
-    delete callbacks[_requestId];
+    delete callbacks[requestId];
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return callback.addr.call(callback.functionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
+    return callback.addr.call(callback.functionId, requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function getAuthorizationStatus(address _node) external view returns (bool) {
@@ -281,7 +282,7 @@ contract Oracle is OracleInterface, Ownable {
     return withdrawableWei.sub(oneForConsistentGasCost);
   }
 
-  function cancel(bytes32 _externalId)
+  function cancel(bytes32 _requestId)
     external
   {
     require(msg.sender == callbacks[_requestId].addr, "Must be called from requester");
@@ -299,8 +300,8 @@ contract Oracle is OracleInterface, Ownable {
     _;
   }
 
-  modifier isValidRequest(bytes32 _requestId) {
-    require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
+  modifier isValidRequest(uint256 _requestId) {
+    require(callbacks[bytes32(_requestId)].addr != address(0), "Must have a valid requestId");
     _;
   }
 
