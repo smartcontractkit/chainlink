@@ -36,10 +36,13 @@ func NewSleeperTask(worker Worker) SleeperTask {
 
 // Start begins the SleeperTask
 func (s *sleeperTask) Start() error {
+	var wg sync.WaitGroup
 	s.cond.L.Lock()
 	s.started = true
 	s.cond.L.Unlock()
-	go s.workerLoop()
+	wg.Add(1)
+	go s.workerLoop(&wg)
+	wg.Wait()
 	return nil
 }
 
@@ -59,9 +62,13 @@ func (s *sleeperTask) WakeUp() {
 
 // workerLoop is the goroutine behind the sleeper task that waits for a signal
 // before kicking off the worker
-func (s *sleeperTask) workerLoop() {
+func (s *sleeperTask) workerLoop(wg *sync.WaitGroup) {
 	for {
 		s.cond.L.Lock()
+		if wg != nil {
+			wg.Done()
+			wg = nil
+		}
 		s.cond.Wait()
 		if s.started == false {
 			s.cond.L.Unlock()
