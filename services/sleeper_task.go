@@ -31,7 +31,7 @@ func NewSleeperTask(worker Worker) SleeperTask {
 	return &sleeperTask{
 		worker: worker,
 		waker:  make(chan struct{}, 1),
-		closer: make(chan struct{}),
+		closer: make(chan struct{}, 1),
 	}
 }
 
