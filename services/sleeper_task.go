@@ -1,11 +1,5 @@
 package services
 
-import (
-	"sync"
-
-	"github.com/smartcontractkit/chainlink/store"
-)
-
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
 	Start() error
@@ -19,55 +13,57 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker  Worker
-	store   *store.Store
-	cond    *sync.Cond
-	started bool
+	worker Worker
+	waker  chan struct{}
+	closer chan struct{}
 }
 
-// NewSleeperTask takes a worker and retruns a SleeperTask
+// NewSleeperTask takes a worker and returns a SleeperTask.
+//
+// SleeperTask is guaranteed to call Work on the worker at least once for every
+// WakeUp call.
+// If the Worker is busy when WakeUp is called, the Worker will be called again
+// immediately after it is finished. For this reason you should take care to
+// make sure that Worker is idempotent.
+// WakeUp does not block.
+//
 func NewSleeperTask(worker Worker) SleeperTask {
-	var m sync.Mutex
 	return &sleeperTask{
 		worker: worker,
-		cond:   sync.NewCond(&m),
+		waker:  make(chan struct{}, 1),
+		closer: make(chan struct{}),
 	}
 }
 
 // Start begins the SleeperTask
 func (s *sleeperTask) Start() error {
-	s.cond.L.Lock()
-	s.started = true
-	s.cond.L.Unlock()
 	go s.workerLoop()
 	return nil
 }
 
 // Stop stops the SleeperTask
 func (s *sleeperTask) Stop() error {
-	s.cond.L.Lock()
-	s.started = false
-	s.cond.Signal()
-	s.cond.L.Unlock()
+	s.closer <- struct{}{}
 	return nil
 }
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
-	go s.cond.Signal()
+	select {
+	case s.waker <- struct{}{}:
+	default:
+	}
 }
 
 // workerLoop is the goroutine behind the sleeper task that waits for a signal
 // before kicking off the worker
 func (s *sleeperTask) workerLoop() {
 	for {
-		s.cond.L.Lock()
-		s.cond.Wait()
-		if s.started == false {
-			s.cond.L.Unlock()
+		select {
+		case <-s.waker:
+			s.worker.Work()
+		case <-s.closer:
 			return
 		}
-		s.worker.Work()
-		s.cond.L.Unlock()
 	}
 }
