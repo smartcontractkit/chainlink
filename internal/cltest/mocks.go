@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gobuffalo/packr"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockEthClient create new EthMock Client
@@ -637,3 +639,16 @@ func (m *MockRunChannel) Receive() <-chan store.RunRequest {
 }
 
 func (m *MockRunChannel) Close() {}
+
+// ExtractTargetAddressFromERC20EthEthCallMock extracts the contract address and the
+// method data, for checking in a test.
+func ExtractTargetAddressFromERC20EthEthCallMock(
+	t *testing.T, arg ...interface{}) common.Address {
+	ethMockCallArgs, ethMockCallArgsOk := (arg[0]).([]interface{})
+	require.True(t, ethMockCallArgsOk)
+	actualCallArgs, actualCallArgsOk := (ethMockCallArgs[0]).([]interface{})
+	require.True(t, actualCallArgsOk)
+	address, ok := store.ExtractERC20BalanceTargetAddress(actualCallArgs[0])
+	require.True(t, ok)
+	return address
+}

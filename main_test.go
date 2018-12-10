@@ -51,7 +51,7 @@ func ExampleRun() {
 	//      showbridge                Show a specific bridge
 	//      removebridge              Removes a specific bridge
 	//      agree, createsa           Creates a service agreement
-	//      withdraw, w               Withdraw LINK to an authorized address
+	//      withdraw, w               Withdraw, to an authorized Ethereum <address>, <amount> units of LINK. Withdraws from the configured oracle contract by default, or from contract optionally specified by a third command-line argument --from-oracle-contract-address=<contract address>. Address inputs must be in EIP55-compliant capitalization.
 	//      chpass                    Change your password
 	//      txattempts                List the transaction attempts in descending order
 	//      help, h                   Shows a list of commands or help for one command
