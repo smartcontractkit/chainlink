@@ -83,7 +83,7 @@ func getBalance(store *store.Store, account accounts.Account, balanceType reques
 	case ethRequest:
 		return store.TxManager.GetEthBalance(account.Address)
 	case linkRequest:
-		return store.TxManager.GetLinkBalance(account.Address)
+		return store.TxManager.GetLINKBalance(account.Address)
 	}
 	return nil, fmt.Errorf("Impossible to get balance for %T with value %v", balanceType, balanceType)
 }
@@ -181,12 +181,12 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinIncomingConfirmations: config.MinIncomingConfirmations,
 		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:                     config.Port,
-		ReaperExpiration:         config.ReaperExpiration,
-		RootDir:                  config.RootDir,
-		SessionTimeout:           config.SessionTimeout,
-		TLSHost:                  config.TLSHost,
-		TLSPort:                  config.TLSPort,
+		Port:             config.Port,
+		ReaperExpiration: config.ReaperExpiration,
+		RootDir:          config.RootDir,
+		SessionTimeout:   config.SessionTimeout,
+		TLSHost:          config.TLSHost,
+		TLSPort:          config.TLSPort,
 	}
 }
 
