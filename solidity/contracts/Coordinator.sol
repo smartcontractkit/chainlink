@@ -36,7 +36,7 @@ contract Coordinator is CoordinatorInterface {
     bytes32 indexed sAId,
     address indexed requester,
     uint256 indexed amount,
-    bytes32 requestId,
+    uint256 requestId,
     uint256 version,
     bytes data
   );
@@ -90,7 +90,7 @@ contract Coordinator is CoordinatorInterface {
       _sAId,
       _sender,
       _amount,
-      requestId,
+      uint256(requestId),
       _version,
       _data);
   }
@@ -189,21 +189,22 @@ contract Coordinator is CoordinatorInterface {
     _;
   }
 
-  modifier hasInternalId(bytes32 _requestId) {
-    require(callbacks[_requestId].addr != address(0), "Must have a valid internalId");
+  modifier hasInternalId(uint256 _requestId) {
+    require(callbacks[bytes32(_requestId)].addr != address(0), "Must have a valid internalId");
     _;
   }
 
   function fulfillData(
-    bytes32 _requestId,
+    uint256 _requestId,
     bytes32 _data
   )
     public
     hasInternalId(_requestId)
     returns (bool)
   {
-    Callback memory callback = callbacks[_requestId];
-    delete callbacks[_requestId];
+    bytes32 requestId = bytes32(_requestId);
+    Callback memory callback = callbacks[requestId];
+    delete callbacks[requestId];
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted. See:
     // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern

@@ -158,7 +158,7 @@ contract('Coordinator', () => {
 
         // If updating this test, be sure to update services.ServiceAgreementExecutionLogTopic.
         // (Which see for the calculation of this hash.)
-        let eventSignature = '0x162abc71bbcd0462b6e89c346f395cff0446e018d1b6edeb6621a9c8d1be7029'
+        let eventSignature = '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
         assert.equal(eventSignature, log.topics[0])
 
         assert.equal(agreement.id, log.topics[1])
