@@ -2,7 +2,7 @@
 
 # Environment variables for running chainlink in development mode
 
-export LOG_LEVEL=${DEBUG=debug}
+export LOG_LEVEL=${LOG_LEVEL=debug}
 export ETH_WS_PORT=${ETH_WS_PORT=18546}
 export ETH_RPC_PORT=${ETH_RPC_PORT=18545}
 export ETH_URL=${ETH_URL=ws://localhost:$ETH_WS_PORT}
