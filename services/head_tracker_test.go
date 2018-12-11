@@ -105,7 +105,7 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	eth.RegisterSubscription("newHeads", headers)
 
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, int32(1), checker.ConnectedCount())
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
@@ -138,7 +138,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	// connect
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, int32(1), checker.ConnectedCount())
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
@@ -171,7 +171,7 @@ func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
 
 	// connect
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, int32(1), checker.ConnectedCount())
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
@@ -187,6 +187,7 @@ func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
 
 func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -206,7 +207,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	ht.Attach(checker)
 
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, int32(1), checker.ConnectedCount())
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, lastSavedBN, connectedBN)
 	assert.Equal(t, currentBN, ht.Head().ToInt())
 	assert.NoError(t, ht.Stop())
