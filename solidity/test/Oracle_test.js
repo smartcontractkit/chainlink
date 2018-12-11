@@ -1,4 +1,5 @@
 import * as h from './support/helpers'
+import { assertBigNum } from './support/matchers'
 
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'
@@ -191,13 +192,14 @@ contract('Oracle', () => {
 
   describe('#fulfillData', () => {
     let mock, requestId
+    const paymentAmount = web3.toWei(1)
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
         mock = await h.deploy('examples/GetterSetter.sol')
         const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
         const args = h.requestDataBytes(specId, mock.address, fHash, 1, '')
-        const req = await h.requestDataFrom(oc, link, 0, args)
+        const req = await h.requestDataFrom(oc, link, paymentAmount, args)
         requestId = h.runRequestId(req.receipt.logs[2])
       })
 
@@ -233,6 +235,38 @@ contract('Oracle', () => {
           await h.assertActionThrows(async () => {
             await oc.fulfillData(requestId, 'Second message!!', { from: h.oracleNode })
           })
+        })
+      })
+
+      context('when the oracle does not provide enough gas', () => {
+        // if updating this defaultGasLimit, be sure it matches with the
+        // defaultGasLimit specified in store/tx_manager.go
+        const defaultGasLimit = 500000
+
+        beforeEach(async () => {
+          assertBigNum(h.bigNum(0), await oc.withdrawable.call())
+        })
+
+        it('does not allow the oracle to withdraw the payment', async () => {
+          await h.assertActionThrows(async () => {
+            await oc.fulfillData(requestId, 'Hello World!', {
+              from: h.oracleNode,
+              gas: 70000
+            })
+          })
+
+          assertBigNum(h.bigNum(0), await oc.withdrawable.call())
+        })
+
+        it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
+          assertBigNum(h.bigNum(0), await oc.withdrawable.call())
+
+          await oc.fulfillData(requestId, 'Hello World!', {
+            from: h.oracleNode,
+            gas: defaultGasLimit
+          })
+
+          assertBigNum(h.bigNum(paymentAmount), await oc.withdrawable.call())
         })
       })
     })

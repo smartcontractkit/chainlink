@@ -20,6 +20,7 @@ contract Oracle is OracleInterface, Ownable {
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private oneForConsistentGasCost = 1;
+  uint256 constant private minimumConsumerGasLimit = 400000;
   uint256 private withdrawableWei = oneForConsistentGasCost;
 
   mapping(bytes32 => Callback) private callbacks;
@@ -104,6 +105,7 @@ contract Oracle is OracleInterface, Ownable {
     Callback memory callback = callbacks[requestId];
     withdrawableWei = withdrawableWei.add(callback.amount);
     delete callbacks[requestId];
+    require(gasleft() >= minimumConsumerGasLimit);
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
