@@ -76,6 +76,10 @@ contract ConcreteChainlinked is Chainlinked {
     checkChainlinkFulfillment(_requestId)
   {}
 
+  function publicCompleteChainlinkFulfillment(bytes32 _requestId, bytes32) public {
+    completeChainlinkFulfillment(_requestId);
+  }
+
   event LinkAmount(uint256 amount);
 
   function publicLINK(uint256 _link) public {
