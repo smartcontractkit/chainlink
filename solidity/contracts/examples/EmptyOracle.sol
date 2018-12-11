@@ -1,8 +1,9 @@
 pragma solidity 0.4.24;
 
+import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
 
-contract EmptyOracle is OracleInterface {
+contract EmptyOracle is ChainlinkRequestInterface, OracleInterface {
 
   function cancel(bytes32) external {}
   function fulfillData(uint256, bytes32) external returns (bool) {}
