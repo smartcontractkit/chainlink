@@ -151,4 +151,26 @@ contract('ConcreteChainlinked', () => {
       assert.equal(0, events.length)
     })
   })
+
+  describe('#addExternalRequest', () => {
+    let mock, requestId, internalId
+
+    beforeEach(async () => {
+      mock = await deploy(sourcePath, link.address, oc.address)
+      await cc.publicRequestRun(specId, mock.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      requestId = (await getLatestEvent(cc)).args.id
+      internalId = (await getLatestEvent(oc)).args.internalId
+      await mock.publicAddExternalRequest(oc.address, requestId)
+    })
+
+    it('allows the external request to be fulfilled', async () => {
+      await oc.fulfillData(internalId, 'hi mom!')
+    })
+
+    it('does not allow the same requestId to be used', async () => {
+      await assertActionThrows(async () => {
+        await cc.publicAddExternalRequest(newoc.address, requestId)
+      })
+    })
+  })
 })
