@@ -19,6 +19,8 @@ import (
 	"go.uber.org/multierr"
 )
 
+// if updating defaultGasLimit, be sure it matches with the
+// defaultGasLimit specified in solidity/test/Oracle_test.js
 const defaultGasLimit uint64 = 500000
 const nonceReloadLimit uint = 1
 
