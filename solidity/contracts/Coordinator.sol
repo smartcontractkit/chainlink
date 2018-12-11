@@ -1,11 +1,12 @@
 pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/CoordinatorInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
 
 // Coordinator handles oracle service aggreements between one or more oracles.
-contract Coordinator is CoordinatorInterface {
+contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
@@ -46,6 +47,10 @@ contract Coordinator is CoordinatorInterface {
     bytes32 indexed requestDigest
   );
 
+  event CancelRequest(
+    bytes32 internalId
+  );
+
   function onTokenTransfer(
     address _sender,
     uint256 _amount,
@@ -62,10 +67,10 @@ contract Coordinator is CoordinatorInterface {
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls executeServiceAgreement
+    require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
   }
 
-  function executeServiceAgreement(
+  function requestData(
     address _sender,
     uint256 _amount,
     uint256 _version,
@@ -133,7 +138,7 @@ contract Coordinator is CoordinatorInterface {
     bytes32[] _ss,
     bytes32 _requestDigest
   )
-    public
+    external
     returns (bytes32 serviceAgreementID)
   {
     require(_oracles.length == _vs.length && _vs.length == _rs.length && _rs.length == _ss.length, "Must pass in as many signatures as oracles"); /* solium-disable-line max-len */
@@ -180,7 +185,7 @@ contract Coordinator is CoordinatorInterface {
       // solium-disable-next-line security/no-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == this.executeServiceAgreement.selector, "Must use whitelisted functions");
+    require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
     _;
   }
 

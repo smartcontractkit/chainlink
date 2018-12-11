@@ -1,8 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./MaliciousChainlinkLib.sol";
-import "../ENSResolver.sol";
-import "../interfaces/ENSInterface.sol";
+import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/OracleInterface.sol";
 import "../interfaces/CoordinatorInterface.sol";
@@ -113,7 +112,7 @@ contract MaliciousChainlinked {
   }
 
   function setOracle(address _oracle) internal {
-    oracle = OracleInterface(_oracle);
+    oracle = ChainlinkRequestInterface(_oracle);
   }
 
   function setLinkToken(address _link) internal {
@@ -174,26 +173,10 @@ contract MaliciousChainlinked {
   }
 
   function encodeWithdrawForOracle(MaliciousChainlinkLib.WithdrawRun memory _run)
-    internal view returns (bytes memory)
+    internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
-      oracle.withdraw.selector,
-      0,
-      0,
-      _run.buf.buf);
-  }
-
-  function encodeForCoordinator(MaliciousChainlinkLib.Run memory _run)
-    internal
-    view
-    returns (bytes memory)
-  {
-    return abi.encodeWithSelector(
-      CoordinatorInterface(oracle).executeServiceAgreement.selector,
-      0, // overridden by onTokenTransfer
-      0, // overridden by onTokenTransfer
-      clArgsVersion,
-      _run.specId,
+      bytes4(keccak256("withdraw(address,uint256)")),
       _run.callbackAddress,
       _run.callbackFunctionId,
       _run.nonce,

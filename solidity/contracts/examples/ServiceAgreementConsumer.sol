@@ -16,7 +16,7 @@ contract ServiceAgreementConsumer is Chainlinked {
     ChainlinkLib.Run memory run = newRun(sAId, this, this.fulfill.selector);
     run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     run.add("path", _currency);
-    serviceRequest(run, LINK(1));
+    chainlinkRequest(run, LINK(1));
   }
 
   function fulfill(bytes32 _requestId, bytes32 _price)
