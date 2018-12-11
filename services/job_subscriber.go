@@ -21,7 +21,7 @@ type JobSubscriber interface {
 type jobSubscriber struct {
 	store            *store.Store
 	jobSubscriptions []JobSubscription
-	jobsMutex        sync.Mutex
+	jobsMutex        sync.RWMutex
 }
 
 // NewJobSubscriber returns a new job subscriber.
@@ -46,6 +46,8 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.IndexableBlockNum
 
 // Jobs returns the jobs being listened to.
 func (js *jobSubscriber) Jobs() []models.JobSpec {
+	js.jobsMutex.RLock()
+	defer js.jobsMutex.RUnlock()
 	var jobs []models.JobSpec
 	for _, js := range js.jobSubscriptions {
 		jobs = append(jobs, js.Job)

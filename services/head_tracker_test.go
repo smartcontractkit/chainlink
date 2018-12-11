@@ -3,6 +3,7 @@ package services_test
 import (
 	"errors"
 	"math/big"
+	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -196,18 +197,20 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	lastSavedBN := big.NewInt(1)
 	currentBN := big.NewInt(2)
-	var connectedBN *big.Int
+	var connectedValue atomic.Value
 
 	require.NoError(t, ht.Save(models.NewIndexableBlockNumber(lastSavedBN, cltest.NewHash())))
 	eth.Register("eth_getBlockByNumber", models.BlockHeader{Number: hexutil.Big(*currentBN)})
 	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.IndexableBlockNumber) {
-		connectedBN = bn.ToInt()
+		connectedValue.Store(bn.ToInt())
 	}}
 
 	ht.Attach(checker)
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
+
+	connectedBN := connectedValue.Load().(*big.Int)
 	assert.Equal(t, lastSavedBN, connectedBN)
 	assert.Equal(t, currentBN, ht.Head().ToInt())
 	assert.NoError(t, ht.Stop())
