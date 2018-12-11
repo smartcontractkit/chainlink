@@ -84,9 +84,7 @@ func (ht *HeadTracker) Start() error {
 
 	ht.listenForNewHeadsWg.Add(1)
 	go ht.listenForNewHeads()
-	<-ht.subscriptionSucceeded
 
-	ht.fastForwardHeadFromEth()
 	ht.started = true
 	return nil
 }
@@ -186,7 +184,9 @@ func (ht *HeadTracker) listenForNewHeads() {
 	defer ht.unsubscribeFromHead()
 
 	for {
-		ht.subscribe()
+		if !ht.subscribe() {
+			return
+		}
 		if err := ht.receiveHeaders(); err != nil {
 			logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			continue
@@ -198,22 +198,22 @@ func (ht *HeadTracker) listenForNewHeads() {
 
 // subscribe periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
-func (ht *HeadTracker) subscribe() {
+func (ht *HeadTracker) subscribe() bool {
 	ht.sleeper.Reset()
 	for {
 		ht.unsubscribeFromHead()
 		logger.Info("Connecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
 		select {
 		case <-ht.done:
-			return
+			return false
 		case <-time.After(ht.sleeper.After()):
 			err := ht.subscribeToHead()
 			if err != nil {
 				logger.Errorw(fmt.Sprintf("Error connecting to %v", ht.store.Config.EthereumURL), "err", err)
 			} else {
 				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
-				ht.nonblockingSubscriptionSuccessSignal()
-				return
+				ht.fastForwardHeadFromEth()
+				return true
 			}
 		}
 	}
@@ -240,13 +240,6 @@ func (ht *HeadTracker) receiveHeaders() error {
 				return err
 			}
 		}
-	}
-}
-
-func (ht *HeadTracker) nonblockingSubscriptionSuccessSignal() {
-	select {
-	case ht.subscriptionSucceeded <- struct{}{}:
-	default:
 	}
 }
 
