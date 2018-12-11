@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
@@ -67,6 +68,7 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 
 func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
 
 	store, el, cleanup := cltest.NewJobSubscriber()
 	defer cleanup()
@@ -82,7 +84,7 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	ht := services.NewHeadTracker(store)
 	assert.Nil(t, ht.Start())
 	id := ht.Attach(el)
-	assert.Equal(t, 2, len(el.Jobs()))
+	g.Eventually(func() int { return len(el.Jobs()) }).Should(gomega.Equal(2))
 	eth.EventuallyAllCalled(t)
 
 	ht.Detach(id)
