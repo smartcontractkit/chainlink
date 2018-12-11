@@ -1,39 +1,118 @@
 package services
 
 import (
-	"sync/atomic"
+	"sync"
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
 )
 
-type TestWorker struct {
-	counter uint64
+type testWorker struct {
+	output chan struct{}
 }
 
-func (t *TestWorker) Work() {
-	atomic.AddUint64(&t.counter, 1)
-}
-
-func (t *TestWorker) Counter() uint64 {
-	return atomic.LoadUint64(&t.counter)
+func (t *testWorker) Work() {
+	t.output <- struct{}{}
 }
 
 func TestSleeperTask(t *testing.T) {
-	worker := TestWorker{}
+	worker := testWorker{output: make(chan struct{})}
 	sleeper := NewSleeperTask(&worker)
 
-	assert.Equal(t, uint64(0), worker.Counter())
 	sleeper.Start()
-
-	assert.Equal(t, uint64(0), worker.Counter())
-
 	sleeper.WakeUp()
-	gomega.NewGomegaWithT(t).Eventually(func() uint64 {
-		return worker.Counter()
-	}).Should(gomega.Equal(uint64(1)))
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
 
 	sleeper.Stop()
-	assert.Equal(t, uint64(1), worker.Counter())
+}
+
+func TestSleeperTask_WakeupBeforeStarted(t *testing.T) {
+	worker := testWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.WakeUp()
+	sleeper.Start()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+}
+
+func TestSleeperTask_Restart(t *testing.T) {
+	worker := testWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+	sleeper.WakeUp()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+
+	sleeper.Start()
+	sleeper.WakeUp()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+}
+
+func TestSleeperTask_SenderNotBlockedWhileWorking(t *testing.T) {
+	worker := testWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+
+	sleeper.WakeUp()
+	sleeper.WakeUp()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+}
+
+func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
+	worker := testWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+	sleeper.WakeUp()
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
+	sleeper.Stop()
+}
+
+type slowWorker struct {
+	mutex  sync.Mutex
+	output chan struct{}
+}
+
+func (t *slowWorker) Work() {
+	t.output <- struct{}{}
+	t.mutex.Lock()
+	t.mutex.Unlock()
+}
+
+func TestSleeperTask_WakeWhileWorkingRepeatsWork(t *testing.T) {
+	worker := slowWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+
+	// Lock the worker's mutex so it's blocked *after* sending to the output
+	// channel, this guarantees that the worker blocks till we unlock the mutex
+	worker.mutex.Lock()
+	sleeper.WakeUp()
+	// Make sure an item is received in the channel so we know the worker is blocking
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	// Wake up the sleeper
+	sleeper.WakeUp()
+	// Now release the worker
+	worker.mutex.Unlock()
+	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+
+	sleeper.Stop()
 }
