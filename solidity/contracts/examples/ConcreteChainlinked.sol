@@ -89,4 +89,10 @@ contract ConcreteChainlinked is Chainlinked {
   function publicOracleAddress() public view returns (address) {
     return oracleAddress();
   }
+
+  function publicAddExternalRequest(address _oracle, bytes32 _requestId)
+    public
+  {
+    addExternalRequest(_oracle, _requestId);
+  }
 }

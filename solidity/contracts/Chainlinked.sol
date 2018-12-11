@@ -97,6 +97,13 @@ contract Chainlinked {
     return address(oracle);
   }
 
+  function addExternalRequest(address _oracle, bytes32 _requestId)
+    internal
+    isUnfulfilledRequest(_requestId)
+  {
+    unfulfilledRequests[_requestId] = _oracle;
+  }
+
   function newChainlinkWithENS(address _ens, bytes32 _node)
     internal
     returns (address, address)
@@ -177,6 +184,11 @@ contract Chainlinked {
     require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
     delete unfulfilledRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
+    _;
+  }
+
+  modifier isUnfulfilledRequest(bytes32 _requestId) {
+    require(unfulfilledRequests[_requestId] == address(0), "Request is already unfulfilled");
     _;
   }
 }
