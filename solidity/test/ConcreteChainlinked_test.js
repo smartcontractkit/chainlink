@@ -129,16 +129,15 @@ contract('ConcreteChainlinked', () => {
   })
 
   describe('#completeChainlinkFulfillment(function)', () => {
-    let internalId, requestId
+    let requestId
 
     beforeEach(async () => {
       await cc.publicRequestRun(specId, cc.address, 'publicCompleteChainlinkFulfillment(bytes32,bytes32)', 0)
       requestId = (await getLatestEvent(cc)).args.id
-      internalId = (await getLatestEvent(oc)).args.internalId
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      await oc.fulfillData(internalId, 'hi mom!')
+      await oc.fulfillData(requestId, 'hi mom!')
 
       let events = await getEvents(cc)
       assert.equal(1, events.length)
