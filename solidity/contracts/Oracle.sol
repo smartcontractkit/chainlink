@@ -2,10 +2,11 @@ pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OracleInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 
-contract Oracle is OracleInterface, Ownable {
+contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   using SafeMath for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
