@@ -51,20 +51,6 @@ export const notifyError = (component, error) => ({
 
 const fetchActions = {}
 
-export const REQUEST_ACCOUNT_BALANCE = 'REQUEST_ACCOUNT_BALANCE'
-export const RECEIVE_ACCOUNT_BALANCE_SUCCESS = 'RECEIVE_ACCOUNT_BALANCE_SUCCESS'
-export const RECEIVE_ACCOUNT_BALANCE_ERROR = 'RECEIVE_ACCOUNT_BALANCE_ERROR'
-
-fetchActions.accountBalance = {
-  requestActionType: REQUEST_ACCOUNT_BALANCE,
-  receiveSuccess: json => ({
-    type: RECEIVE_ACCOUNT_BALANCE_SUCCESS,
-    eth: json.data.attributes.ethBalance,
-    link: json.data.attributes.linkBalance
-  }),
-  receiveErrorType: RECEIVE_ACCOUNT_BALANCE_ERROR
-}
-
 export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
 export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
 export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
