@@ -16,7 +16,8 @@ DOCKER="docker run -ti \
     --net host \
     --sysctl net.ipv6.conf.all.disable_ipv6=1 \
     --env LOG_LEVEL \
-    --env ETH_URL \
+    --env ETH_WS_URL \
+    --env ETH_RPC_URL \
     --env ETH_CHAIN_ID \
     --env TX_MIN_CONFIRMATIONS \
     --env MINIMUM_CONTRACT_PAYMENT \
@@ -25,7 +26,7 @@ DOCKER="docker run -ti \
     $REPO:$TAG"
 
 source $PROJECT_ROOT/internal/bin/clenv
-export ETH_URL="ws://docker.for.mac.localhost:$ETH_WS_PORT"
+export ETH_HOST="docker.for.mac.localhost"
 if [ "$#" == 0 ]; then
   $DOCKER node -d -p /root/.chainlink/password.txt -a /root/.chainlink/apicredentials
 elif [ "$1" == "node" ]; then

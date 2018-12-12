@@ -18,7 +18,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -46,7 +46,7 @@ type Config struct {
 	EthGasBumpThreshold      uint64          `env:"ETH_GAS_BUMP_THRESHOLD" envDefault:"12"`
 	EthGasBumpWei            big.Int         `env:"ETH_GAS_BUMP_WEI" envDefault:"5000000000"`
 	EthGasPriceDefault       big.Int         `env:"ETH_GAS_PRICE_DEFAULT" envDefault:"20000000000"`
-	EthereumURL              string          `env:"ETH_URL" envDefault:"ws://localhost:8546"`
+	EthereumURL              string          `env:"ETH_WS_URL" envDefault:"ws://localhost:8546"`
 	JSONConsole              bool            `env:"JSON_CONSOLE" envDefault:"false"`
 	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" envDefault:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	LogLevel                 LogLevel        `env:"LOG_LEVEL" envDefault:"info"`
