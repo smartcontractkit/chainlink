@@ -8,7 +8,11 @@ import "./interfaces/LinkTokenInterface.sol";
 contract Oracle is OracleInterface, Ownable {
   using SafeMath for uint256;
 
-  LinkTokenInterface internal LINK;
+  uint256 constant public EXPIRY_TIME = 5 minutes;
+  uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+  // We initialize fields to 1 instead of 0 so that the first invocation
+  // does not cost more gas.
+  uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
 
   struct Callback {
     uint256 amount;
@@ -17,15 +21,10 @@ contract Oracle is OracleInterface, Ownable {
     uint64 cancelExpiration;
   }
 
-  // We initialize fields to 1 instead of 0 so that the first invocation
-  // does not cost more gas.
-  uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
-  uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
-  uint256 constant public EXPIRY_TIME = 5 minutes;
-  uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
-
+  LinkTokenInterface internal LINK;
   mapping(bytes32 => Callback) private callbacks;
   mapping(address => bool) private authorizedNodes;
+  uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event RunRequest(
     bytes32 indexed specId,
