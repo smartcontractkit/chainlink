@@ -21,7 +21,7 @@ contract Oracle is OracleInterface, Ownable {
   // does not cost more gas.
   uint256 constant private oneForConsistentGasCost = 1;
   uint256 constant private minimumConsumerGasLimit = 400000;
-  uint256 private withdrawableWei = oneForConsistentGasCost;
+  uint256 private withdrawableTokens = oneForConsistentGasCost;
 
   mapping(bytes32 => Callback) private callbacks;
   mapping(address => bool) private authorizedNodes;
@@ -103,7 +103,7 @@ contract Oracle is OracleInterface, Ownable {
   {
     bytes32 requestId = bytes32(_requestId);
     Callback memory callback = callbacks[requestId];
-    withdrawableWei = withdrawableWei.add(callback.amount);
+    withdrawableTokens = withdrawableTokens.add(callback.amount);
     delete callbacks[requestId];
     require(gasleft() >= minimumConsumerGasLimit, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
@@ -125,12 +125,12 @@ contract Oracle is OracleInterface, Ownable {
     onlyOwner
     hasAvailableFunds(_amount)
   {
-    withdrawableWei = withdrawableWei.sub(_amount);
+    withdrawableTokens = withdrawableTokens.sub(_amount);
     require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
   }
 
   function withdrawable() external view onlyOwner returns (uint256) {
-    return withdrawableWei.sub(oneForConsistentGasCost);
+    return withdrawableTokens.sub(oneForConsistentGasCost);
   }
 
   function cancel(bytes32 _requestId)
@@ -147,7 +147,7 @@ contract Oracle is OracleInterface, Ownable {
   // MODIFIERS
 
   modifier hasAvailableFunds(uint256 _amount) {
-    require(withdrawableWei >= _amount.add(oneForConsistentGasCost), "Amount requested is greater than withdrawable balance");
+    require(withdrawableTokens >= _amount.add(oneForConsistentGasCost), "Amount requested is greater than withdrawable balance");
     _;
   }
 
