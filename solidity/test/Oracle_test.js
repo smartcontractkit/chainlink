@@ -279,17 +279,13 @@ contract('Oracle', () => {
 
       it('cannot cancel before the expiration', async () => {
         await h.assertActionThrows(async () => {
-          await mock.maliciousRequestCancel(specId)
+          await mock.maliciousRequestCancel(specId, 'doesNothing(bytes32,bytes32)')
         })
       })
 
-      xit('cannot call functions on the LINK token through callbacks', async () => {
-        const fHash = h.functionSelector('transfer(address,uint256)')
-        const addressAsRequestId = h.abiEncode(['address'], [h.stranger])
-        const args = h.requestDataBytes(specId, link.address, fHash, addressAsRequestId, '')
-
-        h.assertActionThrows(async () => {
-          await h.requestDataFrom(oc, link, paymentAmount, args)
+      it('cannot call functions on the LINK token through callbacks', async () => {
+        await h.assertActionThrows(async () => {
+          await mock.request(specId, link.address, 'transfer(address,uint256)')
         })
       })
 

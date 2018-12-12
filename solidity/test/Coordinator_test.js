@@ -115,20 +115,20 @@ contract('Coordinator', () => {
       assert.notEqual(toHex(newAddress(oracleNode)), toHex(badRequestDigestAddr))
 
       it('saves no service agreement struct, if signatures invalid', async () => {
-        assertActionThrows(
-          async () => initiateServiceAgreement(coordinator,
+        await assertActionThrows(
+          async () => await initiateServiceAgreement(coordinator,
             Object.assign(agreement, { oracleSignature: badOracleSignature })))
-        checkServiceAgreementAbsent(coordinator, agreement.id)
+        await checkServiceAgreementAbsent(coordinator, agreement.id)
       })
     })
 
     context('Validation of service agreement deadlines', () => {
       it('Rejects a service agreement with an endAt date in the past', async () => {
-        assertActionThrows(
-          async () => initiateServiceAgreement(
+        await assertActionThrows(
+          async () => await initiateServiceAgreement(
             coordinator,
-            Object.assign(agreement, { endAt: newHash('1000') })))
-        checkServiceAgreementAbsent(coordinator, agreement.id)
+            Object.assign(agreement, { endAt: 1 })))
+        await checkServiceAgreementAbsent(coordinator, agreement.id)
       })
     })
   })
@@ -253,16 +253,13 @@ contract('Coordinator', () => {
 
       xit('cannot cancel before the expiration', async () => {
         await assertActionThrows(async () => {
-          await mock.maliciousRequestCancel()
+          await mock.maliciousRequestCancel(agreement.id, 'doesNothing(bytes32,bytes32)')
         })
       })
 
-      xit('cannot call functions on the LINK token through callbacks', async () => {
-        const fHash = functionSelector('transfer(address,uint256)')
-        const addressAsRequestId = abiEncode(['address'], [stranger])
-        const args = requestDataBytes(agreement.id, link.address, fHash, addressAsRequestId, '')
-        assertActionThrows(async () => {
-          await requestDataFrom(coordinator, link, paymentAmount, args)
+      it('cannot call functions on the LINK token through callbacks', async () => {
+        await assertActionThrows(async () => {
+          await mock.request(agreement.id, link.address, 'transfer(address,uint256)')
         })
       })
 
@@ -303,7 +300,7 @@ contract('Coordinator', () => {
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
-        xit("can't fulfill the data again", async () => {
+        it("can't fulfill the data again", async () => {
           await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
           await assertActionThrows(async () => {
             await coordinator.fulfillData(requestId, 'hack the planet 102', { from: oracleNode })
@@ -357,7 +354,7 @@ contract('Coordinator', () => {
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
-        xit("can't fulfill the data again", async () => {
+        it("can't fulfill the data again", async () => {
           await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
           await assertActionThrows(async () => {
             await coordinator.fulfillData(requestId, 'hack the planet 102', { from: oracleNode })
