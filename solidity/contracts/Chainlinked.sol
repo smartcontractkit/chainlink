@@ -14,16 +14,15 @@ contract Chainlinked {
 
   uint256 constant private ARGS_VERSION = 1;
   uint256 constant private LINK_DIVISIBILITY = 10**18;
+  bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
+  bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
 
+  ENSInterface private ens;
+  bytes32 private ensNode;
   LinkTokenInterface private link;
   OracleInterface private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
-
-  ENSInterface private ens;
-  bytes32 private ensNode;
-  bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
-  bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
