@@ -21,6 +21,7 @@ contract Oracle is OracleInterface, Ownable {
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+  uint256 constant public EXPIRY_TIME = 5 minutes;
   uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   mapping(bytes32 => Callback) private callbacks;
@@ -82,7 +83,7 @@ contract Oracle is OracleInterface, Ownable {
       _amount,
       _callbackAddress,
       _callbackFunctionId,
-      uint64(now.add(5 minutes)));
+      uint64(now.add(EXPIRY_TIME)));
     emit RunRequest(
       _specId,
       _sender,

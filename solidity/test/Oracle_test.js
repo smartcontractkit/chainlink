@@ -16,6 +16,7 @@ contract('Oracle', () => {
 
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
+      'EXPIRY_TIME',
       'cancel',
       'fulfillData',
       'getAuthorizationStatus',
