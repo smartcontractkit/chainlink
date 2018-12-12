@@ -16,13 +16,7 @@ const main = async () => {
     '_comment': 'An ethlog with no address listens to all addresses.',
     'initiators': [{ 'type': 'ethlog' }],
     'tasks': [
-      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } },
-      { 'type': 'EthTx',
-        'params': {
-          'address': EthLog.address,
-          'functionSelector': 'fulfill(bytes32,bytes32)'
-        }
-      }
+      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
     ]
   }
   const specsUrl = 'http://localhost:6688/v2/specs'

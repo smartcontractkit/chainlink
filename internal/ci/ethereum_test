@@ -7,8 +7,7 @@
 set -e
 
 # Utilities
-assert ()
-{
+assert () {
   sleepCount=0
   while [ "$sleepCount" -le "30" ] && output=`eval $2`; do
     if [ "$output" == "$3" ]; then
@@ -22,19 +21,23 @@ assert ()
   exit 1
 }
 
-waitForResponse ()
-{
-  printf -- "\033[34mWaiting for $1.\033[0m\n"
+waitFor () {
+  timeout=${2=300}
   sleepCount=0
-  while [ "$sleepCount" -le "300" ] && ! curl -s "$1" >/dev/null; do
+  while [ "$sleepCount" -le "$timeout" ] && eval "$1" >/dev/null; do
       sleep 1
       sleepCount=$((sleepCount+1))
   done
 
-  if [ "$sleepCount" -gt "300" ]; then
-    printf -- "\033[31mTimed out waiting for $1 (waited 300s).\033[0m\n"
+  if [ "$sleepCount" -gt "$timeout" ]; then
+    printf -- "\033[31mTimed out waiting for $1 (waited ${timeout}s).\033[0m\n"
     exit 1
   fi
+}
+
+waitForResponse () {
+  printf -- "\033[34mWaiting for $1.\033[0m\n"
+  waitFor "! curl -s \"$1\"" 10
   printf -- "\033[34mService on $1 is ready.\033[0m\n"
 }
 
@@ -142,6 +145,10 @@ launch_chainlink() {
 
   waitForResponse $chainlink_url
   printf -- "\033[34mChainlink is running.\033[0m\n"
+
+  waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'"
+  cl_node_address=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
+  ETH_URL=http://localhost:18545 "$SRCROOT/solidity/bin/fund_address" "$cl_node_address"
 }
 
 deploy_oracle_and_linktoken_contracts() {
@@ -149,7 +156,7 @@ deploy_oracle_and_linktoken_contracts() {
   pushd integration >/dev/null
 
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
-  ./deploy_contracts &>$SRCROOT/integration/deploy.log
+  ./deploy_contracts | tee $SRCROOT/integration/deploy.log
   export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
   export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
 
@@ -158,14 +165,22 @@ deploy_oracle_and_linktoken_contracts() {
 }
 
 launch_echo_server() {
+  echo_server_url="http://127.0.0.1:6690/count"
+  printf -- "\033[34m%-50s\033[0m" "Checking for local echo server"
+  if curl -s $echo_server_url >/dev/null; then
+    printf -- "[\033[32mrunning\033[0m]\n"
+    return
+  fi
+  printf -- "[\033[31mstopped\033[0m]\n"
+
   printf -- "\033[34mStarting echo server...\033[0m\n"
   pushd integration >/dev/null
 
   ./echo_server &>$SRCROOT/integration/echo-server.log &
-  waitForResponse http://127.0.0.1:6690/count
+  waitForResponse $echo_server_url
 
   popd >/dev/null
-  printf -- "\033[34mEcho server is running.\033[0m\n\n"
+  printf -- "\033[34mEcho server is running.\033[0m\n"
 }
 
 trap "exit_handler" EXIT SIGTERM SIGINT
@@ -176,6 +191,7 @@ launch_gethnet
 deploy_oracle_and_linktoken_contracts
 launch_chainlink
 launch_echo_server
+chainlink login --file $SRCROOT/internal/clroot/apicredentials
 
 #------------------------------------------------------------------------------
 # TESTS
@@ -192,29 +208,34 @@ printf -- "\n-------------------------------------------------------------------
 printf -- "\033[34mRunlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
+expected_echo_count=$(expr $(curl -sS localhost:6690/count) + 1)
+expeted_job_count=$(expr $(chainlink -j j | jq length) + 1)
+
 ./send_runlog_transaction | tee send_runlog_transaction.log
 runlog_address=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
 
 # Check echo count
-assert "Echo count" "curl -sS localhost:6690/count" 1
+assert "Echo count" "curl -sS localhost:6690/count" $expected_echo_count
 
 ## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-chainlink login --file $SRCROOT/internal/clroot/apicredentials
-assert "Jobs count" "chainlink -j j | jq length" 1
+assert "Jobs count" "chainlink -j j | jq length" $expeted_job_count
 
 # Check job runs
 jid=`chainlink -j j | jq 'first | .id' | tr -d '"'`
-assert "RunLog Runs count" "chainlink -j s $jid |  jq '.runs | length'" 1
+echo "Test created Job: $jid"
+assert "RunLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
+
+# Check that the run completed
+assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
+
+txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
+echo "Test created TX: $txid"
+
+tx_receiver=$(chainlink -j s $jid | jq '.runs[].result.data.address' | sed 's/"//g')
+echo "Test sent TX to: $tx_receiver"
 
 # Check for the Fullfillment event
-txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
-
-while sleep 1; do
-  ./count_transaction_events RunLog.sol $txid
-  ./count_contract_events RunLog.sol $runlog_address
-done
-
-assert "Contract Events" "./count_contract_events RunLog.sol $runlog_address" 1
+assert "Transaction Events" "./count_transaction_events RunLog.sol $txid $runlog_address" 2
 
 #######################
 # ethlog
@@ -224,27 +245,24 @@ printf -- "\n-------------------------------------------------------------------
 printf -- "\033[34mEthlog test.\033[0m\n"
 printf -- "--------------------------------------------------------------------------------\n\n"
 
+expected_echo_count=$(expr $(curl -sS localhost:6690/count) + 1)
+expeted_job_count=$(expr $(chainlink -j j | jq length) + 1)
+
 ./send_ethlog_transaction | tee send_ethlog_transaction.log
 ethlog_address=`cat send_ethlog_transaction.log | grep EthLog | awk '{print$4}'`
 jid=`cat send_ethlog_transaction.log | grep Job | awk '{print$4}'`
 
-# Check the logEvent created a log event
-assert "Transaction Events" "./count_contract_events EthLog.sol $ethlog_address" 1
-
 # Check echo count
-assert "Echo count" "curl -sS localhost:6690/count" 1
+assert "Echo count" "curl -sS localhost:6690/count" $expected_echo_count
 
 # Check job counts
-chainlink login --file $SRCROOT/internal/clroot/apicredentials
-assert "Jobs count" "chainlink -j j | jq length" 1
+assert "Jobs count" "chainlink -j j | jq length" $expeted_job_count
 
 # Check job runs
 assert "EthLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
 
-# Check for the Fullfillment event
-assert "Transaction Events" "./count_contract_events EthLog.sol $ethlog_address" 2
-txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
-assert "Transaction Events" "./count_transaction_events EthLog.sol $txid" 1
+# Check that the run completed
+assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
 
 #######################
 # End to end
