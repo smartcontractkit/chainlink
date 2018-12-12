@@ -7,7 +7,7 @@ module.exports = function Wallet (key, utils) {
   const address = `0x${wallet.getAddress().toString('hex')}`
   const eth = utils.eth
   const nextNonce = () => {
-    return eth.getTransactionCount(address)
+    return eth.getTransactionCount(address, 'pending')
   }
 
   return {
