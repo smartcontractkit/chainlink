@@ -14,7 +14,11 @@ const main = async () => {
 
   const job = {
     '_comment': 'An ethlog with no address listens to all addresses.',
-    'initiators': [{ 'type': 'ethlog' }],
+    'initiators': [
+      { 'type': 'ethlog',
+        'params': { 'address': EthLog.address }
+      }
+    ],
     'tasks': [
       { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
     ]
