@@ -258,8 +258,8 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	client := &cmd.Client{
 		Renderer:                       r,
 		Config:                         ta.Config,
-		AppFactory:                     EmptyAppFactory{},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
+		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config),
@@ -277,8 +277,8 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.Config,
-		AppFactory:                     EmptyAppFactory{},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) error { return nil }},
+		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
+		KeyStoreAuthenticator:          CallbackAuthenticator{func(*store.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth),
