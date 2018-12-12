@@ -22,7 +22,7 @@ assert () {
 }
 
 waitFor () {
-  timeout=${2=300}
+  [ -z $3 ] && timeout=300 || timeout=$3
   sleepCount=0
   while [ "$sleepCount" -le "$timeout" ] && eval "$1" >/dev/null; do
       sleep 1
