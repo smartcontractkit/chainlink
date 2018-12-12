@@ -83,6 +83,7 @@ contract Coordinator /*is ChainlinkRequestInterface, CoordinatorInterface*/ {
     external
     onlyLINK
     sufficientLINK(_amount, _sAId)
+    checkCallbackAddress(_callbackAddress)
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
@@ -227,5 +228,10 @@ contract Coordinator /*is ChainlinkRequestInterface, CoordinatorInterface*/ {
     // callback(addr+functionId) as it is untrusted. See:
     // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
     return callback.addr.call(callback.functionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
+  }
+
+  modifier checkCallbackAddress(address _to) {
+    require(_to != address(LINK), "Cannot callback to LINK");
+    _;
   }
 }
