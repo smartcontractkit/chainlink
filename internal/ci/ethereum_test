@@ -71,9 +71,17 @@ get_ethnet_version() {
 }
 
 install_gethnet() {
+  if [ -x "$(which geth)" ]; then
+    return
+  fi
+
+  printf -- "\033[34mRetrieving geth version...\033[0m\n"
+  ethversion=$(get_ethnet_version)
+
   ethpkg=github.com/ethereum/go-ethereum
   ethpath=$GOPATH/src/$ethpkg
 
+  printf -- "\033[34mInstalling geth $ethversion...\033[0m\n"
   if [ -d "$ethpath" ]; then
     pushd "$ethpath" >/dev/null
     git checkout master &>/dev/null
@@ -96,16 +104,21 @@ launch_gethnet() {
   fi
   printf -- "[\033[31mstopped\033[0m]\n"
 
-  printf -- "\033[34mRetrieving geth version...\033[0m\n"
-  ethversion=$(get_ethnet_version)
-
-  printf -- "\033[34mInstalling geth $ethversion...\033[0m\n"
   install_gethnet
 
   printf -- "\033[34mStarting geth...\033[0m\n"
   gethnet &>$SRCROOT/integration/gethnet.log &
   waitForResponse $gethnet_url
   printf -- "\033[34mGeth is running.\033[0m\n"
+}
+
+install_chainlink() {
+  if [ -x "$(which chainlink)" ]; then
+    return
+  fi
+
+  printf -- "\033[34mMaking chainlink...\033[0m\n"
+  make install &>$SRCROOT/integration/make.log
 }
 
 launch_chainlink() {
@@ -117,13 +130,16 @@ launch_chainlink() {
   fi
   printf -- "[\033[31mstopped\033[0m]\n"
 
-  printf -- "\033[34mMaking chainlink...\033[0m\n"
-  make install &>$SRCROOT/integration/make.log
+  install_chainlink
 
   printf -- "\033[34mStarting chainlink...\033[0m\n"
   source $SRCROOT/internal/bin/clenv
-  export ROOT=$SRCROOT/internal/clroot
+
+  export ROOT=$(mktemp -d)
+  trap "rm -rf $ROOT" EXIT HUP TERM INT
+  cp $SRCROOT/internal/clroot/{password.txt,apicredentials} $ROOT/
   chainlink node -d -p $ROOT/password.txt -a $ROOT/apicredentials &>$SRCROOT/integration/chainlink.log &
+
   waitForResponse $chainlink_url
   printf -- "\033[34mChainlink is running.\033[0m\n"
 }
