@@ -12,8 +12,8 @@ contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using SafeMath for uint256;
 
-  uint256 constant private clArgsVersion = 1;
-  uint256 constant private linkDivisibility = 10**18;
+  uint256 constant private ARGS_VERSION = 1;
+  uint256 constant private LINK_DIVISIBILITY = 10**18;
 
   LinkTokenInterface private link;
   OracleInterface private oracle;
@@ -22,8 +22,8 @@ contract Chainlinked {
 
   ENSInterface private ens;
   bytes32 private ensNode;
-  bytes32 constant private ensTokenSubname = keccak256("link");
-  bytes32 constant private ensOracleSubname = keccak256("oracle");
+  bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
+  bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
 
   event ChainlinkRequested(bytes32 id);
   event ChainlinkFulfilled(bytes32 id);
@@ -70,7 +70,7 @@ contract Chainlinked {
   }
 
   function LINK(uint256 _amount) internal pure returns (uint256) {
-    return _amount.mul(linkDivisibility);
+    return _amount.mul(LINK_DIVISIBILITY);
   }
 
   function setOracle(address _oracle) internal {
@@ -111,7 +111,7 @@ contract Chainlinked {
     ens = ENSInterface(_ens);
     ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
-    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ensTokenSubname));
+    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
     setLinkToken(resolver.addr(linkSubnode));
     return (link, updateOracleWithENS());
   }
@@ -121,7 +121,7 @@ contract Chainlinked {
     returns (address)
   {
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
-    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ensOracleSubname));
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     setOracle(resolver.addr(oracleSubnode));
     return oracle;
   }
@@ -135,7 +135,7 @@ contract Chainlinked {
       oracle.requestData.selector,
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
-      clArgsVersion,
+      ARGS_VERSION,
       _run.specId,
       _run.callbackAddress,
       _run.callbackFunctionId,
@@ -152,7 +152,7 @@ contract Chainlinked {
       CoordinatorInterface(oracle).executeServiceAgreement.selector,
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
-      clArgsVersion,
+      ARGS_VERSION,
       _run.specId,
       _run.callbackAddress,
       _run.callbackFunctionId,
