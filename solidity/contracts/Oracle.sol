@@ -50,7 +50,7 @@ contract Oracle is OracleInterface, Ownable {
   )
     public
     onlyLINK
-    permittedFunctionsForLINK
+    permittedFunctionsForLINK(_data)
   {
     assembly {
       // solium-disable-next-line security/no-low-level-calls
@@ -166,13 +166,13 @@ contract Oracle is OracleInterface, Ownable {
     _;
   }
 
-  modifier permittedFunctionsForLINK() {
-    bytes4[1] memory funcSelector;
+  modifier permittedFunctionsForLINK(bytes _data) {
+    bytes4 funcSelector;
     assembly {
       // solium-disable-next-line security/no-low-level-calls
-      calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
+      funcSelector := mload(add(_data, 32))
     }
-    require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
+    require(funcSelector == this.requestData.selector, "Must use whitelisted functions");
     _;
   }
 
