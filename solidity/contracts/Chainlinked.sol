@@ -50,10 +50,11 @@ contract Chainlinked {
     requestId = keccak256(abi.encodePacked(this, requests));
     _run.nonce = requests;
     _run.close();
-    unfulfilledRequests[_run.requestId] = _oracle;
-    emit ChainlinkRequested(_run.requestId);
+    unfulfilledRequests[requestId] = _oracle;
+    emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _amount, encodeRequest(_run)), "unable to transferAndCall to oracle");
-
+    requests += 1;
+    
     return requestId;
   }
 
@@ -133,7 +134,7 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
       ARGS_VERSION,
-      _run.specId,
+      _run.id,
       _run.callbackAddress,
       _run.callbackFunctionId,
       _run.nonce,

@@ -11,5 +11,5 @@ interface CoordinatorInterface {
     bytes32[] ss,
     bytes32 requestDigest
   ) external returns (bytes32);
-  function fulfillData(uint256 internalId, bytes32 data) external returns (bool);
+  function fulfillData(uint256 requestId, bytes32 data) external returns (bool);
 }
