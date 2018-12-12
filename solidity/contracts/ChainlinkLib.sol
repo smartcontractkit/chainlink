@@ -8,7 +8,7 @@ library ChainlinkLib {
   using CBOR for Buffer.buffer;
 
   struct Run {
-    bytes32 specId;
+    bytes32 id;
     address callbackAddress;
     bytes4 callbackFunctionId;
     uint256 nonce;
@@ -17,12 +17,12 @@ library ChainlinkLib {
 
   function initialize(
     Run memory self,
-    bytes32 _specId,
+    bytes32 _id,
     address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (ChainlinkLib.Run memory) {
     Buffer.init(self.buf, defaultBufferSize);
-    self.specId = _specId;
+    self.id = _id;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
     self.buf.startMap();

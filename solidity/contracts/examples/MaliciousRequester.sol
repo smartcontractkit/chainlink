@@ -21,12 +21,17 @@ contract MaliciousRequester is MaliciousChainlinked {
     chainlinkWithdrawRequest(run, LINK(1));
   }
 
-  function request()
+  function request(bytes32 _id)
     internal
     returns (bytes32 requestId)
   {
-    ChainlinkLib.Run memory run = newRun("specId", this, this.doesNothing.selector);
+    ChainlinkLib.Run memory run = newRun(_id, this, this.doesNothing.selector);
     requestId = chainlinkRequest(run, LINK(1));
+  }
+
+  function maliciousPrice(bytes32 _id) public returns (bytes32 requestId) {
+    ChainlinkLib.Run memory run = newRun(_id, this, this.doesNothing.selector);
+    requestId = chainlinkPriceRequest(run, LINK(1));
   }
 
   function maliciousTargetConsumer(address _target) public returns (bytes32 requestId) {
@@ -34,9 +39,9 @@ contract MaliciousRequester is MaliciousChainlinked {
     requestId = chainlinkTargetRequest(_target, run, LINK(1));
   }
 
-  function maliciousRequestCancel() public {
+  function maliciousRequestCancel(bytes32 _id) public {
     ChainlinkRequestInterface oracle = ChainlinkRequestInterface(oracleAddress());
-    oracle.cancel(request());
+    oracle.cancel(request(_id));
   }
 
   function doesNothing(bytes32, bytes32) public pure {}
