@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 )
 
 // LogListeningAddress returns the LogListeningAddress
@@ -50,15 +51,14 @@ func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]i
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
 
+	var merr error
 	info := []map[string]interface{}{}
 	for _, account := range store.KeyStore.Accounts() {
 		b, err := showBalanceForAccount(store, account, balanceType)
-		if err != nil {
-			return info, err
-		}
+		merr = multierr.Append(merr, err)
 		info = append(info, b)
 	}
-	return info, nil
+	return info, merr
 }
 
 // ShowEthBalance returns the current Eth Balance for current Account
@@ -181,12 +181,12 @@ func NewConfigWhitelist(config store.Config) ConfigWhitelist {
 		MinIncomingConfirmations: config.MinIncomingConfirmations,
 		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
 		OracleContractAddress:    config.OracleContractAddress,
-		Port:             config.Port,
-		ReaperExpiration: config.ReaperExpiration,
-		RootDir:          config.RootDir,
-		SessionTimeout:   config.SessionTimeout,
-		TLSHost:          config.TLSHost,
-		TLSPort:          config.TLSPort,
+		Port:                     config.Port,
+		ReaperExpiration:         config.ReaperExpiration,
+		RootDir:                  config.RootDir,
+		SessionTimeout:           config.SessionTimeout,
+		TLSHost:                  config.TLSHost,
+		TLSPort:                  config.TLSPort,
 	}
 }
 
