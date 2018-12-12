@@ -105,7 +105,7 @@ contract Oracle is OracleInterface, Ownable {
     Callback memory callback = callbacks[requestId];
     withdrawableWei = withdrawableWei.add(callback.amount);
     delete callbacks[requestId];
-    require(gasleft() >= minimumConsumerGasLimit);
+    require(gasleft() >= minimumConsumerGasLimit, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
