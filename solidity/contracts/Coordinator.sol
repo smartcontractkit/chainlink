@@ -1,12 +1,12 @@
 pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-// import "./interfaces/ChainlinkRequestInterface.sol";
-// import "./interfaces/CoordinatorInterface.sol";
+import "./interfaces/ChainlinkRequestInterface.sol";
+import "./interfaces/CoordinatorInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 
 // Coordinator handles oracle service aggreements between one or more oracles.
-contract Coordinator /*is ChainlinkRequestInterface, CoordinatorInterface*/ {
+contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
@@ -229,6 +229,9 @@ contract Coordinator /*is ChainlinkRequestInterface, CoordinatorInterface*/ {
     // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
     return callback.addr.call(callback.functionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
   }
+
+  // Necessary to implement ChainlinkRequestInterface
+  function cancel(bytes32) external {}
 
   modifier checkCallbackAddress(address _to) {
     require(_to != address(LINK), "Cannot callback to LINK");

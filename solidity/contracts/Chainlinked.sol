@@ -141,6 +141,11 @@ contract Chainlinked {
       _run.buf.buf);
   }
 
+  function completeChainlinkFulfillment(bytes32 _requestId)
+    internal
+    checkChainlinkFulfillment(_requestId)
+  {}
+
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
     require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
     delete unfulfilledRequests[_requestId];

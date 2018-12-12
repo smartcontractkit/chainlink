@@ -116,22 +116,27 @@ library SafeMath {
   }
 }
 
-// File: contracts/interfaces/OracleInterface.sol
+// File: contracts/interfaces/ChainlinkRequestInterface.sol
 
-interface OracleInterface {
-  function cancel(bytes32 externalId) external;
-  function fulfillData(uint256 requestId, bytes32 data) external returns (bool);
-  function getAuthorizationStatus(address node) external view returns (bool);
+interface ChainlinkRequestInterface {
+  function cancel(bytes32 requestId) external;
   function requestData(
     address sender,
     uint256 amount,
     uint256 version,
-    bytes32 specId,
+    bytes32 id,
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
     bytes data
   ) external;
+}
+
+// File: contracts/interfaces/OracleInterface.sol
+
+interface OracleInterface {
+  function fulfillData(uint256 requestId, bytes32 data) external returns (bool);
+  function getAuthorizationStatus(address node) external view returns (bool);
   function setFulfillmentPermission(address node, bool allowed) external;
   function withdraw(address recipient, uint256 amount) external;
   function withdrawable() external view returns (uint256);
@@ -156,10 +161,14 @@ interface LinkTokenInterface {
 
 // File: contracts/Oracle.sol
 
-contract Oracle is OracleInterface, Ownable {
+contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   using SafeMath for uint256;
 
-  LinkTokenInterface internal LINK;
+  uint256 constant public EXPIRY_TIME = 5 minutes;
+  uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+  // We initialize fields to 1 instead of 0 so that the first invocation
+  // does not cost more gas.
+  uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
 
   struct Callback {
     uint256 amount;
@@ -168,13 +177,10 @@ contract Oracle is OracleInterface, Ownable {
     uint64 cancelExpiration;
   }
 
-  // We initialize fields to 1 instead of 0 so that the first invocation
-  // does not cost more gas.
-  uint256 constant private oneForConsistentGasCost = 1;
-  uint256 private withdrawableWei = oneForConsistentGasCost;
-
+  LinkTokenInterface internal LINK;
   mapping(bytes32 => Callback) private callbacks;
   mapping(address => bool) private authorizedNodes;
+  uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event RunRequest(
     bytes32 indexed specId,
@@ -200,7 +206,7 @@ contract Oracle is OracleInterface, Ownable {
   )
     public
     onlyLINK
-    permittedFunctionsForLINK
+    permittedFunctionsForLINK(_data)
   {
     assembly {
       // solium-disable-next-line security/no-low-level-calls
@@ -232,7 +238,7 @@ contract Oracle is OracleInterface, Ownable {
       _amount,
       _callbackAddress,
       _callbackFunctionId,
-      uint64(now.add(5 minutes)));
+      uint64(now.add(EXPIRY_TIME)));
     emit RunRequest(
       _specId,
       _sender,
@@ -253,8 +259,9 @@ contract Oracle is OracleInterface, Ownable {
   {
     bytes32 requestId = bytes32(_requestId);
     Callback memory callback = callbacks[requestId];
-    withdrawableWei = withdrawableWei.add(callback.amount);
+    withdrawableTokens = withdrawableTokens.add(callback.amount);
     delete callbacks[requestId];
+    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
@@ -274,12 +281,12 @@ contract Oracle is OracleInterface, Ownable {
     onlyOwner
     hasAvailableFunds(_amount)
   {
-    withdrawableWei = withdrawableWei.sub(_amount);
+    withdrawableTokens = withdrawableTokens.sub(_amount);
     require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
   }
 
   function withdrawable() external view onlyOwner returns (uint256) {
-    return withdrawableWei.sub(oneForConsistentGasCost);
+    return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
   function cancel(bytes32 _requestId)
@@ -296,7 +303,7 @@ contract Oracle is OracleInterface, Ownable {
   // MODIFIERS
 
   modifier hasAvailableFunds(uint256 _amount) {
-    require(withdrawableWei >= _amount.add(oneForConsistentGasCost), "Amount requested is greater than withdrawable balance");
+    require(withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
     _;
   }
 
@@ -315,13 +322,13 @@ contract Oracle is OracleInterface, Ownable {
     _;
   }
 
-  modifier permittedFunctionsForLINK() {
-    bytes4[1] memory funcSelector;
+  modifier permittedFunctionsForLINK(bytes _data) {
+    bytes4 funcSelector;
     assembly {
       // solium-disable-next-line security/no-low-level-calls
-      calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
+      funcSelector := mload(add(_data, 32))
     }
-    require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
+    require(funcSelector == this.requestData.selector, "Must use whitelisted functions");
     _;
   }
 

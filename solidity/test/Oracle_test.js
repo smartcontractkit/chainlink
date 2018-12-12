@@ -193,6 +193,7 @@ contract('Oracle', () => {
 
   describe('#fulfillData', () => {
     let mock, requestId
+    const paymentAmount = web3.toWei(1)
     let currency = 'USD'
 
     context('cooperative consumer', () => {
