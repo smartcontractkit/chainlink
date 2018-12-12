@@ -22,22 +22,22 @@ assert () {
 }
 
 waitFor () {
-  [ -z $3 ] && timeout=300 || timeout=$3
+  [ -z "$2" ] && timeout=300 || timeout=$2
   sleepCount=0
-  while [ "$sleepCount" -le "$timeout" ] && eval "$1" >/dev/null; do
+  while [ "$sleepCount" -le "$timeout" ] && ! eval "$1" >/dev/null; do
       sleep 1
       sleepCount=$((sleepCount+1))
   done
 
   if [ "$sleepCount" -gt "$timeout" ]; then
-    printf -- "\033[31mTimed out waiting for $1 (waited ${timeout}s).\033[0m\n"
+    printf -- "\033[31mTimed out waiting for '$1' (waited ${timeout}s).\033[0m\n"
     exit 1
   fi
 }
 
 waitForResponse () {
   printf -- "\033[34mWaiting for $1.\033[0m\n"
-  waitFor "! curl -s \"$1\"" 10
+  waitFor "curl -s \"$1\""
   printf -- "\033[34mService on $1 is ready.\033[0m\n"
 }
 
@@ -146,9 +146,9 @@ launch_chainlink() {
   waitForResponse $chainlink_url
   printf -- "\033[34mChainlink is running.\033[0m\n"
 
-  waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'"
+  waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'" 10
   cl_node_address=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
-  "$SRCROOT/solidity/bin/fund_address" "$cl_node_address"
+  $SRCROOT/solidity/bin/fund_address "$cl_node_address" > $SRCROOT/integration/fund_address.log
 }
 
 deploy_oracle_and_linktoken_contracts() {
