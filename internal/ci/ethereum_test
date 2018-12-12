@@ -221,7 +221,7 @@ assert "Echo count" "curl -sS localhost:6690/count" $expected_echo_count
 assert "Jobs count" "chainlink -j j | jq length" $expeted_job_count
 
 # Check job runs
-jid=`chainlink -j j | jq 'first | .id' | tr -d '"'`
+jid=`chainlink -j j | jq 'last | .id' | tr -d '"'`
 echo "Test created Job: $jid"
 assert "RunLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
 
