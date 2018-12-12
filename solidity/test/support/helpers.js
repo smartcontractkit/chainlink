@@ -137,15 +137,15 @@ export const checkPublicABI = (contract, expectedPublic) => {
 }
 
 export const decodeRunABI = log => {
-  let runABI = util.toBuffer(log.data)
-  let types = ['bytes32', 'address', 'bytes4', 'bytes']
+  const runABI = util.toBuffer(log.data)
+  const types = ['bytes32', 'address', 'bytes4', 'bytes']
   return abi.rawDecode(types, runABI)
 }
 
 export const decodeRunRequest = log => {
-  let runABI = util.toBuffer(log.data)
-  let types = ['uint256', 'uint256', 'bytes']
-  let [requestId, version, data] = abi.rawDecode(types, runABI)
+  const runABI = util.toBuffer(log.data)
+  const types = ['uint256', 'uint256', 'bytes']
+  const [requestId, version, data] = abi.rawDecode(types, runABI)
   return [log.topics[1], log.topics[2], log.topics[3], toHex(requestId), version, data]
 }
 
@@ -155,10 +155,10 @@ export const runRequestId = log => {
 }
 
 export const requestDataBytes = (specId, to, fHash, nonce, data) => {
-  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
-  let values = [0, 0, 1, specId, to, fHash, nonce, data]
-  let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+  const types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
+  const values = [0, 0, 1, specId, to, fHash, nonce, data]
+  const encoded = abiEncode(types, values)
+  const funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
   return funcSelector + encoded
 }
 
