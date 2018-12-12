@@ -17,7 +17,7 @@ assert () {
     sleepCount=$((sleepCount+1))
     sleep 1
   done
-  printf -- "\033[31mTEST FAILED!\033[0m $1: expected $3, actual $output.\n"
+  printf -- "\033[31mTEST FAILED!\033[0m $1: expected $3, actual $output; while evaluating '$2'.\n"
   exit 1
 }
 
