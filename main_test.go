@@ -12,6 +12,7 @@ import (
 func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
+	tc.Config.Dev = false
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc.Config,
