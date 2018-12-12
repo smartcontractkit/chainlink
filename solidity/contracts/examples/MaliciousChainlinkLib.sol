@@ -21,20 +21,6 @@ library MaliciousChainlinkLib {
     Buffer.buffer buf;
   }
 
-  function initialize(
-    Run memory self,
-    bytes32 _specId,
-    address _callbackAddress,
-    bytes4 _callbackFunction
-  ) internal pure returns (MaliciousChainlinkLib.Run memory) {
-    Buffer.init(self.buf, 128);
-    self.specId = _specId;
-    self.callbackAddress = _callbackAddress;
-    self.callbackFunctionId = _callbackFunction;
-    self.buf.startMap();
-    return self;
-  }
-
   function initializeWithdraw(
     WithdrawRun memory self,
     bytes32 _specId,

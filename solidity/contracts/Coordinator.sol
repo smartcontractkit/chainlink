@@ -1,12 +1,12 @@
 pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
-import "./interfaces/CoordinatorInterface.sol";
+// import "./interfaces/ChainlinkRequestInterface.sol";
+// import "./interfaces/CoordinatorInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 
 // Coordinator handles oracle service aggreements between one or more oracles.
-contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
+contract Coordinator /*is ChainlinkRequestInterface, CoordinatorInterface*/ {
   using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
@@ -146,10 +146,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
     serviceAgreementID = getId(_payment, _expiration, _endAt, _oracles, _requestDigest);
 
-    for (uint i = 0; i < _oracles.length; i++) {
-      address signer = getOracleAddressFromSASignature(serviceAgreementID, _vs[i], _rs[i], _ss[i]);
-      require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
-    }
+    verifyOracleSignatures(serviceAgreementID, _oracles, _vs, _rs, _ss);
 
     serviceAgreements[serviceAgreementID] = ServiceAgreement(
       _payment,
@@ -160,6 +157,22 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     );
 
     emit NewServiceAgreement(serviceAgreementID, _requestDigest);
+  }
+
+  function verifyOracleSignatures(
+    bytes32 _serviceAgreementID,
+    address[] _oracles,
+    uint8[] _vs,
+    bytes32[] _rs,
+    bytes32[] _ss
+  )
+    private pure
+  {
+    for (uint i = 0; i < _oracles.length; i++) {
+      address signer = getOracleAddressFromSASignature(_serviceAgreementID, _vs[i], _rs[i], _ss[i]);
+      require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
+    }
+
   }
 
   function getOracleAddressFromSASignature(
@@ -194,8 +207,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     _;
   }
 
-  modifier hasInternalId(uint256 _requestId) {
-    require(callbacks[bytes32(_requestId)].addr != address(0), "Must have a valid internalId");
+  modifier isValidRequest(uint256 _requestId) {
+    require(callbacks[bytes32(_requestId)].addr != address(0), "Must have a valid requestId");
     _;
   }
 
@@ -203,8 +216,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint256 _requestId,
     bytes32 _data
   )
-    public
-    hasInternalId(_requestId)
+    external
+    isValidRequest(_requestId)
     returns (bool)
   {
     bytes32 requestId = bytes32(_requestId);

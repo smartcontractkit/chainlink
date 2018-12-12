@@ -37,6 +37,22 @@ contract MaliciousChainlinked is Chainlinked {
     return requestId;
   }
 
+  function chainlinkPriceRequest(ChainlinkLib.Run memory _run, uint256 _amount)
+    internal
+    returns(bytes32 requestId)
+  {
+    requestId = keccak256(abi.encodePacked(this, maliciousRequests));
+    _run.nonce = maliciousRequests;
+    _run.close();
+    maliciousUnfulfilledRequests[requestId] = oracleAddress();
+    emit ChainlinkRequested(requestId);
+    LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
+    require(link.transferAndCall(oracleAddress(), _amount, encodePriceRequest(_run)), "Unable to transferAndCall to oracle");
+    maliciousRequests += 1;
+
+    return requestId;
+  }
+
   function chainlinkWithdrawRequest(MaliciousChainlinkLib.WithdrawRun memory _run, uint256 _wei)
     internal
     returns(bytes32 requestId)
@@ -71,7 +87,22 @@ contract MaliciousChainlinked is Chainlinked {
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
       1,
-      _run.specId,
+      _run.id,
+      _run.callbackAddress,
+      _run.callbackFunctionId,
+      _run.nonce,
+      _run.buf.buf);
+  }
+
+  function encodePriceRequest(ChainlinkLib.Run memory _run)
+    internal pure returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)")),
+      0, // overridden by onTokenTransfer
+      2000000000000000000, // overridden by onTokenTransfer
+      1,
+      _run.id,
       _run.callbackAddress,
       _run.callbackFunctionId,
       _run.nonce,

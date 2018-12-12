@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 interface ChainlinkRequestInterface {
-  function cancel(bytes32 externalId) external;
+  function cancel(bytes32 requestId) external;
   function requestData(
     address sender,
     uint256 amount,
@@ -9,7 +9,7 @@ interface ChainlinkRequestInterface {
     bytes32 id,
     address callbackAddress,
     bytes4 callbackFunctionId,
-    bytes32 externalId,
+    uint256 nonce,
     bytes data
   ) external;
 }

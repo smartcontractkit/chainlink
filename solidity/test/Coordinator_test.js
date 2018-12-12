@@ -9,6 +9,7 @@ import {
   deploy,
   executeServiceAgreementBytes,
   functionSelector,
+  getEvents,
   getLatestEvent,
   initiateServiceAgreement,
   initiateServiceAgreementCall,
@@ -43,7 +44,7 @@ contract('Coordinator', () => {
     checkPublicABI(artifacts.require(sourcePath), [
       'getPackedArguments',
       'getId',
-      'executeServiceAgreement',
+      'requestData',
       'fulfillData',
       'getId',
       'initiateServiceAgreement',
@@ -91,7 +92,7 @@ contract('Coordinator', () => {
 
     context('with valid oracle signatures', () => {
       it('saves a service agreement struct from the parameters', async () => {
-        initiateServiceAgreement(coordinator, agreement)
+        await initiateServiceAgreement(coordinator, agreement)
         await checkServiceAgreementPresent(coordinator, agreement)
       })
 
@@ -132,7 +133,7 @@ contract('Coordinator', () => {
     })
   })
 
-  describe('#executeServiceAgreement', () => {
+  describe('#requestData', () => {
     const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
     const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
     const agreement = newServiceAgreement({oracles: [oracleNode]})
@@ -183,7 +184,7 @@ contract('Coordinator', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await assertActionThrows(async () => {
-          await coordinator.executeServiceAgreement(0, 0, 1, agreement.id, to, fHash, 1, '', { from: consumer })
+          await coordinator.requestData(0, 0, 1, agreement.id, to, fHash, 1, '', { from: consumer })
         })
       })
     })
@@ -195,17 +196,19 @@ contract('Coordinator', () => {
     let mock, requestId
 
     beforeEach(async () => {
-      await initiateServiceAgreement(coordinator, agreement)
-
-      mock = await deploy('examples/GetterSetter.sol')
-      const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
-
-      const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
-      const tx = await link.transferAndCall(coordinator.address, agreement.payment, payload)
-      requestId = runRequestId(tx.receipt.logs[2])
+      const tx = await initiateServiceAgreement(coordinator, agreement)
+      assert.equal(tx.logs[0].args.said, agreement.id)
     })
-
+    
     context('cooperative consumer', () => {
+      beforeEach(async () => {
+        mock = await deploy('examples/GetterSetter.sol')
+        const fHash = functionSelector('requestedBytes32(bytes32,bytes32)')
+    
+        const payload = executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
+        const tx = await link.transferAndCall(coordinator.address, agreement.payment, payload)
+        requestId = runRequestId(tx.receipt.logs[2])
+      })
       context('when called by a non-owner', () => {
         xit('raises an error', async () => {
           await assertActionThrows(async () => {
@@ -243,22 +246,32 @@ contract('Coordinator', () => {
     context('with a malicious requester', () => {
       const paymentAmount = toWei(1)
 
-      it('cannot cancel before the expiration', async () => {
+      beforeEach(async () => {
         mock = await deploy('examples/MaliciousRequester.sol', link.address, coordinator.address)
         await link.transfer(mock.address, paymentAmount)
+      })
 
+      xit('cannot cancel before the expiration', async () => {
         await assertActionThrows(async () => {
           await mock.maliciousRequestCancel()
         })
       })
 
-      it('cannot call functions on the LINK token through callbacks', async () => {
+      xit('cannot call functions on the LINK token through callbacks', async () => {
         const fHash = functionSelector('transfer(address,uint256)')
         const addressAsRequestId = abiEncode(['address'], [stranger])
         const args = requestDataBytes(agreement.id, link.address, fHash, addressAsRequestId, '')
-
         assertActionThrows(async () => {
           await requestDataFrom(coordinator, link, paymentAmount, args)
+        })
+      })
+
+      context('requester lies about amount of LINK sent', () => {
+        it('the oracle uses the amount of LINK actually paid', async () => {
+          const req = await mock.maliciousPrice(agreement.id)
+          const log = req.receipt.logs[3]
+
+          assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
         })
       })
     })
@@ -267,14 +280,15 @@ contract('Coordinator', () => {
       const paymentAmount = toWei(1)
 
       beforeEach(async () => {
-        mock = await deploy('examples/MaliciousServiceAgreementConsumer.sol', link.address, coordinator.address)
+        mock = await deploy('examples/MaliciousConsumer.sol', link.address, coordinator.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
       context('fails during fulfillment', () => {
         beforeEach(async () => {
-          const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          requestId = runRequestId(req.receipt.logs[3])
+          await mock.requestData(agreement.id, 'assertFail(bytes32,bytes32)')
+          let events = await getEvents(coordinator)
+          requestId = events[0].args.requestId
         })
 
         // needs coordinator withdrawal functionality to meet parity
@@ -289,7 +303,7 @@ contract('Coordinator', () => {
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
-        it("can't fulfill the data again", async () => {
+        xit("can't fulfill the data again", async () => {
           await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
           await assertActionThrows(async () => {
             await coordinator.fulfillData(requestId, 'hack the planet 102', { from: oracleNode })
@@ -299,8 +313,9 @@ contract('Coordinator', () => {
 
       context('calls selfdestruct', () => {
         beforeEach(async () => {
-          const req = await mock.requestData('doesNothing(bytes32,bytes32)')
-          requestId = runRequestId(req.receipt.logs[3])
+          await mock.requestData(agreement.id, 'doesNothing(bytes32,bytes32)')
+          let events = await getEvents(coordinator)
+          requestId = events[0].args.requestId
           await mock.remove()
         })
 
@@ -319,8 +334,9 @@ contract('Coordinator', () => {
 
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
-          const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
-          requestId = runRequestId(req.receipt.logs[3])
+          await mock.requestData(agreement.id, 'cancelRequestOnFulfill(bytes32,bytes32)')
+          let events = await getEvents(coordinator)
+          requestId = events[0].args.requestId
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -341,20 +357,11 @@ contract('Coordinator', () => {
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
-        it("can't fulfill the data again", async () => {
+        xit("can't fulfill the data again", async () => {
           await coordinator.fulfillData(requestId, 'hack the planet 101', { from: oracleNode })
           await assertActionThrows(async () => {
             await coordinator.fulfillData(requestId, 'hack the planet 102', { from: oracleNode })
           })
-        })
-      })
-
-      context('requester lies about amount of LINK sent', () => {
-        it('the oracle uses the amount of LINK actually paid', async () => {
-          const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          const log = req.receipt.logs[3]
-
-          assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
         })
       })
     })

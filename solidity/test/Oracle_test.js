@@ -193,15 +193,15 @@ contract('Oracle', () => {
 
   describe('#fulfillData', () => {
     let mock, requestId
-    const paymentAmount = web3.toWei(1)
+    let currency = 'USD'
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
-        mock = await h.deploy('examples/GetterSetter.sol')
-        const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
-        const args = h.requestDataBytes(specId, mock.address, fHash, 1, '')
-        const req = await h.requestDataFrom(oc, link, paymentAmount, args)
-        requestId = h.runRequestId(req.receipt.logs[2])
+        mock = await h.deploy('examples/BasicConsumer.sol', link.address, oc.address, specId)
+        await link.transfer(mock.address, web3.toWei('1', 'ether'))
+        await mock.requestEthereumPrice(currency)
+        let event = await h.getLatestEvent(oc)
+        requestId = event.args.requestId
       })
 
       context('when called by an unauthorized node', () => {
@@ -224,10 +224,7 @@ contract('Oracle', () => {
         it('sets the value on the requested contract', async () => {
           await oc.fulfillData(requestId, 'Hello World!', { from: h.oracleNode })
 
-          let mockRequestId = await mock.requestId.call()
-          assert.equal(requestId, mockRequestId)
-
-          let currentValue = await mock.getBytes32.call()
+          let currentValue = await mock.currentPrice.call()
           assert.equal('Hello World!', web3.toUtf8(currentValue))
         })
 
@@ -275,22 +272,33 @@ contract('Oracle', () => {
     context('with a malicious requester', () => {
       const paymentAmount = h.toWei(1)
 
-      it('cannot cancel before the expiration', async () => {
+      beforeEach(async () => {
         mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)
+      })
 
+      it('cannot cancel before the expiration', async () => {
         await h.assertActionThrows(async () => {
-          await mock.maliciousRequestCancel()
+          await mock.maliciousRequestCancel(specId)
         })
       })
 
-      it('cannot call functions on the LINK token through callbacks', async () => {
+      xit('cannot call functions on the LINK token through callbacks', async () => {
         const fHash = h.functionSelector('transfer(address,uint256)')
         const addressAsRequestId = h.abiEncode(['address'], [h.stranger])
         const args = h.requestDataBytes(specId, link.address, fHash, addressAsRequestId, '')
 
         h.assertActionThrows(async () => {
           await h.requestDataFrom(oc, link, paymentAmount, args)
+        })
+      })
+
+      context('requester lies about amount of LINK sent', () => {
+        it('the oracle uses the amount of LINK actually paid', async () => {
+          const req = await mock.maliciousPrice(specId)
+          const log = req.receipt.logs[3]
+
+          assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
         })
       })
     })
@@ -305,7 +313,7 @@ contract('Oracle', () => {
 
       context('fails during fulfillment', () => {
         beforeEach(async () => {
-          await mock.requestData('assertFail(bytes32,bytes32)')
+          await mock.requestData(specId, 'assertFail(bytes32,bytes32)')
           let events = await h.getEvents(oc)
           requestId = events[0].args.requestId
         })
@@ -331,7 +339,7 @@ contract('Oracle', () => {
 
       context('calls selfdestruct', () => {
         beforeEach(async () => {
-          await mock.requestData('doesNothing(bytes32,bytes32)')
+          await mock.requestData(specId, 'doesNothing(bytes32,bytes32)')
           let events = await h.getEvents(oc)
           requestId = events[0].args.requestId
           await mock.remove()
@@ -351,7 +359,7 @@ contract('Oracle', () => {
 
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
-          const req = await mock.requestData('cancelRequestOnFulfill(bytes32,bytes32)')
+          const req = await mock.requestData(specId, 'cancelRequestOnFulfill(bytes32,bytes32)')
           let event = await h.getLatestEvent(oc)
           requestId = event.args.requestId
 
@@ -381,18 +389,9 @@ contract('Oracle', () => {
         })
       })
 
-      context('requester lies about amount of LINK sent', () => {
-        it('the oracle uses the amount of LINK actually paid', async () => {
-          const req = await mock.requestData('assertFail(bytes32,bytes32)')
-          const log = req.receipt.logs[3]
-
-          assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
-        })
-      })
-
       context('tries to steal funds from node', () => {
         it('is not successful with call', async () => {
-          await mock.requestData('stealEthCall(bytes32,bytes32)')
+          await mock.requestData(specId, 'stealEthCall(bytes32,bytes32)')
           let events = await h.getEvents(oc)
           requestId = events[0].args.requestId
 
@@ -402,7 +401,7 @@ contract('Oracle', () => {
         })
 
         it('is not successful with send', async () => {
-          await mock.requestData('stealEthSend(bytes32,bytes32)')
+          await mock.requestData(specId, 'stealEthSend(bytes32,bytes32)')
           let events = await h.getEvents(oc)
           requestId = events[0].args.requestId
 
@@ -412,7 +411,7 @@ contract('Oracle', () => {
         })
 
         it('is not successful with transfer', async () => {
-          await mock.requestData('stealEthTransfer(bytes32,bytes32)')
+          await mock.requestData(specId, 'stealEthTransfer(bytes32,bytes32)')
           let events = await h.getEvents(oc)
           requestId = events[0].args.requestId
 
