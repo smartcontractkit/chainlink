@@ -180,6 +180,17 @@ contract('Oracle', () => {
           await h.requestDataFrom(oc, link, paid, args2)
         })
       })
+
+      context('when called with a small bytes payload', () => {
+        const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+        const maliciousData = funcSelector + '000000000000000000000000'
+
+        it('throws an error', async () => {
+          await h.assertActionThrows(async () => {
+            await h.requestDataFrom(oc, link, paid, maliciousData)
+          })
+        })
+      })
     })
 
     context('when not called through the LINK token', () => {
