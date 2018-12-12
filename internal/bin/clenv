@@ -3,9 +3,15 @@
 # Environment variables for running chainlink in development mode
 
 export LOG_LEVEL=${LOG_LEVEL=debug}
+
+export ETH_HOST=${ETH_HOST=localhost}
+
 export ETH_WS_PORT=${ETH_WS_PORT=18546}
+export ETH_WS_URL=${ETH_WS_URL=ws://$ETH_HOST:$ETH_WS_PORT}
+
 export ETH_RPC_PORT=${ETH_RPC_PORT=18545}
-export ETH_URL=${ETH_URL=ws://localhost:$ETH_WS_PORT}
+export ETH_RPC_URL=${ETH_RPC_URL=http://$ETH_HOST:$ETH_RPC_PORT}
+
 export ETH_CHAIN_ID=${ETH_CHAIN_ID=1337}
 export TX_MIN_CONFIRMATIONS=${TX_MIN_CONFIRMATIONS=2}
 export MINIMUM_CONTRACT_PAYMENT=${MINIMUM_CONTRACT_PAYMENT=1000000000000}
