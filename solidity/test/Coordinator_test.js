@@ -49,7 +49,8 @@ contract('Coordinator', () => {
       'getId',
       'initiateServiceAgreement',
       'onTokenTransfer',
-      'serviceAgreements'
+      'serviceAgreements',
+      'cancel'
     ])
   })
 
