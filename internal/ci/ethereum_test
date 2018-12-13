@@ -79,7 +79,7 @@ install_gethnet() {
 
 launch_gethnet() {
   printf -- "\033[34m%-50s\033[0m" "Checking for local geth"
-  if curl -s $ETH_RPC_URL >/dev/null; then
+  if curl -s $ETH_HTTP_URL >/dev/null; then
     printf -- "[\033[32mrunning\033[0m]\n"
     return
   fi
@@ -89,7 +89,7 @@ launch_gethnet() {
 
   printf -- "\033[34mStarting geth...\033[0m\n"
   $SRCROOT/internal/bin/gethnet &>$SRCROOT/integration/gethnet.log &
-  waitForResponse $ETH_RPC_URL
+  waitForResponse $ETH_HTTP_URL
   printf -- "\033[34mGeth is running.\033[0m\n"
 }
 
