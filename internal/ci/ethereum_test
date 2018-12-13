@@ -161,7 +161,6 @@ launch_echo_server() {
 
 exit_handler() {
   errno=$?
-  echo "EXIT_HANDLER"
   # Print all the logs if the test fails
   if [ $errno -ne 0 ]; then
     printf -- "\033[31mABORTING TEST!\033[0m\n"
@@ -173,7 +172,6 @@ exit_handler() {
       cat $log
     done
   fi
-  cleanup
   exit $errno
 }
 
@@ -186,8 +184,8 @@ cleanup() {
   pkill -P $$
 }
 
-trap "exit_handler" EXIT SIGTERM SIGINT
-trap "cleanup" INT
+trap "cleanup" EXIT SIGTERM SIGINT
+trap "exit_handler" EXIT
 
 pushd $SRCROOT >/dev/null
 
