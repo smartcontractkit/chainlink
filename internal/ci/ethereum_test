@@ -115,10 +115,10 @@ launch_chainlink() {
 
   printf -- "\033[34mStarting chainlink...\033[0m\n"
 
-  export ROOT=$(mktemp -d)
-  trap "rm -rf $ROOT" EXIT HUP TERM INT
-  cp $SRCROOT/internal/clroot/{password.txt,apicredentials} $ROOT/
-  chainlink node -d -p $ROOT/password.txt -a $ROOT/apicredentials &>$SRCROOT/integration/chainlink.log &
+  clroot=$(mktemp -d)
+  trap "rm -rf $clroot" EXIT HUP TERM INT
+  cp $SRCROOT/internal/clroot/{password.txt,apicredentials} $clroot/
+  chainlink node -d -p $clroot/password.txt -a $clroot/apicredentials &>$SRCROOT/integration/chainlink.log &
 
   waitForResponse $chainlink_url
   printf -- "\033[34mChainlink is running.\033[0m\n"
