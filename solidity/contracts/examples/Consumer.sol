@@ -6,7 +6,7 @@ contract Consumer is Chainlinked {
   bytes32 internal specId;
   bytes32 public currentPrice;
 
-  uint256 constant private LINK_DIVISIBILITY = 10**18;
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
   event RequestFulfilled(
     bytes32 indexed requestId,  // User-defined ID
@@ -19,7 +19,7 @@ contract Consumer is Chainlinked {
     string[] memory path = new string[](1);
     path[0] = _currency;
     run.addStringArray("path", path);
-    chainlinkRequest(run, LINK_DIVISIBILITY);
+    chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function cancelRequest(bytes32 _requestId) public {

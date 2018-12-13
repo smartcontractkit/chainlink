@@ -11,8 +11,8 @@ contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using SafeMath for uint256;
 
+  uint256 constant internal LINK = 10**18;
   uint256 constant private ARGS_VERSION = 1;
-  uint256 constant private LINK_DIVISIBILITY = 10**18;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
 
@@ -65,10 +65,6 @@ contract Chainlinked {
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
     requested.cancel(_requestId);
-  }
-
-  function LINK(uint256 _amount) internal pure returns (uint256) {
-    return _amount.mul(LINK_DIVISIBILITY);
   }
 
   function setOracle(address _oracle) internal {
