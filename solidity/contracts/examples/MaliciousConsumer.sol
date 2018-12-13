@@ -6,6 +6,8 @@ import "../Chainlinked.sol";
 
 contract MaliciousConsumer is Chainlinked {
 
+  uint256 constant private LINK_DIVISIBILITY = 10**18;
+
   constructor(address _link, address _oracle) public payable {
     setLinkToken(_link);
     setOracle(_oracle);
@@ -15,7 +17,7 @@ contract MaliciousConsumer is Chainlinked {
 
   function requestData(bytes32 _id, bytes _callbackFunc) public {
     ChainlinkLib.Run memory run = newRun(_id, this, bytes4(keccak256(_callbackFunc)));
-    chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, LINK_DIVISIBILITY);
   }
 
   function assertFail(bytes32, bytes32) public pure {
