@@ -45,7 +45,7 @@ func (ks *KeyStore) Unlock(phrase string) error {
 		if err != nil {
 			merr = multierr.Combine(merr, fmt.Errorf("invalid password for account %s", account.Address.Hex()), err)
 		} else {
-			logger.Infow(fmt.Sprint("Unlocked account: ", account.Address.Hex()), "address", account.Address.Hex())
+			logger.Infow(fmt.Sprint("Unlocked account ", account.Address.Hex()), "address", account.Address.Hex())
 		}
 	}
 	return merr

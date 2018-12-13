@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gobuffalo/packr"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -377,34 +376,21 @@ func (f InstanceAppFactory) NewApplication(config store.Config) services.Applica
 	return f.App
 }
 
-// EmptyAppFactory an empty application factory
-type EmptyAppFactory struct{}
-
-// NewApplication creates a new empty application with specified config
-func (f EmptyAppFactory) NewApplication(config store.Config) services.Application {
-	return &EmptyApplication{}
+type seededAppFactory struct {
+	Application services.Application
 }
 
-// EmptyApplication an empty application
-type EmptyApplication struct{}
-
-func (*EmptyApplication) Start() error                              { return nil }
-func (*EmptyApplication) Stop() error                               { return nil }
-func (*EmptyApplication) GetStore() *store.Store                    { return nil }
-func (*EmptyApplication) WakeSessionReaper()                        {}
-func (*EmptyApplication) WakeBulkRunDeleter()                       {}
-func (*EmptyApplication) AddJob(job models.JobSpec) error           { return nil }
-func (*EmptyApplication) AddAdapter(bt *models.BridgeType) error    { return nil }
-func (*EmptyApplication) RemoveAdapter(bt *models.BridgeType) error { return nil }
-func (*EmptyApplication) NewBox() packr.Box                         { return packr.Box{} }
+func (s seededAppFactory) NewApplication(config store.Config) services.Application {
+	return s.Application
+}
 
 // CallbackAuthenticator contains a call back authenticator method
 type CallbackAuthenticator struct {
-	Callback func(*store.Store, string) error
+	Callback func(*store.Store, string) (string, error)
 }
 
 // Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) error {
+func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (string, error) {
 	return a.Callback(store, pwd)
 }
 
