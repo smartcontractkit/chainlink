@@ -5,8 +5,6 @@ import "../Chainlinked.sol";
 
 contract ConcreteChainlinked is Chainlinked {
 
-  uint256 constant private LINK_DIVISIBILITY = 10**18;
-
   constructor(address _link, address _oracle)
     public
   {
@@ -84,8 +82,8 @@ contract ConcreteChainlinked is Chainlinked {
 
   event LinkAmount(uint256 amount);
 
-  function publicLINK(uint256 _link) public {
-    emit LinkAmount(LINK_DIVISIBILITY.mul(_link));
+  function publicLINK(uint256 _amount) public {
+    emit LinkAmount(LINK.mul(_amount));
   }
 
   function publicOracleAddress() public view returns (address) {
