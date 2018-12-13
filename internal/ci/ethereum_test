@@ -133,7 +133,7 @@ deploy_oracle_and_linktoken_contracts() {
   pushd integration >/dev/null
 
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
-  ./deploy_contracts | tee $SRCROOT/integration/deploy.log
+  ./deploy_contracts $cl_node_address | tee $SRCROOT/integration/deploy.log
   export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
   export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
 
@@ -192,8 +192,8 @@ trap "cleanup" INT
 pushd $SRCROOT >/dev/null
 
 launch_gethnet
-deploy_oracle_and_linktoken_contracts
 launch_chainlink
+deploy_oracle_and_linktoken_contracts
 launch_echo_server
 chainlink login --file $SRCROOT/internal/clroot/apicredentials
 
