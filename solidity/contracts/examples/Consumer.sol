@@ -6,6 +6,8 @@ contract Consumer is Chainlinked {
   bytes32 internal specId;
   bytes32 public currentPrice;
 
+  uint256 constant private LINK_DIVISIBILITY = 10**18;
+
   event RequestFulfilled(
     bytes32 indexed requestId,  // User-defined ID
     bytes32 indexed price
@@ -17,7 +19,7 @@ contract Consumer is Chainlinked {
     string[] memory path = new string[](1);
     path[0] = _currency;
     run.addStringArray("path", path);
-    chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, LINK_DIVISIBILITY);
   }
 
   function cancelRequest(bytes32 _requestId) public {
