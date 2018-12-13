@@ -401,8 +401,8 @@ contract Chainlinked {
   using ChainlinkLib for ChainlinkLib.Run;
   using SafeMath for uint256;
 
+  uint256 constant internal LINK = 10**18;
   uint256 constant private ARGS_VERSION = 1;
-  uint256 constant private LINK_DIVISIBILITY = 10**18;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
 
@@ -455,10 +455,6 @@ contract Chainlinked {
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
     requested.cancel(_requestId);
-  }
-
-  function LINK(uint256 _amount) internal pure returns (uint256) {
-    return _amount.mul(LINK_DIVISIBILITY);
   }
 
   function setOracle(address _oracle) internal {
@@ -616,6 +612,8 @@ contract Ownable {
 // File: ../examples/ropsten/contracts/RopstenConsumerBase.sol
 
 contract ARopstenConsumer is Chainlinked, Ownable {
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+
   uint256 public currentPrice;
   int256 public changeDay;
   bytes32 public lastMarket;
@@ -652,7 +650,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[0] = _currency;
     run.addStringArray("path", path);
     run.addInt("times", 100);
-    chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function requestEthereumChange(string _jobId, string _currency)
@@ -668,7 +666,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[3] = "CHANGEPCTDAY";
     run.addStringArray("path", path);
     run.addInt("times", 1000000000);
-    chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function requestEthereumLastMarket(string _jobId, string _currency)
@@ -683,7 +681,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[2] = _currency;
     path[3] = "LASTMARKET";
     run.addStringArray("path", path);
-    chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)

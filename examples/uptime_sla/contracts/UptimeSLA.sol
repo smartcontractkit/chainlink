@@ -3,6 +3,7 @@ pragma solidity 0.4.24;
 import "../../../solidity/contracts/Chainlinked.sol";
 
 contract UptimeSLA is Chainlinked {
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
   uint256 constant uptimeThreshold = 9999;
   bytes32 private jobId;
   uint256 private endAt;
@@ -35,7 +36,7 @@ contract UptimeSLA is Chainlinked {
     path[2] = "attributes";
     path[3] = "calculation";
     run.addStringArray("path", path);
-    chainlinkRequest(run, LINK(1));
+    chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function report(bytes32 _externalId, uint256 _uptime)

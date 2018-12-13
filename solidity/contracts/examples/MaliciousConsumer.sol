@@ -5,8 +5,7 @@ import "../Chainlinked.sol";
 
 
 contract MaliciousConsumer is Chainlinked {
-
-  uint256 constant private LINK_DIVISIBILITY = 10**18;
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
   constructor(address _link, address _oracle) public payable {
     setLinkToken(_link);
@@ -17,7 +16,7 @@ contract MaliciousConsumer is Chainlinked {
 
   function requestData(bytes32 _id, bytes _callbackFunc) public {
     ChainlinkLib.Run memory run = newRun(_id, this, bytes4(keccak256(_callbackFunc)));
-    chainlinkRequest(run, LINK_DIVISIBILITY);
+    chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function assertFail(bytes32, bytes32) public pure {
