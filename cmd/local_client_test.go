@@ -23,7 +23,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 
-	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
 	client := cmd.Client{
 		Config:                 app.Store.Config,
 		AppFactory:             cltest.InstanceAppFactory{App: app.ChainlinkApplication},
@@ -84,10 +84,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			assert.NoError(t, err)
 
 			var unlocked bool
-			callback := func(store *store.Store, phrase string) error {
+			callback := func(store *store.Store, phrase string) (string, error) {
 				err := store.KeyStore.Unlock(phrase)
 				unlocked = err == nil
-				return err
+				return phrase, err
 			}
 
 			auth := cltest.CallbackAuthenticator{Callback: callback}
@@ -136,7 +136,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKeyStore()
 			defer cleanup()
 
-			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) error { return nil }}
+			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
 				Config:                 app.Config,
@@ -205,4 +205,20 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}
+}
+
+func TestClient_CreateExtraKey(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	require.Len(t, app.Store.KeyStore.Accounts(), 1)
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("createextrakey", 0)
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.CreateExtraKey(c))
+
+	require.Len(t, app.Store.KeyStore.Accounts(), 2)
 }

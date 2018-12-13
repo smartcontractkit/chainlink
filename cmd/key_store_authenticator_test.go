@@ -20,7 +20,8 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
 	assert.False(t, app.Store.KeyStore.HasAccounts())
-	assert.NoError(t, auth.Authenticate(app.Store, ""))
+	_, err := auth.Authenticate(app.Store, "")
+	assert.NoError(t, err)
 	assert.Equal(t, 4, prompt.Count)
 	assert.Equal(t, 1, len(app.Store.KeyStore.Accounts()))
 }
@@ -34,7 +35,8 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
 
 	assert.Equal(t, 0, len(app.Store.KeyStore.Accounts()))
-	assert.NoError(t, auth.Authenticate(app.Store, "somepassword"))
+	_, err := auth.Authenticate(app.Store, "somepassword")
+	assert.NoError(t, err)
 	assert.True(t, app.Store.KeyStore.HasAccounts())
 	assert.Equal(t, 1, len(app.Store.KeyStore.Accounts()))
 }
@@ -51,7 +53,8 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 	}
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
-	assert.NoError(t, auth.Authenticate(app.Store, ""))
+	_, err := auth.Authenticate(app.Store, "")
+	assert.NoError(t, err)
 	assert.Equal(t, 2, prompt.Count)
 }
 
@@ -72,7 +75,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.password, func(t *testing.T) {
 			auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
-			err := auth.Authenticate(app.Store, test.password)
+			_, err := auth.Authenticate(app.Store, test.password)
 			assert.Equal(t, test.wantError, err != nil)
 		})
 	}
