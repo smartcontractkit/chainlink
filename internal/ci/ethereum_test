@@ -88,7 +88,7 @@ launch_gethnet() {
   install_gethnet
 
   printf -- "\033[34mStarting geth...\033[0m\n"
-  gethnet &>$SRCROOT/integration/gethnet.log &
+  $SRCROOT/internal/bin/gethnet &>$SRCROOT/integration/gethnet.log &
   waitForResponse $ETH_RPC_URL
   printf -- "\033[34mGeth is running.\033[0m\n"
 }
@@ -186,8 +186,8 @@ cleanup() {
   pkill -P $$
 }
 
-trap "exit_handler" EXIT
-trap "cleanup" SIGTERM SIGINT INT
+trap "exit_handler" EXIT SIGTERM SIGINT
+trap "cleanup" INT
 
 pushd $SRCROOT >/dev/null
 
