@@ -6,8 +6,8 @@ export LOG_LEVEL=${LOG_LEVEL=debug}
 
 export ETH_HOST=${ETH_HOST=localhost}
 
-export ETH_WS_PORT=${ETH_WS_PORT=18546}
-export ETH_WS_URL=${ETH_WS_URL=ws://$ETH_HOST:$ETH_WS_PORT}
+export ETH_PORT=${ETH_WS_PORT=18546}
+export ETH_URL=${ETH_URL=ws://$ETH_HOST:$ETH_WS_PORT}
 
 export ETH_HTTP_PORT=${ETH_HTTP_PORT=18545}
 export ETH_HTTP_URL=${ETH_HTTP_URL=http://$ETH_HOST:$ETH_HTTP_PORT}

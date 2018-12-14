@@ -199,7 +199,7 @@ func (c ConfigWhitelist) String() string {
 		"CHAINLINK_PORT: %d\n" +
 		"CHAINLINK_TLS_PORT: %d\n" +
 		"CHAINLINK_TLS_HOST: %s\n" +
-		"ETH_WS_URL: %s\n" +
+		"ETH_URL: %s\n" +
 		"ETH_CHAIN_ID: %d\n" +
 		"CLIENT_NODE_URL: %s\n" +
 		"TX_MIN_CONFIRMATIONS: %d\n" +

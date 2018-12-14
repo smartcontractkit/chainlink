@@ -17,7 +17,7 @@ DOCKER="docker run -ti \
     --sysctl net.ipv6.conf.all.disable_ipv6=1 \
     --env LOG_LEVEL \
     --env ETH_HOST \
-    --env ETH_WS_URL \
+    --env ETH_URL \
     --env ETH_HTTP_URL \
     --env ETH_CHAIN_ID \
     --env TX_MIN_CONFIRMATIONS \
