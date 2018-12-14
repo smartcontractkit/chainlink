@@ -1,0 +1,34 @@
+#!/bin/bash
+
+source ./common
+
+title 'Runlog test.'
+
+expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
+expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
+
+./send_runlog_transaction | tee send_runlog_transaction.log
+runlog_address=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
+
+# Check echo count
+assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
+
+## Check job counts using jq to parse json: https://stedolan.github.io/jq/
+assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
+
+# Check job runs
+jid=`chainlink -j j | jq 'last | .id' | tr -d '"'`
+echo "Test created Job: $jid"
+assert "RunLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
+
+# Check that the run completed
+assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
+
+txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
+echo "Test created TX: $txid"
+
+tx_receiver=$(chainlink -j s $jid | jq '.runs[].result.data.address' | sed 's/"//g')
+echo "Test sent TX to: $tx_receiver"
+
+# Check for the Fullfillment event
+assert "Transaction Events" "./count_transaction_events RunLog.sol $txid $runlog_address" 2

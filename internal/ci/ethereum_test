@@ -1,284 +1,42 @@
 #!/bin/bash
 
-#------------------------------------------------------------------------------
-# SETUP
-#------------------------------------------------------------------------------
-
 set -e
 
-# Utilities
-assert () {
-  sleepCount=0
-  while [ "$sleepCount" -le "30" ] && output=`eval $2`; do
-    if [ "$output" == "$3" ]; then
-      printf -- "\033[32mTest passed!\033[0m $1: got expected value $3.\n"
-      return
-    fi
-    sleepCount=$((sleepCount+1))
-    sleep 1
-  done
-  printf -- "\033[31mTEST FAILED!\033[0m $1: expected $3, actual $output; while evaluating '$2'.\n"
-  exit 1
-}
-
-waitFor () {
-  [ -z "$2" ] && timeout=300 || timeout=$2
-  sleepCount=0
-  while [ "$sleepCount" -le "$timeout" ] && ! eval "$1" >/dev/null; do
-      sleep 1
-      sleepCount=$((sleepCount+1))
-  done
-
-  if [ "$sleepCount" -gt "$timeout" ]; then
-    printf -- "\033[31mTimed out waiting for '$1' (waited ${timeout}s).\033[0m\n"
-    exit 1
-  fi
-}
-
-waitForResponse () {
-  printf -- "\033[34mWaiting for $1.\033[0m\n"
-  waitFor "curl -s \"$1\""
-  printf -- "\033[34mService on $1 is ready.\033[0m\n"
-}
-
-GIT_ROOT=`git rev-parse --show-toplevel`
-SRCROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
-PATH=$SRCROOT/internal/bin:./node_modules/.bin:$PATH
-ECHO_SERVER_URL="http://localhost:6690/count"
-source $SRCROOT/internal/bin/clenv
-
-get_ethnet_version() {
-  go get github.com/pelletier/go-toml/cmd/tomljson
-  tomljson Gopkg.lock | jq -r '.projects | .[] | select(.name | contains("go-ethereum")) | .version'
-}
-
-install_gethnet() {
-  if [ -x "$(which geth)" ]; then
-    return
-  fi
-
-  printf -- "\033[34mRetrieving geth version...\033[0m\n"
-  ethversion=$(get_ethnet_version)
-
-  ethpkg=github.com/ethereum/go-ethereum
-  ethpath=$GOPATH/src/$ethpkg
-
-  printf -- "\033[34mInstalling geth $ethversion...\033[0m\n"
-  if [ -d "$ethpath" ]; then
-    pushd "$ethpath" >/dev/null
-    git checkout master &>/dev/null
-    go get -d -u $ethpkg
-  else
-    go get -d $ethpkg
-    pushd "$ethpath" >/dev/null
-  fi
-  git checkout $ethversion 2>/dev/null
-  popd >/dev/null
-  go install $ethpkg/cmd/geth
-}
-
-launch_gethnet() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for local geth"
-  if curl -s $ETH_HTTP_URL >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  install_gethnet
-
-  printf -- "\033[34mStarting geth...\033[0m\n"
-  $SRCROOT/internal/bin/gethnet &>$SRCROOT/integration/gethnet.log &
-  waitForResponse $ETH_HTTP_URL
-  printf -- "\033[34mGeth is running.\033[0m\n"
-}
-
-install_chainlink() {
-  if [ -x "$(which chainlink)" ]; then
-    return
-  fi
-
-  printf -- "\033[34mMaking chainlink...\033[0m\n"
-  make install &>$SRCROOT/integration/make.log
-}
-
-launch_chainlink() {
-  chainlink_url="http://127.0.0.1:6688"
-  printf -- "\033[34m%-50s\033[0m" "Checking for local chainlink"
-  if curl -s $chainlink_url >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  install_chainlink
-
-  printf -- "\033[34mStarting chainlink...\033[0m\n"
-
-  clroot=$(mktemp -d)
-  trap "rm -rf $clroot" EXIT HUP TERM INT
-  cp $SRCROOT/internal/clroot/{password.txt,apicredentials} $clroot/
-  chainlink node -d -p $clroot/password.txt -a $clroot/apicredentials &>$SRCROOT/integration/chainlink.log &
-
-  waitForResponse $chainlink_url
-  printf -- "\033[34mChainlink is running.\033[0m\n"
-
-  waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'" 10
-  cl_node_address=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
-  $SRCROOT/solidity/bin/fund_address "$cl_node_address" > $SRCROOT/integration/fund_address.log
-}
-
-deploy_oracle_and_linktoken_contracts() {
-  printf -- "\033[34mMigrating core contracts...\033[0m\n"
-  pushd integration >/dev/null
-
-  yarn --no-progress install &>$SRCROOT/integration/yarn.log
-  ./deploy_contracts $cl_node_address | tee $SRCROOT/integration/deploy.log
-  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
-  export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
-
-  popd >/dev/null
-  printf -- "\033[34mMigration complete.\033[0m\n"
-}
-
-launch_echo_server() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for local echo server"
-  if curl -s $ECHO_SERVER_URL >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  printf -- "\033[34mStarting echo server...\033[0m\n"
-  pushd integration >/dev/null
-
-  ./echo_server &>$SRCROOT/integration/echo-server.log &
-  waitForResponse $ECHO_SERVER_URL
-
-  popd >/dev/null
-  printf -- "\033[34mEcho server is running.\033[0m\n"
-}
-
-exit_handler() {
-  errno=$?
-  # Print all the logs if the test fails
-  if [ $errno -ne 0 ]; then
-    printf -- "\033[31mABORTING TEST!\033[0m\n"
-    printf -- "Exited with code $errno\n"
-    for log in $(find "$SRCROOT/integration" -maxdepth 1 -type f -iname '*.log'); do
-      printf -- "\n--------------------------------------------------------------------------------\n"
-      printf -- "\033[31m$log\033[0m\n"
-      printf -- "--------------------------------------------------------------------------------\n\n"
-      cat $log
-    done
-  fi
-  exit $errno
-}
-
-cleanup() {
-  if [ -n "$CIRCLECI" ]; then
-    return
-  fi
-
-  # Kill all child subprocesses
-  pkill -P $$
-}
-
-trap "cleanup" EXIT SIGTERM SIGINT
-trap "exit_handler" EXIT
+export GIT_ROOT=`git rev-parse --show-toplevel`
+export SRCROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
+export PATH=$SRCROOT/internal/bin:./node_modules/.bin:$PATH
+export ECHO_SERVER_URL="http://localhost:6690/count"
 
 pushd $SRCROOT >/dev/null
+
+source ./integration/common
+source ./internal/bin/clenv
+
+trap cleanup EXIT SIGTERM SIGINT
+trap exit_handler EXIT
+
+heading 'Setup...'
 
 launch_gethnet
 launch_chainlink
 deploy_oracle_and_linktoken_contracts
 launch_echo_server
-chainlink login --file $SRCROOT/internal/clroot/apicredentials
+chainlink login --file ./internal/clroot/apicredentials
 
-#------------------------------------------------------------------------------
-# TESTS
-#------------------------------------------------------------------------------
+heading 'Running tests...'
 
-printf -- "\n\033[34mRunning tests...\033[0m\n"
 pushd integration >/dev/null
 
-#######################
-# runlog
-#######################
+./runlog_test
+./ethlog_test
 
-printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34mRunlog test.\033[0m\n"
-printf -- "--------------------------------------------------------------------------------\n\n"
-
-expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
-expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
-
-./send_runlog_transaction | tee send_runlog_transaction.log
-runlog_address=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
-
-# Check echo count
-assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
-
-## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
-
-# Check job runs
-jid=`chainlink -j j | jq 'last | .id' | tr -d '"'`
-echo "Test created Job: $jid"
-assert "RunLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
-
-# Check that the run completed
-assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
-
-txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
-echo "Test created TX: $txid"
-
-tx_receiver=$(chainlink -j s $jid | jq '.runs[].result.data.address' | sed 's/"//g')
-echo "Test sent TX to: $tx_receiver"
-
-# Check for the Fullfillment event
-assert "Transaction Events" "./count_transaction_events RunLog.sol $txid $runlog_address" 2
-
-#######################
-# ethlog
-#######################
-
-printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34mEthlog test.\033[0m\n"
-printf -- "--------------------------------------------------------------------------------\n\n"
-
-expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
-expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
-
-./send_ethlog_transaction | tee send_ethlog_transaction.log
-ethlog_address=`cat send_ethlog_transaction.log | grep EthLog | awk '{print$4}'`
-jid=`cat send_ethlog_transaction.log | grep Job | awk '{print$4}'`
-
-# Check echo count
-assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
-
-# Check job counts
-assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
-
-# Check job runs
-assert "EthLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
-
-# Check that the run completed
-assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
-
-#######################
-# End to end
-#######################
-
-printf -- "\n--------------------------------------------------------------------------------\n"
-printf -- "\033[34mEnd to end tests.\033[0m\n"
-printf -- "--------------------------------------------------------------------------------\n\n"
+title 'End to end tests.'
 
 set -o pipefail
-yarn test-e2e | tee $SRCROOT/integration/e2e.tests.log
+yarn test-e2e | tee e2e.tests.log
 set +o pipefail
 
-printf -- "\n\033[34mAll tests passed.\033[0m\n\n"
+title 'All tests passed.'
 
 # Return to caller's PWD
 popd >/dev/null
