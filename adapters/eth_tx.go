@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -22,6 +24,8 @@ type EthTx struct {
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
 	DataFormat       string                  `json:"format"`
+	GasPrice         *big.Int                `json:"gasPrice"`
+	GasLimit         uint64                  `json:"gasLimit"`
 }
 
 // Perform creates the run result for the transaction if the existing run result
@@ -68,7 +72,7 @@ func createTxRunResult(
 		return input.WithError(err)
 	}
 
-	tx, err := store.TxManager.CreateTx(e.Address, data)
+	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice, e.GasLimit)
 	if err != nil {
 		return input.WithError(err)
 	}

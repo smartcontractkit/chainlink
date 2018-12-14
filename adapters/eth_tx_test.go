@@ -393,12 +393,12 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	txmMock := mock_store.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Start(gomock.Any())
-	txmMock.EXPECT().CreateTx(gomock.Any(), hexutil.MustDecode(
+	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), hexutil.MustDecode(
 		"0x00000000"+
 			"0000000000000000000000000000000000000000000000000000000000000020"+
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
-	).Return(&models.Tx{}, nil)
+		gomock.Any(), gomock.Any()).Return(&models.Tx{}, nil)
 	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
 
 	task := models.TaskSpec{}
@@ -419,4 +419,41 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	result := adapter.Perform(input, store)
 	assert.False(t, result.HasError())
 	assert.Equal(t, result.Error(), "")
+}
+
+func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	gasPrice := big.NewInt(187)
+	gasLimit := uint64(911)
+
+	ctrl := gomock.NewController(t)
+	txmMock := mock_store.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
+	txmMock.EXPECT().Start(gomock.Any())
+	txmMock.EXPECT().CreateTxWithGas(
+		gomock.Any(),
+		gomock.Any(),
+		gasPrice,
+		gasLimit,
+	).Return(&models.Tx{}, nil)
+	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
+
+	adapter := adapters.EthTx{
+		Address:          cltest.NewAddress(),
+		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
+		GasPrice:         gasPrice,
+		GasLimit:         gasLimit,
+	}
+
+	input := models.RunResult{
+		Data:   cltest.JSONFromString(`{"value": "hello world"}`),
+		Status: models.RunStatusInProgress,
+	}
+
+	result := adapter.Perform(input, store)
+	assert.False(t, result.HasError())
 }

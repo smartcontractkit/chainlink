@@ -12,6 +12,7 @@ import (
 	store "github.com/smartcontractkit/chainlink/store"
 	assets "github.com/smartcontractkit/chainlink/store/assets"
 	models "github.com/smartcontractkit/chainlink/store/models"
+	big "math/big"
 	reflect "reflect"
 )
 
@@ -63,6 +64,19 @@ func (mr *MockTxManagerMockRecorder) CreateTx(to, data interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTx", reflect.TypeOf((*MockTxManager)(nil).CreateTx), to, data)
 }
 
+// CreateTxWithGas mocks base method
+func (m *MockTxManager) CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
+	ret := m.ctrl.Call(m, "CreateTxWithGas", to, data, gasPriceWei, gasLimit)
+	ret0, _ := ret[0].(*models.Tx)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTxWithGas indicates an expected call of CreateTxWithGas
+func (mr *MockTxManagerMockRecorder) CreateTxWithGas(to, data, gasPriceWei, gasLimit interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTxWithGas", reflect.TypeOf((*MockTxManager)(nil).CreateTxWithGas), to, data, gasPriceWei, gasLimit)
+}
+
 // MeetsMinConfirmations mocks base method
 func (m *MockTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	ret := m.ctrl.Call(m, "MeetsMinConfirmations", hash)
@@ -76,25 +90,29 @@ func (mr *MockTxManagerMockRecorder) MeetsMinConfirmations(hash interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MeetsMinConfirmations", reflect.TypeOf((*MockTxManager)(nil).MeetsMinConfirmations), hash)
 }
 
-// ContractLINKBalance wraps base method
-func (m *MockTxManager) ContractLINKBalance(
-	wr models.WithdrawalRequest) (assets.Link, error) {
+// ContractLINKBalance mocks base method
+func (m *MockTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error) {
 	ret := m.ctrl.Call(m, "ContractLINKBalance", wr)
 	ret0, _ := ret[0].(assets.Link)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
+// ContractLINKBalance indicates an expected call of ContractLINKBalance
+func (mr *MockTxManagerMockRecorder) ContractLINKBalance(wr interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractLINKBalance", reflect.TypeOf((*MockTxManager)(nil).ContractLINKBalance), wr)
+}
+
 // WithdrawLINK mocks base method
 func (m *MockTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	ret := m.ctrl.Call(m, "WithdrawLink", wr)
+	ret := m.ctrl.Call(m, "WithdrawLINK", wr)
 	ret0, _ := ret[0].(common.Hash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WithdrawLink indicates an expected call of WithdrawLink
-func (mr *MockTxManagerMockRecorder) WithdrawLink(wr interface{}) *gomock.Call {
+// WithdrawLINK indicates an expected call of WithdrawLINK
+func (mr *MockTxManagerMockRecorder) WithdrawLINK(wr interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithdrawLINK", reflect.TypeOf((*MockTxManager)(nil).WithdrawLINK), wr)
 }
 
