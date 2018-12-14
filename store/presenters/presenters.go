@@ -73,7 +73,7 @@ func showBalanceForAccount(store *store.Store, account accounts.Account, balance
 	keysAndValues["balance"] = balance.String()
 	keysAndValues["address"] = address
 	if balance.IsZero() && balanceType == ethRequest {
-		return keysAndValues, errors.New("0 Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
+		return keysAndValues, errors.New("0 ETH Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return keysAndValues, nil
 }
