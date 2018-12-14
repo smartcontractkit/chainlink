@@ -19,15 +19,17 @@ import (
 	"go.uber.org/multierr"
 )
 
-// if updating defaultGasLimit, be sure it matches with the
-// defaultGasLimit specified in solidity/test/Oracle_test.js
-const defaultGasLimit uint64 = 500000
+// DefaultGasLimit sets the default gas limit for outgoing transactions.
+// if updating DefaultGasLimit, be sure it matches with the
+// DefaultGasLimit specified in solidity/test/Oracle_test.js
+const DefaultGasLimit uint64 = 500000
 const nonceReloadLimit uint = 1
 
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
 	Start(accounts []accounts.Account) error
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
+	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	MeetsMinConfirmations(hash common.Hash) (bool, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
@@ -54,15 +56,43 @@ type EthTxManager struct {
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
+	return txm.CreateTxWithGas(to, data, &txm.config.EthGasPriceDefault, DefaultGasLimit)
+}
+
+// CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
+func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
 	ma := txm.NextActiveAccount()
 	if ma == nil {
 		return nil, errors.New("Must activate an account before creating a transaction")
 	}
 
-	return txm.createTxWithNonceReload(ma, to, data, 0)
+	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
+	return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, 0)
 }
 
-func (txm *EthTxManager) createTxWithNonceReload(ma *ManagedAccount, to common.Address, data []byte, nrc uint) (*models.Tx, error) {
+func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
+	if !config.Dev {
+		return &config.EthGasPriceDefault, DefaultGasLimit
+	}
+
+	if gasPriceWei == nil {
+		gasPriceWei = &config.EthGasPriceDefault
+	}
+
+	if gasLimit == 0 {
+		gasLimit = DefaultGasLimit
+	}
+
+	return gasPriceWei, gasLimit
+}
+
+func (txm *EthTxManager) createTxWithNonceReload(
+	ma *ManagedAccount,
+	to common.Address,
+	data []byte,
+	gasPriceWei *big.Int,
+	gasLimit uint64,
+	nrc uint) (*models.Tx, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return nil, err
@@ -76,16 +106,15 @@ func (txm *EthTxManager) createTxWithNonceReload(ma *ManagedAccount, to common.A
 			to,
 			data,
 			big.NewInt(0),
-			defaultGasLimit,
+			gasLimit,
 		)
 		if err != nil {
 			return err
 		}
 
 		logger.Infow(fmt.Sprintf("Created ETH transaction, attempt #: %v", nrc), "from", ma.Address.String(), "to", to.String())
-		gasPrice := txm.config.EthGasPriceDefault
 		var txa *models.TxAttempt
-		txa, err = txm.createAttempt(tx, &gasPrice, blkNum)
+		txa, err = txm.createAttempt(tx, gasPriceWei, blkNum)
 		if err != nil {
 			txm.orm.DeleteStruct(tx)
 			txm.orm.DeleteStruct(txa)
@@ -114,7 +143,7 @@ func (txm *EthTxManager) createTxWithNonceReload(ma *ManagedAccount, to common.A
 				return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
 			}
 
-			return txm.createTxWithNonceReload(ma, to, data, nrc+1)
+			return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, nrc+1)
 		}
 	}
 
@@ -220,14 +249,14 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 
 func (txm *EthTxManager) createAttempt(
 	tx *models.Tx,
-	gasPrice *big.Int,
+	gasPriceWei *big.Int,
 	blkNum uint64,
 ) (*models.TxAttempt, error) {
 	ma := txm.getAccount(tx.From)
 	if ma == nil {
 		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
 	}
-	etx := tx.EthTx(gasPrice)
+	etx := tx.EthTx(gasPriceWei)
 	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID)
 	if err != nil {
 		return nil, err

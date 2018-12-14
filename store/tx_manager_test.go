@@ -655,3 +655,60 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	}
 	assert.True(t, targetLogSeen)
 }
+
+func TestTxManager_CreateTxWithGas(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+	nonce := uint64(256)
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+	})
+	assert.NoError(t, app.Start())
+
+	customGasPrice := big.NewInt(1337)
+	customGasLimit := uint64(10009)
+
+	tests := []struct {
+		name             string
+		dev              bool
+		gasPrice         *big.Int
+		gasLimit         uint64
+		expectedGasPrice *big.Int
+		expectedGasLimit uint64
+	}{
+		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
+		{"dev but not set", true, nil, 0, &store.Config.EthGasPriceDefault, strpkg.DefaultGasLimit},
+		{"not dev", false, customGasPrice, customGasLimit, &store.Config.EthGasPriceDefault, strpkg.DefaultGasLimit},
+		{"not dev not set", false, nil, 0, &store.Config.EthGasPriceDefault, strpkg.DefaultGasLimit},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			strpkg.ExportedSetTxManagerDev(manager, test.dev)
+			ethMock.Context("manager.CreateTx", func(ethMock *cltest.EthMock) {
+				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
+			})
+
+			tx, err := manager.CreateTxWithGas(to, data, test.gasPrice, test.gasLimit)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedGasLimit, tx.GasLimit)
+
+			attempts, err := store.AttemptsFor(tx.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(attempts))
+			assert.Equal(t, test.expectedGasPrice, attempts[0].GasPrice)
+
+			ethMock.EventuallyAllCalled(t)
+		})
+	}
+}

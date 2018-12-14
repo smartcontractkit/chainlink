@@ -108,27 +108,27 @@ func NewEth(w int64) *Eth {
 
 // Cmp delegates to *big.Int.Cmp
 func (e *Eth) Cmp(y *Eth) int {
-	return (*big.Int)(e).Cmp((*big.Int)(y))
+	return e.ToInt().Cmp(y.ToInt())
 }
 
 func (e *Eth) String() string {
-	return format((*big.Int)(e), 18)
+	return format(e.ToInt(), 18)
 }
 
 // SetInt64 delegates to *big.Int.SetInt64
 func (e *Eth) SetInt64(w int64) *Eth {
-	return (*Eth)((*big.Int)(e).SetInt64(w))
+	return (*Eth)(e.ToInt().SetInt64(w))
 }
 
 // SetString delegates to *big.Int.SetString
 func (e *Eth) SetString(s string, base int) (*Eth, bool) {
-	w, ok := (*big.Int)(e).SetString(s, base)
+	w, ok := e.ToInt().SetString(s, base)
 	return (*Eth)(w), ok
 }
 
 // MarshalText implements the encoding.TextMarshaler interface.
 func (e *Eth) MarshalText() ([]byte, error) {
-	return (*big.Int)(e).MarshalText()
+	return e.ToInt().MarshalText()
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
@@ -142,10 +142,15 @@ func (e *Eth) UnmarshalText(text []byte) error {
 // IsZero returns true when the value is 0 and false otherwise
 func (e *Eth) IsZero() bool {
 	zero := big.NewInt(0)
-	return (*big.Int)(e).Cmp(zero) == 0
+	return e.ToInt().Cmp(zero) == 0
 }
 
 // Symbol returns ETH
 func (*Eth) Symbol() string {
 	return "ETH"
+}
+
+// ToInt returns the Eth value as a *big.Int.
+func (e *Eth) ToInt() *big.Int {
+	return (*big.Int)(e)
 }
