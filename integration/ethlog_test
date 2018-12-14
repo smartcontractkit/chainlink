@@ -1,0 +1,24 @@
+#!/bin/bash
+
+source ./common
+
+title 'Ethlog test.'
+
+expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
+expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
+
+./send_ethlog_transaction | tee send_ethlog_transaction.log
+ethlog_address=`cat send_ethlog_transaction.log | grep EthLog | awk '{print$4}'`
+jid=`cat send_ethlog_transaction.log | grep Job | awk '{print$4}'`
+
+# Check echo count
+assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
+
+# Check job counts
+assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
+
+# Check job runs
+assert "EthLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
+
+# Check that the run completed
+assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
