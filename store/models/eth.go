@@ -24,15 +24,15 @@ type Tx struct {
 	TxAttempt
 }
 
-// EthTx creates a new Ethereum transaction with a given gasPrice
+// EthTx creates a new Ethereum transaction with a given gasPrice in wei
 // that is ready to be signed.
-func (tx *Tx) EthTx(gasPrice *big.Int) *types.Transaction {
+func (tx *Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	return types.NewTransaction(
 		tx.Nonce,
 		tx.To,
 		tx.Value,
 		tx.GasLimit,
-		gasPrice,
+		gasPriceWei,
 		tx.Data,
 	)
 }
