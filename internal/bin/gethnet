@@ -24,7 +24,7 @@ pushd "$(dirname "$0")" >/dev/null
 # No subcommand runs the main mining geth.
 case "$1" in
   attach)
-    geth attach $ETH_WS_URL
+    geth attach $ETH_URL
     ;;
   clean)
     rm -rf ../gethnet/datadir/geth
