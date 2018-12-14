@@ -34,7 +34,8 @@ const main = async () => {
     'tasks': [
       // 10 seconds to ensure the time has not elapsed by the time the run is triggered
       { 'type': 'Sleep', 'params': { 'until': futureOffset(10) } },
-      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
+      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } },
+      { 'type': 'EthTx', 'params': { 'functionSelector': 'fulfillData(uint256,bytes32)' } }
     ]
   }
   await request.post(sessionsUrl, {json: credentials})

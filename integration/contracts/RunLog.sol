@@ -5,6 +5,8 @@ import "Chainlinked.sol";
 contract RunLog is Chainlinked {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
+  event Fulfillment(bytes32 data);
+
   constructor(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
@@ -20,5 +22,6 @@ contract RunLog is Chainlinked {
     public
     checkChainlinkFulfillment(_externalId)
   {
+      emit Fulfillment(_data);
   }
 }
