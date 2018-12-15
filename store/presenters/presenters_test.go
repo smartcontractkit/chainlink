@@ -180,7 +180,7 @@ func TestServiceAgreement_MarshalJSON(t *testing.T) {
 func TestPresenter_NewConfigWhitelist_Ok(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfigWithPrivateKey()
+	config, cleanup := cltest.NewConfigWithPrivateKey("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	defer cleanup()
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
