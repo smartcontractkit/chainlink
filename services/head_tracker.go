@@ -21,6 +21,7 @@ import (
 // store on reboot.
 type HeadTracker struct {
 	trackers              map[string]store.HeadTrackable
+	sortedTrackerIDs      []string // map order is non-deterministic, so keep order.
 	headers               chan models.BlockHeader
 	headSubscription      models.EthSubscription
 	store                 *strpkg.Store
@@ -47,9 +48,10 @@ func NewHeadTracker(store *strpkg.Store, sleepers ...utils.Sleeper) *HeadTracker
 		sleeper = utils.NewBackoffSleeper()
 	}
 	return &HeadTracker{
-		store:    store,
-		trackers: map[string]strpkg.HeadTrackable{},
-		sleeper:  sleeper,
+		store:            store,
+		trackers:         map[string]strpkg.HeadTrackable{},
+		sortedTrackerIDs: []string{},
+		sleeper:          sleeper,
 	}
 }
 
@@ -128,8 +130,9 @@ func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
 	defer ht.trackersMutex.Unlock()
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
+	ht.sortedTrackerIDs = append(ht.sortedTrackerIDs, id)
 	if ht.connected {
-		t.Connect(ht.Head())
+		logger.WarnIf(t.Connect(ht.Head()))
 	}
 	return id
 }
@@ -142,7 +145,27 @@ func (ht *HeadTracker) Detach(id string) {
 	if ht.connected && present {
 		t.Disconnect()
 	}
+	if present {
+		ht.sortedTrackerIDs = removeTrackerID(id, ht.sortedTrackerIDs, t)
+	}
 	delete(ht.trackers, id)
+}
+
+func removeTrackerID(id string, old []string, t store.HeadTrackable) []string {
+	idx := indexOf(id, old)
+	if idx == -1 {
+		logger.Panicf("invariant violated: id %s for %T exists in trackerIDs but not in sortedTrackerIDs in HeadTracker", id, t)
+	}
+	return append(old[:idx], old[idx+1:]...)
+}
+
+func indexOf(value string, arr []string) int {
+	for i, v := range arr {
+		if v == value {
+			return i
+		}
+	}
+	return -1
 }
 
 // IsConnected returns whether or not this HeadTracker is connected.
@@ -151,24 +174,24 @@ func (ht *HeadTracker) IsConnected() bool { return ht.connected }
 func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
-	for _, t := range ht.trackers {
-		logger.WarnIf(t.Connect(bn))
+	for _, id := range ht.sortedTrackerIDs {
+		logger.WarnIf(ht.trackers[id].Connect(bn))
 	}
 }
 
 func (ht *HeadTracker) disconnect() {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
-	for _, t := range ht.trackers {
-		t.Disconnect()
+	for _, id := range ht.sortedTrackerIDs {
+		ht.trackers[id].Disconnect()
 	}
 }
 
 func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
 	ht.trackersMutex.RLock()
 	defer ht.trackersMutex.RUnlock()
-	for _, t := range ht.trackers {
-		t.OnNewHead(head)
+	for _, id := range ht.sortedTrackerIDs {
+		ht.trackers[id].OnNewHead(head)
 	}
 }
 

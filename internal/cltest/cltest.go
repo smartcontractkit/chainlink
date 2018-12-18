@@ -240,7 +240,7 @@ func (ta *TestApplication) StartAndConnect() error {
 
 	select {
 	case <-time.After(4 * time.Second):
-		return errors.New("StartAndConnect() timed out")
+		return errors.New("TestApplication#StartAndConnect() timed out")
 	case <-done:
 		return nil
 	}
