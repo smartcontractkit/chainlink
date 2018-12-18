@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSnapshotsController_CreateSnapshot_V1_Format(t *testing.T) {
@@ -80,7 +81,7 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 	eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 
-	assert.Nil(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 	defer cleanup()
 	client := app.NewHTTPClient()
 

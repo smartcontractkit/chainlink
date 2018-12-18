@@ -18,6 +18,7 @@ import (
 type Application interface {
 	Start() error
 	Stop() error
+	OnConnect(func())
 	GetStore() *store.Store
 	WakeSessionReaper()
 	WakeBulkRunDeleter()
@@ -41,6 +42,7 @@ type ChainlinkApplication struct {
 	BulkRunDeleter  SleeperTask
 	bridgeTypeMutex sync.Mutex
 	jobSubscriberID string
+	txManagerID     string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -76,6 +78,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
+	app.txManagerID = app.HeadTracker.Attach(app.Store.TxManager)
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
 
 	return multierr.Combine(
@@ -108,6 +111,7 @@ func (app *ChainlinkApplication) Stop() error {
 	merr = multierr.Append(merr, app.SessionReaper.Stop())
 	merr = multierr.Append(merr, app.BulkRunDeleter.Stop())
 	app.HeadTracker.Detach(app.jobSubscriberID)
+	app.HeadTracker.Detach(app.txManagerID)
 	return multierr.Append(merr, app.Store.Close())
 }
 
@@ -181,3 +185,24 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../gui/dist")
 }
+
+// OnConnect invokes the passed callback when connected to the block chain.
+func (app *ChainlinkApplication) OnConnect(callback func()) {
+	app.HeadTracker.Attach(newHeadTrackableCallback(callback))
+}
+
+type headTrackableCallback struct {
+	onConnect func()
+}
+
+func newHeadTrackableCallback(callback func()) store.HeadTrackable {
+	return &headTrackableCallback{onConnect: callback}
+}
+
+func (c *headTrackableCallback) Connect(*models.IndexableBlockNumber) error {
+	c.onConnect()
+	return nil
+}
+
+func (c *headTrackableCallback) Disconnect()                   {}
+func (c *headTrackableCallback) OnNewHead(*models.BlockHeader) {}

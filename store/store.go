@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"sync"
@@ -28,12 +29,61 @@ type Store struct {
 	closed     bool
 }
 
-type rpcSubscriptionWrapper struct {
-	*rpc.Client
+type lazyRPCWrapper struct {
+	client *rpc.Client
+	url    *url.URL
+	mutex  *sync.Mutex
 }
 
-func (wrapper rpcSubscriptionWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (models.EthSubscription, error) {
-	return wrapper.Client.EthSubscribe(ctx, channel, args...)
+func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
+	parsed, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, err
+	}
+	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", parsed.String())
+	}
+	return &lazyRPCWrapper{
+		url:   parsed,
+		mutex: &sync.Mutex{},
+	}, nil
+}
+
+// lazyDialInitializer initializes the Dial instance used to interact with
+// an ethereum node using the Double-checked locking optimization:
+// https://en.wikipedia.org/wiki/Double-checked_locking
+func (wrapper *lazyRPCWrapper) lazyDialInitializer() error {
+	if wrapper.client != nil {
+		return nil
+	}
+
+	wrapper.mutex.Lock()
+	defer wrapper.mutex.Unlock()
+
+	if wrapper.client == nil {
+		client, err := rpc.Dial(wrapper.url.String())
+		if err != nil {
+			return err
+		}
+		wrapper.client = client
+	}
+	return nil
+}
+
+func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...interface{}) error {
+	err := wrapper.lazyDialInitializer()
+	if err != nil {
+		return err
+	}
+	return wrapper.client.Call(result, method, args...)
+}
+
+func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (models.EthSubscription, error) {
+	err := wrapper.lazyDialInitializer()
+	if err != nil {
+		return nil, err
+	}
+	return wrapper.client.EthSubscribe(ctx, channel, args...)
 }
 
 // Dialer implements Dial which is a function that creates a client for that url
@@ -42,22 +92,20 @@ type Dialer interface {
 }
 
 // EthDialer is Dialer which accesses rpc urls
-type EthDialer struct{}
+type EthDialer struct {
+	url models.WebURL
+}
 
 // Dial will dial the given url and return a CallerSubscriber
-func (EthDialer) Dial(url string) (CallerSubscriber, error) {
-	dialed, err := rpc.Dial(url)
-	if err != nil {
-		return nil, err
-	}
-	return rpcSubscriptionWrapper{dialed}, nil
+func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
+	return newLazyRPCWrapper(urlString)
 }
 
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.bolt
 // file.
 func NewStore(config Config) *Store {
-	return NewStoreWithDialer(config, EthDialer{})
+	return NewStoreWithDialer(config, &EthDialer{})
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
@@ -82,19 +130,15 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		KeyStore:   keyStore,
 		ORM:        orm,
 		RunChannel: NewQueuedRunChannel(),
-		TxManager: &EthTxManager{
-			EthClient: &EthClient{ethrpc},
-			config:    config,
-			keyStore:  keyStore,
-			orm:       orm,
-		},
+		TxManager:  NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
 	}
 	return store
 }
 
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
-	return s.TxManager.Start(s.KeyStore.Accounts())
+	s.TxManager.Register(s.KeyStore.Accounts())
+	return nil
 }
 
 // Close shuts down all of the working parts of the store.

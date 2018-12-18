@@ -420,7 +420,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("withdraw", 0)
@@ -435,7 +435,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("withdraw", 0)
@@ -454,7 +454,7 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 	app, cleanup, ethMockCheck := setupWithdrawalsApplication()
 	defer cleanup()
 
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	cliParserRouter := cmd.NewApp(client)

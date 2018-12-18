@@ -48,7 +48,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", sentAt)
 	})
 
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	wr := models.WithdrawalRequest{
 		DestinationAddress: common.HexToAddress("0xDEADEAFDEADEAFDEADEAFDEADEAFDEAD00000000"),
@@ -94,7 +94,7 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 			verifyLinkBalanceCheck(contractAddress, t))
 	})
 
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	body, err := json.Marshal(&wr)
 	assert.NoError(t, err)

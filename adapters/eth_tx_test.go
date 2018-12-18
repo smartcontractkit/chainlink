@@ -33,7 +33,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	assert.Nil(t, app.Start())
+	assert.Nil(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
@@ -95,7 +95,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	assert.Nil(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
@@ -158,7 +158,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	assert.Nil(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
@@ -208,6 +208,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	require.NoError(t, app.StartAndConnect())
 	store := app.Store
 	config := store.Config
 
@@ -260,7 +261,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
 
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 	output := adapter.Perform(input, store)
 
 	assert.False(t, output.HasError())
@@ -277,6 +278,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	require.NoError(t, app.StartAndConnect())
 	store := app.Store
 	config := store.Config
 
@@ -326,7 +328,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	store := app.Store
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	assert.Nil(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
@@ -349,7 +351,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 	store := app.Store
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	assert.Nil(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
@@ -392,7 +394,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	txmMock := mock_store.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().Start(gomock.Any())
+	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), hexutil.MustDecode(
 		"0x00000000"+
 			"0000000000000000000000000000000000000000000000000000000000000020"+
@@ -433,7 +435,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	txmMock := mock_store.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().Start(gomock.Any())
+	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
 		gomock.Any(),
