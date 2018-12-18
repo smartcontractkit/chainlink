@@ -31,6 +31,7 @@ var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection"
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
 	HeadTrackable
+	Connected() bool
 	Register(accounts []accounts.Account)
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
@@ -82,6 +83,11 @@ func (txm *EthTxManager) Register(accts []accounts.Account) {
 	cp := make([]accounts.Account, len(accts))
 	copy(cp, accts)
 	txm.registeredAccounts = cp
+}
+
+// Connected returns a bool indicating whether or not it is connected.
+func (txm *EthTxManager) Connected() bool {
+	return txm.connected
 }
 
 // Connect iterates over the available accounts to retrieve their nonce

@@ -51,6 +51,18 @@ func (mr *MockTxManagerMockRecorder) Connect(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockTxManager)(nil).Connect), arg0)
 }
 
+// Connected mocks base method
+func (m *MockTxManager) Connected() bool {
+	ret := m.ctrl.Call(m, "Connected")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Connected indicates an expected call of Connected
+func (mr *MockTxManagerMockRecorder) Connected() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connected", reflect.TypeOf((*MockTxManager)(nil).Connected))
+}
+
 // ContractLINKBalance mocks base method
 func (m *MockTxManager) ContractLINKBalance(arg0 models.WithdrawalRequest) (assets.Link, error) {
 	ret := m.ctrl.Call(m, "ContractLINKBalance", arg0)

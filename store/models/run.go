@@ -222,6 +222,12 @@ func (rr RunResult) MarkPendingConfirmations() RunResult {
 	return rr
 }
 
+// MarkPendingConnection returns a copy of RunResult but with status set to pending_connection.
+func (rr RunResult) MarkPendingConnection() RunResult {
+	rr.Status = RunStatusPendingConnection
+	return rr
+}
+
 // Get searches for and returns the JSON at the given path.
 func (rr RunResult) Get(path string) gjson.Result {
 	return rr.Data.Get(path)
