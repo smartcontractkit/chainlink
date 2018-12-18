@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -224,6 +225,25 @@ func newServer(app services.Application) *httptest.Server {
 
 func (ta *TestApplication) NewBox() packr.Box {
 	return packr.NewBox("../fixtures/gui/dist")
+}
+
+func (ta *TestApplication) StartAndConnect() error {
+	err := ta.Start()
+	if err != nil {
+		return err
+	}
+
+	done := make(chan struct{}, 1)
+	ta.OnConnect(func() { // Invoked after Start to make sure it's the last callback.
+		done <- struct{}{}
+	})
+
+	select {
+	case <-time.After(4 * time.Second):
+		return errors.New("StartAndConnect() timed out")
+	case <-done:
+		return nil
+	}
 }
 
 // Stop will stop the test application and perform cleanup

@@ -10,27 +10,20 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// HeadTrackable represents any object that wishes to respond to ethereum events,
-// after being attached to HeadTracker.
-type HeadTrackable interface {
-	Connect(*models.IndexableBlockNumber) error
-	Disconnect()
-	OnNewHead(*models.BlockHeader)
-}
-
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	trackers              map[string]HeadTrackable
+	trackers              map[string]store.HeadTrackable
 	headers               chan models.BlockHeader
 	headSubscription      models.EthSubscription
-	store                 *store.Store
+	store                 *strpkg.Store
 	head                  *models.IndexableBlockNumber
 	headMutex             sync.RWMutex
 	trackersMutex         sync.RWMutex
@@ -46,7 +39,7 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(store *strpkg.Store, sleepers ...utils.Sleeper) *HeadTracker {
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]
@@ -55,7 +48,7 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 	}
 	return &HeadTracker{
 		store:    store,
-		trackers: map[string]HeadTrackable{},
+		trackers: map[string]strpkg.HeadTrackable{},
 		sleeper:  sleeper,
 	}
 }
@@ -130,7 +123,7 @@ func (ht *HeadTracker) Head() *models.IndexableBlockNumber {
 
 // Attach registers an object that will have HeadTrackable events fired on occurence,
 // such as Connect.
-func (ht *HeadTracker) Attach(t HeadTrackable) string {
+func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
 	ht.trackersMutex.Lock()
 	defer ht.trackersMutex.Unlock()
 	id := uuid.Must(uuid.NewV4()).String()
@@ -278,7 +271,7 @@ func (ht *HeadTracker) fastForwardHeadFromEth() {
 	bn := header.ToIndexableBlockNumber()
 	if bn.GreaterThan(ht.Head()) {
 		logger.Debug("Fast forwarding to block header ", presenters.FriendlyBigInt(bn.ToInt()))
-		ht.Save(bn)
+		logger.WarnIf(ht.Save(bn))
 	}
 }
 
