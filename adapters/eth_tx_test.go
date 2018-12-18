@@ -402,7 +402,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	txmMock := mock_store.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
-	txmMock.EXPECT().Connected().Return(true)
+	txmMock.EXPECT().Connected().Return(true).AnyTimes()
 	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), hexutil.MustDecode(
 		"0x00000000"+
 			"0000000000000000000000000000000000000000000000000000000000000020"+
