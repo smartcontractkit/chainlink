@@ -4,7 +4,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"

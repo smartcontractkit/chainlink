@@ -13,9 +13,13 @@ import (
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	bolt "go.etcd.io/bbolt"
+
+	// Used to pull in the postgres DB for gorm
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
 var (
@@ -28,6 +32,8 @@ var (
 // ORM contains the database object used by Chainlink.
 type ORM struct {
 	*storm.DB
+	gorm  *gorm.DB
+	usePG bool
 }
 
 // NewORM initializes a new database file at the configured path.
@@ -36,7 +42,68 @@ func NewORM(path string, duration time.Duration) (*ORM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
-	return &ORM{db}, nil
+
+	gorm, err := gorm.Open("postgres", "host=localhost port=5432 user=gorm dbname=chainlink")
+	if err != nil {
+		return nil, fmt.Errorf("unable to init DB: %+v", err)
+	}
+	// XXX: Uncomment to log SQL
+	// gorm.LogMode(true)
+	gorm.Exec(`drop table job_specs`)
+	if !gorm.HasTable("job_specs") {
+		gorm.Exec(`create table job_specs (
+			id varchar(100) primary key,
+			start_at timestamp,
+			end_at timestamp
+		)`)
+	}
+	gorm.Exec(`drop table task_specs`)
+	if !gorm.HasTable("task_specs") {
+		gorm.Exec(`create table task_specs (
+			id serial primary key,
+			job_id varchar(100),
+			"type" varchar(100),
+			confirmations int,
+			params text
+		)`)
+	}
+	gorm.Exec(`drop table job_runs`)
+	if !gorm.HasTable("job_runs") {
+		gorm.Exec(`create table job_runs (
+			id varchar(100) primary key,
+			job_id varchar(100),
+			created_at timestamp,
+			completed_at timestamp,
+			updated_at timestamp,
+			status text
+		)`)
+	}
+	gorm.Exec(`drop table task_runs`)
+	if !gorm.HasTable("task_runs") {
+		gorm.Exec(`create table task_runs (
+			id varchar(100) primary key,
+			job_run_id varchar(100),
+			result text,
+			status text,
+			task text,
+			minimum_confirmations int
+		)`)
+	}
+	gorm.Exec(`drop table initiators`)
+	if !gorm.HasTable("initiators") {
+		gorm.Exec(`create table initiators (
+			id serial primary key,
+			job_id varchar(100),
+			"type" varchar(100),
+			schedule varchar(100),
+			time timestamp,
+			ran bool,
+			address bytea,
+			requesters bytea[]
+		)`)
+	}
+
+	return &ORM{DB: db, gorm: gorm, usePG: true}, nil
 }
 
 func initializeDatabase(path string, duration time.Duration) (*storm.DB, error) {
@@ -49,6 +116,7 @@ func initializeDatabase(path string, duration time.Duration) (*storm.DB, error) 
 }
 
 // GetBolt returns BoltDB from the ORM
+// TODO: We shouldn't be exposing this if we can avoid this
 func (orm *ORM) GetBolt() *bolt.DB {
 	return orm.DB.Bolt
 }
@@ -92,11 +160,61 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 	return orm.FindBridge(nextTask.Task.Type.String())
 }
 
+// Find all initiators for a job id
+func (orm *ORM) FindInitiatorsByJobID(jobID string) ([]models.Initiator, error) {
+	var err error
+	var initrs []models.Initiator
+	if orm.usePG {
+		err = orm.gorm.Where("job_id = ?", jobID).Find(&initrs).Error
+		return initrs, err
+	}
+
+	err = orm.Where("JobID", jobID, &initrs)
+	return initrs, err
+}
+
+func (orm *ORM) FindJobRuns(jobID string) ([]models.JobRun, error) {
+	var err error
+	var runs []models.JobRun
+	if orm.usePG {
+		err = orm.gorm.Where("job_id = ?", jobID).Find(&runs).Error
+		return runs, err
+	}
+
+	err = orm.Where("JobID", jobID, &runs)
+	return runs, err
+}
+
 // FindJob looks up a Job by its ID.
 func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
+	var err error
 	var job models.JobSpec
-	err := orm.One("ID", id, &job)
+	if orm.usePG {
+		err = orm.gorm.Where("id = ?", id).Find(&job).Error
+		if err != nil {
+			return models.JobSpec{}, err
+		}
+		// FIXME: This doesn't work, I suspect due to inconsistent naming of
+		// association/models
+		// err = orm.gorm.Model(&job).Association("Tasks").Find(&job.Tasks).Error
+		err = orm.gorm.Where("job_id = ?", job.ID).Find(&job.Tasks).Error
+		if err != nil {
+			return models.JobSpec{}, err
+		}
+	} else {
+		err = orm.One("ID", id, &job)
+	}
 	return job, err
+}
+
+// CreateJob inserts a new job into the store
+func (orm *ORM) CreateJob(run *models.JobRun) error {
+	if orm.usePG {
+		return orm.gorm.Create(run).Error
+	}
+
+	run.UpdatedAt = time.Now()
+	return orm.Save(run)
 }
 
 // FindJobRun looks up a JobRun by its ID.
@@ -108,8 +226,7 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	run.UpdatedAt = time.Now()
-	return orm.Save(run)
+	return orm.CreateJob(run)
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -126,6 +243,14 @@ func (orm *ORM) InitBucket(model interface{}) error {
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
 	var bucket []models.JobSpec
+	if orm.usePG {
+		orm.gorm.Find(&bucket)
+		for _, j := range bucket {
+			if !cb(j) {
+				return nil
+			}
+		}
+	}
 	return orm.AllInBatches(&bucket, func(j models.JobSpec) bool {
 		return cb(j)
 	})
@@ -159,6 +284,38 @@ func (orm *ORM) JobRunsCountFor(jobID string) (int, error) {
 
 // SaveJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) SaveJob(job *models.JobSpec) error {
+	if orm.usePG {
+		return orm.pgSaveJob(job)
+	}
+	return orm.boltdbSaveJob(job)
+}
+
+func (orm *ORM) pgSaveJob(job *models.JobSpec) error {
+	tx := orm.gorm.Begin()
+
+	for i := range job.Initiators {
+		job.Initiators[i].JobID = job.ID
+		job.Initiators[i].Requesters = &models.AddressList{}
+		if err := tx.Save(&job.Initiators[i]).Error; err != nil {
+			return fmt.Errorf("error saving Job Initiators: %+v", err)
+		}
+	}
+
+	for i := range job.Tasks {
+		job.Tasks[i].JobID = job.ID
+		if err := tx.Save(&job.Tasks[i]).Error; err != nil {
+			return fmt.Errorf("error saving Task Spec: %+v", err)
+		}
+	}
+
+	if err := tx.Save(job).Error; err != nil {
+		return fmt.Errorf("error saving job: %+v", err)
+	}
+
+	return tx.Commit().Error
+}
+
+func (orm *ORM) boltdbSaveJob(job *models.JobSpec) error {
 	tx, err := orm.Begin(true)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %+v", err)
@@ -337,15 +494,35 @@ func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	return transactions[0].Nonce, nil
 }
 
+func (orm *ORM) UpdateInitiator(i *models.Initiator) error {
+	if orm.usePG {
+		return orm.gorm.Update(i).Error
+	}
+	return orm.Save(i)
+}
+
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i *models.Initiator) error {
+	var ir models.Initiator
+	if orm.usePG {
+		// XXX: The strategy below won't really work with postgres unless you use a
+		// stronger serialization level than the default, this is atomic:
+		db := orm.gorm.Model(&ir).Where("id = ? AND ran = false", i.ID).Update("ran", true)
+		if db.Error != nil {
+			return db.Error
+		}
+		if db.RowsAffected != 1 {
+			return fmt.Errorf("Job runner: Initiator: %v cannot run more than once", i.ID)
+		}
+		return nil
+	}
+
 	dbtx, err := orm.Begin(true)
 	if err != nil {
 		return err
 	}
 	defer dbtx.Rollback()
 
-	var ir models.Initiator
 	if err := orm.One("ID", i.ID, &ir); err != nil {
 		return err
 	}

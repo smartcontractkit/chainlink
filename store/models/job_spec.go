@@ -2,6 +2,7 @@ package models
 
 import (
 	"crypto/subtle"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -11,22 +12,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
-	"gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v3"
 )
 
 // JobSpec is the definition for all the work to be carried out by the node
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID        string `json:"id" storm:"id,unique"`
+	ID        string `json:"id" storm:"id,unique" gorm:"primary_key;type:varchar(100)"`
 	CreatedAt Time   `json:"createdAt" storm:"index"`
 	JobSpecRequest
 }
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
 type JobSpecRequest struct {
-	Initiators []Initiator `json:"initiators"`
-	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
+	Initiators []Initiator `json:"initiators" gorm:"foreignkey:JobID"`
+	Tasks      []TaskSpec  `json:"tasks" storm:"inline" gorm:"foreignkey:JobID"`
 	StartAt    null.Time   `json:"startAt" storm:"index"`
 	EndAt      null.Time   `json:"endAt" storm:"index"`
 }
@@ -176,11 +177,27 @@ type Initiator struct {
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
-	Schedule   Cron             `json:"schedule,omitempty"`
-	Time       Time             `json:"time,omitempty"`
-	Ran        bool             `json:"ran,omitempty"`
-	Address    common.Address   `json:"address,omitempty" storm:"index"`
-	Requesters []common.Address `json:"requesters,omitempty"`
+	Schedule   Cron           `json:"schedule,omitempty"`
+	Time       Time           `json:"time,omitempty"`
+	Ran        bool           `json:"ran,omitempty"`
+	Address    common.Address `json:"address,omitempty" storm:"index"`
+	Requesters *AddressList   `json:"requesters,omitempty"`
+}
+
+type AddressList struct {
+	Addresses []common.Address
+}
+
+func (a *AddressList) Value() (driver.Value, error) {
+	addresses := []string{}
+	for _, address := range a.Addresses {
+		addresses = append(addresses, address.String())
+	}
+	return fmt.Sprintf("{%s}", strings.Join(addresses, ",")), nil
+}
+
+func (a *AddressList) Scan(v interface{}) error {
+	return nil
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the
@@ -207,6 +224,8 @@ func (i Initiator) IsLogInitiated() bool {
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
+	ID            int
+	JobID         string
 	Type          TaskType `json:"type" storm:"index"`
 	Confirmations uint64   `json:"confirmations"`
 	Params        JSON     `json:"params"`

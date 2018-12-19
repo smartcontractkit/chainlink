@@ -18,7 +18,7 @@ type JobRun struct {
 	JobID          string       `json:"jobId" storm:"index"`
 	Result         RunResult    `json:"result" storm:"inline"`
 	Status         RunStatus    `json:"status" storm:"index"`
-	TaskRuns       []TaskRun    `json:"taskRuns" storm:"inline"`
+	TaskRuns       []TaskRun    `json:"taskRuns" storm:"inline" gorm:"foreignkey:JobRunID"`
 	CreatedAt      time.Time    `json:"createdAt" storm:"index"`
 	CompletedAt    null.Time    `json:"completedAt"`
 	UpdatedAt      time.Time    `json:"updatedAt"`
@@ -120,7 +120,8 @@ func (jr JobRun) MarkCompleted() JobRun {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                   string    `json:"id" storm:"id,unique"`
+	ID                   string `json:"id" storm:"id,unique" gorm:"primary_key;varchar(100)"`
+	JobRunID             string
 	Result               RunResult `json:"result"`
 	Status               RunStatus `json:"status"`
 	Task                 TaskSpec  `json:"task"`

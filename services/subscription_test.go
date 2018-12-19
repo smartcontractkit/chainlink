@@ -266,7 +266,7 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunOrSALog(t *testing.T) {
 					Log: log,
 					Initiator: models.Initiator{
 						InitiatorParams: models.InitiatorParams{
-							Requesters: test.initiatorRequesters,
+							Requesters: &models.AddressList{Addresses: test.initiatorRequesters},
 						},
 					},
 				}
@@ -318,7 +318,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				assert.NoError(t, app.Start())
 
 				js, initr := logFuncs.jobConstructor()
-				initr.Requesters = []common.Address{requester}
+				initr.Requesters.Addresses = []common.Address{requester}
 				_, err := logFuncs.subscriber(initr, js, nil, app.Store)
 				assert.NoError(t, err)
 

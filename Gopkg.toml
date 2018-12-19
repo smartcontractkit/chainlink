@@ -137,3 +137,11 @@
 [[constraint]]
   name = "github.com/golang/mock"
   version = "1.2.0"
+
+[[constraint]]
+  name = "github.com/jinzhu/gorm"
+  version = "1.9.2"
+
+[[constraint]]
+  name = "github.com/lib/pq"
+  version = "1.0.0"

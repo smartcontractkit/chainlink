@@ -252,20 +252,20 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
 	assert.Nil(t, store.SaveJob(&j))
 
-	var initrs []models.Initiator
-	store.Where("JobID", j.ID, &initrs)
-
-	ot.RunJobAt(initrs[0], j)
-	j2, err := ot.Store.FindJob(j.ID)
+	initrs, err := store.FindInitiatorsByJobID(j.ID)
 	assert.NoError(t, err)
 
-	var initrs2 []models.Initiator
-	store.Where("JobID", j.ID, &initrs2)
+	ot.RunJobAt(initrs[0], j)
+	j2, err := store.FindJob(j.ID)
+	assert.NoError(t, err)
+
+	initrs2, err := store.FindInitiatorsByJobID(j.ID)
+	assert.NoError(t, err)
 
 	ot.RunJobAt(initrs2[0], j2)
 
-	jobRuns := []models.JobRun{}
-	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	jobRuns, err := store.FindJobRuns(j.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(jobRuns))
 }
 

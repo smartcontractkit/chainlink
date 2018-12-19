@@ -415,10 +415,10 @@ func (le InitiatorSubscriptionLogEvent) ValidateRunOrSALog() bool {
 }
 
 func (le InitiatorSubscriptionLogEvent) validRequester() bool {
-	if len(le.Initiator.Requesters) == 0 {
+	if len(le.Initiator.Requesters.Addresses) == 0 {
 		return true
 	}
-	for _, r := range le.Initiator.Requesters {
+	for _, r := range le.Initiator.Requesters.Addresses {
 		if le.Requester() == r {
 			return true
 		}
