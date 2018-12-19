@@ -9,8 +9,8 @@ import (
 	"go.uber.org/multierr"
 )
 
-// JobSubscriber listens for push notifications from the ethereum node's
-// websocket for specific jobs.
+// JobSubscriber listens for push notifications of event logs from the ethereum
+// node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
 	store.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.IndexableBlockNumber) error
