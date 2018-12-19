@@ -254,6 +254,31 @@ func TestResumeConfirmingTask(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
 
+func TestResumeConnectingTask(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	// reject a run with an invalid state
+	run := &models.JobRun{}
+	run, err := services.ResumeConnectingTask(run, store)
+	assert.Error(t, err)
+
+	// reject a run with no tasks
+	run = &models.JobRun{Status: models.RunStatusPendingConnection}
+	run, err = services.ResumeConnectingTask(run, store)
+	assert.Error(t, err)
+
+	// input, should go from pending -> in progress and save the input
+	run = &models.JobRun{
+		ID:       utils.NewBytes32ID(),
+		Status:   models.RunStatusPendingConnection,
+		TaskRuns: []models.TaskRun{models.TaskRun{Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
+	}
+	run, err = services.ResumeConnectingTask(run, store)
+	assert.NoError(t, err)
+	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
+}
+
 func sleepAdapterParams(n int) models.JSON {
 	d := time.Duration(n)
 	json := []byte(fmt.Sprintf(`{"until":%v}`, time.Now().Add(d*time.Second).Unix()))

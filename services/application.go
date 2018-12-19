@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"os/signal"
 	"sync"
@@ -32,17 +33,17 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter          func(int)
-	HeadTracker     *HeadTracker
-	JobRunner       JobRunner
-	JobSubscriber   JobSubscriber
-	Scheduler       *Scheduler
-	Store           *store.Store
-	SessionReaper   SleeperTask
-	BulkRunDeleter  SleeperTask
-	bridgeTypeMutex sync.Mutex
-	jobSubscriberID string
-	txManagerID     string
+	Exiter                                            func(int)
+	HeadTracker                                       *HeadTracker
+	JobRunner                                         JobRunner
+	JobSubscriber                                     JobSubscriber
+	Scheduler                                         *Scheduler
+	Store                                             *store.Store
+	SessionReaper                                     SleeperTask
+	BulkRunDeleter                                    SleeperTask
+	pendingConnectionResumer                          *pendingConnectionResumer
+	bridgeTypeMutex                                   sync.Mutex
+	jobSubscriberID, txManagerID, connectionResumerID string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -53,14 +54,15 @@ func NewApplication(config store.Config) Application {
 	store := store.NewStore(config)
 	ht := NewHeadTracker(store)
 	return &ChainlinkApplication{
-		HeadTracker:    ht,
-		JobSubscriber:  NewJobSubscriber(store),
-		JobRunner:      NewJobRunner(store),
-		Scheduler:      NewScheduler(store),
-		Store:          store,
-		SessionReaper:  NewStoreReaper(store),
-		BulkRunDeleter: NewBulkRunDeleter(store),
-		Exiter:         os.Exit,
+		HeadTracker:              ht,
+		JobSubscriber:            NewJobSubscriber(store),
+		JobRunner:                NewJobRunner(store),
+		Scheduler:                NewScheduler(store),
+		Store:                    store,
+		SessionReaper:            NewStoreReaper(store),
+		BulkRunDeleter:           NewBulkRunDeleter(store),
+		Exiter:                   os.Exit,
+		pendingConnectionResumer: newPendingConnectionResumer(store),
 	}
 }
 
@@ -80,6 +82,7 @@ func (app *ChainlinkApplication) Start() error {
 
 	app.txManagerID = app.HeadTracker.Attach(app.Store.TxManager)
 	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
+	app.connectionResumerID = app.HeadTracker.Attach(app.pendingConnectionResumer)
 
 	return multierr.Combine(
 		app.Store.Start(),
@@ -112,6 +115,7 @@ func (app *ChainlinkApplication) Stop() error {
 	merr = multierr.Append(merr, app.BulkRunDeleter.Stop())
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	app.HeadTracker.Detach(app.txManagerID)
+	app.HeadTracker.Detach(app.connectionResumerID)
 	return multierr.Append(merr, app.Store.Close())
 }
 
@@ -206,3 +210,31 @@ func (c *headTrackableCallback) Connect(*models.IndexableBlockNumber) error {
 
 func (c *headTrackableCallback) Disconnect()                   {}
 func (c *headTrackableCallback) OnNewHead(*models.BlockHeader) {}
+
+type pendingConnectionResumer struct {
+	store   *store.Store
+	resumer func(*models.JobRun, *store.Store) (*models.JobRun, error)
+}
+
+func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
+	return &pendingConnectionResumer{store: store, resumer: ResumeConnectingTask}
+}
+
+func (p *pendingConnectionResumer) Connect(head *models.IndexableBlockNumber) error {
+	pendingRuns, err := p.store.JobRunsWithStatus(models.RunStatusPendingConnection)
+	if err != nil {
+		return multierr.Append(errors.New("error resuming pending connections"), err)
+	}
+
+	var merr error
+	for _, jr := range pendingRuns {
+		_, err := p.resumer(&jr, p.store)
+		if err != nil {
+			merr = multierr.Append(merr, err)
+		}
+	}
+	return merr
+}
+
+func (p *pendingConnectionResumer) Disconnect()                   {}
+func (p *pendingConnectionResumer) OnNewHead(*models.BlockHeader) {}
