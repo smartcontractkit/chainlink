@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tevino/abool"
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -28,7 +29,7 @@ type HeadTracker struct {
 	head                  *models.IndexableBlockNumber
 	headMutex             sync.RWMutex
 	trackersMutex         sync.RWMutex
-	connected             bool
+	connected             *abool.AtomicBool
 	sleeper               utils.Sleeper
 	done                  chan struct{}
 	started               bool
@@ -52,6 +53,7 @@ func NewHeadTracker(store *strpkg.Store, sleepers ...utils.Sleeper) *HeadTracker
 		trackers:         map[string]strpkg.HeadTrackable{},
 		sortedTrackerIDs: []string{},
 		sleeper:          sleeper,
+		connected:        abool.New(),
 	}
 }
 
@@ -131,7 +133,7 @@ func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
 	id := uuid.Must(uuid.NewV4()).String()
 	ht.trackers[id] = t
 	ht.sortedTrackerIDs = append(ht.sortedTrackerIDs, id)
-	if ht.connected {
+	if ht.connected.IsSet() {
 		logger.WarnIf(t.Connect(ht.Head()))
 	}
 	return id
@@ -142,7 +144,7 @@ func (ht *HeadTracker) Detach(id string) {
 	ht.trackersMutex.Lock()
 	defer ht.trackersMutex.Unlock()
 	t, present := ht.trackers[id]
-	if ht.connected && present {
+	if ht.connected.IsSet() && present {
 		t.Disconnect()
 	}
 	if present {
@@ -168,8 +170,8 @@ func indexOf(value string, arr []string) int {
 	return -1
 }
 
-// IsConnected returns whether or not this HeadTracker is connected.
-func (ht *HeadTracker) IsConnected() bool { return ht.connected }
+// Connected returns whether or not this HeadTracker is connected.
+func (ht *HeadTracker) Connected() bool { return ht.connected.IsSet() }
 
 func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
 	ht.trackersMutex.RLock()
@@ -266,13 +268,13 @@ func (ht *HeadTracker) subscribeToHead() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connected = true
+	ht.connected.Set()
 	ht.connect(ht.Head())
 	return nil
 }
 
 func (ht *HeadTracker) unsubscribeFromHead() error {
-	if !ht.connected {
+	if !ht.Connected() {
 		return nil
 	}
 
@@ -280,7 +282,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	ht.disconnect()
 	close(ht.headers)
 
-	ht.connected = false
+	ht.connected.UnSet()
 	return nil
 }
 
