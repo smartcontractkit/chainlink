@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"github.com/tevino/abool"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -30,9 +31,10 @@ type Store struct {
 }
 
 type lazyRPCWrapper struct {
-	client *rpc.Client
-	url    *url.URL
-	mutex  *sync.Mutex
+	client      *rpc.Client
+	url         *url.URL
+	mutex       *sync.Mutex
+	initialized *abool.AtomicBool
 }
 
 func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
@@ -44,8 +46,9 @@ func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
 		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", parsed.String())
 	}
 	return &lazyRPCWrapper{
-		url:   parsed,
-		mutex: &sync.Mutex{},
+		url:         parsed,
+		mutex:       &sync.Mutex{},
+		initialized: abool.New(),
 	}, nil
 }
 
@@ -53,7 +56,7 @@ func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
 // an ethereum node using the Double-checked locking optimization:
 // https://en.wikipedia.org/wiki/Double-checked_locking
 func (wrapper *lazyRPCWrapper) lazyDialInitializer() error {
-	if wrapper.client != nil {
+	if wrapper.initialized.IsSet() {
 		return nil
 	}
 
@@ -66,6 +69,7 @@ func (wrapper *lazyRPCWrapper) lazyDialInitializer() error {
 			return err
 		}
 		wrapper.client = client
+		wrapper.initialized.Set()
 	}
 	return nil
 }
