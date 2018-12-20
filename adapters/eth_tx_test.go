@@ -212,7 +212,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
 	store := app.Store
 	config := store.Config
 
@@ -220,6 +219,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold-1))
+
+	require.NoError(t, app.StartAndConnect())
 
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
@@ -285,10 +286,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+
 	store := app.Store
 	config := store.Config
-
 	sentAt := uint64(23456)
 
 	ethMock := app.MockEthClient()
@@ -299,6 +299,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	})
 	confirmedAt := sentAt + config.MinOutgoingConfirmations - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
+
+	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.Save(tx))

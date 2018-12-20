@@ -28,6 +28,9 @@ import (
 
 // MockEthClient create new EthMock Client
 func (ta *TestApplication) MockEthClient() *EthMock {
+	if ta.ChainlinkApplication.HeadTracker.Connected() {
+		logger.Panic("Cannot mock eth client after being connected")
+	}
 	return MockEthOnStore(ta.Store)
 }
 

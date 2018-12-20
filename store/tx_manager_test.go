@@ -432,19 +432,18 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKeyStore()
 			defer cleanup()
 
-			require.NoError(t, app.StartAndConnect())
-
 			store := app.Store
-			ethMock := app.MockEthClient()
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(store)
 			tx := cltest.CreateTxAndAttempt(store, from, sentAt1)
 			a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
+			ethMock := app.MockEthClient()
 			ethMock.Context("txm.MeetsMinConfirmations()", test.mockSetup)
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 
+			require.NoError(t, app.StartAndConnect())
 			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 			assert.Equal(t, test.wantConfirmed, confirmed)
 			cltest.AssertError(t, test.wantErrored, err)
