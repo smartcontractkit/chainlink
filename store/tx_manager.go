@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 )
 
@@ -59,7 +60,7 @@ type EthTxManager struct {
 	availableAccounts   []*ManagedAccount
 	availableAccountIdx int
 	accountsMutex       *sync.Mutex
-	connected           bool
+	connected           *abool.AtomicBool
 }
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
@@ -71,6 +72,7 @@ func NewEthTxManager(ethClient *EthClient, config Config, keyStore *KeyStore, or
 		keyStore:      keyStore,
 		orm:           orm,
 		accountsMutex: &sync.Mutex{},
+		connected:     abool.New(),
 	}
 }
 
@@ -87,7 +89,7 @@ func (txm *EthTxManager) Register(accts []accounts.Account) {
 
 // Connected returns a bool indicating whether or not it is connected.
 func (txm *EthTxManager) Connected() bool {
-	return txm.connected
+	return txm.connected.IsSet()
 }
 
 // Connect iterates over the available accounts to retrieve their nonce
@@ -106,13 +108,13 @@ func (txm *EthTxManager) Connect(bn *models.IndexableBlockNumber) error {
 		}
 	}
 
-	txm.connected = true
+	txm.connected.Set()
 	return merr
 }
 
 // Disconnect marks this instance as disconnected.
 func (txm *EthTxManager) Disconnect() {
-	txm.connected = false
+	txm.connected.UnSet()
 }
 
 // OnNewHead does nothing; exists to comply with interface.
@@ -125,7 +127,7 @@ func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, e
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
-	if !txm.connected {
+	if !txm.Connected() {
 		return nil, ErrPendingConnection
 	}
 
@@ -231,7 +233,7 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // MeetsMinConfirmations returns true if the given transaction hash has been
 // confirmed on the blockchain.
 func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
-	if !txm.connected {
+	if !txm.Connected() {
 		return false, ErrPendingConnection
 	}
 	blkNum, err := txm.GetBlockNumber()
