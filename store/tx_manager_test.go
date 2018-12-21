@@ -98,7 +98,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethMock.Context("manager.bumpGas#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold))
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 	})
 
 	_, err = manager.MeetsMinConfirmations(attempts[0].Hash)
@@ -114,7 +114,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	// best way to ensure the same from address atm is to compare Hashes, since
 	// tx attempts don't have From but rely on parent Tx model.
 	etx := createdTx1.EthTx(a2.GasPrice)
-	etx, err = store.KeyStore.SignTx(accounts[0], etx, config.ChainID)
+	etx, err = store.KeyStore.SignTx(accounts[0], etx, config.ChainID())
 	assert.Equal(t, etx.Hash().Hex(), a2.Hash.Hex(), "should be same since they have the same input, include From address")
 
 	// ensure second tx round robins
@@ -331,8 +331,8 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(store)
 	sentAt := uint64(23456)
-	gasThreshold := sentAt + config.EthGasBumpThreshold
-	minConfs := config.MinOutgoingConfirmations - 1
+	gasThreshold := sentAt + config.EthGasBumpThreshold()
+	minConfs := config.MinOutgoingConfirmations() - 1
 
 	tests := []struct {
 		name             string
@@ -383,9 +383,9 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 	defer cleanup()
 
 	sentAt1 := uint64(23456)
-	sentAt2 := sentAt1 + config.EthGasBumpThreshold
+	sentAt2 := sentAt1 + config.EthGasBumpThreshold()
 	confirmedAt := sentAt2 + 1
-	safeAt := confirmedAt + config.MinOutgoingConfirmations
+	safeAt := confirmedAt + config.MinOutgoingConfirmations()
 
 	nonConfedReceipt := strpkg.TxReceipt{}
 	confedReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
@@ -535,7 +535,7 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 	config, configCleanup := cltest.NewConfig()
 	defer configCleanup()
 	oca := common.HexToAddress("0xDEADB3333333F")
-	config.OracleContractAddress = &oca
+	config.Set("OracleContractAddress", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 
@@ -635,7 +635,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	defer configCleanup()
 	oracleAddress := "0xDEADB3333333F"
 	oca := common.HexToAddress(oracleAddress)
-	config.OracleContractAddress = &oca
+	config.Set("OracleContractAddress", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 
@@ -649,7 +649,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	ethMock := app.MockEthClient()
 	mockedEthBalance := "0x100"
 	mockedLinkBalance := "256000000000000000000"
-	confirmedHeight := sentAt + config.MinOutgoingConfirmations
+	confirmedHeight := sentAt + config.MinOutgoingConfirmations()
 	confirmedReceipt := strpkg.TxReceipt{
 		Hash:        hash,
 		BlockNumber: cltest.Int(sentAt),
@@ -720,9 +720,9 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 		expectedGasLimit uint64
 	}{
 		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
-		{"dev but not set", true, nil, 0, &store.Config.EthGasPriceDefault, strpkg.DefaultGasLimit},
-		{"not dev", false, customGasPrice, customGasLimit, &store.Config.EthGasPriceDefault, strpkg.DefaultGasLimit},
-		{"not dev not set", false, nil, 0, &store.Config.EthGasPriceDefault, strpkg.DefaultGasLimit},
+		{"dev but not set", true, nil, 0, store.Config.EthGasPriceDefault(), strpkg.DefaultGasLimit},
+		{"not dev", false, customGasPrice, customGasLimit, store.Config.EthGasPriceDefault(), strpkg.DefaultGasLimit},
+		{"not dev not set", false, nil, 0, store.Config.EthGasPriceDefault(), strpkg.DefaultGasLimit},
 	}
 
 	for _, test := range tests {

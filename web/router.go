@@ -67,9 +67,9 @@ func Router(app services.Application) *gin.Engine {
 func secureOptions(config store.Config) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
-		IsDevelopment: config.Dev,
-		SSLRedirect:   config.TLSPort != 0,
-		SSLHost:       config.TLSHost,
+		IsDevelopment: config.Dev(),
+		SSLRedirect:   config.TLSPort() != 0,
+		SSLHost:       config.TLSHost(),
 	}
 }
 
@@ -267,10 +267,10 @@ func uiCorsHandler(config store.Config) gin.HandlerFunc {
 		AllowCredentials: true,
 		MaxAge:           math.MaxInt32,
 	}
-	if config.AllowOrigins == "*" {
+	if config.AllowOrigins() == "*" {
 		c.AllowAllOrigins = true
 	} else {
-		allowOrigins := strings.Split(config.AllowOrigins, ",")
+		allowOrigins := strings.Split(config.AllowOrigins(), ",")
 		if len(allowOrigins) > 0 {
 			c.AllowOrigins = allowOrigins
 		}

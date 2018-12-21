@@ -15,7 +15,7 @@ import (
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	store.Config.BridgeResponseURL = cltest.WebURL("")
+	store.Config.Set("BridgeResponseURL", cltest.WebURL(""))
 
 	data := ""
 	token := ""
@@ -58,7 +58,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	store.Config.BridgeResponseURL = cltest.WebURL("")
+	store.Config.Set("BridgeResponseURL", "")
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -103,7 +103,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	store.Config.BridgeResponseURL = cltest.WebURL("")
+	store.Config.Set("BridgeResponseURL", "")
 	runID := utils.NewBytes32ID()
 	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"value":"lot 49"}}`, runID)
 
@@ -155,7 +155,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore()
 			defer cleanup()
-			store.Config.BridgeResponseURL = test.configuredURL
+			store.Config.Set("BridgeResponseURL", test.configuredURL)
 
 			mock, ensureCalled := cltest.NewHTTPMockServer(t, 200, "POST", ``,
 				func(_ http.Header, body string) {
