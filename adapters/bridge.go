@@ -49,7 +49,7 @@ func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.UR
 	}
 
 	responseURL := bridgeResponseURL
-	if *responseURL != (url.URL{}) {
+	if *responseURL != *zeroURL {
 		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID)
 	}
 	body, err := ba.postToExternalAdapter(input, responseURL)
@@ -76,10 +76,9 @@ func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
 }
 
 func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
-	responseURL := models.WebURL(*bridgeResponseURL)
 	in, err := json.Marshal(&bridgeOutgoing{
 		RunResult:   input,
-		ResponseURL: &responseURL,
+		ResponseURL: bridgeResponseURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request body: %v", err)
@@ -114,7 +113,7 @@ func baRunResultError(in models.RunResult, str string, err error) models.RunResu
 
 type bridgeOutgoing struct {
 	models.RunResult
-	ResponseURL *models.WebURL
+	ResponseURL *url.URL
 }
 
 func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
@@ -128,4 +127,10 @@ func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 		ResponseURL: bp.ResponseURL.String(),
 	}
 	return json.Marshal(anon)
+}
+
+var zeroURL *url.URL
+
+func init() {
+	zeroURL = new(url.URL)
 }

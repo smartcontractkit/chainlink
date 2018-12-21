@@ -25,7 +25,7 @@ func TestNewRun(t *testing.T) {
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = assets.NewLink(10)
+	bt.MinimumContractPayment = *assets.NewLink(10)
 	assert.Nil(t, store.Save(&bt))
 
 	creationHeight := cltest.BigHexInt(1000)
@@ -53,7 +53,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = assets.NewLink(10)
+	bt.MinimumContractPayment = *assets.NewLink(10)
 	assert.Nil(t, store.Save(&bt))
 
 	tests := []struct {

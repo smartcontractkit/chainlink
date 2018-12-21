@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"math/big"
+	"net/url"
 	"os"
 	"path"
 	"testing"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -24,7 +24,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 	assert.Equal(t, "0x514910771AF9Ca656af840dff83E8264EcF986CA", common.HexToAddress(config.LinkContractAddress()).String())
 	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout())
-	assert.Equal(t, "", config.BridgeResponseURL().String())
+	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
 }
 
 func TestConfig_sessionSecret(t *testing.T) {
@@ -133,8 +133,8 @@ func TestStore_urlParser(t *testing.T) {
 		wantError bool
 	}{
 		{"valid URL", "http://localhost:3000", false},
-		{"invalid URL", "htp", true},
-		{"empty URL", "", true},
+		{"invalid URL", ":", true},
+		{"empty URL", "", false},
 	}
 
 	for _, test := range tests {
@@ -145,7 +145,7 @@ func TestStore_urlParser(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				w, ok := i.(models.WebURL)
+				w, ok := i.(*url.URL)
 				require.True(t, ok)
 				assert.Equal(t, test.input, w.String())
 			}
