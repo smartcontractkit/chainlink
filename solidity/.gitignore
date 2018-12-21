@@ -1,3 +1,5 @@
 node_modules/
 build/
 .python-version
+.zos.session
+package-lock.json

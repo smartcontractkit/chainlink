@@ -1,0 +1,104 @@
+{
+  "contracts": {
+    "Chainlinked": {
+      "address": "0xddb24a291ecabb3a8c9546224bc53c735af8065f",
+      "constructorCode": "60806040526001600455348015601457600080fd5b5060358060226000396000f300",
+      "bodyBytecodeHash": "6fdb9eeb48011b84344c324810fc2443ebdf2d52b66872098a64dfedd9b2289d",
+      "localBytecodeHash": "0dd7cffe36c2d1b5417144e211da313e9c76b25c61384ce1df8f2492c5b7bcf9",
+      "deployedBytecodeHash": "0dd7cffe36c2d1b5417144e211da313e9c76b25c61384ce1df8f2492c5b7bcf9",
+      "types": {
+        "t_address": {
+          "id": "t_address",
+          "kind": "elementary",
+          "label": "address"
+        },
+        "t_bytes32": {
+          "id": "t_bytes32",
+          "kind": "elementary",
+          "label": "bytes32"
+        },
+        "t_uint256": {
+          "id": "t_uint256",
+          "kind": "elementary",
+          "label": "uint256"
+        },
+        "t_mapping<t_address>": {
+          "id": "t_mapping<t_address>",
+          "valueType": "t_address",
+          "label": "mapping(key => address)",
+          "kind": "mapping"
+        }
+      },
+      "storage": [
+        {
+          "contract": "Chainlinked",
+          "path": "contracts/Chainlinked.sol",
+          "label": "ens",
+          "astId": 276,
+          "type": "t_address",
+          "src": "605:24:1"
+        },
+        {
+          "contract": "Chainlinked",
+          "path": "contracts/Chainlinked.sol",
+          "label": "ensNode",
+          "astId": 278,
+          "type": "t_bytes32",
+          "src": "633:23:1"
+        },
+        {
+          "contract": "Chainlinked",
+          "path": "contracts/Chainlinked.sol",
+          "label": "link",
+          "astId": 280,
+          "type": "t_address",
+          "src": "660:31:1"
+        },
+        {
+          "contract": "Chainlinked",
+          "path": "contracts/Chainlinked.sol",
+          "label": "oracle",
+          "astId": 282,
+          "type": "t_address",
+          "src": "695:40:1"
+        },
+        {
+          "contract": "Chainlinked",
+          "path": "contracts/Chainlinked.sol",
+          "label": "requests",
+          "astId": 285,
+          "type": "t_uint256",
+          "src": "739:28:1"
+        },
+        {
+          "contract": "Chainlinked",
+          "path": "contracts/Chainlinked.sol",
+          "label": "unfulfilledRequests",
+          "astId": 289,
+          "type": "t_mapping<t_address>",
+          "src": "771:55:1"
+        }
+      ],
+      "warnings": {
+        "hasConstructor": false,
+        "hasSelfDestruct": false,
+        "hasDelegateCall": false,
+        "hasInitialValuesInDeclarations": true,
+        "uninitializedBaseContracts": []
+      }
+    }
+  },
+  "solidityLibs": {},
+  "proxies": {},
+  "zosversion": "2",
+  "version": "0.1.0",
+  "app": {
+    "address": "0x11c3e16498ac561e12494433da31562049644dae"
+  },
+  "package": {
+    "address": "0x18eed601e774a089cb8a0657ed3eafc6f908b341"
+  },
+  "provider": {
+    "address": "0xefb3e31bd8cdb2a0976714630569def187f9a51c"
+  }
+}

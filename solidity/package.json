@@ -1,0 +1,16 @@
+{
+  "name": "chainlinked",
+  "version": "1.0.4",
+  "description": "The Chainlinked contract on ZeppelinOS",
+  "license": "MIT",
+  "files": [
+    "build",
+    "contracts",
+    "zos.json",
+    "zos.*.json"
+  ],
+  "dependencies": {
+    "@ensdomains/ens": "^0.1.1",
+    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
+  }
+}
