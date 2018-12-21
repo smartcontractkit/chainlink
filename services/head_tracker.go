@@ -191,7 +191,7 @@ func (ht *HeadTracker) subscribe() bool {
 		case <-time.After(ht.sleeper.After()):
 			err := ht.subscribeToHead()
 			if err != nil {
-				logger.Warnw(fmt.Sprintf("Failed to connect to %v", ht.store.Config.EthereumURL), "err", err)
+				logger.Warnw(fmt.Sprintf("Failed to connect to %v", ht.store.Config.EthereumURL()), "err", err)
 			} else {
 				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
 				ht.fastForwardHeadFromEth()

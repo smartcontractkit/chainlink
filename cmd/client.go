@@ -75,24 +75,24 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app services.Application) error {
-	gin.SetMode(app.GetStore().Config.LogLevel.ForGin())
+	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
 	server := web.Router(app.(*services.ChainlinkApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group
 
-	if config.Port == 0 && config.TLSPort == 0 {
+	if config.Port() == 0 && config.TLSPort() == 0 {
 		log.Fatal("You must specify at least one port to listen on")
 	}
 
-	if config.Port != 0 {
-		url := fmt.Sprintf(":%d", config.Port)
+	if config.Port() != 0 {
+		url := fmt.Sprintf(":%d", config.Port())
 		g.Go(func() error { return server.Run(url) })
 	}
 
-	if config.TLSPort != 0 {
+	if config.TLSPort() != 0 {
 		certFile := config.CertFile()
 		keyFile := config.KeyFile()
-		url := fmt.Sprintf(":%d", config.TLSPort)
+		url := fmt.Sprintf(":%d", config.TLSPort())
 		g.Go(func() error { return server.RunTLS(url, certFile, keyFile) })
 	}
 
@@ -156,7 +156,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		headers = map[string]string{}
 	}
 
-	request, err := http.NewRequest(verb, h.config.ClientNodeURL+path, body)
+	request, err := http.NewRequest(verb, h.config.ClientNodeURL()+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	if err != nil {
 		return nil, err
 	}
-	url := t.config.ClientNodeURL + "/sessions"
+	url := t.config.ClientNodeURL() + "/sessions"
 	req, err := http.NewRequest("POST", url, b)
 	if err != nil {
 		return nil, err
@@ -276,7 +276,7 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 }
 
 func (d DiskCookieStore) cookiePath() string {
-	return path.Join(d.Config.RootDir, "cookie")
+	return path.Join(d.Config.RootDir(), "cookie")
 }
 
 // SessionRequestBuilder is an interface that returns a SessionRequest,

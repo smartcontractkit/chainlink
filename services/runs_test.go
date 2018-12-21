@@ -25,7 +25,7 @@ func TestNewRun(t *testing.T) {
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = *assets.NewLink(10)
+	bt.MinimumContractPayment = assets.NewLink(10)
 	assert.Nil(t, store.Save(&bt))
 
 	creationHeight := cltest.BigHexInt(1000)
@@ -53,7 +53,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = *assets.NewLink(10)
+	bt.MinimumContractPayment = assets.NewLink(10)
 	assert.Nil(t, store.Save(&bt))
 
 	tests := []struct {
@@ -72,7 +72,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.MinimumContractPayment = test.minimumPayment
+			store.Config.Set("MinimumContractPayment", test.minimumPayment)
 
 			jobSpec := models.NewJob()
 			jobSpec.Tasks = []models.TaskSpec{{
@@ -114,7 +114,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.MinIncomingConfirmations = test.configConfirmations
+			store.Config.Set("MinIncomingConfirmations", test.configConfirmations)
 
 			jobSpec, initiator := cltest.NewJobWithLogInitiator()
 			jobSpec.Tasks[0].Confirmations = test.taskConfirmations

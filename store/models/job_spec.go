@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
-	"gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v3"
 )
 
 // JobSpec is the definition for all the work to be carried out by the node
@@ -257,12 +257,12 @@ func (t TaskType) String() string {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType    `json:"name" storm:"id,unique"`
-	URL                    WebURL      `json:"url"`
-	Confirmations          uint64      `json:"confirmations"`
-	IncomingToken          string      `json:"incomingToken"`
-	OutgoingToken          string      `json:"outgoingToken"`
-	MinimumContractPayment assets.Link `json:"minimumContractPayment"`
+	Name                   TaskType     `json:"name" storm:"id,unique"`
+	URL                    WebURL       `json:"url"`
+	Confirmations          uint64       `json:"confirmations"`
+	IncomingToken          string       `json:"incomingToken"`
+	OutgoingToken          string       `json:"outgoingToken"`
+	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

@@ -99,7 +99,7 @@ func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
 
 func updateConfig(config strpkg.Config, debug bool) strpkg.Config {
 	if debug {
-		config.LogLevel = strpkg.LogLevel{Level: zapcore.DebugLevel}
+		config.Set("LogLevel", zapcore.DebugLevel.String())
 	}
 	return config
 }

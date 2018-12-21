@@ -46,7 +46,7 @@ func TestFormsUpdateBridgeType_Save(t *testing.T) {
 
 	form.URL = cltest.WebURL("http://updatedbridge")
 	form.Confirmations = uint64(10)
-	form.MinimumContractPayment = *assets.NewLink(100)
+	form.Set("MinimumContractPayment", assets.NewLink(100))
 	assert.NoError(t, form.Save())
 
 	ubt, err = s.FindBridge("bridgea")

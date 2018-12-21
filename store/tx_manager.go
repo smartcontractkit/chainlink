@@ -122,7 +122,7 @@ func (txm *EthTxManager) OnNewHead(*models.BlockHeader) {}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	return txm.CreateTxWithGas(to, data, &txm.config.EthGasPriceDefault, DefaultGasLimit)
+	return txm.CreateTxWithGas(to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
 }
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
@@ -141,12 +141,12 @@ func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPric
 }
 
 func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
-	if !config.Dev {
-		return &config.EthGasPriceDefault, DefaultGasLimit
+	if !config.Dev() {
+		return config.EthGasPriceDefault(), DefaultGasLimit
 	}
 
 	if gasPriceWei == nil {
-		gasPriceWei = &config.EthGasPriceDefault
+		gasPriceWei = config.EthGasPriceDefault()
 	}
 
 	if gasLimit == 0 {
@@ -222,7 +222,7 @@ func (txm *EthTxManager) createTxWithNonceReload(
 
 // GetLINKBalance returns the balance of LINK at the given address
 func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, error) {
-	contractAddress := common.HexToAddress(txm.config.LinkContractAddress)
+	contractAddress := common.HexToAddress(txm.config.LinkContractAddress())
 	balance, err := txm.GetERC20Balance(address, contractAddress)
 	if err != nil {
 		return assets.NewLink(0), err
@@ -268,11 +268,11 @@ func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error) {
 	contractAddress := &wr.ContractAddress
 	if (*contractAddress == common.Address{}) {
-		if txm.config.OracleContractAddress == nil {
+		if txm.config.OracleContractAddress() == nil {
 			return assets.Link{}, errors.New(
 				"OracleContractAddress not set; cannot check LINK balance")
 		}
-		contractAddress = txm.config.OracleContractAddress
+		contractAddress = txm.config.OracleContractAddress()
 	}
 
 	linkBalance, err := txm.GetLINKBalance(*contractAddress)
@@ -304,11 +304,11 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 
 	contractAddress := &wr.ContractAddress
 	if (*contractAddress == common.Address{}) {
-		if txm.config.OracleContractAddress == nil {
+		if txm.config.OracleContractAddress() == nil {
 			return common.Hash{}, errors.New(
 				"OracleContractAddress not set; cannot withdraw")
 		}
-		contractAddress = txm.config.OracleContractAddress
+		contractAddress = txm.config.OracleContractAddress()
 	}
 
 	tx, err := txm.CreateTx(*contractAddress, data)
@@ -329,7 +329,7 @@ func (txm *EthTxManager) createAttempt(
 		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
 	}
 	etx := tx.EthTx(gasPriceWei)
-	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID)
+	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID())
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func (txm *EthTxManager) handleConfirmed(
 	rcpt *TxReceipt,
 	blkNum uint64,
 ) (bool, error) {
-	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations))
+	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	rcptBlkNum := rcpt.BlockNumber.ToBig()
 	safeAt := minConfs.Add(rcptBlkNum, minConfs)
 	safeAt.Sub(safeAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
@@ -431,7 +431,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 	blkNum uint64,
 ) (bool, error) {
 	bumpable := tx.Hash == txat.Hash
-	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold
+	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold()
 	if bumpable && pastThreshold {
 		return false, txm.bumpGas(txat, blkNum)
 	}
@@ -443,7 +443,7 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	if err := txm.orm.One("ID", txat.TxID, tx); err != nil {
 		return err
 	}
-	gasPrice := new(big.Int).Add(txat.GasPrice, &txm.config.EthGasBumpWei)
+	gasPrice := new(big.Int).Add(txat.GasPrice, txm.config.EthGasBumpWei())
 	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
 		return err

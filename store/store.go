@@ -114,7 +114,7 @@ func NewStore(config Config) *Store {
 
 // NewStoreWithDialer creates a new store with the given config and dialer
 func NewStoreWithDialer(config Config, dialer Dialer) *Store {
-	err := os.MkdirAll(config.RootDir, os.FileMode(0700))
+	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
@@ -122,7 +122,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
 	}
-	ethrpc, err := dialer.Dial(config.EthereumURL)
+	ethrpc, err := dialer.Dial(config.EthereumURL())
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
@@ -154,7 +154,7 @@ func (s *Store) Close() error {
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
-	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout.Duration)
+	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout())
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`
@@ -178,8 +178,8 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 }
 
 func initializeORM(config Config) (*orm.ORM, error) {
-	path := path.Join(config.RootDir, "db.bolt")
-	duration := config.DatabaseTimeout.Duration
+	path := path.Join(config.RootDir(), "db.bolt")
+	duration := config.DatabaseTimeout()
 	logger.Infof("Waiting %s for lock on db file %s", friendlyDuration(duration), path)
 	orm, err := orm.NewORM(path, duration)
 	if err != nil {

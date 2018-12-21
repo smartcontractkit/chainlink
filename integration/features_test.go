@@ -54,8 +54,8 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
 	sentAt := uint64(23456)
-	confirmed := sentAt + config.EthGasBumpThreshold + 1
-	safe := confirmed + config.MinOutgoingConfirmations - 1
+	confirmed := sentAt + config.EthGasBumpThreshold() + 1
+	safe := confirmed + config.MinOutgoingConfirmations() - 1
 	unconfirmedReceipt := store.TxReceipt{}
 	confirmedReceipt := store.TxReceipt{
 		Hash:        attempt1Hash,
@@ -170,7 +170,7 @@ func TestIntegration_EthLog(t *testing.T) {
 func TestIntegration_RunLog(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.MinIncomingConfirmations = 6
+	config.Set("MinIncomingConfirmations", 6)
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
@@ -198,7 +198,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	jr := runs[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	minConfigHeight := logBlockNumber + int(app.Store.Config.MinIncomingConfirmations)
+	minConfigHeight := logBlockNumber + int(app.Store.Config.MinIncomingConfirmations())
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minConfigHeight)}
 	<-time.After(time.Second)
 	cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
@@ -311,7 +311,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bridgeURL := cltest.WebURL("https://test.chain.link/always")
-	app.Store.Config.BridgeResponseURL = bridgeURL
+	app.Store.Config.Set("BridgeResponseURL", bridgeURL)
 	app.Start()
 
 	eaPrice := "1234"
@@ -495,7 +495,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 				Hash:        hash,
 				BlockNumber: cltest.Int(blockNumber),
 			})
-			confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations
+			confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations()
 			eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))
 		})
 

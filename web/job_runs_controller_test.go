@@ -216,7 +216,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
-	url := app.Config.ClientNodeURL + "/v2/runs/" + jr.ID
+	url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
 	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
 	defer cleanup()
 
@@ -322,7 +322,7 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
-	url := app.Config.ClientNodeURL + "/v2/runs/" + jr.ID
+	url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
 	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
 	defer cleanup()
 

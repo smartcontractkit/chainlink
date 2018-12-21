@@ -26,7 +26,7 @@ func verifyLinkBalanceCheck(address common.Address, t *testing.T) func(interface
 func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
-	config.OracleContractAddress = &oca
+	config.Set("OracleContractAddress", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 	hash := cltest.NewHash()
@@ -69,7 +69,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	config, _ := cltest.NewConfigWithPrivateKey()
 	oca := common.HexToAddress("0xDEADB3333333F")
-	config.OracleContractAddress = &oca
+	config.Set("OracleContractAddress", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 	client := app.NewHTTPClient()
