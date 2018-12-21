@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type JobRunsJSON struct {
@@ -396,7 +397,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/runs/" + jr.ID)
 	defer cleanup()
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	require.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respJobRun presenters.JobRun
 	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))

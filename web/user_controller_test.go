@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
@@ -18,7 +19,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(""))
 	defer cleanup()
 	errors := cltest.ParseJSONAPIErrors(resp.Body)
-	assert.Equal(t, 422, resp.StatusCode)
+	require.Equal(t, 422, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
 
 	// Old password is wrong
@@ -27,7 +28,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		bytes.NewBufferString(`{"oldPassword": "wrong password"}`))
 	defer cleanup()
 	errors = cltest.ParseJSONAPIErrors(resp.Body)
-	assert.Equal(t, 409, resp.StatusCode)
+	require.Equal(t, 409, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
 	assert.Equal(t, "Old password does not match", errors.Errors[0].Detail)
 
@@ -78,7 +79,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
-	assert.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, 200, resp.StatusCode)
 
 	expectedAccounts := appWithAccount.Store.KeyStore.Accounts()
 	actualBalances := []presenters.AccountBalance{}
