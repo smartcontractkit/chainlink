@@ -33,6 +33,7 @@ import (
 // If you add an entry here which does not contain sensitive information, you
 // should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
 type Config struct {
+	SecretGenerator   SecretGenerator
 	AllowOrigins      string        `env:"ALLOW_ORIGINS" envDefault:"http://localhost:3000,http://localhost:6688"`
 	BridgeResponseURL models.WebURL `env:"BRIDGE_RESPONSE_URL" envDefault:""`
 	ChainID           uint64        `env:"ETH_CHAIN_ID" envDefault:"0"`
@@ -64,7 +65,6 @@ type Config struct {
 	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" envDefault:""`
 	TLSKeyPath               string          `env:"TLS_KEY_PATH" envDefault:""`
 	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" envDefault:"6689"`
-	SecretGenerator          SecretGenerator
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -76,10 +76,10 @@ func NewConfig() Config {
 	}
 	dir, err := homedir.Expand(config.RootDir)
 	if err != nil {
-		log.Fatal(fmt.Errorf("error expanding $HOME: %+v", err))
+		log.Fatal(fmt.Errorf(`error expanding $HOME in "%s": %+v`, config.RootDir, err))
 	}
 	if err = os.MkdirAll(dir, os.FileMode(0700)); err != nil {
-		log.Fatal(fmt.Errorf("error creating %s: %+v", dir, err))
+		log.Fatal(fmt.Errorf(`error creating "%s": %+v`, dir, err))
 	}
 	config.RootDir = dir
 	config.SecretGenerator = filePersistedSecretGenerator{}

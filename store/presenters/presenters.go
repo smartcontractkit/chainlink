@@ -4,10 +4,12 @@
 package presenters
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -132,18 +134,22 @@ func (a *AccountBalance) SetID(value string) error {
 // If you add an entry here, you should update NewConfigWhitelist and
 // ConfigWhitelist#String accordingly.
 type ConfigWhitelist struct {
-	AccountAddress           string          `json:"accountAddress"`
+	AccountAddress string `json:"accountAddress"`
+	whitelist
+}
+
+type whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
-	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
+	BridgeResponseURL        models.WebURL   `json:"bridgeResponseURL,omitempty"`
 	ChainID                  uint64          `json:"ethChainId"`
-	ChainlinkDev             bool            `json:"chainlinkDev"`
+	Dev                      bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
 	DatabaseTimeout          store.Duration  `json:"databaseTimeout"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
-	JSONConsle               bool            `json:"jsonConsole"`
+	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
 	LogLevel                 store.LogLevel  `json:"logLevel"`
 	LogToDisk                bool            `json:"logToDisk"`
@@ -169,94 +175,68 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 	}
 
 	return ConfigWhitelist{
-		AccountAddress:           account.Address.Hex(),
-		AllowOrigins:             config.AllowOrigins,
-		BridgeResponseURL:        config.BridgeResponseURL.String(),
-		ChainID:                  config.ChainID,
-		ChainlinkDev:             config.Dev,
-		ClientNodeURL:            config.ClientNodeURL,
-		DatabaseTimeout:          config.DatabaseTimeout,
-		EthereumURL:              config.EthereumURL,
-		EthGasBumpThreshold:      config.EthGasBumpThreshold,
-		EthGasBumpWei:            &config.EthGasBumpWei,
-		EthGasPriceDefault:       &config.EthGasPriceDefault,
-		JSONConsle:               config.JSONConsole,
-		LinkContractAddress:      config.LinkContractAddress,
-		LogLevel:                 config.LogLevel,
-		LogToDisk:                config.LogToDisk,
-		MinimumContractPayment:   &config.MinimumContractPayment,
-		MinimumRequestExpiration: config.MinimumRequestExpiration,
-		MinIncomingConfirmations: config.MinIncomingConfirmations,
-		MinOutgoingConfirmations: config.MinOutgoingConfirmations,
-		OracleContractAddress:    config.OracleContractAddress,
-		Port:             config.Port,
-		ReaperExpiration: config.ReaperExpiration,
-		RootDir:          config.RootDir,
-		SessionTimeout:   config.SessionTimeout,
-		TLSHost:          config.TLSHost,
-		TLSPort:          config.TLSPort,
+		AccountAddress: account.Address.Hex(),
+		whitelist: whitelist{
+			AllowOrigins:             config.AllowOrigins,
+			BridgeResponseURL:        config.BridgeResponseURL,
+			ChainID:                  config.ChainID,
+			Dev:                      config.Dev,
+			ClientNodeURL:            config.ClientNodeURL,
+			DatabaseTimeout:          config.DatabaseTimeout,
+			EthereumURL:              config.EthereumURL,
+			EthGasBumpThreshold:      config.EthGasBumpThreshold,
+			EthGasBumpWei:            &config.EthGasBumpWei,
+			EthGasPriceDefault:       &config.EthGasPriceDefault,
+			JSONConsole:              config.JSONConsole,
+			LinkContractAddress:      config.LinkContractAddress,
+			LogLevel:                 config.LogLevel,
+			LogToDisk:                config.LogToDisk,
+			MinimumContractPayment:   &config.MinimumContractPayment,
+			MinimumRequestExpiration: config.MinimumRequestExpiration,
+			MinIncomingConfirmations: config.MinIncomingConfirmations,
+			MinOutgoingConfirmations: config.MinOutgoingConfirmations,
+			OracleContractAddress:    config.OracleContractAddress,
+			Port:                     config.Port,
+			ReaperExpiration:         config.ReaperExpiration,
+			RootDir:                  config.RootDir,
+			SessionTimeout:           config.SessionTimeout,
+			TLSHost:                  config.TLSHost,
+			TLSPort:                  config.TLSPort,
+		},
 	}, nil
 }
 
 // String returns the values as a newline delimited string
 func (c ConfigWhitelist) String() string {
-	fmtConfig := "LOG_LEVEL: %v\n" +
-		"LOG_TO_DISK: %v\n" +
-		"JSON_CONSOLE: %v\n" +
-		"ROOT: %s\n" +
-		"CHAINLINK_PORT: %d\n" +
-		"CHAINLINK_TLS_PORT: %d\n" +
-		"CHAINLINK_TLS_HOST: %s\n" +
-		"ETH_URL: %s\n" +
-		"ETH_CHAIN_ID: %d\n" +
-		"CLIENT_NODE_URL: %s\n" +
-		"TX_MIN_CONFIRMATIONS: %d\n" +
-		"TASK_MIN_CONFIRMATIONS: %d\n" +
-		"ETH_GAS_BUMP_THRESHOLD: %d\n" +
-		"ETH_GAS_BUMP_WEI: %s\n" +
-		"ETH_GAS_PRICE_DEFAULT: %s\n" +
-		"LINK_CONTRACT_ADDRESS: %s\n" +
-		"MINIMUM_CONTRACT_PAYMENT: %s\n" +
-		"ORACLE_CONTRACT_ADDRESS: %s\n" +
-		"DATABASE_POLL_INTERVAL: %s\n" +
-		"ALLOW_ORIGINS: %s\n" +
-		"CHAINLINK_DEV: %v\n" +
-		"SESSION_TIMEOUT: %v\n" +
-		"REAPER_EXPIRATION: %v\n" +
-		"BRIDGE_RESPONSE_URL: %s\n"
+	var buffer bytes.Buffer
 
-	oracleContractAddress := ""
-	if c.OracleContractAddress != nil {
-		oracleContractAddress = c.OracleContractAddress.String()
+	schemaT := reflect.TypeOf(store.Config{})
+	cwlT := reflect.TypeOf(c.whitelist)
+	cwlV := reflect.ValueOf(c.whitelist)
+	for index := 0; index < cwlT.NumField(); index++ {
+		item := cwlT.FieldByIndex([]int{index})
+		schemaItem, ok := schemaT.FieldByName(item.Name)
+		if !ok {
+			logger.Panicf("Field %s missing from store.Schema", item.Name)
+		}
+		envName, ok := schemaItem.Tag.Lookup("env")
+		if !ok {
+			continue
+		}
+		field := cwlV.FieldByIndex(item.Index)
+		buffer.WriteString(envName)
+		buffer.WriteString(": ")
+		if stringer, ok := field.Interface().(fmt.Stringer); ok {
+			if stringer != reflect.Zero(reflect.TypeOf(stringer)).Interface() {
+				buffer.WriteString(stringer.String())
+			}
+		} else {
+			buffer.WriteString(fmt.Sprintf("%v", field))
+		}
+		buffer.WriteString("\n")
 	}
 
-	return fmt.Sprintf(
-		fmtConfig,
-		c.LogLevel,
-		c.LogToDisk,
-		c.JSONConsle,
-		c.RootDir,
-		c.Port,
-		c.TLSPort,
-		c.TLSHost,
-		c.EthereumURL,
-		c.ChainID,
-		c.ClientNodeURL,
-		c.MinOutgoingConfirmations,
-		c.MinIncomingConfirmations,
-		c.EthGasBumpThreshold,
-		c.EthGasBumpWei.String(),
-		c.EthGasPriceDefault.String(),
-		c.LinkContractAddress,
-		c.MinimumContractPayment.String(),
-		oracleContractAddress,
-		c.DatabaseTimeout,
-		c.AllowOrigins,
-		c.ChainlinkDev,
-		c.SessionTimeout,
-		c.ReaperExpiration,
-		c.BridgeResponseURL,
-	)
+	return buffer.String()
 }
 
 // GetID generates a new ID for jsonapi serialization.
