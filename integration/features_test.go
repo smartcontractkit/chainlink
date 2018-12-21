@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
 
@@ -482,7 +483,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionCount", `0x0100`) // activate account nonce
 	})
-	app.Start()
+	require.NoError(t, app.StartAndConnect())
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
 		hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")

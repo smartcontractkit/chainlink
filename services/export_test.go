@@ -24,3 +24,13 @@ func ExportedResumeRunsSinceLastShutdown(jr JobRunner) error {
 func ExportedWorkerCount(jr JobRunner) int {
 	return jr.workerCount()
 }
+
+func ExportedNewPendingConnectionResumer(
+	store *store.Store,
+	resumer func(*models.JobRun, *store.Store) (*models.JobRun, error),
+) store.HeadTrackable {
+	return &pendingConnectionResumer{
+		store:   store,
+		resumer: resumer,
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -52,12 +53,19 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := app.Start(); err != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
-	defer app.Stop()
-	logNodeBalance(store)
+	defer loggedStop(app)
 	logConfigVariables(store)
-	logIfNonceOutOfSync(store)
+
+	app.OnConnect(func() {
+		logNodeBalance(store)
+		logIfNonceOutOfSync(store)
+	})
 
 	return cli.errorOut(cli.Runner.Run(app))
+}
+
+func loggedStop(app services.Application) {
+	logger.WarnIf(app.Stop())
 }
 
 func passwordFromFile(pwdFile string) (string, error) {
