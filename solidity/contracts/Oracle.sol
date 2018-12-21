@@ -15,9 +15,9 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   uint256 constant private SELECTOR_LENGTH = 4;
-  uint256 constant private REQUEST_ARGS_COUNT = 8;
+  uint256 constant private EXPECTED_REQUEST_WORDS = 9;
   // solium-disable-next-line zeppelin/no-arithmetic-operations
-  uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * REQUEST_ARGS_COUNT);
+  uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
   struct Callback {
     uint256 amount;
@@ -188,7 +188,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   }
 
   modifier validRequestLength(bytes _data) {
-    require(_data.length > MINIMUM_REQUEST_LENGTH, "Cannot callback to LINK");
+    require(_data.length >= MINIMUM_REQUEST_LENGTH, "Cannot callback to LINK");
     _;
   }
 
