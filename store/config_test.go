@@ -166,9 +166,9 @@ func TestStore_urlParser(t *testing.T) {
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				w, ok := i.(models.WebURL)
-				assert.True(t, ok)
+				require.True(t, ok)
 				assert.Equal(t, test.input, w.String())
 			}
 		})
