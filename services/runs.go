@@ -162,6 +162,27 @@ func ResumeConfirmingTask(
 	return run, saveAndTrigger(run, store)
 }
 
+// ResumeConnectingTask resumes a run that was left in pending_connection.
+func ResumeConnectingTask(
+	run *models.JobRun,
+	store *store.Store,
+) (*models.JobRun, error) {
+
+	logger.Debugw("New connection resuming run", run.ForLogger()...)
+
+	if !run.Status.PendingConnection() {
+		return run, fmt.Errorf("Attempt to resume non connecting task")
+	}
+
+	currentTaskRun := run.NextTaskRun()
+	if currentTaskRun == nil {
+		return run, fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID)
+	}
+
+	run.Status = models.RunStatusInProgress
+	return run, saveAndTrigger(run, store)
+}
+
 // ResumePendingTask takes the body provided from an external adapter,
 // saves it for the next task to process, then tells the job runner to execute
 // it

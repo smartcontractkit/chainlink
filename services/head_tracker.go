@@ -10,31 +10,24 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
+	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tevino/abool"
 )
-
-// HeadTrackable represents any object that wishes to respond to ethereum events,
-// after being attached to HeadTracker.
-type HeadTrackable interface {
-	Connect(*models.IndexableBlockNumber) error
-	Disconnect()
-	OnNewHead(*models.BlockHeader)
-}
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	trackers              map[string]HeadTrackable
+	attachments           *attachmentCollection
 	headers               chan models.BlockHeader
 	headSubscription      models.EthSubscription
-	store                 *store.Store
+	store                 *strpkg.Store
 	head                  *models.IndexableBlockNumber
 	headMutex             sync.RWMutex
-	trackersMutex         sync.RWMutex
-	connected             bool
+	connected             *abool.AtomicBool
 	sleeper               utils.Sleeper
 	done                  chan struct{}
 	started               bool
@@ -46,7 +39,7 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(store *strpkg.Store, sleepers ...utils.Sleeper) *HeadTracker {
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]
@@ -54,9 +47,10 @@ func NewHeadTracker(store *store.Store, sleepers ...utils.Sleeper) *HeadTracker 
 		sleeper = utils.NewBackoffSleeper()
 	}
 	return &HeadTracker{
-		store:    store,
-		trackers: map[string]HeadTrackable{},
-		sleeper:  sleeper,
+		store:       store,
+		attachments: newAttachmentCollection(),
+		sleeper:     sleeper,
+		connected:   abool.New(),
 	}
 }
 
@@ -130,53 +124,41 @@ func (ht *HeadTracker) Head() *models.IndexableBlockNumber {
 
 // Attach registers an object that will have HeadTrackable events fired on occurence,
 // such as Connect.
-func (ht *HeadTracker) Attach(t HeadTrackable) string {
-	ht.trackersMutex.Lock()
-	defer ht.trackersMutex.Unlock()
-	id := uuid.Must(uuid.NewV4()).String()
-	ht.trackers[id] = t
-	if ht.connected {
-		t.Connect(ht.Head())
+func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
+	id := ht.attachments.attach(t)
+	if ht.connected.IsSet() {
+		logger.WarnIf(t.Connect(ht.Head()))
 	}
 	return id
 }
 
 // Detach deregisters an object from having HeadTrackable events fired.
 func (ht *HeadTracker) Detach(id string) {
-	ht.trackersMutex.Lock()
-	defer ht.trackersMutex.Unlock()
-	t, present := ht.trackers[id]
-	if ht.connected && present {
+	t, present := ht.attachments.detach(id)
+	if ht.connected.IsSet() && present {
 		t.Disconnect()
 	}
-	delete(ht.trackers, id)
 }
 
-// IsConnected returns whether or not this HeadTracker is connected.
-func (ht *HeadTracker) IsConnected() bool { return ht.connected }
+// Connected returns whether or not this HeadTracker is connected.
+func (ht *HeadTracker) Connected() bool { return ht.connected.IsSet() }
 
 func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
-	ht.trackersMutex.RLock()
-	defer ht.trackersMutex.RUnlock()
-	for _, t := range ht.trackers {
+	ht.attachments.iter(func(t store.HeadTrackable) {
 		logger.WarnIf(t.Connect(bn))
-	}
+	})
 }
 
 func (ht *HeadTracker) disconnect() {
-	ht.trackersMutex.RLock()
-	defer ht.trackersMutex.RUnlock()
-	for _, t := range ht.trackers {
+	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.Disconnect()
-	}
+	})
 }
 
 func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
-	ht.trackersMutex.RLock()
-	defer ht.trackersMutex.RUnlock()
-	for _, t := range ht.trackers {
+	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.OnNewHead(head)
-	}
+	})
 }
 
 func (ht *HeadTracker) listenForNewHeads() {
@@ -209,7 +191,7 @@ func (ht *HeadTracker) subscribe() bool {
 		case <-time.After(ht.sleeper.After()):
 			err := ht.subscribeToHead()
 			if err != nil {
-				logger.Errorw(fmt.Sprintf("Error connecting to %v", ht.store.Config.EthereumURL), "err", err)
+				logger.Warnw(fmt.Sprintf("Failed to connect to %v", ht.store.Config.EthereumURL), "err", err)
 			} else {
 				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
 				ht.fastForwardHeadFromEth()
@@ -250,13 +232,13 @@ func (ht *HeadTracker) subscribeToHead() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connected = true
+	ht.connected.Set()
 	ht.connect(ht.Head())
 	return nil
 }
 
 func (ht *HeadTracker) unsubscribeFromHead() error {
-	if !ht.connected {
+	if !ht.Connected() {
 		return nil
 	}
 
@@ -264,7 +246,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	ht.disconnect()
 	close(ht.headers)
 
-	ht.connected = false
+	ht.connected.UnSet()
 	return nil
 }
 
@@ -278,7 +260,7 @@ func (ht *HeadTracker) fastForwardHeadFromEth() {
 	bn := header.ToIndexableBlockNumber()
 	if bn.GreaterThan(ht.Head()) {
 		logger.Debug("Fast forwarding to block header ", presenters.FriendlyBigInt(bn.ToInt()))
-		ht.Save(bn)
+		logger.WarnIf(ht.Save(bn))
 	}
 }
 
@@ -294,4 +276,72 @@ func (ht *HeadTracker) updateHeadFromDb() error {
 		ht.headMutex.Unlock()
 	}
 	return nil
+}
+
+// attachmentCollection is a thread safe ordered collection
+// of HeadTrackables that are attached to HeadTracker.
+type attachmentCollection struct {
+	trackables map[string]store.HeadTrackable
+	sortedIDs  []string // map order is non-deterministic, so keep order.
+	mutex      *sync.RWMutex
+}
+
+func newAttachmentCollection() *attachmentCollection {
+	return &attachmentCollection{
+		trackables: map[string]strpkg.HeadTrackable{},
+		sortedIDs:  []string{},
+		mutex:      &sync.RWMutex{},
+	}
+}
+
+func (a *attachmentCollection) attach(t store.HeadTrackable) string {
+	id := uuid.Must(uuid.NewV4()).String()
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	a.sortedIDs = append(a.sortedIDs, id)
+	a.trackables[id] = t
+	return id
+}
+
+func (a *attachmentCollection) detach(id string) (store.HeadTrackable, bool) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	t, present := a.trackables[id]
+	if present {
+		a.sortedIDs = removeTrackableID(id, a.sortedIDs, t)
+		delete(a.trackables, id)
+		return t, true
+	}
+	return nil, false
+}
+
+// iter iterates over the collection in an ordered thread safe manner, invoking
+// the passed callback on each entry.
+func (a *attachmentCollection) iter(cb func(store.HeadTrackable)) {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	for _, id := range a.sortedIDs {
+		cb(a.trackables[id])
+	}
+}
+
+func removeTrackableID(id string, old []string, t store.HeadTrackable) []string {
+	idx := indexOf(id, old)
+	if idx == -1 {
+		logger.Panicf("invariant violated: id %s for %T exists in trackables but not in sortedIDs in attachmentCollection", id, t)
+	}
+	return append(old[:idx], old[idx+1:]...)
+}
+
+func indexOf(id string, arr []string) int {
+	for i, v := range arr {
+		if v == id {
+			return i
+		}
+	}
+	return -1
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -33,11 +34,12 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
+	require.True(t, manager.Connected())
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", hash)
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
@@ -74,11 +76,11 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	assert.NoError(t, err)
 	sentAt := uint64(23456)
 	ethMock := app.MockEthClient()
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x00")
 		ethMock.Register("eth_getTransactionCount", "0x10")
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
@@ -147,10 +149,10 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.RegisterError("eth_sendRawTransaction", "invalid transaction")
@@ -217,10 +219,10 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			ethMock := app.MockEthClient()
 
 			nonce1 := uint64(256)
-			ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+			ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
 			})
-			assert.NoError(t, app.Start())
+			assert.NoError(t, app.StartAndConnect())
 
 			sentAt := uint64(23456)
 			ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
@@ -270,10 +272,10 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	ethMock := app.MockEthClient()
 
 	nonce1 := uint64(256)
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	sentAt := uint64(23456)
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
@@ -298,6 +300,23 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+
+	assert.NoError(t, app.Start())
+
+	_, err = manager.CreateTx(to, data)
+	assert.Equal(t, strpkg.ErrPendingConnection, err)
+}
+
 func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 	t.Parallel()
 
@@ -305,7 +324,7 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", "0x0")
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	store := app.Store
 	config := store.Config
@@ -412,17 +431,19 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKeyStore()
 			defer cleanup()
+
 			store := app.Store
-			ethMock := app.MockEthClient()
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(store)
 			tx := cltest.CreateTxAndAttempt(store, from, sentAt1)
 			a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
+			ethMock := app.MockEthClient()
 			ethMock.Context("txm.MeetsMinConfirmations()", test.mockSetup)
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 
+			require.NoError(t, app.StartAndConnect())
 			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 			assert.Equal(t, test.wantConfirmed, confirmed)
 			cltest.AssertError(t, test.wantErrored, err)
@@ -430,17 +451,21 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 	}
 }
 
-func TestTxManager_Start(t *testing.T) {
+func TestTxManager_Register(t *testing.T) {
 	t.Parallel()
 
 	ethMock := &cltest.EthMock{}
-	txm := &strpkg.EthTxManager{
-		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
-	}
-	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
+	txm := store.NewEthTxManager(
+		&strpkg.EthClient{CallerSubscriber: ethMock},
+		store.NewConfig(),
+		nil,
+		nil,
+	)
 
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
-	assert.NoError(t, txm.Start([]accounts.Account{account}))
+	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
+	txm.Register([]accounts.Account{account})
+	txm.Connect(cltest.IndexableBlockNumber(1))
 	ethMock.EventuallyAllCalled(t)
 
 	aa := txm.NextActiveAccount()
@@ -452,9 +477,13 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	t.Parallel()
 
 	ethMock := &cltest.EthMock{}
-	txm := &strpkg.EthTxManager{
-		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
-	}
+	txm := store.NewEthTxManager(
+		&strpkg.EthClient{CallerSubscriber: ethMock},
+		store.NewConfig(),
+		nil,
+		nil,
+	)
+
 	accounts := []accounts.Account{
 		accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca001")},
 		accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca002")},
@@ -463,7 +492,8 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock.Register("eth_getTransactionCount", `0x1D0`)
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
 
-	assert.NoError(t, txm.Start(accounts))
+	txm.Register(accounts)
+	txm.Connect(cltest.IndexableBlockNumber(1))
 	ethMock.EventuallyAllCalled(t)
 
 	a0 := txm.NextActiveAccount()
@@ -482,14 +512,18 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethMock := &cltest.EthMock{}
-	txm := &strpkg.EthTxManager{
-		EthClient: &strpkg.EthClient{CallerSubscriber: ethMock},
-	}
+	txm := store.NewEthTxManager(
+		&strpkg.EthClient{CallerSubscriber: ethMock},
+		store.NewConfig(),
+		nil,
+		nil,
+	)
+
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	ma := strpkg.NewManagedAccount(account, 0)
 
 	ethMock.Register("eth_getTransactionCount", `0x2D1`)
-	assert.NoError(t, txm.ReloadNonce(ma))
+	assert.NoError(t, ma.ReloadNonce(txm))
 	ethMock.EventuallyAllCalled(t)
 
 	assert.Equal(t, account.Address, ma.Address)
@@ -512,10 +546,10 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 	sentAt := uint64(23456)
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	ethMock.Context("txm.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", hash)
@@ -544,10 +578,10 @@ func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 
 	nonce := uint64(256)
 	ethMock := app.MockEthClient()
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	wr := models.WithdrawalRequest{
 		DestinationAddress: cltest.NewAddress(),
@@ -620,7 +654,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		Hash:        hash,
 		BlockNumber: cltest.Int(sentAt),
 	}
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_blockNumber", "0x1")
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_sendRawTransaction", hash)
@@ -630,7 +664,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		ethMock.Register("eth_getBalance", mockedEthBalance)
 		ethMock.Register("eth_call", mockedLinkBalance)
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	confirmedTx, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
@@ -672,7 +706,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	customGasPrice := big.NewInt(1337)
 	customGasLimit := uint64(10009)

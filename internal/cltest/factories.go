@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -417,4 +418,12 @@ func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
 func EmptyCLIContext() *cli.Context {
 	set := flag.NewFlagSet("test", 0)
 	return cli.NewContext(nil, set, nil)
+}
+
+func CreateJobRunWithStatus(store *store.Store, j models.JobSpec, status models.RunStatus) models.JobRun {
+	initr := j.Initiators[0]
+	run := j.NewRun(initr)
+	run.Status = status
+	mustNotErr(store.SaveJobRun(&run))
+	return run
 }

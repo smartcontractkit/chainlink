@@ -3,7 +3,16 @@ package store
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink/store/models"
 )
+
+// HeadTrackable represents any object that wishes to respond to ethereum events,
+// after being attached to HeadTracker.
+type HeadTrackable interface {
+	Connect(*models.IndexableBlockNumber) error
+	Disconnect()
+	OnNewHead(*models.BlockHeader)
+}
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
 

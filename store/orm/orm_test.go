@@ -343,7 +343,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(one))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 
 	to := cltest.NewAddress()
 	_, err := manager.CreateTx(to, []byte{})

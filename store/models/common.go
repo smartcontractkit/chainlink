@@ -28,6 +28,8 @@ const (
 	RunStatusInProgress = RunStatus("in_progress")
 	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
 	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
+	// RunStatusPendingConnection states that the run is waiting on a connection to the block chain.
+	RunStatusPendingConnection = RunStatus("pending_connection")
 	// RunStatusPendingBridge is used for when a run is waiting on the completion
 	// of another event.
 	RunStatusPendingBridge = RunStatus("pending_bridge")
@@ -54,6 +56,11 @@ func (s RunStatus) PendingConfirmations() bool {
 	return s == RunStatusPendingConfirmations
 }
 
+// PendingConnection returns true if the status is pending_connection.
+func (s RunStatus) PendingConnection() bool {
+	return s == RunStatusPendingConnection
+}
+
 // PendingSleep returns true if the status is pending_sleep.
 func (s RunStatus) PendingSleep() bool {
 	return s == RunStatusPendingSleep
@@ -71,7 +78,7 @@ func (s RunStatus) Errored() bool {
 
 // Pending returns true if the status is pending external or confirmations.
 func (s RunStatus) Pending() bool {
-	return s.PendingBridge() || s.PendingConfirmations() || s.PendingSleep()
+	return s.PendingBridge() || s.PendingConfirmations() || s.PendingSleep() || s.PendingConnection()
 }
 
 // Finished returns true if the status is final and can't be changed.
