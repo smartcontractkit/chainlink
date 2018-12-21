@@ -244,6 +244,11 @@ func (c ConfigWhitelist) GetID() string {
 	return utils.NewBytes32ID()
 }
 
+// MarshalJSON returns the JSON data of the user viewable configuration parameters.
+func (c ConfigWhitelist) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.values)
+}
+
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
 func (c *ConfigWhitelist) SetID(value string) error {

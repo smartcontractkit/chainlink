@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
@@ -36,35 +37,35 @@ type Config struct {
 
 // configSchema records the schema of configuration at the type level
 type configSchema struct {
-	AllowOrigins             string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688" visible:"true"`
-	BridgeResponseURL        *url.URL        `env:"BRIDGE_RESPONSE_URL" visible:"true"`
-	ChainID                  uint64          `env:"ETH_CHAIN_ID" default:"0" visible:"true"`
-	ClientNodeURL            string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688" visible:"true"`
-	DatabaseTimeout          time.Duration   `env:"DATABASE_TIMEOUT" default:"500ms" visible:"true"`
-	Dev                      bool            `env:"CHAINLINK_DEV" default:"false" visible:"true"`
-	MaximumServiceDuration   time.Duration   `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
-	MinimumServiceDuration   time.Duration   `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
-	EthGasBumpThreshold      uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
-	EthGasBumpWei            *big.Int        `env:"ETH_GAS_BUMP_WEI" default:"5000000000" visible:"true"`
-	EthGasPriceDefault       *big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000" visible:"true"`
-	EthereumURL              string          `env:"ETH_URL" default:"ws://localhost:8546" visible:"true"`
-	JSONConsole              bool            `env:"JSON_CONSOLE" default:"false" visible:"true"`
-	LinkContractAddress      string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA" visible:"true"`
-	LogLevel                 LogLevel        `env:"LOG_LEVEL" default:"info" visible:"true"`
-	LogToDisk                bool            `env:"LOG_TO_DISK" default:"true" visible:"true"`
-	MinIncomingConfirmations uint64          `env:"MIN_INCOMING_CONFIRMATIONS" default:"0" visible:"true"`
-	MinOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12" visible:"true"`
-	MinimumContractPayment   *assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000" visible:"true"`
-	MinimumRequestExpiration uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
-	OracleContractAddress    *common.Address `env:"ORACLE_CONTRACT_ADDRESS" visible:"true"`
-	Port                     uint16          `env:"CHAINLINK_PORT" default:"6688" visible:"true"`
-	ReaperExpiration         time.Duration   `env:"REAPER_EXPIRATION" default:"240h" visible:"true"`
-	RootDir                  string          `env:"ROOT" default:"~/.chainlink" visible:"true"`
-	SessionTimeout           time.Duration   `env:"SESSION_TIMEOUT" default:"15m" visible:"true"`
-	TLSCertPath              string          `env:"TLS_CERT_PATH" `
-	TLSHost                  string          `env:"CHAINLINK_TLS_HOST" `
-	TLSKeyPath               string          `env:"TLS_KEY_PATH" `
-	TLSPort                  uint16          `env:"CHAINLINK_TLS_PORT" default:"6689" visible:"true"`
+	AllowOrigins             string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688" visible:"true"`
+	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL" visible:"true"`
+	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0" visible:"true"`
+	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688" visible:"true"`
+	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms" visible:"true"`
+	Dev                      bool           `env:"CHAINLINK_DEV" default:"false" visible:"true"`
+	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
+	MinimumServiceDuration   time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
+	EthGasBumpThreshold      uint64         `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
+	EthGasBumpWei            big.Int        `env:"ETH_GAS_BUMP_WEI" default:"5000000000" visible:"true"`
+	EthGasPriceDefault       big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000" visible:"true"`
+	EthereumURL              string         `env:"ETH_URL" default:"ws://localhost:8546" visible:"true"`
+	JSONConsole              bool           `env:"JSON_CONSOLE" default:"false" visible:"true"`
+	LinkContractAddress      string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA" visible:"true"`
+	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info" visible:"true"`
+	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true" visible:"true"`
+	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"0" visible:"true"`
+	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12" visible:"true"`
+	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000" visible:"true"`
+	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
+	OracleContractAddress    common.Address `env:"ORACLE_CONTRACT_ADDRESS" visible:"true"`
+	Port                     uint16         `env:"CHAINLINK_PORT" default:"6688" visible:"true"`
+	ReaperExpiration         time.Duration  `env:"REAPER_EXPIRATION" default:"240h" visible:"true"`
+	RootDir                  string         `env:"ROOT" default:"~/.chainlink" visible:"true"`
+	SessionTimeout           time.Duration  `env:"SESSION_TIMEOUT" default:"15m" visible:"true"`
+	TLSCertPath              string         `env:"TLS_CERT_PATH" `
+	TLSHost                  string         `env:"CHAINLINK_TLS_HOST" `
+	TLSKeyPath               string         `env:"TLS_KEY_PATH" `
+	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689" visible:"true"`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -104,6 +105,10 @@ func NewConfig() Config {
 
 // Set a specific configuration variable
 func (c Config) Set(name string, value interface{}) {
+	schemaT := reflect.TypeOf(configSchema{})
+	if _, ok := schemaT.FieldByName(name); !ok {
+		logger.Panicf("No configuration parameter for %s", name)
+	}
 	c.viper.Set(name, value)
 }
 
@@ -331,30 +336,46 @@ func (c Config) SessionOptions() sessions.Options {
 	}
 }
 
-func (c Config) defaultValue(name string) string {
+func (c Config) defaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(configSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
-		return item.Tag.Get("default")
+		return item.Tag.Lookup("default")
 	}
-	log.Panicf("Invariant violated, no field of name %s found", name)
-	return ""
+	log.Panicf("Invariant violated, no field of name %s found for defaultValue", name)
+	return "", false
+}
+
+func (c Config) zeroValue(name string) interface{} {
+	schemaT := reflect.TypeOf(configSchema{})
+	if item, ok := schemaT.FieldByName(name); ok {
+		return reflect.New(item.Type).Interface()
+	}
+	log.Panicf("Invariant violated, no field of name %s found for zeroValue", name)
+	return nil
 }
 
 func (c Config) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
 	str := c.viper.GetString(name)
-	var err error
-	v, err := parser(str)
-	if err != nil {
-		defaultValue := c.defaultValue(name)
+	defaultValue, hasDefault := c.defaultValue(name)
+	if str != "" {
+		v, err := parser(str)
+		if err == nil {
+			return v
+		}
 		logger.Errorw(
 			fmt.Sprintf("Invalid value provided for %s, falling back to default.", name),
 			"value", str,
 			"default", defaultValue,
 			"error", err)
-		v, err = parser(defaultValue)
-		if err != nil {
-			log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
-		}
+	}
+
+	if !hasDefault {
+		return c.zeroValue(name)
+	}
+
+	v, err := parser(defaultValue)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
 	}
 	return v
 }
@@ -414,10 +435,7 @@ func parsePort(str string) (interface{}, error) {
 }
 
 func parseURL(s string) (interface{}, error) {
-	if s == "" {
-		return new(url.URL), nil
-	}
-	return url.ParseRequestURI(s)
+	return url.Parse(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {

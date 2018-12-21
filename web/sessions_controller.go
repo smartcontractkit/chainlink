@@ -29,7 +29,6 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	} else if sid, err := sc.App.GetStore().CreateSession(sr); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else if err := saveSessionID(session, sid); err != nil {
-		fmt.Println("here")
 		c.AbortWithError(500, multierr.Append(errors.New("Unable to save session id"), err))
 	} else {
 		c.JSON(http.StatusOK, gin.H{"authenticated": true})

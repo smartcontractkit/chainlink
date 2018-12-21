@@ -21,7 +21,7 @@ func TestConfigController_Show(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	cfg := make(map[string]string)
+	cfg := make(map[string]interface{})
 	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &cfg))
 
 	assert.Equal(t, store.LogLevel{Level: -1}, cfg["logLevel"])

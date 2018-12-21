@@ -95,17 +95,17 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := store.NewConfig()
-	rawConfig.Set("BridgeResponseURL", WebURL("http://localhost:6688"))
+	rawConfig.Set("BridgeResponseURL", "http://localhost:6688")
 	rawConfig.Set("ChainID", 3)
 	rawConfig.Set("Dev", true)
 	rawConfig.Set("EthGasBumpThreshold", 3)
 	rawConfig.Set("LogLevel", store.LogLevel{Level: zapcore.DebugLevel})
-	rawConfig.Set("MinimumServiceDuration", MustParseDuration("24h"))
+	rawConfig.Set("MinimumServiceDuration", "24h")
 	rawConfig.Set("MinOutgoingConfirmations", 6)
 	rawConfig.Set("MinimumContractPayment", *minimumContractPayment)
 	rawConfig.Set("RootDir", rootdir)
-	rawConfig.Set("SecretGenerator", mockSecretGenerator{})
-	rawConfig.Set("SessionTimeout", MustParseDuration("2m"))
+	rawConfig.Set("SessionTimeout", "2m")
+	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{Config: rawConfig}
 	config.SetEthereumServer(wsserver)
 	return &config

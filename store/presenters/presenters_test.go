@@ -158,7 +158,7 @@ func TestBridgeType_MarshalJSON(t *testing.T) {
 		Confirmations:          0,
 		IncomingToken:          "123",
 		OutgoingToken:          "abc",
-		MinimumContractPayment: assets.NewLink(0),
+		MinimumContractPayment: *assets.NewLink(0),
 	}
 	bt := presenters.BridgeType{BridgeType: input}
 	output, err := bt.MarshalJSON()
