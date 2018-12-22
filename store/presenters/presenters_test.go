@@ -203,5 +203,5 @@ func TestPresenter_NewConfigWhitelist_Error(t *testing.T) {
 
 	cw, err := presenters.NewConfigWhitelist(store)
 	assert.Error(t, err)
-	assert.Equal(t, cw.String(), "")
+	assert.Equal(t, "", cw.AccountAddress)
 }
