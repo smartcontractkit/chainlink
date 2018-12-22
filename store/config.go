@@ -7,16 +7,17 @@ import (
 	"log"
 	"math/big"
 	"net/url"
+	"os"
 	"path"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -35,8 +36,8 @@ type Config struct {
 	SecretGenerator SecretGenerator
 }
 
-// configSchema records the schema of configuration at the type level
-type configSchema struct {
+// ConfigSchema records the schema of configuration at the type level
+type ConfigSchema struct {
 	AllowOrigins             string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688" visible:"true"`
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL" visible:"true"`
 	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0" visible:"true"`
@@ -73,39 +74,28 @@ type configSchema struct {
 func NewConfig() Config {
 	v := viper.New()
 
-	schemaT := reflect.TypeOf(configSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		v.SetDefault(item.Name, item.Tag.Get("default"))
 		v.BindEnv(item.Name, item.Tag.Get("env"))
 	}
-	dir, err := homedir.Expand(config.RootDir)
-	if err != nil {
-		log.Fatal(fmt.Errorf(`error expanding $HOME in "%s": %+v`, config.RootDir, err))
-	}
-	if err = os.MkdirAll(dir, os.FileMode(0700)); err != nil {
-		log.Fatal(fmt.Errorf(`error creating "%s": %+v`, dir, err))
 
-	//if err := parseEnv(&config); err != nil {
-	//	log.Fatal(fmt.Errorf("error parsing environment: %+v", err))
-	//}
-	//dir, err := homedir.Expand(config.RootDir())
-	//if err != nil {
-	//		log.Fatal(fmt.Errorf("error expanding $HOME: %+v", err))
-	//	}
-	//	if err = os.MkdirAll(dir, os.FileMode(0700)); err != nil {
-	//		log.Fatal(fmt.Errorf("error creating %s: %+v", dir, err))
-	//	}
-	// config.RootDir = dir
-	return Config{
+	config := Config{
 		viper:           v,
 		SecretGenerator: filePersistedSecretGenerator{},
 	}
+
+	if err := os.MkdirAll(config.RootDir(), os.FileMode(0700)); err != nil {
+		log.Fatal(fmt.Errorf(`error creating "%s": %+v`, config.RootDir(), err))
+	}
+
+	return config
 }
 
 // Set a specific configuration variable
 func (c Config) Set(name string, value interface{}) {
-	schemaT := reflect.TypeOf(configSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	if _, ok := schemaT.FieldByName(name); !ok {
 		logger.Panicf("No configuration parameter for %s", name)
 	}
@@ -116,7 +106,7 @@ func (c Config) Set(name string, value interface{}) {
 // the visible:"true" tag.
 func (c Config) GetVisibleValues() map[string]string {
 	values := make(map[string]string)
-	schemaT := reflect.TypeOf(configSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		if item.Tag.Get("visible") == "true" {
@@ -256,7 +246,7 @@ func (c Config) ReaperExpiration() time.Duration {
 // RootDir represents the location on the file system where Chainlink should
 // keep its files.
 func (c Config) RootDir() string {
-	return c.viper.GetString("RootDir")
+	return c.getWithFallback("RootDir", parseHomeDir).(string)
 }
 
 // SessionTimeout FIXME:
@@ -337,7 +327,7 @@ func (c Config) SessionOptions() sessions.Options {
 }
 
 func (c Config) defaultValue(name string) (string, bool) {
-	schemaT := reflect.TypeOf(configSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
 		return item.Tag.Lookup("default")
 	}
@@ -346,7 +336,7 @@ func (c Config) defaultValue(name string) (string, bool) {
 }
 
 func (c Config) zeroValue(name string) interface{} {
-	schemaT := reflect.TypeOf(configSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
 		return reflect.New(item.Type).Interface()
 	}
@@ -444,6 +434,10 @@ func parseBigInt(str string) (interface{}, error) {
 		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
 	}
 	return i, nil
+}
+
+func parseHomeDir(str string) (interface{}, error) {
+	return homedir.Expand(str)
 }
 
 // LogLevel determines the verbosity of the events to be logged.

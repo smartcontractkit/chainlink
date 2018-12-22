@@ -102,7 +102,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rawConfig.Set("LogLevel", store.LogLevel{Level: zapcore.DebugLevel})
 	rawConfig.Set("MinimumServiceDuration", "24h")
 	rawConfig.Set("MinOutgoingConfirmations", 6)
-	rawConfig.Set("MinimumContractPayment", *minimumContractPayment)
+	rawConfig.Set("MinimumContractPayment", minimumContractPayment.Text(10))
 	rawConfig.Set("RootDir", rootdir)
 	rawConfig.Set("SessionTimeout", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
