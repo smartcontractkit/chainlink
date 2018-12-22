@@ -48,9 +48,9 @@ func TestSessionsController_Create(t *testing.T) {
 			defer resp.Body.Close()
 
 			if test.wantSession {
-				assert.Equal(t, 200, resp.StatusCode)
+				require.Equal(t, 200, resp.StatusCode)
 				cookies := resp.Cookies()
-				assert.Equal(t, 1, len(cookies))
+				require.Equal(t, 1, len(cookies))
 				decrypted, err := cltest.DecodeSessionCookie(cookies[0].Value)
 				require.NoError(t, err)
 				user, err := app.Store.AuthorizedUserWithSession(decrypted)
@@ -61,7 +61,7 @@ func TestSessionsController_Create(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, `{"authenticated":true}`, string(b))
 			} else {
-				assert.True(t, resp.StatusCode >= 400, "Should not be able to create session")
+				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				var sessions []models.Session
 				err = app.Store.All(&sessions)
 				assert.NoError(t, err)
