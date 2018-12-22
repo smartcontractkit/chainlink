@@ -2,7 +2,7 @@ import { eth } from '../../../../solidity/test/support/helpers'
 
 export const getLatestTimestamp = async () => {
   const latestBlock = await eth.getBlock('latest', false)
-  return web3.toDecimal(latestBlock.timestamp)
+  return web3.utils.toDecimal(latestBlock.timestamp)
 }
 
 const sendEth = (method, params) => (

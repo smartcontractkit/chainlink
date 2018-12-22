@@ -6,6 +6,7 @@ import {
   deploy,
   getEvents,
   getLatestEvent,
+  linkContract,
   toHexWithoutPrefix,
   toWei,
   increaseTime5Minutes
@@ -17,7 +18,7 @@ contract('ConcreteChainlinked', () => {
   let cc, gs, oc, newoc, link
 
   beforeEach(async () => {
-    link = await deploy('LinkToken.sol')
+    link = await linkContract()
     oc = await deploy('Oracle.sol', link.address)
     newoc = await deploy('Oracle.sol', link.address)
     gs = await deploy('examples/GetterSetter.sol')
