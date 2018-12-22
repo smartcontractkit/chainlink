@@ -46,7 +46,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	assert.Nil(t, client.GetJobSpecs(cltest.EmptyCLIContext()))
+	require.Nil(t, client.GetJobSpecs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
 	assert.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
@@ -97,8 +97,8 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID})
 	c := cli.NewContext(nil, set, nil)
-	assert.Nil(t, client.ShowJobSpec(c))
-	assert.Equal(t, 1, len(r.Renders))
+	require.Nil(t, client.ShowJobSpec(c))
+	require.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, job.ID, r.Renders[0].(*presenters.JobSpec).ID)
 }
 
@@ -302,9 +302,9 @@ func TestClient_GetBridges(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	assert.Nil(t, client.GetBridges(cltest.EmptyCLIContext()))
+	require.Nil(t, client.GetBridges(cltest.EmptyCLIContext()))
 	bridges := *r.Renders[0].(*[]models.BridgeType)
-	assert.Equal(t, 2, len(bridges))
+	require.Equal(t, 2, len(bridges))
 	assert.Equal(t, bt1.Name, bridges[0].Name)
 }
 
@@ -323,8 +323,8 @@ func TestClient_ShowBridge(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
-	assert.Nil(t, client.ShowBridge(c))
-	assert.Equal(t, 1, len(r.Renders))
+	require.Nil(t, client.ShowBridge(c))
+	require.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
@@ -343,8 +343,8 @@ func TestClient_RemoveBridge(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
-	assert.Nil(t, client.RemoveBridge(c))
-	assert.Equal(t, 1, len(r.Renders))
+	require.Nil(t, client.RemoveBridge(c))
+	require.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
