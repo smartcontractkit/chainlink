@@ -39,3 +39,7 @@ Please see the other examples in the repo, and take care to
 identify the difference between an `HttpPost` task and a bridge to an external
 adapter. The latter allows an asynchronous response from a service to
 then potentially write back to the chain.
+
+## Development
+
+To run the tests, call `./node_modules/.bin/truffle --network=test test`

@@ -7,33 +7,35 @@ import {
 } from './support/helpers'
 import {
   assertActionThrows,
+  bigNum,
   eth,
+  deploy,
   functionSelector,
-  getEvents,
   getLatestEvent,
+  linkContract,
   oracleNode,
   requestDataBytes,
-  requestDataFrom
+  requestDataFrom,
+  toWei,
 } from '../../../solidity/test/support/helpers'
 import { assertBigNum } from '../../../solidity/test/support/matchers'
 
 contract('UptimeSLA', () => {
-  let Link = artifacts.require('LinkToken')
   let Oracle = artifacts.require('Oracle')
   let SLA = artifacts.require('UptimeSLA')
-  let specId = '4c7b7ffb66b344fbaa64995af81e355a'
+  let specId = '0x4c7b7ffb66b344fbaa64995af81e355a'
   let deposit = 1000000000
   let link, oc, sla, client, serviceProvider, startAt
 
   beforeEach(async () => {
     client = "0xf000000000000000000000000000000000000001"
     serviceProvider = "0xf000000000000000000000000000000000000002"
-    link = await Link.new()
+    link = await linkContract()
     oc = await Oracle.new(link.address, {from: oracleNode})
     sla = await SLA.new(client, serviceProvider, link.address, oc.address, specId, {
       value: deposit
     })
-    link.transfer(sla.address, web3.toWei(1, 'ether'))
+    link.transfer(sla.address, toWei('1', 'ether'))
     startAt = await getLatestTimestamp()
   })
 
@@ -49,13 +51,12 @@ contract('UptimeSLA', () => {
     it("triggers a log event in the Oracle contract", async () => {
       const tx = await sla.updateUptime("0")
 
-      const events = await getEvents(oc)
+      const events = await oc.getPastEvents('allEvents')
       assert.equal(1, events.length)
+      assert.equal(events[0].args.specId,
+                   specId + '00000000000000000000000000000000')
 
-      const event = events[0]
-      assert.equal(web3.toUtf8(event.args.specId), specId)
-
-      const decoded = cbor.decodeFirstSync(util.toBuffer(event.args.data))
+      const decoded = cbor.decodeFirstSync(util.toBuffer(events[0].args.data))
       assert.deepEqual(
         decoded,
         {'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation']}
@@ -69,7 +70,8 @@ contract('UptimeSLA', () => {
 
     beforeEach(async () => {
       await sla.updateUptime('0')
-      const event = await getLatestEvent(oc)
+      const events = await oc.getPastEvents('allEvents')
+      const event = events[events.length - 1]
       requestId = event.args.requestId
     })
 
@@ -119,10 +121,10 @@ contract('UptimeSLA', () => {
     context('when the consumer does not recognize the request ID', () => {
       beforeEach(async () => {
         let fid = functionSelector("report(uint256,bytes32)")
-        let args = requestDataBytes(specId, sla.address, fid, "xid", "")
+        let args = requestDataBytes(specId, sla.address, fid, "xid", "foo")
         await requestDataFrom(oc, link, 0, args)
-        let event = await getLatestEvent(oc)
-        requestId = event.args.requestId
+        const events = await oc.getPastEvents('allEvents')
+        requestId = events[events.length - 1].args.requestId
       })
 
       it("does not accept the data provided", async () => {
@@ -130,7 +132,7 @@ contract('UptimeSLA', () => {
         await oc.fulfillData(requestId, response, {from: oracleNode})
         let newUptime = await sla.uptime()
 
-        assert.isTrue(originalUptime.equals(newUptime))
+        assertBigNum(originalUptime, newUptime)
       })
     })
 

@@ -6,12 +6,15 @@ contract('Oracle', () => {
   const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
   const specId = '4c7b7ffb66b344fbaa64995af81e355a'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link, oc
+  let link, oc, withdraw
 
   beforeEach(async () => {
-    link = await h.deploy('link_token/contracts/LinkToken.sol')
+    link = await h.linkContract()
     oc = await h.deploy(sourcePath, link.address)
-    await oc.setFulfillmentPermission(h.oracleNode, true, { from: h.defaultAccount })
+    await oc.setFulfillmentPermission(
+      h.oracleNode, true, { from: h.defaultAccount })
+    withdraw = async (address, amount, options) => oc.withdraw(
+      address, amount.toString(), options)
   })
 
   it('has a limited public interface', () => {
@@ -88,7 +91,7 @@ contract('Oracle', () => {
 
     context('malicious requester', () => {
       let mock, requester
-      const paymentAmount = web3.toWei('1', 'ether')
+      const paymentAmount = h.toWei('1', 'ether')
 
       beforeEach(async () => {
         mock = await h.deploy('examples/MaliciousRequester.sol', link.address, oc.address)
@@ -163,9 +166,10 @@ contract('Oracle', () => {
       it('logs an event', async () => {
         assert.equal(oc.address, log.address)
 
-        assert.equal(specId, web3.toUtf8(log.topics[1]))
-        assert.equal(h.defaultAccount, web3.toDecimal(log.topics[2]))
-        assert.equal(paid, web3.toDecimal(log.topics[3]))
+        assert.equal(specId, h.toUtf8(log.topics[1]))
+        assert.equal(h.defaultAccount.toString().toLowerCase(),
+                     '0x' + h.bigNum(log.topics[2]).toString('hex'))
+        assertBigNum(paid, log.topics[3])
       })
 
       it('uses the expected event signature', async () => {
@@ -204,13 +208,13 @@ contract('Oracle', () => {
 
   describe('#fulfillData', () => {
     let mock, requestId
-    const paymentAmount = web3.toWei(1)
+    const paymentAmount = h.toWei(1)
     let currency = 'USD'
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
         mock = await h.deploy('examples/BasicConsumer.sol', link.address, oc.address, specId)
-        await link.transfer(mock.address, web3.toWei('1', 'ether'))
+        await link.transfer(mock.address, paymentAmount)
         await mock.requestEthereumPrice(currency)
         let event = await h.getLatestEvent(oc)
         requestId = event.args.requestId
@@ -237,7 +241,7 @@ contract('Oracle', () => {
           await oc.fulfillData(requestId, 'Hello World!', { from: h.oracleNode })
 
           let currentValue = await mock.currentPrice.call()
-          assert.equal('Hello World!', web3.toUtf8(currentValue))
+          assert.equal('Hello World!', h.toUtf8(currentValue))
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
@@ -254,7 +258,8 @@ contract('Oracle', () => {
         const defaultGasLimit = 500000
 
         beforeEach(async () => {
-          assertBigNum(h.bigNum(0), await oc.withdrawable.call())
+          assertBigNum(0, await oc.withdrawable.call(),
+                       "Oracle should initially have zero balance.")
         })
 
         it('does not allow the oracle to withdraw the payment', async () => {
@@ -265,18 +270,18 @@ contract('Oracle', () => {
             })
           })
 
-          assertBigNum(h.bigNum(0), await oc.withdrawable.call())
+          assertBigNum(0, await oc.withdrawable.call(),
+                       "Oracle was paid despite inadequatel gas for fulfillment")
         })
 
         it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
-          assertBigNum(h.bigNum(0), await oc.withdrawable.call())
-
           await oc.fulfillData(requestId, 'Hello World!', {
             from: h.oracleNode,
             gas: defaultGasLimit
           })
 
-          assertBigNum(h.bigNum(paymentAmount), await oc.withdrawable.call())
+          assertBigNum(paymentAmount, await oc.withdrawable.call(),
+                       "No payment for oracle despite adequate gas for fulfillment")
         })
       })
     })
@@ -306,7 +311,7 @@ contract('Oracle', () => {
           const req = await mock.maliciousPrice(specId)
           const log = req.receipt.logs[3]
 
-          assert.equal(web3.toWei(1), web3.toDecimal(log.topics[3]))
+          assert(h.toWei(1).eq(h.bigNum(log.topics[3])))
         })
       })
     })
@@ -332,9 +337,9 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
+          await withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
-          assert.isTrue(paymentAmount.equals(newBalance))
+          assertBigNum(paymentAmount, newBalance, "Oracle did not receive payment")
         })
 
         it("can't fulfill the data again", async () => {
@@ -359,9 +364,9 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
+          await withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
-          assert.isTrue(paymentAmount.equals(newBalance))
+          assertBigNum(paymentAmount, newBalance, "Oracle did not receive payment")
         })
       })
 
@@ -384,9 +389,9 @@ contract('Oracle', () => {
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
 
-          await oc.withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
+          await withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
-          assert.isTrue(paymentAmount.equals(newBalance))
+          assertBigNum(paymentAmount, newBalance, "Oracle did not receive payment")
         })
 
         it("can't fulfill the data again", async () => {
@@ -404,8 +409,7 @@ contract('Oracle', () => {
           requestId = events[0].args.requestId
 
           await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
-          const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
-          assert.equal(mockBalance, 0)
+          assertBigNum(0, await web3.eth.getBalance(mock.address))
         })
 
         it('is not successful with send', async () => {
@@ -414,8 +418,7 @@ contract('Oracle', () => {
           requestId = events[0].args.requestId
 
           await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
-          const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
-          assert.equal(mockBalance, 0)
+          assertBigNum(0, await web3.eth.getBalance(mock.address))
         })
 
         it('is not successful with transfer', async () => {
@@ -424,8 +427,7 @@ contract('Oracle', () => {
           requestId = events[0].args.requestId
 
           await oc.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
-          const mockBalance = web3.fromWei(web3.eth.getBalance(mock.address))
-          assert.equal(mockBalance, 0)
+          assertBigNum(0, await web3.eth.getBalance(mock.address))
         })
       })
     })
@@ -437,7 +439,7 @@ contract('Oracle', () => {
         let balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
         await h.assertActionThrows(async () => {
-          await oc.withdraw(h.oracleNode, h.toWei(1), { from: h.defaultAccount })
+          await withdraw(h.oracleNode, h.toWei(1), { from: h.defaultAccount })
         })
         balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
@@ -459,7 +461,7 @@ contract('Oracle', () => {
       context('but not freeing funds w fulfillData', () => {
         it('does not transfer funds', async () => {
           await h.assertActionThrows(async () => {
-            await oc.withdraw(h.oracleNode, amount, { from: h.defaultAccount })
+            await withdraw(h.oracleNode, amount, { from: h.defaultAccount })
           })
           let balance = await link.balanceOf(h.oracleNode)
           assert.equal(0, balance)
@@ -478,7 +480,7 @@ contract('Oracle', () => {
 
           assert.isAbove(withdrawAmount, originalOracleBalance.toNumber())
           await h.assertActionThrows(async () => {
-            await oc.withdraw(h.stranger, withdrawAmount, { from: h.defaultAccount })
+            await withdraw(h.stranger, withdrawAmount, { from: h.defaultAccount })
           })
 
           let newOracleBalance = await link.balanceOf(oc.address)
@@ -491,7 +493,7 @@ contract('Oracle', () => {
         it('allows transfer of partial balance by owner to specified address', async () => {
           let partialAmount = 6
           let difference = amount - partialAmount
-          await oc.withdraw(h.stranger, partialAmount, { from: h.defaultAccount })
+          await withdraw(h.stranger, partialAmount, { from: h.defaultAccount })
           let strangerBalance = await link.balanceOf(h.stranger)
           let oracleBalance = await link.balanceOf(oc.address)
           assert.equal(partialAmount, strangerBalance)
@@ -499,14 +501,14 @@ contract('Oracle', () => {
         })
 
         it('allows transfer of entire balance by owner to specified address', async () => {
-          await oc.withdraw(h.stranger, amount, { from: h.defaultAccount })
+          await withdraw(h.stranger, amount, { from: h.defaultAccount })
           let balance = await link.balanceOf(h.stranger)
           assert.equal(amount, balance)
         })
 
         it('does not allow a transfer of funds by non-owner', async () => {
           await h.assertActionThrows(async () => {
-            await oc.withdraw(h.stranger, amount, { from: h.stranger })
+            await withdraw(h.stranger, amount, { from: h.stranger })
           })
           let balance = await link.balanceOf(h.stranger)
           assert.equal(0, balance)
@@ -519,7 +521,7 @@ contract('Oracle', () => {
     let internalId, amount
 
     beforeEach(async () => {
-      amount = web3.toWei('1', 'ether')
+      amount = h.toWei(1, 'ether').toString()
       const mock = await h.deploy('examples/GetterSetter.sol')
       const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
       const tx = await h.requestDataFrom(oc, link, amount, args)
@@ -530,7 +532,8 @@ contract('Oracle', () => {
 
     it('returns the correct value', async () => {
       const withdrawAmount = await oc.withdrawable.call()
-      assert.equal(withdrawAmount.toNumber(), amount)
+      assertBigNum(withdrawAmount, amount,
+                   "Oracle reports the wrong withdrawable amount")
     })
   })
 
@@ -555,7 +558,8 @@ contract('Oracle', () => {
         await link.transfer(h.consumer, startingBalance)
 
         let args = h.requestDataBytes(specId, h.consumer, fHash, 1, '')
-        tx = await link.transferAndCall(oc.address, requestAmount, args, { from: h.consumer })
+        tx = await link.transferAndCall(
+          oc.address, requestAmount, args, { from: h.consumer })
         assert.equal(3, tx.receipt.logs.length)
         requestId = h.runRequestId(tx.receipt.logs[2])
       })

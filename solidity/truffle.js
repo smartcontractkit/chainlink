@@ -2,7 +2,12 @@ require('babel-register');
 require('babel-polyfill');
 
 module.exports = {
-  network: "test",
+  network: "development",
+  compilers: {
+    solc: {
+      version: "0.4.24",
+    }
+  },
   networks: {
     development: {
       host: "127.0.0.1",

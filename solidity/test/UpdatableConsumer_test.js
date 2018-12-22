@@ -1,14 +1,6 @@
-import {
-  assertActionThrows,
-  defaultAccount,
-  deploy,
-  getLatestEvent,
-  increaseTime5Minutes,
-  oracleNode,
-  toWei
-} from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import * as h from './support/helpers'
 import namehash from 'eth-ens-namehash'
+import { assertBigNum } from './support/matchers'
 
 contract('UpdatableConsumer', () => {
   const sourcePath = 'examples/UpdatableConsumer.sol'
@@ -22,32 +14,33 @@ contract('UpdatableConsumer', () => {
   const tokenSubnode = namehash.hash(`${tokenSubdomain}.${domain}.${tld}`)
   const oracleSubdomain = 'oracle'
   const oracleSubnode = namehash.hash(`${oracleSubdomain}.${domain}.${tld}`)
-  const specId = web3.sha3('someSpecID')
+  const specId = h.keccack('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
   let ens, ensResolver, link, oc, uc
 
   beforeEach(async () => {
-    link = await deploy('LinkToken.sol')
-    oc = await deploy('Oracle.sol', link.address)
-    await oc.transferOwnership(oracleNode, {from: defaultAccount})
-    ens = await deploy('ENSRegistry.sol')
-    ensResolver = await deploy('PublicResolver.sol', ens.address)
+    link = await h.linkContract()
+    oc = await h.deploy('Oracle.sol', link.address)
+    await oc.transferOwnership(h.oracleNode, {from: h.defaultAccount})
+    ens = await h.deploy('ENSRegistry.sol')
+    ensResolver = await h.deploy('PublicResolver.sol', ens.address)
 
     // register tld
-    await ens.setSubnodeOwner(ensRoot, web3.sha3(tld), defaultAccount)
+    await ens.setSubnodeOwner(ensRoot, h.keccack(tld), h.defaultAccount)
     // register domain
-    await ens.setSubnodeOwner(tldSubnode, web3.sha3(domain), oracleNode)
-    await ens.setResolver(domainSubnode, ensResolver.address, {from: oracleNode})
+    await ens.setSubnodeOwner(tldSubnode, h.keccack(domain), h.oracleNode)
+    await ens.setResolver(domainSubnode, ensResolver.address, {from: h.oracleNode})
     // register token subdomain to point to token contract
-    await ens.setSubnodeOwner(domainSubnode, web3.sha3(tokenSubdomain), oracleNode, {from: oracleNode})
-    await ensResolver.setAddr(tokenSubnode, link.address, {from: oracleNode})
+    await ens.setSubnodeOwner(domainSubnode, h.keccack(tokenSubdomain), h.oracleNode, {from: h.oracleNode})
+    await ensResolver.setAddr(tokenSubnode, link.address, {from: h.oracleNode})
     // register oracle subdomain to point to oracle contract
-    await ens.setSubnodeOwner(domainSubnode, web3.sha3(oracleSubdomain), oracleNode, {from: oracleNode})
-    await ensResolver.setAddr(oracleSubnode, oc.address, {from: oracleNode})
+    await ens.setSubnodeOwner(domainSubnode, h.keccack(oracleSubdomain),
+                              h.oracleNode, {from: h.oracleNode})
+    await ensResolver.setAddr(oracleSubnode, oc.address, {from: h.oracleNode})
 
     // deploy updatable consumer contract
-    uc = await deploy(sourcePath, specId, ens.address, domainSubnode)
+    uc = await h.deploy(sourcePath, specId, ens.address, domainSubnode)
   })
 
   describe('constructor', () => {
@@ -63,7 +56,7 @@ contract('UpdatableConsumer', () => {
   describe('#updateOracle', () => {
     describe('when the ENS resolver has been updated', () => {
       beforeEach(async () => {
-        await ensResolver.setAddr(oracleSubnode, newOracleAddress, {from: oracleNode})
+        await ensResolver.setAddr(oracleSubnode, newOracleAddress, {from: h.oracleNode})
       })
 
       it("updates the contract's oracle address", async () => {
@@ -85,55 +78,58 @@ contract('UpdatableConsumer', () => {
   describe('#fulfillData', () => {
     const response = '1,000,000.00'
     const currency = 'USD'
+    const paymentAmount = h.toWei(1, 'ether')
     let internalId, requestId
 
     beforeEach(async () => {
-      await link.transfer(uc.address, web3.toWei('1', 'ether'))
+      await link.transfer(uc.address, paymentAmount)
       await uc.requestEthereumPrice(currency)
-      const event = await getLatestEvent(oc)
+      const event = await h.getLatestEvent(oc)
       internalId = event.args.requestId
 
-      const event2 = await getLatestEvent(uc)
+      const event2 = await h.getLatestEvent(uc)
       requestId = event2.args.id
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oc.fulfillData(internalId, response, {from: oracleNode})
+      await oc.fulfillData(internalId, response, {from: h.oracleNode})
 
       const currentPrice = await uc.currentPrice.call()
-      assert.equal(web3.toUtf8(currentPrice), response)
+      assert.equal(h.toUtf8(currentPrice), response)
     })
 
     context('when the oracle address is updated before a request is fulfilled', () => {
       beforeEach(async () => {
-        await ensResolver.setAddr(oracleSubnode, newOracleAddress, {from: oracleNode})
+        await ensResolver.setAddr(oracleSubnode, newOracleAddress, {from: h.oracleNode})
         await uc.updateOracle()
         assert.equal(newOracleAddress, await uc.getOracle.call())
       })
 
       it('records the data given to it by the old oracle contract', async () => {
-        await oc.fulfillData(internalId, response, {from: oracleNode})
+        await oc.fulfillData(internalId, response, {from: h.oracleNode})
 
         const currentPrice = await uc.currentPrice.call()
-        assert.equal(web3.toUtf8(currentPrice), response)
+        assert.equal(h.toUtf8(currentPrice), response)
       })
 
       it('does not accept responses from the new oracle for the old requests', async () => {
-        await assertActionThrows(async () => {
-          await uc.fulfill(requestId, response, {from: oracleNode})
+        await h.assertActionThrows(async () => {
+          await uc.fulfill(requestId, response, {from: h.oracleNode})
         })
 
         const currentPrice = await uc.currentPrice.call()
-        assert.equal(web3.toUtf8(currentPrice), '')
+        assert.equal(h.toUtf8(currentPrice), '')
       })
 
       it('still allows funds to be withdrawn from the oracle', async () => {
-        await increaseTime5Minutes()
-        assertBigNum(toWei(0), await link.balanceOf.call(uc.address))
+        await h.increaseTime5Minutes()
+        assertBigNum(0, await link.balanceOf.call(uc.address),
+                    "Initial balance should be 0")
 
         await uc.cancelRequest(requestId)
 
-        assertBigNum(toWei(1), await link.balanceOf.call(uc.address))
+        assertBigNum(paymentAmount, await link.balanceOf.call(uc.address),
+                    "Oracle should have been repaid on cancellation.")
       })
     })
   })

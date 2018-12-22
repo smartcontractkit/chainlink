@@ -1,4 +1,4 @@
-FROM smartcontract/builder:1.0.8
+FROM smartcontract/builder:1.0.15
 
 # Create the project working directory in the full GOPATH
 RUN mkdir -p /go/src/github.com/smartcontractkit/chainlink/
