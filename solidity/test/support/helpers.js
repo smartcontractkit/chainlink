@@ -83,7 +83,7 @@ assertBigNum(toWei("1"), toWei(1),
 
 export const toUtf8 = web3.utils.toUtf8
 
-export const keccack = web3.utils.sha3
+export const keccak = web3.utils.sha3
 
 export const hexToInt = string => bigNum(string).toNumber()
 
@@ -125,7 +125,7 @@ export const requestDataFrom = (oc, link, amount, args, options) => {
 }
 
 export const functionSelector = signature =>
-  '0x' + keccack(signature).slice(2).slice(0, 8)
+  '0x' + keccak(signature).slice(2).slice(0, 8)
 
 export const assertActionThrows = action => (
   Promise
