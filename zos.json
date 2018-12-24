@@ -1,0 +1,8 @@
+{
+  "zosversion": "2",
+  "name": "github:smartcontractkit/chainlink",
+  "version": "0.1.0",
+  "contracts": {
+    "Chainlinked": "Chainlinked"
+  }
+}

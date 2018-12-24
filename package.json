@@ -103,7 +103,8 @@
   "files": [
     "/tools/sa_requester/bin",
     "/tools/sa_requester/lib",
-    "/solidity"
+    "/solidity",
+    "/zos.json"
   ],
   "standard": {
     "parser": "babel-eslint",
