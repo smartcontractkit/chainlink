@@ -14,7 +14,7 @@ contract('UpdatableConsumer', () => {
   const tokenSubnode = namehash.hash(`${tokenSubdomain}.${domain}.${tld}`)
   const oracleSubdomain = 'oracle'
   const oracleSubnode = namehash.hash(`${oracleSubdomain}.${domain}.${tld}`)
-  const specId = h.keccack('someSpecID')
+  const specId = h.keccak('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
   let ens, ensResolver, link, oc, uc
@@ -27,15 +27,15 @@ contract('UpdatableConsumer', () => {
     ensResolver = await h.deploy('PublicResolver.sol', ens.address)
 
     // register tld
-    await ens.setSubnodeOwner(ensRoot, h.keccack(tld), h.defaultAccount)
+    await ens.setSubnodeOwner(ensRoot, h.keccak(tld), h.defaultAccount)
     // register domain
-    await ens.setSubnodeOwner(tldSubnode, h.keccack(domain), h.oracleNode)
+    await ens.setSubnodeOwner(tldSubnode, h.keccak(domain), h.oracleNode)
     await ens.setResolver(domainSubnode, ensResolver.address, {from: h.oracleNode})
     // register token subdomain to point to token contract
-    await ens.setSubnodeOwner(domainSubnode, h.keccack(tokenSubdomain), h.oracleNode, {from: h.oracleNode})
+    await ens.setSubnodeOwner(domainSubnode, h.keccak(tokenSubdomain), h.oracleNode, {from: h.oracleNode})
     await ensResolver.setAddr(tokenSubnode, link.address, {from: h.oracleNode})
     // register oracle subdomain to point to oracle contract
-    await ens.setSubnodeOwner(domainSubnode, h.keccack(oracleSubdomain),
+    await ens.setSubnodeOwner(domainSubnode, h.keccak(oracleSubdomain),
                               h.oracleNode, {from: h.oracleNode})
     await ensResolver.setAddr(oracleSubnode, oc.address, {from: h.oracleNode})
 
