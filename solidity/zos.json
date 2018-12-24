@@ -1,8 +1,1 @@
-{
-  "zosversion": "2",
-  "name": "chainlinked",
-  "version": "0.1.0",
-  "contracts": {
-    "Chainlinked": "Chainlinked"
-  }
-}
+../zos.json
