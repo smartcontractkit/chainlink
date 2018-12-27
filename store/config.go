@@ -131,7 +131,7 @@ func (c Config) ChainID() uint64 {
 	return uint64(c.viper.GetInt64("ChainID"))
 }
 
-// ClientNodeURL is ... FIXME:
+// ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c Config) ClientNodeURL() string {
 	return c.viper.GetString("ClientNodeURL")
 }
@@ -228,7 +228,7 @@ func (c Config) MinimumContractPayment() *assets.Link {
 	return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
 }
 
-// MinimumRequestExpiration FIXME:
+// MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
 	return uint64(c.viper.GetInt64("MinimumRequestExpiration"))
 }
@@ -249,7 +249,7 @@ func (c Config) RootDir() string {
 	return c.getWithFallback("RootDir", parseHomeDir).(string)
 }
 
-// SessionTimeout FIXME:
+// SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() time.Duration {
 	return c.viper.GetDuration("SessionTimeout")
 }
