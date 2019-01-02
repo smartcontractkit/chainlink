@@ -3,10 +3,10 @@ package web
 import (
 	"errors"
 
-	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // SnapshotsController manages Snapshot requests.
@@ -20,7 +20,7 @@ type SnapshotsController struct {
 func (sc *SnapshotsController) CreateSnapshot(c *gin.Context) {
 	id := c.Param("AID")
 
-	if j, err := sc.App.GetStore().FindJob(id); err == storm.ErrNotFound {
+	if j, err := sc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
@@ -37,7 +37,7 @@ func (sc *SnapshotsController) CreateSnapshot(c *gin.Context) {
 func (sc *SnapshotsController) ShowSnapshot(c *gin.Context) {
 	id := c.Param("ID")
 
-	if jr, err := sc.App.GetStore().FindJobRun(id); err == storm.ErrNotFound {
+	if jr, err := sc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)

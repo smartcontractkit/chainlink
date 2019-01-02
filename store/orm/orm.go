@@ -23,6 +23,8 @@ var (
 	ErrorInvalidCallbackSignature = errors.New("AllInBatches callback has incorrect function signature, must return bool")
 	// ErrorInvalidCallbackModel is returned in AllInBatches if the model and bucket do not match types.
 	ErrorInvalidCallbackModel = errors.New("AllInBatches callback has incorrect model, must match bucket")
+	// ErrorNotFound is returned when finding a single value fails.
+	ErrorNotFound = storm.ErrNotFound
 )
 
 // ORM contains the database object used by Chainlink.
@@ -56,7 +58,7 @@ func (orm *ORM) GetBolt() *bolt.DB {
 // Where fetches multiple objects with "Find" in Storm.
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
 	err := orm.Find(field, value, instance)
-	if err == storm.ErrNotFound {
+	if err == ErrorNotFound {
 		emptySlice(instance)
 		return nil
 	}
@@ -136,7 +138,7 @@ func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
 func (orm *ORM) JobRunsFor(jobID string) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
 	err := orm.Find("JobID", jobID, &runs) // Use Find to leverage db index
-	if err == storm.ErrNotFound {
+	if err == ErrorNotFound {
 		return []models.JobRun{}, nil
 	}
 	sort.Sort(jobRunSorterAscending(runs))
@@ -209,7 +211,7 @@ func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
 func (orm *ORM) JobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
 	err := orm.Select(q.In("Status", statuses)).Find(&runs)
-	if err == storm.ErrNotFound {
+	if err == ErrorNotFound {
 		return []models.JobRun{}, nil
 	}
 
@@ -328,7 +330,7 @@ func (orm *ORM) AddAttempt(
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	var transactions []models.Tx
 	query := orm.Select(q.Eq("From", address))
-	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == storm.ErrNotFound {
+	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == ErrorNotFound {
 		return 0, nil
 	} else if err != nil {
 		return 0, err
@@ -370,7 +372,7 @@ func (orm *ORM) FindUser() (models.User, error) {
 	}
 
 	if len(users) == 0 {
-		return models.User{}, storm.ErrNotFound
+		return models.User{}, ErrorNotFound
 	}
 
 	return users[0], nil

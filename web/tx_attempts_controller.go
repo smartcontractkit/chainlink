@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // TxAttemptsController lists TxAttempts requests.
@@ -24,10 +25,10 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 	}
 
 	var attempts []models.TxAttempt
-	query, count, countErr := getTxAttempts(tac.App.GetStore(), size, offset)
-	if countErr != nil {
+	query, count, err := getTxAttempts(tac.App.GetStore(), size, offset)
+	if err != nil {
 		c.AbortWithError(500, err)
-	} else if err := query.Find(&attempts); err == storm.ErrNotFound {
+	} else if err := query.Find(&attempts); err == orm.ErrorNotFound {
 		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged TxAttempts: %+v", err))
@@ -39,7 +40,7 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 }
 
 func getTxAttempts(store *store.Store, size int, offset int) (storm.Query, int, error) {
-	count, countErr := store.Count(&models.TxAttempt{})
+	count, err := store.Count(&models.TxAttempt{})
 	query := store.Select().OrderBy("SentAt").Reverse().Limit(size).Skip(offset)
-	return query, count, countErr
+	return query, count, err
 }

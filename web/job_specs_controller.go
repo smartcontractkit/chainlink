@@ -10,6 +10,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
@@ -81,7 +82,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Show(c *gin.Context) {
 	id := c.Param("SpecID")
-	if j, err := jsc.App.GetStore().FindJob(id); err == storm.ErrNotFound {
+	if j, err := jsc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("JobSpec not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)

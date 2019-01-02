@@ -3,10 +3,10 @@ package services
 import (
 	"time"
 
-	"github.com/asdine/storm"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 type storeReaper struct {
@@ -27,7 +27,7 @@ func (sr *storeReaper) Work() {
 	offset := time.Now().Add(-sr.config.ReaperExpiration()).Add(-sr.config.SessionTimeout())
 	stale := models.Time{offset}
 	err := sr.store.Range("LastUsed", models.Time{}, stale, &sessions)
-	if err != nil && err != storm.ErrNotFound {
+	if err != nil && err != orm.ErrorNotFound {
 		logger.Error("unable to reap stale sessions: ", err)
 		return
 	}

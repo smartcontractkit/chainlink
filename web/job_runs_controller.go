@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -49,7 +50,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	var runs []models.JobRun
 	if countErr != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
-	} else if err := query.Find(&runs); err == storm.ErrNotFound {
+	} else if err := query.Find(&runs); err == orm.ErrorNotFound {
 		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
@@ -80,7 +81,7 @@ func runsForJob(jobID string, store *store.Store, size int, offset int) (query s
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("SpecID")
 
-	if j, err := jrc.App.GetStore().FindJob(id); err == storm.ErrNotFound {
+	if j, err := jrc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
 		c.AbortWithError(404, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
@@ -110,7 +111,7 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Show(c *gin.Context) {
 	id := c.Param("RunID")
-	if jr, err := jrc.App.GetStore().FindJobRun(id); err == storm.ErrNotFound {
+	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
 		c.AbortWithError(404, errors.New("Job Run not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
@@ -128,7 +129,7 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
 	var brr models.BridgeRunResult
-	if jr, err := jrc.App.GetStore().FindJobRun(id); err == storm.ErrNotFound {
+	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
 		c.AbortWithError(404, errors.New("Job Run not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
