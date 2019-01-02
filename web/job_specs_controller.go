@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/asdine/storm"
-	"github.com/asdine/storm/index"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
@@ -29,20 +27,16 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 		return
 	}
 
-	var order func(opts *index.Options)
+	var order orm.SortType
 	if c.Query("sort") == "-createdAt" {
-		order = storm.Reverse()
+		order = orm.Descending
 	} else {
-		order = func(opts *index.Options) {}
+		order = orm.Ascending
 	}
 
-	skip := storm.Skip(offset)
-	limit := storm.Limit(size)
-
-	var jobs []models.JobSpec
 	if count, err := jsc.App.GetStore().Count(&models.JobSpec{}); err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobSpec: %+v", err))
-	} else if err := jsc.App.GetStore().AllByIndex("CreatedAt", &jobs, order, skip, limit); err != nil {
+	} else if jobs, err := jsc.App.GetStore().SortedJobs(order, offset, size); err != nil {
 		c.AbortWithError(500, fmt.Errorf("erorr fetching All JobSpecs: %+v", err))
 	} else {
 		pjs := make([]presenters.JobSpec, len(jobs))
