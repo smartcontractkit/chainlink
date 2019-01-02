@@ -129,8 +129,4 @@ func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 	return json.Marshal(anon)
 }
 
-var zeroURL *url.URL
-
-func init() {
-	zeroURL = new(url.URL)
-}
+var zeroURL = new(url.URL)
