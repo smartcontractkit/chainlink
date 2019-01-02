@@ -520,3 +520,20 @@ func underlyingBucketType(bucket interface{}) reflect.Type {
 	elemType := sliceType.Elem()
 	return elemType
 }
+
+func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
+	var sessions []models.Session
+	err := orm.Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
+	if err != nil && err != ErrorNotFound {
+		return err
+	}
+
+	for _, s := range sessions {
+		err := orm.DeleteStruct(&s)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
