@@ -3,10 +3,10 @@ package forms_test
 import (
 	"testing"
 
-	"github.com/asdine/storm"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/forms"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +20,7 @@ func TestFormsNewUpdateBridgeType(t *testing.T) {
 	assert.Nil(t, s.Save(&bt))
 
 	_, err := forms.NewUpdateBridgeType(s, "idontexist")
-	assert.Equal(t, err, storm.ErrNotFound)
+	assert.Equal(t, err, orm.ErrorNotFound)
 
 	_, err = forms.NewUpdateBridgeType(s, "bridgea")
 	assert.NoError(t, err)

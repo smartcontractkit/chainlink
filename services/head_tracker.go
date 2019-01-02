@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdine/storm"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tevino/abool"
@@ -267,7 +267,7 @@ func (ht *HeadTracker) fastForwardHeadFromEth() {
 func (ht *HeadTracker) updateHeadFromDb() error {
 	numbers := []models.IndexableBlockNumber{}
 	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
-	if err != nil && err != storm.ErrNotFound {
+	if err != nil && err != orm.ErrorNotFound {
 		return err
 	}
 	if len(numbers) > 0 {

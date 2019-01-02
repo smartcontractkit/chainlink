@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/forms"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
@@ -70,7 +71,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 // Show returns the details of a specific Bridge.
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
-	if bt, err := btc.App.GetStore().FindBridge(name); err == storm.ErrNotFound {
+	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
@@ -86,7 +87,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	bn := c.Param("BridgeName")
 	form, err := forms.NewUpdateBridgeType(btc.App.GetStore(), bn)
 
-	if err == storm.ErrNotFound {
+	if err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("bridge name not found"))
 		return
 	}
@@ -110,7 +111,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 // Destroy removes a specific Bridge.
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
-	if bt, err := btc.App.GetStore().FindBridge(name); err == storm.ErrNotFound {
+	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))

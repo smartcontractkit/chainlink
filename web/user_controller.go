@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -35,7 +35,7 @@ func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 func (c *UserController) clearNonCurrentSessions(sessionID string) error {
 	var sessions []models.Session
 	err := c.App.GetStore().Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
-	if err != nil && err != storm.ErrNotFound {
+	if err != nil && err != orm.ErrorNotFound {
 		return err
 	}
 

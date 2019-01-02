@@ -3,10 +3,10 @@ package web
 import (
 	"errors"
 
-	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
@@ -40,7 +40,7 @@ func (ac *AssignmentsController) Create(c *gin.Context) {
 func (ac *AssignmentsController) Show(c *gin.Context) {
 	id := c.Param("ID")
 
-	if j, err := ac.App.GetStore().FindJob(id); err == storm.ErrNotFound {
+	if j, err := ac.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("ID not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
