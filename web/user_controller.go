@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -13,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -32,23 +30,6 @@ func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 	return sessionID, nil
 }
 
-func (c *UserController) clearNonCurrentSessions(sessionID string) error {
-	var sessions []models.Session
-	err := c.App.GetStore().Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
-	if err != nil && err != orm.ErrorNotFound {
-		return err
-	}
-
-	for _, s := range sessions {
-		err := c.App.GetStore().DeleteStruct(&s)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *UserController) saveNewPassword(user *models.User, newPassword string) error {
 	hashedPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
@@ -61,7 +42,7 @@ func (c *UserController) saveNewPassword(user *models.User, newPassword string) 
 func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {
 	if sessionID, err := c.getCurrentSessionID(ctx); err != nil {
 		return err
-	} else if err := c.clearNonCurrentSessions(sessionID); err != nil {
+	} else if err := c.App.GetStore().ClearNonCurrentSessions(sessionID); err != nil {
 		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
 	} else if err := c.saveNewPassword(user, newPassword); err != nil {
 		return fmt.Errorf("failed to update current user password: %+v", err)
