@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/index"
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -521,6 +522,7 @@ func underlyingBucketType(bucket interface{}) reflect.Type {
 	return elemType
 }
 
+// ClearNonCurrentSessions removes all sessions but the id passed in.
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	var sessions []models.Session
 	err := orm.Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
@@ -536,4 +538,30 @@ func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	}
 
 	return nil
+}
+
+// SortType defines the different sort orders available.
+type SortType int
+
+const (
+	// Ascending is the sort order going up, i.e. 1,2,3.
+	Ascending SortType = iota
+	// Descending is the sort order going down, i.e. 3,2,1.
+	Descending
+)
+
+// SortedJobs returns many JobSpecs sorted by CreatedAt from the store adhering
+// to the passed parameters.
+func (orm *ORM) SortedJobs(order SortType, offset int, limit int) ([]models.JobSpec, error) {
+	stormOrder := func(opts *index.Options) {}
+	if order == Descending {
+		stormOrder = storm.Reverse()
+	}
+
+	stormOffset := storm.Skip(offset)
+	stormLimit := storm.Limit(limit)
+
+	var jobs []models.JobSpec
+	err := orm.AllByIndex("CreatedAt", &jobs, stormOrder, stormOffset, stormLimit)
+	return jobs, err
 }
