@@ -38,35 +38,35 @@ type Config struct {
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
-	AllowOrigins             string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688" visible:"true"`
-	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL" visible:"true"`
-	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0" visible:"true"`
-	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688" visible:"true"`
-	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms" visible:"true"`
-	Dev                      bool           `env:"CHAINLINK_DEV" default:"false" visible:"true"`
+	AllowOrigins             string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
+	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`
+	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
+	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
+	Dev                      bool           `env:"CHAINLINK_DEV" default:"false"`
 	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration   time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold      uint64         `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
-	EthGasBumpWei            big.Int        `env:"ETH_GAS_BUMP_WEI" default:"5000000000" visible:"true"`
-	EthGasPriceDefault       big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000" visible:"true"`
-	EthereumURL              string         `env:"ETH_URL" default:"ws://localhost:8546" visible:"true"`
-	JSONConsole              bool           `env:"JSON_CONSOLE" default:"false" visible:"true"`
-	LinkContractAddress      string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA" visible:"true"`
-	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info" visible:"true"`
-	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true" visible:"true"`
-	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"0" visible:"true"`
-	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12" visible:"true"`
-	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000" visible:"true"`
+	EthGasBumpWei            big.Int        `env:"ETH_GAS_BUMP_WEI" default:"5000000000"`
+	EthGasPriceDefault       big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
+	EthereumURL              string         `env:"ETH_URL" default:"ws://localhost:8546"`
+	JSONConsole              bool           `env:"JSON_CONSOLE" default:"false"`
+	LinkContractAddress      string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
+	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true"`
+	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"0"`
+	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
+	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
-	OracleContractAddress    common.Address `env:"ORACLE_CONTRACT_ADDRESS" visible:"true"`
-	Port                     uint16         `env:"CHAINLINK_PORT" default:"6688" visible:"true"`
-	ReaperExpiration         time.Duration  `env:"REAPER_EXPIRATION" default:"240h" visible:"true"`
-	RootDir                  string         `env:"ROOT" default:"~/.chainlink" visible:"true"`
-	SessionTimeout           time.Duration  `env:"SESSION_TIMEOUT" default:"15m" visible:"true"`
+	OracleContractAddress    common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
+	Port                     uint16         `env:"CHAINLINK_PORT" default:"6688"`
+	ReaperExpiration         time.Duration  `env:"REAPER_EXPIRATION" default:"240h"`
+	RootDir                  string         `env:"ROOT" default:"~/.chainlink"`
+	SessionTimeout           time.Duration  `env:"SESSION_TIMEOUT" default:"15m"`
 	TLSCertPath              string         `env:"TLS_CERT_PATH" `
 	TLSHost                  string         `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath               string         `env:"TLS_KEY_PATH" `
-	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689" visible:"true"`
+	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
 }
 
 // NewConfig returns the config with the environment variables set to their
@@ -100,20 +100,6 @@ func (c Config) Set(name string, value interface{}) {
 		logger.Panicf("No configuration parameter for %s", name)
 	}
 	c.viper.Set(name, value)
-}
-
-// GetVisibleValues returns the value of all displayable values as annotated by
-// the visible:"true" tag.
-func (c Config) GetVisibleValues() map[string]string {
-	values := make(map[string]string)
-	schemaT := reflect.TypeOf(ConfigSchema{})
-	for index := 0; index < schemaT.NumField(); index++ {
-		item := schemaT.FieldByIndex([]int{index})
-		if item.Tag.Get("visible") == "true" {
-			values[item.Tag.Get("env")] = c.viper.GetString(item.Name)
-		}
-	}
-	return values
 }
 
 // AllowOrigins returns the CORS hosts used by the frontend.
