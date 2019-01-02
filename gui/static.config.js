@@ -32,9 +32,9 @@ export default {
         path: '/config',
         getData: () => buildInfo
       },
-      { path: '/signin' },
-      { path: '/signout' },
-      { is404: true, component: 'src/containers/404' }
+      {path: '/signin'},
+      {path: '/signout'},
+      {path: '404', component: 'src/containers/404'}
     ]
   },
   renderToHtml: (render, Comp, meta) => {

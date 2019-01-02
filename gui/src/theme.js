@@ -15,8 +15,8 @@ export default {
       main: '#3d5170'
     },
     success: {
-      light: green.A100,
-      main: green.A700,
+      light: green['A100'],
+      main: green['A700'],
       dark: green['700'],
       contrastText: common.white
     },

@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { useHooks, useState } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
-import { Link } from 'react-static'
+import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import ReactResizeDetector from 'react-resize-detector'
@@ -132,7 +132,7 @@ const Header = useHooks(props => {
       color='default'
       position='absolute'
     >
-      <ReactResizeDetector handleHeight onResize={props.onResize}>
+    {/* !FIXME! RESIZE DETECTOR  */}
         <LoadingBar fetchCount={fetchCount} />
 
         <Toolbar className={classes.toolbar}>
@@ -158,7 +158,6 @@ const Header = useHooks(props => {
             </Grid>
           </Grid>
         </Toolbar>
-      </ReactResizeDetector>
       <Portal container={props.drawerContainer}>
         {drawer}
       </Portal>

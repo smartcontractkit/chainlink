@@ -13,10 +13,8 @@ promiseFinally.shim(Promise)
 window.JavascriptTimeAgo = JavascriptTimeAgo
 JavascriptTimeAgo.locale(en)
 
-// Export top level component as JSX (for static rendering)
 export default App
 
-// Render app
 if (typeof document !== 'undefined') {
   const renderMethod = module.hot ? ReactDOM.render : ReactDOM.hydrate
   const muiTheme = createMuiTheme(theme)
@@ -28,7 +26,9 @@ if (typeof document !== 'undefined') {
       </MuiThemeProvider>,
       document.getElementById('root')
     )
-  }
+}
 
   render(App)
+  // Hot Module Replacement
+  if (module.hot) module.hot.accept('./App', () => render(require('./App').default))
 }

@@ -1,4 +1,4 @@
 {
-  "extends": "react-static/.babelrc",
-  "presets": ["stage-2"]
+  "presets": ["react-static/babel-preset.js"],
+  "plugins": ["transform-es3-member-expression-literals", "babel-plugin-transform-es3-property-literals"]
 }

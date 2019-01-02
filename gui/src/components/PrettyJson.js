@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import jsonPrettyHtml from 'json-pretty-html'
-import './PrettyJson.css'
+// import './PrettyJson.css' // !FIXME!
 
 const PrettyJson = ({ object }) => <div dangerouslySetInnerHTML={{ __html: jsonPrettyHtml(object) }} />
 
