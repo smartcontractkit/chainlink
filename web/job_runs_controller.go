@@ -40,9 +40,9 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	var runs []models.JobRun
 	var count int
 	if id == "" {
-		runs, count, err = store.SortedJobRuns(order, offset, size)
+		runs, count, err = store.JobRunsSorted(order, offset, size)
 	} else {
-		runs, count, err = store.SortedJobRunsFor(id, order, offset, size)
+		runs, count, err = store.JobRunsSortedFor(id, order, offset, size)
 	}
 
 	if err == orm.ErrorNotFound {

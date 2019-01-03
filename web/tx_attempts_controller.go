@@ -21,7 +21,7 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 		return
 	}
 
-	attempts, count, err := tac.App.GetStore().GetTxAttempts(offset, size)
+	attempts, count, err := tac.App.GetStore().TxAttempts(offset, size)
 	if err == orm.ErrorNotFound {
 		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {

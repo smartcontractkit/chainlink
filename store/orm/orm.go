@@ -559,9 +559,9 @@ func stormOrder(st SortType) func(*index.Options) {
 	return so
 }
 
-// SortedJobs returns many JobSpecs sorted by CreatedAt from the store adhering
+// JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering
 // to the passed parameters.
-func (orm *ORM) SortedJobs(order SortType, offset int, limit int) ([]models.JobSpec, error) {
+func (orm *ORM) JobsSorted(order SortType, offset int, limit int) ([]models.JobSpec, error) {
 	stormOffset := storm.Skip(offset)
 	stormLimit := storm.Limit(limit)
 
@@ -570,8 +570,8 @@ func (orm *ORM) SortedJobs(order SortType, offset int, limit int) ([]models.JobS
 	return jobs, err
 }
 
-// GetTxAttempts returns the last tx attempts sorted by sent at descending.
-func (orm *ORM) GetTxAttempts(offset int, limit int) ([]models.TxAttempt, int, error) {
+// TxAttempts returns the last tx attempts sorted by sent at descending.
+func (orm *ORM) TxAttempts(offset int, limit int) ([]models.TxAttempt, int, error) {
 	var attempts []models.TxAttempt
 	count, err := orm.Count(&models.TxAttempt{})
 	if err != nil {
@@ -587,8 +587,8 @@ func (orm *ORM) JobRunsCount() (int, error) {
 	return orm.Count(&models.JobRun{})
 }
 
-// SortedJobRuns returns job runs ordered and filtered by the passed params.
-func (orm *ORM) SortedJobRuns(order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+// JobRunsSorted returns job runs ordered and filtered by the passed params.
+func (orm *ORM) JobRunsSorted(order SortType, offset int, limit int) ([]models.JobRun, int, error) {
 	count, err := orm.JobRunsCount()
 	if err != nil {
 		return nil, 0, err
@@ -604,9 +604,9 @@ func (orm *ORM) SortedJobRuns(order SortType, offset int, limit int) ([]models.J
 	return runs, count, err
 }
 
-// SortedJobRunsFor returns job runs for a specific job spec ordered and
+// JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) SortedJobRunsFor(id string, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
 	count, err := orm.JobRunsCountFor(id)
 	if err != nil {
 		return nil, 0, err
