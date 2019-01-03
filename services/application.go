@@ -163,7 +163,7 @@ func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
 		return models.NewValidationError(err.Error())
 	}
 
-	if err := store.Save(bt); err != nil {
+	if err := store.SaveBridgeType(bt); err != nil {
 		return models.NewDatabaseAccessError(err.Error())
 	}
 
