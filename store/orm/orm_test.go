@@ -363,7 +363,7 @@ func TestORM_MarkRan(t *testing.T) {
 	defer cleanup()
 
 	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
-	assert.NoError(t, store.Save(&initr))
+	assert.NoError(t, store.SaveInitiator(&initr))
 
 	assert.NoError(t, store.MarkRan(&initr))
 	var ir models.Initiator
