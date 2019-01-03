@@ -550,19 +550,22 @@ const (
 	Descending
 )
 
+func stormOrder(st SortType) func(*index.Options) {
+	so := func(opts *index.Options) {}
+	if st == Descending {
+		so = storm.Reverse()
+	}
+	return so
+}
+
 // SortedJobs returns many JobSpecs sorted by CreatedAt from the store adhering
 // to the passed parameters.
 func (orm *ORM) SortedJobs(order SortType, offset int, limit int) ([]models.JobSpec, error) {
-	stormOrder := func(opts *index.Options) {}
-	if order == Descending {
-		stormOrder = storm.Reverse()
-	}
-
 	stormOffset := storm.Skip(offset)
 	stormLimit := storm.Limit(limit)
 
 	var jobs []models.JobSpec
-	err := orm.AllByIndex("CreatedAt", &jobs, stormOrder, stormOffset, stormLimit)
+	err := orm.AllByIndex("CreatedAt", &jobs, stormOrder(order), stormOffset, stormLimit)
 	return jobs, err
 }
 
@@ -576,4 +579,39 @@ func (orm *ORM) GetTxAttempts(offset int, limit int) ([]models.TxAttempt, int, e
 	query := orm.Select().OrderBy("SentAt").Reverse().Limit(limit).Skip(offset)
 	err = query.Find(&attempts)
 	return attempts, count, err
+}
+
+// SortedJobRuns returns job runs ordered and filtered by the passed params.
+func (orm *ORM) SortedJobRuns(order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+	count, err := orm.Count(&models.JobRun{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := orm.Select().OrderBy("CreatedAt").Limit(limit).Skip(offset)
+	if order == Descending {
+		query = query.Reverse()
+	}
+
+	var runs []models.JobRun
+	err = query.Find(&runs)
+	return runs, count, err
+}
+
+// SortedJobRunsFor returns job runs for a specific job spec ordered and
+// filtered by the passed params.
+func (orm *ORM) SortedJobRunsFor(id string, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+	count, err := orm.JobRunsCountFor(id)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := orm.Select(q.Eq("JobID", id)).OrderBy("CreatedAt").Limit(limit).Skip(offset)
+	if order == Descending {
+		query = query.Reverse()
+	}
+
+	var runs []models.JobRun
+	err = query.Find(&runs)
+	return runs, count, err
 }
