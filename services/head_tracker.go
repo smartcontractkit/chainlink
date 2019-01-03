@@ -112,7 +112,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		ht.head = &copy
 	}
 	ht.headMutex.Unlock()
-	return ht.store.Save(n)
+	return ht.store.SaveHead(n)
 }
 
 // Head returns the latest block header being tracked, or nil.

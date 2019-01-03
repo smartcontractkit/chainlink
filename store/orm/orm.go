@@ -653,3 +653,8 @@ func (orm *ORM) SaveTx(tx *models.Tx) error {
 func (orm *ORM) SaveInitiator(initr *models.Initiator) error {
 	return orm.Save(initr)
 }
+
+// SaveHead saves the indexable block number related to head tracker.
+func (orm *ORM) SaveHead(n *models.IndexableBlockNumber) error {
+	return orm.Save(n)
+}
