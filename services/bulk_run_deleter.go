@@ -51,7 +51,7 @@ func RunPendingTask(orm *orm.ORM, task *models.BulkDeleteRunTask) error {
 	} else {
 		task.Status = models.BulkTaskStatusCompleted
 	}
-	return orm.Save(task)
+	return orm.DB.Save(task)
 }
 
 // DeleteJobRuns removes runs that match a query

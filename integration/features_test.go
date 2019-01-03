@@ -573,7 +573,7 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 	completedRun := job.NewRun(initiator)
 	completedRun.Status = models.RunStatusCompleted
 	completedRun.UpdatedAt = cltest.ParseISO8601("2018-11-02T10:14:18Z")
-	err := app.GetStore().ORM.Save(&completedRun)
+	err := app.GetStore().ORM.DB.Save(&completedRun)
 	assert.NoError(t, err)
 
 	client := app.NewHTTPClient()

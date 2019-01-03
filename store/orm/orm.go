@@ -14,6 +14,7 @@ import (
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	bolt "go.etcd.io/bbolt"
@@ -112,7 +113,7 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	run.UpdatedAt = time.Now()
-	return orm.Save(run)
+	return orm.DB.Save(run)
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -258,7 +259,7 @@ func (orm *ORM) CreateTx(
 		Value:    value,
 		GasLimit: gasLimit,
 	}
-	return &tx, orm.Save(&tx)
+	return &tx, orm.DB.Save(&tx)
 }
 
 // ConfirmTx updates the database for the given transaction to
@@ -396,7 +397,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 		return models.User{}, errors.New("Session has expired")
 	}
 	session.LastUsed = models.Time{Time: now}
-	if err := orm.Save(&session); err != nil {
+	if err := orm.DB.Save(&session); err != nil {
 		return models.User{}, err
 	}
 	return orm.FindUser()
@@ -450,7 +451,7 @@ func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 
 	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
 		session := models.NewSession()
-		return session.ID, orm.Save(&session)
+		return session.ID, orm.DB.Save(&session)
 	}
 	return "", errors.New("Invalid password")
 }
@@ -631,30 +632,36 @@ func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, er
 
 // SaveUser saves the user.
 func (orm *ORM) SaveUser(user *models.User) error {
-	return orm.Save(user)
+	return orm.DB.Save(user)
 }
 
 // SaveSession saves the session.
 func (orm *ORM) SaveSession(session *models.Session) error {
-	return orm.Save(session)
+	return orm.DB.Save(session)
 }
 
 // SaveBridgeType saves the bridge type.
 func (orm *ORM) SaveBridgeType(bt *models.BridgeType) error {
-	return orm.Save(bt)
+	return orm.DB.Save(bt)
 }
 
 // SaveTx saves the transaction.
 func (orm *ORM) SaveTx(tx *models.Tx) error {
-	return orm.Save(tx)
+	return orm.DB.Save(tx)
 }
 
 // SaveInitiator saves the initiator.
 func (orm *ORM) SaveInitiator(initr *models.Initiator) error {
-	return orm.Save(initr)
+	return orm.DB.Save(initr)
 }
 
 // SaveHead saves the indexable block number related to head tracker.
 func (orm *ORM) SaveHead(n *models.IndexableBlockNumber) error {
-	return orm.Save(n)
+	return orm.DB.Save(n)
+}
+
+// Save operation that panics to enforce the use of model specific saves.
+func (orm *ORM) Save(data interface{}) error {
+	logger.Panic("Direct saves are not allowed, use orm's model specific save")
+	return nil
 }

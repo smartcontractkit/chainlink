@@ -57,7 +57,7 @@ func Migrate(orm *orm.ORM) error {
 			if err != nil {
 				return err
 			}
-			err = orm.Save(&MigrationTimestamp{ts})
+			err = orm.DB.Save(&MigrationTimestamp{ts})
 			if err != nil {
 				return err
 			}
