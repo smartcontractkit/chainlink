@@ -18,8 +18,6 @@
   },
   "dependencies": {
     "@ensdomains/ens": "^0.1.1",
-    "change-case": "^3.0.2",
-    "formik": "^1.0.3",
     "link_token": "^1.0.1",
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
@@ -37,6 +35,7 @@
     "babel-register": "^6.26.0",
     "bignumber.js": "^8.0.1",
     "cbor": "^4.1.1",
+    "change-case": "^3.0.2",
     "console.table": "^0.10.0",
     "enzyme": "^3.4.4",
     "enzyme-adapter-react-16": "^1.2.0",
@@ -49,6 +48,7 @@
     "ethereumjs-wallet": "^0.6.2",
     "ethjs": "^0.4.0",
     "fetch-mock": "^7.2.5",
+    "formik": "^1.0.3",
     "ganache-cli": "beta",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
