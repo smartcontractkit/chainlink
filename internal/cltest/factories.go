@@ -128,7 +128,7 @@ func CreateTxAndAttempt(
 	sentAt uint64,
 ) *models.Tx {
 	tx := NewTx(from, sentAt)
-	mustNotErr(store.Save(tx))
+	mustNotErr(store.SaveTx(tx))
 	_, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	mustNotErr(err)
 	return tx

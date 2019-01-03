@@ -224,7 +224,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
-	assert.Nil(t, store.Save(tx))
+	assert.Nil(t, store.SaveTx(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
@@ -263,7 +263,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
-	assert.Nil(t, store.Save(tx))
+	assert.Nil(t, store.SaveTx(tx))
 	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
@@ -303,7 +303,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
-	assert.Nil(t, store.Save(tx))
+	assert.Nil(t, store.SaveTx(tx))
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
