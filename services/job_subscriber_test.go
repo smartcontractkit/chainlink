@@ -176,7 +176,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			job, initr := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(initr)
 			run = run.ApplyResult(models.RunResult{Status: test.status})
-			assert.Nil(t, store.Save(&run))
+			assert.Nil(t, store.SaveJobRun(&run))
 
 			js.OnNewHead(block)
 			if test.wantSend {

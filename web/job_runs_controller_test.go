@@ -114,17 +114,17 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 	runA := j1.NewRun(initr)
 	runA.ID = "runA"
 	runA.CreatedAt = now.Add(-2 * time.Second)
-	assert.Nil(t, app.Store.Save(&runA))
+	assert.Nil(t, app.Store.SaveJobRun(&runA))
 
 	runB := j1.NewRun(initr)
 	runB.ID = "runB"
 	runB.CreatedAt = now.Add(-time.Second)
-	assert.Nil(t, app.Store.Save(&runB))
+	assert.Nil(t, app.Store.SaveJobRun(&runB))
 
 	runC := j2.NewRun(initr)
 	runC.ID = "runC"
 	runC.CreatedAt = now
-	assert.Nil(t, app.Store.Save(&runC))
+	assert.Nil(t, app.Store.SaveJobRun(&runC))
 
 	return &runA, &runB, &runC
 }
@@ -212,7 +212,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
@@ -243,7 +243,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + "wrongaccesstoken"}
@@ -267,7 +267,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := j.NewRun(initr)
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
@@ -289,7 +289,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
@@ -318,7 +318,7 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
@@ -347,7 +347,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprint(`{`, jr.ID)
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
@@ -370,7 +370,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.Save(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID+"1", bytes.NewBufferString(body))
@@ -393,7 +393,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 
 	jr := j.NewRun(initr)
 	jr.ID = "jobrun1"
-	assert.Nil(t, app.Store.Save(&jr))
+	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	resp, cleanup := client.Get("/v2/runs/" + jr.ID)
 	defer cleanup()

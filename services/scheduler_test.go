@@ -117,8 +117,8 @@ func TestRecurring_AddJob(t *testing.T) {
 			assert.Equal(t, test.wantEntries, len(cron.Entries))
 
 			cron.RunEntries()
-			jobRuns := []models.JobRun{}
-			assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+			jobRuns, err := store.JobRunsFor(j.ID)
+			assert.NoError(t, err)
 			assert.Equal(t, test.wantRuns, len(jobRuns))
 		})
 	}
@@ -167,9 +167,9 @@ func TestOneTime_AddJob(t *testing.T) {
 			ot.AddJob(j)
 
 			gomega.NewGomegaWithT(t).Eventually(func() bool {
-				jobRuns := []models.JobRun{}
 				completed := false
-				assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+				jobRuns, err := store.JobRunsFor(j.ID)
+				assert.NoError(t, err)
 				if (len(jobRuns) > 0) && (jobRuns[0].Status == models.RunStatusCompleted) {
 					completed = true
 				}
@@ -204,8 +204,8 @@ func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return finished.IsSet()
 	}).Should(gomega.Equal(true))
-	jobRuns := []models.JobRun{}
-	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	jobRuns, err := store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobRuns))
 }
 
@@ -233,8 +233,8 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return finished.IsSet()
 	}).Should(gomega.Equal(true))
-	jobRuns := []models.JobRun{}
-	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	jobRuns, err := store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(jobRuns))
 }
 
@@ -264,8 +264,8 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 
 	ot.RunJobAt(initrs2[0], j2)
 
-	jobRuns := []models.JobRun{}
-	assert.Nil(t, store.Where("JobID", j.ID, &jobRuns))
+	jobRuns, err := store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(jobRuns))
 }
 
