@@ -210,7 +210,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -241,7 +241,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -265,7 +265,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := j.NewRun(initr)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -287,7 +287,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -315,7 +315,7 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
@@ -345,7 +345,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -368,7 +368,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	assert.Nil(t, app.Store.Save(&bt))
 	j, initr := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.Save(&j))
+	assert.Nil(t, app.Store.SaveJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 

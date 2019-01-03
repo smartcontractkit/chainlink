@@ -25,7 +25,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	j.Initiators = []models.Initiator{i}
 	json := fmt.Sprintf(`{"until":"%v"}`, utils.ISO8601UTC(time.Now().Add(time.Second)))
 	j.Tasks = []models.TaskSpec{cltest.NewTask("sleep", json)}
-	assert.NoError(t, store.Save(&j))
+	assert.NoError(t, store.SaveJob(&j))
 
 	sleepingRun := j.NewRun(i)
 	sleepingRun.Status = models.RunStatusPendingSleep

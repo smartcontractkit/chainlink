@@ -19,7 +19,6 @@ func TestJobSpec_Save(t *testing.T) {
 	j1, initr := cltest.NewJobWithSchedule("* * * * 7")
 	assert.NoError(t, store.SaveJob(&j1))
 
-	store.Save(j1)
 	j2, err := store.FindJob(j1.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)
