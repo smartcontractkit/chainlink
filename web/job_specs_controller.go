@@ -36,7 +36,7 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 
 	if count, err := jsc.App.GetStore().Count(&models.JobSpec{}); err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobSpec: %+v", err))
-	} else if jobs, err := jsc.App.GetStore().SortedJobs(order, offset, size); err != nil {
+	} else if jobs, err := jsc.App.GetStore().JobsSorted(order, offset, size); err != nil {
 		c.AbortWithError(500, fmt.Errorf("erorr fetching All JobSpecs: %+v", err))
 	} else {
 		pjs := make([]presenters.JobSpec, len(jobs))
