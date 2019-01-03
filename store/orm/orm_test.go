@@ -173,7 +173,7 @@ func TestAnyJobWithType(t *testing.T) {
 
 	js, _ := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
-	assert.NoError(t, store.Save(&js))
+	assert.NoError(t, store.SaveJob(&js))
 	found, err := store.AnyJobWithType("bridgetestname")
 	assert.NoError(t, err)
 	assert.Equal(t, found, true)
