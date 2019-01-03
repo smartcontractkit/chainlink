@@ -597,7 +597,7 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 		return task.Status == "completed"
 	}).Should(gomega.BeTrue())
 
-	runCount, err := app.Store.Count(&models.JobRun{})
+	runCount, err := app.Store.JobRunsCount()
 	assert.NoError(t, err)
 	assert.Equal(t, 0, runCount)
 }

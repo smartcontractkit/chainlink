@@ -582,9 +582,14 @@ func (orm *ORM) GetTxAttempts(offset int, limit int) ([]models.TxAttempt, int, e
 	return attempts, count, err
 }
 
+// JobRunsCount returns the total number of job runs
+func (orm *ORM) JobRunsCount() (int, error) {
+	return orm.Count(&models.JobRun{})
+}
+
 // SortedJobRuns returns job runs ordered and filtered by the passed params.
 func (orm *ORM) SortedJobRuns(order SortType, offset int, limit int) ([]models.JobRun, int, error) {
-	count, err := orm.Count(&models.JobRun{})
+	count, err := orm.JobRunsCount()
 	if err != nil {
 		return nil, 0, err
 	}
