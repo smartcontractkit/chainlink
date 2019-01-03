@@ -20,7 +20,7 @@ type ServiceAgreementsController struct {
 
 // Create builds and saves a new service agreement record.
 func (sac *ServiceAgreementsController) Create(c *gin.Context) {
-	if !sac.App.GetStore().Config.Dev {
+	if !sac.App.GetStore().Config.Dev() {
 		publicError(c, 500, errors.New("Service Agreements are currently under development and not yet usable outside of development mode"))
 		return
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -30,7 +31,7 @@ func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.Run
 	} else if input.Status.PendingBridge() {
 		return resumeBridge(input)
 	}
-	return ba.handleNewRun(input, store.Config.BridgeResponseURL)
+	return ba.handleNewRun(input, store.Config.BridgeResponseURL())
 }
 
 func resumeBridge(input models.RunResult) models.RunResult {
@@ -38,7 +39,7 @@ func resumeBridge(input models.RunResult) models.RunResult {
 	return input
 }
 
-func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL models.WebURL) models.RunResult {
+func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.URL) models.RunResult {
 	var err error
 	if ba.Params != nil {
 		input.Data, err = input.Data.Merge(*ba.Params)
@@ -48,7 +49,7 @@ func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL models.
 	}
 
 	responseURL := bridgeResponseURL
-	if (responseURL != models.WebURL{}) {
+	if *responseURL != *zeroURL {
 		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID)
 	}
 	body, err := ba.postToExternalAdapter(input, responseURL)
@@ -74,7 +75,7 @@ func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
 	return rr
 }
 
-func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL models.WebURL) ([]byte, error) {
+func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
 	in, err := json.Marshal(&bridgeOutgoing{
 		RunResult:   input,
 		ResponseURL: bridgeResponseURL,
@@ -112,7 +113,7 @@ func baRunResultError(in models.RunResult, str string, err error) models.RunResu
 
 type bridgeOutgoing struct {
 	models.RunResult
-	ResponseURL models.WebURL
+	ResponseURL *url.URL
 }
 
 func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
@@ -127,3 +128,5 @@ func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(anon)
 }
+
+var zeroURL = new(url.URL)

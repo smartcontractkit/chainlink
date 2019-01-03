@@ -24,7 +24,7 @@ func NewStoreReaper(store *store.Store) SleeperTask {
 
 func (sr *storeReaper) Work() {
 	var sessions []models.Session
-	offset := time.Now().Add(-sr.config.ReaperExpiration.Duration).Add(-sr.config.SessionTimeout.Duration)
+	offset := time.Now().Add(-sr.config.ReaperExpiration()).Add(-sr.config.SessionTimeout())
 	stale := models.Time{offset}
 	err := sr.store.Range("LastUsed", models.Time{}, stale, &sessions)
 	if err != nil && err != storm.ErrNotFound {

@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/contrib/sessions"
@@ -24,7 +25,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	session := sessions.Default(c)
 	var sr models.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
-		publicError(c, 400, err)
+		publicError(c, 400, fmt.Errorf("error binding json %v", err))
 	} else if sid, err := sc.App.GetStore().CreateSession(sr); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else if err := saveSessionID(session, sid); err != nil {

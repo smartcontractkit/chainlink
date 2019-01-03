@@ -75,11 +75,11 @@ func NewRun(
 		}
 
 		mp := adapter.MinContractPayment()
-		cost.Add(cost, &mp)
+		cost.Add(cost, mp)
 
 		if currentHeight != nil {
 			run.TaskRuns[i].MinimumConfirmations = utils.MaxUint64(
-				store.Config.MinIncomingConfirmations,
+				store.Config.MinIncomingConfirmations(),
 				taskRun.Task.Confirmations,
 				adapter.MinConfs())
 		}
@@ -99,7 +99,7 @@ func NewRun(
 				"Rejecting job %s with payment %s below minimum threshold (%s)",
 				job.ID,
 				input.Amount,
-				store.Config.MinimumContractPayment.Text(10))
+				store.Config.MinimumContractPayment().Text(10))
 			run = run.ApplyResult(input.WithError(err))
 		}
 	}

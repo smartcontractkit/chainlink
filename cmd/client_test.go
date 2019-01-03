@@ -88,12 +88,12 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 		rootDir   string
 		wantError bool
 	}{
-		{"missing", config.RootDir, true},
+		{"missing", config.RootDir(), true},
 		{"correct fixture", "../internal/fixtures", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config.RootDir = test.rootDir
+			config.Set("RootDir", test.rootDir)
 			store := cmd.DiskCookieStore{Config: config}
 			cookie, err := store.Retrieve()
 			if test.wantError {
