@@ -565,3 +565,15 @@ func (orm *ORM) SortedJobs(order SortType, offset int, limit int) ([]models.JobS
 	err := orm.AllByIndex("CreatedAt", &jobs, stormOrder, stormOffset, stormLimit)
 	return jobs, err
 }
+
+// GetTxAttempts returns the last tx attempts sorted by sent at descending.
+func (orm *ORM) GetTxAttempts(offset int, limit int) ([]models.TxAttempt, int, error) {
+	var attempts []models.TxAttempt
+	count, err := orm.Count(&models.TxAttempt{})
+	if err != nil {
+		return nil, 0, err
+	}
+	query := orm.Select().OrderBy("SentAt").Reverse().Limit(limit).Skip(offset)
+	err = query.Find(&attempts)
+	return attempts, count, err
+}
