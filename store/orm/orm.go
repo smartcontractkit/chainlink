@@ -643,3 +643,8 @@ func (orm *ORM) SaveSession(session *models.Session) error {
 func (orm *ORM) SaveBridgeType(bt *models.BridgeType) error {
 	return orm.Save(bt)
 }
+
+// SaveTx saves the transaction.
+func (orm *ORM) SaveTx(tx *models.Tx) error {
+	return orm.Save(tx)
+}
