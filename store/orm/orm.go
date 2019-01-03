@@ -648,3 +648,8 @@ func (orm *ORM) SaveBridgeType(bt *models.BridgeType) error {
 func (orm *ORM) SaveTx(tx *models.Tx) error {
 	return orm.Save(tx)
 }
+
+// SaveInitiator saves the initiator.
+func (orm *ORM) SaveInitiator(initr *models.Initiator) error {
+	return orm.Save(initr)
+}
