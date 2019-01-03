@@ -21,7 +21,7 @@ func TestSessionsController_Create(t *testing.T) {
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
-	err := app.Store.Save(&user)
+	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 	defer cleanup()
 
@@ -77,13 +77,13 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
-	err := app.Store.Save(&user)
+	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 	defer cleanup()
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("241h"))}
-	require.NoError(t, app.Store.Save(&staleSession))
+	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
@@ -104,11 +104,11 @@ func TestSessionsController_Destroy(t *testing.T) {
 	seedUser := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
-	err := app.Store.Save(&seedUser)
+	err := app.Store.SaveUser(&seedUser)
 	assert.NoError(t, err)
 
 	correctSession := models.NewSession()
-	require.NoError(t, app.Store.Save(&correctSession))
+	require.NoError(t, app.Store.SaveSession(&correctSession))
 	defer cleanup()
 
 	config := app.Store.Config
@@ -151,16 +151,16 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	defer cleanup()
 
 	app.Start()
-	err := app.Store.Save(&user)
+	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 
 	correctSession := models.NewSession()
-	require.NoError(t, app.Store.Save(&correctSession))
+	require.NoError(t, app.Store.SaveSession(&correctSession))
 	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("241h"))}
-	require.NoError(t, app.Store.Save(&staleSession))
+	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)
