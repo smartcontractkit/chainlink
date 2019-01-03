@@ -638,3 +638,8 @@ func (orm *ORM) SaveUser(user *models.User) error {
 func (orm *ORM) SaveSession(session *models.Session) error {
 	return orm.Save(session)
 }
+
+// SaveBridgeType saves the bridge type.
+func (orm *ORM) SaveBridgeType(bt *models.BridgeType) error {
+	return orm.Save(bt)
+}

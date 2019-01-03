@@ -248,10 +248,10 @@ func TestFindBridge(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.BridgeType{}
-	tt.Name = models.MustNewTaskType("solargridreporting")
-	tt.URL = cltest.WebURL("https://denergy.eth")
-	assert.NoError(t, store.Save(&tt))
+	bt := models.BridgeType{}
+	bt.Name = models.MustNewTaskType("solargridreporting")
+	bt.URL = cltest.WebURL("https://denergy.eth")
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	cases := []struct {
 		description string
@@ -259,7 +259,7 @@ func TestFindBridge(t *testing.T) {
 		want        models.BridgeType
 		errored     bool
 	}{
-		{"actual external adapter", tt.Name.String(), tt, false},
+		{"actual external adapter", bt.Name.String(), bt, false},
 		{"core adapter", "ethtx", models.BridgeType{}, true},
 		{"non-existent adapter", "nonExistent", models.BridgeType{}, true},
 	}
@@ -283,7 +283,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	jobRunner.Start()
 
 	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.Save(&bt))
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job))
@@ -305,7 +305,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.Save(&bt))
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
