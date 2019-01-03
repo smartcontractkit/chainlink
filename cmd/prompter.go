@@ -37,7 +37,7 @@ func (tp terminalPrompter) Prompt(prompt string) string {
 		logger.Fatal(err)
 	}
 	clearLine()
-	return strings.TrimSpace(string(line))
+	return strings.TrimSpace(line)
 }
 
 // PasswordPrompt displays the prompt for the user to enter the password and
