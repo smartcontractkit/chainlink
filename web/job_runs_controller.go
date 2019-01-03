@@ -6,12 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/asdine/storm"
-	"github.com/asdine/storm/q"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
-	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -34,23 +31,21 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		return
 	}
 
-	var countErr error
-	var query storm.Query
+	order := orm.Ascending
+	if c.Query("sort") == "-createdAt" {
+		order = orm.Descending
+	}
+
+	store := jrc.App.GetStore()
+	var runs []models.JobRun
 	var count int
 	if id == "" {
-		query, count, countErr = allJobRuns(jrc.App.GetStore(), size, offset)
+		runs, count, err = store.SortedJobRuns(order, offset, size)
 	} else {
-		query, count, countErr = runsForJob(id, jrc.App.GetStore(), size, offset)
+		runs, count, err = store.SortedJobRunsFor(id, order, offset, size)
 	}
 
-	if c.Query("sort") == "-createdAt" {
-		query = query.Reverse()
-	}
-
-	var runs []models.JobRun
-	if countErr != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
-	} else if err := query.Find(&runs); err == orm.ErrorNotFound {
+	if err == orm.ErrorNotFound {
 		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
@@ -59,20 +54,6 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	} else {
 		c.Data(200, MediaType, buffer)
 	}
-}
-
-func allJobRuns(store *store.Store, size int, offset int) (query storm.Query, count int, countErr error) {
-	count, countErr = store.Count(&models.JobRun{})
-	query = store.Select().OrderBy("CreatedAt").Limit(size).Skip(offset)
-
-	return query, count, countErr
-}
-
-func runsForJob(jobID string, store *store.Store, size int, offset int) (query storm.Query, count int, countErr error) {
-	count, countErr = store.JobRunsCountFor(jobID)
-	query = store.Select(q.Eq("JobID", jobID)).OrderBy("CreatedAt").Limit(size).Skip(offset)
-
-	return query, count, countErr
 }
 
 // Create starts a new Run for the requested JobSpec.
