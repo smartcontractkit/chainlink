@@ -380,8 +380,8 @@ func TestORM_FindUser(t *testing.T) {
 	user2 := cltest.MustUser("test2@email2.net", "password2")
 	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
 
-	require.NoError(t, store.Save(&user1))
-	require.NoError(t, store.Save(&user2))
+	require.NoError(t, store.SaveUser(&user1))
+	require.NoError(t, store.SaveUser(&user2))
 
 	actual, err := store.FindUser()
 	require.NoError(t, err)
@@ -396,7 +396,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	defer cleanup()
 
 	user := cltest.MustUser("have@email", "password")
-	require.NoError(t, store.Save(&user))
+	require.NoError(t, store.SaveUser(&user))
 
 	tests := []struct {
 		name            string
@@ -415,7 +415,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
-			require.NoError(t, store.Save(&prevSession))
+			require.NoError(t, store.SaveSession(&prevSession))
 
 			expectedTime := models.Time{time.Now()}.HumanString()
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
@@ -439,7 +439,7 @@ func TestORM_DeleteUser(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	user := cltest.MustUser("test1@email1.net", "password1")
-	require.NoError(t, store.Save(&user))
+	require.NoError(t, store.SaveUser(&user))
 
 	_, err := store.DeleteUser()
 	require.NoError(t, err)
@@ -454,10 +454,10 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	user := cltest.MustUser("test1@email1.net", "password1")
-	require.NoError(t, store.Save(&user))
+	require.NoError(t, store.SaveUser(&user))
 
 	session := models.NewSession()
-	require.NoError(t, store.Save(&session))
+	require.NoError(t, store.SaveSession(&session))
 
 	err := store.DeleteUserSession(session.ID)
 	require.NoError(t, err)
@@ -478,7 +478,7 @@ func TestORM_CreateSession(t *testing.T) {
 	defer cleanup()
 
 	initial := cltest.MustUser(cltest.APIEmail, cltest.Password)
-	require.NoError(t, store.Save(&initial))
+	require.NoError(t, store.SaveUser(&initial))
 
 	tests := []struct {
 		name        string

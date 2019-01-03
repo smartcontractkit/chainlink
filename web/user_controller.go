@@ -36,7 +36,7 @@ func (c *UserController) saveNewPassword(user *models.User, newPassword string) 
 		return err
 	}
 	user.HashedPassword = hashedPassword
-	return c.App.GetStore().Save(user)
+	return c.App.GetStore().SaveUser(user)
 }
 
 func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {

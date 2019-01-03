@@ -569,7 +569,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	}
 	m.Count += 1
 	user := MustUser(APIEmail, Password)
-	return user, store.Save(&user)
+	return user, store.SaveUser(&user)
 }
 
 func NewMockAuthenticatedHTTPClient(cfg store.Config) cmd.HTTPClient {

@@ -348,7 +348,7 @@ func (t *promptingAPIInitializer) Initialize(store *store.Store) (models.User, e
 			fmt.Println("Error creating API user: ", err)
 			continue
 		}
-		if err = store.Save(&user); err != nil {
+		if err = store.SaveUser(&user); err != nil {
 			fmt.Println("Error creating API user: ", err)
 		}
 		return user, err
@@ -379,7 +379,7 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 	if err != nil {
 		return user, err
 	}
-	return user, store.Save(&user)
+	return user, store.SaveUser(&user)
 }
 
 var errNoCredentialFile = errors.New("No API user credential file was passed")

@@ -628,3 +628,13 @@ func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, er
 	err = orm.AllByIndex("Name", &bridges, storm.Skip(offset), storm.Limit(limit))
 	return bridges, count, err
 }
+
+// SaveUser saves the user.
+func (orm *ORM) SaveUser(user *models.User) error {
+	return orm.Save(user)
+}
+
+// SaveSession saves the session.
+func (orm *ORM) SaveSession(session *models.Session) error {
+	return orm.Save(session)
+}
