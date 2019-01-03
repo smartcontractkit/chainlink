@@ -23,7 +23,7 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	job, initr := cltest.NewJobWithWebInitiator()
 	jr := job.NewRun(initr)
 	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
-	err := store.Save(&jr)
+	err := store.SaveJobRun(&jr)
 	assert.NoError(t, err)
 
 	run := &models.JobRun{}
@@ -50,7 +50,7 @@ func TestJobRun_NextTaskRun(t *testing.T) {
 	}
 	assert.NoError(t, store.SaveJob(&job))
 	run := job.NewRun(initiator)
-	assert.NoError(t, store.Save(&run))
+	assert.NoError(t, store.SaveJobRun(&run))
 	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
 
 	store.RunChannel.Send(run.ID)
