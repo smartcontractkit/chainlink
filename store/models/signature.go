@@ -75,7 +75,7 @@ func (s Signature) MarshalText() ([]byte, error) {
 // UnmarshalJSON parses a signature from a JSON string
 func (s *Signature) UnmarshalJSON(input []byte) error {
 	input = utils.RemoveQuotes(input)
-	return s.UnmarshalText([]byte(input))
+	return s.UnmarshalText(input)
 }
 
 // MarshalJSON prints the signature as a hexadecimal encoded string
