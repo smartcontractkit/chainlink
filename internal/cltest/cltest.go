@@ -95,17 +95,17 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := store.NewConfig()
-	rawConfig.BridgeResponseURL = WebURL("http://localhost:6688")
-	rawConfig.ChainID = 3
-	rawConfig.Dev = true
-	rawConfig.EthGasBumpThreshold = 3
-	rawConfig.LogLevel = store.LogLevel{Level: zapcore.DebugLevel}
-	rawConfig.MinimumServiceDuration = store.Duration{MustParseDuration("24h")}
-	rawConfig.MinOutgoingConfirmations = 6
-	rawConfig.MinimumContractPayment = *minimumContractPayment
-	rawConfig.RootDir = rootdir
+	rawConfig.Set("BridgeResponseURL", "http://localhost:6688")
+	rawConfig.Set("ChainID", 3)
+	rawConfig.Set("Dev", true)
+	rawConfig.Set("EthGasBumpThreshold", 3)
+	rawConfig.Set("LogLevel", store.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("MinimumServiceDuration", "24h")
+	rawConfig.Set("MinOutgoingConfirmations", 6)
+	rawConfig.Set("MinimumContractPayment", minimumContractPayment.Text(10))
+	rawConfig.Set("RootDir", rootdir)
+	rawConfig.Set("SessionTimeout", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
-	rawConfig.SessionTimeout = store.Duration{MustParseDuration("2m")}
 	config := TestConfig{Config: rawConfig}
 	config.SetEthereumServer(wsserver)
 	return &config
@@ -116,7 +116,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	u, err := url.Parse(wss.URL)
 	mustNotErr(err)
 	u.Scheme = "ws"
-	tc.EthereumURL = u.String()
+	tc.Set("EthereumURL", u.String())
 	tc.wsServer = wss
 }
 
@@ -176,7 +176,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	ta := &TestApplication{ChainlinkApplication: app}
 
 	server := newServer(ta)
-	tc.Config.ClientNodeURL = server.URL
+	tc.Config.Set("ClientNodeURL", server.URL)
 	app.Store.Config = tc.Config
 
 	ta.Config = tc.Config
@@ -333,7 +333,7 @@ func NewStore() (*store.Store, func()) {
 
 func cleanUpStore(store *store.Store) {
 	defer func() {
-		if err := os.RemoveAll(store.Config.RootDir); err != nil {
+		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
 			log.Println(err)
 		}
 	}()
@@ -502,7 +502,7 @@ func ObserveLogs() *observer.ObservedLogs {
 
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(app *TestApplication) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", app.Store.Config.RootDir)
+	logFile := fmt.Sprintf("%s/log.jsonl", app.Store.Config.RootDir())
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }
@@ -892,7 +892,14 @@ func DecodeSessionCookie(value string) (string, error) {
 	var decrypted map[interface{}]interface{}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	err := securecookie.DecodeMulti(web.SessionName, value, &decrypted, codecs...)
-	return decrypted[web.SessionIDKey].(string), err
+	if err != nil {
+		return "", err
+	}
+	value, ok := decrypted[web.SessionIDKey].(string)
+	if !ok {
+		return "", fmt.Errorf("decrypted[web.SessionIDKey] is not a string (%v)", value)
+	}
+	return value, nil
 }
 
 func MustGenerateSessionCookie(value string) *http.Cookie {

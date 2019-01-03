@@ -40,7 +40,7 @@ func TestAdapterFor(t *testing.T) {
 	}{
 		{"adapter not found", "nonExistent", "<nil>", nil, true},
 		{"noop", "NoOp", "*adapters.NoOp", assets.NewLink(0), false},
-		{"ethtx", "EthTx", "*adapters.EthTx", &store.Config.MinimumContractPayment, false},
+		{"ethtx", "EthTx", "*adapters.EthTx", store.Config.MinimumContractPayment(), false},
 		{"bridge mixed case", "rideShare", "*adapters.Bridge", assets.NewLink(10), false},
 		{"bridge lower case", "rideshare", "*adapters.Bridge", assets.NewLink(10), false},
 	}
@@ -54,7 +54,7 @@ func TestAdapterFor(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, test.wantType, reflect.TypeOf(adapter.BaseAdapter).String())
-				assert.Equal(t, *test.wantMinContractPayment, adapter.MinContractPayment())
+				assert.Equal(t, test.wantMinContractPayment, adapter.MinContractPayment())
 			}
 		})
 	}

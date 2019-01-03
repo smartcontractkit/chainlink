@@ -359,7 +359,7 @@ func TestClient_BackupDatabase(t *testing.T) {
 	assert.Nil(t, app.Store.SaveJob(&job))
 
 	set := flag.NewFlagSet("backupset", 0)
-	path := path.Join(app.Store.Config.RootDir, "backup.bolt")
+	path := path.Join(app.Store.Config.RootDir(), "backup.bolt")
 	set.Parse([]string{path})
 	c := cli.NewContext(nil, set, nil)
 
@@ -469,7 +469,7 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testing.T)) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
-	config.OracleContractAddress = &oca
+	config.Set("OracleContractAddress", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 
 	hash := cltest.NewHash()

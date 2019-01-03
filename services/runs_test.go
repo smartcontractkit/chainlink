@@ -72,7 +72,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.MinimumContractPayment = test.minimumPayment
+			store.Config.Set("MinimumContractPayment", test.minimumPayment)
 
 			jobSpec := models.NewJob()
 			jobSpec.Tasks = []models.TaskSpec{{
@@ -114,7 +114,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.MinIncomingConfirmations = test.configConfirmations
+			store.Config.Set("MinIncomingConfirmations", test.configConfirmations)
 
 			jobSpec, initiator := cltest.NewJobWithLogInitiator()
 			jobSpec.Tasks[0].Confirmations = test.taskConfirmations

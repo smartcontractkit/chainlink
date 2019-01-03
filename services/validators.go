@@ -106,14 +106,15 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	fe := models.NewJSONAPIErrors()
 	config := store.Config
 
+	fmt.Println("payment", sa.Encumbrance.Payment, "MinimumContractPayment", config.MinimumContractPayment())
 	if sa.Encumbrance.Payment == nil {
 		fe.Add("Service agreement encumbrance error: No payment amount set")
-	} else if sa.Encumbrance.Payment.Cmp(&config.MinimumContractPayment) == -1 {
-		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Payment amount is below minimum %v", config.MinimumContractPayment.String()))
+	} else if sa.Encumbrance.Payment.Cmp(config.MinimumContractPayment()) == -1 {
+		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Payment amount is below minimum %v", config.MinimumContractPayment().String()))
 	}
 
-	if sa.Encumbrance.Expiration < config.MinimumRequestExpiration {
-		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Expiration is below minimum %v", config.MinimumRequestExpiration))
+	if sa.Encumbrance.Expiration < config.MinimumRequestExpiration() {
+		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Expiration is below minimum %v", config.MinimumRequestExpiration()))
 	}
 
 	account, err := store.KeyStore.GetFirstAccount()
@@ -137,16 +138,16 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	untilEndAt := time.Until(sa.Encumbrance.EndAt.Time)
 
-	if untilEndAt > config.MaximumServiceDuration.Duration {
+	if untilEndAt > config.MaximumServiceDuration() {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %s is too far in the future. Furthest allowed date is %s",
 			sa.Encumbrance.EndAt,
-			time.Now().Add(config.MaximumServiceDuration.Duration)))
+			time.Now().Add(config.MaximumServiceDuration())))
 	}
 
-	if untilEndAt < config.MinimumServiceDuration.Duration {
+	if untilEndAt < config.MinimumServiceDuration() {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %s is too soon. Earliest allowed date is %s",
 			sa.Encumbrance.EndAt,
-			time.Now().Add(config.MinimumServiceDuration.Duration)))
+			time.Now().Add(config.MinimumServiceDuration())))
 	}
 
 	return fe.CoerceEmptyToNil()
