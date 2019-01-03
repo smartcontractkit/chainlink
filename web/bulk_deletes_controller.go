@@ -24,7 +24,7 @@ func (c *BulkDeletesController) Create(ctx *gin.Context) {
 		ctx.AbortWithError(422, err)
 	} else if task, err := models.NewBulkDeleteRunTask(request); err != nil {
 		ctx.AbortWithError(422, err)
-	} else if err := c.App.GetStore().Save(task); err != nil {
+	} else if err := c.App.GetStore().ORM.DB.Save(task); err != nil {
 		ctx.AbortWithError(500, err)
 	} else if doc, err := jsonapi.Marshal(task); err != nil {
 		ctx.AbortWithError(500, err)
