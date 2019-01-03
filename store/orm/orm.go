@@ -615,3 +615,16 @@ func (orm *ORM) SortedJobRunsFor(id string, order SortType, offset int, limit in
 	err = query.Find(&runs)
 	return runs, count, err
 }
+
+// BridgeTypes returns bridge types ordered by name filtered limited by the
+// passed params.
+func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, error) {
+	count, err := orm.Count(&models.BridgeType{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var bridges []models.BridgeType
+	err = orm.AllByIndex("Name", &bridges, storm.Skip(offset), storm.Limit(limit))
+	return bridges, count, err
+}

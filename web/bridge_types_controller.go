@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
@@ -42,18 +41,9 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 		return
 	}
 
-	skip := storm.Skip(offset)
-	limit := storm.Limit(size)
-
-	var bridges []models.BridgeType
-
-	count, err := btc.App.GetStore().Count(&models.BridgeType{})
+	bridges, count, err := btc.App.GetStore().BridgeTypes(offset, size)
 	if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting count of bridges: %+v", err))
-		return
-	}
-	if err := btc.App.GetStore().AllByIndex("Name", &bridges, skip, limit); err != nil {
-		c.AbortWithError(500, fmt.Errorf("error fetching all bridges: %+v", err))
+		c.AbortWithError(500, fmt.Errorf("error getting bridges: %+v", err))
 		return
 	}
 	pbt := make([]presenters.BridgeType, len(bridges))
