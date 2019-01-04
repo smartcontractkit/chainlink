@@ -73,7 +73,10 @@ type ConfigSchema struct {
 // respective fields, or their defaults if environment variables are not set.
 func NewConfig() Config {
 	v := viper.New()
+	return newConfigWithViper(v)
+}
 
+func newConfigWithViper(v *viper.Viper) Config {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
@@ -92,7 +95,6 @@ func NewConfig() Config {
 	}
 
 	v.SetConfigName("chainlink")
-	fmt.Println("RootDir", config.RootDir())
 	v.AddConfigPath(config.RootDir())
 	err := v.ReadInConfig()
 	if err != nil {
