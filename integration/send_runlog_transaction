@@ -2,7 +2,7 @@
 
 const request = require('request-promise').defaults({jar: true})
 const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
-const {LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
+const {CHAINLINK_URL, ECHO_SERVER_URL, LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
 const web3 = require('web3')
 
 process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
@@ -12,8 +12,8 @@ function futureOffset (seconds) {
 }
 
 const main = async () => {
-  const sessionsUrl = 'http://localhost:6688/sessions'
-  const specsUrl = 'http://localhost:6688/v2/specs'
+  const sessionsUrl = `${CHAINLINK_URL}/sessions`
+  const specsUrl = `${CHAINLINK_URL}/v2/specs`
   const credentials = {email: 'notreal@fakeemail.ch', password: 'twochains'}
 
   let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS)
@@ -34,7 +34,7 @@ const main = async () => {
     'tasks': [
       // 10 seconds to ensure the time has not elapsed by the time the run is triggered
       { 'type': 'Sleep', 'params': { 'until': futureOffset(10) } },
-      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } },
+      { 'type': 'HttpPost', 'params': { 'url': ECHO_SERVER_URL } },
       { 'type': 'EthTx', 'params': { 'functionSelector': 'fulfillData(uint256,bytes32)' } }
     ]
   }

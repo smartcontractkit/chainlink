@@ -77,8 +77,9 @@ func NewConfig() Config {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
-		v.SetDefault(item.Name, item.Tag.Get("default"))
-		v.BindEnv(item.Name, item.Tag.Get("env"))
+		name := item.Tag.Get("env")
+		v.SetDefault(name, item.Tag.Get("default"))
+		v.BindEnv(name, name)
 	}
 
 	config := Config{
@@ -87,7 +88,15 @@ func NewConfig() Config {
 	}
 
 	if err := os.MkdirAll(config.RootDir(), os.FileMode(0700)); err != nil {
-		log.Fatal(fmt.Errorf(`error creating "%s": %+v`, config.RootDir(), err))
+		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
+	}
+
+	v.SetConfigName("chainlink")
+	fmt.Println("RootDir", config.RootDir())
+	v.AddConfigPath(config.RootDir())
+	err := v.ReadInConfig()
+	if err != nil {
+		logger.Warnf("Unable to load config file: %v\n", err)
 	}
 
 	return config
@@ -104,7 +113,7 @@ func (c Config) Set(name string, value interface{}) {
 
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c Config) AllowOrigins() string {
-	return c.viper.GetString("AllowOrigins")
+	return c.viper.GetString(c.envVarName("AllowOrigins"))
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
@@ -114,40 +123,40 @@ func (c Config) BridgeResponseURL() *url.URL {
 
 // ChainID represents the chain ID to use for transactions.
 func (c Config) ChainID() uint64 {
-	return uint64(c.viper.GetInt64("ChainID"))
+	return uint64(c.viper.GetInt64(c.envVarName("ChainID")))
 }
 
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c Config) ClientNodeURL() string {
-	return c.viper.GetString("ClientNodeURL")
+	return c.viper.GetString(c.envVarName("ClientNodeURL"))
 }
 
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() time.Duration {
-	return c.viper.GetDuration("DatabaseTimeout")
+	return c.viper.GetDuration(c.envVarName("DatabaseTimeout"))
 }
 
 // Dev configures "development" mode for chainlink.
 func (c Config) Dev() bool {
-	return c.viper.GetBool("Dev")
+	return c.viper.GetBool(c.envVarName("Dev"))
 }
 
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() time.Duration {
-	return c.viper.GetDuration("MaximumServiceDuration")
+	return c.viper.GetDuration(c.envVarName("MaximumServiceDuration"))
 }
 
 // MinimumServiceDuration is the shortest duration from now that a service is
 // allowed to run.
 func (c Config) MinimumServiceDuration() time.Duration {
-	return c.viper.GetDuration("MinimumServiceDuration")
+	return c.viper.GetDuration(c.envVarName("MinimumServiceDuration"))
 }
 
 // EthGasBumpThreshold represents the maximum amount a transaction's ETH amount
 // should be increased in order to facilitate a transaction.
 func (c Config) EthGasBumpThreshold() uint64 {
-	return uint64(c.viper.GetInt64("EthGasBumpThreshold"))
+	return uint64(c.viper.GetInt64(c.envVarName("EthGasBumpThreshold")))
 }
 
 // EthGasBumpWei represents the intervals in which ETH should be increased when
@@ -163,22 +172,22 @@ func (c Config) EthGasPriceDefault() *big.Int {
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c Config) EthereumURL() string {
-	return c.viper.GetString("EthereumURL")
+	return c.viper.GetString(c.envVarName("EthereumURL"))
 }
 
 // JSONConsole enables the JSON console.
 func (c Config) JSONConsole() bool {
-	return c.viper.GetBool("JSONConsole")
+	return c.viper.GetBool(c.envVarName("JSONConsole"))
 }
 
 // LinkContractAddress represents the address
 func (c Config) LinkContractAddress() string {
-	return c.viper.GetString("LinkContractAddress")
+	return c.viper.GetString(c.envVarName("LinkContractAddress"))
 }
 
 // OracleContractAddress represents the deployed Oracle contract's address.
 func (c Config) OracleContractAddress() *common.Address {
-	if c.viper.GetString("OracleContractAddress") == "" {
+	if c.viper.GetString(c.envVarName("OracleContractAddress")) == "" {
 		return nil
 	}
 	return c.getWithFallback("OracleContractAddress", parseAddress).(*common.Address)
@@ -191,21 +200,21 @@ func (c Config) LogLevel() LogLevel {
 
 // LogToDisk configures disk preservation of logs.
 func (c Config) LogToDisk() bool {
-	return c.viper.GetBool("LogToDisk")
+	return c.viper.GetBool(c.envVarName("LogToDisk"))
 }
 
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
 func (c Config) MinIncomingConfirmations() uint64 {
-	return uint64(c.viper.GetInt64("MinIncomingConfirmations"))
+	return uint64(c.viper.GetInt64(c.envVarName("MinIncomingConfirmations")))
 }
 
 // MinOutgoingConfirmations represents the minimum number of block
 // confirmations that need to be recorded on an outgoing transaction before a
 // task is completed.
 func (c Config) MinOutgoingConfirmations() uint64 {
-	return uint64(c.viper.GetInt64("MinOutgoingConfirmations"))
+	return uint64(c.viper.GetInt64(c.envVarName("MinOutgoingConfirmations")))
 }
 
 // MinimumContractPayment represents the minimum amount of ETH that must be
@@ -216,7 +225,7 @@ func (c Config) MinimumContractPayment() *assets.Link {
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
-	return uint64(c.viper.GetInt64("MinimumRequestExpiration"))
+	return uint64(c.viper.GetInt64(c.envVarName("MinimumRequestExpiration")))
 }
 
 // Port represents the port Chainlink should listen on for client requests.
@@ -226,7 +235,7 @@ func (c Config) Port() uint16 {
 
 // ReaperExpiration represents
 func (c Config) ReaperExpiration() time.Duration {
-	return c.viper.GetDuration("ReaperExpiration")
+	return c.viper.GetDuration(c.envVarName("ReaperExpiration"))
 }
 
 // RootDir represents the location on the file system where Chainlink should
@@ -237,25 +246,25 @@ func (c Config) RootDir() string {
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() time.Duration {
-	return c.viper.GetDuration("SessionTimeout")
+	return c.viper.GetDuration(c.envVarName("SessionTimeout"))
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
 // Chainlink should use for HTTPS.
 func (c Config) TLSCertPath() string {
-	return c.viper.GetString("TLSCertPath")
+	return c.viper.GetString(c.envVarName("TLSCertPath"))
 }
 
 // TLSHost represents the hostname to use for TLS clients. This should match
 // the TLS certificate.
 func (c Config) TLSHost() string {
-	return c.viper.GetString("TLSHost")
+	return c.viper.GetString(c.envVarName("TLSHost"))
 }
 
 // TLSKeyPath represents the file system location of the TLS key Chainlink
 // should use for HTTPS.
 func (c Config) TLSKeyPath() string {
-	return c.viper.GetString("TLSKeyPath")
+	return c.viper.GetString(c.envVarName("TLSKeyPath"))
 }
 
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
@@ -312,6 +321,15 @@ func (c Config) SessionOptions() sessions.Options {
 	}
 }
 
+func (c Config) envVarName(field string) string {
+	schemaT := reflect.TypeOf(ConfigSchema{})
+	item, ok := schemaT.FieldByName(field)
+	if !ok {
+		log.Panicf("Invariant violated, no field of name %s found on ConfigSchema", field)
+	}
+	return item.Tag.Get("env")
+}
+
 func (c Config) defaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
@@ -331,7 +349,7 @@ func (c Config) zeroValue(name string) interface{} {
 }
 
 func (c Config) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
-	str := c.viper.GetString(name)
+	str := c.viper.GetString(c.envVarName(name))
 	defaultValue, hasDefault := c.defaultValue(name)
 	if str != "" {
 		v, err := parser(str)
