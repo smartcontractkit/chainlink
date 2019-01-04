@@ -66,6 +66,19 @@ func TestConfig_sessionOptions(t *testing.T) {
 	}
 }
 
+func TestConfig_readFromFile(t *testing.T) {
+	oldRoot := os.Getenv("ROOT")
+	defer os.Setenv("ROOT", oldRoot)
+	os.Setenv("ROOT", "../internal/clroot/")
+
+	config := NewConfig()
+	assert.Equal(t, config.RootDir(), "../internal/clroot/")
+	assert.Equal(t, config.MinOutgoingConfirmations(), uint64(2))
+	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
+	assert.Equal(t, config.Dev(), true)
+	assert.Equal(t, config.TLSPort(), uint16(0))
+}
+
 func TestStore_addressParser(t *testing.T) {
 	zero := &common.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	fifteen := &common.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15}
