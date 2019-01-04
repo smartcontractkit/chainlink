@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -97,7 +98,7 @@ func newConfigWithViper(v *viper.Viper) Config {
 	v.SetConfigName("chainlink")
 	v.AddConfigPath(config.RootDir())
 	err := v.ReadInConfig()
-	if err != nil && err != os.ErrNotExist {
+	if err != nil && err != afero.ErrFileNotFound {
 		logger.Warnf("Unable to load config file: %v\n", err)
 	}
 
