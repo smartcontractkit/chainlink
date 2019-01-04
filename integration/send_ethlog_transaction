@@ -2,13 +2,14 @@
 
 const request = require('request-promise').defaults({jar: true})
 const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
+const {CHAINLINK_URL, ECHO_SERVER_URL} = process.env
 
 const main = async () => {
   let EthLog = await deployer.perform('contracts/EthLog.sol')
     .catch(abort('Error deploying EthLog.sol'))
   console.log(`Deployed EthLog at: ${EthLog.address}`)
 
-  const sessionsUrl = 'http://localhost:6688/sessions'
+  const sessionsUrl = `${CHAINLINK_URL}/sessions`
   const credentials = {email: 'notreal@fakeemail.ch', password: 'twochains'}
   await request.post(sessionsUrl, {json: credentials})
 
@@ -20,10 +21,10 @@ const main = async () => {
       }
     ],
     'tasks': [
-      { 'type': 'HttpPost', 'params': { 'url': 'http://localhost:6690' } }
+      { 'type': 'HttpPost', 'params': { 'url': ECHO_SERVER_URL } }
     ]
   }
-  const specsUrl = 'http://localhost:6688/v2/specs'
+  const specsUrl = `${CHAINLINK_URL}/v2/specs`
   let Job = await request.post(specsUrl, {json: job})
     .catch(abort('Error creating Job'))
 
