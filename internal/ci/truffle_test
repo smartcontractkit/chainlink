@@ -5,17 +5,8 @@ set -e
 yarn solium --dir solidity/
 yarn solium --dir examples/
 
-# Kick off independent ganache-cli process
-( ./node_modules/.bin/ganache-cli \
-      -m 'candy maple cake sugar pudding cream honey rich smooth crumble sweet treat' \
-      -p 18545 \
-      2>&1 > /dev/null
-) &
-ganache_startup_wait_time=2
-sleep $ganache_startup_wait_time
-
 cd solidity
-../node_modules/.bin/truffle test --network development
+../node_modules/.bin/truffle test
 
 cd ../examples/uptime_sla
 yarn install
