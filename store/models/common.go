@@ -323,6 +323,12 @@ type WithdrawalRequest struct {
 	Amount             *assets.Link   `json:"amount"`
 }
 
+// SendEtherRequest represents a request to transfer ETH.
+type SendEtherRequest struct {
+	DestinationAddress common.Address `json:"address"`
+	Amount             *assets.Eth    `json:"amount"`
+}
+
 // Int stores large integers and can deserialize a variety of inputs.
 type Int big.Int
 
