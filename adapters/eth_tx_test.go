@@ -69,8 +69,8 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	assert.False(t, data.HasError())
 
 	from := cltest.GetAccountAddress(store)
-	txs := []models.Tx{}
-	assert.Nil(t, store.Where("From", from, &txs))
+	txs, err := store.TxFrom(from)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(txs))
 	attempts, _ := store.AttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
@@ -134,8 +134,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	assert.False(t, data.HasError())
 
 	from := cltest.GetAccountAddress(store)
-	txs := []models.Tx{}
-	assert.Nil(t, store.Where("From", from, &txs))
+	txs, err := store.TxFrom(from)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(txs))
 	attempts, _ := store.AttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
@@ -196,9 +196,11 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	assert.Equal(t, models.RunStatusCompleted, data.Status)
 
 	from := cltest.GetAccountAddress(store)
-	txs := []models.Tx{}
+	var txs []models.Tx
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Tx {
-		assert.Nil(t, store.Where("From", from, &txs))
+		var err error
+		txs, err = store.TxFrom(from)
+		assert.NoError(t, err)
 		return txs
 	}).Should(gomega.HaveLen(1))
 	attempts, _ := store.AttemptsFor(txs[0].ID)

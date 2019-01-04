@@ -570,6 +570,13 @@ func (orm *ORM) JobsSorted(order SortType, offset int, limit int) ([]models.JobS
 	return jobs, err
 }
 
+// TxFrom returns all transactions from a particular address.
+func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
+	txs := []models.Tx{}
+	err := orm.Where("From", from, &txs)
+	return txs, err
+}
+
 // TxAttempts returns the last tx attempts sorted by sent at descending.
 func (orm *ORM) TxAttempts(offset int, limit int) ([]models.TxAttempt, int, error) {
 	var attempts []models.TxAttempt
