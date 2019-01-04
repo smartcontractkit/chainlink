@@ -250,19 +250,12 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 	}
 
 	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
-	assert.Nil(t, store.SaveJob(&j))
+	assert.NoError(t, store.SaveJob(&j))
+	ot.RunJobAt(j.Initiators[0], j)
 
-	var initrs []models.Initiator
-	store.Where("JobID", j.ID, &initrs)
-
-	ot.RunJobAt(initrs[0], j)
 	j2, err := ot.Store.FindJob(j.ID)
 	assert.NoError(t, err)
-
-	var initrs2 []models.Initiator
-	store.Where("JobID", j.ID, &initrs2)
-
-	ot.RunJobAt(initrs2[0], j2)
+	ot.RunJobAt(j2.Initiators[0], j2)
 
 	jobRuns, err := store.JobRunsFor(j.ID)
 	assert.NoError(t, err)
@@ -282,12 +275,11 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 
 	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
 	j.EndAt = cltest.NullTime("2000-01-01T00:10:00.000Z")
-	assert.Nil(t, store.SaveJob(&j))
+	assert.NoError(t, store.SaveJob(&j))
 
 	ot.RunJobAt(j.Initiators[0], j)
 
-	var initrs2 []models.Initiator
-	store.Where("JobID", j.ID, &initrs2)
-
-	assert.Equal(t, false, initrs2[0].Ran)
+	j2, err := store.FindJob(j.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, false, j2.Initiators[0].Ran)
 }
