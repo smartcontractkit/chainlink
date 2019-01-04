@@ -4,6 +4,7 @@ const request = require('request-promise').defaults({jar: true})
 const {deployer, abort, DEVNET_ADDRESS} = require('./common.js')
 const {CHAINLINK_URL, ECHO_SERVER_URL, LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS} = process.env
 const web3 = require('web3')
+const url = require('url')
 
 process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
 
@@ -12,8 +13,8 @@ function futureOffset (seconds) {
 }
 
 const main = async () => {
-  const sessionsUrl = `${CHAINLINK_URL}/sessions`
-  const specsUrl = `${CHAINLINK_URL}/v2/specs`
+  const sessionsUrl = url.resolve(CHAINLINK_URL, '/sessions')
+  const specsUrl = url.resolve(CHAINLINK_URL, '/v2/specs')
   const credentials = {email: 'notreal@fakeemail.ch', password: 'twochains'}
 
   let RunLog = await deployer.perform('contracts/RunLog.sol', LINK_TOKEN_ADDRESS, ORACLE_CONTRACT_ADDRESS)
