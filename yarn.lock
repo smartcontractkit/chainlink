@@ -1964,7 +1964,7 @@ anymatch@^2.0.0:
 
 app-module-path@^2.2.0:
   version "2.2.0"
-  resolved "https://registry.yarnpkg.com/app-module-path/-/app-module-path-2.2.0.tgz#641aa55dfb7d6a6f0a8141c4b9c0aa50b6c24dd5"
+  resolved "https://registry.npmjs.org/app-module-path/-/app-module-path-2.2.0.tgz#641aa55dfb7d6a6f0a8141c4b9c0aa50b6c24dd5"
   integrity sha1-ZBqlXft9am8KgUHEucCqULbCTdU=
 
 app-root-dir@^1.0.2:
@@ -15667,7 +15667,7 @@ solc@0.4.24:
 
 solc@0.5.0:
   version "0.5.0"
-  resolved "https://registry.yarnpkg.com/solc/-/solc-0.5.0.tgz#2deb2ae992acac3afb909f85c38d00f01dcb335e"
+  resolved "https://registry.npmjs.org/solc/-/solc-0.5.0.tgz#2deb2ae992acac3afb909f85c38d00f01dcb335e"
   integrity sha512-mdLHDl9WeYrN+FIKcMc9PlPfnA9DG9ur5QpCDKcv6VC4RINAsTF4EMuXMZMKoQTvZhtLyJIVH/BZ+KU830Z8Xg==
   dependencies:
     fs-extra "^0.30.0"
@@ -16810,16 +16810,6 @@ truffle-resolver@^4.0.4:
     truffle-expect "^0.0.4"
     truffle-provisioner "^0.1.1"
 
-truffle@5.0.0-next.24:
-  version "5.0.0-next.24"
-  resolved "https://registry.yarnpkg.com/truffle/-/truffle-5.0.0-next.24.tgz#6f8a3d93e99873ef2f45ec98c8efc1740324bbf9"
-  integrity sha512-7ItNE8V1HCCbsJwXBHkJ9yy5vt15ETbxNvMMjrHUZJIV/kCWxh/l8iDl0rfmZsE1+7MmjiAff0VeO5aBtniYGg==
-  dependencies:
-    app-module-path "^2.2.0"
-    mocha "^4.1.0"
-    original-require "1.0.1"
-    solc "0.5.0"
-
 truffle@^4.0.4:
   version "4.1.14"
   resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.14.tgz#8d2c298e29abf9b1e486e44ff9faca6d34bb9030"
@@ -16828,6 +16818,16 @@ truffle@^4.0.4:
     mocha "^4.1.0"
     original-require "1.0.1"
     solc "0.4.24"
+
+truffle@^5.0.1:
+  version "5.0.1"
+  resolved "https://registry.npmjs.org/truffle/-/truffle-5.0.1.tgz#bd4c3aa15201935c8e35506d9fbabd07814d2323"
+  integrity sha512-SCmbpZGUutMo1zwGPL+xEa80VC8FrnMFqsS/M1WTZUTsU7SrUO+CNuS9s0DDbFuWW8bMAH36YY/9mRwS1imZ/A==
+  dependencies:
+    app-module-path "^2.2.0"
+    mocha "^4.1.0"
+    original-require "1.0.1"
+    solc "0.5.0"
 
 tryer@^1.0.0:
   version "1.0.1"
