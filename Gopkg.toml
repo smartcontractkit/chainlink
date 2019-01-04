@@ -90,7 +90,7 @@
   name = "github.com/jpillora/backoff"
   version = "1.0.0"
 
-[[constraint]]
+[[override]]
   branch = "master"
   name = "github.com/caarlos0/env"
 
@@ -138,6 +138,6 @@
   name = "github.com/golang/mock"
   version = "1.2.0"
 
-[[constraint]]
+[[override]]
   name = "github.com/spf13/viper.git"
   version = "1.3.1"
