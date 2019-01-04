@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -67,11 +68,10 @@ func TestConfig_sessionOptions(t *testing.T) {
 }
 
 func TestConfig_readFromFile(t *testing.T) {
-	oldRoot := os.Getenv("ROOT")
-	defer os.Setenv("ROOT", oldRoot)
-	os.Setenv("ROOT", "../internal/clroot/")
+	v := viper.New()
+	v.Set("ROOT", "../internal/clroot/")
 
-	config := NewConfig()
+	config := newConfigWithViper(v)
 	assert.Equal(t, config.RootDir(), "../internal/clroot/")
 	assert.Equal(t, config.MinOutgoingConfirmations(), uint64(2))
 	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
