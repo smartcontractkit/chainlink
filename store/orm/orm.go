@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	bolt "go.etcd.io/bbolt"
+	"go.uber.org/multierr"
 )
 
 var (
@@ -689,4 +690,20 @@ func (orm *ORM) LastHead() (*models.IndexableBlockNumber, error) {
 		return &numbers[0], nil
 	}
 	return nil, err
+}
+
+// DeleteStaleSessions deletes all sessions before the passed time.
+func (orm *ORM) DeleteStaleSessions(before time.Time) error {
+	var sessions []models.Session
+	err := orm.Range("LastUsed", models.Time{}, models.Time{Time: before}, &sessions)
+	if err != nil && err != storm.ErrNotFound {
+		return err
+	}
+
+	var merr error
+	for _, s := range sessions {
+		err := orm.DeleteStruct(&s)
+		merr = multierr.Append(merr, err)
+	}
+	return merr
 }
