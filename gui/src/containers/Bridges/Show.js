@@ -4,10 +4,9 @@ import { connect } from 'react-redux'
 import { Button } from '@material-ui/core'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
-import Title from 'components/Title'
-import PaddedCard from 'components/PaddedCard'
-import Breadcrumb from 'components/Breadcrumb'
-import BreadcrumbItem from 'components/BreadcrumbItem'
+import Card from '@material-ui/core/Card'
+import CardContent from '@material-ui/core/CardContent'
+import Divider from '@material-ui/core/Divider'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchBridgeSpec } from 'actions'
@@ -20,7 +19,7 @@ const renderLoading = () => (
 )
 
 const renderLoaded = props => (
-  <PaddedCard>
+  <CardContent>
     <Typography variant='subtitle1' color='textSecondary'>Name</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.name}</Typography>
 
@@ -38,7 +37,7 @@ const renderLoaded = props => (
 
     <Typography variant='subtitle1' color='textSecondary'>Outgoing Token</Typography>
     <Typography variant='body1' color='inherit'>{props.bridge.outgoingToken}</Typography>
-  </PaddedCard>
+  </CardContent>
 )
 
 const renderDetails = props => props.bridge ? renderLoaded(props) : renderLoading(props)
@@ -48,39 +47,38 @@ export const Show = useHooks(props => {
   return (
     <Content>
       <Grid container>
-        <Grid item xs={12}>
-          <Breadcrumb>
-            <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-            <BreadcrumbItem>></BreadcrumbItem>
-            <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
-            <BreadcrumbItem>></BreadcrumbItem>
-            <BreadcrumbItem>{props.bridge && props.bridge.id}</BreadcrumbItem>
-          </Breadcrumb>
-        </Grid>
-        <Grid item xs={12} md={12} xl={6}>
-          <Grid container>
-            <Grid item xs={9}>
-              <Title>Bridge Info</Title>
-            </Grid>
-            <Grid item xs={3}>
-              <Grid container justify='flex-end'>
-                <Grid item>
-                  {props.bridge &&
-                    <Button
-                      variant='outlined'
-                      color='primary'
-                      component={ReactStaticLinkComponent}
-                      to={`/bridges/${props.bridge.id}/edit`}
-                    >
-                      Edit
-                    </Button>
-                  }
+        <Grid item xs={12} md={11} lg={9}>
+          <Card>
+            <CardContent>
+              <Grid container>
+                <Grid item xs={9}>
+                  <Typography variant='h5' color='secondary'>
+                    Bridge Info
+                  </Typography>
+                </Grid>
+                <Grid item xs={3}>
+                  <Grid container justify='flex-end'>
+                    <Grid item>
+                      {props.bridge &&
+                        <Button
+                          variant='outlined'
+                          color='primary'
+                          component={ReactStaticLinkComponent}
+                          to={`/bridges/${props.bridge.id}/edit`}
+                        >
+                          Edit
+                        </Button>
+                      }
+                    </Grid>
+                  </Grid>
                 </Grid>
               </Grid>
-            </Grid>
-          </Grid>
+            </CardContent>
 
-          {renderDetails(props)}
+            <Divider />
+
+            {renderDetails(props)}
+          </Card>
         </Grid>
       </Grid>
     </Content>
