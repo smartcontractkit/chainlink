@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -142,7 +141,7 @@ type ConfigWhitelist struct {
 
 type whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
-	BridgeResponseURL        *url.URL        `json:"bridgeResponseURL,omitempty"`
+	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  uint64          `json:"ethChainId"`
 	Dev                      bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
@@ -180,7 +179,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 		AccountAddress: account.Address.Hex(),
 		whitelist: whitelist{
 			AllowOrigins:             config.AllowOrigins(),
-			BridgeResponseURL:        config.BridgeResponseURL(),
+			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
 			Dev:                      config.Dev(),
 			ClientNodeURL:            config.ClientNodeURL(),
