@@ -107,10 +107,15 @@ func newConfigWithViper(v *viper.Viper) Config {
 // Set a specific configuration variable
 func (c Config) Set(name string, value interface{}) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
-	if _, ok := schemaT.FieldByName(name); !ok {
-		logger.Panicf("No configuration parameter for %s", name)
+	for index := 0; index < schemaT.NumField(); index++ {
+		item := schemaT.FieldByIndex([]int{index})
+		envName := item.Tag.Get("env")
+		if envName == name {
+			c.viper.Set(name, value)
+			return
+		}
 	}
-	c.viper.Set(name, value)
+	logger.Panicf("No configuration parameter for %s", name)
 }
 
 // AllowOrigins returns the CORS hosts used by the frontend.

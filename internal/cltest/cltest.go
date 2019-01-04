@@ -95,16 +95,16 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := path.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := store.NewConfig()
-	rawConfig.Set("BridgeResponseURL", "http://localhost:6688")
-	rawConfig.Set("ChainID", 3)
-	rawConfig.Set("Dev", true)
-	rawConfig.Set("EthGasBumpThreshold", 3)
-	rawConfig.Set("LogLevel", store.LogLevel{Level: zapcore.DebugLevel})
-	rawConfig.Set("MinimumServiceDuration", "24h")
-	rawConfig.Set("MinOutgoingConfirmations", 6)
-	rawConfig.Set("MinimumContractPayment", minimumContractPayment.Text(10))
-	rawConfig.Set("RootDir", rootdir)
-	rawConfig.Set("SessionTimeout", "2m")
+	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
+	rawConfig.Set("ETH_CHAIN_ID", 3)
+	rawConfig.Set("CHAINLINK_DEV", true)
+	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
+	rawConfig.Set("LOG_LEVEL", store.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
+	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
+	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
+	rawConfig.Set("ROOT", rootdir)
+	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{Config: rawConfig}
 	config.SetEthereumServer(wsserver)
@@ -116,7 +116,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	u, err := url.Parse(wss.URL)
 	mustNotErr(err)
 	u.Scheme = "ws"
-	tc.Set("EthereumURL", u.String())
+	tc.Set("ETH_URL", u.String())
 	tc.wsServer = wss
 }
 
@@ -176,7 +176,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	ta := &TestApplication{ChainlinkApplication: app}
 
 	server := newServer(ta)
-	tc.Config.Set("ClientNodeURL", server.URL)
+	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
 
 	ta.Config = tc.Config

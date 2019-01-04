@@ -535,7 +535,7 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 	config, configCleanup := cltest.NewConfig()
 	defer configCleanup()
 	oca := common.HexToAddress("0xDEADB3333333F")
-	config.Set("OracleContractAddress", &oca)
+	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 
@@ -635,7 +635,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	defer configCleanup()
 	oracleAddress := "0xDEADB3333333F"
 	oca := common.HexToAddress(oracleAddress)
-	config.Set("OracleContractAddress", &oca)
+	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
 
