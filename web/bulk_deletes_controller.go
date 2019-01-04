@@ -41,7 +41,7 @@ func (c *BulkDeletesController) Show(ctx *gin.Context) {
 	id := ctx.Param("taskID")
 	task := models.BulkDeleteRunTask{}
 
-	if err := c.App.GetStore().One("ID", id, &task); err == orm.ErrorNotFound {
+	if err := c.App.GetStore().ORM.DB.One("ID", id, &task); err == orm.ErrorNotFound {
 		ctx.AbortWithError(404, errors.New("Bulk delete task not found"))
 	} else if err != nil {
 		ctx.AbortWithError(500, err)
