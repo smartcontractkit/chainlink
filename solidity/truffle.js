@@ -1,18 +1,18 @@
-require('babel-register');
-require('babel-polyfill');
+require('babel-register')
+require('babel-polyfill')
 
 module.exports = {
-  network: "development",
+  network: 'test',
   compilers: {
     solc: {
-      version: "0.4.24",
+      version: '0.4.24',
     }
   },
   networks: {
     development: {
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       port: 18545,
-      network_id: "*",
+      network_id: '*',
       gas: 4700000,
       gasPrice: 5e9,
     },
@@ -31,4 +31,4 @@ module.exports = {
       network_id: '4'
     }
   }
-};
+}
