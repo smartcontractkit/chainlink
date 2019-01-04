@@ -74,8 +74,9 @@ func TestPresenterShowEthBalance_WithEmptyAccount(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
-	_, err := presenters.ShowEthBalance(app.Store)
+	kvs, err := presenters.ShowEthBalance(app.Store)
 	assert.Error(t, err)
+	assert.Len(t, kvs, 0)
 }
 
 func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
@@ -90,6 +91,7 @@ func TestPresenterShowEthBalance_WithAccount(t *testing.T) {
 
 	kvs, err := presenters.ShowEthBalance(app.Store)
 	assert.NoError(t, err)
+	require.Len(t, kvs, 1)
 	kv := kvs[0]
 	addr := cltest.GetAccountAddress(app.Store).Hex()
 	want := fmt.Sprintf("ETH Balance for %v: 0.000000000000000256", addr)

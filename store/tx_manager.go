@@ -452,7 +452,7 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	return nil
 }
 
-// NextActiveAccount uses round robing to select a managed account
+// NextActiveAccount uses round robin to select a managed account
 // from the list of available accounts as defined in Register(...)
 func (txm *EthTxManager) NextActiveAccount() *ManagedAccount {
 	txm.accountsMutex.Lock()
