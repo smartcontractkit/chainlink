@@ -60,24 +60,26 @@ func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]i
 	for _, account := range store.KeyStore.Accounts() {
 		b, err := showBalanceForAccount(store, account, balanceType)
 		merr = multierr.Append(merr, err)
-		info = append(info, b)
+		if err == nil {
+			info = append(info, b)
+		}
 	}
 	return info, merr
 }
 
 // ShowEthBalance returns the current Eth Balance for current Account
 func showBalanceForAccount(store *store.Store, account accounts.Account, balanceType requestType) (map[string]interface{}, error) {
-	keysAndValues := make(map[string]interface{})
 	balance, err := getBalance(store, account, balanceType)
 	if err != nil {
-		return keysAndValues, err
+		return nil, err
 	}
 	address := account.Address
+	keysAndValues := make(map[string]interface{})
 	keysAndValues["message"] = fmt.Sprintf("%v Balance for %v: %v", balance.Symbol(), address.Hex(), balance.String())
 	keysAndValues["balance"] = balance.String()
 	keysAndValues["address"] = address
 	if balance.IsZero() && balanceType == ethRequest {
-		return keysAndValues, errors.New("0 ETH Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
+		return nil, errors.New("0 ETH Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
 	return keysAndValues, nil
 }
