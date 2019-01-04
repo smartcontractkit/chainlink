@@ -37,33 +37,33 @@ const Form = ({
         message='You have not submitted the form, are you sure you want to leave?'
       />
       <formik.Form noValidate>
-        <Grid container justify='center'>
-          <Grid container justify='center'>
-            <Grid item sm={8}>
-              <TextField
-                value={values.json}
-                onChange={handleChange}
-                error={errors.json && touched.json}
-                fullWidth
-                label='Paste JSON'
-                rows={10}
-                rowsMax={25}
-                placeholder='Paste JSON'
-                multiline margin='normal'
-                name='json'
-                id='json'
-              />
-            </Grid>
+        <Grid container>
+          <Grid item xs={12}>
+            <TextField
+              value={values.json}
+              onChange={handleChange}
+              error={errors.json && touched.json}
+              fullWidth
+              label='JSON Blob'
+              rows={10}
+              rowsMax={25}
+              placeholder='Paste JSON'
+              multiline margin='normal'
+              name='json'
+              id='json'
+            />
           </Grid>
-          <Button
-            className={classes.button}
-            variant='contained'
-            color='primary'
-            type='submit'
-            disabled={isSubmitting || !values.json}
-          >
-            {actionText}
-          </Button>
+          <Grid item xs={12}>
+            <Button
+              className={classes.button}
+              variant='contained'
+              color='primary'
+              type='submit'
+              disabled={isSubmitting || !values.json}
+            >
+              {actionText}
+            </Button>
+          </Grid>
         </Grid>
       </formik.Form>
     </React.Fragment>
