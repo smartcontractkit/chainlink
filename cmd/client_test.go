@@ -93,7 +93,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config.Set("RootDir", test.rootDir)
+			config.Set("ROOT", test.rootDir)
 			store := cmd.DiskCookieStore{Config: config}
 			cookie, err := store.Retrieve()
 			if test.wantError {

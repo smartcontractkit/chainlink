@@ -10,7 +10,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfigWithPrivateKey()
-	config.Set("AllowOrigins", "http://localhost:3000,http://localhost:6689")
+	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
 	app, appCleanup := cltest.NewApplicationWithConfig(config)
 	defer appCleanup()
 	client := app.NewHTTPClient()
@@ -51,7 +51,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
 			config, _ := cltest.NewConfigWithPrivateKey()
-			config.Set("AllowOrigins", test.allow)
+			config.Set("ALLOW_ORIGINS", test.allow)
 			app, appCleanup := cltest.NewApplicationWithConfig(config)
 			defer appCleanup()
 			client := app.NewHTTPClient()

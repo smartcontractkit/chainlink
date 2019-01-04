@@ -31,7 +31,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 func TestConfig_sessionSecret(t *testing.T) {
 	t.Parallel()
 	config := NewConfig()
-	config.Set("RootDir", path.Join("/tmp/chainlink_test", fmt.Sprintf("%s", "TestConfig_sessionSecret")))
+	config.Set("ROOT", path.Join("/tmp/chainlink_test", fmt.Sprintf("%s", "TestConfig_sessionSecret")))
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
 	require.NoError(t, err)
 
@@ -60,7 +60,7 @@ func TestConfig_sessionOptions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config.Set("Dev", test.dev)
+			config.Set("CHAINLINK_DEV", test.dev)
 			opts := config.SessionOptions()
 			require.Equal(t, test.want, opts.Secure)
 		})
