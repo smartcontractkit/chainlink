@@ -677,3 +677,16 @@ func (orm *ORM) Save(data interface{}) error {
 	logger.Panic("Direct saves are not allowed, use orm's model specific save")
 	return nil
 }
+
+// LastHead returns the last ordered IndexableBlockNumber.
+func (orm *ORM) LastHead() (*models.IndexableBlockNumber, error) {
+	numbers := []models.IndexableBlockNumber{}
+	err := orm.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
+	if err == storm.ErrNotFound {
+		return nil, nil
+	}
+	if err == nil {
+		return &numbers[0], nil
+	}
+	return nil, err
+}

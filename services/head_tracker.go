@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/store"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tevino/abool"
@@ -265,16 +264,13 @@ func (ht *HeadTracker) fastForwardHeadFromEth() {
 }
 
 func (ht *HeadTracker) updateHeadFromDb() error {
-	numbers := []models.IndexableBlockNumber{}
-	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
-	if err != nil && err != orm.ErrorNotFound {
+	number, err := ht.store.LastHead()
+	if err != nil {
 		return err
 	}
-	if len(numbers) > 0 {
-		ht.headMutex.Lock()
-		ht.head = &numbers[0]
-		ht.headMutex.Unlock()
-	}
+	ht.headMutex.Lock()
+	ht.head = number
+	ht.headMutex.Unlock()
 	return nil
 }
 
