@@ -161,6 +161,11 @@ func NewApp(client *Client) *cli.App {
 			Action: client.Withdraw,
 		},
 		{
+			Name:   "sendether",
+			Usage:  "Send <amount> ETH from the node's ETH account to an <address>.",
+			Action: client.SendEther,
+		},
+		{
 			Name:   "chpass",
 			Usage:  "Change your password",
 			Action: client.ChangePassword,
