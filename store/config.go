@@ -97,7 +97,7 @@ func newConfigWithViper(v *viper.Viper) Config {
 	v.SetConfigName("chainlink")
 	v.AddConfigPath(config.RootDir())
 	err := v.ReadInConfig()
-	if err != nil {
+	if err != nil && err != os.ErrNotExist {
 		logger.Warnf("Unable to load config file: %v\n", err)
 	}
 
