@@ -51,6 +51,7 @@ const Form = ({
               multiline margin='normal'
               name='json'
               id='json'
+              variant='outlined'
             />
           </Grid>
           <Grid item xs={12}>
