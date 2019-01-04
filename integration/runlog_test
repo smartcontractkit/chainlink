@@ -4,7 +4,7 @@ source ./common
 
 title 'Runlog test.'
 
-expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
+expected_echo_count=$(expr $(curl -sS "$ECHO_SERVER_URL") + 1)
 expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
 
 ./send_runlog_transaction | tee send_runlog_transaction.log
