@@ -6,7 +6,7 @@ describe('connectors/reducers/dashboardIndex', () => {
     const state = reducer(undefined, {})
 
     expect(state.dashboardIndex).toEqual({
-      recentJobRuns: null
+      recentJobRuns: []
     })
   })
 
