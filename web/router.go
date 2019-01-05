@@ -172,6 +172,9 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		w := WithdrawalsController{app}
 		authv2.POST("/withdrawals", w.Create)
 
+		ts := TransfersController{app}
+		authv2.POST("/transfers", ts.Create)
+
 		backup := BackupController{app}
 		authv2.GET("/backup", backup.Show)
 
