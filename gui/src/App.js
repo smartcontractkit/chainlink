@@ -14,9 +14,9 @@ class App extends PureComponent {
 
   render () {
     return (
-          <Provider store={createStore()}>
-            <Layout />
-           </Provider>
+      <Provider store={createStore()}>
+        <Layout />
+      </Provider>
     )
   }
 }

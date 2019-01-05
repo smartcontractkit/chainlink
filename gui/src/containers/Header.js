@@ -5,7 +5,6 @@ import { withStyles } from '@material-ui/core/styles'
 import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import ReactResizeDetector from 'react-resize-detector'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
@@ -132,32 +131,32 @@ const Header = useHooks(props => {
       color='default'
       position='absolute'
     >
-    {/* !FIXME! RESIZE DETECTOR  */}
-        <LoadingBar fetchCount={fetchCount} />
+      {/* !FIXME! RESIZE DETECTOR  */}
+      <LoadingBar fetchCount={fetchCount} />
 
-        <Toolbar className={classes.toolbar}>
-          <Grid container alignItems='center'>
-            <Grid item xs={11} sm={6} md={4}>
-              <Link to='/'>
-                <Logo width={40} height={50} />
-              </Link>
-            </Grid>
-            <Grid item xs={1} sm={6} md={8}>
-              <Grid container justify='flex-end'>
-                <Grid item>
-                  <Hidden mdUp>
-                    <IconButton aria-label='open drawer' onClick={toggleDrawer}>
-                      <MenuIcon />
-                    </IconButton>
-                  </Hidden>
-                  <Hidden smDown>
-                    {nav}
-                  </Hidden>
-                </Grid>
+      <Toolbar className={classes.toolbar}>
+        <Grid container alignItems='center'>
+          <Grid item xs={11} sm={6} md={4}>
+            <Link to='/'>
+              <Logo width={40} height={50} />
+            </Link>
+          </Grid>
+          <Grid item xs={1} sm={6} md={8}>
+            <Grid container justify='flex-end'>
+              <Grid item>
+                <Hidden mdUp>
+                  <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                    <MenuIcon />
+                  </IconButton>
+                </Hidden>
+                <Hidden smDown>
+                  {nav}
+                </Hidden>
               </Grid>
             </Grid>
           </Grid>
-        </Toolbar>
+        </Grid>
+      </Toolbar>
       <Portal container={props.drawerContainer}>
         {drawer}
       </Portal>

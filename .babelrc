@@ -1,4 +1,7 @@
 {
-  "presets": ["react-static/babel-preset.js"],
-  "plugins": ["transform-es3-member-expression-literals", "babel-plugin-transform-es3-property-literals"]
+  "extends": "react-static/.babelrc",
+  "presets": ["@babel/preset-env"],
+  "plugins": ["@babel/plugin-proposal-export-namespace-from",
+              "@babel/plugin-proposal-throw-expressions",
+              "@babel/plugin-proposal-class-properties"]
 }

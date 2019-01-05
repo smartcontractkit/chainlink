@@ -26,7 +26,7 @@ if (typeof document !== 'undefined') {
       </MuiThemeProvider>,
       document.getElementById('root')
     )
-}
+  }
 
   render(App)
   // Hot Module Replacement

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Root } from 'react-static'
+import { Root, Routes } from 'react-static'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
 import PrivateRoute from './PrivateRoute'
@@ -7,12 +7,11 @@ import Header from 'containers/Header'
 import Loading from 'components/Loading'
 import Notifications from 'containers/Notifications'
 import universal from 'react-universal-component'
-import { Route, BrowserRouter, Switch, Redirect } from 'react-router-dom'
+import { Route, Switch, Redirect } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { useHooks, useState } from 'use-react-hooks'
-
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = { loading: Loading }
@@ -51,14 +50,13 @@ const Layout = useHooks(props => {
   const { classes, redirectTo } = props
 
   return (<Root>
-    <BrowserRouter>
     <Grid container>
       <CssBaseline />
       <Grid item xs={12}>
         <Header
           onResize={onHeaderResize}
           drawerContainer={props.drawerContainer}
-          />
+        />
         <main
           ref={ref => { props.drawerContainer = ref }}
           style={{ paddingTop: headerHeight }}
@@ -75,12 +73,12 @@ const Layout = useHooks(props => {
                 path='/'
                 render={props => (
                   <DashboardsIndex
-                  {...props}
-                  recentJobRunsCount={5}
-                  recentlyCreatedPageSize={4}
+                    {...props}
+                    recentJobRunsCount={5}
+                    recentlyCreatedPageSize={4}
                   />
-                  )}
-                  />
+                )}
+              />
               <PrivateRoute exact path='/jobs' component={JobsIndex} />
               <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
               <PrivateRoute exact path='/jobs/new' component={JobsNew} />
@@ -88,7 +86,7 @@ const Layout = useHooks(props => {
                 exact
                 path='/jobs/:jobSpecId'
                 render={props => <JobsShow {...props} showJobRunsCount={5} />}
-                />
+              />
               <PrivateRoute exact path='/jobs/:jobSpecId/definition' component={JobsDefinition} />
               <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
               <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
@@ -100,14 +98,14 @@ const Layout = useHooks(props => {
               <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
               <PrivateRoute exact path='/bridges/:bridgeId/edit' component={BridgesEdit} />
               <PrivateRoute exact path='/config' component={Configuration} />
+              <Routes />
             </Switch>
           </div>
         </main>
       </Grid>
     </Grid>
-    </BrowserRouter>
-    </Root>
-)
+  </Root>
+  )
 })
 
 const mapStateToProps = state => ({
