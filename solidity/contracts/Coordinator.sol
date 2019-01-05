@@ -137,30 +137,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   /**
-   * @dev This is mostly useful as a sanity check in the #getId test, because the
-   * hash value there is illegible by design
-   * @param _payment The amount of payment given (specified in wei)
-   * @param _expiration The expiration that nodes should respond by
-   * @param _endAt The date which the service agreement is no longer valid
-   * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _requestDigest Hash of the normalized job specification
-   * @return The encoded packed ABI of the input params
-   */
-  function getPackedArguments(
-    uint256 _payment,
-    uint256 _expiration,
-    uint256 _endAt,
-    address[] _oracles,
-    bytes32 _requestDigest
-  )
-    public
-    pure
-    returns (bytes)
-  {
-    return abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest);
-  }
-
-  /**
    * @notice Retrieve the Service Agreement ID for the given parameters
    * @param _payment The amount of payment given (specified in wei)
    * @param _expiration The expiration that nodes should respond by
@@ -178,7 +154,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   )
     public pure returns (bytes32)
   {
-    return keccak256(getPackedArguments(_payment, _expiration, _endAt, _oracles, _requestDigest));
+    return keccak256(abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest));
   }
 
   /**
