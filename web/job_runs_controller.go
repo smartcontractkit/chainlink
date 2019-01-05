@@ -49,8 +49,6 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	var runs []models.JobRun
 	if countErr != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting count of JobRuns: %+v", err))
-	} else if err := query.Find(&runs); err == storm.ErrNotFound {
-		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
 	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, runs); err != nil {
