@@ -62,8 +62,7 @@ func TestSessionsController_Create(t *testing.T) {
 				assert.Equal(t, `{"authenticated":true}`, string(b))
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
-				var sessions []models.Session
-				err = app.Store.All(&sessions)
+				sessions, err := app.Store.Sessions(0, 1)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -92,8 +91,8 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, 200, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions := []models.Session{}
-		assert.Nil(t, app.Store.All(&sessions))
+		sessions, err := app.Store.Sessions(0, 10)
+		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(1))
 }
@@ -171,8 +170,8 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, 200, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions := []models.Session{}
-		assert.Nil(t, app.Store.All(&sessions))
+		sessions, err := app.Store.Sessions(0, 10)
+		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(0))
 }

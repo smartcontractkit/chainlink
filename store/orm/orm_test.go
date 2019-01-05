@@ -465,9 +465,8 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	user, err = store.FindUser()
 	require.NoError(t, err)
 
-	var sessions []models.Session
-	err = store.All(&sessions)
-	require.NoError(t, err)
+	sessions, err := store.Sessions(0, 10)
+	assert.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
