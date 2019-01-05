@@ -162,12 +162,12 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	_, err = manager.CreateTx(to, data)
 	assert.Error(t, err)
 
-	var txs []models.Tx
-	err = store.ORM.All(&txs)
+	txs, err := store.Transactions(0, 10)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(txs))
 
-	var txAttempts []models.TxAttempt
-	err = store.ORM.All(&txAttempts)
+	txAttempts, _, err := store.TxAttempts(0, 100)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(txAttempts))
 
 	hash := cltest.NewHash()

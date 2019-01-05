@@ -162,6 +162,13 @@ func (orm *ORM) JobRunsCountFor(jobID string) (int, error) {
 	return query.Count(&models.JobRun{})
 }
 
+// Sessions returns all sessions limited by the parameters.
+func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
+	var sessions []models.Session
+	err := orm.All(&sessions)
+	return sessions, err
+}
+
 // SaveJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) SaveJob(job *models.JobSpec) error {
 	tx, err := orm.Begin(true)
@@ -578,8 +585,15 @@ func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 	return txs, err
 }
 
+// Transactions returns all transactions limited by passed parameters.
+func (orm *ORM) Transactions(offset, limit int) ([]models.Tx, error) {
+	var txs []models.Tx
+	err := orm.All(&txs)
+	return txs, err
+}
+
 // TxAttempts returns the last tx attempts sorted by sent at descending.
-func (orm *ORM) TxAttempts(offset int, limit int) ([]models.TxAttempt, int, error) {
+func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	var attempts []models.TxAttempt
 	count, err := orm.Count(&models.TxAttempt{})
 	if err != nil {
@@ -587,6 +601,9 @@ func (orm *ORM) TxAttempts(offset int, limit int) ([]models.TxAttempt, int, erro
 	}
 	query := orm.Select().OrderBy("SentAt").Reverse().Limit(limit).Skip(offset)
 	err = query.Find(&attempts)
+	if err == storm.ErrNotFound {
+		err = nil
+	}
 	return attempts, count, err
 }
 
@@ -609,6 +626,9 @@ func (orm *ORM) JobRunsSorted(order SortType, offset int, limit int) ([]models.J
 
 	var runs []models.JobRun
 	err = query.Find(&runs)
+	if err == storm.ErrNotFound {
+		err = nil
+	}
 	return runs, count, err
 }
 
@@ -627,6 +647,9 @@ func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit in
 
 	var runs []models.JobRun
 	err = query.Find(&runs)
+	if err == storm.ErrNotFound {
+		err = nil
+	}
 	return runs, count, err
 }
 

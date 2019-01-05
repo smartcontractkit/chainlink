@@ -45,14 +45,14 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 
 			if test.wantReap {
 				gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-					sessions := []models.Session{}
-					assert.Nil(t, store.All(&sessions))
+					sessions, err := store.Sessions(0, 10)
+					assert.NoError(t, err)
 					return sessions
 				}).Should(gomega.HaveLen(0))
 			} else {
 				gomega.NewGomegaWithT(t).Consistently(func() []models.Session {
-					sessions := []models.Session{}
-					assert.Nil(t, store.All(&sessions))
+					sessions, err := store.Sessions(0, 10)
+					assert.NoError(t, err)
 					return sessions
 				}).Should(gomega.HaveLen(1))
 			}
