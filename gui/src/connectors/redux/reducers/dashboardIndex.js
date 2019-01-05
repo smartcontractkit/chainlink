@@ -1,5 +1,5 @@
 const initialState = {
-  recentJobRuns: null
+  recentJobRuns: []
 }
 
 export const UPSERT_RECENT_JOB_RUNS = 'UPSERT_RECENT_JOB_RUNS'

@@ -58,7 +58,7 @@ const RecentActivity = ({classes, runs}) => {
     activity = (
       <CardContent>
         <Typography variant='body1' color='textSecondary'>
-          No recently activity :(
+          No recent activity :(
         </Typography>
       </CardContent>
     )
