@@ -536,7 +536,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	attempts, err := store.AttemptsFor(tx.ID)
+	attempts, err := store.TxAttemptsFor(tx.ID)
 	require.NoError(t, err)
 
 	client, r := app.NewClientAndRenderer()

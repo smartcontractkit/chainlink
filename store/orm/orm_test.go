@@ -45,7 +45,7 @@ func TestORM_SaveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1, initr := cltest.NewJobWithSchedule("* * * * *")
+	j1, _ := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(&j1)
 
 	j2, _ := store.FindJob(j1.ID)
@@ -53,8 +53,9 @@ func TestORM_SaveJob(t *testing.T) {
 	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
 
-	assert.NoError(t, store.One("JobID", j1.ID, &initr))
-	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
+	initiators, err := store.FindInitiatorsForJob(j1.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, models.Cron("* * * * *"), initiators[0].Schedule)
 }
 
 func TestJobRunsFor(t *testing.T) {
@@ -366,8 +367,8 @@ func TestORM_MarkRan(t *testing.T) {
 	assert.NoError(t, store.SaveInitiator(&initr))
 
 	assert.NoError(t, store.MarkRan(&initr))
-	var ir models.Initiator
-	assert.NoError(t, store.One("ID", initr.ID, &ir))
+	ir, err := store.FindInitiator(initr.ID)
+	assert.NoError(t, err)
 	assert.True(t, ir.Ran)
 }
 

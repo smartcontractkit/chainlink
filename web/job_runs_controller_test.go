@@ -250,7 +250,8 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be unauthorized")
-	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+	jr, err := app.Store.FindJobRun(jr.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
 }
 
@@ -353,7 +354,8 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
-	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+	jr, err := app.Store.FindJobRun(jr.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
 }
 
@@ -376,7 +378,8 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID+"1", bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be successful")
-	assert.Nil(t, app.Store.One("ID", jr.ID, &jr))
+	jr, err := app.Store.FindJobRun(jr.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
 }
 
