@@ -108,22 +108,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _data);
   }
 
-  // This is mostly useful as a sanity check in the #getId test, because the
-  // hash value there is illegible by design.
-  function getPackedArguments(
-    uint256 _payment,
-    uint256 _expiration,
-    uint256 _endAt,
-    address[] _oracles,
-    bytes32 _requestDigest
-  )
-    public
-    pure
-    returns (bytes)
-  {
-    return abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest);
-  }
-
   function getId(
     uint256 _payment,
     uint256 _expiration,
@@ -133,7 +117,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   )
     public pure returns (bytes32)
   {
-    return keccak256(getPackedArguments(_payment, _expiration, _endAt, _oracles, _requestDigest));
+    return keccak256(abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest));
   }
 
   function initiateServiceAgreement(
