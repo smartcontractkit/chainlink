@@ -104,6 +104,20 @@ func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
 	return job, err
 }
 
+// FindInitiator returns the single initiator defined by the passed ID.
+func (orm *ORM) FindInitiator(ID int) (models.Initiator, error) {
+	initr := models.Initiator{}
+	err := orm.One("ID", ID, &initr)
+	return initr, err
+}
+
+// FindInitiatorsForJob returns all initiators for a specific job.
+func (orm *ORM) FindInitiatorsForJob(jobID string) ([]models.Initiator, error) {
+	initrs := []models.Initiator{}
+	err := orm.Where("JobID", jobID, &initrs)
+	return initrs, err
+}
+
 // FindJobRun looks up a JobRun by its ID.
 func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 	var jr models.JobRun
@@ -290,9 +304,23 @@ func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
 	return dbtx.Commit()
 }
 
-// AttemptsFor returns the Transaction Attempts (TxAttempt) for a
+// FindTx returns the specific transaction for the passed ID.
+func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
+	tx := &models.Tx{}
+	err := orm.One("ID", ID, tx)
+	return tx, err
+}
+
+// FindTxAttempt returns the specific transaction attempt with the hash.
+func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
+	txat := &models.TxAttempt{}
+	err := orm.One("Hash", hash, txat)
+	return txat, err
+}
+
+// TxAttemptsFor returns the Transaction Attempts (TxAttempt) for a
 // given Transaction ID (TxID).
-func (orm *ORM) AttemptsFor(id uint64) ([]models.TxAttempt, error) {
+func (orm *ORM) TxAttemptsFor(id uint64) ([]models.TxAttempt, error) {
 	attempts := []models.TxAttempt{}
 	if err := orm.Where("TxID", id, &attempts); err != nil {
 		return attempts, err
@@ -300,9 +328,9 @@ func (orm *ORM) AttemptsFor(id uint64) ([]models.TxAttempt, error) {
 	return attempts, nil
 }
 
-// AddAttempt creates a new transaction attempt and stores it
+// AddTxAttempt creates a new transaction attempt and stores it
 // in the database.
-func (orm *ORM) AddAttempt(
+func (orm *ORM) AddTxAttempt(
 	tx *models.Tx,
 	etx *types.Transaction,
 	blkNum uint64,

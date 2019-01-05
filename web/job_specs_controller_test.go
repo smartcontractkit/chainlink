@@ -182,8 +182,7 @@ func TestJobSpecsController_Create(t *testing.T) {
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
+	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 	assert.NotEqual(t, models.Time{}, j.CreatedAt)
 }

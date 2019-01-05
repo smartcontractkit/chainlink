@@ -29,9 +29,9 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	_, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
+	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
-	_, err = store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
+	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/txattempts?size=2")

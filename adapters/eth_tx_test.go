@@ -72,7 +72,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(txs))
-	attempts, _ := store.AttemptsFor(txs[0].ID)
+	attempts, _ := store.TxAttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
 
 	ethMock.EventuallyAllCalled(t)
@@ -137,7 +137,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(txs))
-	attempts, _ := store.AttemptsFor(txs[0].ID)
+	attempts, _ := store.TxAttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
 
 	ethMock.EventuallyAllCalled(t)
@@ -203,7 +203,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 		assert.NoError(t, err)
 		return txs
 	}).Should(gomega.HaveLen(1))
-	attempts, _ := store.AttemptsFor(txs[0].ID)
+	attempts, _ := store.TxAttemptsFor(txs[0].ID)
 	assert.Equal(t, 1, len(attempts))
 
 	ethMock.EventuallyAllCalled(t)
@@ -227,7 +227,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.SaveTx(tx))
-	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
+	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
@@ -237,8 +237,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
-	assert.Nil(t, store.One("ID", tx.ID, tx))
-	attempts, _ := store.AttemptsFor(tx.ID)
+	_, err = store.FindTx(tx.ID)
+	assert.NoError(t, err)
+	attempts, _ := store.TxAttemptsFor(tx.ID)
 	assert.Equal(t, 1, len(attempts))
 
 	ethMock.EventuallyAllCalled(t)
@@ -266,7 +267,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.SaveTx(tx))
-	a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
+	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a.Hash.String())
@@ -276,8 +277,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
-	assert.Nil(t, store.One("ID", tx.ID, tx))
-	attempts, _ := store.AttemptsFor(tx.ID)
+	_, err = store.FindTx(tx.ID)
+	assert.NoError(t, err)
+	attempts, _ := store.TxAttemptsFor(tx.ID)
 	assert.Equal(t, 2, len(attempts))
 
 	ethMock.EventuallyAllCalled(t)
@@ -306,9 +308,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	assert.Nil(t, store.SaveTx(tx))
-	store.AddAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
-	a3, _ := store.AddAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
+	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
+	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
+	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithValue(a3.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
@@ -320,9 +322,10 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
 
-	assert.Nil(t, store.One("ID", tx.ID, tx))
+	tx, err := store.FindTx(tx.ID)
+	assert.NoError(t, err)
 	assert.True(t, tx.Confirmed)
-	attempts, _ := store.AttemptsFor(tx.ID)
+	attempts, _ := store.TxAttemptsFor(tx.ID)
 	assert.False(t, attempts[0].Confirmed)
 	assert.True(t, attempts[1].Confirmed)
 	assert.False(t, attempts[2].Confirmed)
