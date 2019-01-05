@@ -61,7 +61,7 @@ func (orm *ORM) GetBolt() *bolt.DB {
 // Where fetches multiple objects with "Find" in Storm.
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
 	err := orm.Find(field, value, instance)
-	if err == ErrorNotFound {
+	if err == storm.ErrNotFound {
 		emptySlice(instance)
 		return nil
 	}
@@ -141,7 +141,7 @@ func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
 func (orm *ORM) JobRunsFor(jobID string) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
 	err := orm.Find("JobID", jobID, &runs) // Use Find to leverage db index
-	if err == ErrorNotFound {
+	if err == storm.ErrNotFound {
 		return []models.JobRun{}, nil
 	}
 	sort.Sort(jobRunSorterAscending(runs))
@@ -221,7 +221,7 @@ func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
 func (orm *ORM) JobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
 	err := orm.Select(q.In("Status", statuses)).Find(&runs)
-	if err == ErrorNotFound {
+	if err == storm.ErrNotFound {
 		return []models.JobRun{}, nil
 	}
 
@@ -340,7 +340,7 @@ func (orm *ORM) AddAttempt(
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	var transactions []models.Tx
 	query := orm.Select(q.Eq("From", address))
-	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == ErrorNotFound {
+	if err := query.Limit(1).OrderBy("Nonce").Reverse().Find(&transactions); err == storm.ErrNotFound {
 		return 0, nil
 	} else if err != nil {
 		return 0, err
@@ -535,7 +535,7 @@ func underlyingBucketType(bucket interface{}) reflect.Type {
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	var sessions []models.Session
 	err := orm.Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
-	if err != nil && err != ErrorNotFound {
+	if err != nil && err != storm.ErrNotFound {
 		return err
 	}
 
