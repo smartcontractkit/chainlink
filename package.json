@@ -4,7 +4,7 @@
   "license": "MIT",
   "scripts": {
     "start": "cd gui && react-static start",
-    "build": "cd gui && react-static build",
+    "build": "JOBS=2 && cd gui && react-static build",
     "serve": "cd gui && serve dist -p 3000",
     "storybook": "start-storybook -p 9001 -c .storybook",
     "lint": "standard --fix --verbose --global web3 --global assert --global context --global contract --global artifacts | snazzy",
