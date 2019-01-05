@@ -21,8 +21,8 @@ import { useHooks, useEffect } from 'use-react-hooks'
 export const Index = useHooks(props => {
   useEffect(() => {
     props.fetchAccountBalance()
-    props.fetchRecentJobRuns(props.recentJobRunsCount)
     props.fetchRecentlyCreatedJobs(props.recentlyCreatedPageSize)
+    if(props.recentlyCreatedJobs && props.recentlyCreatedJobs.length > 0) props.fetchRecentJobRuns(props.recentJobRunsCount)
   }, [])
 
   return (
