@@ -22,6 +22,7 @@ import Logo from 'components/Logo'
 import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
+import ReactResizeDetector from 'react-resize-detector';
 
 const drawerWidth = 240
 
@@ -131,35 +132,36 @@ const Header = useHooks(props => {
       color='default'
       position='absolute'
     >
-      {/* !FIXME! RESIZE DETECTOR  */}
-      <LoadingBar fetchCount={fetchCount} />
+      <ReactResizeDetector handleHeight skipOnMount onResize={props.onResize}>
+        <LoadingBar fetchCount={fetchCount} />
 
-      <Toolbar className={classes.toolbar}>
-        <Grid container alignItems='center'>
-          <Grid item xs={11} sm={6} md={4}>
-            <Link to='/'>
-              <Logo width={40} height={50} />
-            </Link>
-          </Grid>
-          <Grid item xs={1} sm={6} md={8}>
-            <Grid container justify='flex-end'>
-              <Grid item>
-                <Hidden mdUp>
-                  <IconButton aria-label='open drawer' onClick={toggleDrawer}>
-                    <MenuIcon />
-                  </IconButton>
-                </Hidden>
-                <Hidden smDown>
-                  {nav}
-                </Hidden>
+        <Toolbar className={classes.toolbar}>
+          <Grid container alignItems='center'>
+            <Grid item xs={11} sm={6} md={4}>
+              <Link to='/'>
+                <Logo width={40} height={50} />
+              </Link>
+            </Grid>
+            <Grid item xs={1} sm={6} md={8}>
+              <Grid container justify='flex-end'>
+                <Grid item>
+                  <Hidden mdUp>
+                    <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                      <MenuIcon />
+                    </IconButton>
+                  </Hidden>
+                  <Hidden smDown>
+                    {nav}
+                  </Hidden>
+                </Grid>
               </Grid>
             </Grid>
           </Grid>
-        </Grid>
-      </Toolbar>
-      <Portal container={props.drawerContainer}>
-        {drawer}
-      </Portal>
+        </Toolbar>
+        <Portal container={props.drawerContainer}>
+          {drawer}
+        </Portal>
+      </ReactResizeDetector>
     </AppBar>
   )
 }
