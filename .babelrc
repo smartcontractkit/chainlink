@@ -1,7 +1,9 @@
 {
   "extends": "react-static/.babelrc",
-  "presets": ["@babel/preset-env"],
-  "plugins": ["@babel/plugin-proposal-export-namespace-from",
-              "@babel/plugin-proposal-throw-expressions",
-              "@babel/plugin-proposal-class-properties"]
+  "presets": ["@babel/preset-react", "@babel/preset-env"],
+  "plugins": [
+    "@babel/plugin-proposal-export-namespace-from",
+    "@babel/plugin-proposal-throw-expressions",
+    "@babel/plugin-proposal-class-properties"
+  ]
 }

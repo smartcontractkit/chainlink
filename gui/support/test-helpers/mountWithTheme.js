@@ -21,7 +21,7 @@ export default (children, opts = {}) => (
     <JssProvider registry={sheetsRegistry} generateClassName={generateClassName}>
       <MuiThemeProvider theme={muiTheme} sheetsManager={new Map()}>
         <Provider store={createStore()}>
-          <MemoryRouter>
+          <MemoryRouter initialEntries={['/']}>
             {children}
           </MemoryRouter>
         </Provider>

@@ -114,7 +114,9 @@
     "/solidity",
     "/zos.json"
   ],
-  "resolutions": {"babel-core": "7.0.0-bridge.0"},
+  "resolutions": {
+    "babel-core": "7.0.0-bridge.0"
+  },
   "standard": {
     "parser": "babel-eslint",
     "env": [
