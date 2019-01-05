@@ -156,12 +156,13 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 	return gasPriceWei, gasLimit
 }
 
-func (txm *EthTxManager) createTxWithNonceReload(
+func (txm *EthTxManager) createEthTxWithNonceReload(
 	ma *ManagedAccount,
 	to common.Address,
 	data []byte,
 	gasPriceWei *big.Int,
 	gasLimit uint64,
+	value *assets.Eth,
 	nrc uint) (*models.Tx, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
@@ -175,7 +176,7 @@ func (txm *EthTxManager) createTxWithNonceReload(
 			nonce,
 			to,
 			data,
-			big.NewInt(0),
+			value.ToInt(),
 			gasLimit,
 		)
 		if err != nil {
@@ -218,6 +219,23 @@ func (txm *EthTxManager) createTxWithNonceReload(
 	}
 
 	return tx, err
+}
+
+func (txm *EthTxManager) createTxWithNonceReload(
+	ma *ManagedAccount,
+	to common.Address,
+	data []byte,
+	gasPriceWei *big.Int,
+	gasLimit uint64,
+	nrc uint) (*models.Tx, error) {
+	return createEthTxWithNonceReload(
+		ma,
+		to,
+		data,
+		gasPriceWei,
+		gasLimit,
+		assets.NewETH(0),
+		nrc)
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
