@@ -184,7 +184,7 @@ func (ht *HeadTracker) subscribe() bool {
 	ht.sleeper.Reset()
 	for {
 		ht.unsubscribeFromHead()
-		logger.Info("Connecting to node ", ht.store.Config.EthereumURL, " in ", ht.sleeper.Duration())
+		logger.Info("Connecting to node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
 		select {
 		case <-ht.done:
 			return false
@@ -193,7 +193,7 @@ func (ht *HeadTracker) subscribe() bool {
 			if err != nil {
 				logger.Warnw(fmt.Sprintf("Failed to connect to %v", ht.store.Config.EthereumURL()), "err", err)
 			} else {
-				logger.Info("Connected to node ", ht.store.Config.EthereumURL)
+				logger.Info("Connected to node ", ht.store.Config.EthereumURL())
 				ht.fastForwardHeadFromEth()
 				return true
 			}
