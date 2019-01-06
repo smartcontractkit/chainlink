@@ -111,6 +111,8 @@ export const toHexWithoutPrefix = (arg: any): string => {
       arg,
       (a: any, v: any) => a + v.toString('16').padStart(2, '0'), ''
     )
+  } else if (Number(arg) === arg) {
+    return arg.toString(16).padStart(64, '0')
   } else {
     return Buffer.from(arg, 'ascii').toString('hex')
   }
@@ -497,17 +499,17 @@ export const initiateServiceAgreementArgs = ({
   expiration,
   endAt,
   oracles,
-  oracleSignature,
+  oracleSignatures,
   requestDigest
 }: any): any[] => [
   toHex(newHash(payment.toString())),
   toHex(newHash(expiration.toString())),
   toHex(newHash(endAt.toString())),
   oracles.map(newAddress).map(toHex),
-  [oracleSignature.v],
-  [oracleSignature.r].map(toHex),
-  [oracleSignature.s].map(toHex),
-  toHex(requestDigest)
+  oracleSignatures.map((os: any) => os.v),
+  oracleSignatures.map((os: any) => toHex(os.r)),
+  oracleSignatures.map((os: any) => toHex(os.s)),
+  toHex(requestDigest),
 ]
 
 // Call coordinator contract to initiate the specified service agreement, and
@@ -582,20 +584,20 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   agreement.expiration = params.expiration || 300
   agreement.endAt = params.endAt || sixMonthsFromNow()
   agreement.oracles = params.oracles || [oracleNode]
-  agreement.requestDigest =
-    params.requestDigest ||
-    newHash(
-      '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5'
-    )
+  agreement.oracleSignatures = []
+  agreement.requestDigest = params.requestDigest ||
+    newHash('0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
 
   const sAID = calculateSAID(agreement)
   agreement.id = toHex(sAID)
 
-  const oracle = agreement.oracles[0]
-  const oracleSignature = await personalSign(oracle, sAID)
-  const requestDigestAddr = recoverPersonalSignature(sAID, oracleSignature)
-  assert.equal(oracle.toLowerCase(), toHex(requestDigestAddr))
-  agreement.oracleSignature = oracleSignature
+  for (let i = 0; i < agreement.oracles.length; i++) {
+    const oracle = agreement.oracles[i]
+    const oracleSignature = await personalSign(oracle, sAID)
+    const requestDigestAddr = recoverPersonalSignature(sAID, oracleSignature)
+    assert.equal(oracle.toLowerCase(), toHex(requestDigestAddr))
+    agreement.oracleSignatures[i] = oracleSignature
+  }
   return agreement
 }
 
