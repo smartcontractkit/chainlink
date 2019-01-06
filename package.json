@@ -20,7 +20,7 @@
     "@ensdomains/ens": "^0.1.1",
     "link_token": "^1.0.1",
     "openzeppelin-solidity": "^1.12.0",
-    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
+    "solidity-cborutils": "github:smartcontractkit/solidity-cborutils"
   },
   "devDependencies": {
     "@material-ui/core": "^3.8.1",
@@ -91,7 +91,7 @@
     "solium-plugin-zeppelin": "^0.0.2",
     "standard": "^11.0.1",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
-    "truffle": "^5.0.1"
+    "truffle": "^5.0.1",
     "truffle-contract": "^3.0.6",
     "truffle-flattener": "^1.2.8",
     "url": "^0.11.0",
