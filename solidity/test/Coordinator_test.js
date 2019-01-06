@@ -92,12 +92,10 @@ contract('Coordinator', () => {
       })
 
       it('saves no service agreement struct, if signatures invalid', async () => {
-        await h.assertActionThrows(async () =>
-          h.initiateServiceAgreement(
-            coordinator,
-            Object.assign(agreement, { oracleSignature: badOracleSignature })
-          )
-        )
+        await h.assertActionThrows(async () => {
+          await h.initiateServiceAgreement(coordinator,
+            Object.assign(agreement, {oracleSignatures: [badOracleSignature]}))
+        })
         await h.checkServiceAgreementAbsent(coordinator, agreement.id)
       })
     })
