@@ -1,4 +1,4 @@
-require('@babel/register')
+require('@babel/register')({ cwd: '../../' })
 require('@babel/polyfill')
 
 module.exports = {
