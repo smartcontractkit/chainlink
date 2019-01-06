@@ -52,13 +52,14 @@ const INVALIDVALUE = {
   // https://mochajs.org/#asynchronous-hooks
   unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null
 }
-export let [accounts, defaultAccount, oracleNode, stranger, consumer] = Array(
-  1000
-).fill(INVALIDVALUE)
+
+export let [accounts, defaultAccount, oracleNode1, oracleNode2, oracleNode3, stranger, consumer, oracleNode] =
+  Array(1000).fill(INVALIDVALUE)
 
 before(async function queryEthClientForConstants() {
-  accounts = await eth.getAccounts();
-  [defaultAccount, oracleNode, stranger, consumer] = accounts.slice(0, 4)
+  accounts = (await eth.getAccounts());
+  [defaultAccount, oracleNode1, oracleNode2, oracleNode3, stranger, consumer] = accounts.slice(0, 6)
+  oracleNode = oracleNode1
 })
 
 export const utils = Utils(web3.currentProvider)

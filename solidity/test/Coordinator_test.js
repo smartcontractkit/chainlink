@@ -473,5 +473,47 @@ contract('Coordinator', () => {
         })
       })
     })
+
+    context("when aggregating answers", () => {
+      let oracle1, oracle2, oracle3
+
+      beforeEach(async () => {
+        oracle1 = h.oracleNode1
+        oracle2 = h.oracleNode2
+        oracle3 = h.oracleNode3
+
+        agreement = await h.newServiceAgreement({oracles: [oracle1, oracle2, oracle3]})
+        let tx = await h.initiateServiceAgreement(coordinator, agreement)
+        assert.equal(tx.logs[0].args.said, agreement.id)
+
+        mock = await h.deploy('examples/GetterSetter.sol')
+        const fHash = h.functionSelector('requestedUint256(bytes32,uint256)')
+
+        const payload = h.executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
+        tx = await link.transferAndCall(
+          coordinator.address, agreement.payment, payload)
+        request = h.decodeRunRequest(tx.receipt.logs[2])
+      })
+
+      it('does not set the value with only one oracle', async () => {
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
+          { from: oracle1 })
+
+        const currentValue = await mock.getUint256.call()
+        assertBigNum(h.bigNum(0), currentValue)
+      })
+
+      it('sets the average of the reported values', async () => {
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(16),
+          { from: oracle1 })
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
+          { from: oracle2 })
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
+          { from: oracle3 })
+
+        const currentValue = await mock.getUint256.call()
+        assertBigNum(h.bigNum(17), currentValue)
+      })
+    })
   })
 })

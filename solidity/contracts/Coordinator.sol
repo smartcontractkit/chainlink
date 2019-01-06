@@ -22,10 +22,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   struct Callback {
+    bytes32 sAId;
     uint256 amount;
     address addr;
     bytes4 functionId;
     uint64 cancelExpiration;
+    uint256[] responses;
   }
 
   mapping(bytes32 => Callback) private callbacks;
@@ -118,11 +120,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
-    callbacks[requestId] = Callback(
-      _amount,
-      _callbackAddress,
-      _callbackFunctionId,
-      uint64(now.add(5 minutes)));
+
+    callbacks[requestId].sAId = _sAId;
+    callbacks[requestId].amount = _amount;
+    callbacks[requestId].addr = _callbackAddress;
+    callbacks[requestId].functionId = _callbackFunctionId;
+    callbacks[requestId].cancelExpiration = uint64(now.add(5 minutes));
 
     emit OracleRequest(
       _sAId,
@@ -302,12 +305,23 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     isValidRequest(_requestId)
     returns (bool)
   {
-    Callback memory callback = callbacks[_requestId];
-    delete callbacks[_requestId];
-    // All updates to the oracle's fulfillment should come before calling the
-    // callback(addr+functionId) as it is untrusted. See:
-    // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return callback.addr.call(callback.functionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
+    bytes32 requestId = bytes32(_requestId);
+    callbacks[requestId].responses.push(uint256(_data));
+
+    Callback memory callback = callbacks[requestId];
+    uint256 responseCount = callbacks[requestId].responses.length;
+    bytes32 sAId = callbacks[requestId].sAId;
+    if (serviceAgreements[sAId].oracles.length > responseCount) {
+      return true;
+    }
+
+    uint256 result;
+    for (uint i = 0; i < responseCount; i++) {
+      result += callback.responses[i];
+    }
+    result = result / responseCount;
+    delete callbacks[requestId];
+    return callback.addr.call(callback.functionId, requestId, result); // solium-disable-line security/no-low-level-calls
   }
 
   /**
