@@ -261,9 +261,9 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedUserSession() models.User {
 	mockUser := MustUser(APIEmail, Password)
-	mustNotErr(ta.Store.Save(&mockUser))
+	mustNotErr(ta.Store.SaveUser(&mockUser))
 	session := NewSession(APISessionID)
-	mustNotErr(ta.Store.Save(&session))
+	mustNotErr(ta.Store.SaveSession(&session))
 	return mockUser
 }
 
@@ -642,7 +642,8 @@ func UpdateJobRunViaWeb(
 
 	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
-	assert.Nil(t, app.Store.One("ID", jrID, &jr))
+	jr, err = app.Store.FindJobRun(jrID)
+	assert.NoError(t, err)
 	return jr
 }
 
@@ -701,8 +702,10 @@ func WaitForJobRunStatus(
 	status models.RunStatus,
 ) models.JobRun {
 	t.Helper()
+	var err error
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		assert.Nil(t, store.One("ID", jr.ID, &jr))
+		jr, err = store.FindJobRun(jr.ID)
+		assert.NoError(t, err)
 		return jr.Status
 	}).Should(gomega.Equal(status))
 	return jr
@@ -716,8 +719,10 @@ func JobRunStays(
 	status models.RunStatus,
 ) models.JobRun {
 	t.Helper()
+	var err error
 	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
-		assert.Nil(t, store.One("ID", jr.ID, &jr))
+		jr, err = store.FindJobRun(jr.ID)
+		assert.NoError(t, err)
 		return jr.Status
 	}).Should(gomega.Equal(status))
 	return jr

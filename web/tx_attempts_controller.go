@@ -3,11 +3,9 @@ package web
 import (
 	"fmt"
 
-	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
-	"github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // TxAttemptsController lists TxAttempts requests.
@@ -23,11 +21,8 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 		return
 	}
 
-	var attempts []models.TxAttempt
-	query, count, countErr := getTxAttempts(tac.App.GetStore(), size, offset)
-	if countErr != nil {
-		c.AbortWithError(500, err)
-	} else if err := query.Find(&attempts); err == storm.ErrNotFound {
+	attempts, count, err := tac.App.GetStore().TxAttempts(offset, size)
+	if err == orm.ErrorNotFound {
 		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged TxAttempts: %+v", err))
@@ -36,10 +31,4 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 	} else {
 		c.Data(200, MediaType, buffer)
 	}
-}
-
-func getTxAttempts(store *store.Store, size int, offset int) (storm.Query, int, error) {
-	count, countErr := store.Count(&models.TxAttempt{})
-	query := store.Select().OrderBy("SentAt").Reverse().Limit(size).Skip(offset)
-	return query, count, countErr
 }

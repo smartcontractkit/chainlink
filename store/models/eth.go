@@ -106,7 +106,7 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	if utils.HasHexPrefix(string(s)) {
+	if utils.HasHexPrefix(s) {
 		bytes := common.FromHex(s)
 		if len(bytes) != FunctionSelectorLength {
 			return errors.New("Function ID must be 4 bytes in length")

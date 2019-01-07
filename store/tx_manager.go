@@ -247,14 +247,14 @@ func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	if len(attempts) == 0 {
 		return false, fmt.Errorf("Can only ensure transactions with attempts")
 	}
-	tx := models.Tx{}
-	if err := txm.orm.One("ID", attempts[0].TxID, &tx); err != nil {
+	tx, err := txm.orm.FindTx(attempts[0].TxID)
+	if err != nil {
 		return false, err
 	}
 
 	var merr error
 	for _, txat := range attempts {
-		success, err := txm.checkAttempt(&tx, &txat, blkNum)
+		success, err := txm.checkAttempt(tx, &txat, blkNum)
 		merr = multierr.Append(merr, err)
 		if success {
 			return success, merr
@@ -334,7 +334,7 @@ func (txm *EthTxManager) createAttempt(
 		return nil, err
 	}
 
-	a, err := txm.orm.AddAttempt(tx, etx, blkNum)
+	a, err := txm.orm.AddTxAttempt(tx, etx, blkNum)
 	if err != nil {
 		return nil, err
 	}
@@ -353,11 +353,11 @@ func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
 }
 
 func (txm *EthTxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {
-	attempt := &models.TxAttempt{}
-	if err := txm.orm.One("Hash", hash, attempt); err != nil {
+	attempt, err := txm.orm.FindTxAttempt(hash)
+	if err != nil {
 		return []models.TxAttempt{}, err
 	}
-	attempts, err := txm.orm.AttemptsFor(attempt.TxID)
+	attempts, err := txm.orm.TxAttemptsFor(attempt.TxID)
 	if err != nil {
 		return []models.TxAttempt{}, err
 	}
@@ -439,16 +439,16 @@ func (txm *EthTxManager) handleUnconfirmed(
 }
 
 func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
-	tx := &models.Tx{}
-	if err := txm.orm.One("ID", txat.TxID, tx); err != nil {
-		return err
-	}
-	gasPrice := new(big.Int).Add(txat.GasPrice, txm.config.EthGasBumpWei())
-	txat, err := txm.createAttempt(tx, gasPrice, blkNum)
+	tx, err := txm.orm.FindTx(txat.TxID)
 	if err != nil {
 		return err
 	}
-	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, txat.Hash.String()), "txat", txat)
+	gasPrice := new(big.Int).Add(txat.GasPrice, txm.config.EthGasBumpWei())
+	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
+	if err != nil {
+		return err
+	}
+	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt)
 	return nil
 }
 

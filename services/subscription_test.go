@@ -12,6 +12,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInitiatorSubscriptionLogEvent_RunLogJSON(t *testing.T) {
@@ -326,9 +327,9 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				eth.EventuallyAllCalled(t)
 
 				gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-					var run models.JobRun
-					app.Store.One("JobID", js.ID, &run)
-					return run.Status
+					runs, err := app.Store.JobRunsFor(js.ID)
+					require.NoError(t, err)
+					return runs[0].Status
 				}).Should(gomega.Equal(test.status))
 			})
 		}

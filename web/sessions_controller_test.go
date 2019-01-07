@@ -21,7 +21,7 @@ func TestSessionsController_Create(t *testing.T) {
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
-	err := app.Store.Save(&user)
+	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 	defer cleanup()
 
@@ -62,8 +62,7 @@ func TestSessionsController_Create(t *testing.T) {
 				assert.Equal(t, `{"authenticated":true}`, string(b))
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
-				var sessions []models.Session
-				err = app.Store.All(&sessions)
+				sessions, err := app.Store.Sessions(0, 1)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -77,13 +76,13 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
-	err := app.Store.Save(&user)
+	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 	defer cleanup()
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("241h"))}
-	require.NoError(t, app.Store.Save(&staleSession))
+	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
@@ -92,8 +91,8 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, 200, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions := []models.Session{}
-		assert.Nil(t, app.Store.All(&sessions))
+		sessions, err := app.Store.Sessions(0, 10)
+		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(1))
 }
@@ -104,11 +103,11 @@ func TestSessionsController_Destroy(t *testing.T) {
 	seedUser := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication()
 	app.Start()
-	err := app.Store.Save(&seedUser)
+	err := app.Store.SaveUser(&seedUser)
 	assert.NoError(t, err)
 
 	correctSession := models.NewSession()
-	require.NoError(t, app.Store.Save(&correctSession))
+	require.NoError(t, app.Store.SaveSession(&correctSession))
 	defer cleanup()
 
 	config := app.Store.Config
@@ -151,16 +150,16 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	defer cleanup()
 
 	app.Start()
-	err := app.Store.Save(&user)
+	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 
 	correctSession := models.NewSession()
-	require.NoError(t, app.Store.Save(&correctSession))
+	require.NoError(t, app.Store.SaveSession(&correctSession))
 	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("241h"))}
-	require.NoError(t, app.Store.Save(&staleSession))
+	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)
@@ -171,8 +170,8 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, 200, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions := []models.Session{}
-		assert.Nil(t, app.Store.All(&sessions))
+		sessions, err := app.Store.Sessions(0, 10)
+		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(0))
 }

@@ -172,7 +172,7 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 		if err != nil {
 			logger.Error(err.Error())
 			initr.Ran = false
-			if err := ot.Store.Save(&initr); err != nil {
+			if err := ot.Store.SaveInitiator(&initr); err != nil {
 				logger.Error(err.Error())
 			}
 		}

@@ -536,7 +536,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	attempts, err := store.AttemptsFor(tx.ID)
+	attempts, err := store.TxAttemptsFor(tx.ID)
 	require.NoError(t, err)
 
 	client, r := app.NewClientAndRenderer()
@@ -557,5 +557,8 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	set.Int("page", 2, "doc")
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.Error(t, client.GetTxAttempts(c))
+	assert.NoError(t, client.GetTxAttempts(c))
+
+	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
+	assert.Equal(t, 0, len(renderedAttempts))
 }

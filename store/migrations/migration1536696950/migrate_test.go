@@ -31,7 +31,7 @@ func TestMigrate1536696950_MigrateRunResultAmount1536521223(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	require.NoError(t, store.Save(&jr))
+	require.NoError(t, store.ORM.DB.Save(&jr))
 
 	migration := migration1536696950.Migration{}
 	require.NoError(t, migration.Migrate(store.ORM))
@@ -50,7 +50,7 @@ func TestMigrate1536696950_MigrateRunResultAmount1536521223_asString(t *testing.
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	require.NoError(t, store.Save(&jr))
+	require.NoError(t, store.ORM.DB.Save(&jr))
 
 	migration := migration1536696950.Migration{}
 	require.NoError(t, migration.Migrate(store.ORM))

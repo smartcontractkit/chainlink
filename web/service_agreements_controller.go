@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/asdine/storm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
@@ -32,7 +32,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 	}
 
 	sa, err := sac.App.GetStore().FindServiceAgreement(us.ID.String())
-	if err == storm.ErrNotFound {
+	if err == orm.ErrorNotFound {
 		sa, err = models.BuildServiceAgreement(us, sac.App.GetStore().KeyStore)
 		if err != nil {
 			publicError(c, 422, err)
@@ -60,7 +60,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 //  "<application>/service_agreements/:SAID"
 func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 	id := common.HexToHash(c.Param("SAID"))
-	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); err == storm.ErrNotFound {
+	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); err == orm.ErrorNotFound {
 		publicError(c, 404, errors.New("ServiceAgreement not found"))
 	} else if err != nil {
 		_ = c.AbortWithError(500, err)

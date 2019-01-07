@@ -45,7 +45,7 @@ func TestORM_SaveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1, initr := cltest.NewJobWithSchedule("* * * * *")
+	j1, _ := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(&j1)
 
 	j2, _ := store.FindJob(j1.ID)
@@ -53,8 +53,9 @@ func TestORM_SaveJob(t *testing.T) {
 	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
 
-	assert.NoError(t, store.One("JobID", j1.ID, &initr))
-	assert.Equal(t, models.Cron("* * * * *"), initr.Schedule)
+	initiators, err := store.FindInitiatorsForJob(j1.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, models.Cron("* * * * *"), initiators[0].Schedule)
 }
 
 func TestJobRunsFor(t *testing.T) {
@@ -67,13 +68,13 @@ func TestJobRunsFor(t *testing.T) {
 	require.NoError(t, store.SaveJob(&job))
 	jr1 := job.NewRun(i)
 	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
-	require.NoError(t, store.Save(&jr1))
+	require.NoError(t, store.SaveJobRun(&jr1))
 	jr2 := job.NewRun(i)
 	jr2.CreatedAt = time.Now().AddDate(0, 0, 1)
-	require.NoError(t, store.Save(&jr2))
+	require.NoError(t, store.SaveJobRun(&jr2))
 	jr3 := job.NewRun(i)
 	jr3.CreatedAt = time.Now().AddDate(0, 0, -9)
-	require.NoError(t, store.Save(&jr3))
+	require.NoError(t, store.SaveJobRun(&jr3))
 
 	runs, err := store.JobRunsFor(job.ID)
 	assert.NoError(t, err)
@@ -118,7 +119,7 @@ func TestJobRunsWithStatus(t *testing.T) {
 	j, i := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&j))
 	npr := j.NewRun(i)
-	assert.NoError(t, store.Save(&npr))
+	assert.NoError(t, store.SaveJobRun(&npr))
 
 	statuses := []models.RunStatus{
 		models.RunStatusPendingBridge,
@@ -128,7 +129,7 @@ func TestJobRunsWithStatus(t *testing.T) {
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
-		assert.NoError(t, store.Save(&run))
+		assert.NoError(t, store.SaveJobRun(&run))
 		seedIds = append(seedIds, run.ID)
 	}
 
@@ -173,7 +174,7 @@ func TestAnyJobWithType(t *testing.T) {
 
 	js, _ := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
-	assert.NoError(t, store.Save(&js))
+	assert.NoError(t, store.SaveJob(&js))
 	found, err := store.AnyJobWithType("bridgetestname")
 	assert.NoError(t, err)
 	assert.Equal(t, found, true)
@@ -199,9 +200,9 @@ func TestJobRunsCountFor(t *testing.T) {
 	run2 := job.NewRun(initr)
 	run3 := job2.NewRun(initr)
 
-	assert.NoError(t, store.Save(&completedRun))
-	assert.NoError(t, store.Save(&run2))
-	assert.NoError(t, store.Save(&run3))
+	assert.NoError(t, store.SaveJobRun(&completedRun))
+	assert.NoError(t, store.SaveJobRun(&run2))
+	assert.NoError(t, store.SaveJobRun(&run3))
 
 	count, err := store.JobRunsCountFor(job.ID)
 	assert.NoError(t, err)
@@ -248,10 +249,10 @@ func TestFindBridge(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.BridgeType{}
-	tt.Name = models.MustNewTaskType("solargridreporting")
-	tt.URL = cltest.WebURL("https://denergy.eth")
-	assert.NoError(t, store.Save(&tt))
+	bt := models.BridgeType{}
+	bt.Name = models.MustNewTaskType("solargridreporting")
+	bt.URL = cltest.WebURL("https://denergy.eth")
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	cases := []struct {
 		description string
@@ -259,7 +260,7 @@ func TestFindBridge(t *testing.T) {
 		want        models.BridgeType
 		errored     bool
 	}{
-		{"actual external adapter", tt.Name.String(), tt, false},
+		{"actual external adapter", bt.Name.String(), bt, false},
 		{"core adapter", "ethtx", models.BridgeType{}, true},
 		{"non-existent adapter", "nonExistent", models.BridgeType{}, true},
 	}
@@ -283,13 +284,13 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	jobRunner.Start()
 
 	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.Save(&bt))
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job))
 
 	run := job.NewRun(initr)
-	assert.NoError(t, store.Save(&run))
+	assert.NoError(t, store.SaveJobRun(&run))
 
 	store.RunChannel.Send(run.ID)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
@@ -305,7 +306,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.Save(&bt))
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
@@ -363,11 +364,11 @@ func TestORM_MarkRan(t *testing.T) {
 	defer cleanup()
 
 	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
-	assert.NoError(t, store.Save(&initr))
+	assert.NoError(t, store.SaveInitiator(&initr))
 
 	assert.NoError(t, store.MarkRan(&initr))
-	var ir models.Initiator
-	assert.NoError(t, store.One("ID", initr.ID, &ir))
+	ir, err := store.FindInitiator(initr.ID)
+	assert.NoError(t, err)
 	assert.True(t, ir.Ran)
 }
 
@@ -380,8 +381,8 @@ func TestORM_FindUser(t *testing.T) {
 	user2 := cltest.MustUser("test2@email2.net", "password2")
 	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
 
-	require.NoError(t, store.Save(&user1))
-	require.NoError(t, store.Save(&user2))
+	require.NoError(t, store.SaveUser(&user1))
+	require.NoError(t, store.SaveUser(&user2))
 
 	actual, err := store.FindUser()
 	require.NoError(t, err)
@@ -396,7 +397,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	defer cleanup()
 
 	user := cltest.MustUser("have@email", "password")
-	require.NoError(t, store.Save(&user))
+	require.NoError(t, store.SaveUser(&user))
 
 	tests := []struct {
 		name            string
@@ -415,7 +416,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
-			require.NoError(t, store.Save(&prevSession))
+			require.NoError(t, store.SaveSession(&prevSession))
 
 			expectedTime := models.Time{time.Now()}.HumanString()
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
@@ -439,7 +440,7 @@ func TestORM_DeleteUser(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	user := cltest.MustUser("test1@email1.net", "password1")
-	require.NoError(t, store.Save(&user))
+	require.NoError(t, store.SaveUser(&user))
 
 	_, err := store.DeleteUser()
 	require.NoError(t, err)
@@ -454,10 +455,10 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	user := cltest.MustUser("test1@email1.net", "password1")
-	require.NoError(t, store.Save(&user))
+	require.NoError(t, store.SaveUser(&user))
 
 	session := models.NewSession()
-	require.NoError(t, store.Save(&session))
+	require.NoError(t, store.SaveSession(&session))
 
 	err := store.DeleteUserSession(session.ID)
 	require.NoError(t, err)
@@ -465,9 +466,8 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	user, err = store.FindUser()
 	require.NoError(t, err)
 
-	var sessions []models.Session
-	err = store.All(&sessions)
-	require.NoError(t, err)
+	sessions, err := store.Sessions(0, 10)
+	assert.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
@@ -478,7 +478,7 @@ func TestORM_CreateSession(t *testing.T) {
 	defer cleanup()
 
 	initial := cltest.MustUser(cltest.APIEmail, cltest.Password)
-	require.NoError(t, store.Save(&initial))
+	require.NoError(t, store.SaveUser(&initial))
 
 	tests := []struct {
 		name        string

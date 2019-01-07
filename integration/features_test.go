@@ -34,8 +34,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	cltest.WaitForRuns(t, j, app.Store, 1)
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
+	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorCron, initr.Type)
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
@@ -133,8 +132,7 @@ func TestIntegration_RunAt(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
+	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
 	assert.Equal(t, "2018-01-08T18:12:01Z", initr.Time.ISO8601())
 
@@ -158,8 +156,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/eth_log_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
+	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
@@ -185,8 +182,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_noop_job.json")
 	requiredConfs := 100
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
+	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 	logBlockNumber := 1
@@ -292,7 +288,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
-	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.Task.Type.String())
@@ -505,11 +501,9 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 		txHashString, err := jr.Result.Value()
 		txHash := common.HexToHash(txHashString)
 		assert.NoError(t, err)
-		attempt := &models.TxAttempt{}
-		err = app.Store.One("Hash", txHash, attempt)
+		attempt, err := app.Store.FindTxAttempt(txHash)
 		assert.NoError(t, err)
-		var tx models.Tx
-		err = app.Store.One("ID", attempt.TxID, &tx)
+		tx, err := app.Store.FindTx(attempt.TxID)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedNonce, tx.Nonce)
 	}
@@ -573,7 +567,7 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 	completedRun := job.NewRun(initiator)
 	completedRun.Status = models.RunStatusCompleted
 	completedRun.UpdatedAt = cltest.ParseISO8601("2018-11-02T10:14:18Z")
-	err := app.GetStore().ORM.Save(&completedRun)
+	err := app.GetStore().ORM.DB.Save(&completedRun)
 	assert.NoError(t, err)
 
 	client := app.NewHTTPClient()
@@ -597,7 +591,7 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 		return task.Status == "completed"
 	}).Should(gomega.BeTrue())
 
-	runCount, err := app.Store.Count(&models.JobRun{})
+	runCount, err := app.Store.JobRunsCount()
 	assert.NoError(t, err)
 	assert.Equal(t, 0, runCount)
 }

@@ -35,7 +35,7 @@ func TestMigrate1536764911_JobRun(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	require.NoError(t, store.Save(&jr))
+	require.NoError(t, store.ORM.DB.Save(&jr))
 
 	migration := migration1536764911.Migration{}
 	require.NoError(t, migration.Migrate(store.ORM))

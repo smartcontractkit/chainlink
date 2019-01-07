@@ -60,5 +60,5 @@ func (a *EIP55Address) UnmarshalText(input []byte) error {
 // UnmarshalJSON parses a hash from a JSON string
 func (a *EIP55Address) UnmarshalJSON(input []byte) error {
 	input = utils.RemoveQuotes(input)
-	return a.UnmarshalText([]byte(input))
+	return a.UnmarshalText(input)
 }
