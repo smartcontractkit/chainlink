@@ -149,7 +149,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	defer cleanup()
 
 	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
-	require.NoError(t, store.Save(&initialUser))
+	require.NoError(t, store.SaveUser(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{}
 	tai := cmd.NewPromptingAPIInitializer(mock)
@@ -197,7 +197,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	defer cleanup()
 
 	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
-	require.NoError(t, store.Save(&initialUser))
+	require.NoError(t, store.SaveUser(&initialUser))
 
 	tests := []struct {
 		name      string

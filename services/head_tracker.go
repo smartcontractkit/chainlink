@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asdine/storm"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -112,7 +111,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		ht.head = &copy
 	}
 	ht.headMutex.Unlock()
-	return ht.store.Save(n)
+	return ht.store.SaveHead(n)
 }
 
 // Head returns the latest block header being tracked, or nil.
@@ -265,16 +264,13 @@ func (ht *HeadTracker) fastForwardHeadFromEth() {
 }
 
 func (ht *HeadTracker) updateHeadFromDb() error {
-	numbers := []models.IndexableBlockNumber{}
-	err := ht.store.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
-	if err != nil && err != storm.ErrNotFound {
+	number, err := ht.store.LastHead()
+	if err != nil {
 		return err
 	}
-	if len(numbers) > 0 {
-		ht.headMutex.Lock()
-		ht.head = &numbers[0]
-		ht.headMutex.Unlock()
-	}
+	ht.headMutex.Lock()
+	ht.head = number
+	ht.headMutex.Unlock()
 	return nil
 }
 

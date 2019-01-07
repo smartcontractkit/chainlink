@@ -20,7 +20,7 @@ func TestMigrate1537223654_updatesJobSpecsBucket(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1537223654_job_without_initiator_params.json")
 	var js1 old.JobSpec
 	require.NoError(t, json.Unmarshal(input, &js1))
-	require.NoError(t, store.Save(&js1))
+	require.NoError(t, store.ORM.DB.Save(&js1))
 
 	migration := migration1537223654.Migration{}
 	require.NoError(t, migration.Migrate(store.ORM))
@@ -40,7 +40,7 @@ func TestMigrate1537223654_updatesInitiatorsBucket(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1537223654_initiator_without_params.json")
 	var i1 old.Initiator
 	require.NoError(t, json.Unmarshal(input, &i1))
-	require.NoError(t, store.Save(&i1))
+	require.NoError(t, store.ORM.DB.Save(&i1))
 
 	migration := migration1537223654.Migration{}
 	require.NoError(t, migration.Migrate(store.ORM))
@@ -61,7 +61,7 @@ func TestMigrate1537223654_updatesJobRunsBucket(t *testing.T) {
 	input := cltest.LoadJSON("../../../internal/fixtures/migrations/1537223654_jobrun_without_initiator_params.json")
 	var jr1 old.JobRun
 	require.NoError(t, json.Unmarshal(input, &jr1))
-	require.NoError(t, store.Save(&jr1))
+	require.NoError(t, store.ORM.DB.Save(&jr1))
 
 	migration := migration1537223654.Migration{}
 	require.NoError(t, migration.Migrate(store.ORM))

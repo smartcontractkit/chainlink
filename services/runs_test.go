@@ -26,7 +26,7 @@ func TestNewRun(t *testing.T) {
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.Save(&bt))
+	assert.Nil(t, store.SaveBridgeType(&bt))
 
 	creationHeight := cltest.BigHexInt(1000)
 
@@ -54,7 +54,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.Save(&bt))
+	assert.Nil(t, store.SaveBridgeType(&bt))
 
 	tests := []struct {
 		name           string

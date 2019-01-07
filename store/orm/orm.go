@@ -10,12 +10,15 @@ import (
 	"time"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/index"
 	"github.com/asdine/storm/q"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	bolt "go.etcd.io/bbolt"
+	"go.uber.org/multierr"
 )
 
 var (
@@ -23,6 +26,8 @@ var (
 	ErrorInvalidCallbackSignature = errors.New("AllInBatches callback has incorrect function signature, must return bool")
 	// ErrorInvalidCallbackModel is returned in AllInBatches if the model and bucket do not match types.
 	ErrorInvalidCallbackModel = errors.New("AllInBatches callback has incorrect model, must match bucket")
+	// ErrorNotFound is returned when finding a single value fails.
+	ErrorNotFound = storm.ErrNotFound
 )
 
 // ORM contains the database object used by Chainlink.
@@ -99,6 +104,20 @@ func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
 	return job, err
 }
 
+// FindInitiator returns the single initiator defined by the passed ID.
+func (orm *ORM) FindInitiator(ID int) (models.Initiator, error) {
+	initr := models.Initiator{}
+	err := orm.One("ID", ID, &initr)
+	return initr, err
+}
+
+// FindInitiatorsForJob returns all initiators for a specific job.
+func (orm *ORM) FindInitiatorsForJob(jobID string) ([]models.Initiator, error) {
+	initrs := []models.Initiator{}
+	err := orm.Where("JobID", jobID, &initrs)
+	return initrs, err
+}
+
 // FindJobRun looks up a JobRun by its ID.
 func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 	var jr models.JobRun
@@ -109,7 +128,7 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	run.UpdatedAt = time.Now()
-	return orm.Save(run)
+	return orm.DB.Save(run)
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -155,6 +174,13 @@ func (jrs jobRunSorterAscending) Less(i, j int) bool {
 func (orm *ORM) JobRunsCountFor(jobID string) (int, error) {
 	query := orm.Select(q.Eq("JobID", jobID))
 	return query.Count(&models.JobRun{})
+}
+
+// Sessions returns all sessions limited by the parameters.
+func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
+	var sessions []models.Session
+	err := orm.All(&sessions)
+	return sessions, err
 }
 
 // SaveJob saves a job to the database and adds IDs to associated tables.
@@ -255,7 +281,7 @@ func (orm *ORM) CreateTx(
 		Value:    value,
 		GasLimit: gasLimit,
 	}
-	return &tx, orm.Save(&tx)
+	return &tx, orm.DB.Save(&tx)
 }
 
 // ConfirmTx updates the database for the given transaction to
@@ -278,9 +304,23 @@ func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
 	return dbtx.Commit()
 }
 
-// AttemptsFor returns the Transaction Attempts (TxAttempt) for a
+// FindTx returns the specific transaction for the passed ID.
+func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
+	tx := &models.Tx{}
+	err := orm.One("ID", ID, tx)
+	return tx, err
+}
+
+// FindTxAttempt returns the specific transaction attempt with the hash.
+func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
+	txat := &models.TxAttempt{}
+	err := orm.One("Hash", hash, txat)
+	return txat, err
+}
+
+// TxAttemptsFor returns the Transaction Attempts (TxAttempt) for a
 // given Transaction ID (TxID).
-func (orm *ORM) AttemptsFor(id uint64) ([]models.TxAttempt, error) {
+func (orm *ORM) TxAttemptsFor(id uint64) ([]models.TxAttempt, error) {
 	attempts := []models.TxAttempt{}
 	if err := orm.Where("TxID", id, &attempts); err != nil {
 		return attempts, err
@@ -288,9 +328,9 @@ func (orm *ORM) AttemptsFor(id uint64) ([]models.TxAttempt, error) {
 	return attempts, nil
 }
 
-// AddAttempt creates a new transaction attempt and stores it
+// AddTxAttempt creates a new transaction attempt and stores it
 // in the database.
-func (orm *ORM) AddAttempt(
+func (orm *ORM) AddTxAttempt(
 	tx *models.Tx,
 	etx *types.Transaction,
 	blkNum uint64,
@@ -370,7 +410,7 @@ func (orm *ORM) FindUser() (models.User, error) {
 	}
 
 	if len(users) == 0 {
-		return models.User{}, storm.ErrNotFound
+		return models.User{}, ErrorNotFound
 	}
 
 	return users[0], nil
@@ -393,7 +433,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 		return models.User{}, errors.New("Session has expired")
 	}
 	session.LastUsed = models.Time{Time: now}
-	if err := orm.Save(&session); err != nil {
+	if err := orm.DB.Save(&session); err != nil {
 		return models.User{}, err
 	}
 	return orm.FindUser()
@@ -447,7 +487,7 @@ func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 
 	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
 		session := models.NewSession()
-		return session.ID, orm.Save(&session)
+		return session.ID, orm.DB.Save(&session)
 	}
 	return "", errors.New("Invalid password")
 }
@@ -517,4 +557,204 @@ func underlyingBucketType(bucket interface{}) reflect.Type {
 	sliceType := reflect.Indirect(ref).Type()
 	elemType := sliceType.Elem()
 	return elemType
+}
+
+// ClearNonCurrentSessions removes all sessions but the id passed in.
+func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
+	var sessions []models.Session
+	err := orm.Select(q.Not(q.Eq("ID", sessionID))).Find(&sessions)
+	if err != nil && err != storm.ErrNotFound {
+		return err
+	}
+
+	for _, s := range sessions {
+		err := orm.DeleteStruct(&s)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// SortType defines the different sort orders available.
+type SortType int
+
+const (
+	// Ascending is the sort order going up, i.e. 1,2,3.
+	Ascending SortType = iota
+	// Descending is the sort order going down, i.e. 3,2,1.
+	Descending
+)
+
+func stormOrder(st SortType) func(*index.Options) {
+	so := func(opts *index.Options) {}
+	if st == Descending {
+		so = storm.Reverse()
+	}
+	return so
+}
+
+// JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering
+// to the passed parameters.
+func (orm *ORM) JobsSorted(order SortType, offset int, limit int) ([]models.JobSpec, error) {
+	stormOffset := storm.Skip(offset)
+	stormLimit := storm.Limit(limit)
+
+	var jobs []models.JobSpec
+	err := orm.AllByIndex("CreatedAt", &jobs, stormOrder(order), stormOffset, stormLimit)
+	return jobs, err
+}
+
+// TxFrom returns all transactions from a particular address.
+func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
+	txs := []models.Tx{}
+	err := orm.Where("From", from, &txs)
+	return txs, err
+}
+
+// Transactions returns all transactions limited by passed parameters.
+func (orm *ORM) Transactions(offset, limit int) ([]models.Tx, error) {
+	var txs []models.Tx
+	err := orm.All(&txs)
+	return txs, err
+}
+
+// TxAttempts returns the last tx attempts sorted by sent at descending.
+func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
+	var attempts []models.TxAttempt
+	count, err := orm.Count(&models.TxAttempt{})
+	if err != nil {
+		return nil, 0, err
+	}
+	query := orm.Select().OrderBy("SentAt").Reverse().Limit(limit).Skip(offset)
+	err = query.Find(&attempts)
+	if err == storm.ErrNotFound {
+		err = nil
+	}
+	return attempts, count, err
+}
+
+// JobRunsCount returns the total number of job runs
+func (orm *ORM) JobRunsCount() (int, error) {
+	return orm.Count(&models.JobRun{})
+}
+
+// JobRunsSorted returns job runs ordered and filtered by the passed params.
+func (orm *ORM) JobRunsSorted(order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+	count, err := orm.JobRunsCount()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := orm.Select().OrderBy("CreatedAt").Limit(limit).Skip(offset)
+	if order == Descending {
+		query = query.Reverse()
+	}
+
+	var runs []models.JobRun
+	err = query.Find(&runs)
+	if err == storm.ErrNotFound {
+		err = nil
+	}
+	return runs, count, err
+}
+
+// JobRunsSortedFor returns job runs for a specific job spec ordered and
+// filtered by the passed params.
+func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+	count, err := orm.JobRunsCountFor(id)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query := orm.Select(q.Eq("JobID", id)).OrderBy("CreatedAt").Limit(limit).Skip(offset)
+	if order == Descending {
+		query = query.Reverse()
+	}
+
+	var runs []models.JobRun
+	err = query.Find(&runs)
+	if err == storm.ErrNotFound {
+		err = nil
+	}
+	return runs, count, err
+}
+
+// BridgeTypes returns bridge types ordered by name filtered limited by the
+// passed params.
+func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, error) {
+	count, err := orm.Count(&models.BridgeType{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var bridges []models.BridgeType
+	err = orm.AllByIndex("Name", &bridges, storm.Skip(offset), storm.Limit(limit))
+	return bridges, count, err
+}
+
+// SaveUser saves the user.
+func (orm *ORM) SaveUser(user *models.User) error {
+	return orm.DB.Save(user)
+}
+
+// SaveSession saves the session.
+func (orm *ORM) SaveSession(session *models.Session) error {
+	return orm.DB.Save(session)
+}
+
+// SaveBridgeType saves the bridge type.
+func (orm *ORM) SaveBridgeType(bt *models.BridgeType) error {
+	return orm.DB.Save(bt)
+}
+
+// SaveTx saves the transaction.
+func (orm *ORM) SaveTx(tx *models.Tx) error {
+	return orm.DB.Save(tx)
+}
+
+// SaveInitiator saves the initiator.
+func (orm *ORM) SaveInitiator(initr *models.Initiator) error {
+	return orm.DB.Save(initr)
+}
+
+// SaveHead saves the indexable block number related to head tracker.
+func (orm *ORM) SaveHead(n *models.IndexableBlockNumber) error {
+	return orm.DB.Save(n)
+}
+
+// Save operation that panics to enforce the use of model specific saves.
+func (orm *ORM) Save(data interface{}) error {
+	logger.Panic("Direct saves are not allowed, use orm's model specific save")
+	return nil
+}
+
+// LastHead returns the last ordered IndexableBlockNumber.
+func (orm *ORM) LastHead() (*models.IndexableBlockNumber, error) {
+	numbers := []models.IndexableBlockNumber{}
+	err := orm.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
+	if err == storm.ErrNotFound {
+		return nil, nil
+	}
+	if err == nil {
+		return &numbers[0], nil
+	}
+	return nil, err
+}
+
+// DeleteStaleSessions deletes all sessions before the passed time.
+func (orm *ORM) DeleteStaleSessions(before time.Time) error {
+	var sessions []models.Session
+	err := orm.Range("LastUsed", models.Time{}, models.Time{Time: before}, &sessions)
+	if err != nil && err != storm.ErrNotFound {
+		return err
+	}
+
+	var merr error
+	for _, s := range sessions {
+		err := orm.DeleteStruct(&s)
+		merr = multierr.Append(merr, err)
+	}
+	return merr
 }

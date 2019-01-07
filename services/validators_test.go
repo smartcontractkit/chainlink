@@ -73,10 +73,10 @@ func TestValidateAdapter(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	tt := models.BridgeType{}
-	tt.Name = models.MustNewTaskType("solargridreporting")
-	tt.URL = cltest.WebURL("https://denergy.eth")
-	assert.NoError(t, store.Save(&tt))
+	bt := models.BridgeType{}
+	bt.Name = models.MustNewTaskType("solargridreporting")
+	bt.URL = cltest.WebURL("https://denergy.eth")
+	assert.NoError(t, store.SaveBridgeType(&bt))
 
 	tests := []struct {
 		description string

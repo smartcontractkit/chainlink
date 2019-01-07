@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 
-	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -23,7 +22,7 @@ type bulkRunDeleter struct {
 }
 
 func (btr *bulkRunDeleter) Work() {
-	query := btr.store.Select(q.Eq("Status", models.BulkTaskStatusInProgress)).OrderBy("CreatedAt")
+	query := btr.store.ORM.DB.Select(q.Eq("Status", models.BulkTaskStatusInProgress)).OrderBy("CreatedAt")
 	err := query.Each(&models.BulkDeleteRunTask{}, func(r interface{}) error {
 		task := r.(*models.BulkDeleteRunTask)
 		logger.Infow("Processing bulk run delete task",
@@ -38,7 +37,7 @@ func (btr *bulkRunDeleter) Work() {
 		}
 		return err
 	})
-	if err != nil && err != storm.ErrNotFound {
+	if err != nil && err != orm.ErrorNotFound {
 		logger.Errorw("Error querying bulk tasks", "error", err)
 	}
 }
@@ -52,12 +51,12 @@ func RunPendingTask(orm *orm.ORM, task *models.BulkDeleteRunTask) error {
 	} else {
 		task.Status = models.BulkTaskStatusCompleted
 	}
-	return orm.Save(task)
+	return orm.DB.Save(task)
 }
 
 // DeleteJobRuns removes runs that match a query
 func DeleteJobRuns(orm *orm.ORM, bulkQuery *models.BulkDeleteRunRequest) error {
-	query := orm.Select(
+	query := orm.DB.Select(
 		q.And(
 			q.In("Status", bulkQuery.Status),
 			q.Lt("UpdatedAt", bulkQuery.UpdatedBefore),

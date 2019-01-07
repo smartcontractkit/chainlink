@@ -34,8 +34,6 @@ const (
 	EVMWordHexLen = EVMWordByteLen * 2
 )
 
-var weiPerEth = big.NewInt(1e18)
-
 // ZeroAddress is an empty address, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}

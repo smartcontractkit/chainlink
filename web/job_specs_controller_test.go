@@ -182,8 +182,7 @@ func TestJobSpecsController_Create(t *testing.T) {
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
-	var initr models.Initiator
-	app.Store.One("JobID", j.ID, &initr)
+	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 	assert.NotEqual(t, models.Time{}, j.CreatedAt)
 }
@@ -336,11 +335,11 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 
 	jr1 := j.NewRun(initr)
 	jr1.ID = "2"
-	assert.Nil(t, app.Store.Save(&jr1))
+	assert.Nil(t, app.Store.SaveJobRun(&jr1))
 	jr2 := j.NewRun(initr)
 	jr2.ID = "1"
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
-	assert.Nil(t, app.Store.Save(&jr2))
+	assert.Nil(t, app.Store.SaveJobRun(&jr2))
 
 	return &j
 }

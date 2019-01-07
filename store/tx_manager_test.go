@@ -27,6 +27,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	store := app.Store
 	manager := store.TxManager
 
+	from := cltest.GetAccountAddress(app.GetStore())
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
@@ -45,17 +46,16 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	a, err := manager.CreateTx(to, data)
+	tx, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
-	tx := models.Tx{}
-	assert.NoError(t, store.One("ID", a.TxID, &tx))
+	_, err = store.FindTx(tx.ID)
+	assert.NoError(t, err)
 	assert.Equal(t, nonce, tx.Nonce)
 	assert.Equal(t, data, tx.Data)
 	assert.Equal(t, to, tx.To)
-
-	assert.NoError(t, store.One("From", tx.From, &tx))
+	assert.Equal(t, from, tx.From)
 	assert.Equal(t, nonce, tx.Nonce)
-	attempts, err := store.AttemptsFor(tx.ID)
+	attempts, err := store.TxAttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(attempts))
 
@@ -90,7 +90,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	createdTx1, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
 
-	attempts, err := store.AttemptsFor(createdTx1.ID)
+	attempts, err := store.TxAttemptsFor(createdTx1.ID)
 	require.NoError(t, err)
 	require.Len(t, attempts, 1)
 
@@ -105,7 +105,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// retrieve new gas bumped second attempt
-	attempts, err = store.AttemptsFor(createdTx1.ID)
+	attempts, err = store.TxAttemptsFor(createdTx1.ID)
 	require.NoError(t, err)
 	require.Len(t, attempts, 2)
 	a2 := attempts[1]
@@ -143,6 +143,7 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	store := app.Store
 	manager := store.TxManager
 
+	from := cltest.GetAccountAddress(app.GetStore())
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
@@ -162,12 +163,12 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	_, err = manager.CreateTx(to, data)
 	assert.Error(t, err)
 
-	var txs []models.Tx
-	err = store.ORM.All(&txs)
+	txs, err := store.Transactions(0, 10)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(txs))
 
-	var txAttempts []models.TxAttempt
-	err = store.ORM.All(&txAttempts)
+	txAttempts, _, err := store.TxAttempts(0, 100)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(txAttempts))
 
 	hash := cltest.NewHash()
@@ -176,18 +177,18 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	a, err := manager.CreateTx(to, data)
+	tx, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
-	tx := models.Tx{}
-	assert.NoError(t, store.One("ID", a.TxID, &tx))
+	_, err = store.FindTx(tx.ID)
+	assert.NoError(t, err)
 	assert.NoError(t, err)
 	assert.Equal(t, nonce, tx.Nonce)
 	assert.Equal(t, data, tx.Data)
 	assert.Equal(t, to, tx.To)
+	assert.Equal(t, from, tx.From)
 
-	assert.NoError(t, store.One("From", tx.From, &tx))
 	assert.Equal(t, nonce, tx.Nonce)
-	attempts, err := store.AttemptsFor(tx.ID)
+	attempts, err := store.TxAttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(attempts))
 
@@ -213,6 +214,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			store := app.Store
 			manager := store.TxManager
 
+			from := cltest.GetAccountAddress(store)
 			to := cltest.NewAddress()
 			data, err := hex.DecodeString("0000abcdef")
 			assert.NoError(t, err)
@@ -240,16 +242,16 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 
 			a, err := manager.CreateTx(to, data)
 			assert.NoError(t, err)
-			tx := models.Tx{}
-			assert.NoError(t, store.One("ID", a.TxID, &tx))
+			tx, err := store.FindTx(a.TxID)
+			require.NoError(t, err)
 			assert.NoError(t, err)
 			assert.Equal(t, nonce2, tx.Nonce)
 			assert.Equal(t, data, tx.Data)
 			assert.Equal(t, to, tx.To)
 
-			assert.NoError(t, store.One("From", tx.From, &tx))
+			assert.Equal(t, from, tx.From)
 			assert.Equal(t, nonce2, tx.Nonce)
-			attempts, err := store.AttemptsFor(tx.ID)
+			attempts, err := store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(attempts))
 
@@ -353,7 +355,7 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			tx := cltest.CreateTxAndAttempt(store, from, sentAt)
-			attempts, err := store.AttemptsFor(tx.ID)
+			attempts, err := store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
 			a := attempts[0]
 
@@ -366,8 +368,7 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantConfirmed, confirmed)
-			assert.NoError(t, store.One("ID", tx.ID, tx))
-			attempts, err = store.AttemptsFor(tx.ID)
+			attempts, err = store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantLength, len(attempts))
 
@@ -436,7 +437,7 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(store)
 			tx := cltest.CreateTxAndAttempt(store, from, sentAt1)
-			a, err := store.AddAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
+			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
 			ethMock := app.MockEthClient()
@@ -541,6 +542,7 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 
 	txm := app.Store.TxManager
 
+	from := cltest.GetAccountAddress(app.GetStore())
 	to := cltest.NewAddress()
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
@@ -565,10 +567,11 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, ethMock.AllCalled(), "Not Called")
 
-	var tx models.Tx
-
-	assert.NoError(t, app.Store.One("Nonce", nonce, &tx))
+	transactions, err := app.Store.TxFrom(from)
+	require.NoError(t, err)
+	tx := transactions[0]
 	assert.Equal(t, hash, tx.Hash)
+	assert.Equal(t, nonce, tx.Nonce)
 }
 
 func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
@@ -668,7 +671,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	confirmedTx, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
-	txTransmissionAttempts, err := app.Store.AttemptsFor(confirmedTx.ID)
+	txTransmissionAttempts, err := app.Store.TxAttemptsFor(confirmedTx.ID)
 	assert.NoError(t, err)
 	initialSuccessfulAttempt := txTransmissionAttempts[0]
 
@@ -737,7 +740,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.expectedGasLimit, tx.GasLimit)
 
-			attempts, err := store.AttemptsFor(tx.ID)
+			attempts, err := store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(attempts))
 			assert.Equal(t, test.expectedGasPrice, attempts[0].GasPrice)

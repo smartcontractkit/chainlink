@@ -3,11 +3,11 @@ package web
 import (
 	"errors"
 
-	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // BulkDeletesController manages background tasks that delete resources given a query
@@ -24,7 +24,7 @@ func (c *BulkDeletesController) Create(ctx *gin.Context) {
 		ctx.AbortWithError(422, err)
 	} else if task, err := models.NewBulkDeleteRunTask(request); err != nil {
 		ctx.AbortWithError(422, err)
-	} else if err := c.App.GetStore().Save(task); err != nil {
+	} else if err := c.App.GetStore().ORM.DB.Save(task); err != nil {
 		ctx.AbortWithError(500, err)
 	} else if doc, err := jsonapi.Marshal(task); err != nil {
 		ctx.AbortWithError(500, err)
@@ -41,7 +41,7 @@ func (c *BulkDeletesController) Show(ctx *gin.Context) {
 	id := ctx.Param("taskID")
 	task := models.BulkDeleteRunTask{}
 
-	if err := c.App.GetStore().One("ID", id, &task); err == storm.ErrNotFound {
+	if err := c.App.GetStore().ORM.DB.One("ID", id, &task); err == orm.ErrorNotFound {
 		ctx.AbortWithError(404, errors.New("Bulk delete task not found"))
 	} else if err != nil {
 		ctx.AbortWithError(500, err)
