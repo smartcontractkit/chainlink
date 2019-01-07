@@ -1,3 +1,4 @@
+//go:generate mockgen -package=mock_store -destination=mock_store/mocks.go github.com/smartcontractkit/chainlink/store TxManager
 package store
 
 import (
