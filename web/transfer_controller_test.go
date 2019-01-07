@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,6 +17,14 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(0))
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
 
 	client := app.NewHTTPClient()
 
