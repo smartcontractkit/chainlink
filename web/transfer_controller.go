@@ -24,7 +24,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&tr); err != nil {
 		publicError(c, 400, err)
 		return
-	} else if tx, err := store.TxManager.CreateTx(tr.DestinationAddress, []byte{}); err != nil {
+	} else if tx, err := store.TxManager.CreateTxWithEth(tr.DestinationAddress, tr.Amount); err != nil {
 		publicError(c, 400, fmt.Errorf("Transaction failed: %v", err))
 	} else {
 		c.JSON(200, tx)

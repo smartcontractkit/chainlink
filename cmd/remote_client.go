@@ -324,7 +324,7 @@ func (cli *Client) SendEther(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("sendether expects two arguments: an amount and an address"))
 	}
 
-	amount, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
+	amount, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
 			errors.New("while parsing ETH transfer amount"), err))
@@ -350,7 +350,7 @@ func (cli *Client) SendEther(c *clipkg.Context) error {
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := cli.HTTP.Post("/v2/ethtransfers", buf)
+	resp, err := cli.HTTP.Post("/v2/transfers", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
