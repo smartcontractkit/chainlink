@@ -734,13 +734,13 @@ func (orm *ORM) Save(data interface{}) error {
 func (orm *ORM) LastHead() (*models.IndexableBlockNumber, error) {
 	numbers := []models.IndexableBlockNumber{}
 	err := orm.Select().OrderBy("Digits", "Number").Limit(1).Reverse().Find(&numbers)
+	if err != nil && err != storm.ErrNotFound {
+		return nil, err
+	}
 	if err == storm.ErrNotFound {
 		return nil, nil
 	}
-	if err == nil {
-		return &numbers[0], nil
-	}
-	return nil, err
+	return &numbers[0], err
 }
 
 // DeleteStaleSessions deletes all sessions before the passed time.
