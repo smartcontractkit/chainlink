@@ -401,6 +401,17 @@ func (txm *EthTxManager) handleConfirmed(
 ) (bool, error) {
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	rcptBlkNum := rcpt.BlockNumber.ToBig()
+
+	logger.Debugw(
+		fmt.Sprintf("TxManager handleConfirmed: tx attempt %s waiting on %v confirmations", txat.Hash.Hex(), minConfs),
+		"txHash", txat.Hash.String(),
+		"txid", txat.TxID,
+		"gasPrice", txat.GasPrice.String(),
+		"from", tx.From.Hex(),
+		"receiptBlockNumber", rcptBlkNum,
+		"receiptHash", rcpt.Hash.Hex(),
+	)
+
 	safeAt := minConfs.Add(rcptBlkNum, minConfs)
 	safeAt.Sub(safeAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 	if big.NewInt(int64(blkNum)).Cmp(safeAt) == -1 {
@@ -430,6 +441,13 @@ func (txm *EthTxManager) handleUnconfirmed(
 	txat *models.TxAttempt,
 	blkNum uint64,
 ) (bool, error) {
+	logger.Debugw(
+		fmt.Sprintf("TxManager handleUnconfirmed: tx attempt %s", txat.Hash.Hex()),
+		"txHash", txat.Hash.String(),
+		"txid", txat.TxID,
+		"gasPrice", txat.GasPrice.String(),
+		"from", tx.From.Hex(),
+	)
 	bumpable := tx.Hash == txat.Hash
 	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold()
 	if bumpable && pastThreshold {
