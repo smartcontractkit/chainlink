@@ -25,7 +25,6 @@ library ChainlinkLib {
     self.id = _id;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
-    self.buf.startMap();
     return self;
   }
 

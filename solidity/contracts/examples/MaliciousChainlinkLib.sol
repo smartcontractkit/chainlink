@@ -31,7 +31,6 @@ library MaliciousChainlinkLib {
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
-    self.buf.startMap();
     return self;
   }
 

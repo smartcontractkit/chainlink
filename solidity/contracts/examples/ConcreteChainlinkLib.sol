@@ -13,7 +13,6 @@ contract ConcreteChainlinkLib {
   constructor() public {
     ChainlinkLib.Run memory r2 = run;
     Buffer.init(r2.buf, 128);
-    r2.buf.startMap();
     run = r2;
   }
 
