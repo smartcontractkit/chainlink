@@ -1,4 +1,3 @@
-//go:generate mockgen -package=mock_store -destination=mock_store/mocks.go github.com/smartcontractkit/chainlink/store TxManager
 package store
 
 import (
@@ -50,6 +49,8 @@ type TxManager interface {
 	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (models.EthSubscription, error)
 	GetLogs(q ethereum.FilterQuery) ([]Log, error)
 }
+
+//go:generate mockgen -package=mock_store -destination=mock_store/mocks.go github.com/smartcontractkit/chainlink/store TxManager
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
