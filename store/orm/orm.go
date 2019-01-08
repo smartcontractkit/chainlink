@@ -53,11 +53,6 @@ func initializeDatabase(path string, duration time.Duration) (*storm.DB, error) 
 	return db, nil
 }
 
-// GetBolt returns BoltDB from the ORM
-func (orm *ORM) GetBolt() *bolt.DB {
-	return orm.DB.Bolt
-}
-
 // Where fetches multiple objects with "Find" in Storm.
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
 	err := orm.Find(field, value, instance)

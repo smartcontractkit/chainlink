@@ -2,16 +2,12 @@ package cmd_test
 
 import (
 	"flag"
-	"path"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -346,36 +342,6 @@ func TestClient_RemoveBridge(t *testing.T) {
 	require.Nil(t, client.RemoveBridge(c))
 	require.Equal(t, 1, len(r.Renders))
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
-}
-
-func TestClient_BackupDatabase(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-	client, _ := app.NewClientAndRenderer()
-
-	job := cltest.NewJob()
-	assert.Nil(t, app.Store.SaveJob(&job))
-
-	set := flag.NewFlagSet("backupset", 0)
-	path := path.Join(app.Store.Config.RootDir(), "backup.bolt")
-	set.Parse([]string{path})
-	c := cli.NewContext(nil, set, nil)
-
-	err := client.BackupDatabase(c)
-	assert.NoError(t, err)
-
-	restored, err := orm.NewORM(path, 1*time.Second)
-	assert.NoError(t, err)
-	err = migrations.Migrate(restored)
-	require.NoError(t, err)
-	restoredJob, err := restored.FindJob(job.ID)
-	assert.NoError(t, err)
-
-	reloaded, err := app.Store.FindJob(job.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, reloaded, restoredJob)
 }
 
 func TestClient_RemoteLogin(t *testing.T) {
