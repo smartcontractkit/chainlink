@@ -27,3 +27,6 @@ credentials.env
 gcr_creds.env
 
 coverage/
+
+# asdf version switching
+.tool-versions
