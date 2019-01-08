@@ -10,10 +10,6 @@
 //
 // API contains logic for the web interface to display items.
 //
-// BackupController
-//
-// BackupController allows for backups to be initialized over GET.
-//
 // BridgeTypesController
 //
 // BridgeTypesController allows for the creation of BridgeTypes
