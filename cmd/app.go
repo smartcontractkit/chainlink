@@ -105,11 +105,6 @@ func NewApp(client *Client) *cli.App {
 			Action:  client.ShowJobRun,
 		},
 		{
-			Name:   "backup",
-			Usage:  "Backup the database of the running node",
-			Action: client.BackupDatabase,
-		},
-		{
 			Name:    "import",
 			Aliases: []string{"i"},
 			Usage:   "Import a key file to use with the node",
