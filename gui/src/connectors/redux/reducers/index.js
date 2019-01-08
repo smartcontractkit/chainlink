@@ -7,9 +7,11 @@ import create from './create'
 import fetching from './fetching'
 import jobRuns from './jobRuns'
 import jobs from './jobs'
+import transactions from './transactions'
 import notifications from './notifications'
 import redirect from './redirect'
 import dashboardIndex from './dashboardIndex'
+import transactionsIndex from './transactionsIndex'
 
 const reducer = combineReducers({
   accountBalances,
@@ -20,9 +22,11 @@ const reducer = combineReducers({
   fetching,
   jobRuns,
   jobs,
+  transactions,
   notifications,
   redirect,
-  dashboardIndex
+  dashboardIndex,
+  transactionsIndex
 })
 
 export default reducer
