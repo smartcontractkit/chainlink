@@ -318,6 +318,47 @@ func (cli *Client) Withdraw(c *clipkg.Context) error {
 	return cli.printResponseBody(resp)
 }
 
+// SendEther transfers ETH from the node's account to a specified address.
+func (cli *Client) SendEther(c *clipkg.Context) error {
+	if c.NArg() != 2 {
+		return cli.errorOut(errors.New("sendether expects two arguments: an amount and an address"))
+	}
+
+	amount, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	if err != nil {
+		return cli.errorOut(multierr.Combine(
+			errors.New("while parsing ETH transfer amount"), err))
+	}
+
+	unparsedDestinationAddress := c.Args().Get(1)
+	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
+	if err != nil {
+		return cli.errorOut(multierr.Combine(
+			fmt.Errorf("while parsing withdrawal destination address %v",
+				unparsedDestinationAddress), err))
+	}
+
+	request := models.SendEtherRequest{
+		DestinationAddress: destinationAddress,
+		Amount:             assets.NewEth(amount),
+	}
+
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+
+	resp, err := cli.HTTP.Post("/v2/transfers", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.printResponseBody(resp)
+}
+
 // ChangePassword prompts the user for the old password and a new one, then
 // posts it to Chainlink to change the password.
 func (cli *Client) ChangePassword(c *clipkg.Context) error {
