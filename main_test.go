@@ -45,7 +45,6 @@ func ExampleRun() {
 	//      create, c                 Create job spec from JSON
 	//      run, r                    Begin job run for specid
 	//      showrun, sr               Show a job run for a RunID
-	//      backup                    Backup the database of the running node
 	//      import, i                 Import a key file to use with the node
 	//      bridge                    Add a new bridge to the node
 	//      getbridges                List all bridges added to the node
