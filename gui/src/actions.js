@@ -376,3 +376,6 @@ export const fetchTransactions = (page, size) =>
     page,
     size
   )
+
+export const fetchTransaction = id =>
+  request('TRANSACTION', api.getTransaction, json => normalize(json), id)
