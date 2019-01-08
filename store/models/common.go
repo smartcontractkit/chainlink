@@ -1,6 +1,7 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -96,27 +97,45 @@ func (s RunStatus) CanStart() bool {
 	return s.Pending() || s.Unstarted()
 }
 
+// Automatically add missing start map and end map to a CBOR encoded buffer
+func autoAddMapDelimiters(b []byte) []byte {
+	if len(b) < 2 {
+		return b
+	}
+
+	var buffer bytes.Buffer
+	if b[0] != 0xbf {
+		buffer.Write([]byte{0xbf})
+	}
+	buffer.Write(b)
+
+	if b[len(b)-1] != 0xff {
+		buffer.Write([]byte{0xff})
+	}
+	return buffer.Bytes()
+}
+
 // ParseCBOR attempts to coerce the input byte array into valid CBOR
 // and then coerces it into a JSON object.
 func ParseCBOR(b []byte) (JSON, error) {
-	var js JSON
 	var m map[interface{}]interface{}
 
-	cbor := codec.NewDecoderBytes(b, new(codec.CborHandle))
+	cbor := codec.NewDecoderBytes(autoAddMapDelimiters(b), new(codec.CborHandle))
 	if err := cbor.Decode(&m); err != nil {
-		return js, err
+		return JSON{}, err
 	}
 
 	coerced, err := utils.CoerceInterfaceMapToStringMap(m)
 	if err != nil {
-		return js, err
+		return JSON{}, err
 	}
 
 	jsb, err := json.Marshal(coerced)
 	if err != nil {
-		return js, err
+		return JSON{}, err
 	}
 
+	var js JSON
 	return js, json.Unmarshal(jsb, &js)
 }
 
