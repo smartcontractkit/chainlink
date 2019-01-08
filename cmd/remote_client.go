@@ -150,19 +150,6 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &run)
 }
 
-// BackupDatabase streams a backup of the node's db to the passed filepath.
-func (cli *Client) BackupDatabase(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the path to save the backup"))
-	}
-	resp, err := cli.HTTP.Get("/v2/backup")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-	return cli.errorOut(saveBodyAsFile(resp, c.Args().First()))
-}
-
 func saveBodyAsFile(resp *http.Response, dst string) error {
 	out, err := os.Create(dst)
 	if err != nil {
