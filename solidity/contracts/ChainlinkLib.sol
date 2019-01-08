@@ -68,6 +68,5 @@ library ChainlinkLib {
   }
 
   function close(Run memory self) internal pure {
-    self.buf.endSequence();
   }
 }
