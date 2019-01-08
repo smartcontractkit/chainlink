@@ -9,7 +9,7 @@ import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Divider from '@material-ui/core/Divider'
 import PaddedCard from 'components/PaddedCard'
-import ConfigList from 'components/ConfigList'
+import KeyValueList from 'components/KeyValueList'
 import Content from 'components/Content'
 import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import { fetchConfiguration } from 'actions'
@@ -32,7 +32,10 @@ export const Configuration = useHooks(props => {
 
             <Divider />
 
-            <ConfigList configs={props.configs} error={props.error} />
+            <KeyValueList
+              entries={props.configs}
+              error={props.error}
+            />
           </Card>
         </Grid>
         <Grid item sm={12} md={4}>

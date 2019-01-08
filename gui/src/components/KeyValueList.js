@@ -22,8 +22,8 @@ const renderError = error => (
   </TableRow>
 )
 
-const renderConfigs = configs => (
-  configs.map(([k, v]) => (
+const renderConfigs = entries => (
+  entries.map(([k, v]) => (
     <TableRow key={k}>
       <TableCell>
         <Typography variant='body1'>
@@ -43,17 +43,17 @@ const renderConfigs = configs => (
   ))
 )
 
-const renderBody = (configs, error) => {
+const renderBody = (entries, error) => {
   if (error) {
     return renderError(error)
-  } else if (configs.length === 0) {
+  } else if (entries.length === 0) {
     return renderFetching()
   } else {
-    return renderConfigs(configs)
+    return renderConfigs(entries)
   }
 }
 
-const ConfigList = ({configs, error}) => (
+const KeyValueList = ({entries, error}) => (
   <Card>
     <Table>
       <TableHead>
@@ -67,15 +67,15 @@ const ConfigList = ({configs, error}) => (
         </TableRow>
       </TableHead>
       <TableBody>
-        {renderBody(configs, error)}
+        {renderBody(entries, error)}
       </TableBody>
     </Table>
   </Card>
 )
 
-ConfigList.propTypes = {
-  configs: PropTypes.array.isRequired,
+KeyValueList.propTypes = {
+  entries: PropTypes.array.isRequired,
   error: PropTypes.string
 }
 
-export default ConfigList
+export default KeyValueList
