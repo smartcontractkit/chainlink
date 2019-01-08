@@ -173,7 +173,7 @@ export const decodeRunABI = log => {
   return abi.rawDecode(types, runABI)
 }
 
-const startMapBuffer = Buffer.from([0xA1])
+const startMapBuffer = Buffer.from([0xBF])
 const endMapBuffer = Buffer.from([0xFF])
 
 // FIXME: get these from the constants? only the MAP constant is available, but not the terminal (7<<5|31)
