@@ -124,3 +124,5 @@ export const bulkDeleteJobRuns = (status, updatedBefore) =>
     status: status,
     updatedBefore: updatedBefore
   })
+
+export const getTransactions = () => get(`/v2/transactions`)
