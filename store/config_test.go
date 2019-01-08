@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -30,7 +31,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 func TestConfig_sessionSecret(t *testing.T) {
 	t.Parallel()
 	config := NewConfig()
-	config.Set("RootDir", path.Join("/tmp/chainlink_test", fmt.Sprintf("%s", "TestConfig_sessionSecret")))
+	config.Set("ROOT", path.Join("/tmp/chainlink_test", fmt.Sprintf("%s", "TestConfig_sessionSecret")))
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
 	require.NoError(t, err)
 
@@ -59,11 +60,23 @@ func TestConfig_sessionOptions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config.Set("Dev", test.dev)
+			config.Set("CHAINLINK_DEV", test.dev)
 			opts := config.SessionOptions()
 			require.Equal(t, test.want, opts.Secure)
 		})
 	}
+}
+
+func TestConfig_readFromFile(t *testing.T) {
+	v := viper.New()
+	v.Set("ROOT", "../internal/clroot/")
+
+	config := newConfigWithViper(v)
+	assert.Equal(t, config.RootDir(), "../internal/clroot/")
+	assert.Equal(t, config.MinOutgoingConfirmations(), uint64(2))
+	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
+	assert.Equal(t, config.Dev(), true)
+	assert.Equal(t, config.TLSPort(), uint16(0))
 }
 
 func TestStore_addressParser(t *testing.T) {

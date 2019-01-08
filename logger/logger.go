@@ -133,22 +133,22 @@ func Panicf(format string, values ...interface{}) {
 	logger.Panic(fmt.Sprintf(format, values...))
 }
 
-// Info logs an info message using Sprint.
+// Info logs an info message.
 func Info(args ...interface{}) {
 	logger.Info(args...)
 }
 
-// Debug logs an debug message using Sprint.
+// Debug logs a debug message.
 func Debug(args ...interface{}) {
 	logger.Debug(args...)
 }
 
-// Warn logs a message at the warn level using Sprint.
+// Warn logs a message at the warn level.
 func Warn(args ...interface{}) {
 	logger.Warn(args...)
 }
 
-// Error logs an error message using Sprint.
+// Error logs an error message.
 func Error(args ...interface{}) {
 	logger.Error(args...)
 }
@@ -167,12 +167,17 @@ func PanicIf(err error) {
 	}
 }
 
-// Fatal logs a fatal message then exits the application using Sprint.
+// Fatal logs a fatal message then exits the application.
 func Fatal(args ...interface{}) {
 	logger.Fatal(args...)
 }
 
-// Panic logs a panic message then panics using Sprint.
+// Fatalf logs a message at the fatal level using Sprintf.
+func Fatalf(format string, values ...interface{}) {
+	Fatal(fmt.Sprintf(format, values...))
+}
+
+// Panic logs a panic message then panics.
 func Panic(args ...interface{}) {
 	logger.Panic(args...)
 }
