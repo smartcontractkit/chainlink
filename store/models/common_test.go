@@ -8,79 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/ugorji/go/codec"
 )
-
-func Test_ParseCBOR(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		in          string
-		want        models.JSON
-		wantErrored bool
-	}{
-		{
-			"hello world",
-			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff`,
-			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-			false,
-		},
-		{
-			"trailing empty bytes",
-			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`,
-			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-			false,
-		},
-		{
-			"nested maps",
-			`0xbf657461736b739f6868747470706f7374ff66706172616d73bf636d73676f68656c6c6f5f636861696e6c696e6b6375726c75687474703a2f2f6c6f63616c686f73743a36363930ffff`,
-			cltest.JSONFromString(`{"params":{"msg":"hello_chainlink","url":"http://localhost:6690"},"tasks":["httppost"]}`),
-			false,
-		},
-		{
-			"missing initial start map marker",
-			`0x636B65796576616C7565ff`,
-			cltest.JSONFromString(`{"key":"value"}`),
-			false,
-		},
-		{
-			"missing trailing end map marker",
-			`0xbf636B65796576616C7565`,
-			cltest.JSONFromString(`{"key":"value"}`),
-			false,
-		},
-		{
-			"missing both start and end map marker",
-			`0x636B65796576616C7565`,
-			cltest.JSONFromString(`{"key":"value"}`),
-			false,
-		},
-		{"empty object", `0xa0`, cltest.JSONFromString(`{}`), false},
-		{"empty string", `0x`, models.JSON{}, true},
-		{"invalid CBOR", `0xff`, models.JSON{}, true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			b, err := hexutil.Decode(test.in)
-			assert.NoError(t, err)
-
-			json, err := models.ParseCBOR(b)
-			if test.wantErrored {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, json)
-			}
-		})
-	}
-}
 
 func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
