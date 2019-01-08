@@ -1,5 +1,5 @@
-// import MT from 'cbor.constants'
-import {resolve, join } from 'path'
+import cbor from 'cbor'
+import { resolve, join } from 'path'
 import { assertBigNum } from './matchers'
 
 const contractPathHead = resolve(__dirname + '/../..')
@@ -176,21 +176,17 @@ export const decodeRunABI = log => {
 const startMapBuffer = Buffer.from([0xBF])
 const endMapBuffer = Buffer.from([0xFF])
 
-// FIXME: get these from the constants? only the MAP constant is available, but not the terminal (7<<5|31)
-// const startMapBuffer = Buffer.from([MT.MAP << 5 | 31])
-// const startMapBuffer = Buffer.from([MT.MAP << 5 | 31])
-
 export const decodeRunRequest = log => {
   const runABI = util.toBuffer(log.data)
   const types = ['uint256', 'uint256', 'bytes']
   const [requestId, version, data] = abi.rawDecode(types, runABI)
-  return [log.topics[1], log.topics[2], log.topics[3], toHex(requestId), version, cborWithMap(data)]
+  return [log.topics[1], log.topics[2], log.topics[3], toHex(requestId), version, autoAddMapDelimiters(data)]
 }
 
-const cborWithMap = (data) => {
+const autoAddMapDelimiters = (data) => {
   let buffer = data
 
-  if (buffer[0] !== startMapBuffer[0]) {
+  if (buffer[0] >> 5 !== 5) {
     buffer = Buffer.concat([startMapBuffer, buffer], buffer.length + 1)
   }
 
@@ -199,6 +195,10 @@ const cborWithMap = (data) => {
   }
 
   return buffer
+}
+
+export const decodeDietCBOR = (data) => {
+  return cbor.decodeFirst(autoAddMapDelimiters(data))
 }
 
 export const runRequestId = log => {

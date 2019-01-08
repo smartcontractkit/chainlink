@@ -1,4 +1,3 @@
-import cbor from 'cbor'
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
@@ -40,7 +39,7 @@ contract('ServiceAgreementConsumer', () => {
         assert.equal(log.address, coord.address)
 
         let [jId, requester, wei, _, ver, cborData] = h.decodeRunRequest(log) 
-        let params = await cbor.decodeFirst(cborData)
+        let params = await h.decodeDietCBOR(cborData)
         assert.equal(agreement.id, jId)
         assertBigNum(paymentAmount, wei,
                      "Logged transfer amount differed from actual amount")
