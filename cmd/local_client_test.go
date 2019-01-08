@@ -17,8 +17,8 @@ import (
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	config, configCleanup := cltest.NewConfig()
 	defer configCleanup()
-	config.Set("LinkContractAddress", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
-	config.Set("Port", 6688)
+	config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	config.Set("CHAINLINK_PORT", 6688)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
@@ -194,8 +194,8 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config, configCleanup := cltest.NewConfig()
 			defer configCleanup()
-			config.Set("Dev", true)
-			config.Set("LogToDisk", tt.logToDiskValue)
+			config.Set("CHAINLINK_DEV", true)
+			config.Set("LOG_TO_DISK", tt.logToDiskValue)
 			require.NoError(t, os.MkdirAll(config.KeysDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 

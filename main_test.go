@@ -12,7 +12,7 @@ import (
 func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
-	tc.Config.Set("Dev", false)
+	tc.Config.Set("CHAINLINK_DEV", false)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc.Config,

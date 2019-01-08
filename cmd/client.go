@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -208,7 +209,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := http.Client{}
+	client := http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

@@ -167,7 +167,7 @@ func TestIntegration_EthLog(t *testing.T) {
 func TestIntegration_RunLog(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig()
 	defer cfgCleanup()
-	config.Set("MinIncomingConfirmations", 6)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 
@@ -307,7 +307,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bridgeURL := cltest.WebURL("https://test.chain.link/always")
-	app.Store.Config.Set("BridgeResponseURL", bridgeURL)
+	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
 	app.Start()
 
 	eaPrice := "1234"

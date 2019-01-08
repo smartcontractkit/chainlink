@@ -43,7 +43,7 @@ case "$1" in
     printf "\n\nStarting node...\n"
     ( set -x;
       geth $GETH_ARGS \
-        --ws --wsorigins "*" --wsport $ETH_WS_PORT \
+        --ws --wsorigins "*" --wsport $ETH_PORT \
         --rpc --rpcapi "$RPCAPI" --rpccorsdomain "null" --rpcaddr 127.0.0.1 --rpcport $ETH_HTTP_PORT \
         --dev.period 2
     )
