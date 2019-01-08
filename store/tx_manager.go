@@ -36,6 +36,7 @@ type TxManager interface {
 	Register(accounts []accounts.Account)
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
+	CreateTxWithEth(to common.Address, value *assets.Eth) (*models.Tx, error)
 	MeetsMinConfirmations(hash common.Hash) (bool, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
@@ -48,6 +49,8 @@ type TxManager interface {
 	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (models.EthSubscription, error)
 	GetLogs(q ethereum.FilterQuery) ([]Log, error)
 }
+
+//go:generate mockgen -package=mock_store -destination=mock_store/mocks.go github.com/smartcontractkit/chainlink/store TxManager
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
@@ -127,6 +130,26 @@ func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, e
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
+	ma, err := txm.nextAccount()
+	if err != nil {
+		return nil, err
+	}
+
+	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
+	return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, 0)
+}
+
+// CreateTxWithEth signs and sends a transaction with some ETH to transfer.
+func (txm *EthTxManager) CreateTxWithEth(to common.Address, value *assets.Eth) (*models.Tx, error) {
+	ma, err := txm.nextAccount()
+	if err != nil {
+		return nil, err
+	}
+
+	return txm.createEthTxWithNonceReload(ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value, 0)
+}
+
+func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	if !txm.Connected() {
 		return nil, ErrPendingConnection
 	}
@@ -136,8 +159,7 @@ func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPric
 		return nil, errors.New("Must activate an account before creating a transaction")
 	}
 
-	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
-	return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, 0)
+	return ma, nil
 }
 
 func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
@@ -156,12 +178,13 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 	return gasPriceWei, gasLimit
 }
 
-func (txm *EthTxManager) createTxWithNonceReload(
+func (txm *EthTxManager) createEthTxWithNonceReload(
 	ma *ManagedAccount,
 	to common.Address,
 	data []byte,
 	gasPriceWei *big.Int,
 	gasLimit uint64,
+	value *assets.Eth,
 	nrc uint) (*models.Tx, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
@@ -175,7 +198,7 @@ func (txm *EthTxManager) createTxWithNonceReload(
 			nonce,
 			to,
 			data,
-			big.NewInt(0),
+			value.ToInt(),
 			gasLimit,
 		)
 		if err != nil {
@@ -218,6 +241,23 @@ func (txm *EthTxManager) createTxWithNonceReload(
 	}
 
 	return tx, err
+}
+
+func (txm *EthTxManager) createTxWithNonceReload(
+	ma *ManagedAccount,
+	to common.Address,
+	data []byte,
+	gasPriceWei *big.Int,
+	gasLimit uint64,
+	nrc uint) (*models.Tx, error) {
+	return txm.createEthTxWithNonceReload(
+		ma,
+		to,
+		data,
+		gasPriceWei,
+		gasLimit,
+		assets.NewEth(0),
+		nrc)
 }
 
 // GetLINKBalance returns the balance of LINK at the given address

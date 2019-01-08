@@ -494,6 +494,21 @@ func first(a models.JobSpec, b interface{}) models.JobSpec {
 	return a
 }
 
+func TestClient_SendEther(t *testing.T) {
+	app, cleanup, _ := setupWithdrawalsApplication()
+	defer cleanup()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("sendether", 0)
+	set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
+
+	c := cli.NewContext(nil, set, nil)
+
+	assert.Nil(t, client.SendEther(c))
+}
+
 func TestClient_ChangePassword(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
