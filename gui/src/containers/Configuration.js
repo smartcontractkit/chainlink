@@ -21,6 +21,7 @@ export const Configuration = useHooks(props => {
       <Grid container spacing={40}>
         <Grid item sm={12} md={8}>
           <KeyValueList
+            title='Configuration'
             entries={props.configs}
             error={props.error}
             showHead

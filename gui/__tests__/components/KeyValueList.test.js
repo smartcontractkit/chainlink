@@ -3,6 +3,11 @@ import { render } from 'enzyme'
 import KeyValueList from 'components/KeyValueList'
 
 describe('components/KeyValueList', () => {
+  it('can display a title', () => {
+    let withTitle = render(<KeyValueList entries={[]} title='My Title' />)
+    expect(withTitle.text()).toContain('My Title')
+  })
+
   it('can display header columns', () => {
     let withHead = render(<KeyValueList entries={[]} showHead />)
     expect(withHead.text()).toContain('Key')

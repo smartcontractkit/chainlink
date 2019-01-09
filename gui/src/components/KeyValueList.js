@@ -60,9 +60,9 @@ const HeadCol = ({children}) => (<Typography variant='body1' color='textSecondar
   {children}
 </Typography>)
 
-const KeyValueList = ({entries, error, showHead}) => (
+const KeyValueList = ({entries, error, showHead, title}) => (
   <Card>
-    <CardTitle divider>Configuration</CardTitle>
+    {title && <CardTitle divider>{title}</CardTitle>}
 
     <Table>
       {showHead &&
@@ -86,6 +86,7 @@ const KeyValueList = ({entries, error, showHead}) => (
 KeyValueList.propTypes = {
   showHead: PropTypes.bool.isRequired,
   entries: PropTypes.array.isRequired,
+  title: PropTypes.string,
   error: PropTypes.string
 }
 
