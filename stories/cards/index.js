@@ -5,9 +5,10 @@ import {muiTheme} from 'storybook-addon-material-ui'
 import { createMuiTheme } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import SimpleListCard from 'components/Cards/SimpleList'
-import SimpleListCardItem from 'components/Cards/SimpleListItem'
-import TokenBalanceCard from 'components/Cards/TokenBalance'
+import SimpleList from 'components/Cards/SimpleList'
+import SimpleListItem from 'components/Cards/SimpleListItem'
+import KeyValueList from 'components/KeyValueList'
+import TokenBalance from 'components/Cards/TokenBalance'
 import StatusCard from 'components/JobRuns/StatusCard'
 import JobRunsList from 'components/JobRuns/List'
 import CardTitle from 'components/Cards/Title'
@@ -20,20 +21,47 @@ storiesOf('Cards', module)
   .add('SimpleList', () => (
     <Grid container>
       <Grid xs={4}>
-        <SimpleListCard title='Recently Created'>
+        <SimpleList title='Recently Created'>
           {['jobs', 'distribution', 'jump'].map(text => (
-            <SimpleListCardItem>
+            <SimpleListItem>
               <Typography>{text}</Typography>
-            </SimpleListCardItem>
+            </SimpleListItem>
           ))}
-        </SimpleListCard>
+        </SimpleList>
+      </Grid>
+    </Grid>
+  ))
+  .add('KeyValueList', () => (
+    <Grid container spacing={40}>
+      <Grid item xs={12}>
+        <Grid container>
+          <Grid item xs={4}>
+            <KeyValueList title='Loading' entries={[]} />
+          </Grid>
+        </Grid>
+      </Grid>
+      <Grid item xs={12}>
+        <Grid container>
+          <Grid item xs={4}>
+            <KeyValueList entries={[['WITHOUT_TITLE', 'true']]} />
+          </Grid>
+        </Grid>
+      </Grid>
+      <Grid item xs={12}>
+        <Grid container>
+          <Grid item xs={4}>
+            <KeyValueList title='With Title' entries={[
+              ['WITHOUT_TITLE', 'false']
+            ]} />
+          </Grid>
+        </Grid>
       </Grid>
     </Grid>
   ))
   .add('TokenBalance', () => (
     <Grid container>
       <Grid xs={4}>
-        <TokenBalanceCard title='Ether Balance' value={'10000000000000000000000'} />
+        <TokenBalance title='Ether Balance' value={'10000000000000000000000'} />
       </Grid>
     </Grid>
   ))
