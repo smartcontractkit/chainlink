@@ -1,5 +1,6 @@
 import { common, green, grey } from '@material-ui/core/colors'
 import { darken } from '@material-ui/core/styles/colorManipulator'
+import spacing from '@material-ui/core/styles/spacing'
 
 export default {
   palette: {
@@ -38,6 +39,9 @@ export default {
       primary: darken(grey['A700'], 0.7),
       secondary: '#818ea3'
     }
+  },
+  shape: {
+    borderRadius: spacing.unit
   },
   typography: {
     useNextVariants: true,
