@@ -9,13 +9,32 @@ import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import CardTitle from 'components/Cards/Title'
 
-const renderFetching = () => (
+const renderEntries = entries => (
+  entries.map(([k, v]) => (
+    <TableRow key={k}>
+      <Col>{k}</Col>
+      <Col>{v}</Col>
+    </TableRow>
+  ))
+)
+
+const renderBody = (entries, error) => {
+  if (error) {
+    return <ErrorRow error={error} />
+  } else if (entries.length === 0) {
+    return <FetchingRow />
+  } else {
+    return renderEntries(entries)
+  }
+}
+
+const FetchingRow = () => (
   <TableRow>
     <TableCell component='th' scope='row' colSpan={3}>...</TableCell>
   </TableRow>
 )
 
-const renderError = error => (
+const ErrorRow = ({error}) => (
   <TableRow>
     <TableCell component='th' scope='row' colSpan={3}>
       {error}
@@ -23,40 +42,21 @@ const renderError = error => (
   </TableRow>
 )
 
-const renderEntries = entries => (
-  entries.map(([k, v]) => (
-    <TableRow key={k}>
-      <TableCell>
-        <Typography variant='body1'>
-          <Fragment>
-            {k}
-          </Fragment>
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant='body1'>
-          <Fragment>
-            {v}
-          </Fragment>
-        </Typography>
-      </TableCell>
-    </TableRow>
-  ))
+const Col = ({children}) => (
+  <TableCell>
+    <Typography variant='body1'>
+      <Fragment>{children}</Fragment>
+    </Typography>
+  </TableCell>
 )
 
-const renderBody = (entries, error) => {
-  if (error) {
-    return renderError(error)
-  } else if (entries.length === 0) {
-    return renderFetching()
-  } else {
-    return renderEntries(entries)
-  }
-}
-
-const HeadCol = ({children}) => (<Typography variant='body1' color='textSecondary'>
-  {children}
-</Typography>)
+const HeadCol = ({children}) => (
+  <TableCell>
+    <Typography variant='body1' color='textSecondary'>
+      {children}
+    </Typography>
+  </TableCell>
+)
 
 const KeyValueList = ({entries, error, showHead, title}) => (
   <Card>
@@ -66,12 +66,8 @@ const KeyValueList = ({entries, error, showHead, title}) => (
       {showHead &&
         <TableHead>
           <TableRow>
-            <TableCell>
-              <HeadCol>Key</HeadCol>
-            </TableCell>
-            <TableCell>
-              <HeadCol>Value</HeadCol>
-            </TableCell>
+            <HeadCol>Key</HeadCol>
+            <HeadCol>Value</HeadCol>
           </TableRow>
         </TableHead>}
       <TableBody>
