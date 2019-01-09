@@ -7,8 +7,6 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import CardContent from '@material-ui/core/CardContent'
-import Divider from '@material-ui/core/Divider'
 import CardTitle from 'components/Cards/Title'
 
 const renderFetching = () => (
@@ -25,7 +23,7 @@ const renderError = error => (
   </TableRow>
 )
 
-const renderConfigs = entries => (
+const renderEntries = entries => (
   entries.map(([k, v]) => (
     <TableRow key={k}>
       <TableCell>
@@ -52,7 +50,7 @@ const renderBody = (entries, error) => {
   } else if (entries.length === 0) {
     return renderFetching()
   } else {
-    return renderConfigs(entries)
+    return renderEntries(entries)
   }
 }
 
