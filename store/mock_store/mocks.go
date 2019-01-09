@@ -199,19 +199,19 @@ func (mr *MockTxManagerMockRecorder) GetLogs(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogs", reflect.TypeOf((*MockTxManager)(nil).GetLogs), arg0)
 }
 
-// MeetsMinConfirmations mocks base method
-func (m *MockTxManager) MeetsMinConfirmations(arg0 common.Hash) (bool, error) {
+// EnsureConfirmed mocks base method
+func (m *MockTxManager) EnsureConfirmed(arg0 common.Hash) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MeetsMinConfirmations", arg0)
+	ret := m.ctrl.Call(m, "EnsureConfirmed", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// MeetsMinConfirmations indicates an expected call of MeetsMinConfirmations
-func (mr *MockTxManagerMockRecorder) MeetsMinConfirmations(arg0 interface{}) *gomock.Call {
+// EnsureConfirmed indicates an expected call of EnsureConfirmed
+func (mr *MockTxManagerMockRecorder) EnsureConfirmed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MeetsMinConfirmations", reflect.TypeOf((*MockTxManager)(nil).MeetsMinConfirmations), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureConfirmed", reflect.TypeOf((*MockTxManager)(nil).EnsureConfirmed), arg0)
 }
 
 // NextActiveAccount mocks base method

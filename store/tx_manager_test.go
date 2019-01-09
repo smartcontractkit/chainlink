@@ -101,7 +101,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 	})
 
-	_, err = manager.MeetsMinConfirmations(attempts[0].Hash)
+	_, err = manager.EnsureConfirmed(attempts[0].Hash)
 	require.NoError(t, err)
 
 	// retrieve new gas bumped second attempt
@@ -319,7 +319,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	assert.Equal(t, strpkg.ErrPendingConnection, err)
 }
 
-func TestTxManager_MeetsMinConfirmations(t *testing.T) {
+func TestTxManager_EnsureConfirmed(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -365,7 +365,7 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 			}
 
-			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
+			confirmed, err := txm.EnsureConfirmed(a.Hash)
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantConfirmed, confirmed)
 			attempts, err = store.TxAttemptsFor(tx.ID)
@@ -377,7 +377,7 @@ func TestTxManager_MeetsMinConfirmations(t *testing.T) {
 	}
 }
 
-func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
+func TestTxManager_EnsureConfirmed_erroring(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig()
@@ -441,11 +441,11 @@ func TestTxManager_MeetsMinConfirmations_erroring(t *testing.T) {
 			assert.NoError(t, err)
 
 			ethMock := app.MockEthClient()
-			ethMock.Context("txm.MeetsMinConfirmations()", test.mockSetup)
+			ethMock.Context("txm.EnsureConfirmed()", test.mockSetup)
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 
 			require.NoError(t, app.StartAndConnect())
-			confirmed, err := txm.MeetsMinConfirmations(a.Hash)
+			confirmed, err := txm.EnsureConfirmed(a.Hash)
 			assert.Equal(t, test.wantConfirmed, confirmed)
 			cltest.AssertError(t, test.wantErrored, err)
 		})
@@ -675,7 +675,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	assert.NoError(t, err)
 	initialSuccessfulAttempt := txTransmissionAttempts[0]
 
-	txWasConfirmed, err := manager.MeetsMinConfirmations(
+	txWasConfirmed, err := manager.EnsureConfirmed(
 		initialSuccessfulAttempt.Hash)
 	assert.NoError(t, err)
 	assert.True(t, txWasConfirmed)
