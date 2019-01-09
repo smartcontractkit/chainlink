@@ -98,7 +98,7 @@ const mapStateToProps = (state, ownProps) => ({
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchBridgeSpec})
+  matchRouteAndMapDispatchToProps({ fetchBridgeSpec })
 )(Show)
 
 export default ConnectedShow

@@ -8,7 +8,7 @@ describe('utils/storage', () => {
   describe('get', () => {
     it('returns a JS object for JSON keyed under "chainlink." in localStorage', () => {
       global.localStorage.setItem('chainlink.foo', '{"foo":"FOO"}')
-      expect(get('foo')).toEqual({foo: 'FOO'})
+      expect(get('foo')).toEqual({ foo: 'FOO' })
     })
 
     it('returns an empty JS object when not valid JSON', () => {
@@ -23,7 +23,7 @@ describe('utils/storage', () => {
 
   describe('set', () => {
     it('saves the JS object as JSON keyed under "chainlink." in localStorage', () => {
-      set('foo', {foo: 'FOO'})
+      set('foo', { foo: 'FOO' })
       expect(global.localStorage.getItem('chainlink.foo')).toEqual('{"foo":"FOO"}')
     })
   })

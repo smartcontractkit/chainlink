@@ -17,7 +17,7 @@ const styles = theme => ({
   }
 })
 
-const LoadingBar = ({classes, fetchCount}) => {
+const LoadingBar = ({ classes, fetchCount }) => {
   const progressClasses = {
     colorPrimary: classes.colorPrimary,
     barColorPrimary: classes.barColorPrimary

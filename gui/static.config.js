@@ -13,28 +13,28 @@ export default {
   }),
   getRoutes: async () => {
     return [
-      {path: '/'},
-      {path: '/jobs'},
-      {path: '/jobs/page/_jobPage_'},
-      {path: '/jobs/new'},
-      {path: '/jobs/_jobSpecId_'},
-      {path: '/jobs/_jobSpecId_/definition'},
-      {path: '/jobs/_jobSpecId_/runs'},
-      {path: '/jobs/_jobSpecId_/runs/page/_jobRunsPage_'},
-      {path: '/jobs/_jobSpecId_/runs/id/_jobRunId_'},
-      {path: '/jobs/_jobSpecId_/runs/id/_jobRunId_/json'},
-      {path: '/bridges'},
-      {path: '/bridges/page/_bridgePage_'},
-      {path: '/bridges/new'},
-      {path: '/bridges/_bridgeId_'},
-      {path: '/bridges/_bridgeId_/edit'},
+      { path: '/' },
+      { path: '/jobs' },
+      { path: '/jobs/page/_jobPage_' },
+      { path: '/jobs/new' },
+      { path: '/jobs/_jobSpecId_' },
+      { path: '/jobs/_jobSpecId_/definition' },
+      { path: '/jobs/_jobSpecId_/runs' },
+      { path: '/jobs/_jobSpecId_/runs/page/_jobRunsPage_' },
+      { path: '/jobs/_jobSpecId_/runs/id/_jobRunId_' },
+      { path: '/jobs/_jobSpecId_/runs/id/_jobRunId_/json' },
+      { path: '/bridges' },
+      { path: '/bridges/page/_bridgePage_' },
+      { path: '/bridges/new' },
+      { path: '/bridges/_bridgeId_' },
+      { path: '/bridges/_bridgeId_/edit' },
       {
         path: '/config',
         getData: () => buildInfo
       },
-      {path: '/signin'},
-      {path: '/signout'},
-      {is404: true, component: 'src/containers/404'}
+      { path: '/signin' },
+      { path: '/signout' },
+      { is404: true, component: 'src/containers/404' }
     ]
   },
   renderToHtml: (render, Comp, meta) => {

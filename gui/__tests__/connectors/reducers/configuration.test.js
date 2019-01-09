@@ -16,7 +16,7 @@ describe('connectors/reducers/configuration', () => {
   })
 
   it('REQUEST_CONFIGURATION disables the network error', () => {
-    const action = {type: REQUEST_CONFIGURATION}
+    const action = { type: REQUEST_CONFIGURATION }
     const state = reducer(undefined, action)
 
     expect(state.configuration.networkError).toEqual(false)
@@ -28,7 +28,7 @@ describe('connectors/reducers/configuration', () => {
         networkError: true
       }
     }
-    let configMap = {singer: 'bob'}
+    let configMap = { singer: 'bob' }
     const action = {
       type: RECEIVE_CONFIGURATION_SUCCESS,
       config: configMap

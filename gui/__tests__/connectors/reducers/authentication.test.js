@@ -26,7 +26,7 @@ describe('connectors/reducers/authentication', () => {
   })
 
   it('REQUEST_SIGNIN disables the network error', () => {
-    const action = {type: REQUEST_SIGNIN}
+    const action = { type: REQUEST_SIGNIN }
     const state = reducer(undefined, action)
 
     expect(state.authentication.networkError).toEqual(false)
@@ -34,8 +34,8 @@ describe('connectors/reducers/authentication', () => {
 
   describe('RECEIVE_SIGNIN_SUCCESS', () => {
     it('assigns allowed', () => {
-      const previousState = {authentication: {networkError: true}}
-      const action = {type: RECEIVE_SIGNIN_SUCCESS, authenticated: true}
+      const previousState = { authentication: { networkError: true } }
+      const action = { type: RECEIVE_SIGNIN_SUCCESS, authenticated: true }
       const state = reducer(previousState, action)
 
       expect(state.authentication.allowed).toEqual(true)
@@ -43,10 +43,10 @@ describe('connectors/reducers/authentication', () => {
     })
 
     it('saves allowed to local storage', () => {
-      const action = {type: RECEIVE_SIGNIN_SUCCESS, authenticated: true}
+      const action = { type: RECEIVE_SIGNIN_SUCCESS, authenticated: true }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({allowed: true})
+      expect(getAuthenticationStorage()).toEqual({ allowed: true })
     })
   })
 
@@ -58,7 +58,7 @@ describe('connectors/reducers/authentication', () => {
           errors: ['error 1']
         }
       }
-      const action = {type: RECEIVE_SIGNIN_FAIL}
+      const action = { type: RECEIVE_SIGNIN_FAIL }
       const state = reducer(previousState, action)
 
       expect(state.authentication.allowed).toEqual(false)
@@ -66,10 +66,10 @@ describe('connectors/reducers/authentication', () => {
     })
 
     it('saves allowed false to local storage', () => {
-      const action = {type: RECEIVE_SIGNIN_FAIL}
+      const action = { type: RECEIVE_SIGNIN_FAIL }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({allowed: false})
+      expect(getAuthenticationStorage()).toEqual({ allowed: false })
     })
   })
 
@@ -81,7 +81,7 @@ describe('connectors/reducers/authentication', () => {
           networkError: false
         }
       }
-      const action = {type: RECEIVE_SIGNIN_ERROR, networkError: true}
+      const action = { type: RECEIVE_SIGNIN_ERROR, networkError: true }
       const state = reducer(previousState, action)
 
       expect(state.authentication.networkError).toEqual(true)
@@ -89,15 +89,15 @@ describe('connectors/reducers/authentication', () => {
     })
 
     it('saves allowed false to local storage', () => {
-      const action = {type: RECEIVE_SIGNIN_ERROR}
+      const action = { type: RECEIVE_SIGNIN_ERROR }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({allowed: false})
+      expect(getAuthenticationStorage()).toEqual({ allowed: false })
     })
   })
 
   it('REQUEST_SIGNOUT disables the network error', () => {
-    const action = {type: REQUEST_SIGNOUT}
+    const action = { type: REQUEST_SIGNOUT }
     const state = reducer(undefined, action)
 
     expect(state.authentication.networkError).toEqual(false)
@@ -111,7 +111,7 @@ describe('connectors/reducers/authentication', () => {
           networkError: true
         }
       }
-      const action = {type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false}
+      const action = { type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false }
       const state = reducer(previousState, action)
 
       expect(state.authentication.allowed).toEqual(false)
@@ -119,10 +119,10 @@ describe('connectors/reducers/authentication', () => {
     })
 
     it('saves allowed to local storage', () => {
-      const action = {type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false}
+      const action = { type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({allowed: false})
+      expect(getAuthenticationStorage()).toEqual({ allowed: false })
     })
   })
 
@@ -134,7 +134,7 @@ describe('connectors/reducers/authentication', () => {
           networkError: false
         }
       }
-      const action = {type: RECEIVE_SIGNOUT_ERROR, networkError: true}
+      const action = { type: RECEIVE_SIGNOUT_ERROR, networkError: true }
       const state = reducer(previousState, action)
 
       expect(state.authentication.networkError).toEqual(true)
@@ -142,10 +142,10 @@ describe('connectors/reducers/authentication', () => {
     })
 
     it('saves allowed false to local storage', () => {
-      const action = {type: RECEIVE_SIGNOUT_ERROR}
+      const action = { type: RECEIVE_SIGNOUT_ERROR }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({allowed: false})
+      expect(getAuthenticationStorage()).toEqual({ allowed: false })
     })
   })
 })

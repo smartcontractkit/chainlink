@@ -44,7 +44,7 @@ const styles = theme => {
   }
 }
 
-const RecentActivity = ({classes, runs}) => {
+const RecentActivity = ({ classes, runs }) => {
   const loading = !runs
   let activity
 
@@ -69,7 +69,7 @@ const RecentActivity = ({classes, runs}) => {
           {runs.map(r => (
             <TableRow key={r.id}>
               <TableCell scope='row' className={classes.cell}>
-                <div style={{position: 'relative', paddingLeft: '50px'}}>
+                <div style={{ position: 'relative', paddingLeft: '50px' }}>
                   <div className={classes.status}>
                     <StatusIcon>{r.status}</StatusIcon>
                   </div>

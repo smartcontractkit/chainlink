@@ -16,25 +16,25 @@ const styles = theme => {
     waiting: Object.assign(
       {},
       iconShared,
-      {backgroundColor: theme.palette.warning.main},
-      {color: theme.palette.warning.contrastText}
+      { backgroundColor: theme.palette.warning.main },
+      { color: theme.palette.warning.contrastText }
     ),
     completed: Object.assign(
       {},
       iconShared,
-      {backgroundColor: theme.palette.success.light},
-      {color: theme.palette.success.main}
+      { backgroundColor: theme.palette.success.light },
+      { color: theme.palette.success.main }
     ),
     errored: Object.assign(
       {},
       iconShared,
-      {backgroundColor: theme.palette.error.light},
-      {color: theme.palette.error.main}
+      { backgroundColor: theme.palette.error.light },
+      { color: theme.palette.error.main }
     )
   }
 }
 
-const StatusIcon = ({children, classes, className}) => {
+const StatusIcon = ({ children, classes, className }) => {
   if (children === 'completed') {
     return (
       <Icon className={classNames(classes.completed, className)} title={children}>

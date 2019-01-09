@@ -12,7 +12,7 @@ import Content from 'components/Content'
 import { createBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
-const SuccessNotification = ({name}) => (<React.Fragment>
+const SuccessNotification = ({ name }) => (<React.Fragment>
   Successfully created bridge <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
 
@@ -44,7 +44,7 @@ const New = props => (
 
 export const ConnectedNew = connect(
   null,
-  matchRouteAndMapDispatchToProps({createBridge})
+  matchRouteAndMapDispatchToProps({ createBridge })
 )(New)
 
 export default ConnectedNew

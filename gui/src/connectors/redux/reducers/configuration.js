@@ -15,7 +15,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {networkError: false}
+        { networkError: false }
       )
     case RECEIVE_CONFIGURATION_SUCCESS:
       return Object.assign(
@@ -30,7 +30,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {networkError: !!action.networkError}
+        { networkError: !!action.networkError }
       )
     default:
       return state

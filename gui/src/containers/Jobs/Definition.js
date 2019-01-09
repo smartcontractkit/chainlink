@@ -26,7 +26,7 @@ const styles = theme => ({
   }
 })
 
-const renderDetails = ({job, classes}) => {
+const renderDetails = ({ job, classes }) => {
   const definition = job && jobSpecDefinition(job)
 
   if (definition) {
@@ -79,7 +79,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedDefinition = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJob, createJobRun})
+  matchRouteAndMapDispatchToProps({ fetchJob, createJobRun })
 )(Definition)
 
 export default withStyles(styles)(ConnectedDefinition)

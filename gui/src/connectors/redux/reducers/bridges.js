@@ -20,7 +20,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {networkError: false}
+        { networkError: false }
       )
     case RECEIVE_BRIDGES_SUCCESS: {
       const newItems = action.items.reduce(
@@ -46,13 +46,13 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {networkError: !!action.networkError}
+        { networkError: !!action.networkError }
       )
     case REQUEST_BRIDGE:
       return Object.assign(
         {},
         state,
-        {networkError: false}
+        { networkError: false }
       )
     case RECEIVE_BRIDGE_SUCCESS:
       return Object.assign(
@@ -62,7 +62,7 @@ export default (state = initialState, action = {}) => {
           items: Object.assign(
             {},
             state.items,
-            {[action.item.id]: action.item}
+            { [action.item.id]: action.item }
           )
         }
       )
@@ -70,7 +70,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {networkError: !!action.networkError}
+        { networkError: !!action.networkError }
       )
     default:
       return state

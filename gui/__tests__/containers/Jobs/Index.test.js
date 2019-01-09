@@ -27,7 +27,7 @@ describe('containers/Jobs/Index', () => {
 
     const jobSpecsResponse = jsonApiJobSpecsFactory([{
       id: 'c60b9927eeae43168ddbe92584937b1b',
-      initiators: [{'type': 'web'}],
+      initiators: [{ 'type': 'web' }],
       createdAt: (new Date()).toISOString()
     }])
     global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
@@ -46,7 +46,7 @@ describe('containers/Jobs/Index', () => {
     const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
 
-    const wrapper = mountIndex({pageSize: 1})
+    const wrapper = mountIndex({ pageSize: 1 })
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')

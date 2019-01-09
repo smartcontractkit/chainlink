@@ -1,11 +1,11 @@
 import uuid from 'uuid/v4'
 
-export default ({id, jobId, initiator, taskRuns, status, result, createdAt}) => {
+export default ({ id, jobId, initiator, taskRuns, status, result, createdAt }) => {
   const _id = id || uuid().replace(/-/g, '')
   const _jobId = jobId || uuid().replace(/-/g, '')
   const _status = status || 'completed'
   const _createdAt = createdAt || '2018-06-19T15:39:53.315919143-07:00'
-  const _initiator = initiator || {type: 'web', params: {}}
+  const _initiator = initiator || { type: 'web', params: {} }
   const _taskRuns = taskRuns || []
   const _result = result || {
     data: {

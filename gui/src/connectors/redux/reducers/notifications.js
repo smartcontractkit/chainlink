@@ -19,7 +19,7 @@ export default (state = initialState, action = {}) => {
         return Object.assign(
           {},
           state,
-          {errors: [], successes: [], currentUrl: action.match.url}
+          { errors: [], successes: [], currentUrl: action.match.url }
         )
       }
 
@@ -31,7 +31,7 @@ export default (state = initialState, action = {}) => {
         state,
         {
           successes: [],
-          errors: [{detail: SIGN_IN_FAIL_MSG}]
+          errors: [{ detail: SIGN_IN_FAIL_MSG }]
         }
       )
     }
@@ -51,18 +51,18 @@ export default (state = initialState, action = {}) => {
       )
     }
     case NOTIFY_ERROR: {
-      const {component, error} = action
+      const { component, error } = action
       let notifications
 
       if (error.errors) {
         notifications = error.errors.map(e => ({
           component: component,
-          props: {msg: e.detail}
+          props: { msg: e.detail }
         }))
       } else if (error.message) {
         notifications = [{
           component: component,
-          props: {msg: error.message}
+          props: { msg: error.message }
         }]
       } else {
         notifications = [error]

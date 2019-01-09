@@ -28,11 +28,11 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {networkError: false}
+        { networkError: false }
       )
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SIGNIN_SUCCESS: {
-      const allowed = {allowed: action.authenticated}
+      const allowed = { allowed: action.authenticated }
       authenticationStorage.set(allowed)
       return Object.assign(
         {},
@@ -45,18 +45,18 @@ export default (state = initialState, action = {}) => {
       )
     }
     case RECEIVE_SIGNIN_FAIL: {
-      const allowed = {allowed: false}
+      const allowed = { allowed: false }
       authenticationStorage.set(allowed)
       return Object.assign(
         {},
         state,
         allowed,
-        {errors: []}
+        { errors: [] }
       )
     }
     case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR: {
-      const allowed = {allowed: false}
+      const allowed = { allowed: false }
       authenticationStorage.set(allowed)
       return Object.assign(
         {},

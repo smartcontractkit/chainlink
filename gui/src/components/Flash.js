@@ -29,7 +29,7 @@ const styles = (theme) => {
   })
 }
 
-const applyClass = ({base, success, error, warning, classes, className}) => {
+const applyClass = ({ base, success, error, warning, classes, className }) => {
   let type
 
   if (success) {

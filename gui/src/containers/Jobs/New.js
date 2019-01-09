@@ -12,7 +12,7 @@ import Content from 'components/Content'
 import { createJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
-const SuccessNotification = ({data}) => (
+const SuccessNotification = ({ data }) => (
   <React.Fragment>
     Successfully created job <Link id='created-job' to={`/jobs/${data.id}`}>{data.id}</Link>
   </React.Fragment>
@@ -47,7 +47,7 @@ const New = props => (
 
 export const ConnectedNew = connect(
   null,
-  matchRouteAndMapDispatchToProps({createJobSpec})
+  matchRouteAndMapDispatchToProps({ createJobSpec })
 )(New)
 
 export default ConnectedNew

@@ -18,7 +18,7 @@ const styles = theme => ({
   }
 })
 
-const StatusCard = ({classes, children}) => {
+const StatusCard = ({ classes, children }) => {
   return (
     <PaddedCard className={classes.statusCard}>
       <StatusIcon className={classes.statusIcon}>
