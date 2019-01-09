@@ -53,19 +53,20 @@ const renderBody = (entries, error) => {
   }
 }
 
-const KeyValueList = ({entries, error}) => (
+const KeyValueList = ({entries, error, showHead}) => (
   <Card>
     <Table>
-      <TableHead>
-        <TableRow>
-          <TableCell>
-            <Typography variant='body1' color='textSecondary'>Key</Typography>
-          </TableCell>
-          <TableCell>
-            <Typography variant='body1' color='textSecondary'>Value</Typography>
-          </TableCell>
-        </TableRow>
-      </TableHead>
+      {showHead &&
+        <TableHead>
+          <TableRow>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>Key</Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant='body1' color='textSecondary'>Value</Typography>
+            </TableCell>
+          </TableRow>
+        </TableHead>}
       <TableBody>
         {renderBody(entries, error)}
       </TableBody>
@@ -74,8 +75,13 @@ const KeyValueList = ({entries, error}) => (
 )
 
 KeyValueList.propTypes = {
+  showHead: PropTypes.bool.isRequired,
   entries: PropTypes.array.isRequired,
   error: PropTypes.string
+}
+
+KeyValueList.defaultProps = {
+  showHead: false
 }
 
 export default KeyValueList
