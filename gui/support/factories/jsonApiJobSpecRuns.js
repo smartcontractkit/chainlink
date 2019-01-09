@@ -20,7 +20,7 @@ export default (jobs, jobSpecId, count) => {
           result: {
             jobRunId: id,
             data: {
-              value: {result: 'value'}
+              value: { result: 'value' }
             },
             status: 'completed',
             error: null

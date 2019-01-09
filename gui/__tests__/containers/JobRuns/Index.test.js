@@ -36,7 +36,7 @@ describe('containers/JobRuns/Index', () => {
       runsResponse
     )
 
-    const props = {match: {params: {jobSpecId: jobSpecId}}}
+    const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
@@ -50,7 +50,7 @@ describe('containers/JobRuns/Index', () => {
     expect.assertions(12)
 
     const pageOneResponse = jsonApiJobSpecRunFactory(
-      [{id: 'ID-ON-FIRST-PAGE'}],
+      [{ id: 'ID-ON-FIRST-PAGE' }],
       jobSpecId,
       3
     )
@@ -59,7 +59,7 @@ describe('containers/JobRuns/Index', () => {
       pageOneResponse
     )
 
-    const props = {match: {params: {jobSpecId: jobSpecId}}, pageSize: 1}
+    const props = { match: { params: { jobSpecId: jobSpecId } }, pageSize: 1 }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
@@ -67,7 +67,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
     const pageTwoResponse = jsonApiJobSpecRunFactory(
-      [{id: 'ID-ON-SECOND-PAGE'}],
+      [{ id: 'ID-ON-SECOND-PAGE' }],
       jobSpecId,
       3
     )
@@ -92,7 +92,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
     const pageThreeResponse = jsonApiJobSpecRunFactory(
-      [{id: 'ID-ON-THIRD-PAGE'}],
+      [{ id: 'ID-ON-THIRD-PAGE' }],
       jobSpecId,
       3
     )

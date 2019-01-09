@@ -5,12 +5,12 @@ describe('selectors - bridge', () => {
     const state = {
       bridges: {
         items: {
-          a: {name: 'A'},
-          b: {name: 'B'}
+          a: { name: 'A' },
+          b: { name: 'B' }
         }
       }
     }
 
-    expect(bridgeSelector(state, 'a')).toEqual({name: 'A'})
+    expect(bridgeSelector(state, 'a')).toEqual({ name: 'A' })
   })
 })

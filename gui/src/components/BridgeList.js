@@ -60,7 +60,7 @@ const renderBody = (bridges, fetching, error) => {
 export const BridgeList = useHooks(props => {
   const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
-    const queryPage = props.match && parseInt(props.match.params.bridgePage, 10) || FIRST_PAGE
+    const queryPage = (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
     setPage(queryPage)
     fetchBridges(queryPage, pageSize)
   }, [])

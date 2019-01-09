@@ -1,1 +1,1 @@
-export default ({msg}) => msg
+export default ({ msg }) => msg

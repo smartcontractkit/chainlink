@@ -15,7 +15,7 @@ const styles = theme => {
   }
 }
 
-const Image = ({src, width, height, spin, alt, classes}) => (
+const Image = ({ src, width, height, spin, alt, classes }) => (
   <img
     src={src}
     width={width}

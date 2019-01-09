@@ -10,7 +10,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {recentJobRuns: action.data.meta.recentJobRuns.data.map(r => r.id)}
+        { recentJobRuns: action.data.meta.recentJobRuns.data.map(r => r.id) }
       )
     }
     default:

@@ -4,5 +4,5 @@ export default (state, id) => build(
   state.jobs,
   'items',
   id,
-  {eager: true}
+  { eager: true }
 )

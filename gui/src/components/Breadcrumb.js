@@ -10,7 +10,7 @@ const styles = theme => {
   }
 }
 
-const Breadcrumb = ({children, className, classes}) => (
+const Breadcrumb = ({ children, className, classes }) => (
   <div className={classNames(className, classes.breadcrumb)}>
     {children}
   </div>

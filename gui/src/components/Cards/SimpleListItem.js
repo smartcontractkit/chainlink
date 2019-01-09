@@ -13,7 +13,7 @@ const styles = theme => ({
   }
 })
 
-const SimpleListItem = ({children, classes}) => {
+const SimpleListItem = ({ children, classes }) => {
   return (
     <TableRow>
       <TableCell scope='row' className={classes.cell}>

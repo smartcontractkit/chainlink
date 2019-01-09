@@ -19,7 +19,7 @@ const styles = theme => ({
   }
 })
 
-const renderDetails = ({fetching, jobRun}) => {
+const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
     return <div>Fetching job run...</div>
   }
@@ -59,7 +59,7 @@ const Show = useHooks(props => {
 })
 
 const mapStateToProps = (state, ownProps) => {
-  const {jobSpecId, jobRunId} = ownProps.match.params
+  const { jobSpecId, jobRunId } = ownProps.match.params
   const jobRun = jobRunSelector(state, jobRunId)
   const fetching = state.jobRuns.fetching
 
@@ -73,7 +73,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobRun})
+  matchRouteAndMapDispatchToProps({ fetchJobRun })
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

@@ -132,12 +132,12 @@ const mapStateToProps = (state, ownProps) => {
   const job = jobSelector(state, jobSpecId)
   const latestJobRuns = jobRunsByJobIdSelector(state, jobSpecId, ownProps.showJobRunsCount)
 
-  return {jobSpecId, job, latestJobRuns}
+  return { jobSpecId, job, latestJobRuns }
 }
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJob})
+  matchRouteAndMapDispatchToProps({ fetchJob })
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

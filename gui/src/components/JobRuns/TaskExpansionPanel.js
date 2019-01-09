@@ -11,7 +11,7 @@ const renderConfirmations = (confirmations, minimumConfirmations) => {
   }
 }
 
-const TaskExpansionPanel = ({children}) => {
+const TaskExpansionPanel = ({ children }) => {
   const initiator = children.initiator
   const taskRuns = children.taskRuns
 

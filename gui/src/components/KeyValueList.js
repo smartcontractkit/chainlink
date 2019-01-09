@@ -28,7 +28,7 @@ const renderBody = (entries, error) => {
   }
 }
 
-const SpanRow = ({children}) => (
+const SpanRow = ({ children }) => (
   <TableRow>
     <TableCell component='th' scope='row' colSpan={3}>{children}</TableCell>
   </TableRow>
@@ -36,15 +36,15 @@ const SpanRow = ({children}) => (
 
 const FetchingRow = () => <SpanRow>...</SpanRow>
 
-const ErrorRow = ({children}) => <SpanRow>{children}</SpanRow>
+const ErrorRow = ({ children }) => <SpanRow>{children}</SpanRow>
 
-const Col = ({children}) => (
+const Col = ({ children }) => (
   <TableCell>
     <Typography variant='body1'>{children}</Typography>
   </TableCell>
 )
 
-const HeadCol = ({children}) => (
+const HeadCol = ({ children }) => (
   <TableCell>
     <Typography variant='body1' color='textSecondary'>
       {children}
@@ -52,7 +52,7 @@ const HeadCol = ({children}) => (
   </TableCell>
 )
 
-const KeyValueList = ({entries, error, showHead, title}) => (
+const KeyValueList = ({ entries, error, showHead, title }) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 

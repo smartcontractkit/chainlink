@@ -10,7 +10,7 @@ import Link from 'components/Link'
 import SimpleListCard from 'components/Cards/SimpleList'
 import SimpleListCardItem from 'components/Cards/SimpleListItem'
 
-const RecentlyCreated = ({jobs}) => {
+const RecentlyCreated = ({ jobs }) => {
   let status
 
   if (!jobs) {

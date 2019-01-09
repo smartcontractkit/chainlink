@@ -7,7 +7,7 @@ import {
   ServerError,
   UnknownResponseError
 } from './errors'
-import { default as serializeBridgeType } from 'api/serializers/bridgeType'
+import serializeBridgeType from 'api/serializers/bridgeType'
 
 const formatURI = (path, query = {}) => {
   return formatRequestURI(path, query, {
@@ -33,7 +33,7 @@ const parseResponse = response => {
 const get = (path, query) => (
   global.fetch(
     formatURI(path, query),
-    {credentials: 'include'}
+    { credentials: 'include' }
   )
     .then(parseResponse)
 )
@@ -82,20 +82,20 @@ const destroy = (path) => (
     .then(parseResponse)
 )
 
-export const getJobs = (page, size) => get('/v2/specs', {page: page, size: size})
+export const getJobs = (page, size) => get('/v2/specs', { page: page, size: size })
 
-export const getRecentlyCreatedJobs = size => get('/v2/specs', {size: size, sort: '-createdAt'})
+export const getRecentlyCreatedJobs = size => get('/v2/specs', { size: size, sort: '-createdAt' })
 
 export const getJobSpec = id => get(`/v2/specs/${id}`)
 
 export const getRecentJobRuns = size => get(
   `/v2/runs`,
-  {sort: '-createdAt', size: size}
+  { sort: '-createdAt', size: size }
 )
 
 export const getJobSpecRuns = (id, page, size) => get(
   `/v2/runs`,
-  {jobSpecId: id, sort: '-createdAt', page: page, size: size}
+  { jobSpecId: id, sort: '-createdAt', page: page, size: size }
 )
 
 export const getJobSpecRun = id => get(`/v2/runs/${id}`)
@@ -104,7 +104,7 @@ export const getAccountBalance = () => get('/v2/user/balances')
 
 export const getConfiguration = () => get('/v2/config')
 
-export const getBridges = (page, size) => get('/v2/bridge_types', {page: page, size: size})
+export const getBridges = (page, size) => get('/v2/bridge_types', { page: page, size: size })
 
 export const getBridgeSpec = name => get(`/v2/bridge_types/${name}`)
 

@@ -17,7 +17,7 @@ const styles = theme => {
   }
 }
 
-const Logo = ({width, height, classes}) => (
+const Logo = ({ width, height, classes }) => (
   <div>
     <Image
       src={logo}

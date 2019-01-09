@@ -16,7 +16,7 @@ describe('connectors/reducers/dashboardIndex', () => {
       data: {
         meta: {
           recentJobRuns: {
-            data: [{id: 'b'}, {id: 'a'}]
+            data: [{ id: 'b' }, { id: 'a' }]
           }
         }
       }

@@ -11,10 +11,10 @@ const WEI_PER_TOKEN = new BigNumber(10 ** 18)
 const formatBalance = (val) => {
   const b = new BigNumber(val)
   const tokenBalance = b.dividedBy(WEI_PER_TOKEN).toNumber()
-  return {formatted: numeral(tokenBalance).format('0.200000a'), unformatted: tokenBalance}
+  return { formatted: numeral(tokenBalance).format('0.200000a'), unformatted: tokenBalance }
 }
 
-const valAndTooltip = ({value, error}) => {
+const valAndTooltip = ({ value, error }) => {
   let val, tooltip
 
   if (error) {
@@ -29,11 +29,11 @@ const valAndTooltip = ({value, error}) => {
     tooltip = balance.unformatted
   }
 
-  return {val, tooltip}
+  return { val, tooltip }
 }
 
 const TokenBalance = props => {
-  const {val, tooltip} = valAndTooltip(props)
+  const { val, tooltip } = valAndTooltip(props)
 
   return (
     <PaddedCard>

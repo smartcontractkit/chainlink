@@ -5,17 +5,17 @@ describe('selectors - bridges', () => {
     const state = {
       bridges: {
         items: {
-          a: {name: 'A'},
-          b: {name: 'B'},
-          c: {name: 'C'}
+          a: { name: 'A' },
+          b: { name: 'B' },
+          c: { name: 'C' }
         },
         currentPage: ['c', 'a']
       }
     }
 
     expect(bridgesSelector(state, 'a')).toEqual([
-      {name: 'C'},
-      {name: 'A'}
+      { name: 'C' },
+      { name: 'A' }
     ])
   })
 
@@ -23,9 +23,9 @@ describe('selectors - bridges', () => {
     const state = {
       bridges: {
         items: {
-          a: {name: 'A'},
-          b: {name: 'B'},
-          c: {name: 'C'}
+          a: { name: 'A' },
+          b: { name: 'B' },
+          c: { name: 'C' }
         },
         currentPage: ['C', 'A']
       }

@@ -22,12 +22,12 @@ describe('connectors/reducers/jobs', () => {
       type: UPSERT_JOBS,
       data: {
         specs: {
-          a: {id: 'a'},
-          b: {id: 'b'}
+          a: { id: 'a' },
+          b: { id: 'b' }
         },
         meta: {
           currentPageJobs: {
-            data: [{id: 'b'}, {id: 'a'}],
+            data: [{ id: 'b' }, { id: 'a' }],
             meta: {
               count: 10
             }
@@ -38,8 +38,8 @@ describe('connectors/reducers/jobs', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobs.items).toEqual({
-      a: {id: 'a'},
-      b: {id: 'b'}
+      a: { id: 'a' },
+      b: { id: 'b' }
     })
     expect(state.jobs.count).toEqual(10)
     expect(state.jobs.currentPage).toEqual(['b', 'a'])
@@ -50,12 +50,12 @@ describe('connectors/reducers/jobs', () => {
       type: UPSERT_RECENTLY_CREATED_JOBS,
       data: {
         specs: {
-          c: {id: 'c'},
-          d: {id: 'd'}
+          c: { id: 'c' },
+          d: { id: 'd' }
         },
         meta: {
           recentlyCreatedJobs: {
-            data: [{id: 'd'}, {id: 'c'}]
+            data: [{ id: 'd' }, { id: 'c' }]
           }
         }
       }
@@ -63,8 +63,8 @@ describe('connectors/reducers/jobs', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobs.items).toEqual({
-      c: {id: 'c'},
-      d: {id: 'd'}
+      c: { id: 'c' },
+      d: { id: 'd' }
     })
     expect(state.jobs.recentlyCreated).toEqual(['d', 'c'])
   })
@@ -74,12 +74,12 @@ describe('connectors/reducers/jobs', () => {
       type: UPSERT_JOB,
       data: {
         specs: {
-          a: {id: 'a'}
+          a: { id: 'a' }
         }
       }
     }
     const state = reducer(undefined, action)
 
-    expect(state.jobs.items).toEqual({a: {id: 'a'}})
+    expect(state.jobs.items).toEqual({ a: { id: 'a' } })
   })
 })

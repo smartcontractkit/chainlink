@@ -17,16 +17,16 @@ describe('selectors - jobs', () => {
       jobs: {
         recentlyCreated: ['jobA', 'jobB', 'jobC'],
         items: {
-          jobA: {id: 'jobA'},
-          jobB: {id: 'jobB'}
+          jobA: { id: 'jobA' },
+          jobB: { id: 'jobB' }
         }
       }
     }
     const jobs = recentlyCreatedJobsSelector(state)
 
     expect(jobs).toEqual([
-      {id: 'jobA'},
-      {id: 'jobB'}
+      { id: 'jobA' },
+      { id: 'jobB' }
     ])
   })
 })

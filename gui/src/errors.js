@@ -5,7 +5,7 @@ export function AuthenticationError (response) {
   }]
 }
 
-export function BadRequestError ({errors}) {
+export function BadRequestError ({ errors }) {
   this.errors = errors
 }
 
