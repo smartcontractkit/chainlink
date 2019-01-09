@@ -1,8 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import Typography from '@material-ui/core/Typography'
 import Image from './Image'
-import logo from '../images/icon-logo-blue.svg'
+import logo from '../images/chainlink-operator-logo.svg'
 import { withStyles } from '@material-ui/core/styles'
 
 const styles = theme => {
@@ -17,23 +16,21 @@ const styles = theme => {
   }
 }
 
-const Logo = ({width, height, classes}) => (
-  <div>
+const Logo = ({width, height, classes}) => {
+  const size = {width, height}
+
+  return (
     <Image
       src={logo}
-      width={width}
-      height={height}
       alt='Chainlink Operator'
+      {...size}
     />
-    <Typography variant='h5' color='inherit' className={classes.text}>
-      Chainlink Operator
-    </Typography>
-  </div>
-)
+  )
+}
 
 Logo.propTypes = {
-  width: PropTypes.number.isRequired,
-  height: PropTypes.number.isRequired
+  width: PropTypes.number,
+  height: PropTypes.number
 }
 
 export default withStyles(styles)(Logo)

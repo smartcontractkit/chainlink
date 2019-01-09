@@ -15,21 +15,30 @@ const styles = theme => {
   }
 }
 
-const Image = ({src, width, height, spin, alt, classes}) => (
-  <img
-    src={src}
-    width={width}
-    height={height}
-    className={spin ? classes.animate : ''}
-    alt={alt}
-  />
-)
+const Image = ({src, width, height, spin, alt, classes}) => {
+  const size = {}
+  if (width >= 0) {
+    size.width = width
+  }
+  if (height >= 0) {
+    size.height = height
+  }
+
+  return (
+    <img
+      src={src}
+      className={spin ? classes.animate : ''}
+      alt={alt}
+      {...size}
+    />
+  )
+}
 
 Image.propTypes = {
   src: PropTypes.string.isRequired,
-  width: PropTypes.number.isRequired,
-  height: PropTypes.number.isRequired,
   spin: PropTypes.bool.isRequired,
+  width: PropTypes.number,
+  height: PropTypes.number,
   alt: PropTypes.string
 }
 
