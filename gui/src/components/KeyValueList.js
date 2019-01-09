@@ -7,6 +7,9 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import CardContent from '@material-ui/core/CardContent'
+import Divider from '@material-ui/core/Divider'
+import CardTitle from 'components/Cards/Title'
 
 const renderFetching = () => (
   <TableRow>
@@ -53,17 +56,23 @@ const renderBody = (entries, error) => {
   }
 }
 
+const HeadCol = ({children}) => (<Typography variant='body1' color='textSecondary'>
+  {children}
+</Typography>)
+
 const KeyValueList = ({entries, error, showHead}) => (
   <Card>
+    <CardTitle divider>Configuration</CardTitle>
+
     <Table>
       {showHead &&
         <TableHead>
           <TableRow>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>Key</Typography>
+              <HeadCol>Key</HeadCol>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>Value</Typography>
+              <HeadCol>Value</HeadCol>
             </TableCell>
           </TableRow>
         </TableHead>}
