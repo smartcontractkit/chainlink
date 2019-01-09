@@ -10,6 +10,7 @@ import SimpleListCardItem from 'components/Cards/SimpleListItem'
 import TokenBalanceCard from 'components/Cards/TokenBalance'
 import StatusCard from 'components/JobRuns/StatusCard'
 import JobRunsList from 'components/JobRuns/List'
+import CardTitle from 'components/Cards/Title'
 import theme from '../../gui/src/theme'
 
 const customTheme = createMuiTheme(theme)
@@ -41,6 +42,12 @@ storiesOf('Cards', module)
       <StatusCard>unstarted</StatusCard>
       <StatusCard>completed</StatusCard>
       <StatusCard>errored</StatusCard>
+    </React.Fragment>
+  ))
+  .add('CardTitle', () => (
+    <React.Fragment>
+      <CardTitle>Without Divider</CardTitle>
+      <CardTitle divider>With Divider</CardTitle>
     </React.Fragment>
   ))
 
