@@ -282,14 +282,7 @@ func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	attempts, err := txm.getAttempts(hash)
-	if err != nil {
-		return false, err
-	}
-	if len(attempts) == 0 {
-		return false, fmt.Errorf("Can only ensure transactions with attempts")
-	}
-	tx, err := txm.orm.FindTx(attempts[0].TxID)
+	tx, attempts, err := txm.getTxAndAttempts(hash)
 	if err != nil {
 		return false, err
 	}
@@ -303,6 +296,20 @@ func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
 		}
 	}
 	return false, merr
+}
+
+func (txm *EthTxManager) getTxAndAttempts(hash common.Hash) (*models.Tx, []models.TxAttempt, error) {
+	attempt, err := txm.orm.FindTxAttempt(hash)
+	if err != nil {
+		return nil, []models.TxAttempt{}, err
+	}
+	attempts, err := txm.orm.TxAttemptsFor(attempt.TxID)
+	if err != nil {
+		return nil, []models.TxAttempt{}, err
+	}
+
+	tx, err := txm.orm.FindTx(attempts[0].TxID)
+	return tx, attempts, err
 }
 
 // ContractLINKBalance returns the balance for the contract associated with this
@@ -392,18 +399,6 @@ func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("TxManager sendTransaction: %v", err)
 	}
 	return nil
-}
-
-func (txm *EthTxManager) getAttempts(hash common.Hash) ([]models.TxAttempt, error) {
-	attempt, err := txm.orm.FindTxAttempt(hash)
-	if err != nil {
-		return []models.TxAttempt{}, err
-	}
-	attempts, err := txm.orm.TxAttemptsFor(attempt.TxID)
-	if err != nil {
-		return []models.TxAttempt{}, err
-	}
-	return attempts, nil
 }
 
 func (txm *EthTxManager) checkAttempt(
