@@ -11,22 +11,16 @@ contract ConcreteChainlinkLib {
   event RunData(bytes payload);
 
   constructor() public {
-    ChainlinkLib.Run memory r2 = run;
-    Buffer.init(r2.buf, 128);
-    run = r2;
+    Buffer.init(run.buf, 128);
   }
 
   function closeEvent() public {
-    ChainlinkLib.Run memory r2 = run;
-    r2.close();
-    run = r2;
+    run.close();
     emit RunData(run.buf.buf);
   }
 
   function add(string _key, string _value) public {
-    ChainlinkLib.Run memory r2 = run;
-    r2.add(_key, _value);
-    run = r2;
+    run.add(_key, _value);
   }
 
   function addBytes(string _key, bytes _value) public {
