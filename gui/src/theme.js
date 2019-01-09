@@ -135,7 +135,29 @@ export default {
       fontSize: '0.8rem',
       fontWeight: 450,
       lineHeight: '1.71429em',
-      color: 'rgba(0, 0, 0, 0.87)'
+      color: 'rgba(0, 0, 0, 0.87)',
+      letterSpacing: -0.4
+    },
+    subheading: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '1rem',
+      fontWeight: 400,
+      lineHeight: '1.5em',
+      letterSpacing: -0.4
+    },
+    subtitle1: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '1rem',
+      fontWeight: 400,
+      lineHeight: 1.75,
+      letterSpacing: -0.4
+    },
+    subtitle2: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '0.875rem',
+      fontWeight: 500,
+      lineHeight: 1.57,
+      letterSpacing: -0.4
     }
   },
   shadows: [
