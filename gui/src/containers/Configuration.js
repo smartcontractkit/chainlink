@@ -35,6 +35,7 @@ export const Configuration = useHooks(props => {
             <KeyValueList
               entries={props.configs}
               error={props.error}
+              showHead
             />
           </Card>
         </Grid>
