@@ -16,7 +16,7 @@ const TaskExpansionPanel = ({ children }) => {
   const taskRuns = children.taskRuns
 
   return (
-    <Grid container>
+    <Grid container spacing={0}>
       <Grid item xs={12}>
         <StatusItem
           summary={capitalize(initiator.type)}

@@ -3,6 +3,11 @@ import { darken } from '@material-ui/core/styles/colorManipulator'
 import spacing from '@material-ui/core/styles/spacing'
 
 export default {
+  props: {
+    MuiGrid: {
+      spacing: spacing.unit * 3
+    }
+  },
   palette: {
     action: {
       hoverOpacity: 0.3
