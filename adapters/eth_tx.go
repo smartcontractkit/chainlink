@@ -96,7 +96,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	confirmed, err := store.TxManager.MeetsMinConfirmations(hash)
+	confirmed, err := store.TxManager.EnsureConfirmed(hash)
 	if err != nil {
 		logger.Error("EthTx Adapter Perform Resuming: ", err)
 	}

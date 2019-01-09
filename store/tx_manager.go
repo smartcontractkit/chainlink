@@ -37,7 +37,7 @@ type TxManager interface {
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(to common.Address, value *assets.Eth) (*models.Tx, error)
-	MeetsMinConfirmations(hash common.Hash) (bool, error)
+	EnsureConfirmed(hash common.Hash) (bool, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
@@ -275,9 +275,9 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 	return (*assets.Link)(balance), nil
 }
 
-// MeetsMinConfirmations returns true if the given transaction hash has been
+// EnsureConfirmed returns true if the given transaction hash has been
 // confirmed on the blockchain.
-func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
+func (txm *EthTxManager) EnsureConfirmed(hash common.Hash) (bool, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return false, err

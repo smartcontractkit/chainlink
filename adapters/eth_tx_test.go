@@ -416,7 +416,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
 		gomock.Any(), gomock.Any()).Return(&models.Tx{}, nil)
-	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
+	txmMock.EXPECT().EnsureConfirmed(gomock.Any())
 
 	task := models.TaskSpec{}
 	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
@@ -458,7 +458,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 		gasPrice,
 		gasLimit,
 	).Return(&models.Tx{}, nil)
-	txmMock.EXPECT().MeetsMinConfirmations(gomock.Any())
+	txmMock.EXPECT().EnsureConfirmed(gomock.Any())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
