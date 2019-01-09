@@ -41,6 +41,7 @@ const styles = theme => {
       display: 'block'
     },
     horizontalNav: {
+      paddingTop: 0,
       paddingBottom: 0
     },
     horizontalNavItem: {
@@ -48,8 +49,8 @@ const styles = theme => {
     },
     horizontalNavLink: {
       color: theme.palette.secondary.main,
-      paddingTop: theme.spacing.unit * 4,
-      paddingBottom: theme.spacing.unit * 4,
+      paddingTop: theme.spacing.unit * 3,
+      paddingBottom: theme.spacing.unit * 3,
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',
@@ -139,7 +140,7 @@ const Header = useHooks(props => {
           <Grid container alignItems='center'>
             <Grid item xs={11} sm={6} md={4}>
               <Link to='/'>
-                <Logo width={40} height={50} />
+                <Logo width={200} />
               </Link>
             </Grid>
             <Grid item xs={1} sm={6} md={8}>
