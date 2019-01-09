@@ -186,6 +186,11 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 	gasLimit uint64,
 	value *assets.Eth,
 	nrc uint) (*models.Tx, error) {
+
+	if !txm.Connected() {
+		return nil, ErrPendingConnection
+	}
+
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return nil, err
@@ -273,9 +278,6 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // MeetsMinConfirmations returns true if the given transaction hash has been
 // confirmed on the blockchain.
 func (txm *EthTxManager) MeetsMinConfirmations(hash common.Hash) (bool, error) {
-	if !txm.Connected() {
-		return false, ErrPendingConnection
-	}
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
 		return false, err
