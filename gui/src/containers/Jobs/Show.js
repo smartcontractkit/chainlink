@@ -32,10 +32,10 @@ const styles = theme => ({
 
 const renderJobSpec = ({ job }) => {
   return (
-    <Grid container spacing={40}>
+    <Grid container spacing={0}>
       <Grid item xs={4}>
         <PaddedCard>
-          <Grid container spacing={16}>
+          <Grid container spacing={0}>
             <Grid item xs={12}>
               <Typography variant='subtitle1' color='textSecondary'>ID</Typography>
               <Typography variant='body1' color='inherit'>
@@ -49,7 +49,7 @@ const renderJobSpec = ({ job }) => {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Grid container spacing={16}>
+              <Grid container spacing={0}>
                 <Grid item xs={6}>
                   <Typography variant='subtitle1' color='textSecondary'>Initiator</Typography>
                   <Typography variant='body1' color='inherit'>
