@@ -16,9 +16,17 @@ import face from 'images/face.svg'
 
 const styles = theme => {
   return {
+    button: {
+      marginTop: -4
+    },
     avatar: {
-      width: 21,
-      height: 25
+      width: 30,
+      height: 30
+    },
+    menuListGrow: {
+      marginTop: 10,
+      borderRadius: theme.spacing.unit * 2,
+      backgroundColor: theme.palette.primary.main
     },
     menuItem: {
       '&:hover': {
@@ -26,10 +34,10 @@ const styles = theme => {
       }
     },
     link: {
-      color: grey[600],
+      color: theme.palette.common.white,
       textDecoration: 'none',
       '&:hover': {
-        color: grey[900]
+        color: grey[200]
       }
     }
   }
@@ -51,7 +59,7 @@ const AvatarMenu = useHooks(({classes}) => {
   return (
     <React.Fragment>
       <Fab
-        size='small'
+        size='medium'
         color='primary'
         aria-label='Profile'
         className={classes.button}
@@ -67,9 +75,10 @@ const AvatarMenu = useHooks(({classes}) => {
           <Grow
             {...TransitionProps}
             id='menu-list-grow'
+            className={classes.menuListGrow}
             style={{ transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom' }}
           >
-            <Paper>
+            <Paper square={false}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
                   <MenuItem onClick={handleClose} className={classes.menuItem}>
