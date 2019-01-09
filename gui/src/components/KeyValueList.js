@@ -20,7 +20,7 @@ const renderEntries = entries => (
 
 const renderBody = (entries, error) => {
   if (error) {
-    return <ErrorRow error={error} />
+    return <ErrorRow>{error}</ErrorRow>
   } else if (entries.length === 0) {
     return <FetchingRow />
   } else {
@@ -28,19 +28,15 @@ const renderBody = (entries, error) => {
   }
 }
 
-const FetchingRow = () => (
+const SpanRow = ({children}) => (
   <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>...</TableCell>
+    <TableCell component='th' scope='row' colSpan={3}>{children}</TableCell>
   </TableRow>
 )
 
-const ErrorRow = ({error}) => (
-  <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>
-      {error}
-    </TableCell>
-  </TableRow>
-)
+const FetchingRow = () => <SpanRow>...</SpanRow>
+
+const ErrorRow = ({children}) => <SpanRow>{children}</SpanRow>
 
 const Col = ({children}) => (
   <TableCell>
