@@ -1,4 +1,4 @@
-import React, { Fragment } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -40,9 +40,7 @@ const ErrorRow = ({children}) => <SpanRow>{children}</SpanRow>
 
 const Col = ({children}) => (
   <TableCell>
-    <Typography variant='body1'>
-      <Fragment>{children}</Fragment>
-    </Typography>
+    <Typography variant='body1'>{children}</Typography>
   </TableCell>
 )
 
