@@ -3,28 +3,42 @@ import { withStyles } from '@material-ui/core/styles'
 import PaddedCard from 'components/PaddedCard'
 import StatusIcon from 'components/JobRuns/StatusIcon'
 import Typography from '@material-ui/core/Typography'
+import classNames from 'classnames'
 
 const styles = theme => ({
+  completed: {
+    backgroundColor: theme.palette.success.light
+  },
+  errored: {
+    backgroundColor: theme.palette.error.light
+  },
+  pending: {
+    backgroundColor: theme.palette.warning.light
+  },
   statusCard: {
     display: 'flex',
-    alignItems: 'center'
+    alignItems: 'center',
+    '&:last-child': {
+      paddingBottom: theme.spacing.unit * 2
+    }
   },
   statusIcon: {
     display: 'inline-block'
   },
   statusText: {
     display: 'inline-block',
-    paddingLeft: theme.spacing.unit * 2
+    paddingLeft: theme.spacing.unit * 2,
+    textTransform: 'capitalize'
   }
 })
 
 const StatusCard = ({ classes, children }) => {
   return (
-    <PaddedCard className={classes.statusCard}>
-      <StatusIcon className={classes.statusIcon}>
+    <PaddedCard className={classNames(classes.statusCard, classes[children] || classes.pending)}>
+      <StatusIcon className={classes.statusIcon} width={80}>
         {children}
       </StatusIcon>
-      <Typography className={classes.statusText} variant='body1' color='inherit'>
+      <Typography className={classes.statusText} variant='h5' color='inherit'>
         {children}
       </Typography>
     </PaddedCard>
