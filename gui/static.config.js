@@ -30,9 +30,9 @@ export default {
         path: '/config',
         getData: () => buildInfo
       },
-      {path: '/signin'},
-      {path: '/signout'},
-      {path: '404', component: 'src/containers/404'}
+      { path: '/signin' },
+      { path: '/signout' },
+      { path: '404', component: 'src/containers/404' }
     ]
   },
   beforeRenderToElement: (render, Comp) => render(Comp),
@@ -49,8 +49,8 @@ export default {
             <meta charSet='UTF-8' />
             <meta name='viewport' content='width=device-width, initial-scale=1' />
             <link
-                href='https://fonts.googleapis.com/css?family=Roboto:300,400,500'
-                rel='stylesheet'
+              href='https://fonts.googleapis.com/css?family=Roboto:300,400,500'
+              rel='stylesheet'
             />
             <link href='https://fonts.googleapis.com/icon?family=Material+Icons' rel='stylesheet' />
             <link href='/favicon.ico' rel='shortcut icon' type='image/x-icon' />

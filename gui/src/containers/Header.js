@@ -78,7 +78,7 @@ const Header = props => {
   const [drawerOpen, setDrawerState] = useState(false)
   const toggleDrawer = () => setDrawerState(!drawerOpen)
   const signOut = () => props.submitSignOut()
-  const {classes, fetchCount} = props
+  const { classes, fetchCount } = props
   const { width, height } = useWindowSize()
   useEffect(() => { props.onResize(width, height) }, [height])
   const drawer = (<Drawer
@@ -131,33 +131,33 @@ const Header = props => {
       color='default'
       position='absolute'
     >
-        <LoadingBar fetchCount={fetchCount} />
-        <Toolbar className={classes.toolbar}>
-          <Grid container alignItems='center'>
-            <Grid item xs={11} sm={6} md={4}>
-              <Link to='/'>
-                <Logo width={40} height={50} />
-              </Link>
-            </Grid>
-            <Grid item xs={1} sm={6} md={8}>
-              <Grid container justify='flex-end'>
-                <Grid item>
-                  <Hidden mdUp>
-                    <IconButton aria-label='open drawer' onClick={toggleDrawer}>
-                      <MenuIcon />
-                    </IconButton>
-                  </Hidden>
-                  <Hidden smDown>
-                    {nav}
-                  </Hidden>
-                </Grid>
+      <LoadingBar fetchCount={fetchCount} />
+      <Toolbar className={classes.toolbar}>
+        <Grid container alignItems='center'>
+          <Grid item xs={11} sm={6} md={4}>
+            <Link to='/'>
+              <Logo width={40} height={50} />
+            </Link>
+          </Grid>
+          <Grid item xs={1} sm={6} md={8}>
+            <Grid container justify='flex-end'>
+              <Grid item>
+                <Hidden mdUp>
+                  <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                    <MenuIcon />
+                  </IconButton>
+                </Hidden>
+                <Hidden smDown>
+                  {nav}
+                </Hidden>
               </Grid>
             </Grid>
           </Grid>
-        </Toolbar>
-        <Portal container={props.drawerContainer}>
-          {drawer}
-        </Portal>
+        </Grid>
+      </Toolbar>
+      <Portal container={props.drawerContainer}>
+        {drawer}
+      </Portal>
     </AppBar>
   )
 }

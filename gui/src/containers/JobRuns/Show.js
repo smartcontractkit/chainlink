@@ -18,7 +18,7 @@ const styles = theme => ({
   }
 })
 
-const renderDetails = ({ fetching, jobRun}) => {
+const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
     return <div>Fetching job run...</div>
   }

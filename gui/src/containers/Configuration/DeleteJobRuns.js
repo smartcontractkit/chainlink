@@ -31,7 +31,7 @@ const styles = theme => {
 
 const WEEK_MS = (1000 * 60 * 60 * 24 * 7)
 
-const DeleteJobRuns = ({classes, deleteCompletedJobRuns, deleteErroredJobRuns}) => {
+const DeleteJobRuns = ({ classes, deleteCompletedJobRuns, deleteErroredJobRuns }) => {
   const updatedBefore = new Date(Date.now() - WEEK_MS).toISOString()
   const [showCompletedConfirm, setCompletedConfirm] = useState(false)
   const [showErroredConfirm, setErroredConfirm] = useState(false)

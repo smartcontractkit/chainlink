@@ -34,7 +34,7 @@ const styles = theme => {
   }
 }
 
-const AvatarMenu = ({classes}) => {
+const AvatarMenu = ({ classes }) => {
   const anchorEl = useRef(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
