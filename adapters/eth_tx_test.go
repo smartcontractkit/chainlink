@@ -192,7 +192,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	data := adapter.Perform(input, store)
 
 	assert.False(t, data.HasError())
-	assert.Equal(t, models.RunStatusCompleted, data.Status)
+	assert.Equal(t, string(models.RunStatusCompleted), string(data.Status))
 
 	from := cltest.GetAccountAddress(store)
 	var txs []models.Tx

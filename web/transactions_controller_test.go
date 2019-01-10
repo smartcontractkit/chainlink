@@ -27,21 +27,18 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	ta1 := tx.TxAttempt
-	ta2, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
+	tx1 := *tx
+	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
-	txWithAttempt1 := *tx
-	txWithAttempt1.TxAttempt = ta1
-	txWithAttempt2 := *tx
-	txWithAttempt2.TxAttempt = *ta2
+	tx2 := *tx
 
 	tests := []struct {
 		name string
 		hash string
 		want models.Tx
 	}{
-		{"old hash", ta1.Hash.String(), txWithAttempt1},
-		{"current hash", ta2.Hash.String(), txWithAttempt2},
+		{"old hash", tx1.Hash.String(), tx1},
+		{"current hash", tx2.Hash.String(), tx2},
 	}
 
 	for _, test := range tests {
@@ -54,7 +51,6 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			require.NoError(t, cltest.ParseJSONAPIResponse(resp, &ptx))
 
 			test.want.ID = 0
-			test.want.TxID = 0
 			assert.Equal(t, &test.want, ptx.Tx)
 		})
 	}

@@ -1,22 +1,18 @@
 package migrations
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536696950"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1536764911"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1537223654"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"go.uber.org/multierr"
 )
 
 func init() {
 	registerMigration(migration0.Migration{})
-	registerMigration(migration1536696950.Migration{})
-	registerMigration(migration1536764911.Migration{})
-	registerMigration(migration1537223654.Migration{})
 }
 
 type migration interface {
@@ -26,19 +22,19 @@ type migration interface {
 
 // MigrationTimestamp tracks already run and available migrations.
 type MigrationTimestamp struct {
-	Timestamp string `json:"timestamp" storm:"id"`
+	Timestamp string `json:"timestamp" gorm:"primary_key"`
 }
 
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(orm *orm.ORM) error {
-	err := orm.InitBucket(&MigrationTimestamp{})
-	if err != nil {
+	db := orm.DB
+	if err := db.AutoMigrate(&MigrationTimestamp{}).Error; err != nil {
 		return err
 	}
 
 	var migrationTimestamps []MigrationTimestamp
-	err = orm.AllByIndex("Timestamp", &migrationTimestamps)
+	err := db.Order("timestamp asc").Find(&migrationTimestamps).Error
 	if err != nil {
 		return err
 	}
@@ -55,9 +51,9 @@ func Migrate(orm *orm.ORM) error {
 			logger.Debug("Migrating ", ts)
 			err = availableMigrations[ts].Migrate(orm)
 			if err != nil {
-				return err
+				return multierr.Append(fmt.Errorf("Failed migration %v", ts), err)
 			}
-			err = orm.DB.Save(&MigrationTimestamp{ts})
+			err = db.Create(&MigrationTimestamp{Timestamp: ts}).Error
 			if err != nil {
 				return err
 			}

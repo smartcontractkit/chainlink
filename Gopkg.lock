@@ -29,21 +29,6 @@
   revision = "70dca2f27708bcf7323c078bad4af7e71eb0fc24"
 
 [[projects]]
-  digest = "1:526e8f3d76cbe61ad8638dc582278745e814739da4c3b98e550e468b79376ec9"
-  name = "github.com/asdine/storm"
-  packages = [
-    ".",
-    "codec",
-    "codec/json",
-    "index",
-    "internal",
-    "q",
-  ]
-  pruneopts = ""
-  revision = "5a6fe65e3993f63951c8e3f64c812536c9e23595"
-  version = "v2.1.2"
-
-[[projects]]
   digest = "1:512883404c2a99156e410e9880e3bb35ecccc0c07c1159eb204b5f3ef3c431b3"
   name = "github.com/bitly/go-simplejson"
   packages = ["."]
@@ -340,6 +325,25 @@
   revision = "4f4301a06e153ff90e17793577ab6bf79f8dc5c5"
 
 [[projects]]
+  digest = "1:7d4958827c8f2d9d31e24d9a3a52194eb179f77d854692e57954c516ecf76748"
+  name = "github.com/jinzhu/gorm"
+  packages = [
+    ".",
+    "dialects/sqlite",
+  ]
+  pruneopts = ""
+  revision = "472c70caa40267cb89fd8facb07fe6454b578626"
+  version = "v1.9.2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:d9a7385b84d8187fd94e0357045c6fa1147ca94caa56fdd539336c7c102fc728"
+  name = "github.com/jinzhu/inflection"
+  packages = ["."]
+  pruneopts = ""
+  revision = "04140366298a54a039076d798123ffa108fff46c"
+
+[[projects]]
   digest = "1:ef0f9731bc6c3c59396adc50f36da36ca98c704812c449794f9326f7bc64b5f1"
   name = "github.com/jpillora/backoff"
   packages = ["."]
@@ -402,6 +406,14 @@
   pruneopts = ""
   revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
   version = "v0.0.2"
+
+[[projects]]
+  digest = "1:8bbdb2b3dce59271877770d6fe7dcbb8362438fa7d2e1e1f688e4bf2aac72706"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = ""
+  revision = "c7c4067b79cc51e6dfdcef5c702e74b1e0fa7c75"
+  version = "v1.10.0"
 
 [[projects]]
   branch = "master"
@@ -676,14 +688,6 @@
   revision = "b3d7806010228b1a954b4d9c4ee4cf6cb476b063"
 
 [[projects]]
-  digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
-  name = "go.etcd.io/bbolt"
-  packages = ["."]
-  pruneopts = ""
-  revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -911,9 +915,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/araddon/dateparse",
-    "github.com/asdine/storm",
-    "github.com/asdine/storm/index",
-    "github.com/asdine/storm/q",
     "github.com/bitly/go-simplejson",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",
@@ -934,6 +935,8 @@
     "github.com/gorilla/securecookie",
     "github.com/gorilla/sessions",
     "github.com/gorilla/websocket",
+    "github.com/jinzhu/gorm",
+    "github.com/jinzhu/gorm/dialects/sqlite",
     "github.com/jpillora/backoff",
     "github.com/manyminds/api2go/jsonapi",
     "github.com/mitchellh/go-homedir",
@@ -951,7 +954,6 @@
     "github.com/unrolled/secure",
     "github.com/urfave/cli",
     "github.com/willf/pad",
-    "go.etcd.io/bbolt",
     "go.uber.org/multierr",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",

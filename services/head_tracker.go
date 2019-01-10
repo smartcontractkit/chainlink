@@ -109,8 +109,11 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 	if n.GreaterThan(ht.head) {
 		copy := *n
 		ht.head = &copy
+		ht.headMutex.Unlock()
+	} else {
+		ht.headMutex.Unlock()
+		return fmt.Errorf("Cannot save new head confirmation %v that's less than %v", n, ht.head)
 	}
-	ht.headMutex.Unlock()
 	return ht.store.SaveHead(n)
 }
 

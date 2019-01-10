@@ -59,7 +59,7 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 
 	for i, v := range a1.Assignment.Subtasks {
 		assert.Equal(t, v.Type, respAssignment.Assignment.Subtasks[i].Type)
-		assert.JSONEq(t, v.Params.String(), respAssignment.Assignment.Subtasks[i].Params.String())
+		assert.JSONEq(t, coerceToJson(v.Params.String()), respAssignment.Assignment.Subtasks[i].Params.String())
 	}
 
 	for i, v := range a1.Schedule.RunAt {
@@ -72,5 +72,11 @@ func TestAssignmentsController_Show_V1_Format(t *testing.T) {
 	assert.Equal(t, a1.Schedule.Hour, respAssignment.Schedule.Hour)
 	assert.Equal(t, a1.Schedule.Minute, respAssignment.Schedule.Minute)
 	assert.Equal(t, a1.Schedule.MonthOfYear, respAssignment.Schedule.MonthOfYear)
+}
 
+func coerceToJson(v string) string {
+	if v == "" {
+		return "{}"
+	}
+	return v
 }

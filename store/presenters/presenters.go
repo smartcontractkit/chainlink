@@ -139,7 +139,6 @@ type whitelist struct {
 	ChainID                  uint64          `json:"ethChainId"`
 	Dev                      bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
-	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
@@ -177,7 +176,6 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ChainID:                  config.ChainID(),
 			Dev:                      config.Dev(),
 			ClientNodeURL:            config.ClientNodeURL(),
-			DatabaseTimeout:          config.DatabaseTimeout(),
 			EthereumURL:              config.EthereumURL(),
 			EthGasBumpThreshold:      config.EthGasBumpThreshold(),
 			EthGasBumpWei:            config.EthGasBumpWei(),
@@ -501,6 +499,12 @@ func (Tx) GetName() string {
 	return "transactions"
 }
 
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (t *Tx) SetID(value string) error {
+	t.Hash = common.HexToHash(value)
+	return nil
+}
+
 type txJSON struct {
 	Confirmed bool   `json:"confirmed"`
 	Data      string `json:"data"`
@@ -549,19 +553,17 @@ func (t *Tx) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("presents.Tx could not unmarshal value from JSON: %v", b)
 	}
 	tx := models.Tx{
-		Data:     common.Hex2Bytes(txj.Data),
-		From:     common.HexToAddress(txj.From),
-		GasLimit: txj.GasLimit,
-		Nonce:    txj.Nonce,
-		To:       common.HexToAddress(txj.To),
-		TxAttempt: models.TxAttempt{
-			Confirmed: txj.Confirmed,
-			GasPrice:  gasPrice,
-			Hash:      common.HexToHash(txj.Hash),
-			Hex:       txj.Hex,
-			SentAt:    txj.SentAt,
-		},
-		Value: value,
+		Data:      common.Hex2Bytes(txj.Data),
+		From:      common.HexToAddress(txj.From),
+		GasLimit:  txj.GasLimit,
+		Nonce:     txj.Nonce,
+		To:        common.HexToAddress(txj.To),
+		Confirmed: txj.Confirmed,
+		GasPrice:  models.NewBig(gasPrice),
+		Hash:      common.HexToHash(txj.Hash),
+		Hex:       txj.Hex,
+		SentAt:    txj.SentAt,
+		Value:     models.NewBig(value),
 	}
 	t.Tx = &tx
 
