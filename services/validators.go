@@ -106,7 +106,6 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	fe := models.NewJSONAPIErrors()
 	config := store.Config
 
-	fmt.Println("payment", sa.Encumbrance.Payment, "MinimumContractPayment", config.MinimumContractPayment())
 	if sa.Encumbrance.Payment == nil {
 		fe.Add("Service agreement encumbrance error: No payment amount set")
 	} else if sa.Encumbrance.Payment.Cmp(config.MinimumContractPayment()) == -1 {
