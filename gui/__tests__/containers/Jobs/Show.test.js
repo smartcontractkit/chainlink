@@ -28,13 +28,13 @@ describe('containers/Jobs/Show', () => {
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
       id: jobSpecId,
-      initiators: [{'type': 'web'}],
+      initiators: [{ 'type': 'web' }],
       createdAt: minuteAgo,
-      runs: [{id: 'runA', result: {data: {value: '8400.00'}}}]
+      runs: [{ id: 'runA', result: { data: { value: '8400.00' } } }]
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
-    const props = {match: {params: {jobSpecId: jobSpecId}}}
+    const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
@@ -48,9 +48,9 @@ describe('containers/Jobs/Show', () => {
 
   it('displays a show more link if there are more runs than the display count', async () => {
     const runs = [
-      {id: 'runA', jobId: jobSpecId},
-      {id: 'runB', jobId: jobSpecId},
-      {id: 'runC', jobId: jobSpecId}
+      { id: 'runA', jobId: jobSpecId },
+      { id: 'runB', jobId: jobSpecId },
+      { id: 'runC', jobId: jobSpecId }
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
@@ -60,7 +60,7 @@ describe('containers/Jobs/Show', () => {
 
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
-    const props = {match: {params: {jobSpecId: jobSpecId}}}
+    const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)

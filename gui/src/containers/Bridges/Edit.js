@@ -20,16 +20,16 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Content from 'components/Content'
 import { useHooks, useEffect } from 'use-react-hooks'
 
-const SuccessNotification = ({name}) => (<React.Fragment>
+const SuccessNotification = ({ name }) => (<React.Fragment>
   Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
 
 export const Edit = useHooks(props => {
   useEffect(() => {
-    const {fetchBridgeSpec, match} = props
+    const { fetchBridgeSpec, match } = props
     fetchBridgeSpec(match.params.bridgeId)
   }, [])
-  const {bridge, updateBridge} = props
+  const { bridge, updateBridge } = props
   const checkLoaded = () => bridge
   const onLoad = (buildLoadedComponent) => {
     if (checkLoaded()) return buildLoadedComponent(props)
@@ -71,7 +71,7 @@ export const Edit = useHooks(props => {
             </Grid>
           </Grid>
 
-          {onLoad(({bridge}) => (
+          {onLoad(({ bridge }) => (
             <PaddedCard>
               <BridgesForm
                 actionText='Save Bridge'
@@ -99,12 +99,12 @@ Edit.propTypes = {
 
 const mapStateToProps = (state, ownProps) => {
   const bridge = bridgeSelector(state, ownProps.match.params.bridgeId)
-  return {bridge}
+  return { bridge }
 }
 
 export const ConnectedEdit = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchBridgeSpec, updateBridge})
+  matchRouteAndMapDispatchToProps({ fetchBridgeSpec, updateBridge })
 )(Edit)
 
 export default ConnectedEdit

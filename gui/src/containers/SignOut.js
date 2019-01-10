@@ -15,5 +15,5 @@ SignOut.propTypes = {
 
 export default connect(
   null,
-  {receiveSignoutSuccess}
+  { receiveSignoutSuccess }
 )(SignOut)

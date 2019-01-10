@@ -13,13 +13,13 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {to: action.to}
+        { to: action.to }
       )
     case MATCH_ROUTE:
       return Object.assign(
         {},
         state,
-        {to: null}
+        { to: null }
       )
     default:
       return state

@@ -16,7 +16,7 @@ const styles = () => ({
   }
 })
 
-const Link = ({children, classes, className, to}) => (
+const Link = ({ children, classes, className, to }) => (
   <ReactStaticLink
     to={to}
     className={classNames(classes.link, className)}

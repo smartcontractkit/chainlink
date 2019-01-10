@@ -42,7 +42,7 @@ const styles = theme => {
   })
 }
 
-const RegionalNav = ({classes, jobSpecId, jobRunId, jobRun}) => {
+const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }) => {
   return (
     <Card className={classes.container}>
       <Grid container>
@@ -83,7 +83,7 @@ RegionalNav.propTypes = {
 
 export const ConnectedRegionalNav = connect(
   null,
-  {fetchJob, createJobRun}
+  { fetchJob, createJobRun }
 )(RegionalNav)
 
 export default withStyles(styles)(ConnectedRegionalNav)

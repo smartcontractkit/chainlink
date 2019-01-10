@@ -1,1 +1,1 @@
-export default ({jobRuns}) => jobRuns.currentJobRunsCount
+export default ({ jobRuns }) => jobRuns.currentJobRunsCount

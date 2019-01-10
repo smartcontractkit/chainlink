@@ -78,7 +78,7 @@ const mapStateToProps = state => {
 
 export const ConnectedConfiguration = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchConfiguration})
+  matchRouteAndMapDispatchToProps({ fetchConfiguration })
 )(Configuration)
 
 export default withRouteData(ConnectedConfiguration)

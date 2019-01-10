@@ -7,7 +7,7 @@ const styles = theme => ({
   }
 })
 
-const Content = ({children, classes}) => {
+const Content = ({ children, classes }) => {
   return (
     <div className={classes.content}>
       {children}

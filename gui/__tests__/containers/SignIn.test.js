@@ -49,8 +49,8 @@ describe('containers/SignIn', () => {
     const store = createStore()
     global.fetch.postOnce(
       '/sessions',
-      {authenticated: false, errors: [{detail: 'Invalid email'}]},
-      {response: {status: 401}}
+      { authenticated: false, errors: [{ detail: 'Invalid email' }] },
+      { response: { status: 401 } }
     )
 
     const wrapper = mountSignIn(store)
@@ -60,7 +60,7 @@ describe('containers/SignIn', () => {
 
     const newState = store.getState()
     expect(newState.notifications).toEqual({
-      errors: [{detail: 'Your email or password is incorrect. Please try again'}],
+      errors: [{ detail: 'Your email or password is incorrect. Please try again' }],
       successes: [],
       currentUrl: '/signin'
     })

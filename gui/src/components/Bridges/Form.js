@@ -23,7 +23,7 @@ const styles = theme => ({
   }
 })
 
-const isDirty = ({values, name, url, minimumContractPayment, confirmations, submitCount}) => {
+const isDirty = ({ values, name, url, minimumContractPayment, confirmations, submitCount }) => {
   return (
     values.name !== name ||
     values.url !== url ||
@@ -72,7 +72,7 @@ const Form = props => (
                 placeholder='0'
                 value={props.values.minimumContractPayment}
                 type='number'
-                inputProps={{min: 0}}
+                inputProps={{ min: 0 }}
                 onChange={props.handleChange}
                 className={props.classes.textfield}
                 fullWidth
@@ -85,7 +85,7 @@ const Form = props => (
                 placeholder='0'
                 value={props.values.confirmations}
                 type='number'
-                inputProps={{min: 0}}
+                inputProps={{ min: 0 }}
                 onChange={props.handleChange}
                 className={props.classes.textfield}
                 fullWidth
@@ -126,7 +126,7 @@ Form.propTypes = {
 }
 
 const formikOpts = {
-  mapPropsToValues ({name, url, minimumContractPayment, confirmations}) {
+  mapPropsToValues ({ name, url, minimumContractPayment, confirmations }) {
     return {
       name: name || '',
       url: url || '',

@@ -3,7 +3,7 @@ import { AuthenticationError } from 'errors'
 import { pascalCase } from 'change-case'
 import normalize from 'json-api-normalizer'
 
-const createAction = type => ({type: type})
+const createAction = type => ({ type: type })
 
 const createErrorAction = (error, type) => ({
   type: type,
@@ -73,7 +73,7 @@ fetchActions.bridges = {
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGES_SUCCESS,
     count: json.meta.count,
-    items: json.data.map(b => Object.assign({id: b.id}, b.attributes))
+    items: json.data.map(b => Object.assign({ id: b.id }, b.attributes))
   }),
   receiveErrorType: RECEIVE_BRIDGES_ERROR
 }
@@ -87,7 +87,7 @@ fetchActions.bridgeSpec = {
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGE_SUCCESS,
     item: Object.assign(
-      {id: json.data.id},
+      { id: json.data.id },
       json.data.attributes
     )
   }),
@@ -96,7 +96,7 @@ fetchActions.bridgeSpec = {
 
 function sendFetchActions (type, ...getArgs) {
   return dispatch => {
-    const {requestActionType, receiveSuccess, receiveErrorType} = fetchActions[type]
+    const { requestActionType, receiveSuccess, receiveErrorType } = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
 
     dispatch(createAction(requestActionType))
@@ -117,7 +117,7 @@ const receiveSignInSuccess = (json) => ({
   errors: json.errors
 })
 
-const receiveSignInFail = () => ({type: RECEIVE_SIGNIN_FAIL})
+const receiveSignInFail = () => ({ type: RECEIVE_SIGNIN_FAIL })
 
 function sendSignIn (data) {
   return dispatch => {
@@ -246,20 +246,20 @@ const handleError = dispatch => error => {
   if (error instanceof AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
-    dispatch(notifyError(({msg}) => msg, error))
+    dispatch(notifyError(({ msg }) => msg, error))
   }
 }
 
 const request = (type, requestData, normalizeData, ...apiArgs) => {
   return dispatch => {
-    dispatch({type: `REQUEST_${type}`})
+    dispatch({ type: `REQUEST_${type}` })
     return requestData(...apiArgs)
       .then(json => {
         const data = normalizeData(json)
-        dispatch({type: `UPSERT_${type}`, data: data})
+        dispatch({ type: `UPSERT_${type}`, data: data })
       })
       .catch(handleError(dispatch))
-      .finally(() => dispatch({type: `RESPONSE_${type}`}))
+      .finally(() => dispatch({ type: `RESPONSE_${type}` }))
   }
 }
 
@@ -307,14 +307,14 @@ export const fetchAccountBalance = () => request(
 export const fetchJobs = (page, size) => request(
   'JOBS',
   api.getJobs,
-  json => normalize(json, {endpoint: 'currentPageJobs'}),
+  json => normalize(json, { endpoint: 'currentPageJobs' }),
   page, size
 )
 
 export const fetchRecentlyCreatedJobs = size => request(
   'RECENTLY_CREATED_JOBS',
   api.getRecentlyCreatedJobs,
-  json => normalize(json, {endpoint: 'recentlyCreatedJobs'}),
+  json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
   size
 )
 
@@ -328,14 +328,14 @@ export const fetchJob = id => request(
 export const fetchJobRuns = (id, page, size) => request(
   'JOB_RUNS',
   api.getJobSpecRuns,
-  json => normalize(json, {endpoint: 'currentPageJobRuns'}),
+  json => normalize(json, { endpoint: 'currentPageJobRuns' }),
   id, page, size
 )
 
 export const fetchRecentJobRuns = size => request(
   'RECENT_JOB_RUNS',
   api.getRecentJobRuns,
-  json => normalize(json, {endpoint: 'recentJobRuns'}),
+  json => normalize(json, { endpoint: 'recentJobRuns' }),
   size
 )
 

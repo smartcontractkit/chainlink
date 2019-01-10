@@ -18,8 +18,8 @@ const mountNotifications = (store) => mount(
 
 describe('containers/Notifications', () => {
   it('renders success and error components', () => {
-    const successes = [{component: ({msg}) => <span>Success {msg}</span>, props: {msg: '1'}}]
-    const errors = [{component: ({msg}) => <span>Error {msg}</span>, props: {msg: '2'}}]
+    const successes = [{ component: ({ msg }) => <span>Success {msg}</span>, props: { msg: '1' } }]
+    const errors = [{ component: ({ msg }) => <span>Error {msg}</span>, props: { msg: '2' } }]
     const state = {
       notifications: {
         successes: successes,

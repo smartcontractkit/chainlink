@@ -76,9 +76,9 @@ Form.propTypes = {
 }
 
 const formikOpts = {
-  mapPropsToValues ({definition}) {
+  mapPropsToValues ({ definition }) {
     const json = JSON.stringify(definition, null, '\t') || ''
-    return {json}
+    return { json }
   },
 
   validate (values) {

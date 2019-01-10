@@ -78,7 +78,7 @@ const mapStateToProps = state => {
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchBridges})
+  matchRouteAndMapDispatchToProps({ fetchBridges })
 )(Index)
 
 export default withSiteData(ConnectedIndex)

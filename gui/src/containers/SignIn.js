@@ -84,7 +84,7 @@ const mapStateToProps = state => ({
 
 export const ConnectedSignIn = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({submitSignIn})
+  matchRouteAndMapDispatchToProps({ submitSignIn })
 )(SignIn)
 
 export default withStyles(styles)(ConnectedSignIn)

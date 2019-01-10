@@ -46,7 +46,7 @@ describe('containers/Bridges/Index', () => {
     ], 2)
     global.fetch.getOnce('/v2/bridge_types?page=1&size=1', pageOneResponse)
 
-    const wrapper = mountIndex({pageSize: 1})
+    const wrapper = mountIndex({ pageSize: 1 })
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')

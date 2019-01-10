@@ -1,6 +1,6 @@
 import build from 'redux-object'
 
-export default ({jobs}) => (
+export default ({ jobs }) => (
   jobs.currentPage && jobs
     .currentPage
     .map(id => build(jobs, 'items', id))

@@ -86,7 +86,7 @@ export const Index = useHooks((props) => {
         <BreadcrumbItem>Runs</BreadcrumbItem>
       </Breadcrumb>
       <Title>Runs</Title>
-      {renderDetails(props, {page}, handleChangePage)}
+      {renderDetails(props, { page }, handleChangePage)}
     </Content>
   )
 }
