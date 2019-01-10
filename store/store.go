@@ -106,7 +106,7 @@ func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
 }
 
 // NewStore will create a new database file at the config's RootDir if
-// it is not already present, otherwise it will use the existing db.bolt
+// it is not already present, otherwise it will use the existing db.sqlite3
 // file.
 func NewStore(config Config) *Store {
 	return NewStoreWithDialer(config, &EthDialer{})
@@ -178,10 +178,8 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 }
 
 func initializeORM(config Config) (*orm.ORM, error) {
-	path := path.Join(config.RootDir(), "db.bolt")
-	duration := config.DatabaseTimeout()
-	logger.Infof("Waiting %s for lock on db file %s", friendlyDuration(duration), path)
-	orm, err := orm.NewORM(path, duration)
+	path := path.Join(config.RootDir(), "db.sqlite3")
+	orm, err := orm.NewORM(path)
 	if err != nil {
 		return nil, err
 	}

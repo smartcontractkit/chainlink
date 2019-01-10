@@ -222,7 +222,7 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 	j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour * -1))
 	assert.Nil(t, store.SaveJob(&j))
 	initr.ID = j.Initiators[0].ID
-	initr.JobID = j.ID
+	initr.JobSpecID = j.ID
 
 	finished := abool.New()
 	go func() {

@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"math/big"
 
@@ -96,6 +97,29 @@ func (l *Link) IsZero() bool {
 // Symbol returns LINK
 func (*Link) Symbol() string {
 	return "LINK"
+}
+
+func (l Link) Value() (driver.Value, error) {
+	b := (big.Int)(l)
+	return b.String(), nil
+}
+
+func (l *Link) Scan(value interface{}) error {
+	var s string
+	switch temp := value.(type) {
+	case []uint8: // despite being sent as string, drivers return []uint8
+		s = string(temp)
+		_, ok := l.SetString(s, 10)
+		if !ok {
+			return fmt.Errorf("Unable to scan Link string from %s", s)
+		}
+	case int64:
+		return fmt.Errorf("Unable to convert %v of %T to Link, is the sql type set to varchar?", value, value)
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to Link", value, value)
+	}
+
+	return nil
 }
 
 // Eth contains a field to represent the smallest units of ETH

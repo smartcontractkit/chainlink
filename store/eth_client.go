@@ -157,7 +157,7 @@ func (eth *EthClient) SubscribeToNewHeads(
 // TxReceipt holds the block number and the transaction hash of a signed
 // transaction that has been written to the blockchain.
 type TxReceipt struct {
-	BlockNumber *models.Int `json:"blockNumber"`
+	BlockNumber *models.Big `json:"blockNumber" gorm:"type:varchar(255)"`
 	Hash        common.Hash `json:"transactionHash"`
 }
 

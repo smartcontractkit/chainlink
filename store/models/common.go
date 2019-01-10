@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
@@ -96,10 +98,43 @@ func (s RunStatus) CanStart() bool {
 	return s.Pending() || s.Unstarted()
 }
 
+func (s RunStatus) Value() (driver.Value, error) {
+	return string(s), nil
+}
+
+func (s *RunStatus) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
+	}
+
+	*s = RunStatus(temp)
+	return nil
+}
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
+}
+
+func (j JSON) Value() (driver.Value, error) {
+	s := j.String()
+	if len(s) == 0 {
+		return "{}", nil
+	}
+	return s, nil
+}
+
+func (j *JSON) Scan(value interface{}) error {
+	bytes, ok := value.([]uint8)
+	temp := string(bytes)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+	}
+
+	*j = JSON{Result: gjson.Parse(temp)}
+	return nil
 }
 
 // ParseJSON attempts to coerce the input byte array into valid JSON
@@ -191,7 +226,7 @@ func (j JSON) CBOR() ([]byte, error) {
 	var b []byte
 	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
 
-	switch v := j.Value().(type) {
+	switch v := j.Result.Value().(type) {
 	case map[string]interface{}, []interface{}, nil:
 		return b, cbor.Encode(v)
 	default:
@@ -229,9 +264,54 @@ func (w WebURL) String() string {
 	return url.String()
 }
 
+func (w WebURL) Value() (driver.Value, error) {
+	return w.String(), nil
+}
+
+func (w *WebURL) Scan(value interface{}) error {
+	var s string
+	switch temp := value.(type) {
+	case []uint8:
+		s = string(temp)
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
+	}
+
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		return err
+	}
+	*w = WebURL(*u)
+	return nil
+}
+
+type Address struct {
+	common.Address
+}
+
 // Time holds a common field for time.
 type Time struct {
 	time.Time
+}
+
+func (t Time) Value() (driver.Value, error) {
+	return t.Time, nil
+}
+
+func (t *Time) Scan(value interface{}) error {
+	var s string
+	switch temp := value.(type) {
+	case []uint8:
+		s = string(temp)
+		newTime, err := dateparse.ParseAny(s)
+		*t = Time{Time: newTime}
+		return err
+	case time.Time:
+		*t = Time{Time: temp}
+		return nil
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+	}
 }
 
 // UnmarshalJSON parses the raw time stored in JSON-encoded
@@ -312,42 +392,89 @@ type CreateKeyRequest struct {
 	NewAccountPassword string `json:"new_account_password"`
 }
 
-// Int stores large integers and can deserialize a variety of inputs.
-type Int big.Int
+// Big stores large integers and can deserialize a variety of inputs.
+type Big big.Int
 
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (i *Int) UnmarshalText(input []byte) error {
-	input = utils.RemoveQuotes(input)
-	str := string(input)
-	var ok bool
-	if utils.HasHexPrefix(str) {
-		i, ok = i.setString(utils.RemoveHexPrefix(str), 16)
-	} else {
-		i, ok = i.setString(str, 10)
-	}
-
-	if !ok {
-		return fmt.Errorf("could not unmarshal %s to Int", str)
+func NewBig(i *big.Int) *Big {
+	if i != nil {
+		b := Big(*i)
+		return &b
 	}
 	return nil
 }
 
+func (b *Big) MarshalText() ([]byte, error) {
+	return []byte((*big.Int)(b).Text(10)), nil
+}
+
+func (b *Big) MarshalJSON() ([]byte, error) {
+	return b.MarshalText()
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (b *Big) UnmarshalText(input []byte) error {
+	input = utils.RemoveQuotes(input)
+	str := string(input)
+	if utils.HasHexPrefix(str) {
+		decoded, err := hexutil.DecodeBig(str)
+		if err != nil {
+			return err
+		}
+		*b = Big(*decoded)
+		return nil
+	}
+
+	_, ok := b.setString(str, 10)
+	if !ok {
+		return fmt.Errorf("Unable to convert %s to Big", str)
+	}
+	return nil
+}
+
+func (b *Big) setString(s string, base int) (*Big, bool) {
+	w, ok := (*big.Int)(b).SetString(s, base)
+	return (*Big)(w), ok
+}
+
 // UnmarshalJSON implements encoding.JSONUnmarshaler.
-func (i *Int) UnmarshalJSON(input []byte) error {
-	return i.UnmarshalText(input)
+func (b *Big) UnmarshalJSON(input []byte) error {
+	return b.UnmarshalText(input)
 }
 
-// MarshalJSON implements encoding.JSONMarshaler.
-func (i *Int) MarshalJSON() ([]byte, error) {
-	return json.Marshal((*big.Int)(i))
+func (b Big) Value() (driver.Value, error) {
+	return b.String(), nil
 }
 
-// ToBig converts *Int to *big.Int.
-func (i *Int) ToBig() *big.Int {
-	return (*big.Int)(i)
+func (b *Big) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Big", value, value)
+	}
+
+	decoded, ok := b.setString(string(temp), 10)
+	if !ok {
+		return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
+	}
+	*b = Big(*decoded)
+	return nil
 }
 
-func (i *Int) setString(s string, base int) (*Int, bool) {
-	w, ok := (*big.Int)(i).SetString(s, base)
-	return (*Int)(w), ok
+// ToInt converts b to a big.Int.
+func (b *Big) ToInt() *big.Int {
+	return (*big.Int)(b)
+}
+
+func (b *Big) ToHexUtilBig() *hexutil.Big {
+	h := hexutil.Big(*b)
+	return &h
+}
+
+// String returns the base 10 encoding of b.
+func (b *Big) String() string {
+	return b.ToInt().Text(10)
+}
+
+// Hex returns the hex encoding of b.
+func (b *Big) Hex() string {
+	return hexutil.EncodeBig(b.ToInt())
 }

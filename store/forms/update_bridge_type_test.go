@@ -17,7 +17,7 @@ func TestFormsNewUpdateBridgeType(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType("bridgea")
-	assert.Nil(t, s.SaveBridgeType(&bt))
+	assert.Nil(t, s.CreateBridgeType(&bt))
 
 	_, err := forms.NewUpdateBridgeType(s, "idontexist")
 	assert.Equal(t, err, orm.ErrorNotFound)
@@ -33,7 +33,7 @@ func TestFormsUpdateBridgeType_Save(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType("bridgea", "http://bridge")
-	assert.Nil(t, s.SaveBridgeType(&bt))
+	assert.Nil(t, s.CreateBridgeType(&bt))
 
 	form, err := forms.NewUpdateBridgeType(s, "bridgea")
 	assert.NoError(t, err)
