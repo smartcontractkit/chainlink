@@ -21,7 +21,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	defer cleanup()
 
 	j := models.NewJob()
-	i := models.Initiator{Type: models.InitiatorWeb}
+	i := models.Initiator{ID: utils.NewBytes32ID(), Type: models.InitiatorWeb}
 	j.Initiators = []models.Initiator{i}
 	json := fmt.Sprintf(`{"until":"%v"}`, utils.ISO8601UTC(time.Now().Add(time.Second)))
 	j.Tasks = []models.TaskSpec{cltest.NewTask("sleep", json)}

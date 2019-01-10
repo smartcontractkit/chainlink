@@ -3,11 +3,11 @@ package services
 import (
 	"fmt"
 
-	"github.com/asdine/storm/q"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"go.uber.org/multierr"
 )
 
 // NewBulkRunDeleter creates a task runner that is responsible for executing bulk tasks.
@@ -22,54 +22,59 @@ type bulkRunDeleter struct {
 }
 
 func (btr *bulkRunDeleter) Work() {
-	query := btr.store.ORM.DB.Select(q.Eq("Status", models.BulkTaskStatusInProgress)).OrderBy("CreatedAt")
-	err := query.Each(&models.BulkDeleteRunTask{}, func(r interface{}) error {
-		task := r.(*models.BulkDeleteRunTask)
-		logger.Infow("Processing bulk run delete task",
-			"task_id", task.ID,
-			"statuses", task.Query.Status,
-			"updated_before", task.Query.UpdatedBefore,
-		)
+	deleteTasks, err := btr.store.BulkDeletesInProgress()
+	if err != nil {
+		logger.Errorw("Error querying bulk tasks", "error", err)
+		return
+	}
 
-		err := RunPendingTask(btr.store.ORM, task)
+	for _, task := range deleteTasks {
+		err := RunPendingTask(btr.store.ORM, &task)
 		if err != nil {
 			logger.Errorw("Error deleting runs for bulk task", "task_id", task.ID, "error", err)
 		}
-		return err
-	})
-	if err != nil && err != orm.ErrorNotFound {
-		logger.Errorw("Error querying bulk tasks", "error", err)
 	}
 }
 
 // RunPendingTask executes bulk run tasks
 func RunPendingTask(orm *orm.ORM, task *models.BulkDeleteRunTask) error {
+	logger.Infow("Processing bulk run delete task",
+		"task_id", task.ID,
+		"statuses", task.Query.Status,
+		"updated_before", task.Query.UpdatedBefore,
+	)
 	err := DeleteJobRuns(orm, &task.Query)
 	if err != nil {
-		task.Error = err
+		task.ErrorMessage = err.Error()
 		task.Status = models.BulkTaskStatusErrored
 	} else {
 		task.Status = models.BulkTaskStatusCompleted
 	}
-	return orm.DB.Save(task)
+	return multierr.Append(err, orm.DB.Save(task).Error)
 }
 
 // DeleteJobRuns removes runs that match a query
 func DeleteJobRuns(orm *orm.ORM, bulkQuery *models.BulkDeleteRunRequest) error {
-	query := orm.DB.Select(
-		q.And(
-			q.In("Status", bulkQuery.Status),
-			q.Lt("UpdatedAt", bulkQuery.UpdatedBefore),
-		),
-	).OrderBy("CompletedAt")
+	runIDs := []models.JobRun{}
 
-	return query.Each(&models.JobRun{}, func(r interface{}) error {
-		run := r.(*models.JobRun)
-		logger.Debugw("Deleting run", "run_id", run.ID, "status", run.Status, "updated_at", run.UpdatedAt)
-		err := orm.DeleteStruct(run)
+	err := orm.DB.
+		// reduce memory consumption by limiting fields in lieu of pagination as stopgap.
+		Select("id, status").
+		Where("status IN (?)", bulkQuery.Status.ToStrings()).
+		Where("updated_at < ?", bulkQuery.UpdatedBefore).
+		Order("completed_at asc").
+		Find(&runIDs).Error
+
+	if err != nil {
+		return err
+	}
+
+	for _, run := range runIDs {
+		logger.Debugw("Deleting run", "job_run_id", run.ID, "status", run.Status)
+		err := orm.DeleteJobRun(run.ID)
 		if err != nil {
 			return fmt.Errorf("error deleting run %s: %+v", run.ID, err)
 		}
-		return nil
-	})
+	}
+	return nil
 }

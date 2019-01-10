@@ -24,7 +24,7 @@ func (c *BulkDeletesController) Create(ctx *gin.Context) {
 		ctx.AbortWithError(422, err)
 	} else if task, err := models.NewBulkDeleteRunTask(request); err != nil {
 		ctx.AbortWithError(422, err)
-	} else if err := c.App.GetStore().ORM.DB.Save(task); err != nil {
+	} else if err := c.App.GetStore().SaveBulkDeleteRunTask(task); err != nil {
 		ctx.AbortWithError(500, err)
 	} else if doc, err := jsonapi.Marshal(task); err != nil {
 		ctx.AbortWithError(500, err)
@@ -39,13 +39,11 @@ func (c *BulkDeletesController) Create(ctx *gin.Context) {
 //  "<application>/bulk_delete_runs/:RunID"
 func (c *BulkDeletesController) Show(ctx *gin.Context) {
 	id := ctx.Param("taskID")
-	task := models.BulkDeleteRunTask{}
-
-	if err := c.App.GetStore().ORM.DB.One("ID", id, &task); err == orm.ErrorNotFound {
+	if task, err := c.App.GetStore().FindBulkDeleteRunTask(id); err == orm.ErrorNotFound {
 		ctx.AbortWithError(404, errors.New("Bulk delete task not found"))
 	} else if err != nil {
 		ctx.AbortWithError(500, err)
-	} else if doc, err := jsonapi.Marshal(&task); err != nil {
+	} else if doc, err := jsonapi.Marshal(task); err != nil {
 		ctx.AbortWithError(500, err)
 	} else {
 		ctx.Data(200, MediaType, doc)

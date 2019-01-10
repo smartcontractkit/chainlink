@@ -35,7 +35,7 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer cltest.ResetBucket(store, &models.Session{})
+			defer store.ORM.ClearSessions()
 
 			session := cltest.NewSession(test.name)
 			session.LastUsed = models.Time{test.lastUsed}

@@ -223,7 +223,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 		initr.Type,
 		presenters.FriendlyBigInt(blockNumber),
 		presenters.LogListeningAddress(initr.Address),
-		initr.JobID)
+		initr.JobSpecID)
 	logger.Infow(msg)
 }
 
@@ -274,8 +274,8 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 
-	currentHead := le.ToIndexableBlockNumber().Number
-	_, err = ExecuteJob(le.Job, initr, input, &currentHead, le.store)
+	currentHead := le.ToIndexableBlockNumber().Number.ToHexUtilBig()
+	_, err = ExecuteJob(le.Job, initr, input, currentHead, le.store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
