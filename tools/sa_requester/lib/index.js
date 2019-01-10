@@ -36,7 +36,7 @@ class SaRequester extends command.Command {
   }
 }
 
-const parseError = ({response}) => {
+const parseError = ({ response }) => {
   if (response.status === 422) {
     throw new Error(response.data.errors)
   }
@@ -76,7 +76,7 @@ async function createServiceAgreements (baseAgreement, addresses, oracleURLs) {
       const serviceAgreementRequest = Object.assign(
         {},
         baseAgreement,
-        {oracles: addresses}
+        { oracles: addresses }
       )
 
       return axios.post(url, serviceAgreementRequest, { timeout: FETCH_TIMEOUT })

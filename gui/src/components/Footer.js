@@ -15,9 +15,9 @@ const styles = theme => ({
   }
 })
 
-const {version, sha} = extractBuildInfo()
+const { version, sha } = extractBuildInfo()
 
-const Footnote = ({classes}) => {
+const Footnote = ({ classes }) => {
   return (
     <Card className={classes.style}>
       <Typography>

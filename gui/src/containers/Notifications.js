@@ -41,7 +41,7 @@ const mapStateToProps = state => ({
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators(
-  {receiveSignoutSuccess},
+  { receiveSignoutSuccess },
   dispatch
 )
 

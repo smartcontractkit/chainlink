@@ -15,9 +15,9 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {items: Object.assign({}, state.items, action.data.runs)},
-        {currentPage: action.data.meta.currentPageJobRuns.data.map(r => r.id)},
-        {currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count}
+        { items: Object.assign({}, state.items, action.data.runs) },
+        { currentPage: action.data.meta.currentPageJobRuns.data.map(r => r.id) },
+        { currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count }
       )
     }
     case UPSERT_RECENT_JOB_RUNS:
@@ -26,7 +26,7 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        {items: Object.assign({}, state.items, action.data.runs)}
+        { items: Object.assign({}, state.items, action.data.runs) }
       )
     }
     default:

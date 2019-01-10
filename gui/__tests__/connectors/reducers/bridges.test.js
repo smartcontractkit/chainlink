@@ -21,9 +21,9 @@ describe('connectors/reducers/bridges', () => {
   })
 
   it('REQUEST_BRIDGES disables the network error', () => {
-    const action = {type: REQUEST_BRIDGES}
+    const action = { type: REQUEST_BRIDGES }
     const previousState = {
-      bridges: {networkError: true}
+      bridges: { networkError: true }
     }
     const state = reducer(previousState, action)
 
@@ -34,15 +34,15 @@ describe('connectors/reducers/bridges', () => {
     const action = {
       type: RECEIVE_BRIDGES_SUCCESS,
       items: [
-        {id: 'a', name: 'A'},
-        {id: 'b', name: 'B'}
+        { id: 'a', name: 'A' },
+        { id: 'b', name: 'B' }
       ]
     }
     const state = reducer(undefined, action)
 
     expect(state.bridges.items).toEqual({
-      a: {id: 'a', name: 'A'},
-      b: {id: 'b', name: 'B'}
+      a: { id: 'a', name: 'A' },
+      b: { id: 'b', name: 'B' }
     })
     expect(state.bridges.currentPage).toEqual(['a', 'b'])
     expect(state.bridges.networkError).toEqual(false)
@@ -50,7 +50,7 @@ describe('connectors/reducers/bridges', () => {
 
   it('RECEIVE_BRIDGES_ERROR updates the network error', () => {
     const previousState = {
-      bridges: {networkError: false}
+      bridges: { networkError: false }
     }
     const action = {
       type: RECEIVE_BRIDGES_ERROR,
@@ -63,9 +63,9 @@ describe('connectors/reducers/bridges', () => {
 
   it('REQUEST_BRIDGE disables the network error', () => {
     const previousState = {
-      bridges: {networkError: true}
+      bridges: { networkError: true }
     }
-    const action = {type: REQUEST_BRIDGE}
+    const action = { type: REQUEST_BRIDGE }
     const state = reducer(previousState, action)
 
     expect(state.bridges.networkError).toEqual(false)
@@ -80,7 +80,7 @@ describe('connectors/reducers/bridges', () => {
       }
     }
     const previousState = {
-      bridges: {items: []}
+      bridges: { items: [] }
     }
     const state = reducer(previousState, action)
 
@@ -92,7 +92,7 @@ describe('connectors/reducers/bridges', () => {
 
   it('RECEIVE_BRIDGE_ERROR assigns a network error', () => {
     const previousState = {
-      bridges: {networkError: false}
+      bridges: { networkError: false }
     }
     const action = {
       type: RECEIVE_BRIDGE_ERROR,

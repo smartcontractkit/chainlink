@@ -80,7 +80,7 @@ const Header = useHooks(props => {
   const [drawerOpen, setDrawerState] = useState(false)
   const toggleDrawer = () => setDrawerState(!drawerOpen)
   const signOut = () => props.submitSignOut()
-  const {classes, fetchCount} = props
+  const { classes, fetchCount } = props
 
   const drawer = (<Drawer
     anchor='right'
@@ -178,7 +178,7 @@ const mapStateToProps = state => ({
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators(
-  {submitSignOut},
+  { submitSignOut },
   dispatch
 )
 

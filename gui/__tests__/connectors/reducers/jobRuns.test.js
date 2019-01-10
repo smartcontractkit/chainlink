@@ -22,12 +22,12 @@ describe('connectors/reducers/jobRuns', () => {
       type: UPSERT_JOB_RUNS,
       data: {
         runs: {
-          a: {id: 'a'},
-          b: {id: 'b'}
+          a: { id: 'a' },
+          b: { id: 'b' }
         },
         meta: {
           currentPageJobRuns: {
-            data: [{id: 'b'}, {id: 'a'}],
+            data: [{ id: 'b' }, { id: 'a' }],
             meta: {
               count: 10
             }
@@ -38,8 +38,8 @@ describe('connectors/reducers/jobRuns', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'a': {id: 'a'},
-      'b': {id: 'b'}
+      'a': { id: 'a' },
+      'b': { id: 'b' }
     })
     expect(state.jobRuns.currentPage).toEqual(['b', 'a'])
     expect(state.jobRuns.currentJobRunsCount).toEqual(10)
@@ -49,16 +49,16 @@ describe('connectors/reducers/jobRuns', () => {
     const action = {
       type: UPSERT_RECENT_JOB_RUNS,
       data: {
-        runs: {a: {id: 'a'}},
+        runs: { a: { id: 'a' } },
         meta: {
-          recentJobRuns: {data: []}
+          recentJobRuns: { data: [] }
         }
       }
     }
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'a': {id: 'a'}
+      'a': { id: 'a' }
     })
   })
 
@@ -67,14 +67,14 @@ describe('connectors/reducers/jobRuns', () => {
       type: UPSERT_JOB_RUN,
       data: {
         runs: {
-          a: {id: 'a'}
+          a: { id: 'a' }
         }
       }
     }
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'a': {id: 'a'}
+      'a': { id: 'a' }
     })
   })
 
@@ -83,14 +83,14 @@ describe('connectors/reducers/jobRuns', () => {
       type: UPSERT_JOB,
       data: {
         runs: {
-          b: {id: 'b'}
+          b: { id: 'b' }
         }
       }
     }
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'b': {id: 'b'}
+      'b': { id: 'b' }
     })
   })
 })

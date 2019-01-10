@@ -11,8 +11,8 @@ export default (jobs, count) => {
     data: j.map((c) => {
       const config = c || {}
       const id = config.id || uuid().replace(/-/g, '')
-      const initiators = config.initiators || [{'type': 'web'}]
-      const tasks = config.tasks || [{confirmations: 0, type: 'httpget', url: 'https://bitstamp.net/api/ticker/'}]
+      const initiators = config.initiators || [{ 'type': 'web' }]
+      const tasks = config.tasks || [{ confirmations: 0, type: 'httpget', url: 'https://bitstamp.net/api/ticker/' }]
       const createdAt = config.createdAt || (new Date()).toISOString()
       const runs = c.runs || []
 
@@ -26,9 +26,9 @@ export default (jobs, count) => {
           createdAt: createdAt,
           runs: runs.map(r => Object.assign(
             {},
-            {createdAt: isoDate(Date.now())},
-            {result: {}},
-            {jobId: id},
+            { createdAt: isoDate(Date.now()) },
+            { result: {} },
+            { jobId: id },
             r
           ))
         }

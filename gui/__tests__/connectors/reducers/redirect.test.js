@@ -14,7 +14,7 @@ describe('connectors/reducers/redirect', () => {
   })
 
   it('REDIRECT sets "to" as the given url', () => {
-    const state = reducer(undefined, {type: REDIRECT, to: '/foo'})
+    const state = reducer(undefined, { type: REDIRECT, to: '/foo' })
 
     expect(state.redirect).toEqual({
       to: '/foo'
@@ -23,9 +23,9 @@ describe('connectors/reducers/redirect', () => {
 
   it('MATCH_ROUTE sets "to" as null', () => {
     const previousState = {
-      redirect: {to: '/foo'}
+      redirect: { to: '/foo' }
     }
-    const state = reducer(previousState, {type: MATCH_ROUTE})
+    const state = reducer(previousState, { type: MATCH_ROUTE })
 
     expect(state.redirect).toEqual({
       to: null

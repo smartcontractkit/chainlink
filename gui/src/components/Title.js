@@ -10,7 +10,7 @@ const styles = theme => ({
   }
 })
 
-const Title = ({children, classes, className}) => (
+const Title = ({ children, classes, className }) => (
   <Typography
     variant='h4'
     color='inherit'

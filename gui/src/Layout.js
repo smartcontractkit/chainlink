@@ -17,7 +17,7 @@ import { useHooks, useState } from 'use-react-hooks'
 
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
-const uniOpts = {loading: Loading}
+const uniOpts = { loading: Loading }
 const DashboardsIndex = universal(import('./containers/Dashboards/Index'), uniOpts)
 const JobsIndex = universal(import('./containers/Jobs/Index'), uniOpts)
 const JobsShow = universal(import('./containers/Jobs/Show'), uniOpts)
@@ -50,7 +50,7 @@ const Layout = useHooks(props => {
     resizeHeaderHeight(height)
   }
 
-  const {classes, redirectTo} = props
+  const { classes, redirectTo } = props
 
   return (<Router>
     <Grid container>
@@ -63,7 +63,7 @@ const Layout = useHooks(props => {
 
         <main
           ref={ref => { props.drawerContainer = ref }}
-          style={{paddingTop: headerHeight}}
+          style={{ paddingTop: headerHeight }}
         >
           <Notifications />
 

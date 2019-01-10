@@ -3,7 +3,7 @@ import { storiesOf } from '@storybook/react'
 import { Router } from 'react-static'
 import { createMuiTheme } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
-import {muiTheme} from 'storybook-addon-material-ui'
+import { muiTheme } from 'storybook-addon-material-ui'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import JavascriptTimeAgo from 'javascript-time-ago'
@@ -150,8 +150,8 @@ storiesOf('Tabular Data', module)
   .add('Job Runs', () => (
     <Router>
       <JobRunsList runs={[
-        {id: 'f5b5c848b8154d5eab8cd9a36fe1d506', status: 'errored', createdAt: '2018-11-26T18:26:42.133809-08:00', result: {data: {}, error: 'server not responding'}},
-        {id: 'c1aeec88e8104424aa69deb383e76695', status: 'completed', createdAt: '2018-11-23T09:18:14.120683-08:00', result: {data: {price: 123.45}}}
+        { id: 'f5b5c848b8154d5eab8cd9a36fe1d506', status: 'errored', createdAt: '2018-11-26T18:26:42.133809-08:00', result: { data: {}, error: 'server not responding' } },
+        { id: 'c1aeec88e8104424aa69deb383e76695', status: 'completed', createdAt: '2018-11-23T09:18:14.120683-08:00', result: { data: { price: 123.45 } } }
       ]} />
     </Router>
   ))

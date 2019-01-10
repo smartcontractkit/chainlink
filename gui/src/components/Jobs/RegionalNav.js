@@ -48,13 +48,13 @@ const styles = theme => {
   })
 }
 
-const SuccessNotification = ({data}) => (
+const SuccessNotification = ({ data }) => (
   <React.Fragment>
     Successfully created job run <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>{data.id}</BaseLink>
   </React.Fragment>
 )
 
-const RegionalNav = ({classes, createJobRun, fetchJob, jobSpecId, job}) => {
+const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage)
@@ -119,7 +119,7 @@ const RegionalNav = ({classes, createJobRun, fetchJob, jobSpecId, job}) => {
 
 export const ConnectedRegionalNav = connect(
   null,
-  {fetchJob, createJobRun}
+  { fetchJob, createJobRun }
 )(RegionalNav)
 
 export default withStyles(styles)(ConnectedRegionalNav)

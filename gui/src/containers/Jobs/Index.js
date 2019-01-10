@@ -59,7 +59,7 @@ const mapStateToProps = state => {
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({fetchJobs})
+  matchRouteAndMapDispatchToProps({ fetchJobs })
 )(Index)
 
 export default ConnectedIndex

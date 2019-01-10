@@ -36,7 +36,7 @@ describe('containers/JobRuns/Show', () => {
         params: {}
       },
       taskRuns: [
-        {id: 'taskRunA', status: 'completed', task: {type: 'noop', params: {}}}
+        { id: 'taskRunA', status: 'completed', task: { type: 'noop', params: {} } }
       ],
       result: {
         data: {
@@ -46,7 +46,7 @@ describe('containers/JobRuns/Show', () => {
     })
     global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
 
-    const props = {match: {params: {jobSpecId: jobSpecId, jobRunId: jobRunId}}}
+    const props = { match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)

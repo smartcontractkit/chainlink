@@ -67,7 +67,7 @@ const renderRuns = runs => {
   )
 }
 
-const List = ({runs, classes}) => (
+const List = ({ runs, classes }) => (
   <Card className={classes.jobRunsCard}>
     <Table>
       <TableHead>

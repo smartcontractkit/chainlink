@@ -30,11 +30,11 @@ describe('containers/Bridges/Show', () => {
         incomingToken: 'incomingToken',
         outgoingToken: 'outgoingToken'
       }
-    }}
+    } }
 
     global.fetch.getOnce(`/v2/bridge_types/tallbridge`, response)
 
-    const props = {match: {params: {bridgeId: 'tallbridge'}}}
+    const props = { match: { params: { bridgeId: 'tallbridge' } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
