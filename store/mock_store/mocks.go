@@ -139,6 +139,21 @@ func (mr *MockTxManagerMockRecorder) Disconnect() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockTxManager)(nil).Disconnect))
 }
 
+// EnsureConfirmed mocks base method
+func (m *MockTxManager) EnsureConfirmed(arg0 common.Hash) (*store.TxReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureConfirmed", arg0)
+	ret0, _ := ret[0].(*store.TxReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsureConfirmed indicates an expected call of EnsureConfirmed
+func (mr *MockTxManagerMockRecorder) EnsureConfirmed(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureConfirmed", reflect.TypeOf((*MockTxManager)(nil).EnsureConfirmed), arg0)
+}
+
 // GetBlockByNumber mocks base method
 func (m *MockTxManager) GetBlockByNumber(arg0 string) (models.BlockHeader, error) {
 	m.ctrl.T.Helper()
@@ -197,21 +212,6 @@ func (m *MockTxManager) GetLogs(arg0 go_ethereum.FilterQuery) ([]store.Log, erro
 func (mr *MockTxManagerMockRecorder) GetLogs(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogs", reflect.TypeOf((*MockTxManager)(nil).GetLogs), arg0)
-}
-
-// EnsureConfirmed mocks base method
-func (m *MockTxManager) EnsureConfirmed(arg0 common.Hash) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureConfirmed", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EnsureConfirmed indicates an expected call of EnsureConfirmed
-func (mr *MockTxManagerMockRecorder) EnsureConfirmed(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureConfirmed", reflect.TypeOf((*MockTxManager)(nil).EnsureConfirmed), arg0)
 }
 
 // NextActiveAccount mocks base method

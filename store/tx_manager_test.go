@@ -341,7 +341,7 @@ func TestTxManager_EnsureConfirmed(t *testing.T) {
 		currentHeight    uint64
 		receipt          strpkg.TxReceipt
 		sendsTransaction bool
-		wantConfirmed    bool
+		wantReceipt      bool
 		wantLength       int
 	}{
 		{"< gas bump threshold", (gasThreshold - 1), strpkg.TxReceipt{}, false, false, 1},
@@ -365,9 +365,10 @@ func TestTxManager_EnsureConfirmed(t *testing.T) {
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 			}
 
-			confirmed, err := txm.EnsureConfirmed(a.Hash)
+			receipt, err := txm.EnsureConfirmed(a.Hash)
 			assert.NoError(t, err)
-			assert.Equal(t, test.wantConfirmed, confirmed)
+			receiptPresent := receipt != nil
+			assert.Equal(t, test.wantReceipt, receiptPresent)
 			attempts, err = store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantLength, len(attempts))
@@ -392,11 +393,11 @@ func TestTxManager_EnsureConfirmed_erroring(t *testing.T) {
 	confedReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
 
 	tests := []struct {
-		name          string
-		blockHeight   uint64
-		mockSetup     func(*cltest.EthMock)
-		wantConfirmed bool
-		wantErrored   bool
+		name        string
+		blockHeight uint64
+		mockSetup   func(*cltest.EthMock)
+		wantReceipt bool
+		wantErrored bool
 	}{
 		{"no conf, no error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
@@ -445,8 +446,9 @@ func TestTxManager_EnsureConfirmed_erroring(t *testing.T) {
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 
 			require.NoError(t, app.StartAndConnect())
-			confirmed, err := txm.EnsureConfirmed(a.Hash)
-			assert.Equal(t, test.wantConfirmed, confirmed)
+			receipt, err := txm.EnsureConfirmed(a.Hash)
+			receiptPresent := receipt != nil
+			assert.Equal(t, test.wantReceipt, receiptPresent)
 			cltest.AssertError(t, test.wantErrored, err)
 		})
 	}
@@ -675,10 +677,9 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	assert.NoError(t, err)
 	initialSuccessfulAttempt := txTransmissionAttempts[0]
 
-	txWasConfirmed, err := manager.EnsureConfirmed(
-		initialSuccessfulAttempt.Hash)
+	receipt, err := manager.EnsureConfirmed(initialSuccessfulAttempt.Hash)
 	assert.NoError(t, err)
-	assert.True(t, txWasConfirmed)
+	assert.NotNil(t, receipt)
 
 	ethMock.EventuallyAllCalled(t)
 
