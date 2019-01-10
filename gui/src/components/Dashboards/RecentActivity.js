@@ -23,19 +23,26 @@ const styles = theme => {
       borderBottom: 'none',
       padding: 0
     },
+    content: {
+      position: 'relative',
+      paddingLeft: 50
+    },
     status: {
       position: 'absolute',
       top: 0,
       left: 0,
-      paddingTop: 35,
-      paddingLeft: 35,
+      paddingTop: 18,
+      paddingLeft: 30,
       borderRight: 'solid 1px',
       borderRightColor: theme.palette.divider,
       width: 50,
       height: '100%'
     },
     runDetails: {
-      padding: theme.spacing.unit * 4
+      paddingTop: theme.spacing.unit * 3,
+      paddingBottom: theme.spacing.unit * 3,
+      paddingLeft: theme.spacing.unit * 4,
+      paddingRight: theme.spacing.unit * 4
     }
   }
 }
@@ -65,9 +72,9 @@ const RecentActivity = ({ classes, runs }) => {
           {runs.map(r => (
             <TableRow key={r.id}>
               <TableCell scope='row' className={classes.cell}>
-                <div style={{ position: 'relative', paddingLeft: '50px' }}>
+                <div className={classes.content}>
                   <div className={classes.status}>
-                    <StatusIcon>{r.status}</StatusIcon>
+                    <StatusIcon width={38}>{r.status}</StatusIcon>
                   </div>
                   <div className={classes.runDetails}>
                     <Grid container spacing={0}>
