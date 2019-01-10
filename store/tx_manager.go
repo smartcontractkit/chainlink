@@ -37,7 +37,7 @@ type TxManager interface {
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(to common.Address, value *assets.Eth) (*models.Tx, error)
-	EnsureConfirmed(hash common.Hash) (bool, error)
+	EnsureConfirmed(hash common.Hash) (*TxReceipt, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
@@ -277,25 +277,25 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 
 // EnsureConfirmed returns true if the given transaction hash has been
 // confirmed on the blockchain.
-func (txm *EthTxManager) EnsureConfirmed(hash common.Hash) (bool, error) {
+func (txm *EthTxManager) EnsureConfirmed(hash common.Hash) (*TxReceipt, error) {
 	blkNum, err := txm.GetBlockNumber()
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	tx, attempts, err := txm.getTxAndAttempts(hash)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	var merr error
 	for _, txat := range attempts {
-		success, err := txm.checkAttempt(tx, &txat, blkNum)
+		receipt, err := txm.checkAttempt(tx, &txat, blkNum)
 		merr = multierr.Append(merr, err)
-		if success {
-			return success, merr
+		if receipt != nil {
+			return receipt, merr
 		}
 	}
-	return false, merr
+	return nil, merr
 }
 
 func (txm *EthTxManager) getTxAndAttempts(hash common.Hash) (*models.Tx, []models.TxAttempt, error) {
@@ -405,10 +405,10 @@ func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
-) (bool, error) {
+) (*TxReceipt, error) {
 	receipt, err := txm.GetTxReceipt(txat.Hash)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	if receipt.Unconfirmed() {
@@ -435,7 +435,7 @@ func (txm *EthTxManager) handleConfirmed(
 	txat *models.TxAttempt,
 	rcpt *TxReceipt,
 	blkNum uint64,
-) (bool, error) {
+) (*TxReceipt, error) {
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	rcptBlkNum := rcpt.BlockNumber.ToBig()
 
@@ -452,11 +452,11 @@ func (txm *EthTxManager) handleConfirmed(
 	safeAt := minConfs.Add(rcptBlkNum, minConfs)
 	safeAt.Sub(safeAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 	if big.NewInt(int64(blkNum)).Cmp(safeAt) == -1 {
-		return false, nil
+		return nil, nil
 	}
 
 	if err := txm.orm.ConfirmTx(tx, txat); err != nil {
-		return false, err
+		return nil, err
 	}
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
@@ -470,14 +470,14 @@ func (txm *EthTxManager) handleConfirmed(
 		"err", balanceErr,
 	)
 
-	return true, nil
+	return rcpt, nil
 }
 
 func (txm *EthTxManager) handleUnconfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
-) (bool, error) {
+) (*TxReceipt, error) {
 	logger.Debugw(
 		fmt.Sprintf("TxManager handleUnconfirmed: tx attempt %s", txat.Hash.Hex()),
 		"txHash", txat.Hash.String(),
@@ -488,9 +488,9 @@ func (txm *EthTxManager) handleUnconfirmed(
 	bumpable := tx.Hash == txat.Hash
 	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold()
 	if bumpable && pastThreshold {
-		return false, txm.bumpGas(txat, blkNum)
+		return nil, txm.bumpGas(txat, blkNum)
 	}
-	return false, nil
+	return nil, nil
 }
 
 func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
