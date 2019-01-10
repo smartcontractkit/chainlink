@@ -2,17 +2,12 @@ import React from 'react'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import Card from '@material-ui/core/Card'
-import CardContent from '@material-ui/core/CardContent'
-import Typography from '@material-ui/core/Typography'
+import CardTitle from 'components/Cards/Title'
 
 const SimpleList = ({children, title}) => {
   return (
     <Card>
-      <CardContent>
-        <Typography variant='h5' color='secondary'>
-          {title}
-        </Typography>
-      </CardContent>
+      <CardTitle>{title}</CardTitle>
 
       <Table>
         <TableBody>
