@@ -3,20 +3,19 @@ package orm_test
 import (
 	"encoding/hex"
 	"math/big"
-	"sort"
 	"testing"
 	"time"
 
+	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestWhereNotFound(t *testing.T) {
+func TestORM_WhereNotFound(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -29,13 +28,13 @@ func TestWhereNotFound(t *testing.T) {
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
-func TestAllNotFound(t *testing.T) {
+func TestORM_AllNotFound(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
 	var jobs []models.JobSpec
-	err := store.All(&jobs)
+	err := store.ORM.DB.Find(&jobs).Error
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
@@ -48,17 +47,38 @@ func TestORM_SaveJob(t *testing.T) {
 	j1, _ := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(&j1)
 
-	j2, _ := store.FindJob(j1.ID)
+	j2, err := store.FindJob(j1.ID)
+	assert.NoError(t, err)
+	j1.Initiators[0].CreatedAt = j2.Initiators[0].CreatedAt
 	assert.Equal(t, j1.ID, j2.ID)
 	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
-	assert.Equal(t, j2.ID, j2.Initiators[0].JobID)
-
-	initiators, err := store.FindInitiatorsForJob(j1.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, models.Cron("* * * * *"), initiators[0].Schedule)
+	assert.Equal(t, j2.ID, j2.Initiators[0].JobSpecID)
 }
 
-func TestJobRunsFor(t *testing.T) {
+func TestORM_SaveJobRun(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job, i := cltest.NewJobWithSchedule("* * * * *")
+	store.SaveJob(&job)
+
+	jr1 := job.NewRun(i)
+	creationHeight := models.NewBig(big.NewInt(0))
+	jr1.CreationHeight = creationHeight
+
+	require.NoError(t, store.SaveJobRun(&jr1))
+
+	jr2, err := store.FindJobRun(jr1.ID)
+	assert.NoError(t, err)
+	jr1.Initiator.CreatedAt = jr2.Initiator.CreatedAt
+	assert.Equal(t, jr1.ID, jr2.ID)
+	assert.Equal(t, jr1.Initiator, jr2.Initiator)
+	assert.Equal(t, creationHeight.String(), jr2.CreationHeight.String())
+	assert.Equal(t, job.ID, jr2.Initiator.JobSpecID)
+}
+
+func TestORM_JobRunsFor(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -111,7 +131,7 @@ func TestORM_SaveServiceAgreement(t *testing.T) {
 	}
 }
 
-func TestJobRunsWithStatus(t *testing.T) {
+func TestORM_JobRunsWithStatus(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -166,7 +186,7 @@ func TestJobRunsWithStatus(t *testing.T) {
 	}
 }
 
-func TestAnyJobWithType(t *testing.T) {
+func TestORM_AnyJobWithType(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -184,7 +204,7 @@ func TestAnyJobWithType(t *testing.T) {
 
 }
 
-func TestJobRunsCountFor(t *testing.T) {
+func TestORM_JobRunsCountFor(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -213,7 +233,7 @@ func TestJobRunsCountFor(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestCreatingTx(t *testing.T) {
+func TestORM_CreatingTx(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -239,11 +259,11 @@ func TestCreatingTx(t *testing.T) {
 	assert.Equal(t, to, tx.To)
 	assert.Equal(t, data, tx.Data)
 	assert.Equal(t, nonce, tx.Nonce)
-	assert.Equal(t, value, tx.Value)
+	assert.Equal(t, value, tx.Value.ToInt())
 	assert.Equal(t, gasLimit, tx.GasLimit)
 }
 
-func TestFindBridge(t *testing.T) {
+func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -252,7 +272,7 @@ func TestFindBridge(t *testing.T) {
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
 	bt.URL = cltest.WebURL("https://denergy.eth")
-	assert.NoError(t, store.SaveBridgeType(&bt))
+	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	cases := []struct {
 		description string
@@ -284,7 +304,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	jobRunner.Start()
 
 	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.SaveBridgeType(&bt))
+	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job))
@@ -306,7 +326,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.SaveBridgeType(&bt))
+	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	job, initr := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
@@ -366,10 +386,12 @@ func TestORM_MarkRan(t *testing.T) {
 	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
 	assert.NoError(t, store.SaveInitiator(&initr))
 
-	assert.NoError(t, store.MarkRan(&initr))
+	assert.NoError(t, store.MarkRan(&initr, true))
 	ir, err := store.FindInitiator(initr.ID)
 	assert.NoError(t, err)
 	assert.True(t, ir.Ran)
+
+	assert.Error(t, store.MarkRan(&initr, true))
 }
 
 func TestORM_FindUser(t *testing.T) {
@@ -426,7 +448,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				var bumpedSession models.Session
-				err = store.One("ID", prevSession.ID, &bumpedSession)
+				err = store.ORM.DB.First(&bumpedSession, "ID = ?", prevSession.ID).Error
 				require.NoError(t, err)
 				assert.Equal(t, expectedTime[0:13], bumpedSession.LastUsed.HumanString()[0:13]) // only compare up to the hour
 			}
@@ -511,114 +533,27 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 }
 
-func TestORM_AllInBatches_DifferentBatchSizes(t *testing.T) {
+func TestORM_SavenAndFindBulkDeleteRunTask(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	var expected []string
-	for i := 0; i < 5; i++ {
-		job, _ := cltest.NewJobWithWebInitiator()
-		require.NoError(t, store.SaveJob(&job))
-		expected = append(expected, job.ID)
-	}
-
-	tests := []struct {
-		name      string
-		batchSize int
-	}{
-		{"smaller", 3},
-		{"equal", 5},
-		{"larger", 100},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var bucket []models.JobSpec // Need this to tell storm which bucket to use (via reflection)
-			var actual []string
-
-			err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
-				actual = append(actual, j.ID)
-				return true
-			}, test.batchSize)
-
-			require.NoError(t, err)
-			sort.Strings(expected)
-			sort.Strings(actual)
-			assert.Equal(t, expected, actual)
-		})
-	}
-}
-
-func TestORM_AllInBatches_EarlyExit(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	var jobids []string
-	for i := 0; i < 2; i++ {
-		job, _ := cltest.NewJobWithWebInitiator()
-		require.NoError(t, store.SaveJob(&job))
-		jobids = append(jobids, job.ID)
-	}
-
-	var bucket []models.JobSpec
-	var actual []string
-	err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
-		actual = append(actual, j.ID)
-		return false
-	})
-
+	before, err := dateparse.ParseAny("2018-11-28T21:24:03Z")
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(actual))
-	assert.Contains(t, jobids, actual[0])
-}
+	request := models.BulkDeleteRunRequest{
+		Status:        []models.RunStatus{"completed", "errored"},
+		UpdatedBefore: before,
+	}
 
-func TestORM_AllInBatches_Empty(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	var bucket []models.JobSpec
-	var actual []string
-	err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
-		actual = append(actual, j.ID)
-		return true
-	})
-
+	dt, err := models.NewBulkDeleteRunTask(request)
 	require.NoError(t, err)
-	assert.Empty(t, actual)
-}
+	require.NoError(t, store.SaveBulkDeleteRunTask(dt))
 
-func TestORM_AllInBatches_IncorrectCallback(t *testing.T) {
-	t.Parallel()
+	retrieved, err := store.FindBulkDeleteRunTask(dt.ID)
+	require.NoError(t, err)
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	job, _ := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.SaveJob(&job))
-
-	var bucket []models.JobSpec
-
-	tests := []struct {
-		name     string
-		callback interface{}
-		err      error
-	}{
-		{"missing bool", func(models.JobSpec) {}, orm.ErrorInvalidCallbackSignature},
-		{"wrong rval", func(models.JobSpec) int { return 0 }, orm.ErrorInvalidCallbackSignature},
-		{"mismatched bucket and model", func(models.BridgeType) bool { return true }, orm.ErrorInvalidCallbackModel},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := store.AllInBatches(&bucket, test.callback)
-			require.Equal(t, test.err, err)
-		})
-	}
+	assert.Equal(t, dt.Query.Status, retrieved.Query.Status)
 }
 
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
@@ -630,11 +565,22 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 	defer cleanup()
 
 	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	ta1 := tx.TxAttempt
 
-	tx2, err := store.FindTxByAttempt(ta1.Hash)
-	require.Equal(t, tx, tx2)
+	tx1 := cltest.CreateTxAndAttempt(store, from, 1)
+	tx2, err := store.FindTxByAttempt(tx1.Hash)
+
+	require.Equal(t, tx1.ID, tx2.ID)
+	require.Equal(t, tx1.From, tx2.From)
+	require.Equal(t, tx1.To, tx2.To)
+	require.Equal(t, tx1.Nonce, tx1.Nonce)
+	require.Equal(t, tx1.Value, tx2.Value)
+	require.Equal(t, tx1.GasLimit, tx2.GasLimit)
+	require.Equal(t, tx1.Confirmed, tx2.Confirmed)
+
+	require.Equal(t, tx1.Hash, tx2.Hash)
+	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
+	require.Equal(t, tx1.Hex, tx2.Hex)
+	require.Equal(t, tx1.SentAt, tx2.SentAt)
 }
 
 func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
@@ -647,14 +593,34 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	ta1 := tx.TxAttempt
-	ta2, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
-	assert.Equal(t, tx.TxAttempt, *ta2)
-
-	tx2, err := store.FindTxByAttempt(ta1.Hash)
+	tx1 := *tx
+	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
-	require.NotEqual(t, tx.Hash, tx2.Hash)
 
-	tx.TxAttempt = ta1
-	require.Equal(t, tx, tx2)
+	tx2, err := store.FindTxByAttempt(tx1.Hash)
+	require.NoError(t, err)
+
+	require.Equal(t, tx.ID, tx2.ID)
+	require.Equal(t, tx.From, tx2.From)
+	require.Equal(t, tx.To, tx2.To)
+	require.Equal(t, tx.Nonce, tx1.Nonce)
+	require.Equal(t, tx.Value, tx2.Value)
+	require.Equal(t, tx.GasLimit, tx2.GasLimit)
+	require.Equal(t, tx.Confirmed, tx2.Confirmed)
+	require.NotEqual(t, tx.Hash, tx2.Hash)
+	require.NotEqual(t, tx.GasPrice, tx2.GasPrice)
+	require.NotEqual(t, tx.Hex, tx2.Hex)
+	require.NotEqual(t, tx.SentAt, tx2.SentAt)
+
+	require.Equal(t, tx1.ID, tx2.ID)
+	require.Equal(t, tx1.From, tx2.From)
+	require.Equal(t, tx1.To, tx2.To)
+	require.Equal(t, tx1.Nonce, tx1.Nonce)
+	require.Equal(t, tx1.Value, tx2.Value)
+	require.Equal(t, tx1.GasLimit, tx2.GasLimit)
+	require.Equal(t, tx1.Confirmed, tx2.Confirmed)
+	require.Equal(t, tx1.Hash, tx2.Hash)
+	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
+	require.Equal(t, tx1.Hex, tx2.Hex)
+	require.Equal(t, tx1.SentAt, tx2.SentAt)
 }

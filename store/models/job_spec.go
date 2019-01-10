@@ -2,6 +2,7 @@ package models
 
 import (
 	"crypto/subtle"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
 	null "gopkg.in/guregu/null.v3"
@@ -18,17 +20,20 @@ import (
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID        string `json:"id" storm:"id,unique"`
-	CreatedAt Time   `json:"createdAt" storm:"index"`
-	JobSpecRequest
+	ID         string      `json:"id" gorm:"primary_key;not null"`
+	CreatedAt  Time        `json:"createdAt" gorm:"index"`
+	Initiators []Initiator `json:"initiators"`
+	Tasks      []TaskSpec  `json:"tasks"`
+	StartAt    null.Time   `json:"startAt" gorm:"index"`
+	EndAt      null.Time   `json:"endAt" gorm:"index"`
 }
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
 type JobSpecRequest struct {
 	Initiators []Initiator `json:"initiators"`
-	Tasks      []TaskSpec  `json:"tasks" storm:"inline"`
-	StartAt    null.Time   `json:"startAt" storm:"index"`
-	EndAt      null.Time   `json:"endAt" storm:"index"`
+	Tasks      []TaskSpec  `json:"tasks"`
+	StartAt    null.Time   `json:"startAt" gorm:"index"`
+	EndAt      null.Time   `json:"endAt" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -61,6 +66,9 @@ func NewJob() JobSpec {
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
 	jobSpec.Initiators = jsr.Initiators
+	for i := range jobSpec.Initiators {
+		jobSpec.Initiators[i].ID = utils.NewBytes32ID()
+	}
 	jobSpec.Tasks = jsr.Tasks
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
@@ -73,23 +81,26 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 	jrid := utils.NewBytes32ID()
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
+		trid := utils.NewBytes32ID()
 		taskRuns[i] = TaskRun{
-			ID:     utils.NewBytes32ID(),
-			Task:   task,
-			Result: RunResult{JobRunID: jrid},
+			ID:       trid,
+			JobRunID: jrid,
+			TaskSpec: task,
+			Result:   RunResult{CachedTaskRunID: trid, CachedJobRunID: jrid},
 		}
 	}
 
 	now := time.Now()
 	return JobRun{
-		ID:        jrid,
-		JobID:     j.ID,
-		CreatedAt: now,
-		UpdatedAt: now,
-		TaskRuns:  taskRuns,
-		Initiator: i,
-		Status:    RunStatusUnstarted,
-		Result:    RunResult{JobRunID: jrid},
+		ID:          jrid,
+		JobSpecID:   j.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		TaskRuns:    taskRuns,
+		Initiator:   i,
+		InitiatorID: i.ID,
+		Status:      RunStatusUnstarted,
+		Result:      RunResult{CachedJobRunID: jrid},
 	}
 }
 
@@ -166,11 +177,12 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID    int    `json:"id" storm:"id,increment"`
-	JobID string `json:"jobId" storm:"index"`
+	ID        string `json:"id" gorm:"primary_key;not null"`
+	JobSpecID string `json:"jobSpecId" gorm:"index"`
 	// Type is one of the Initiator* string constants defined just above.
-	Type            string `json:"type" storm:"index"`
+	Type            string `json:"type" gorm:"index;not null"`
 	InitiatorParams `json:"params,omitempty"`
+	CreatedAt       time.Time `gorm:"index"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different
@@ -179,8 +191,8 @@ type InitiatorParams struct {
 	Schedule   Cron             `json:"schedule,omitempty"`
 	Time       Time             `json:"time,omitempty"`
 	Ran        bool             `json:"ran,omitempty"`
-	Address    common.Address   `json:"address,omitempty" storm:"index"`
-	Requesters []common.Address `json:"requesters,omitempty"`
+	Address    common.Address   `json:"address,omitempty" gorm:"index"`
+	Requesters []common.Address `json:"requesters,omitempty" gorm:"-"` // TODO: Persist
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the
@@ -207,9 +219,11 @@ func (i Initiator) IsLogInitiated() bool {
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	Type          TaskType `json:"type" storm:"index"`
+	gorm.Model
+	JobSpecID     string   `json:"-" gorm:"index"`
+	Type          TaskType `json:"type" gorm:"index;not null"`
 	Confirmations uint64   `json:"confirmations"`
-	Params        JSON     `json:"params"`
+	Params        JSON     `json:"params" gorm:"type:text"`
 }
 
 // TaskType defines what Adapter a TaskSpec will use.
@@ -254,15 +268,29 @@ func (t TaskType) String() string {
 	return string(t)
 }
 
+func (t TaskType) Value() (driver.Value, error) {
+	return string(t), nil
+}
+
+func (t *TaskType) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to TaskType", value, value)
+	}
+
+	*t = TaskType(temp)
+	return nil
+}
+
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType    `json:"name" storm:"id,unique"`
+	Name                   TaskType    `json:"name" gorm:"unique_index"`
 	URL                    WebURL      `json:"url"`
 	Confirmations          uint64      `json:"confirmations"`
 	IncomingToken          string      `json:"incomingToken"`
 	OutgoingToken          string      `json:"outgoingToken"`
-	MinimumContractPayment assets.Link `json:"minimumContractPayment"`
+	MinimumContractPayment assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

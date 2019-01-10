@@ -76,7 +76,7 @@ func TestValidateAdapter(t *testing.T) {
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
 	bt.URL = cltest.WebURL("https://denergy.eth")
-	assert.NoError(t, store.SaveBridgeType(&bt))
+	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	tests := []struct {
 		description string
@@ -184,10 +184,17 @@ func TestValidateServiceAgreement(t *testing.T) {
 		{"before allowed end at", basic.Add("endAt", "2018-06-19T22:17:19Z"), true},
 		{"more than one initiator should fail",
 			basic.Add("initiators",
-				[]models.Initiator{
-					{0, "", models.InitiatorServiceAgreementExecutionLog,
-						models.InitiatorParams{}},
-					{0, "", models.InitiatorWeb, models.InitiatorParams{}},
+				[]models.Initiator{{
+					ID:              utils.NewBytes32ID(),
+					JobSpecID:       "",
+					Type:            models.InitiatorServiceAgreementExecutionLog,
+					InitiatorParams: models.InitiatorParams{},
+				}, {
+					ID:              utils.NewBytes32ID(),
+					JobSpecID:       "",
+					Type:            models.InitiatorWeb,
+					InitiatorParams: models.InitiatorParams{},
+				},
 				}),
 			true},
 	}

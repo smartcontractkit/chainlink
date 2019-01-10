@@ -255,8 +255,8 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	t.Parallel()
 
 	i := models.Initiator{
-		Type:  models.InitiatorRunLog,
-		JobID: "4a1eb0e8df314cb894024a38991cff0f",
+		Type:      models.InitiatorRunLog,
+		JobSpecID: "4a1eb0e8df314cb894024a38991cff0f",
 	}
 	fromBlock := big.NewInt(42)
 	filter, err := models.FilterQueryFactory(i, cltest.IndexableBlockNumber(fromBlock))

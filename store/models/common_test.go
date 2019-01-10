@@ -174,7 +174,7 @@ func TestJSON_CBOR(t *testing.T) {
 
 			decoded, err = utils.CoerceInterfaceMapToStringMap(decoded)
 			assert.NoError(t, err)
-			assert.True(t, reflect.DeepEqual(test.in.Value(), decoded))
+			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
 		})
 	}
 }
@@ -260,10 +260,10 @@ func TestTime_DurationFromNow(t *testing.T) {
 	assert.True(t, 0 < duration)
 }
 
-func TestInt_UnmarshalText(t *testing.T) {
+func TestBig_UnmarshalText(t *testing.T) {
 	t.Parallel()
 
-	i := &models.Int{}
+	i := &models.Big{}
 	tests := []struct {
 		name      string
 		input     string
@@ -283,12 +283,12 @@ func TestInt_UnmarshalText(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := i.UnmarshalText([]byte(test.input))
 			cltest.AssertError(t, test.wantError, err)
-			assert.Equal(t, test.want, i.ToBig())
+			assert.Equal(t, test.want, i.ToInt())
 		})
 	}
 }
 
-func TestInt_MarshalJSON(t *testing.T) {
+func TestBig_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -300,7 +300,7 @@ func TestInt_MarshalJSON(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			i := (*models.Int)(test.input)
+			i := (*models.Big)(test.input)
 			b, err := json.Marshal(&i)
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, string(b))

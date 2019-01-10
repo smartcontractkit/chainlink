@@ -3,7 +3,6 @@ package web_test
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -46,5 +45,4 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, store.NewConfig().LinkContractAddress(), cwl.LinkContractAddress)
 	assert.Equal(t, assets.NewLink(100), cwl.MinimumContractPayment)
 	assert.Equal(t, (*common.Address)(nil), cwl.OracleContractAddress)
-	assert.Equal(t, time.Millisecond*500, cwl.DatabaseTimeout)
 }
