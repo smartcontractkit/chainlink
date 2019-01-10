@@ -39,7 +39,7 @@ const renderDetails = ({ fetching, jobRun }) => {
   )
 }
 
-const Show = props => {
+const ShowJson = props => {
   useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
 
   return (
@@ -73,6 +73,6 @@ const mapStateToProps = (state, ownProps) => {
 export const ConnectedShow = connect(
   mapStateToProps,
   matchRouteAndMapDispatchToProps({ fetchJobRun })
-)(Show)
+)(ShowJson)
 
 export default withStyles(styles)(ConnectedShow)
