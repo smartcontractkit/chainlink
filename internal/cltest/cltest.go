@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"sort"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -608,21 +607,23 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 	err := ParseJSONAPIResponse(resp, &jr)
 	require.NoError(t, err)
 
-	assert.Equal(t, j.ID, jr.JobID)
+	assert.Equal(t, j.ID, jr.JobSpecID)
 	return jr
 }
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
 	j := FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	j.Tasks[0] = NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
+	temp := NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
+	j.Tasks[0].Params = temp.Params
 	return CreateJobSpecViaWeb(t, app, j)
 }
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the given MockServer Url
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
 	j := FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
-	j.Tasks[0] = NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
+	temp := NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
+	j.Tasks[0].Params = temp.Params
 	return CreateJobSpecViaWeb(t, app, j)
 }
 
@@ -964,28 +965,18 @@ func NewSession(optionalSessionID ...string) models.Session {
 	return session
 }
 
-func ResetBucket(store *store.Store, bucket interface{}) {
-	mustNotErr(store.Drop(bucket))
-	mustNotErr(store.Init(bucket))
-}
-
 func AllJobs(store *store.Store) []models.JobSpec {
-	var bucket []models.JobSpec
 	var all []models.JobSpec
-	err := store.AllInBatches(&bucket, func(j models.JobSpec) bool {
-		all = append(all, j)
-		return true
-	})
+	err := store.ORM.DB.Find(&all).Error
 	mustNotErr(err)
 	return all
 }
 
 func GetLastTxAttempt(t *testing.T, store *store.Store) models.TxAttempt {
-	var attempts []models.TxAttempt
-	require.NoError(t, store.All(&attempts))
-	sort.Slice(attempts, func(i, j int) bool {
-		return attempts[i].SentAt > attempts[j].SentAt
-	})
-	require.NotEqual(t, 0, len(attempts))
-	return attempts[0]
+	var attempt models.TxAttempt
+	var count int
+	err := store.ORM.DB.Order("created_at desc").First(&attempt).Count(&count).Error
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return attempt
 }

@@ -60,7 +60,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "LINK_CONTRACT_ADDRESS: 0x514910771AF9Ca656af840dff83E8264EcF986CA\\n")
 	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0.000000000000000100\\n")
 	assert.Contains(t, logs, "ORACLE_CONTRACT_ADDRESS: \\n")
-	assert.Contains(t, logs, "DATABASE_TIMEOUT: 500ms\\n")
 	assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688\\n")
 	assert.Contains(t, logs, "BRIDGE_RESPONSE_URL: http://localhost:6688\\n")
 }

@@ -73,8 +73,11 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 
 			for i, wantInitiator := range want.Initiators {
 				actual := j2.Initiators[i]
-				wantInitiator.JobID = actual.JobID
+				assert.Equal(t, strings.ToLower(wantInitiator.Type), strings.ToLower(actual.Type))
+				wantInitiator.Type = actual.Type
+				wantInitiator.JobSpecID = actual.JobSpecID // ignore the following fields
 				wantInitiator.ID = actual.ID
+				wantInitiator.CreatedAt = actual.CreatedAt
 				assert.Equal(t, wantInitiator, actual)
 			}
 		})

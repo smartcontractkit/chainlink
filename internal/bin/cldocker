@@ -31,7 +31,7 @@ if [ "$#" == 0 ]; then
 elif [ "$1" == "node" ]; then
   $DOCKER node -d -p /root/.chainlink/password.txt -a /root/.chainlink/apicredentials ${@:2}
 elif [ "$1" == "clean" ]; then
-  rm -f $PROJECT_ROOT/internal/clroot/{db.bolt,log.jsonl}
+  rm -f $PROJECT_ROOT/internal/clroot/{db.sqlite3,log.jsonl}
 else
   $DOCKER ${@}
 fi

@@ -137,7 +137,7 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 		models.TxAttempt{
 			Hash:      cltest.NewHash(),
 			TxID:      1,
-			GasPrice:  big.NewInt(1),
+			GasPrice:  models.NewBig(big.NewInt(1)),
 			Confirmed: false,
 			Hex:       "0xdeadbeef",
 			SentAt:    1,

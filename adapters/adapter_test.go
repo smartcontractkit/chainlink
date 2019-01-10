@@ -29,7 +29,7 @@ func TestAdapterFor(t *testing.T) {
 
 	bt := cltest.NewBridgeType("rideShare", "https://dUber.eth")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.SaveBridgeType(&bt))
+	assert.Nil(t, store.CreateBridgeType(&bt))
 
 	cases := []struct {
 		name                   string

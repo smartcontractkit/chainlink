@@ -21,10 +21,6 @@
 #  version = "2.4.0"
 
 [[constraint]]
-  name = "github.com/asdine/storm"
-  version = "2.1.2"
-
-[[constraint]]
   name = "github.com/gin-gonic/gin"
   source = "github.com/smartcontractkit/gin"
   branch = "staticfs-noroute"
