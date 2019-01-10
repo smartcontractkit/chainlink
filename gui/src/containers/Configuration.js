@@ -5,11 +5,8 @@ import { connect } from 'react-redux'
 import { withRouteData } from 'react-static'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import Card from '@material-ui/core/Card'
-import CardContent from '@material-ui/core/CardContent'
-import Divider from '@material-ui/core/Divider'
 import PaddedCard from 'components/PaddedCard'
-import ConfigList from 'components/ConfigList'
+import KeyValueList from 'components/KeyValueList'
 import Content from 'components/Content'
 import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import { fetchConfiguration } from 'actions'
@@ -23,17 +20,12 @@ export const Configuration = useHooks(props => {
     <Content>
       <Grid container spacing={40}>
         <Grid item sm={12} md={8}>
-          <Card>
-            <CardContent>
-              <Typography variant='h5' color='secondary'>
-                Configuration
-              </Typography>
-            </CardContent>
-
-            <Divider />
-
-            <ConfigList configs={props.configs} error={props.error} />
-          </Card>
+          <KeyValueList
+            title='Configuration'
+            entries={props.configs}
+            error={props.error}
+            showHead
+          />
         </Grid>
         <Grid item sm={12} md={4}>
           <Grid container spacing={40}>
