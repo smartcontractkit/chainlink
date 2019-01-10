@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { connect } from 'react-redux'
 import { Redirect } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
@@ -9,7 +9,6 @@ import { Grid } from '@material-ui/core'
 import { submitSignIn } from 'actions'
 import Title from 'components/Title'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { useHooks, useState } from 'use-react-hooks'
 
 const styles = theme => ({
   button: {
@@ -20,7 +19,7 @@ const styles = theme => ({
   }
 })
 
-export const SignIn = useHooks((props) => {
+export const SignIn = (props) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const handleChange = name => event => {
@@ -75,7 +74,6 @@ export const SignIn = useHooks((props) => {
     </form>
   )
 }
-)
 
 const mapStateToProps = state => ({
   fetching: state.authentication.fetching,

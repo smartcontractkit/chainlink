@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
@@ -19,7 +18,7 @@ const styles = theme => ({
   }
 })
 
-const renderDetails = ({ classes, fetching, jobRun }) => {
+const renderDetails = ({ fetching, jobRun}) => {
   if (fetching || !jobRun) {
     return <div>Fetching job run...</div>
   }
@@ -42,7 +41,7 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
   )
 }
 
-export const Show = useHooks(props => {
+export const Show = props => {
   useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
 
   return (<div>
@@ -56,7 +55,7 @@ export const Show = useHooks(props => {
       {renderDetails(props)}
     </Content>
   </div>)
-})
+}
 
 const mapStateToProps = (state, ownProps) => {
   const { jobSpecId, jobRunId } = ownProps.match.params

@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
-import { useHooks, useState } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
 import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
@@ -22,8 +21,7 @@ import Logo from 'components/Logo'
 import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
-import ReactResizeDetector from 'react-resize-detector';
-
+import { useWindowSize } from 'the-platform'
 const drawerWidth = 240
 
 const styles = theme => {
@@ -76,12 +74,13 @@ const SHARED_NAV_ITEMS = [
   ['/config', 'Configuration']
 ]
 
-const Header = useHooks(props => {
+const Header = props => {
   const [drawerOpen, setDrawerState] = useState(false)
   const toggleDrawer = () => setDrawerState(!drawerOpen)
   const signOut = () => props.submitSignOut()
-  const { classes, fetchCount } = props
-
+  const {classes, fetchCount} = props
+  const { width, height } = useWindowSize()
+  useEffect(() => { props.onResize(width, height) }, [height])
   const drawer = (<Drawer
     anchor='right'
     open={drawerOpen}
@@ -132,9 +131,7 @@ const Header = useHooks(props => {
       color='default'
       position='absolute'
     >
-      <ReactResizeDetector handleHeight skipOnMount onResize={props.onResize}>
         <LoadingBar fetchCount={fetchCount} />
-
         <Toolbar className={classes.toolbar}>
           <Grid container alignItems='center'>
             <Grid item xs={11} sm={6} md={4}>
@@ -161,11 +158,9 @@ const Header = useHooks(props => {
         <Portal container={props.drawerContainer}>
           {drawer}
         </Portal>
-      </ReactResizeDetector>
     </AppBar>
   )
 }
-)
 
 Header.propTypes = {
   onResize: PropTypes.func.isRequired,

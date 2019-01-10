@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Root, Routes } from 'react-static'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
@@ -11,7 +11,6 @@ import { Route, Switch, Redirect } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { useHooks, useState } from 'use-react-hooks'
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = { loading: Loading }
@@ -40,7 +39,7 @@ const styles = theme => {
   }
 }
 
-const Layout = useHooks(props => {
+const Layout = props => {
   const [headerHeight, resizeHeaderHeight] = useState(0)
 
   const onHeaderResize = (_width, height) => {
@@ -106,7 +105,7 @@ const Layout = useHooks(props => {
     </Grid>
   </Root>
   )
-})
+}
 
 const mapStateToProps = state => ({
   redirectTo: state.redirect.to

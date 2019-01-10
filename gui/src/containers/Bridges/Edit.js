@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
@@ -18,13 +18,12 @@ import {
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Content from 'components/Content'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const SuccessNotification = ({ name }) => (<React.Fragment>
   Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
 </React.Fragment>)
 
-export const Edit = useHooks(props => {
+export const Edit = props => {
   useEffect(() => {
     const { fetchBridgeSpec, match } = props
     fetchBridgeSpec(match.params.bridgeId)
@@ -91,7 +90,6 @@ export const Edit = useHooks(props => {
     </Content>
   )
 }
-)
 
 Edit.propTypes = {
   bridge: PropTypes.object

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -16,7 +16,6 @@ import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   lastRun: {
@@ -101,7 +100,7 @@ const renderDetails = props => {
   return <div>Fetching...</div>
 }
 
-export const Show = useHooks(props => {
+export const Show = props => {
   useEffect(() => { fetchJob(jobSpecId) }, [])
   const { jobSpecId, job, fetchJob } = props
   return (
@@ -113,7 +112,6 @@ export const Show = useHooks(props => {
     </div>
   )
 }
-)
 
 Show.propTypes = {
   classes: PropTypes.object.isRequired,

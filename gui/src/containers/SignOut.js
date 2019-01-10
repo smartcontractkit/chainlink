@@ -1,13 +1,12 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { receiveSignoutSuccess } from 'actions'
 import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
 
-export const SignOut = useHooks(props => {
+export const SignOut = props => {
   useEffect(() => { props.receiveSignoutSuccess() }, [])
   return <React.Fragment />
-})
+}
 
 SignOut.propTypes = {
   receiveSignoutSuccess: PropTypes.func.isRequired

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { Button } from '@material-ui/core'
@@ -13,7 +13,6 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchBridgeSpec } from 'actions'
 import bridgeSelector from 'selectors/bridge'
 import Content from 'components/Content'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const renderLoading = () => (
   <div>Loading...</div>
@@ -43,7 +42,7 @@ const renderLoaded = props => (
 
 const renderDetails = props => props.bridge ? renderLoaded(props) : renderLoading(props)
 
-export const Show = useHooks(props => {
+export const Show = props => {
   useEffect(() => { props.fetchBridgeSpec(props.match.params.bridgeId) }, [])
   return (
     <Content>
@@ -86,7 +85,6 @@ export const Show = useHooks(props => {
     </Content>
   )
 }
-)
 
 Show.propTypes = {
   bridge: PropTypes.object
