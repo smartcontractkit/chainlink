@@ -20,6 +20,7 @@ func TestHeadTracker_New(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
+
 	cltest.MockEthOnStore(store)
 	assert.Nil(t, store.SaveHead(cltest.IndexableBlockNumber(1)))
 	last := cltest.IndexableBlockNumber(16)
@@ -44,7 +45,7 @@ func TestHeadTracker_Get(t *testing.T) {
 		wantError bool
 	}{
 		{"greater", start, cltest.IndexableBlockNumber(6), big.NewInt(6), false},
-		{"less than", start, cltest.IndexableBlockNumber(1), big.NewInt(5), false},
+		{"less than", start, cltest.IndexableBlockNumber(1), big.NewInt(5), true},
 		{"zero", start, cltest.IndexableBlockNumber(0), big.NewInt(5), true},
 		{"nil", start, nil, big.NewInt(5), true},
 		{"nil no initial", nil, nil, nil, true},
@@ -54,6 +55,7 @@ func TestHeadTracker_Get(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore()
 			defer cleanup()
+
 			cltest.MockEthOnStore(store)
 			if test.initial != nil {
 				assert.Nil(t, store.SaveHead(test.initial))

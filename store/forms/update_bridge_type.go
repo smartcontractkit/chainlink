@@ -45,7 +45,7 @@ func (ubt UpdateBridgeType) Save() error {
 	bt.URL = ubt.URL
 	bt.Confirmations = ubt.Confirmations
 	bt.MinimumContractPayment = ubt.MinimumContractPayment
-	return ubt.store.SaveBridgeType(&bt)
+	return ubt.store.UpdateBridgeType(&bt)
 }
 
 // Marshal encodes the bridge with the JSON-API presenter

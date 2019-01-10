@@ -123,7 +123,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 		initr.Type,
 		presenters.FriendlyBigInt(blockNumber),
 		utils.LogListeningAddress(initr.Address),
-		initr.JobID)
+		initr.JobSpecID)
 	logger.Infow(msg)
 }
 
@@ -161,7 +161,7 @@ func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 	}
 
 	currentHead := le.ToIndexableBlockNumber().Number
-	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, &currentHead, store)
+	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, currentHead.ToHexUtilBig(), store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
