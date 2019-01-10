@@ -164,15 +164,14 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(initr.Time.DurationFromNow()):
-		if err := ot.Store.MarkRan(&initr); err != nil {
+		if err := ot.Store.MarkRan(&initr, true); err != nil {
 			logger.Error(err.Error())
 			return
 		}
 		_, err := ExecuteJob(job, initr, models.RunResult{}, nil, ot.Store)
 		if err != nil {
 			logger.Error(err.Error())
-			initr.Ran = false
-			if err := ot.Store.SaveInitiator(&initr); err != nil {
+			if err := ot.Store.MarkRan(&initr, false); err != nil {
 				logger.Error(err.Error())
 			}
 		}

@@ -113,7 +113,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	// ensure gas bumped attempt does not round robin on the From Address
 	// best way to ensure the same from address atm is to compare Hashes, since
 	// tx attempts don't have From but rely on parent Tx model.
-	etx := createdTx1.EthTx(a2.GasPrice)
+	etx := createdTx1.EthTx(a2.GasPrice.ToInt())
 	etx, err = store.KeyStore.SignTx(accounts[0], etx, config.ChainID())
 	assert.Equal(t, etx.Hash().Hex(), a2.Hash.Hex(), "should be same since they have the same input, include From address")
 
@@ -242,7 +242,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 
 			a, err := manager.CreateTx(to, data)
 			assert.NoError(t, err)
-			tx, err := store.FindTx(a.TxID)
+			tx, err := store.FindTx(a.ID)
 			require.NoError(t, err)
 			assert.NoError(t, err)
 			assert.Equal(t, nonce2, tx.Nonce)
@@ -712,21 +712,21 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	})
 	assert.NoError(t, app.StartAndConnect())
 
-	customGasPrice := big.NewInt(1337)
+	customGasPrice := models.NewBig(big.NewInt(1337))
 	customGasLimit := uint64(10009)
 
 	tests := []struct {
 		name             string
 		dev              bool
-		gasPrice         *big.Int
+		gasPrice         *models.Big
 		gasLimit         uint64
-		expectedGasPrice *big.Int
+		expectedGasPrice *models.Big
 		expectedGasLimit uint64
 	}{
 		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
-		{"dev but not set", true, nil, 0, store.Config.EthGasPriceDefault(), strpkg.DefaultGasLimit},
-		{"not dev", false, customGasPrice, customGasLimit, store.Config.EthGasPriceDefault(), strpkg.DefaultGasLimit},
-		{"not dev not set", false, nil, 0, store.Config.EthGasPriceDefault(), strpkg.DefaultGasLimit},
+		{"dev but not set", true, nil, 0, models.NewBig(store.Config.EthGasPriceDefault()), strpkg.DefaultGasLimit},
+		{"not dev", false, customGasPrice, customGasLimit, models.NewBig(store.Config.EthGasPriceDefault()), strpkg.DefaultGasLimit},
+		{"not dev not set", false, nil, 0, models.NewBig(store.Config.EthGasPriceDefault()), strpkg.DefaultGasLimit},
 	}
 
 	for _, test := range tests {
@@ -737,7 +737,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
 			})
 
-			tx, err := manager.CreateTxWithGas(to, data, test.gasPrice, test.gasLimit)
+			tx, err := manager.CreateTxWithGas(to, data, test.gasPrice.ToInt(), test.gasLimit)
 			assert.NoError(t, err)
 			assert.Equal(t, test.expectedGasLimit, tx.GasLimit)
 

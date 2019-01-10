@@ -69,10 +69,10 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
 		topics := []common.Hash{RunLogTopic, OracleLogTopic}
-		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
+		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobSpecID)), nil
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
-		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
+		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobSpecID)), nil
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}

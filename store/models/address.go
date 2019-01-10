@@ -1,8 +1,10 @@
 package models
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -61,4 +63,45 @@ func (a *EIP55Address) UnmarshalText(input []byte) error {
 func (a *EIP55Address) UnmarshalJSON(input []byte) error {
 	input = utils.RemoveQuotes(input)
 	return a.UnmarshalText(input)
+}
+
+func (a EIP55Address) Value() (driver.Value, error) {
+	return a.String(), nil
+}
+
+func (a *EIP55Address) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to EIP55Address", value, value)
+	}
+
+	*a = EIP55Address(temp)
+	return nil
+}
+
+type EIP55AddressCollection []EIP55Address
+
+func (c EIP55AddressCollection) Value() (driver.Value, error) {
+	// Unable to convert copy-free without unsafe:
+	// https://stackoverflow.com/a/48554123/639773
+	converted := make([]string, len(c))
+	for i, e := range c {
+		converted[i] = string(e)
+	}
+	return strings.Join(converted, ","), nil
+}
+
+func (c *EIP55AddressCollection) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to EIP55AddressCollection", value, value)
+	}
+
+	arr := strings.Split(string(temp), ",")
+	collection := make(EIP55AddressCollection, len(arr))
+	for i, r := range arr {
+		collection[i] = EIP55Address(r)
+	}
+	*c = collection
+	return nil
 }

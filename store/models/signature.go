@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -81,4 +82,19 @@ func (s *Signature) UnmarshalJSON(input []byte) error {
 // MarshalJSON prints the signature as a hexadecimal encoded string
 func (s Signature) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+func (s Signature) Value() (driver.Value, error) {
+	return s.String(), nil
+}
+
+func (a *Signature) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Signature", value, value)
+	}
+
+	newSig, err := NewSignature(string(temp))
+	*a = newSig
+	return err
 }

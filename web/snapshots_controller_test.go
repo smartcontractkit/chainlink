@@ -106,7 +106,7 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 	var ss models.Snapshot
 	assert.Nil(t, json.Unmarshal(cltest.ParseResponseBody(resp2), &ss))
 
-	assert.Equal(t, ss.ID, jr.Result.JobRunID)
+	assert.Equal(t, ss.ID, jr.Result.CachedJobRunID)
 	assert.Equal(t, ss.Details.Result.String(), jr.Result.Data.Result.String())
 	assert.Empty(t, ss.Error.String)
 	assert.False(t, ss.Pending)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -52,14 +53,19 @@ type logMarshaling struct {
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
-	ID       uint64         `storm:"id,increment,index"`
-	From     common.Address `storm:"index"`
-	To       common.Address
+	ID       uint64         `gorm:"primary_key;auto_increment"`
+	From     common.Address `gorm:"index;not null"`
+	To       common.Address `gorm:"not null"`
 	Data     []byte
-	Nonce    uint64 `storm:"index"`
-	Value    *big.Int
+	Nonce    uint64 `gorm:"index"`
+	Value    *Big   `gorm:"type:varchar(255)"`
 	GasLimit uint64
-	TxAttempt
+	// TxAttempt fields manually included; can't embed another primary_key
+	Hash      common.Hash
+	GasPrice  *Big `gorm:"type:varchar(255)"`
+	Confirmed bool
+	Hex       string `gorm:"type:text"`
+	SentAt    uint64
 }
 
 // EthTx creates a new Ethereum transaction with a given gasPrice in wei
@@ -68,11 +74,19 @@ func (tx *Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	return types.NewTransaction(
 		tx.Nonce,
 		tx.To,
-		tx.Value,
+		tx.Value.ToInt(),
 		tx.GasLimit,
 		gasPriceWei,
 		tx.Data,
 	)
+}
+
+func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
+	tx.Hash = txat.Hash
+	tx.GasPrice = txat.GasPrice
+	tx.Confirmed = txat.Confirmed
+	tx.Hex = txat.Hex
+	tx.SentAt = txat.SentAt
 }
 
 // TxAttempt is used for keeping track of transactions that
@@ -80,12 +94,13 @@ func (tx *Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
-	Hash      common.Hash `storm:"id,unique"`
-	TxID      uint64      `storm:"index"`
-	GasPrice  *big.Int
+	Hash      common.Hash `gorm:"primary_key;not null"`
+	TxID      uint64      `gorm:"index"`
+	GasPrice  *Big        `gorm:"type:varchar(255)"`
 	Confirmed bool
-	Hex       string
+	Hex       string `gorm:"type:text"`
 	SentAt    uint64
+	CreatedAt time.Time `gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -201,8 +216,8 @@ func (h BlockHeader) ToIndexableBlockNumber() *IndexableBlockNumber {
 
 // IndexableBlockNumber represents a BlockNumber, BlockHash and the number of Digits in the BlockNumber
 type IndexableBlockNumber struct {
-	Number hexutil.Big `json:"number" storm:"id,unique"`
-	Digits int         `json:"digits" storm:"index"`
+	Number Big         `json:"number" gorm:"index;type:varchar(255);not null"`
+	Digits int         `json:"digits" gorm:"index"`
 	Hash   common.Hash `json:"hash"`
 }
 
@@ -213,7 +228,7 @@ func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockN
 	}
 	number := hexutil.Big(*bigint)
 	return &IndexableBlockNumber{
-		Number: number,
+		Number: Big(number),
 		Digits: len(number.String()) - 2,
 		Hash:   hash,
 	}

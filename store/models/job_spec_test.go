@@ -34,14 +34,14 @@ func TestJobSpec_NewRun(t *testing.T) {
 
 	run := job.NewRun(initr)
 
-	assert.Equal(t, job.ID, run.JobID)
+	assert.Equal(t, job.ID, run.JobSpecID)
 	assert.Equal(t, 1, len(run.TaskRuns))
 
 	taskRun := run.TaskRuns[0]
-	assert.Equal(t, "noop", taskRun.Task.Type.String())
-	adapter, _ := adapters.For(taskRun.Task, store)
+	assert.Equal(t, "noop", taskRun.TaskSpec.Type.String())
+	adapter, _ := adapters.For(taskRun.TaskSpec, store)
 	assert.NotNil(t, adapter)
-	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.Task.Params.String())
+	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 
 	assert.Equal(t, initr, run.Initiator)
 }

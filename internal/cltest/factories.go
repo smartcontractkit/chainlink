@@ -51,7 +51,9 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorCron,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: j.ID,
+		Type:      models.InitiatorCron,
 		InitiatorParams: models.InitiatorParams{
 			Schedule: models.Cron(sched),
 		},
@@ -62,7 +64,11 @@ func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 // NewJobWithWebInitiator create new Job with web inititaor
 func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
-	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
+	j.Initiators = []models.Initiator{{
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: j.ID,
+		Type:      models.InitiatorWeb,
+	}}
 	return j, j.Initiators[0]
 }
 
@@ -70,7 +76,9 @@ func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorEthLog,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: j.ID,
+		Type:      models.InitiatorEthLog,
 		InitiatorParams: models.InitiatorParams{
 			Address: NewAddress(),
 		},
@@ -82,7 +90,9 @@ func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorRunLog,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: j.ID,
+		Type:      models.InitiatorRunLog,
 		InitiatorParams: models.InitiatorParams{
 			Address: NewAddress(),
 		},
@@ -102,7 +112,9 @@ func NewJobWithSALogInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorRunAt,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: j.ID,
+		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
 			Time: models.Time{Time: t},
 		},
@@ -116,7 +128,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
-		Value:    big.NewInt(0),
+		Value:    models.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
 	}
 }
@@ -339,17 +351,17 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
-func Int(val interface{}) *models.Int {
+func Int(val interface{}) *models.Big {
 	switch x := val.(type) {
 	case int:
-		return (*models.Int)(big.NewInt(int64(x)))
+		return (*models.Big)(big.NewInt(int64(x)))
 	case uint64:
-		return (*models.Int)(big.NewInt(int64(x)))
+		return (*models.Big)(big.NewInt(int64(x)))
 	case int64:
-		return (*models.Int)(big.NewInt(x))
+		return (*models.Big)(big.NewInt(x))
 	default:
-		logger.Panicf("Could not convert %v of type %T to models.Int", val, val)
-		return &models.Int{}
+		logger.Panicf("Could not convert %v of type %T to models.Big", val, val)
+		return &models.Big{}
 	}
 }
 

@@ -41,7 +41,7 @@ case "$1" in
     mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
     ;;
   clean)
-    rm -f $ROOT/db.bolt $ROOT/log.jsonl
+    rm -f $ROOT/db.sqlite3 $ROOT/log.jsonl
     rm -f tmp/cldevbuild
     ;;
   migration)
