@@ -1,0 +1,95 @@
+package web_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+
+	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestKeysController_CreateSuccess(t *testing.T) {
+	config, _ := cltest.NewConfig()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+	})
+
+	client := app.NewHTTPClient()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	request := models.CreateKeyRequest{
+		CurrentPassword:    cltest.Password,
+		NewAccountPassword: "kwyjibo",
+	}
+
+	body, err := json.Marshal(&request)
+	assert.NoError(t, err)
+
+	resp, cleanup := client.Post("/v2/keys", bytes.NewBuffer(body))
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, 201)
+
+	ethMock.AllCalled()
+}
+
+func TestKeysController_InvalidPassword(t *testing.T) {
+	config, _ := cltest.NewConfig()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+	})
+
+	client := app.NewHTTPClient()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	request := models.CreateKeyRequest{
+		CurrentPassword: "12345",
+	}
+
+	body, err := json.Marshal(&request)
+	assert.NoError(t, err)
+
+	resp, cleanup := client.Post("/v2/keys", bytes.NewBuffer(body))
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, 401)
+
+	ethMock.AllCalled()
+}
+
+func TestKeysController_JSONBindingError(t *testing.T) {
+	config, _ := cltest.NewConfig()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+	})
+
+	client := app.NewHTTPClient()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	resp, cleanup := client.Post("/v2/keys", bytes.NewBuffer([]byte(`{"current_password":12}`)))
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, 400)
+
+	ethMock.AllCalled()
+}
