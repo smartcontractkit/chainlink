@@ -89,7 +89,7 @@ func TestKeysController_JSONBindingError(t *testing.T) {
 	resp, cleanup := client.Post("/v2/keys", bytes.NewBuffer([]byte(`{"current_password":12}`)))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, 422)
 
 	ethMock.AllCalled()
 }
