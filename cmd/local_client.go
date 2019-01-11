@@ -199,29 +199,3 @@ func copyFile(src, dst string) error {
 
 	return err
 }
-
-// CreateExtraKey creates a new ethereum key with the same password
-// as the one used to unlock the existing key.
-func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	app := cli.AppFactory.NewApplication(cli.Config)
-
-	pwd, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
-
-	store := app.GetStore()
-	pwd, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
-	}
-
-	account, err := store.KeyStore.NewAccount(pwd)
-	if err != nil {
-		return err
-	}
-
-	logger.Infow(fmt.Sprintf("Created account %v", account.Address.Hex()), "address", account.Address.Hex())
-	return nil
-}
