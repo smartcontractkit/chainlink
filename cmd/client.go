@@ -43,6 +43,7 @@ type Client struct {
 	FileSessionRequestBuilder      SessionRequestBuilder
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
+	PasswordPrompter               PasswordPrompter
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -439,4 +440,24 @@ func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 		OldPassword: oldPassword,
 		NewPassword: newPassword,
 	}, nil
+}
+
+// PasswordPrompter is an interface primarily used for DI to obtain a password
+// from the User.
+type PasswordPrompter interface {
+	Prompt() string
+}
+
+// NewPasswordPrompter returns the production password change request prompter
+func NewPasswordPrompter() PasswordPrompter {
+	prompter := NewTerminalPrompter()
+	return passwordPrompter{prompter: prompter}
+}
+
+type passwordPrompter struct {
+	prompter Prompter
+}
+
+func (c passwordPrompter) Prompt() string {
+	return c.prompter.PasswordPrompt("Password:")
 }

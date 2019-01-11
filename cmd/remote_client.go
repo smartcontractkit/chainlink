@@ -512,13 +512,10 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 // CreateExtraKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
 func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must supply the current password"))
-	}
-
+	password := cli.PasswordPrompter.Prompt()
 	request := models.CreateKeyRequest{
-		CurrentPassword:    c.Args().First(),
-		NewAccountPassword: c.Args().First(),
+		CurrentPassword:    password,
+		NewAccountPassword: password,
 	}
 
 	requestData, err := json.Marshal(request)
