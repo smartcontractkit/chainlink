@@ -38,14 +38,13 @@ func autoAddMapDelimiters(b []byte) []byte {
 		return b
 	}
 
-	var buffer bytes.Buffer
 	if (b[0] >> 5) != 5 {
+		var buffer bytes.Buffer
 		buffer.Write([]byte{0xbf})
-	}
-	buffer.Write(b)
-
-	if b[len(b)-1] != 0xff {
+		buffer.Write(b)
 		buffer.Write([]byte{0xff})
+		return buffer.Bytes()
 	}
-	return buffer.Bytes()
+
+	return b
 }

@@ -187,11 +187,7 @@ const autoAddMapDelimiters = (data) => {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
-    buffer = Buffer.concat([startMapBuffer, buffer], buffer.length + 1)
-  }
-
-  if (buffer[buffer.length] !== endMapBuffer[0]) {
-    buffer = Buffer.concat([buffer, endMapBuffer], buffer.length + 1)
+    buffer = Buffer.concat([startMapBuffer, buffer, endMapBuffer], buffer.length + 2)
   }
 
   return buffer
