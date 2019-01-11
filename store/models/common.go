@@ -329,6 +329,12 @@ type SendEtherRequest struct {
 	Amount             *assets.Eth    `json:"amount"`
 }
 
+// CreateKeyRequest represents a request to add an ethereum key.
+type CreateKeyRequest struct {
+	CurrentPassword    string `json:"current_password"`
+	NewAccountPassword string `json:"new_account_password"`
+}
+
 // Int stores large integers and can deserialize a variety of inputs.
 type Int big.Int
 
