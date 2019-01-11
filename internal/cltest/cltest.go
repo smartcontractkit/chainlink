@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -994,4 +995,14 @@ type MockPasswordPrompter struct {
 
 func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
+}
+
+func GetLastTxAttempt(t *testing.T, store *store.Store) models.TxAttempt {
+	var attempts []models.TxAttempt
+	require.NoError(t, store.All(&attempts))
+	sort.Slice(attempts, func(i, j int) bool {
+		return attempts[i].SentAt > attempts[j].SentAt
+	})
+	require.NotEqual(t, 0, len(attempts))
+	return attempts[0]
 }
