@@ -206,19 +206,3 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 		})
 	}
 }
-
-func TestClient_CreateExtraKey(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-
-	require.Len(t, app.Store.KeyStore.Accounts(), 1)
-
-	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("createextrakey", 0)
-	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.CreateExtraKey(c))
-
-	require.Len(t, app.Store.KeyStore.Accounts(), 2)
-}
