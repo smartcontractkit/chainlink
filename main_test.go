@@ -56,6 +56,7 @@ func ExampleRun() {
 	//      sendether                 Send <amount> ETH from the node's ETH account to an <address>.
 	//      chpass                    Change your password
 	//      txattempts                List the transaction attempts in descending order
+	//      createextrakey            Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
