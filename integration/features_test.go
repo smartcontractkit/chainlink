@@ -498,11 +498,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"0x11"}`)
 		jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-		txHashString, err := jr.Result.Value()
-		txHash := common.HexToHash(txHashString)
-		assert.NoError(t, err)
-		attempt, err := app.Store.FindTxAttempt(txHash)
-		assert.NoError(t, err)
+		attempt := cltest.GetLastTxAttempt(t, app.Store)
 		tx, err := app.Store.FindTx(attempt.TxID)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedNonce, tx.Nonce)

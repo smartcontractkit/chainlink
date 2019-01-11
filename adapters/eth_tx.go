@@ -103,5 +103,5 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 	if receipt == nil {
 		return input.MarkPendingConfirmations()
 	}
-	return input.WithValue(hash.String())
+	return input.WithValue(receipt.Hash.String())
 }

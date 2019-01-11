@@ -90,8 +90,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	fHash := models.HexToFunctionSelector("b3f98adc")
 	dataPrefix := hexutil.Bytes(
 		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
-	// contains diacritic acute to check bytes counted for length not chars
-	inputValue := "cönfirmed"
+	inputValue := "cönfirmed" // contains diacritic acute to check bytes counted for length not chars
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
@@ -297,8 +296,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+	confirmedHash := cltest.NewHash()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        cltest.NewHash(),
+		Hash:        confirmedHash,
 		BlockNumber: cltest.Int(sentAt),
 	})
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
@@ -321,8 +321,11 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
+	value, err := output.Value()
+	assert.Nil(t, err)
+	assert.Equal(t, confirmedHash.String(), value)
 
-	tx, err := store.FindTx(tx.ID)
+	tx, err = store.FindTx(tx.ID)
 	assert.NoError(t, err)
 	assert.True(t, tx.Confirmed)
 	attempts, _ := store.TxAttemptsFor(tx.ID)
