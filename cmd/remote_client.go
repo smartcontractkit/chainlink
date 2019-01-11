@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -513,25 +512,26 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 // CreateExtraKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
 func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	app := cli.AppFactory.NewApplication(cli.Config)
-
-	pwd, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must supply the current password"))
 	}
 
-	store := app.GetStore()
-	pwd, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+	request := models.CreateKeyRequest{
+		CurrentPassword:    c.Args().First(),
+		NewAccountPassword: c.Args().First(),
 	}
 
-	account, err := store.KeyStore.NewAccount(pwd)
+	requestData, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
-	logger.Infow(fmt.Sprintf("Created account %v", account.Address.Hex()), "address", account.Address.Hex())
-	return nil
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/keys", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.printResponseBody(resp)
 }
