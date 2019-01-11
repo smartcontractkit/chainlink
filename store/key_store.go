@@ -51,6 +51,11 @@ func (ks *KeyStore) Unlock(phrase string) error {
 	return merr
 }
 
+// NewAccount adds an account to the keystore
+func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
+	return ks.KeyStore.NewAccount(passphrase)
+}
+
 // SignTx uses the unlocked account to sign the given transaction.
 func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chainID uint64) (*types.Transaction, error) {
 	return ks.KeyStore.SignTx(
