@@ -39,6 +39,21 @@ func (m *MockTxManager) EXPECT() *MockTxManagerMockRecorder {
 	return m.recorder
 }
 
+// BumpGasUntilSafe mocks base method
+func (m *MockTxManager) BumpGasUntilSafe(arg0 common.Hash) (*store.TxReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BumpGasUntilSafe", arg0)
+	ret0, _ := ret[0].(*store.TxReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BumpGasUntilSafe indicates an expected call of BumpGasUntilSafe
+func (mr *MockTxManagerMockRecorder) BumpGasUntilSafe(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BumpGasUntilSafe", reflect.TypeOf((*MockTxManager)(nil).BumpGasUntilSafe), arg0)
+}
+
 // Connect mocks base method
 func (m *MockTxManager) Connect(arg0 *models.IndexableBlockNumber) error {
 	m.ctrl.T.Helper()
@@ -137,21 +152,6 @@ func (m *MockTxManager) Disconnect() {
 func (mr *MockTxManagerMockRecorder) Disconnect() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockTxManager)(nil).Disconnect))
-}
-
-// EnsureConfirmed mocks base method
-func (m *MockTxManager) EnsureConfirmed(arg0 common.Hash) (*store.TxReceipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureConfirmed", arg0)
-	ret0, _ := ret[0].(*store.TxReceipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EnsureConfirmed indicates an expected call of EnsureConfirmed
-func (mr *MockTxManagerMockRecorder) EnsureConfirmed(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureConfirmed", reflect.TypeOf((*MockTxManager)(nil).EnsureConfirmed), arg0)
 }
 
 // GetBlockByNumber mocks base method

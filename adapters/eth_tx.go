@@ -96,7 +96,7 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	receipt, err := store.TxManager.EnsureConfirmed(hash)
+	receipt, err := store.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
 		logger.Error("EthTx Adapter Perform Resuming: ", err)
 	}

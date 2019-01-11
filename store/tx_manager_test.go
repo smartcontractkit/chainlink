@@ -101,7 +101,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 	})
 
-	_, err = manager.EnsureConfirmed(attempts[0].Hash)
+	_, err = manager.BumpGasUntilSafe(attempts[0].Hash)
 	require.NoError(t, err)
 
 	// retrieve new gas bumped second attempt
@@ -319,7 +319,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	assert.Equal(t, strpkg.ErrPendingConnection, err)
 }
 
-func TestTxManager_EnsureConfirmed(t *testing.T) {
+func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -365,7 +365,7 @@ func TestTxManager_EnsureConfirmed(t *testing.T) {
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 			}
 
-			receipt, err := txm.EnsureConfirmed(a.Hash)
+			receipt, err := txm.BumpGasUntilSafe(a.Hash)
 			assert.NoError(t, err)
 			receiptPresent := receipt != nil
 			assert.Equal(t, test.wantReceipt, receiptPresent)
@@ -378,7 +378,7 @@ func TestTxManager_EnsureConfirmed(t *testing.T) {
 	}
 }
 
-func TestTxManager_EnsureConfirmed_erroring(t *testing.T) {
+func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig()
@@ -442,11 +442,11 @@ func TestTxManager_EnsureConfirmed_erroring(t *testing.T) {
 			assert.NoError(t, err)
 
 			ethMock := app.MockEthClient()
-			ethMock.Context("txm.EnsureConfirmed()", test.mockSetup)
+			ethMock.Context("txm.BumpGasUntilSafe()", test.mockSetup)
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 
 			require.NoError(t, app.StartAndConnect())
-			receipt, err := txm.EnsureConfirmed(a.Hash)
+			receipt, err := txm.BumpGasUntilSafe(a.Hash)
 			receiptPresent := receipt != nil
 			assert.Equal(t, test.wantReceipt, receiptPresent)
 			cltest.AssertError(t, test.wantErrored, err)
@@ -677,7 +677,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	assert.NoError(t, err)
 	initialSuccessfulAttempt := txTransmissionAttempts[0]
 
-	receipt, err := manager.EnsureConfirmed(initialSuccessfulAttempt.Hash)
+	receipt, err := manager.BumpGasUntilSafe(initialSuccessfulAttempt.Hash)
 	assert.NoError(t, err)
 	assert.NotNil(t, receipt)
 
