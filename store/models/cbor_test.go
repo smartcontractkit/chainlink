@@ -79,9 +79,7 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 		{
 			`map(1) {"key":"value"}`,
 			hexutil.MustDecode("0xA1636B65796576616C7565"),
-			// XXX: This will technically end up with an extra open sequence
-			// terminator (0xff) but this should be harmless
-			hexutil.MustDecode("0xA1636B65796576616C7565ff"),
+			hexutil.MustDecode("0xA1636B65796576616C7565"),
 		},
 		{
 			"array(0)",
@@ -96,12 +94,12 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 		{
 			`map(*) {"key":"value"} missing open delimiter`,
 			hexutil.MustDecode("0x636B65796576616C7565ff"),
-			hexutil.MustDecode("0xbf636B65796576616C7565ff"),
+			hexutil.MustDecode("0xbf636B65796576616C7565ffff"),
 		},
 		{
 			`map(*) {"key":"value"} missing closing delimiter`,
 			hexutil.MustDecode("0xbf636B65796576616C7565"),
-			hexutil.MustDecode("0xbf636B65796576616C7565ff"),
+			hexutil.MustDecode("0xbf636B65796576616C7565"),
 		},
 		{
 			`map(*) {"key":"value"} missing both delimiters`,
