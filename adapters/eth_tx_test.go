@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -337,6 +338,45 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	assert.Equal(t, 1, len(receipts))
 	assert.Equal(t, receipt, receipts[0])
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	store := app.Store
+	config := store.Config
+	sentAt := uint64(23456)
+
+	ethMock := app.MockEthClient()
+	receipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
+
+	require.NoError(t, app.StartAndConnect())
+
+	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
+	assert.Nil(t, store.SaveTx(tx))
+	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
+	assert.NoError(t, err)
+	adapter := adapters.EthTx{}
+	sentResult := cltest.RunResultWithValue(a.Hash.String())
+
+	input := sentResult.MarkPendingConfirmations()
+	previousReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
+	input = input.Add("ethereumReceipts", []strpkg.TxReceipt{previousReceipt})
+
+	output := adapter.Perform(input, store)
+	assert.True(t, output.Status.Completed())
+	receiptsJSON := output.Get("ethereumReceipts").String()
+	var receipts []strpkg.TxReceipt
+	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
+	assert.Equal(t, []strpkg.TxReceipt{previousReceipt, receipt}, receipts)
 
 	ethMock.EventuallyAllCalled(t)
 }
