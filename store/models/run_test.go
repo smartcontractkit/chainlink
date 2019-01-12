@@ -90,6 +90,33 @@ func TestRunResult_Value(t *testing.T) {
 	}
 }
 
+func TestRunResult_Add(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		json  string
+		key   string
+		value interface{}
+		want  string
+	}{
+		{"string", `{"a": "1"}`, "b", "2", `{"a": "1", "b": "2"}`},
+		{"int", `{"a": "1"}`, "b", 2, `{"a": "1", "b": 2}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var data models.JSON
+			assert.NoError(t, json.Unmarshal([]byte(test.json), &data))
+			rr := models.RunResult{Data: data}
+
+			rr = rr.Add(test.key, test.value)
+
+			assert.JSONEq(t, test.want, rr.Data.String())
+		})
+	}
+}
+
 func TestRunResult_WithError(t *testing.T) {
 	t.Parallel()
 
