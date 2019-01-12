@@ -85,7 +85,7 @@ func createTxRunResult(
 	return ensureTxRunResult(sendResult, store)
 }
 
-func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunResult {
+func ensureTxRunResult(input models.RunResult, str *store.Store) models.RunResult {
 	val, err := input.Value()
 	if err != nil {
 		return input.WithError(err)
@@ -96,12 +96,17 @@ func ensureTxRunResult(input models.RunResult, store *store.Store) models.RunRes
 		return input.WithError(err)
 	}
 
-	receipt, err := store.TxManager.BumpGasUntilSafe(hash)
+	receipt, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
 		logger.Error("EthTx Adapter Perform Resuming: ", err)
 	}
 	if receipt == nil {
 		return input.MarkPendingConfirmations()
 	}
+	data, err := input.Data.Add("ethereumReceipts", []store.TxReceipt{*receipt})
+	if err != nil {
+		logger.Error("EthTx Adapter adding transaction receipt: ", err)
+	}
+	input.Data = data
 	return input.WithValue(receipt.Hash.String())
 }

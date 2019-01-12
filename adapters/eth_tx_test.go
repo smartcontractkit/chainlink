@@ -297,10 +297,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
 	confirmedHash := cltest.NewHash()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{
-		Hash:        confirmedHash,
-		BlockNumber: cltest.Int(sentAt),
-	})
+	receipt := strpkg.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
 
@@ -332,6 +330,13 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.False(t, attempts[0].Confirmed)
 	assert.True(t, attempts[1].Confirmed)
 	assert.False(t, attempts[2].Confirmed)
+
+	fmt.Println(output.Data.String())
+	receiptsJSON := output.Get("ethereumReceipts").String()
+	var receipts []strpkg.TxReceipt
+	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
+	assert.Equal(t, 1, len(receipts))
+	assert.Equal(t, receipt, receipts[0])
 
 	ethMock.EventuallyAllCalled(t)
 }
