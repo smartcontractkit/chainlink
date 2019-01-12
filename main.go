@@ -41,5 +41,6 @@ func NewProductionClient() *cmd.Client {
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
+		PasswordPrompter:               cmd.NewPasswordPrompter(),
 	}
 }
