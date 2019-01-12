@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -103,10 +105,21 @@ func ensureTxRunResult(input models.RunResult, str *store.Store) models.RunResul
 	if receipt == nil {
 		return input.MarkPendingConfirmations()
 	}
-	data, err := input.Data.Add("ethereumReceipts", []store.TxReceipt{*receipt})
-	if err != nil {
-		logger.Error("EthTx Adapter adding transaction receipt: ", err)
+	return addReceiptToResult(receipt, input)
+}
+
+func addReceiptToResult(receipt *store.TxReceipt, in models.RunResult) models.RunResult {
+	receipts := []store.TxReceipt{}
+
+	if !in.Get("ethereumReceipts").IsArray() {
+		in = in.Add("ethereumReceipts", receipts)
 	}
-	input.Data = data
-	return input.WithValue(receipt.Hash.String())
+
+	if err := json.Unmarshal([]byte(in.Get("ethereumReceipts").String()), &receipts); err != nil {
+		logger.Error(fmt.Errorf("EthTx Adapter unmarshaling ethereum Receipts: %v", err))
+	}
+
+	receipts = append(receipts, *receipt)
+	in = in.Add("ethereumReceipts", receipts)
+	return in.WithValue(receipt.Hash.String())
 }
