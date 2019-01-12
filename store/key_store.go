@@ -53,7 +53,17 @@ func (ks *KeyStore) Unlock(phrase string) error {
 
 // NewAccount adds an account to the keystore
 func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
-	return ks.KeyStore.NewAccount(passphrase)
+	account, err := ks.KeyStore.NewAccount(passphrase)
+	if err != nil {
+		return accounts.Account{}, err
+	}
+
+	err = ks.KeyStore.Unlock(account, passphrase)
+	if err != nil {
+		return accounts.Account{}, err
+	}
+
+	return account, nil
 }
 
 // SignTx uses the unlocked account to sign the given transaction.
