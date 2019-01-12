@@ -524,7 +524,7 @@ func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := cli.HTTP.Patch("/v2/keys", buf)
+	resp, err := cli.HTTP.Post("/v2/keys", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}

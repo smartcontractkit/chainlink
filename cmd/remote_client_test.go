@@ -577,3 +577,21 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
 	assert.Equal(t, 0, len(renderedAttempts))
 }
+
+func TestClient_CreateExtraKey(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "../internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	assert.NoError(t, err)
+
+	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
+
+	assert.NoError(t, client.CreateExtraKey(c))
+}
