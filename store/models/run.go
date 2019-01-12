@@ -182,11 +182,16 @@ type RunResult struct {
 // WithValue returns a copy of the RunResult, overriding the "value" field of
 // Data and setting the status to completed.
 func (rr RunResult) WithValue(val interface{}) RunResult {
-	data, err := rr.Data.Add("value", val)
+	rr.Status = RunStatusCompleted
+	return rr.Add("value", val)
+}
+
+// Add adds a key and value to the RunResult's JSON payload.
+func (rr RunResult) Add(key string, value interface{}) RunResult {
+	data, err := rr.Data.Add(key, value)
 	if err != nil {
 		return rr.WithError(err)
 	}
-	rr.Status = RunStatusCompleted
 	rr.Data = data
 	return rr
 }
