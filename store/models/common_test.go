@@ -287,3 +287,23 @@ func TestInt_UnmarshalText(t *testing.T) {
 		})
 	}
 }
+
+func TestInt_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input *big.Int
+		want  string
+	}{
+		{"number", big.NewInt(1234), `1234`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			i := (*models.Int)(test.input)
+			b, err := json.Marshal(&i)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, string(b))
+		})
+	}
+}

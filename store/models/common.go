@@ -336,6 +336,11 @@ func (i *Int) UnmarshalJSON(input []byte) error {
 	return i.UnmarshalText(input)
 }
 
+// MarshalJSON implements encoding.JSONMarshaler.
+func (i *Int) MarshalJSON() ([]byte, error) {
+	return json.Marshal((*big.Int)(i))
+}
+
 // ToBig converts *Int to *big.Int.
 func (i *Int) ToBig() *big.Int {
 	return (*big.Int)(i)
