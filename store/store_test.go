@@ -5,8 +5,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/internal/mocks"
 	"github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/mock_store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +18,7 @@ func TestStore_Start(t *testing.T) {
 
 	store := app.Store
 	ctrl := gomock.NewController(t)
-	txmMock := mock_store.NewMockTxManager(ctrl)
+	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
 	assert.NoError(t, store.Start())
