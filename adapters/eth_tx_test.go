@@ -11,8 +11,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/internal/mocks"
 	strpkg "github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/mock_store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -454,7 +454,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	ctrl := gomock.NewController(t)
-	txmMock := mock_store.NewMockTxManager(ctrl)
+	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true).AnyTimes()
@@ -496,7 +496,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	gasLimit := uint64(911)
 
 	ctrl := gomock.NewController(t)
-	txmMock := mock_store.NewMockTxManager(ctrl)
+	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected()
