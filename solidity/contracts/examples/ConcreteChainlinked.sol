@@ -28,7 +28,6 @@ contract ConcreteChainlinked is Chainlinked {
   {
     ChainlinkLib.Run memory run = newRun(
       _id, _address, bytes4(keccak256(_fulfillmentSignature)));
-    run.close();
     emit Run(
       run.id,
       run.callbackAddress,

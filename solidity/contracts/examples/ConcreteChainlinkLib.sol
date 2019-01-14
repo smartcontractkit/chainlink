@@ -11,9 +11,6 @@ contract ConcreteChainlinkLib {
   event RunData(bytes payload);
 
   function closeEvent() public {
-    ChainlinkLib.Run memory r2 = run;
-    run.close();
-    run = r2;
     emit RunData(run.buf.buf);
   }
 
