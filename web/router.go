@@ -175,8 +175,10 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		ts := TransfersController{app}
 		authv2.POST("/transfers", ts.Create)
 
-		kc := KeysController{app}
-		authv2.POST("/keys", kc.Create)
+		if app.GetStore().Config.Dev() {
+			kc := KeysController{app}
+			authv2.POST("/keys", kc.Create)
+		}
 
 		backup := BackupController{app}
 		authv2.GET("/backup", backup.Show)
