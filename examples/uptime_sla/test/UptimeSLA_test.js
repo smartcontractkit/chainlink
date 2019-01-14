@@ -1,22 +1,19 @@
-import cbor from 'cbor'
 import util from 'ethereumjs-util'
 import {
   days,
   fastForwardTo,
-  getLatestTimestamp,
+  getLatestTimestamp
 } from './support/helpers'
 import {
   assertActionThrows,
-  bigNum,
+  decodeDietCBOR,
   eth,
-  deploy,
   functionSelector,
-  getLatestEvent,
   linkContract,
   oracleNode,
   requestDataBytes,
   requestDataFrom,
-  toWei,
+  toWei
 } from '../../../solidity/test/support/helpers'
 import { assertBigNum } from '../../../solidity/test/support/matchers'
 
@@ -56,7 +53,7 @@ contract('UptimeSLA', () => {
       assert.equal(events[0].args.specId,
                    specId + '00000000000000000000000000000000')
 
-      const decoded = cbor.decodeFirstSync(util.toBuffer(events[0].args.data))
+      const decoded = await decodeDietCBOR(util.toBuffer(events[0].args.data))
       assert.deepEqual(
         decoded,
         {'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation']}
