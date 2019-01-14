@@ -16144,7 +16144,7 @@ solc@0.5.0:
 
 "solidity-cborutils@github:smartcontractkit/solidity-cborutils":
   version "1.0.0"
-  resolved "https://codeload.github.com/smartcontractkit/solidity-cborutils/tar.gz/aaa29bf08499df447088ffeec42332ced7f13115"
+  resolved "https://codeload.github.com/smartcontractkit/solidity-cborutils/tar.gz/4e2199c4b62c1a35013aa8a636cf03721da06387"
   dependencies:
     cbor ">=4.0.0"
 
