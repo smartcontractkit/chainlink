@@ -270,9 +270,6 @@ library ChainlinkLib {
     }
     self.buf.endSequence();
   }
-
-  function close(Run memory self) internal pure {
-  }
 }
 
 // File: ../solidity/contracts/ENSResolver.sol

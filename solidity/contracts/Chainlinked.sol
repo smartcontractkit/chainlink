@@ -49,7 +49,6 @@ contract Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(this, requests));
     _run.nonce = requests;
-    _run.close();
     unfulfilledRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _amount, encodeRequest(_run)), "unable to transferAndCall to oracle");

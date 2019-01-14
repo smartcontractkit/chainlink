@@ -27,7 +27,6 @@ contract MaliciousChainlinked is Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(_target, maliciousRequests));
     _run.nonce = maliciousRequests;
-    _run.close();
     maliciousUnfulfilledRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
@@ -43,7 +42,6 @@ contract MaliciousChainlinked is Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(this, maliciousRequests));
     _run.nonce = maliciousRequests;
-    _run.close();
     maliciousUnfulfilledRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
