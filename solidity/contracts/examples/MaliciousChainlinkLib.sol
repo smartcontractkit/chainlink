@@ -72,8 +72,4 @@ library MaliciousChainlinkLib {
     }
     self.buf.endSequence();
   }
-
-  function closeWithdraw(WithdrawRun memory self) internal pure {
-    self.buf.endSequence();
-  }
 }
