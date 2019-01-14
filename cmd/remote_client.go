@@ -408,13 +408,18 @@ func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, erro
 	return cli.PromptingSessionRequestBuilder.Build("")
 }
 
-func getBufferFromJSON(s string) (buf *bytes.Buffer, err error) {
+func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	if gjson.Valid(s) {
-		buf, err = bytes.NewBufferString(s), nil
-	} else if buf, err = fromFile(s); err != nil {
-		buf, err = nil, multierr.Append(errors.New("Must pass in JSON or filepath"), err)
+		return bytes.NewBufferString(s), nil
 	}
-	return
+
+	buf, err := fromFile(s)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("Invalid JSON or file not found '%s'", s)
+	} else if err != nil {
+		return nil, fmt.Errorf("Error reading from file '%s': %v", s, err)
+	}
+	return buf, nil
 }
 
 func fromFile(arg string) (*bytes.Buffer, error) {
