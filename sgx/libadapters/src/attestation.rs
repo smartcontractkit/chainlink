@@ -32,20 +32,16 @@ pub extern "C" fn report(
             )
         };
 
-        set_errno(Errno(0));
-        match result {
-            sgx_status_t::SGX_SUCCESS => {}
-            _ => {
+        if result != sgx_status_t::SGX_SUCCESS {
                 set_errno(Errno(result as i32));
                 return;
-            }
         }
 
-        match retval {
-            sgx_status_t::SGX_SUCCESS => {}
-            _ => {
-                set_errno(Errno(result as i32));
-            }
+        if retval != sgx_status_t::SGX_SUCCESS {
+                set_errno(Errno(retval as i32));
+                return;
         }
+
+        set_errno(Errno(0));
     });
 }
