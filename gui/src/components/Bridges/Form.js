@@ -39,7 +39,7 @@ const Form = props => (
       message='You have not submitted the form, are you sure you want to leave?'
     />
     <formik.Form noValidate>
-      <Grid container>
+      <Grid container spacing={8}>
         <Grid item xs={12} md={7}>
           <TextField
             label='Bridge Name'
@@ -64,7 +64,7 @@ const Form = props => (
           />
         </Grid>
         <Grid item xs={12} md={7}>
-          <Grid container>
+          <Grid container spacing={8}>
             <Grid item xs={7}>
               <TextField
                 label='Minimum Contract Payment'
