@@ -82,7 +82,7 @@ func TestServiceAgreementsController_Show_Success(t *testing.T) {
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
 
-	resp, cleanup := client.Get("/v2/txattempts/" + tx.Hash.Hex())
+	resp, cleanup := client.Get("/v2/txattempts/" + tx.Hash.String())
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -92,4 +92,26 @@ func TestServiceAgreementsController_Show_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, tx.TxAttempt, attempt)
+}
+
+func TestServiceAgreementsController_Show_NotFound(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+	})
+
+	require.NoError(t, app.Start())
+	store := app.GetStore()
+	client := app.NewHTTPClient()
+	from := cltest.GetAccountAddress(store)
+	tx := cltest.CreateTxAndAttempt(store, from, 1)
+
+	resp, cleanup := client.Get("/v2/txattempts/" + (tx.Hash.String() + "1"))
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 404)
 }
