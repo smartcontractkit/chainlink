@@ -18,10 +18,11 @@ contract('ConcreteChainlinkLib', () => {
     checkPublicABI(artifacts.require(sourcePath), [
       'add',
       'addBytes',
-      'addStringArray',
       'addInt',
+      'addStringArray',
       'addUint',
-      'closeEvent'
+      'closeEvent',
+      'setBuffer'
     ])
   })
 
@@ -36,6 +37,16 @@ contract('ConcreteChainlinkLib', () => {
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {})
+    })
+  })
+
+  describe('#setBuffer', () => {
+    it('emits the buffer', async () => {
+      await ccl.setBuffer('0xA161616162')
+      const tx = await ccl.closeEvent()
+      const [payload] = parseCCLEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(decoded, {'a':'b'})
     })
   })
 
