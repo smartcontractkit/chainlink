@@ -43,6 +43,13 @@ export default {
   shape: {
     borderRadius: spacing.unit
   },
+  overrides: {
+    MuiButton: {
+      root: {
+        borderRadius: spacing.unit / 2
+      }
+    }
+  },
   typography: {
     useNextVariants: true,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Roboto", "Helvetica", "Arial", sans-serif',
