@@ -621,12 +621,12 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:0fde23d99b82798c9f1482d1cc0b298485043c7f288ae3f9cd9c8ee0c181e0e5"
+  digest = "1:458d627d11501cb3ddc62af818357810bbf3511a497e4e7cc45e037fda6d509c"
   name = "github.com/tidwall/gjson"
   packages = ["."]
   pruneopts = ""
-  revision = "081192fa2e471ddff3ec98a3cc04fecfd031ed57"
-  version = "v1.1.4"
+  revision = "5a96cfda705e1762dc0671e26b0b78925ad97e29"
+  version = "v1.1.5"
 
 [[projects]]
   branch = "master"
