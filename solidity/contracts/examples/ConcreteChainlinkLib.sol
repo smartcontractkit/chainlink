@@ -14,6 +14,12 @@ contract ConcreteChainlinkLib {
     emit RunData(run.buf.buf);
   }
 
+  function setBuffer(bytes data) public {
+    ChainlinkLib.Run memory r2 = run;
+    r2.setBuffer(data);
+    run = r2;
+  }
+
   function add(string _key, string _value) public {
     ChainlinkLib.Run memory r2 = run;
     r2.add(_key, _value);

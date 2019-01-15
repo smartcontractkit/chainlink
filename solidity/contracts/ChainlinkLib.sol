@@ -28,6 +28,15 @@ library ChainlinkLib {
     return self;
   }
 
+  function setBuffer(Run memory self, bytes data)
+    internal pure
+  {
+    Buffer.buffer memory buffer;
+    Buffer.init(buffer, data.length);
+    Buffer.append(buffer, data);
+    self.buf = buffer;
+  }
+
   function add(Run memory self, string _key, string _value)
     internal pure
   {
