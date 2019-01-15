@@ -57,19 +57,118 @@ export default {
       fontSize: '1.0rem',
       fontWeight: 400,
       lineHeight: '1.46429em',
-      color: 'rgba(0, 0, 0, 0.87)'
+      color: 'rgba(0, 0, 0, 0.87)',
+      letterSpacing: -0.4
     },
     body2: {
       fontSize: '1.0rem',
       fontWeight: 500,
       lineHeight: '1.71429em',
-      color: 'rgba(0, 0, 0, 0.87)'
+      color: 'rgba(0, 0, 0, 0.87)',
+      letterSpacing: -0.4
+    },
+    body1Next: {
+      color: 'rgb(29, 29, 29)',
+      fontWeight: 400,
+      fontSize: '1rem',
+      lineHeight: 1.5,
+      letterSpacing: -0.4
+    },
+    body2Next: {
+      color: 'rgb(29, 29, 29)',
+      fontWeight: 400,
+      fontSize: '0.875rem',
+      lineHeight: 1.5,
+      letterSpacing: -0.4
+    },
+    display1: {
+      color: '#818ea3',
+      fontSize: '2.125rem',
+      fontWeight: 400,
+      lineHeight: '1.20588em',
+      letterSpacing: -0.4
+    },
+    display2: {
+      color: '#818ea3',
+      fontSize: '2.8125rem',
+      fontWeight: 400,
+      lineHeight: '1.13333em',
+      marginLeft: '-.02em',
+      letterSpacing: -0.4
+    },
+    display3: {
+      color: '#818ea3',
+      fontSize: '3.5rem',
+      fontWeight: 400,
+      lineHeight: '1.30357em',
+      marginLeft: '-.02em',
+      letterSpacing: -0.4
+    },
+    display4: {
+      fontSize: 14,
+      fontWeightLight: 300,
+      fontWeightMedium: 500,
+      fontWeightRegular: 400,
+      letterSpacing: -0.4
+    },
+    h1: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '6rem',
+      fontWeight: 300,
+      lineHeight: 1
+    },
+    h2: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '3.75rem',
+      fontWeight: 300,
+      lineHeight: 1
+    },
+    h3: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '3rem',
+      fontWeight: 400,
+      lineHeight: 1.04
+    },
+    h4: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '2.125rem',
+      fontWeight: 400,
+      lineHeight: 1.17
+    },
+    h5: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '1.5rem',
+      fontWeight: 400,
+      lineHeight: 1.33,
+      letterSpacing: -0.4
     },
     h6: {
       fontSize: '0.8rem',
       fontWeight: 450,
       lineHeight: '1.71429em',
-      color: 'rgba(0, 0, 0, 0.87)'
+      color: 'rgba(0, 0, 0, 0.87)',
+      letterSpacing: -0.4
+    },
+    subheading: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '1rem',
+      fontWeight: 400,
+      lineHeight: '1.5em',
+      letterSpacing: -0.4
+    },
+    subtitle1: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '1rem',
+      fontWeight: 400,
+      lineHeight: 1.75,
+      letterSpacing: -0.4
+    },
+    subtitle2: {
+      color: 'rgb(29, 29, 29)',
+      fontSize: '0.875rem',
+      fontWeight: 500,
+      lineHeight: 1.57,
+      letterSpacing: -0.4
     }
   },
   shadows: [
