@@ -2,7 +2,6 @@ package adapters_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -332,7 +331,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.True(t, attempts[1].Confirmed)
 	assert.False(t, attempts[2].Confirmed)
 
-	fmt.Println(output.Data.String())
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []strpkg.TxReceipt
 	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))

@@ -187,11 +187,7 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 	value *assets.Eth,
 	nrc uint) (*models.Tx, error) {
 
-	if !txm.Connected() {
-		return nil, ErrPendingConnection
-	}
-
-	blkNum, err := txm.GetBlockNumber()
+	blkNum, err := txm.getBlockNumber()
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +274,7 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // BumpGasUntilSafe returns true if the given transaction hash has been
 // confirmed on the blockchain.
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error) {
-	blkNum, err := txm.GetBlockNumber()
+	blkNum, err := txm.getBlockNumber()
 	if err != nil {
 		return nil, err
 	}
@@ -592,4 +588,12 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 	}
 
 	return err
+}
+
+func (txm *EthTxManager) getBlockNumber() (uint64, error) {
+	if !txm.Connected() {
+		return 0, ErrPendingConnection
+	}
+
+	return txm.GetBlockNumber()
 }
