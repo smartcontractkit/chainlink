@@ -987,3 +987,11 @@ func AllJobs(store *store.Store) []models.JobSpec {
 	mustNotErr(err)
 	return all
 }
+
+type MockPasswordPrompter struct {
+	Password string
+}
+
+func (m MockPasswordPrompter) Prompt() string {
+	return m.Password
+}

@@ -508,3 +508,27 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 	}
 	return cli.errorOut(cli.Render(dst))
 }
+
+// CreateExtraKey creates a new ethereum key with the same password
+// as the one used to unlock the existing key.
+func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
+	password := cli.PasswordPrompter.Prompt()
+	request := models.CreateKeyRequest{
+		CurrentPassword:    password,
+		NewAccountPassword: password,
+	}
+
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Post("/v2/keys", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.printResponseBody(resp)
+}

@@ -188,14 +188,9 @@ func NewApp(client *Client) *cli.App {
 			Name:   "createextrakey",
 			Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
 			Action: client.CreateExtraKey,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "password, p",
-					Usage: "text file holding the password for the node's account",
-				},
-			},
 		}
 		app.Commands = append(app.Commands, createextrakey)
 	}
+
 	return app
 }
