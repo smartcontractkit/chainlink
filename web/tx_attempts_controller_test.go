@@ -64,3 +64,32 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 422)
 }
+
+func TestServiceAgreementsController_Show_Success(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+	})
+
+	require.NoError(t, app.Start())
+	store := app.GetStore()
+	client := app.NewHTTPClient()
+	from := cltest.GetAccountAddress(store)
+	tx := cltest.CreateTxAndAttempt(store, from, 1)
+
+	resp, cleanup := client.Get("/v2/txattempts/" + tx.Hash.Hex())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+
+	var links jsonapi.Links
+	var attempt models.TxAttempt
+	err := web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &attempt, &links)
+	require.NoError(t, err)
+
+	assert.Equal(t, tx.TxAttempt, attempt)
+}
