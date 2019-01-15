@@ -42,7 +42,11 @@ const RecentlyCreated = ({ jobs }) => {
           <SimpleListCardItem key={j.id}>
             <Grid container>
               <Grid item xs={12}>
-                <Link to={`/jobs/${j.id}`}>{j.id}</Link>
+                <Link to={`/jobs/${j.id}`}>
+                  <Typography variant='body1' component='span' color='primary'>
+                    {j.id}
+                  </Typography>
+                </Link>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant='body1' color='textSecondary'>
