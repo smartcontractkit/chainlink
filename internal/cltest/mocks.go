@@ -641,3 +641,20 @@ func ExtractTargetAddressFromERC20EthEthCallMock(
 	require.True(t, ok)
 	return address
 }
+
+type MockChangePasswordPrompter struct {
+	models.ChangePasswordRequest
+	err error
+}
+
+func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
+	return m.ChangePasswordRequest, m.err
+}
+
+type MockPasswordPrompter struct {
+	Password string
+}
+
+func (m MockPasswordPrompter) Prompt() string {
+	return m.Password
+}
