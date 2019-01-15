@@ -96,30 +96,6 @@ func (s RunStatus) CanStart() bool {
 	return s.Pending() || s.Unstarted()
 }
 
-// ParseCBOR attempts to coerce the input byte array into valid CBOR
-// and then coerces it into a JSON object.
-func ParseCBOR(b []byte) (JSON, error) {
-	var js JSON
-	var m map[interface{}]interface{}
-
-	cbor := codec.NewDecoderBytes(b, new(codec.CborHandle))
-	if err := cbor.Decode(&m); err != nil {
-		return js, err
-	}
-
-	coerced, err := utils.CoerceInterfaceMapToStringMap(m)
-	if err != nil {
-		return js, err
-	}
-
-	jsb, err := json.Marshal(coerced)
-	if err != nil {
-		return js, err
-	}
-
-	return js, json.Unmarshal(jsb, &js)
-}
-
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {

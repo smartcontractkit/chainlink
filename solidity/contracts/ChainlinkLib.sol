@@ -25,7 +25,6 @@ library ChainlinkLib {
     self.id = _id;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
-    self.buf.startMap();
     return self;
   }
 
@@ -65,10 +64,6 @@ library ChainlinkLib {
     for (uint256 i = 0; i < _values.length; i++) {
       self.buf.encodeString(_values[i]);
     }
-    self.buf.endSequence();
-  }
-
-  function close(Run memory self) internal pure {
     self.buf.endSequence();
   }
 }
