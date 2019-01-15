@@ -1,15 +1,12 @@
-import cbor from 'cbor'
 import {
   assertActionThrows,
-  bigNum,
   decodeRunABI,
+  decodeDietCBOR,
   deploy,
   getEvents,
   getLatestEvent,
   linkContract,
-  toHexWithoutPrefix,
-  toWei,
-  increaseTime5Minutes
+  toHexWithoutPrefix
 } from './support/helpers'
 
 contract('ConcreteChainlinked', () => {
@@ -34,7 +31,7 @@ contract('ConcreteChainlinked', () => {
 
       assert.equal(1, tx.receipt.logs.length)
       let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0])
-      let params = await cbor.decodeFirst(cborData)
+      let params = await decodeDietCBOR(cborData)
 
       assert.equal(specId, jId)
       assert.equal(gs.address, `0x${cbAddr}`)

@@ -31,7 +31,6 @@ library MaliciousChainlinkLib {
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
-    self.buf.startMap();
     return self;
   }
 
@@ -71,14 +70,6 @@ library MaliciousChainlinkLib {
     for (uint256 i = 0; i < _values.length; i++) {
       self.buf.encodeString(_values[i]);
     }
-    self.buf.endSequence();
-  }
-
-  function close(Run memory self) internal pure {
-    self.buf.endSequence();
-  }
-
-  function closeWithdraw(WithdrawRun memory self) internal pure {
     self.buf.endSequence();
   }
 }
