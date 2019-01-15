@@ -1,5 +1,6 @@
 import { common, green, grey } from '@material-ui/core/colors'
 import { darken } from '@material-ui/core/styles/colorManipulator'
+import spacing from '@material-ui/core/styles/spacing'
 
 export default {
   palette: {
@@ -37,6 +38,16 @@ export default {
     text: {
       primary: darken(grey['A700'], 0.7),
       secondary: '#818ea3'
+    }
+  },
+  shape: {
+    borderRadius: spacing.unit
+  },
+  overrides: {
+    MuiButton: {
+      root: {
+        borderRadius: spacing.unit / 2
+      }
     }
   },
   typography: {
