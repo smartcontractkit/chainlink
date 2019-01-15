@@ -232,6 +232,15 @@ library ChainlinkLib {
     return self;
   }
 
+  function setBuffer(Run memory self, bytes data)
+    internal pure
+  {
+    Buffer.buffer memory buffer;
+    Buffer.init(buffer, data.length);
+    Buffer.append(buffer, data);
+    self.buf = buffer;
+  }
+
   function add(Run memory self, string _key, string _value)
     internal pure
   {
@@ -434,7 +443,6 @@ contract Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(this, requests));
     _run.nonce = requests;
-    _run.close();
     unfulfilledRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _amount, encodeRequest(_run)), "unable to transferAndCall to oracle");
@@ -535,7 +543,7 @@ contract Chainlinked {
   }
 
   modifier isUnfulfilledRequest(bytes32 _requestId) {
-    require(unfulfilledRequests[_requestId] == address(0), "Request is already unfulfilled");
+    require(unfulfilledRequests[_requestId] == address(0), "Request is already fulfilled");
     _;
   }
 }
