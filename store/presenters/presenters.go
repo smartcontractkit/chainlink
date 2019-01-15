@@ -478,3 +478,18 @@ func (u UserPresenter) MarshalJSON() ([]byte, error) {
 		CreatedAt: u.User.CreatedAt.ISO8601(),
 	})
 }
+
+// NewAccount is a jsonapi wrapper for a geth account
+type NewAccount struct {
+	*accounts.Account
+}
+
+// GetID returns the jsonapi ID.
+func (a NewAccount) GetID() string {
+	return a.Address.String()
+}
+
+// GetName returns the collection name for jsonapi.
+func (a NewAccount) GetName() string {
+	return "keys"
+}

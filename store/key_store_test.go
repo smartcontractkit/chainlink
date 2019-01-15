@@ -82,7 +82,10 @@ func TestKeyStore_SignAccountLocked(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	_, err := store.KeyStore.NewAccount(correctPassphrase)
+	account, err := store.KeyStore.NewAccount(correctPassphrase)
+	assert.NoError(t, err)
+
+	err = store.KeyStore.Lock(account.Address)
 	assert.NoError(t, err)
 
 	_, err = store.KeyStore.Sign([]byte("abc123"))
