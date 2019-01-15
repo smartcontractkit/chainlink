@@ -181,7 +181,7 @@ type RunResult struct {
 
 // WithValue returns a copy of the RunResult, overriding the "value" field of
 // Data and setting the status to completed.
-func (rr RunResult) WithValue(val string) RunResult {
+func (rr RunResult) WithValue(val interface{}) RunResult {
 	data, err := rr.Data.Add("value", val)
 	if err != nil {
 		return rr.WithError(err)
