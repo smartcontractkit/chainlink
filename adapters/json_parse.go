@@ -46,11 +46,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return moldErrorOutput(js, jpa.Path, input)
 	}
 
-	rval, err := getStringValue(last)
-	if err != nil {
-		return input.WithError(err)
-	}
-	return input.WithValue(rval)
+	return input.WithValue(last.Interface())
 }
 
 func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
@@ -75,18 +71,6 @@ func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult)
 		return input.WithError(err)
 	}
 	return input.WithNull()
-}
-
-func getStringValue(js *simplejson.Json) (string, error) {
-	str, err := js.String()
-	if err != nil {
-		b, err := json.Marshal(js)
-		if err != nil {
-			return str, err
-		}
-		str = string(b)
-	}
-	return str, nil
 }
 
 func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {
