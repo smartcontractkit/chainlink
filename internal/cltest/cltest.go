@@ -969,15 +969,6 @@ func ResetBucket(store *store.Store, bucket interface{}) {
 	mustNotErr(store.Init(bucket))
 }
 
-type MockChangePasswordPrompter struct {
-	models.ChangePasswordRequest
-	err error
-}
-
-func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
-	return m.ChangePasswordRequest, m.err
-}
-
 func AllJobs(store *store.Store) []models.JobSpec {
 	var bucket []models.JobSpec
 	var all []models.JobSpec
@@ -987,14 +978,6 @@ func AllJobs(store *store.Store) []models.JobSpec {
 	})
 	mustNotErr(err)
 	return all
-}
-
-type MockPasswordPrompter struct {
-	Password string
-}
-
-func (m MockPasswordPrompter) Prompt() string {
-	return m.Password
 }
 
 func GetLastTxAttempt(t *testing.T, store *store.Store) models.TxAttempt {
