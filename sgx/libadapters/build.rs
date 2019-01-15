@@ -42,8 +42,10 @@ fn main() {
         .contains("yes")
     {
         println!("cargo:rustc-link-lib=dylib=sgx_urts_sim");
+        println!("cargo:rustc-link-lib=dylib=sgx_uae_service_sim");
         println!("cargo:rustc-link-lib=dylib=crypto");
     } else {
+        println!("cargo:rustc-link-lib=dylib=sgx_uae_service");
         println!("cargo:rustc-link-lib=dylib=sgx_urts");
     }
 }
