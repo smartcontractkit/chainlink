@@ -65,7 +65,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 422)
 }
 
-func TestServiceAgreementsController_Show_Success(t *testing.T) {
+func TestTxAttemptsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKeyStore()
@@ -81,17 +81,37 @@ func TestServiceAgreementsController_Show_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-
-	resp, cleanup := client.Get("/v2/txattempts/" + tx.Hash.String())
-	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
-
-	var links jsonapi.Links
-	var attempt models.TxAttempt
-	err := web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &attempt, &links)
+	ta1 := tx.TxAttempt
+	ta2, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
+	txWithAttempt1 := *tx
+	txWithAttempt1.TxAttempt = ta1
+	txWithAttempt2 := *tx
+	txWithAttempt2.TxAttempt = *ta2
 
-	assert.Equal(t, tx.TxAttempt, attempt)
+	tests := []struct {
+		name string
+		hash string
+		want models.Tx
+	}{
+		{"old hash", ta1.Hash.String(), txWithAttempt1},
+		{"current hash", ta2.Hash.String(), txWithAttempt2},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			resp, cleanup := client.Get("/v2/txattempts/" + test.hash)
+			defer cleanup()
+			cltest.AssertServerResponse(t, resp, 200)
+
+			var links jsonapi.Links
+			var tx models.Tx
+			err := web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &tx, &links)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.want, tx)
+		})
+	}
 }
 
 func TestServiceAgreementsController_Show_NotFound(t *testing.T) {
