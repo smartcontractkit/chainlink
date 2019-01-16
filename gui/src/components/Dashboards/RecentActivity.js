@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { withStyles } from '@material-ui/core/styles'
-import { fade } from '@material-ui/core/styles/colorManipulator'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Table from '@material-ui/core/Table'
@@ -22,10 +21,7 @@ const styles = theme => {
       borderColor: theme.palette.divider,
       borderTop: `1px solid`,
       borderBottom: 'none',
-      padding: 0,
-      '&:hover': {
-        backgroundColor: fade(theme.palette.grey.A100, 0.2)
-      }
+      padding: 0
     },
     status: {
       position: 'absolute',
@@ -82,7 +78,7 @@ const RecentActivity = ({ classes, runs }) => {
                       </Grid>
                       <Grid item xs={12}>
                         <Link to={`/jobs/${r.jobId}`}>
-                          <Typography variant='h5' color='textPrimary' component='span'>
+                          <Typography variant='h5' color='primary' component='span'>
                             @{r.jobId}
                           </Typography>
                         </Link>
