@@ -63,14 +63,14 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
 
   return (
     <Card className={classes.container}>
-      <Grid container>
+      <Grid container spacing={0}>
         <Grid item xs={12}>
           <Typography variant='h3' color='secondary'>
             Job Spec Detail
           </Typography>
         </Grid>
         <Grid item xs={12}>
-          <Grid container alignItems='center'>
+          <Grid container spacing={0} alignItems='center'>
             <Grid item xs={7}>
               <Typography variant='subtitle1' color='textSecondary'>
                 @{jobSpecId}

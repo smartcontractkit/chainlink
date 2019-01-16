@@ -40,7 +40,7 @@ const RecentlyCreated = ({ jobs }) => {
       <React.Fragment>
         {jobs.map(j => (
           <SimpleListCardItem key={j.id}>
-            <Grid container>
+            <Grid container spacing={0}>
               <Grid item xs={12}>
                 <Link to={`/jobs/${j.id}`}>{j.id}</Link>
               </Grid>

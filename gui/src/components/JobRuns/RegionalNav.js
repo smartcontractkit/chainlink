@@ -45,7 +45,7 @@ const styles = theme => {
 const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }) => {
   return (
     <Card className={classes.container}>
-      <Grid container>
+      <Grid container spacing={0}>
         <Grid item xs={12}>
           <Typography variant='h3' color='secondary'>
             Job Run Detail

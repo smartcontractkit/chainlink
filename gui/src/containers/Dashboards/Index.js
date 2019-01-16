@@ -27,12 +27,12 @@ export const Index = useHooks(props => {
 
   return (
     <Content>
-      <Grid container spacing={40}>
+      <Grid container>
         <Grid item xs={9}>
           <RecentActivity runs={props.recentJobRuns} />
         </Grid>
         <Grid item xs={3}>
-          <Grid container spacing={24}>
+          <Grid container>
             <Grid item xs={12}>
               <TokenBalanceCard
                 title='Link Balance'
