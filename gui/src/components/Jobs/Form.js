@@ -43,6 +43,7 @@ const Form = ({
               value={values.json}
               onChange={handleChange}
               error={errors.json && touched.json}
+              helperText={errors.json}
               fullWidth
               label='JSON Blob'
               rows={10}
