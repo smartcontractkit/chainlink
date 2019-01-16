@@ -44,6 +44,7 @@ const Form = ({
               onChange={handleChange}
               error={errors.json && touched.json}
               helperText={errors.json}
+              autoComplete='off'
               fullWidth
               label='JSON Blob'
               rows={10}
