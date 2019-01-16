@@ -8,23 +8,26 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import CardTitle from 'components/Cards/Title'
+import { titleCase } from 'change-case'
 
-const renderEntries = entries => (
+const renderKey = (k, titleize) => titleize ? titleCase(k) : k
+
+const renderEntries = (entries, titleize) => (
   entries.map(([k, v]) => (
     <TableRow key={k}>
-      <Col>{k}</Col>
+      <Col>{renderKey(k, titleize)}</Col>
       <Col>{v}</Col>
     </TableRow>
   ))
 )
 
-const renderBody = (entries, error) => {
+const renderBody = (entries, error, titleize) => {
   if (error) {
     return <ErrorRow>{error}</ErrorRow>
   } else if (entries.length === 0) {
     return <FetchingRow />
   } else {
-    return renderEntries(entries)
+    return renderEntries(entries, titleize)
   }
 }
 
@@ -52,7 +55,7 @@ const HeadCol = ({ children }) => (
   </TableCell>
 )
 
-const KeyValueList = ({ entries, error, showHead, title }) => (
+const KeyValueList = ({ entries, error, showHead, title, titleize }) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 
@@ -65,7 +68,7 @@ const KeyValueList = ({ entries, error, showHead, title }) => (
           </TableRow>
         </TableHead>}
       <TableBody>
-        {renderBody(entries, error)}
+        {renderBody(entries, error, titleize)}
       </TableBody>
     </Table>
   </Card>
@@ -73,13 +76,15 @@ const KeyValueList = ({ entries, error, showHead, title }) => (
 
 KeyValueList.propTypes = {
   showHead: PropTypes.bool.isRequired,
+  titleize: PropTypes.bool.isRequired,
   entries: PropTypes.array.isRequired,
   title: PropTypes.string,
   error: PropTypes.string
 }
 
 KeyValueList.defaultProps = {
-  showHead: false
+  showHead: false,
+  titleize: false
 }
 
 export default KeyValueList
