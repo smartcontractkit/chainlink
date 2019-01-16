@@ -2,10 +2,10 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-static'
 import Grid from '@material-ui/core/Grid'
-import Breadcrumb from 'components/Breadcrumb'
-import BreadcrumbItem from 'components/BreadcrumbItem'
-import Title from 'components/Title'
-import PaddedCard from 'components/PaddedCard'
+import Card from '@material-ui/core/Card'
+import CardContent from '@material-ui/core/CardContent'
+import Divider from '@material-ui/core/Divider'
+import Typography from '@material-ui/core/Typography'
 import Form from 'components/Jobs/Form'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import Content from 'components/Content'
@@ -20,26 +20,27 @@ const SuccessNotification = ({ data }) => (
 
 const New = props => (
   <Content>
-    <Breadcrumb>
-      <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-      <BreadcrumbItem>></BreadcrumbItem>
-      <BreadcrumbItem href='/jobs'>Jobs</BreadcrumbItem>
-      <BreadcrumbItem>></BreadcrumbItem>
-      <BreadcrumbItem>New</BreadcrumbItem>
-    </Breadcrumb>
-    <Title>New Job</Title>
-
     <Grid container spacing={40}>
-      <Grid item xs={12}>
-        <PaddedCard>
-          <Form
-            actionText='Create Job'
-            onSubmit={props.createJobSpec}
-            onSuccess={SuccessNotification}
-            onError={ErrorMessage}
-            {...(props.location && props.location.state)}
-          />
-        </PaddedCard>
+      <Grid item xs={12} md={11} lg={9}>
+        <Card>
+          <CardContent>
+            <Typography variant='h5' color='secondary'>
+              New Job
+            </Typography>
+          </CardContent>
+
+          <Divider />
+
+          <CardContent>
+            <Form
+              actionText='Create Job'
+              onSubmit={props.createJobSpec}
+              onSuccess={SuccessNotification}
+              onError={ErrorMessage}
+              {...(props.location && props.location.state)}
+            />
+          </CardContent>
+        </Card>
       </Grid>
     </Grid>
   </Content>

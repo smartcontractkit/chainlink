@@ -2,10 +2,10 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-static'
 import Grid from '@material-ui/core/Grid'
-import PaddedCard from 'components/PaddedCard'
-import Title from 'components/Title'
-import Breadcrumb from 'components/Breadcrumb'
-import BreadcrumbItem from 'components/BreadcrumbItem'
+import Card from '@material-ui/core/Card'
+import CardContent from '@material-ui/core/CardContent'
+import Divider from '@material-ui/core/Divider'
+import Typography from '@material-ui/core/Typography'
 import Form from 'components/Bridges/Form'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import Content from 'components/Content'
@@ -18,25 +18,26 @@ const SuccessNotification = ({ name }) => (<React.Fragment>
 
 const New = props => (
   <Content>
-    <Breadcrumb>
-      <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
-      <BreadcrumbItem>></BreadcrumbItem>
-      <BreadcrumbItem href='/bridges'>Bridges</BreadcrumbItem>
-      <BreadcrumbItem>></BreadcrumbItem>
-      <BreadcrumbItem>New</BreadcrumbItem>
-    </Breadcrumb>
-    <Title>New Bridge</Title>
-
     <Grid container spacing={40}>
-      <Grid item xs={12}>
-        <PaddedCard>
-          <Form
-            actionText='Create Bridge'
-            onSubmit={props.createBridge}
-            onSuccess={SuccessNotification}
-            onError={ErrorMessage}
-          />
-        </PaddedCard>
+      <Grid item xs={12} md={11} lg={9}>
+        <Card>
+          <CardContent>
+            <Typography variant='h5' color='secondary'>
+              New Bridge
+            </Typography>
+          </CardContent>
+
+          <Divider />
+
+          <CardContent>
+            <Form
+              actionText='Create Bridge'
+              onSubmit={props.createBridge}
+              onSuccess={SuccessNotification}
+              onError={ErrorMessage}
+            />
+          </CardContent>
+        </Card>
       </Grid>
     </Grid>
   </Content>
