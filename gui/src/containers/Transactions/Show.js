@@ -19,6 +19,7 @@ export const Show = useHooks(props => {
       {transaction && <KeyValueList
         title={transaction.id}
         entries={Object.entries(transaction)}
+        titleize
       />}
     </Content>
   )
