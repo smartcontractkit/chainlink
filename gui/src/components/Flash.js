@@ -11,8 +11,8 @@ const styles = (theme) => {
 
   return ({
     base: {
-      padding: theme.spacing.unit,
-      width: '100%'
+      paddingLeft: theme.spacing.unit * 5,
+      paddingRight: theme.spacing.unit * 5
     },
     success: {
       backgroundColor: success.main,
@@ -29,7 +29,7 @@ const styles = (theme) => {
   })
 }
 
-const applyClass = ({ base, success, error, warning, classes, className }) => {
+const applyClass = ({ success, error, warning, classes, className }) => {
   let type
 
   if (success) {
@@ -40,7 +40,7 @@ const applyClass = ({ base, success, error, warning, classes, className }) => {
     type = classes.warning
   }
 
-  return classNames(base, className, type)
+  return classNames(classes.base, className, type)
 }
 
 const Flash = (props) => (

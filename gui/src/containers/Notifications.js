@@ -1,23 +1,17 @@
 import React from 'react'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import { receiveSignoutSuccess } from 'actions'
 import Flash from 'components/Flash'
 import Unhandled from 'components/Notifications/UnhandledError'
 
-const styles = theme => ({
-  flash: {
-    textAlign: 'center'
-  }
-})
-
 export const Notifications = props => {
-  const { errors, successes, classes } = props
+  const { errors, successes } = props
+
   return (
     <div>
       {errors.length > 0 &&
-        <Flash error className={classes.flash}>
+        <Flash error>
           {errors.map(({ component, props }, i) => {
             if (component) return <p key={i}>{component(props)}</p>
             return <p key={i}><Unhandled /></p>
@@ -25,7 +19,7 @@ export const Notifications = props => {
         </Flash>
       }
       {successes.length > 0 && (
-        <Flash success className={classes.flash}>
+        <Flash success>
           {successes.map(({ component, props }, i) => (
             <p key={i}>{component(props)}</p>
           ))}
@@ -50,4 +44,4 @@ export const ConnectedNotifications = connect(
   mapDispatchToProps
 )(Notifications)
 
-export default withStyles(styles)(ConnectedNotifications)
+export default ConnectedNotifications
