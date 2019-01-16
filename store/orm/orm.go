@@ -316,8 +316,8 @@ func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
 	return txat, orm.One("Hash", hash, txat)
 }
 
-// FindFullTxAttempt returns the transaction associated with an attempt.
-func (orm *ORM) FindFullTxAttempt(hash common.Hash) (*models.Tx, error) {
+// FindTxByAttempt returns the transaction associated with an attempt.
+func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
 	txat := models.TxAttempt{}
 	if err := orm.One("Hash", hash, &txat); err != nil {
 		return nil, err
