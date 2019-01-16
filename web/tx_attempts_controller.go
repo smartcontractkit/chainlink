@@ -41,7 +41,7 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 //  "<application>/txattempts/:TxHash"
 func (tac *TxAttemptsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
-	if tx, err := tac.App.GetStore().FindFullTxAttempt(hash); err == orm.ErrorNotFound {
+	if tx, err := tac.App.GetStore().FindTxByAttempt(hash); err == orm.ErrorNotFound {
 		c.AbortWithError(404, errors.New("Transaction Attempt not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)

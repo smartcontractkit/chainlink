@@ -621,7 +621,7 @@ func TestORM_AllInBatches_IncorrectCallback(t *testing.T) {
 	}
 }
 
-func TestORM_GetFullTxAttempt_CurrentAttempt(t *testing.T) {
+func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -633,11 +633,11 @@ func TestORM_GetFullTxAttempt_CurrentAttempt(t *testing.T) {
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
 	ta1 := tx.TxAttempt
 
-	tx2, err := store.FindFullTxAttempt(ta1.Hash)
+	tx2, err := store.FindTxByAttempt(ta1.Hash)
 	require.Equal(t, tx, tx2)
 }
 
-func TestORM_GetFullTxAttempt_PastAttempt(t *testing.T) {
+func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -651,7 +651,7 @@ func TestORM_GetFullTxAttempt_PastAttempt(t *testing.T) {
 	ta2, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	assert.Equal(t, tx.TxAttempt, *ta2)
 
-	tx2, err := store.FindFullTxAttempt(ta1.Hash)
+	tx2, err := store.FindTxByAttempt(ta1.Hash)
 	require.NoError(t, err)
 	require.NotEqual(t, tx.Hash, tx2.Hash)
 
