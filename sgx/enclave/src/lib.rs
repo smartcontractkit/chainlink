@@ -12,11 +12,13 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate sgx_rand;
 #[cfg(not(target_env = "sgx"))]
 #[macro_use]
 extern crate sgx_tstd as std;
 extern crate sgx_tse as tse;
 extern crate sgx_types;
+extern crate sgx_tcrypto;
 #[macro_use]
 extern crate utils;
 extern crate wasmi;
@@ -25,6 +27,7 @@ mod attestation;
 mod multiply;
 mod result;
 mod wasm;
+mod hex;
 
 use result::RunResult;
 use sgx_types::*;
