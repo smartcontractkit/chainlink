@@ -114,7 +114,7 @@
   revision = "f664265f5a662fb4d1df7f3533b1e8d0e0277120"
 
 [[projects]]
-  digest = "1:a9c8210eb5d36a9a6e66953dc3d3cabd3afbbfb4f50baab0db1af1b723254b82"
+  digest = "1:3d26f660432345429f6b09595e4707ee12745547323bcd1dc91457125aefeedc"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -128,7 +128,6 @@
     "core/types",
     "crypto",
     "crypto/secp256k1",
-    "crypto/sha3",
     "ethdb",
     "event",
     "log",
@@ -140,8 +139,8 @@
     "trie",
   ]
   pruneopts = ""
-  revision = "24d727b6d6e2c0cde222fa12155c4a6db5caaf2e"
-  version = "v1.8.20"
+  revision = "9dc5d1a915ac0e0bd8429d6ac41df50eec91de5f"
+  version = "v1.8.21"
 
 [[projects]]
   digest = "1:e988ed0ca0d81f4d28772760c02ee95084961311291bdfefc1b04617c178b722"
