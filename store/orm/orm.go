@@ -307,15 +307,25 @@ func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
 // FindTx returns the specific transaction for the passed ID.
 func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	tx := &models.Tx{}
-	err := orm.One("ID", ID, tx)
-	return tx, err
+	return tx, orm.One("ID", ID, tx)
 }
 
 // FindTxAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
 	txat := &models.TxAttempt{}
-	err := orm.One("Hash", hash, txat)
-	return txat, err
+	return txat, orm.One("Hash", hash, txat)
+}
+
+// FindFullTxAttempt returns the transaction associated with an attempt.
+func (orm *ORM) FindFullTxAttempt(hash common.Hash) (*models.Tx, error) {
+	txat := models.TxAttempt{}
+	if err := orm.One("Hash", hash, &txat); err != nil {
+		return nil, err
+	}
+	tx := &models.Tx{}
+	err := orm.One("ID", txat.TxID, tx)
+	tx.TxAttempt = txat
+	return tx, err
 }
 
 // TxAttemptsFor returns the Transaction Attempts (TxAttempt) for a
