@@ -18,7 +18,7 @@ export const Configuration = useHooks(props => {
 
   return (
     <Content>
-      <Grid container spacing={40}>
+      <Grid container>
         <Grid item sm={12} md={8}>
           <KeyValueList
             title='Configuration'
@@ -28,7 +28,7 @@ export const Configuration = useHooks(props => {
           />
         </Grid>
         <Grid item sm={12} md={4}>
-          <Grid container spacing={40}>
+          <Grid container>
             <Grid item xs={12}>
               <PaddedCard>
                 <Typography variant='h5' color='secondary'>

@@ -74,7 +74,7 @@ const RecentActivity = ({ classes, runs }) => {
                     <StatusIcon>{r.status}</StatusIcon>
                   </div>
                   <div className={classes.runDetails}>
-                    <Grid container>
+                    <Grid container spacing={0}>
                       <Grid item xs={12}>
                         <Typography variant='body1' color='textSecondary'>
                           <TimeAgo>{r.createdAt}</TimeAgo>
@@ -108,7 +108,7 @@ const RecentActivity = ({ classes, runs }) => {
   return (
     <Card>
       <CardContent>
-        <Grid container>
+        <Grid container spacing={0}>
           <Grid item xs={12} sm={8}>
             <Typography variant='h5' color='secondary'>
               Activity
