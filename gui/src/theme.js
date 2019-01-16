@@ -21,12 +21,13 @@ export default {
       main: '#3d5170'
     },
     success: {
-      light: green.A100,
+      light: '#F9FFFC',
       main: green.A700,
       dark: green['700'],
       contrastText: common.white
     },
     warning: {
+      light: '#FFFBF1',
       main: '#fff6b6',
       contrastText: '#fad27a'
     },

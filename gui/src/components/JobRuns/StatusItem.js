@@ -24,7 +24,7 @@ const styles = theme => {
       top: 0,
       left: 0,
       paddingTop: 25,
-      paddingLeft: 35,
+      paddingLeft: 30,
       borderRight: 'solid 1px',
       borderRightColor: theme.palette.divider,
       width: 50,
@@ -69,7 +69,7 @@ const render = (summary, children, classes) => {
 const StatusItem = ({ status, summary, borderTop, children, classes }) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>
-      <StatusIcon>{status}</StatusIcon>
+      <StatusIcon width={38} height={38}>{status}</StatusIcon>
     </div>
     <div className={classes.details}>
       {render(summary, children, classes)}
