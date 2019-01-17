@@ -8,6 +8,7 @@ const contractPathHead = resolve(__dirname + '/../..')
 // See compile.js for more info.
 process.env.SOLIDITY_INCLUDE = [
   'contracts/',
+  'contracts/crypto',
   'contracts/examples/',
   'contracts/interfaces/',
   'node_modules/',

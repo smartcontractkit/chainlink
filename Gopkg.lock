@@ -127,6 +127,9 @@
     "common/prque",
     "core/types",
     "crypto",
+    "crypto/bn256",
+    "crypto/bn256/cloudflare",
+    "crypto/bn256/google",
     "crypto/secp256k1",
     "ethdb",
     "event",
@@ -777,6 +780,7 @@
   digest = "1:b86b91c7728e9caf753e003ca8858099d91ed7053298c2f586657ab4c5537c3a"
   name = "golang.org/x/sys"
   packages = [
+    "cpu",
     "unix",
     "windows",
   ]
@@ -921,6 +925,7 @@
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/core/types",
+    "github.com/ethereum/go-ethereum/crypto/bn256",
     "github.com/ethereum/go-ethereum/rlp",
     "github.com/ethereum/go-ethereum/rpc",
     "github.com/fatih/color",
@@ -941,6 +946,7 @@
     "github.com/olekukonko/tablewriter",
     "github.com/onsi/gomega",
     "github.com/satori/go.uuid",
+    "github.com/spf13/afero",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
