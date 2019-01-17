@@ -11,32 +11,32 @@ import (
 )
 
 func TestVRF_isSquare(t *testing.T) {
-	assert.True(t, isSquare(big.NewInt(4)))
-	minusOneModP := new(big.Int).Sub(P, big.NewInt(1))
-	assert.False(t, isSquare(minusOneModP))
+	assert.True(t, isSquare(four))
+	assert.False(t, isSquare(sub(P, one)), "P-1 is not square in GF(P)")
 }
 
 func TestVRF_squareRoot(t *testing.T) {
-	assert.Equal(t, big.NewInt(2), squareRoot(big.NewInt(4)))
+	assert.Equal(t, two, squareRoot(four), "4^{(P-1)/4} = 2 in GF(P)")
 }
 
 func TestVRF_ySquared(t *testing.T) {
-	assert.Equal(t, big.NewInt(2*2*2+3), ySquared(big.NewInt(2)))
+	assert.Equal(t, bi(2*2*2+3), ySquared(two), "11=2^3+3 in GF(P)")
 }
 
 func TestVRF_isCurveXOrdinate(t *testing.T) {
-	assert.True(t, isCurveXOrdinate(big.NewInt(1)))
-	assert.False(t, isCurveXOrdinate(big.NewInt(4)))
+	assert.True(t, isCurveXOrdinate(one), "2^2=1^3+3")
+	assert.False(t, isCurveXOrdinate(four),
+		"There's no y s.t. y^2=4^3+1 in GF(P)")
 }
 
 func TestVRF_CoordsFromPoint(t *testing.T) {
 	x, y := CoordsFromPoint(Generator)
-	assert.Equal(t, x, big.NewInt(1))
-	assert.Equal(t, y, big.NewInt(2))
+	assert.Equal(t, x, one, "Wrong x ordinate from Generator")
+	assert.Equal(t, y, two, "Wrong y ordinate from Generator")
 }
 
 func bigFromHex(s string) *big.Int {
-	n, ok := new(big.Int).SetString(s, 16)
+	n, ok := i().SetString(s, 16)
 	if !ok {
 		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
 	}
@@ -45,9 +45,9 @@ func bigFromHex(s string) *big.Int {
 
 func TestVRF_zqHash(t *testing.T) {
 	log2Mod := 5.0
-	modulus := big.NewInt(int64(math.Pow(2, log2Mod)))
-	bitMask := big.NewInt(int64(math.Pow(2, log2Mod+1) - 1))
-	reHashTriggeringSeed := big.NewInt(0)
+	modulus := bi(int64(math.Pow(2, log2Mod)))
+	bitMask := bi(int64(math.Pow(2, log2Mod+1) - 1))
+	reHashTriggeringSeed := zero
 	hash, err := hashUint256s(reHashTriggeringSeed)
 	if err != nil {
 		panic(err)
@@ -60,12 +60,11 @@ modulus, to test the rehash logic.`)
 	if err != nil {
 		panic(err)
 	}
-	assert.Equal(t, zqH, big.NewInt(13))
+	assert.Equal(t, zqH, bi(13))
 }
 
 func TestVRF_hashToCurve(t *testing.T) {
-	reHashTriggeringInput := []*big.Int{
-		big.NewInt(1), big.NewInt(2), big.NewInt(5)}
+	reHashTriggeringInput := []*big.Int{one, two, bi(5)}
 	x, err := zqHash(P, reHashTriggeringInput...)
 	if err != nil {
 		panic(err)
@@ -79,11 +78,12 @@ point on the curve, to exercise rehash logic.`)
 		panic(err)
 	}
 	x, y := CoordsFromPoint(p)
-	// See 'Hashes to the curve with the same results as the golang code' in Curve.js
 	eX := "247154f2ce523897365341b03669e1061049e801e8750ae708e1cb02f36cb225"
 	eY := "16e1157d5b94324127e094abe222a05a5c47be3124254a6aa047d5e1f2d864ea"
-	assert.Equal(t, bigFromHex(eX), x)
-	assert.Equal(t, bigFromHex(eY), y)
+	assert.Equal(t, bigFromHex(eX), x,
+		"x ordinate of hashToCurve case tested in VRF_test.js has changed")
+	assert.Equal(t, bigFromHex(eY), y,
+		"y ordinate of hashToCurve case tested in VRF_test.js has changed")
 }
 
 func TestVRF_scalarFromCurve(t *testing.T) {
@@ -93,8 +93,8 @@ func TestVRF_scalarFromCurve(t *testing.T) {
 		panic(err)
 	}
 	eS := "57bf013147ceec913f17ef97d3bcfad8315d99752af81f8913ad1c88493e669"
-	// See 'Computes the same hashed scalar from curve points as the golang code' in Curve.js
-	assert.Equal(t, bigFromHex(eS), s)
+	assert.Equal(t, bigFromHex(eS), s,
+		"scalarFromCurve case tested in VRF_test.js has changed")
 }
 
 func pointsEqual(p1, p2 *bn256.G1) bool {
@@ -104,27 +104,30 @@ func pointsEqual(p1, p2 *bn256.G1) bool {
 }
 
 func TestVRF_GenerateProof(t *testing.T) {
-	secretKeyHaHaNeverDoThis := big.NewInt(2)
-	seed := big.NewInt(0)
-	// Can't test c & s: They vary from run to run.
-	proof, err := GenerateProof(secretKeyHaHaNeverDoThis, seed)
+	insecureKeyPair := KeyPair{
+		Public: new(bn256.G1).Add(Generator, Generator),
+		secret: two,
+	}
+	seed := zero
+	proof, err := GenerateProof(&insecureKeyPair, seed)
 	if err != nil {
 		panic(err)
 	}
-	publicKey := new(bn256.G1).ScalarMult(
-		Generator, secretKeyHaHaNeverDoThis)
-	assert.True(t, pointsEqual(publicKey, proof.PublicKey))
+	assert.True(t, pointsEqual(insecureKeyPair.Public, proof.PublicKey))
 	gammaX, gammaY := CoordsFromPoint(proof.Gamma)
-	// See 'Accepts a valid VRF proof' in VRF.js
 	gX := "26feb384a4a3f28742d0e0e0f5458474ba54ef9816d4d31f3bf538dfcf67cf3f"
 	gY := "1eaed2431dd78ad75dd0c9f013cabff4f1d8c4c83cda79fff3855c988a3606d8"
-	assert.Equal(t, bigFromHex(gX), gammaX)
-	assert.Equal(t, bigFromHex(gY), gammaY)
+	assert.Equal(t, bigFromHex(gX), gammaX,
+		"x ordinate of gamma tested in VRF_test.js has changed.")
+	assert.Equal(t, bigFromHex(gY), gammaY,
+		"y ordinate of gamma tested in VRF_test.js has changed.")
 	verification, err := proof.VerifyProof()
 	if err != nil {
 		panic(err)
 	}
-	if !verification {
-		panic(err)
-	}
+	assert.True(t, verification, "Generated proof should verify.")
+}
+
+func TestBytes(t *testing.T) {
+	fmt.Println("bytes")
 }
