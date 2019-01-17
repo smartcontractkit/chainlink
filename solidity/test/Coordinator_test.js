@@ -387,7 +387,7 @@ contract('Coordinator', () => {
       })
 
       context('when an oracle reports multiple times', async () => {
-        it('does not set the average', async () => {
+        beforeEach(async () => {
           await coordinator.fulfillData(requestId, h.toHex(16),
             { from: oracle1 })
           await coordinator.fulfillData(requestId, h.toHex(17),
@@ -397,8 +397,13 @@ contract('Coordinator', () => {
             await coordinator.fulfillData(requestId, h.toHex(18),
               { from: oracle2 })
           })
-          assert.equal(0, await mock.requestId.call()) // check if called
+        })
 
+        it('does not set the average', async () => {
+          assert.equal(0, await mock.requestId.call()) // check if called
+        })
+
+        it('still allows the other oracles to report', async () => {
           await coordinator.fulfillData(requestId, h.toHex(18),
             { from: oracle3 })
           const currentValue = await mock.getUint256.call()
