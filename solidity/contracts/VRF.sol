@@ -161,7 +161,7 @@ contract VRF {
     if (callResult == 0) {revert("scalarMul failure!");}
   }
 
-  // p1+p2, in the curve group.
+  // _p1+_p2, in the curve group.
   function addPoints(uint256[2] memory _p1, uint256[2] memory _p2)
     public view returns (uint256[2] memory outputs) {
     uint256 callResult;
