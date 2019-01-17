@@ -27,7 +27,6 @@ mod attestation;
 mod multiply;
 mod result;
 mod wasm;
-mod hex;
 
 use result::RunResult;
 use sgx_types::*;
