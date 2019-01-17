@@ -122,7 +122,7 @@ func TestVRF_GenerateProof(t *testing.T) {
 	gY := "1eaed2431dd78ad75dd0c9f013cabff4f1d8c4c83cda79fff3855c988a3606d8"
 	assert.Equal(t, bigFromHex(gX), gammaX)
 	assert.Equal(t, bigFromHex(gY), gammaY)
-	verification, err := vrf.VerifyProof(proof)
+	verification, err := proof.VerifyProof()
 	if err != nil {
 		panic(err)
 	}

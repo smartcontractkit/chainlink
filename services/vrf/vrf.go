@@ -19,7 +19,7 @@ package vrf
 // To generate random output from a big.Int seed, pass sk and the seed to
 // GenerateProof, and use the Output field of the returned Proof object.
 //
-// To verify a Proof object, pass it to verifyProof, or pass its fields to the
+// To verify a Proof object p, run p.Verify(), or pass its fields to the
 // corresponding arguments of isValidVRFOutput on the VRF solidity contract, to
 // verify it on-chain.
 
@@ -252,7 +252,7 @@ type Proof struct {
 
 // VerifyProof is true iff gamma was generated in the mandated way from the
 // given publicKey and seed
-func VerifyProof(proof *Proof) (bool, error) {
+func (proof *Proof) VerifyProof() (bool, error) {
 	px, py := CoordsFromPoint(proof.PublicKey)
 	h, err := HashToCurve(px, py, proof.Seed)
 	if err != nil {
