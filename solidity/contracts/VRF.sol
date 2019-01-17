@@ -145,7 +145,7 @@ contract VRF {
     return output[0];
   }
 
-  // _scalar*p, in the curve group. Reverts if p not on curve.
+  // _scalar*_p, in the curve group. Reverts if p not on curve.
   function scalarMul(uint256[2] memory _p, uint256 _scalar)
     public view returns (uint256[2] memory xyOutput) {
     uint256 callResult;
