@@ -177,9 +177,9 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
     uint256 result;
     for (uint i = 0; i < responseCount; i++) {
-      result += callbacks[requestId].responses[oracles[i]];
+      result = result.add(callbacks[requestId].responses[oracles[i]]);
     }
-    result = result / responseCount;
+    result = result.div(responseCount);
     delete callbacks[requestId];
     return callback.addr.call(callback.functionId, requestId, result); // solium-disable-line security/no-low-level-calls
   }
