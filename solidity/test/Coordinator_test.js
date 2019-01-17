@@ -501,6 +501,7 @@ contract('Coordinator', () => {
 
         const currentValue = await mock.getUint256.call()
         assertBigNum(h.bigNum(0), currentValue)
+        assertBigNum(h.bigNum(0), currentValue)
       })
 
       it('sets the average of the reported values', async () => {
@@ -513,6 +514,27 @@ contract('Coordinator', () => {
 
         const currentValue = await mock.getUint256.call()
         assertBigNum(h.bigNum(17), currentValue)
+      })
+
+      context('when an oracle reports multiple times', async () => {
+        it('does not set the average', async () => {
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(16),
+            { from: oracle1 })
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
+            { from: oracle2 })
+
+          await h.assertActionThrows(async () => {
+            await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
+              { from: oracle2 })
+          })
+          assert.equal(0, await mock.requestId.call()) // check if called
+
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
+            { from: oracle3 })
+          const currentValue = await mock.getUint256.call()
+          assertBigNum(h.bigNum(17), currentValue)
+          assert.notEqual(0, await mock.requestId.call()) // check if called
+        })
       })
     })
   })
