@@ -299,9 +299,11 @@ func readBody(reader io.Reader) string {
 
 // NOTE: keys must be in lowercase for case insensitive match
 var blacklist = map[string]struct{}{
-	"password":    struct{}{},
-	"newpassword": struct{}{},
-	"oldpassword": struct{}{},
+	"password":             struct{}{},
+	"newpassword":          struct{}{},
+	"oldpassword":          struct{}{},
+	"current_password":     struct{}{},
+	"new_account_password": struct{}{},
 }
 
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
