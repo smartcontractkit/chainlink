@@ -27,7 +27,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     address addr;
     bytes4 functionId;
     uint64 cancelExpiration;
-    uint256[] responses;
+    uint8 responseCount;
+    mapping(address => uint256) responses;
   }
 
   mapping(bytes32 => Callback) private callbacks;
@@ -139,6 +140,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _data);
   }
 
+
   /**
    * @notice Retrieve the Service Agreement ID for the given parameters
    * @param _payment The amount of payment given (specified in wei)
@@ -205,14 +207,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     emit NewServiceAgreement(serviceAgreementID, _requestDigest);
   }
 
-  /**
-   * @dev Validates that each signer address matches for the given oracles
-   * @param _serviceAgreementID Service agreement ID
-   * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _vs Array of recovery IDs of the oracle signatures
-   * @param _rs Array of first 32 bytes of the oracle signatures
-   * @param _ss Array of second 32 bytes of the oracle signatures
-   */
   function verifyOracleSignatures(
     bytes32 _serviceAgreementID,
     address[] _oracles,
@@ -286,6 +280,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   modifier isValidRequest(bytes32 _requestId) {
     require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
+    require(callbacks[_requestId].responses[msg.sender] == 0, "Cannot respond twice");
     _;
   }
 
@@ -306,18 +301,20 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     returns (bool)
   {
     bytes32 requestId = bytes32(_requestId);
-    callbacks[requestId].responses.push(uint256(_data));
+    callbacks[requestId].responses[msg.sender] = uint256(_data);
 
     Callback memory callback = callbacks[requestId];
-    uint256 responseCount = callbacks[requestId].responses.length;
+    callbacks[requestId].responseCount += 1;
+    uint256 responseCount = callbacks[requestId].responseCount;
     bytes32 sAId = callbacks[requestId].sAId;
-    if (serviceAgreements[sAId].oracles.length > responseCount) {
+    address[] memory oracles = serviceAgreements[sAId].oracles;
+    if (oracles.length > responseCount) {
       return true;
     }
 
     uint256 result;
     for (uint i = 0; i < responseCount; i++) {
-      result += callback.responses[i];
+      result += callbacks[requestId].responses[oracles[i]];
     }
     result = result / responseCount;
     delete callbacks[requestId];
