@@ -1,6 +1,7 @@
 package presenters_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -206,4 +207,24 @@ func TestPresenter_NewConfigWhitelist_Error(t *testing.T) {
 	cw, err := presenters.NewConfigWhitelist(store)
 	assert.Error(t, err)
 	assert.Equal(t, "", cw.AccountAddress)
+}
+
+func TestPresenter_JobSpec(t *testing.T) {
+	js := models.JobSpec{
+		JobSpecRequest: models.JobSpecRequest{
+			Tasks: []models.TaskSpec{
+				models.TaskSpec{
+					Params: cltest.ParseJSON(bytes.NewBufferString(`{
+	"snake_case_key": "dont change me bro",
+						"camelCaseKey":"change is for the weak"
+					}`)),
+				},
+			},
+		},
+	}
+	presenter := presenters.JobSpec{JobSpec: js}
+	b, err := presenter.MarshalJSON()
+	assert.NoError(t, err)
+
+	assert.Equal(t, string(b), `{"initiators":[],"id":"","createdAt":"0001-01-01T00:00:00Z","tasks":[{"type":"","confirmations":0,"params":{"snake_case_key":"dont change me bro","camelCaseKey":"change is for the weak"}}],"startAt":null,"endAt":null}`)
 }
