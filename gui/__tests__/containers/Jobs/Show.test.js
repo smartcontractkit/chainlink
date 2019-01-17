@@ -6,6 +6,7 @@ import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Router } from 'react-static'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
+import { ConnectedDefinition as Definition } from 'containers/Jobs/Definition'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
 const classes = {}
@@ -14,6 +15,15 @@ const mountShow = (props) => (
     <Provider store={createStore()}>
       <Router>
         <Show classes={classes} {...props} />
+      </Router>
+    </Provider>
+  )
+)
+const mountDefinition = (props) => (
+  mount(
+    <Provider store={createStore()}>
+      <Router>
+        <Definition classes={classes} {...props} />
       </Router>
     </Provider>
   )
@@ -65,5 +75,22 @@ describe('containers/Jobs/Show', () => {
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Show More')
+  })
+
+  it('displays the definition without altering the keys', async () => {
+    const jobSpecResponse = jsonApiJobSpecFactory({
+      id: jobSpecId,
+      initiators: [{ 'type': 'web' }],
+      tasks: [
+        { type: 'noop', params: { asset_id_base: 'BTC' } }
+      ]
+    })
+    global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+
+    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const wrapper = mountDefinition(props)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('asset_id_base')
   })
 })
