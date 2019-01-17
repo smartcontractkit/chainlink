@@ -78,24 +78,24 @@ var (
 	sqrtPower = div(add(P, one), four)
 )
 
-// IsSquare returns true iff x = y^2 for some y in GF(p)
-func IsSquare(x *big.Int) bool {
+// isSquare returns true iff x = y^2 for some y in GF(p)
+func isSquare(x *big.Int) bool {
 	return equal(one, exp(x, eulersCriterionPower, P))
 }
 
-// SquareRoot returns a s.t. a^2=x. Assumes x is a square
-func SquareRoot(x *big.Int) *big.Int {
+// squareRoot returns a s.t. a^2=x. Assumes x is a square
+func squareRoot(x *big.Int) *big.Int {
 	return exp(x, sqrtPower, P)
 }
 
-// YSquared returns x^3+3 mod P
-func YSquared(x *big.Int) *big.Int {
+// ySquared returns x^3+3 mod P
+func ySquared(x *big.Int) *big.Int {
 	return mod(add(exp(x, three, P), three), P)
 }
 
 // IsCurveXOrdinate returns true iff there is y s.t. y^2=x^3+3
-func IsCurveXOrdinate(x *big.Int) bool {
-	return IsSquare(YSquared(x))
+func isCurveXOrdinate(x *big.Int) bool {
+	return isSquare(ySquared(x))
 }
 
 func packUint256s(xs ...*big.Int) ([]byte, error) {
@@ -121,8 +121,8 @@ func packUint256s(xs ...*big.Int) ([]byte, error) {
 	return mem.Bytes(), nil
 }
 
-// NewCurvePoint returns the bn256.G1 point corresponding to (x, y)
-func NewCurvePoint(x, y *big.Int) (*bn256.G1, error) {
+// newCurvePoint returns the bn256.G1 point corresponding to (x, y)
+func newCurvePoint(x, y *big.Int) (*bn256.G1, error) {
 	p := new(bn256.G1)
 	packed, err := packUint256s(x, y)
 	if err != nil {
@@ -142,7 +142,7 @@ func NewCurvePoint(x, y *big.Int) (*bn256.G1, error) {
 // Generator is a specific generator of the curve group. Any non-zero point will
 // do, since the group order is prime. But one must be specified as part of the
 // protocol.
-var Generator, _ = NewCurvePoint(one, two)
+var Generator, _ = newCurvePoint(one, two)
 
 // CoordsFromPoint returns the (x, y) coordinates of p
 func CoordsFromPoint(p *bn256.G1) (*big.Int, *big.Int) {
@@ -153,9 +153,9 @@ func CoordsFromPoint(p *bn256.G1) (*big.Int, *big.Int) {
 	return i().SetBytes(b[:32]), i().SetBytes(b[32:])
 }
 
-// HashUint256s returns a uint256 representing the hash of the concatenated byte
+// hashUint256s returns a uint256 representing the hash of the concatenated byte
 // representations of the inputs
-func HashUint256s(xs ...*big.Int) (*big.Int, error) {
+func hashUint256s(xs ...*big.Int) (*big.Int, error) {
 	packed, err := packUint256s(xs...)
 	if err != nil {
 		return &big.Int{}, err
@@ -167,17 +167,17 @@ func HashUint256s(xs ...*big.Int) (*big.Int, error) {
 	return i().SetBytes(hash), nil
 }
 
-// maskHash returns HashUint256s(xs...) & mask
+// maskHash returns hashUint256s(xs...) & mask
 func maskHash(mask *big.Int, xs ...*big.Int) (*big.Int, error) {
-	x, err := HashUint256s(xs...)
+	x, err := hashUint256s(xs...)
 	if err != nil {
 		return &big.Int{}, err
 	}
 	return x.And(x, mask), nil
 }
 
-// ZqHash hashes xs uniformly into {0, ..., q-1}
-func ZqHash(q *big.Int, xs ...*big.Int) (*big.Int, error) {
+// zqHash hashes xs uniformly into {0, ..., q-1}
+func zqHash(q *big.Int, xs ...*big.Int) (*big.Int, error) {
 	if len(xs) < 1 {
 		panic("can't take hash of empty list. You might have forgotten argument q")
 	}
@@ -205,25 +205,25 @@ func ZqHash(q *big.Int, xs ...*big.Int) (*big.Int, error) {
 	return rv, nil
 }
 
-// HashToCurve is a one-way hash function onto the curve
-func HashToCurve(px, py, input *big.Int) (*bn256.G1, error) {
-	x, err := ZqHash(P, px, py, input)
+// hashToCurve is a one-way hash function onto the curve
+func hashToCurve(px, py, input *big.Int) (*bn256.G1, error) {
+	x, err := zqHash(P, px, py, input)
 	if err != nil {
 		return &bn256.G1{}, err
 	}
-	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+3 is a square
-		nx, err := ZqHash(P, x)
+	for !isCurveXOrdinate(x) { // Hash recursively until x^3+3 is a square
+		nx, err := zqHash(P, x)
 		if err != nil {
 			return &bn256.G1{}, err
 		}
 		x.Set(nx)
 	}
-	return NewCurvePoint(x, SquareRoot(YSquared(x)))
+	return newCurvePoint(x, squareRoot(ySquared(x)))
 }
 
-// ScalarFromCurve returns a hash for the curve points. Corresponds to the hash
+// scalarFromCurve returns a hash for the curve points. Corresponds to the hash
 // computed in Curve.sol#scalarFromCurve
-func ScalarFromCurve(ps ...*bn256.G1) (*big.Int, error) {
+func scalarFromCurve(ps ...*bn256.G1) (*big.Int, error) {
 	coordinates := make([]*big.Int, (len(ps)+1)*2)
 	gx, gy := CoordsFromPoint(Generator)
 	coordinates[0] = gx
@@ -233,7 +233,7 @@ func ScalarFromCurve(ps ...*bn256.G1) (*big.Int, error) {
 		coordinates[2*ordidx+2] = x
 		coordinates[2*ordidx+3] = y
 	}
-	return ZqHash(Order, coordinates...)
+	return zqHash(Order, coordinates...)
 }
 
 // linearComination returns c*p1+s*p2
@@ -254,7 +254,7 @@ type Proof struct {
 // given publicKey and seed
 func (proof *Proof) VerifyProof() (bool, error) {
 	px, py := CoordsFromPoint(proof.PublicKey)
-	h, err := HashToCurve(px, py, proof.Seed)
+	h, err := hashToCurve(px, py, proof.Seed)
 	if err != nil {
 		return false, err
 	}
@@ -263,7 +263,7 @@ func (proof *Proof) VerifyProof() (bool, error) {
 	uPrime := linearComination(proof.C, proof.PublicKey, proof.S, Generator)
 	// c*secretKey*h + (m - c*secretKey)*h = m*h = v
 	vPrime := linearComination(proof.C, proof.Gamma, proof.S, h)
-	cPrime, _ := ScalarFromCurve(
+	cPrime, _ := scalarFromCurve(
 		h, proof.PublicKey, proof.Gamma, uPrime, vPrime)
 	if err != nil {
 		return false, err
@@ -281,7 +281,7 @@ func (proof *Proof) VerifyProof() (bool, error) {
 func makeProof(secretKey, seed *big.Int) (*Proof, error) {
 	publicKey := new(bn256.G1).ScalarMult(Generator, secretKey)
 	px, py := CoordsFromPoint(publicKey)
-	h, err := HashToCurve(px, py, seed)
+	h, err := hashToCurve(px, py, seed)
 	if err != nil {
 		return &Proof{}, err
 	}
@@ -292,7 +292,7 @@ func makeProof(secretKey, seed *big.Int) (*Proof, error) {
 	}
 	u := new(bn256.G1).ScalarMult(Generator, m)
 	v := new(bn256.G1).ScalarMult(h, m)
-	c, err := ScalarFromCurve(h, publicKey, gamma, u, v)
+	c, err := scalarFromCurve(h, publicKey, gamma, u, v)
 	if err != nil {
 		return &Proof{}, err
 	}

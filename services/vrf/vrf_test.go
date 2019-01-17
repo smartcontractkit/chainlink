@@ -10,23 +10,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVRF_IsSquare(t *testing.T) {
-	assert.True(t, IsSquare(big.NewInt(4)))
+func TestVRF_isSquare(t *testing.T) {
+	assert.True(t, isSquare(big.NewInt(4)))
 	minusOneModP := new(big.Int).Sub(P, big.NewInt(1))
-	assert.False(t, IsSquare(minusOneModP))
+	assert.False(t, isSquare(minusOneModP))
 }
 
-func TestVRF_SquareRoot(t *testing.T) {
-	assert.Equal(t, big.NewInt(2), SquareRoot(big.NewInt(4)))
+func TestVRF_squareRoot(t *testing.T) {
+	assert.Equal(t, big.NewInt(2), squareRoot(big.NewInt(4)))
 }
 
-func TestVRF_YSquared(t *testing.T) {
-	assert.Equal(t, big.NewInt(2*2*2+3), YSquared(big.NewInt(2)))
+func TestVRF_ySquared(t *testing.T) {
+	assert.Equal(t, big.NewInt(2*2*2+3), ySquared(big.NewInt(2)))
 }
 
-func TestVRF_IsCurveXOrdinate(t *testing.T) {
-	assert.True(t, IsCurveXOrdinate(big.NewInt(1)))
-	assert.False(t, IsCurveXOrdinate(big.NewInt(4)))
+func TestVRF_isCurveXOrdinate(t *testing.T) {
+	assert.True(t, isCurveXOrdinate(big.NewInt(1)))
+	assert.False(t, isCurveXOrdinate(big.NewInt(4)))
 }
 
 func TestVRF_CoordsFromPoint(t *testing.T) {
@@ -43,12 +43,12 @@ func bigFromHex(s string) *big.Int {
 	return n
 }
 
-func TestVRF_ZqHash(t *testing.T) {
+func TestVRF_zqHash(t *testing.T) {
 	log2Mod := 5.0
 	modulus := big.NewInt(int64(math.Pow(2, log2Mod)))
 	bitMask := big.NewInt(int64(math.Pow(2, log2Mod+1) - 1))
 	reHashTriggeringSeed := big.NewInt(0)
-	hash, err := HashUint256s(reHashTriggeringSeed)
+	hash, err := hashUint256s(reHashTriggeringSeed)
 	if err != nil {
 		panic(err)
 	}
@@ -56,24 +56,24 @@ func TestVRF_ZqHash(t *testing.T) {
 	assert.Equal(t, 1, hash.Cmp(modulus),
 		`need an example which hashes to something bigger than the
 modulus, to test the rehash logic.`)
-	zqHash, err := ZqHash(modulus, reHashTriggeringSeed)
+	zqH, err := zqHash(modulus, reHashTriggeringSeed)
 	if err != nil {
 		panic(err)
 	}
-	assert.Equal(t, zqHash, big.NewInt(13))
+	assert.Equal(t, zqH, big.NewInt(13))
 }
 
-func TestVRF_HashToCurve(t *testing.T) {
+func TestVRF_hashToCurve(t *testing.T) {
 	reHashTriggeringInput := []*big.Int{
 		big.NewInt(1), big.NewInt(2), big.NewInt(5)}
-	x, err := ZqHash(P, reHashTriggeringInput...)
+	x, err := zqHash(P, reHashTriggeringInput...)
 	if err != nil {
 		panic(err)
 	}
-	assert.False(t, IsCurveXOrdinate(x),
+	assert.False(t, isCurveXOrdinate(x),
 		`need an example where first hash is not an x-ordinate for any
 point on the curve, to exercise rehash logic.`)
-	p, err := HashToCurve(reHashTriggeringInput[0],
+	p, err := hashToCurve(reHashTriggeringInput[0],
 		reHashTriggeringInput[1], reHashTriggeringInput[2])
 	if err != nil {
 		panic(err)
@@ -86,9 +86,9 @@ point on the curve, to exercise rehash logic.`)
 	assert.Equal(t, bigFromHex(eY), y)
 }
 
-func TestVRF_ScalarFromCurve(t *testing.T) {
+func TestVRF_scalarFromCurve(t *testing.T) {
 	g := Generator
-	s, err := ScalarFromCurve(g, g, g, g, g)
+	s, err := scalarFromCurve(g, g, g, g, g)
 	if err != nil {
 		panic(err)
 	}
@@ -98,8 +98,8 @@ func TestVRF_ScalarFromCurve(t *testing.T) {
 }
 
 func pointsEqual(p1, p2 *bn256.G1) bool {
-	s1, _ := ScalarFromCurve(p1)
-	s2, _ := ScalarFromCurve(p2)
+	s1, _ := scalarFromCurve(p1)
+	s2, _ := scalarFromCurve(p2)
 	return s1.Cmp(s2) == 0
 }
 
