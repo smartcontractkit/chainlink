@@ -247,6 +247,7 @@ contract VRF {
   // True if _output is correct VRF output given other parameters
   function isValidVRFOutput(uint256[2] memory _pk, uint256[2] memory _gamma, uint256 _c, uint256 _s, uint256 _seed, uint256 _output)
     public view returns (bool) {
-    return verifyVRFProof(_pk, _gamma, _c, _s, _seed) && (uint256(keccak256(abi.encodePacked(_gamma))) == _output);
+    outputCorrect = (uint256(keccak256(abi.encodePacked(_gamma))) == _output)
+    return outputCorrect && verifyVRFProof(_pk, _gamma, _c, _s, _seed);
   }
 }
