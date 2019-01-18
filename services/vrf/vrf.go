@@ -2,7 +2,7 @@ package vrf
 
 // vrf provides a cryptographically secure pseudo-random number generator.
 // Numbers are deterministically generated from a seed and a secret key, and are
-// statistically indistinguishable from uniform sampling from {0, ..., 2**256},
+// statistically indistinguishable from uniform sampling from {0, ..., 2**256-1},
 // to observers who don't know the key. But each number comes with a proof that
 // it was generated according to the procedure mandated by a public key
 // associated with that private key.
