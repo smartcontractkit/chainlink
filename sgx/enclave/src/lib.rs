@@ -167,11 +167,14 @@ fn report_shim(
 ) -> Result<(), ShimError> {
     let output = match attestation::report() {
         Ok(report) => json!({
-                "report": {
-                    "key_id": report.key_id.id,
-                    "mac": report.mac,
-                }
-            }).to_string(),
+            "report": {
+                "body": {
+                    "report_data": report.body.report_data.d.to_vec(),
+                },
+                "key_id": report.key_id.id,
+                "mac": report.mac,
+            }
+        }).to_string(),
         Err(err) => format!("error: {:?}", err),
     };
 
