@@ -84,17 +84,19 @@ func (s Signature) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
+// Value returns this instance serialized for database storage.
 func (s Signature) Value() (driver.Value, error) {
 	return s.String(), nil
 }
 
-func (a *Signature) Scan(value interface{}) error {
+// Scan reads the database value and returns an instance.
+func (s *Signature) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to Signature", value, value)
 	}
 
 	newSig, err := NewSignature(string(temp))
-	*a = newSig
+	*s = newSig
 	return err
 }

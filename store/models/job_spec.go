@@ -264,14 +264,17 @@ func (t TaskType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
+// String returns this TaskType as a string.
 func (t TaskType) String() string {
 	return string(t)
 }
 
+// Value returns this instance serialized for database storage.
 func (t TaskType) Value() (driver.Value, error) {
 	return string(t), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (t *TaskType) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
