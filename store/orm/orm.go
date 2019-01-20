@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	_ "github.com/jinzhu/gorm/dialects/sqlite" // follows the gorm convention
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
@@ -53,6 +53,7 @@ func multifyWithoutRecordNotFound(db *gorm.DB) error {
 	return merr
 }
 
+// Close closes the underlying database connection.
 func (orm *ORM) Close() error {
 	return orm.DB.Close()
 }
@@ -630,15 +631,18 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
 }
 
+// SaveBulkDeleteRunTask saves the instance to the database.
 func (orm *ORM) SaveBulkDeleteRunTask(task *models.BulkDeleteRunTask) error {
 	return orm.DB.Save(task).Error
 }
 
+// FindBulkDeleteRunTask retrieves the instance with the id from the database.
 func (orm *ORM) FindBulkDeleteRunTask(id string) (*models.BulkDeleteRunTask, error) {
 	task := &models.BulkDeleteRunTask{}
 	return task, orm.DB.Set("gorm:auto_preload", true).First(task, "ID = ?", id).Error
 }
 
+// BulkDeletesInProgress retrieves all bulk deletes in progress.
 func (orm *ORM) BulkDeletesInProgress() ([]models.BulkDeleteRunTask, error) {
 	deleteTasks := []models.BulkDeleteRunTask{}
 	err := orm.DB.

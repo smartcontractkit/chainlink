@@ -99,11 +99,13 @@ func (*Link) Symbol() string {
 	return "LINK"
 }
 
+// Value returns the Link value for serialization to database.
 func (l Link) Value() (driver.Value, error) {
 	b := (big.Int)(l)
 	return b.String(), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (l *Link) Scan(value interface{}) error {
 	var s string
 	switch temp := value.(type) {
