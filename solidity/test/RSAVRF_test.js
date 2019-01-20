@@ -4,30 +4,22 @@ import { assertBigNum } from './support/matchers'
 const wordSizeBits = 256
 const wordSizeBytes = wordSizeBits / 8
 
-const keySizeBits = 4096
-assert(keySizeBits % wordSizeBits === 0, `Key size must be multiple of uint256's`)
+const keySizeBits = 2048
+assert(keySizeBits % wordSizeBits === 0, `Key size must be multiple of words`)
 const keySizeWords = keySizeBits / wordSizeBits
 const keySizeBytes = keySizeBits / 8
 
-// A roughly 4096-bit prime, per https://2ton.com.au/getprimes/random/4096
+// A roughly 2048-bit prime, per https://2ton.com.au/getprimes/random/2048
 const prime = bigNum(
   '0x' +
-    'a8b0f26b02ce8f196aff5f98ec5a449fada1e4d493241397616b71221e117219' +
-    'ce12fb8e9ef465b7a8ed29787313ef6dde3696dc7c36aadad4734104bde8295a' +
-    'f5a9800e6576d4467b37032e45eeff3e23dc9bfc0ee02716f6b84596bb65ce11' +
-    '13f046e060a5d81eb78557d665f621c8f6452dff50679caaccd8597eb18baa40' +
-    'edb3b6873a431732e905dd45bfc9c86b935b7c9c56879656f0affd610a18a328' +
-    'a86036a2b3af780520fa64decd008a03836b22c7752d7bc21d89a7fddd70ae4d' +
-    'ed319fd1e38670444ed80af2eb7cee6a37f6cb46caa036e7b50bcb3864334e4f' +
-    '66d3b3208b923116bec2a48e6749b00546f0ef7a73cee802cec690d84fd21d66' +
-    '5725051fd825da5caaa7fadd158f245d0267e0836a91ccb13a5d1e48cfd75d5b' +
-    'fa036336a18e4d4835229bb2716c188a299e7fc3cabbe3839d6511a52ae1b8b8' +
-    '22e62330249f9f4115347b2000b58458906836c9dc54a0f2a83a788c094171f0' +
-    '1fb7002f6165cde22b09973dfbf4db594c6a90a05929bb3a7522d9776b97e019' +
-    '6d7049ce7cfe9469633859eb123c67849e9f80521b470cf38a532aba7985ce0a' +
-    '66f8c8e4afa0f9861a819b6a91cbe0332fda69d910fb3994eb60f5db938b7485' +
-    '4ed774f018ed36299668915f71520c8f8629bc8f280f36d38c4782d0b6a8232f' +
-    'cf9650052caf2c3879ef7cfd3eec1f9c8b10d8aaa8103dd56aaeca80fce9441b')
+    '91d18d4420ab0cae83964b2310dc7277e61ad331d8e37de4923b355308cd2387' +
+    '46dbd85833993853724b0b7048c0d331b177ecc9486ba14142a38cf292b8be6c' +
+    '861852d02fa41f1a12b5c0e13716fba0887bb5568b7caf1eac255fa6fded398b' +
+    'ff863ab3391450edc27ec52dc92bd66df1dc818fa58259aca354d5cbdfe427fa' +
+    'ec81c497231ae625c8f3afc0a37b8fe7752ad8c0cd04fd2a1177680d0334b2a1' +
+    'ee60cd49f629a8c5e71ad3cc1af7b26fc29c7112be6162604b82f0cba28cc2d3' +
+    '521f09edbdf598be03adcf4797b50b948418bc01e298ae1815d5d2c7af41f795' +
+    '4471f3f52b60da23e73b8e27706ea90c877071ddc20e3ad78404f352306157b7')
 
 const toHexString = byteArray =>
   Array.prototype.map.call(
