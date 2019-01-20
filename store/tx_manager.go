@@ -215,7 +215,7 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 		var txa *models.TxAttempt
 		txa, err = txm.createAttempt(tx, gasPriceWei, blkNum)
 		if err != nil {
-			txm.orm.DB.Delete(tx) // TODO: Place inside ORM
+			txm.orm.DB.Delete(tx)
 			txm.orm.DB.Delete(txa)
 
 			return fmt.Errorf("TxManager CreateTX %v", err)

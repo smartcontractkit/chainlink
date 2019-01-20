@@ -188,11 +188,11 @@ type Initiator struct {
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
-	Schedule   Cron             `json:"schedule,omitempty"`
-	Time       Time             `json:"time,omitempty"`
-	Ran        bool             `json:"ran,omitempty"`
-	Address    common.Address   `json:"address,omitempty" gorm:"index"`
-	Requesters []common.Address `json:"requesters,omitempty" gorm:"-"` // TODO: Persist
+	Schedule   Cron              `json:"schedule,omitempty"`
+	Time       Time              `json:"time,omitempty"`
+	Ran        bool              `json:"ran,omitempty"`
+	Address    common.Address    `json:"address,omitempty" gorm:"index"`
+	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the
