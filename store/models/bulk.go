@@ -21,10 +21,12 @@ const (
 	BulkTaskStatusCompleted = BulkTaskStatus("completed")
 )
 
+// Value returns this instance serialized for database storage.
 func (t BulkTaskStatus) Value() (driver.Value, error) {
 	return string(t), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (t *BulkTaskStatus) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
@@ -82,8 +84,10 @@ func (t *BulkDeleteRunTask) SetID(value string) error {
 	return nil
 }
 
+// RunStatusCollection is an array of RunStatus.
 type RunStatusCollection []RunStatus
 
+// ToStrings returns a copy of RunStatusCollection as an array of strings.
 func (r RunStatusCollection) ToStrings() []string {
 	// Unable to convert copy-free without unsafe:
 	// https://stackoverflow.com/a/48554123/639773
@@ -94,10 +98,12 @@ func (r RunStatusCollection) ToStrings() []string {
 	return converted
 }
 
+// Value returns this instance serialized for database storage.
 func (r RunStatusCollection) Value() (driver.Value, error) {
 	return strings.Join(r.ToStrings(), ","), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (r *RunStatusCollection) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
