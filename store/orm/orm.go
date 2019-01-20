@@ -43,19 +43,6 @@ func initializeDatabase(path string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// TODO: Overkill? Could remove with .Error.
-func multify(db *gorm.DB) error {
-	var merr error
-	for _, e := range db.GetErrors() {
-		if e == gorm.ErrRecordNotFound {
-			merr = multierr.Append(merr, ErrorNotFound)
-		} else {
-			merr = multierr.Append(merr, e)
-		}
-	}
-	return merr
-}
-
 func multifyWithoutRecordNotFound(db *gorm.DB) error {
 	var merr error
 	for _, e := range db.GetErrors() {
@@ -72,13 +59,13 @@ func (orm *ORM) Close() error {
 
 // Where fetches multiple objects with "Find".
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
-	return multify(orm.DB.Where(fmt.Sprintf("%v = ?", field), value).Find(instance))
+	return orm.DB.Where(fmt.Sprintf("%v = ?", field), value).Find(instance).Error
 }
 
 // FindBridge looks up a Bridge by its Name.
 func (orm *ORM) FindBridge(name string) (models.BridgeType, error) {
 	var bt models.BridgeType
-	return bt, multify(orm.DB.First(&bt, "name = ?", name))
+	return bt, orm.DB.First(&bt, "name = ?", name).Error
 }
 
 // PendingBridgeType returns the bridge type of the current pending task,
@@ -94,13 +81,15 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 // FindJob looks up a Job by its ID.
 func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
 	var job models.JobSpec
-	return job, multify(orm.preloadJobs().First(&job, "id = ?", id))
+	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
 
 // FindInitiator returns the single initiator defined by the passed ID.
 func (orm *ORM) FindInitiator(ID string) (models.Initiator, error) {
 	initr := models.Initiator{}
-	return initr, multify(orm.DB.Set("gorm:auto_preload", true).First(&initr, "id = ?", ID))
+	return initr, orm.DB.
+		Set("gorm:auto_preload", true).
+		First(&initr, "id = ?", ID).Error
 }
 
 func (orm *ORM) preloadJobs() *gorm.DB {
@@ -130,13 +119,13 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	return multify(orm.DB.Save(run))
+	return orm.DB.Save(run).Error
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
 func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
 	var sa models.ServiceAgreement
-	return sa, multify(orm.DB.Set("gorm:auto_preload", true).First(&sa, "id = ?", id))
+	return sa, orm.DB.Set("gorm:auto_preload", true).First(&sa, "id = ?", id).Error
 }
 
 // Jobs fetches all jobs.
@@ -180,14 +169,21 @@ func (orm *ORM) JobRunsFor(jobSpecID string) ([]models.JobRun, error) {
 // JobRunsCountFor returns the current number of runs for the job
 func (orm *ORM) JobRunsCountFor(jobSpecID string) (int, error) {
 	var count int
-	err := multify(orm.DB.Model(&models.JobRun{}).Where("job_spec_id = ?", jobSpecID).Count(&count))
+	err := orm.DB.
+		Model(&models.JobRun{}).
+		Where("job_spec_id = ?", jobSpecID).
+		Count(&count).Error
 	return count, err
 }
 
 // Sessions returns all sessions limited by the parameters.
 func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 	var sessions []models.Session
-	err := multify(orm.DB.Set("gorm:auto_preload", true).Limit(limit).Offset(offset).Find(&sessions))
+	err := orm.DB.
+		Set("gorm:auto_preload", true).
+		Limit(limit).
+		Offset(offset).
+		Find(&sessions).Error
 	return sessions, err
 }
 
@@ -199,13 +195,13 @@ func (orm *ORM) SaveJob(job *models.JobSpec) error {
 		}
 		job.Initiators[i].JobSpecID = job.ID
 	}
-	return multify(orm.DB.Save(job))
+	return orm.DB.Save(job).Error
 }
 
 // SaveServiceAgreement saves a service agreement and it's associations to the
 // database.
 func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
-	merr := multify(orm.DB.Save(sa))
+	merr := orm.DB.Save(sa).Error
 	return merr
 }
 
@@ -243,7 +239,7 @@ func (orm *ORM) CreateTx(
 		Value:    models.NewBig(value),
 		GasLimit: gasLimit,
 	}
-	return &tx, multify(orm.DB.Save(&tx))
+	return &tx, orm.DB.Save(&tx).Error
 }
 
 // ConfirmTx updates the database for the given transaction to
@@ -251,20 +247,20 @@ func (orm *ORM) CreateTx(
 func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
 	txat.Confirmed = true
 	tx.AssignTxAttempt(txat)
-	return multify(orm.DB.Save(tx).Save(txat))
+	return orm.DB.Save(tx).Save(txat).Error
 }
 
 // FindTx returns the specific transaction for the passed ID.
 func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	tx := &models.Tx{}
-	err := multify(orm.DB.Set("gorm:auto_preload", true).First(tx, "id = ?", ID))
+	err := orm.DB.Set("gorm:auto_preload", true).First(tx, "id = ?", ID).Error
 	return tx, err
 }
 
 // FindTxAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
 	txat := &models.TxAttempt{}
-	err := multify(orm.DB.Set("gorm:auto_preload", true).First(txat, "hash = ?", hash))
+	err := orm.DB.Set("gorm:auto_preload", true).First(txat, "hash = ?", hash).Error
 	return txat, err
 }
 
@@ -300,7 +296,7 @@ func (orm *ORM) AddTxAttempt(
 	if !tx.Confirmed {
 		tx.AssignTxAttempt(attempt)
 	}
-	err = multify(orm.DB.Save(tx).Save(attempt))
+	err = orm.DB.Save(tx).Save(attempt).Error
 	return attempt, err
 }
 
@@ -336,7 +332,10 @@ func (orm *ORM) MarkRan(i *models.Initiator, ran bool) error {
 // FindUser will return the one API user, or an error.
 func (orm *ORM) FindUser() (models.User, error) {
 	user := models.User{}
-	err := multify(orm.DB.Set("gorm:auto_preload", true).Order("created_at desc").First(&user))
+	err := orm.DB.
+		Set("gorm:auto_preload", true).
+		Order("created_at desc").
+		First(&user).Error
 	return user, err
 }
 
@@ -348,7 +347,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 	}
 
 	var session models.Session
-	err := multify(orm.DB.First(&session, "id = ?", sessionID))
+	err := orm.DB.First(&session, "id = ?", sessionID).Error
 	if err != nil {
 		return models.User{}, err
 	}
@@ -357,7 +356,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 		return models.User{}, errors.New("Session has expired")
 	}
 	session.LastUsed = models.Time{Time: now}
-	if err := multify(orm.DB.Save(&session)); err != nil {
+	if err := orm.DB.Save(&session).Error; err != nil {
 		return models.User{}, err
 	}
 	return orm.FindUser()
@@ -489,7 +488,9 @@ func (orm *ORM) JobsSorted(order SortType, offset int, limit int) ([]models.JobS
 // TxFrom returns all transactions from a particular address.
 func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 	txs := []models.Tx{}
-	return txs, multify(orm.DB.Set("gorm:auto_preload", true).Find(&txs, "\"from\" = ?", from))
+	return txs, orm.DB.
+		Set("gorm:auto_preload", true).
+		Find(&txs, "\"from\" = ?", from).Error
 }
 
 // Transactions returns all transactions limited by passed parameters.
