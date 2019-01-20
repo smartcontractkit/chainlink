@@ -50,7 +50,7 @@ func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.UR
 
 	responseURL := bridgeResponseURL
 	if *responseURL != *zeroURL {
-		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.CachedJobRunID) // TODO: Change this from runs to tasks
+		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.CachedJobRunID)
 	}
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
