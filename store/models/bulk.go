@@ -104,7 +104,12 @@ func (r *RunStatusCollection) Scan(value interface{}) error {
 		return fmt.Errorf("Unable to convert %v of %T to RunStatusCollection", value, value)
 	}
 
-	arr := strings.Split(string(temp), ",")
+	str := string(temp)
+	if len(str) == 0 {
+		return nil
+	}
+
+	arr := strings.Split(str, ",")
 	collection := make(RunStatusCollection, len(arr))
 	for i, r := range arr {
 		collection[i] = RunStatus(r)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/store/assets"
@@ -476,4 +477,45 @@ func (b *Big) String() string {
 // Hex returns the hex encoding of b.
 func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
+}
+
+// AddressCollection is an array of common.Address
+// serializable to and from a database.
+type AddressCollection []common.Address
+
+// ToStrings returns this address collection as an array of strings.
+func (r AddressCollection) ToStrings() []string {
+	// Unable to convert copy-free without unsafe:
+	// https://stackoverflow.com/a/48554123/639773
+	converted := make([]string, len(r))
+	for i, e := range r {
+		converted[i] = e.Hex()
+	}
+	return converted
+}
+
+// Value returns the string value to be written to the database.
+func (r AddressCollection) Value() (driver.Value, error) {
+	return strings.Join(r.ToStrings(), ","), nil
+}
+
+// Scan parses the database value as a string.
+func (r *AddressCollection) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
+	}
+
+	str := string(temp)
+	if len(str) == 0 {
+		return nil
+	}
+
+	arr := strings.Split(str, ",")
+	collection := make(AddressCollection, len(arr))
+	for i, a := range arr {
+		collection[i] = common.HexToAddress(a)
+	}
+	*r = collection
+	return nil
 }
