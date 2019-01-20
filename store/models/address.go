@@ -65,10 +65,12 @@ func (a *EIP55Address) UnmarshalJSON(input []byte) error {
 	return a.UnmarshalText(input)
 }
 
+// Value returns this instance serialized for database storage.
 func (a EIP55Address) Value() (driver.Value, error) {
 	return a.String(), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (a *EIP55Address) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
@@ -79,8 +81,10 @@ func (a *EIP55Address) Scan(value interface{}) error {
 	return nil
 }
 
+// EIP55AddressCollection is an array of EIP55Addresses.
 type EIP55AddressCollection []EIP55Address
 
+// Value returns this instance serialized for database storage.
 func (c EIP55AddressCollection) Value() (driver.Value, error) {
 	// Unable to convert copy-free without unsafe:
 	// https://stackoverflow.com/a/48554123/639773
@@ -91,6 +95,7 @@ func (c EIP55AddressCollection) Value() (driver.Value, error) {
 	return strings.Join(converted, ","), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (c *EIP55AddressCollection) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {

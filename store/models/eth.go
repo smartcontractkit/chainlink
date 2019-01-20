@@ -81,6 +81,7 @@ func (tx *Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	)
 }
 
+// AssignTxAttempt assigns the values of the attempt to the top level Tx.
 func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
 	tx.Hash = txat.Hash
 	tx.GasPrice = txat.GasPrice

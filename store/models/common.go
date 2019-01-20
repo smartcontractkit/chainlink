@@ -99,10 +99,12 @@ func (s RunStatus) CanStart() bool {
 	return s.Pending() || s.Unstarted()
 }
 
+// Value returns this instance serialized for database storage.
 func (s RunStatus) Value() (driver.Value, error) {
 	return string(s), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (s *RunStatus) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
@@ -119,6 +121,7 @@ type JSON struct {
 	gjson.Result
 }
 
+// Value returns this instance serialized for database storage.
 func (j JSON) Value() (driver.Value, error) {
 	s := j.String()
 	if len(s) == 0 {
@@ -127,6 +130,7 @@ func (j JSON) Value() (driver.Value, error) {
 	return s, nil
 }
 
+// Scan reads the database value and returns an instance.
 func (j *JSON) Scan(value interface{}) error {
 	bytes, ok := value.([]uint8)
 	temp := string(bytes)
@@ -265,10 +269,12 @@ func (w WebURL) String() string {
 	return url.String()
 }
 
+// Value returns this instance serialized for database storage.
 func (w WebURL) Value() (driver.Value, error) {
 	return w.String(), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (w *WebURL) Scan(value interface{}) error {
 	var s string
 	switch temp := value.(type) {
@@ -286,19 +292,17 @@ func (w *WebURL) Scan(value interface{}) error {
 	return nil
 }
 
-type Address struct {
-	common.Address
-}
-
 // Time holds a common field for time.
 type Time struct {
 	time.Time
 }
 
+// Value returns this instance serialized for database storage.
 func (t Time) Value() (driver.Value, error) {
 	return t.Time, nil
 }
 
+// Scan reads the database value and returns an instance.
 func (t *Time) Scan(value interface{}) error {
 	var s string
 	switch temp := value.(type) {
@@ -395,6 +399,7 @@ type CreateKeyRequest struct {
 // Big stores large integers and can deserialize a variety of inputs.
 type Big big.Int
 
+// NewBig constructs a Big from *big.Int.
 func NewBig(i *big.Int) *Big {
 	if i != nil {
 		b := Big(*i)
@@ -403,10 +408,12 @@ func NewBig(i *big.Int) *Big {
 	return nil
 }
 
+// MarshalText marshals this instance to base 10 number as string.
 func (b *Big) MarshalText() ([]byte, error) {
 	return []byte((*big.Int)(b).Text(10)), nil
 }
 
+// MarshalJSON marshals this instance to base 10 number as string.
 func (b *Big) MarshalJSON() ([]byte, error) {
 	return b.MarshalText()
 }
@@ -441,10 +448,12 @@ func (b *Big) UnmarshalJSON(input []byte) error {
 	return b.UnmarshalText(input)
 }
 
+// Value returns this instance serialized for database storage.
 func (b Big) Value() (driver.Value, error) {
 	return b.String(), nil
 }
 
+// Scan reads the database value and returns an instance.
 func (b *Big) Scan(value interface{}) error {
 	temp, ok := value.([]uint8)
 	if !ok {
@@ -464,6 +473,7 @@ func (b *Big) ToInt() *big.Int {
 	return (*big.Int)(b)
 }
 
+// ToHexUtilBig returns this as a go-ethereum *hexutil.Big.
 func (b *Big) ToHexUtilBig() *hexutil.Big {
 	h := hexutil.Big(*b)
 	return &h
