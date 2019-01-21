@@ -27,7 +27,6 @@ type Store struct {
 	KeyStore   *KeyStore
 	RunChannel RunChannel
 	TxManager  TxManager
-	closed     bool
 }
 
 type lazyRPCWrapper struct {
@@ -96,9 +95,7 @@ type Dialer interface {
 }
 
 // EthDialer is Dialer which accesses rpc urls
-type EthDialer struct {
-	url models.WebURL
-}
+type EthDialer struct{}
 
 // Dial will dial the given url and return a CallerSubscriber
 func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
@@ -184,15 +181,6 @@ func initializeORM(config Config) (*orm.ORM, error) {
 		return nil, err
 	}
 	return orm, migrations.Migrate(orm)
-}
-
-const zeroDuration = time.Duration(0)
-
-func friendlyDuration(duration time.Duration) string {
-	if duration == zeroDuration {
-		return "indefinitely"
-	}
-	return fmt.Sprintf("%v", duration)
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary
