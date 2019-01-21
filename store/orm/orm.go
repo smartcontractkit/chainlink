@@ -95,9 +95,11 @@ func (orm *ORM) FindInitiator(ID string) (models.Initiator, error) {
 
 func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
-		Preload("Tasks").
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
 			return db.Order("\"order\" asc")
+		}).
+		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
+			return db.Order("id asc")
 		})
 }
 
@@ -107,7 +109,7 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 		Preload("Overrides").
 		Preload("Result").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.Set("gorm:auto_preload", true).Order("task_runs.created_at asc")
+			return db.Set("gorm:auto_preload", true).Order("task_spec_id asc")
 		})
 }
 
