@@ -107,7 +107,7 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		})
 	}
 	initiators = appendCronInitiator(initiators, s)
-
+	initiators = assignOrder(initiators)
 	j := JobSpec{
 		ID:         utils.NewBytes32ID(),
 		CreatedAt:  Time{Time: time.Now()},
@@ -138,6 +138,15 @@ func addCronToSchedule(s Schedule, it Initiator) Schedule {
 	s.DayOfWeek = tk[5]
 
 	return s
+}
+
+func assignOrder(initrs []Initiator) []Initiator {
+	withOrder := make([]Initiator, len(initrs))
+	for i, init := range initrs {
+		init.Order = uint(i)
+		withOrder[i] = init
+	}
+	return withOrder
 }
 
 func removeTypeFromParams(s string) (JSON, error) {
