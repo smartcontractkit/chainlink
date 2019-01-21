@@ -78,6 +78,25 @@ func TestORM_SaveJobRun(t *testing.T) {
 	assert.Equal(t, job.ID, jr2.Initiator.JobSpecID)
 }
 
+func TestORM_FindJob_OrderedInitiators(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j, _ := cltest.NewJobWithLogInitiator()
+	j.Initiators[0].Order = 1
+	initr2 := models.Initiator{Type: models.InitiatorCron, Order: 0}
+	j.Initiators = append(j.Initiators, initr2)
+	require.NoError(t, store.SaveJob(&j))
+
+	retrievedJob, err := store.FindJob(j.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, retrievedJob.Initiators[0].Type, models.InitiatorCron)
+	assert.Equal(t, retrievedJob.Initiators[1].Type, models.InitiatorEthLog)
+}
+
 func TestORM_JobRunsFor(t *testing.T) {
 	t.Parallel()
 
