@@ -68,6 +68,7 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec.Initiators = jsr.Initiators
 	for i := range jobSpec.Initiators {
 		jobSpec.Initiators[i].ID = utils.NewBytes32ID()
+		jobSpec.Initiators[i].Order = uint(i)
 	}
 	jobSpec.Tasks = jsr.Tasks
 	jobSpec.EndAt = jsr.EndAt
@@ -182,6 +183,7 @@ type Initiator struct {
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string `json:"type" gorm:"index;not null"`
 	InitiatorParams `json:"params,omitempty"`
+	Order           uint      `json:"-" gorm:"index"`
 	CreatedAt       time.Time `gorm:"index"`
 }
 
