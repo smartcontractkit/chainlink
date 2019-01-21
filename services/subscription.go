@@ -517,7 +517,7 @@ func jobIDFromImproperEncodedTopic(log strpkg.Log) string {
 // unblocking the application. This is an effort to mitigate the occasional
 // indefinite block described here from go-ethereum:
 // https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(subscription models.EthSubscription) {
+func timedUnsubscribe(subscription Unsubscriber) {
 	unsubscribed := make(chan struct{})
 	go func() {
 		subscription.Unsubscribe()

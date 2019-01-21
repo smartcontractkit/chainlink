@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -148,16 +147,6 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	defer resp.Body.Close()
 	var run presenters.JobRun
 	return cli.renderAPIResponse(resp, &run)
-}
-
-func saveBodyAsFile(resp *http.Response, dst string) error {
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
-	return err
 }
 
 // AddBridge adds a new bridge to the chainlink node
