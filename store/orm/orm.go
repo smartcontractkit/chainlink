@@ -97,7 +97,7 @@ func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
 		Preload("Tasks").
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Order("initiators.created_at asc")
+			return db.Order("\"order\" asc")
 		})
 }
 
