@@ -170,6 +170,7 @@ fn report_shim(
             "report": {
                 "body": {
                     "report_data": report.body.report_data.d.to_vec(),
+                    "mr_enclave": report.body.mr_enclave.m.to_vec(),
                 },
                 "key_id": report.key_id.id,
                 "mac": report.mac,

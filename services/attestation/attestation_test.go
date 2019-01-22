@@ -13,6 +13,7 @@ type AttestationReport struct {
 	Report struct {
 		Body struct {
 			ReportData []byte `json:"report_data"`
+			MrEnclave  []byte `json:"mr_enclave"`
 		} `json:"body"`
 		KeyID []byte `json:"key_id"`
 		Mac   []byte `json:"mac"`
@@ -29,6 +30,7 @@ func TestReport(t *testing.T) {
 
 	// Report now contains a nonce so we can only assert on its structure
 	assert.Len(t, report.Report.Body.ReportData, 64)
+	assert.Len(t, report.Report.Body.MrEnclave, 32)
 	assert.Len(t, report.Report.KeyID, 32)
 	assert.Len(t, report.Report.Mac, 16)
 }
