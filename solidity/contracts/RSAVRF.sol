@@ -8,35 +8,48 @@ contract RSAVRF {
   // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant keySizeBytes = keySizeBits / 8;
 
+  // _RSAModulus must be in big-endian format
   constructor(uint256[keySizeWords] memory _RSAModulus) public {
     require(inputSize == 640, "Changed key size: adjust unrolled copy in bigModExp");
+    require(publicExponent == 3, "Changed exponent sie; adjust gasCost calculation");
     require(keySizeBits % 256 == 0, "Key size must be multiple of uint256's.");
     modulus = _RSAModulus;
   }
 
   // The traditional public key
+  //
+  // A publicExponent of 3 drastically reduces gas costs. See gasCost.
   uint256 constant publicExponent = 3;
   uint256[keySizeWords] public modulus;  // Set during initialization
 
   uint256 constant wordSizeBytes = 32;
 
   // solium-disable-next-line zeppelin/no-arithmetic-operations
-  uint256 constant inputSize = 3 * wordSizeBytes + keySizeBytes + 32 + keySizeBytes;
+  uint256 constant inputSize = 3 * wordSizeBytes + keySizeBytes + wordSizeBytes + keySizeBytes;
+  //                           Argument lengths  + base length  +exponent length+ modulus length
+  uint256 constant inputSizeBytes = inputSize / wordSizeBytes;
+
+  // Gas cost for bigModExp precompiled contract call.
+  // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-198.md#specification
+  //
+  // exponent of 3 results in ADJUSTED_EXPONENT_LENGTH of 1, so it can be
+  // excluded from the calculation.
   // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant gasCost = (keySizeBytes ** 2) / 4 + 96 * keySizeBytes - 3072;
 
-  // (_base**exponent) % modulus.
+  // (_base**exponent) % modulus. _base must be in big-endian format
   function bigModExp(uint256[keySizeWords] memory _base)
     public view returns(uint256[keySizeWords] memory result) {
 
     // Lay out the arguments in memory as bigModExp expects them:
-    // base-length||exponent-length||modulus-length||base||exponent||length
-    //   1 word         1 word          1 word
-    // Here base-length units are bytes, each number is in little-endian format,
-    // solium-disable-next-line zeppelin/no-arithmetic-operations
+    //
+    // base-length||exponent-length||modulus-length||   base     ||publicExponent||modulus
+    //   1 word   ||    1 word     ||   1 word     ||keySizeBytes||    1 word    ||keySizeBytes
+    //
+    // Length units are bytes, each number is in big-endian format,
     uint256[inputSize] memory inputs;
     inputs[0] = keySizeBytes;  // _base length
-    inputs[1] = wordSizeBytes;            // exponent length
+    inputs[1] = wordSizeBytes; // exponent length
     inputs[2] = keySizeBytes;  // modulus length
     inputs[3] = _base[0];
     inputs[4] = _base[1];  // It's just a little more efficient, to unroll these
@@ -57,6 +70,8 @@ contract RSAVRF {
     inputs[17] = modulus[5];
     inputs[18] = modulus[6];
     inputs[19] = modulus[7];
+    assert(7 == keySizeWords-1);
+    assert(19 == inputSizeBytes-1); // That unrolling changes if key size changes
 
     // Now, do the bigModExp
     int success;

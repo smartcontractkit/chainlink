@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto'
+
 import { deploy, bigNum } from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
@@ -55,5 +57,9 @@ contract('RSAVRF', async () => {
     assertBigNum(await exp(prime), 0, 'p³≡0 mod p')
     const minusOne = prime.sub(bigNum(1))
     assertBigNum(await exp(minusOne), minusOne, '(-1)³≡-1 mod p')
+    const x = uint256ArrayToNum(randomBytes(keySizeBytes)).umod(prime)
+    const seekretKey = prime.sub(bigNum(3)) // "RSA" with a single prime
+    const enkcreepted = x.pow(seekretKey).mod(prime)
+    assertBigNum(await exp(enkcreepted), x, 'x^{p-3}³≡x^p≡x mod p')
   })
 })
