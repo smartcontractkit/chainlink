@@ -15,25 +15,23 @@ func (m Migration) Timestamp() string {
 }
 
 func (m Migration) Migrate(orm *orm.ORM) error {
-	// orm.DB.LogMode(true) to trace sql commands
-	var err error
-	err = multierr.Append(err, migrationHelper(orm, &models.JobSpec{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.TaskSpec{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.JobRun{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.TaskRun{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.RunResult{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.Initiator{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.Tx{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.TxAttempt{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.BridgeType{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.IndexableBlockNumber{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.User{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.Session{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.Encumbrance{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.ServiceAgreement{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.BulkDeleteRunTask{}))
-	err = multierr.Append(err, migrationHelper(orm, &models.BulkDeleteRunRequest{}))
-	return err
+	return multierr.Combine(
+		migrationHelper(orm, &models.JobSpec{}),
+		migrationHelper(orm, &models.TaskSpec{}),
+		migrationHelper(orm, &models.JobRun{}),
+		migrationHelper(orm, &models.TaskRun{}),
+		migrationHelper(orm, &models.RunResult{}),
+		migrationHelper(orm, &models.Initiator{}),
+		migrationHelper(orm, &models.Tx{}),
+		migrationHelper(orm, &models.TxAttempt{}),
+		migrationHelper(orm, &models.BridgeType{}),
+		migrationHelper(orm, &models.IndexableBlockNumber{}),
+		migrationHelper(orm, &models.User{}),
+		migrationHelper(orm, &models.Session{}),
+		migrationHelper(orm, &models.Encumbrance{}),
+		migrationHelper(orm, &models.ServiceAgreement{}),
+		migrationHelper(orm, &models.BulkDeleteRunTask{}),
+		migrationHelper(orm, &models.BulkDeleteRunRequest{}))
 }
 
 func migrationHelper(orm *orm.ORM, model interface{}) error {
