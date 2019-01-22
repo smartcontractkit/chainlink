@@ -2,16 +2,12 @@ package cmd_test
 
 import (
 	"flag"
-	"path"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,7 +53,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j, _ := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
@@ -214,11 +210,11 @@ func TestClient_CreateJobRun(t *testing.T) {
 		jobSpec models.JobSpec
 		errored bool
 	}{
-		{"CreateSuccess", `{"value": 100}`, first(cltest.NewJobWithWebInitiator()), false},
-		{"EmptyBody", ``, first(cltest.NewJobWithWebInitiator()), false},
-		{"InvalidBody", `{`, first(cltest.NewJobWithWebInitiator()), true},
-		{"WithoutWebInitiator", ``, first(cltest.NewJobWithLogInitiator()), true},
-		{"NotFound", ``, first(cltest.NewJobWithWebInitiator()), true},
+		{"CreateSuccess", `{"value": 100}`, cltest.NewJobWithWebInitiator(), false},
+		{"EmptyBody", ``, cltest.NewJobWithWebInitiator(), false},
+		{"InvalidBody", `{`, cltest.NewJobWithWebInitiator(), true},
+		{"WithoutWebInitiator", ``, cltest.NewJobWithLogInitiator(), true},
+		{"NotFound", ``, cltest.NewJobWithWebInitiator(), true},
 	}
 
 	for _, tt := range tests {
@@ -348,36 +344,6 @@ func TestClient_RemoveBridge(t *testing.T) {
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
-func TestClient_BackupDatabase(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-	client, _ := app.NewClientAndRenderer()
-
-	job := cltest.NewJob()
-	assert.Nil(t, app.Store.SaveJob(&job))
-
-	set := flag.NewFlagSet("backupset", 0)
-	path := path.Join(app.Store.Config.RootDir(), "backup.bolt")
-	set.Parse([]string{path})
-	c := cli.NewContext(nil, set, nil)
-
-	err := client.BackupDatabase(c)
-	assert.NoError(t, err)
-
-	restored, err := orm.NewORM(path, 1*time.Second)
-	assert.NoError(t, err)
-	err = migrations.Migrate(restored)
-	require.NoError(t, err)
-	restoredJob, err := restored.FindJob(job.ID)
-	assert.NoError(t, err)
-
-	reloaded, err := app.Store.FindJob(job.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, reloaded, restoredJob)
-}
-
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
@@ -488,10 +454,6 @@ func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testi
 	})
 
 	return app, cleanup, ethMock.EventuallyAllCalled
-}
-
-func first(a models.JobSpec, b interface{}) models.JobSpec {
-	return a
 }
 
 func TestClient_SendEther(t *testing.T) {

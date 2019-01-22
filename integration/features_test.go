@@ -70,7 +70,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-		eth.Register("eth_sendRawTransaction", attempt1Hash)
+		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
@@ -81,7 +81,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_sendRawTransaction", attempt2Hash)
+		eth.Register("eth_sendRawTransaction", attempt2Hash) // Gas bumped tx attempt sent
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
 	eth.EventuallyAllCalled(t)
@@ -99,8 +99,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_sendRawTransaction", attempt2Hash)
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
@@ -119,7 +118,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	val, err = jr.Result.Value()
 	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
-	assert.Equal(t, jr.Result.JobRunID, jr.ID)
+	assert.Equal(t, jr.Result.CachedJobRunID, jr.ID)
 
 	eth.EventuallyAllCalled(t)
 }
@@ -291,7 +290,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, "randomnumber", tr.Task.Type.String())
+	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
@@ -341,9 +340,9 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
 
 	tr := jr.TaskRuns[0]
-	assert.Equal(t, "assetprice", tr.Task.Type.String())
+	assert.Equal(t, "assetprice", tr.TaskSpec.Type.String())
 	tr = jr.TaskRuns[1]
-	assert.Equal(t, "copy", tr.Task.Type.String())
+	assert.Equal(t, "copy", tr.TaskSpec.Type.String())
 	val, err := tr.Result.Value()
 	assert.NoError(t, err)
 	assert.Equal(t, eaPrice, val)
@@ -425,7 +424,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		})
 	defer cleanup()
 
-	j, _ := cltest.NewJobWithLogInitiator()
+	j := cltest.NewJobWithLogInitiator()
 	post := cltest.NewTask("httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
@@ -436,7 +435,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, jobRuns[0])
-	assert.Equal(t, jr.Result.JobRunID, jr.ID)
+	assert.Equal(t, jr.Result.CachedJobRunID, jr.ID)
 }
 
 func TestIntegration_MultiplierInt256(t *testing.T) {
@@ -559,17 +558,18 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 	})
 	app.Start()
 
-	job, initiator := cltest.NewJobWithWebInitiator()
-	completedRun := job.NewRun(initiator)
+	job := cltest.NewJobWithWebInitiator()
+	err := app.GetStore().SaveJob(&job)
+	require.NoError(t, err)
+	completedRun := job.NewRun(job.Initiators[0])
 	completedRun.Status = models.RunStatusCompleted
-	completedRun.UpdatedAt = cltest.ParseISO8601("2018-11-02T10:14:18Z")
-	err := app.GetStore().ORM.DB.Save(&completedRun)
-	assert.NoError(t, err)
+	err = app.GetStore().SaveJobRun(&completedRun)
+	require.NoError(t, err)
 
 	client := app.NewHTTPClient()
 	request := `{
 		"status": ["completed", "errored"],
-		"updatedBefore": "2018-11-28T21:24:03Z"
+		"updatedBefore": "2100-11-28T21:24:03Z"
 	}`
 	resp, cleanup := client.Post("/v2/bulk_delete_runs", bytes.NewBufferString(request))
 	defer cleanup()

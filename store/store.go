@@ -27,7 +27,6 @@ type Store struct {
 	KeyStore   *KeyStore
 	RunChannel RunChannel
 	TxManager  TxManager
-	closed     bool
 }
 
 type lazyRPCWrapper struct {
@@ -96,9 +95,7 @@ type Dialer interface {
 }
 
 // EthDialer is Dialer which accesses rpc urls
-type EthDialer struct {
-	url models.WebURL
-}
+type EthDialer struct{}
 
 // Dial will dial the given url and return a CallerSubscriber
 func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
@@ -106,7 +103,7 @@ func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
 }
 
 // NewStore will create a new database file at the config's RootDir if
-// it is not already present, otherwise it will use the existing db.bolt
+// it is not already present, otherwise it will use the existing db.sqlite3
 // file.
 func NewStore(config Config) *Store {
 	return NewStoreWithDialer(config, &EthDialer{})
@@ -178,23 +175,12 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 }
 
 func initializeORM(config Config) (*orm.ORM, error) {
-	path := path.Join(config.RootDir(), "db.bolt")
-	duration := config.DatabaseTimeout()
-	logger.Infof("Waiting %s for lock on db file %s", friendlyDuration(duration), path)
-	orm, err := orm.NewORM(path, duration)
+	path := path.Join(config.RootDir(), "db.sqlite3")
+	orm, err := orm.NewORM(path)
 	if err != nil {
 		return nil, err
 	}
 	return orm, migrations.Migrate(orm)
-}
-
-const zeroDuration = time.Duration(0)
-
-func friendlyDuration(duration time.Duration) string {
-	if duration == zeroDuration {
-		return "indefinitely"
-	}
-	return fmt.Sprintf("%v", duration)
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary

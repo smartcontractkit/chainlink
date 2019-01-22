@@ -118,7 +118,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
 			input := cltest.RunResultWithValue("lot 49")
-			input.JobRunID = runID
+			input.CachedJobRunID = runID
 
 			result := eb.Perform(input, store)
 			val := result.Get("value")
@@ -131,7 +131,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 func TestBridge_Perform_responseURL(t *testing.T) {
 	input := cltest.RunResultWithValue("lot 49")
-	input.JobRunID = "1234"
+	input.CachedJobRunID = "1234"
 
 	t.Parallel()
 	cases := []struct {

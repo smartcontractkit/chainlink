@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
@@ -14,18 +13,21 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             string       `json:"id" storm:"id,unique"`
-	JobID          string       `json:"jobId" storm:"index"`
-	Result         RunResult    `json:"result" storm:"inline"`
-	Status         RunStatus    `json:"status" storm:"index"`
-	TaskRuns       []TaskRun    `json:"taskRuns" storm:"inline"`
-	CreatedAt      time.Time    `json:"createdAt" storm:"index"`
-	CompletedAt    null.Time    `json:"completedAt"`
-	UpdatedAt      time.Time    `json:"updatedAt"`
-	Initiator      Initiator    `json:"initiator"`
-	CreationHeight *hexutil.Big `json:"creationHeight"`
-	ObservedHeight *hexutil.Big `json:"observedHeight"`
-	Overrides      RunResult    `json:"overrides"`
+	ID             string    `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      string    `json:"jobId" gorm:"index;not null"`
+	Result         RunResult `json:"result"`
+	ResultID       uint      `json:"-"`
+	Status         RunStatus `json:"status" gorm:"index"`
+	TaskRuns       []TaskRun `json:"taskRuns"`
+	CreatedAt      time.Time `json:"createdAt" gorm:"index"`
+	CompletedAt    null.Time `json:"completedAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	Initiator      Initiator `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
+	InitiatorID    uint      `json:"-"`
+	CreationHeight *Big      `json:"creationHeight" gorm:"type:varchar(255)"`
+	ObservedHeight *Big      `json:"observedHeight" gorm:"type:varchar(255)"`
+	Overrides      RunResult `json:"overrides"`
+	OverridesID    uint      `json:"-"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -47,7 +49,7 @@ func (jr *JobRun) SetID(value string) error {
 // ForLogger formats the JobRun for a common formatting in the log.
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", jr.JobID,
+		"job", jr.JobSpecID,
 		"run", jr.ID,
 		"status", jr.Status,
 	}
@@ -100,7 +102,13 @@ func (jr JobRun) TasksRemain() bool {
 
 // ApplyResult updates the JobRun's Result and Status
 func (jr JobRun) ApplyResult(result RunResult) JobRun {
+	id := jr.Result.ID
+
 	jr.Result = result
+	jr.Result.ID = id
+	jr.Result.CachedJobRunID = jr.ID
+	jr.Result.CachedTaskRunID = ""
+
 	jr.Status = result.Status
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
@@ -120,23 +128,27 @@ func (jr JobRun) MarkCompleted() JobRun {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                   string    `json:"id" storm:"id,unique"`
+	ID                   string    `json:"id" gorm:"primary_key;not null"`
+	JobRunID             string    `json:"-" gorm:"index"`
 	Result               RunResult `json:"result"`
+	ResultID             uint      `json:"-"`
 	Status               RunStatus `json:"status"`
-	Task                 TaskSpec  `json:"task"`
+	TaskSpec             TaskSpec  `json:"task"`
+	TaskSpecID           uint      `json:"-" gorm:"not null"`
 	MinimumConfirmations uint64    `json:"minimumConfirmations"`
+	CreatedAt            time.Time `json:"-" gorm:"index"`
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
 func (tr TaskRun) String() string {
-	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.Task.Type, tr.Status, tr.Result)
+	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.TaskSpec.Type, tr.Status, tr.Result)
 }
 
 // ForLogger formats the TaskRun info for a common formatting in the log.
 func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"type", tr.Task.Type,
-		"params", tr.Task.Params,
+		"type", tr.TaskSpec.Type,
+		"params", tr.TaskSpec.Params,
 		"taskrun", tr.ID,
 		"status", tr.Status,
 	}
@@ -172,11 +184,13 @@ func (tr TaskRun) MarkPendingConfirmations() TaskRun {
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
 // Data and ErrorMessage, and contains a field to track the status.
 type RunResult struct {
-	JobRunID     string       `json:"jobRunId"`
-	Data         JSON         `json:"data"`
-	Status       RunStatus    `json:"status"`
-	ErrorMessage null.String  `json:"error"`
-	Amount       *assets.Link `json:"amount,omitempty"`
+	ID              uint         `json:"-" gorm:"primary_key;auto_increment"`
+	CachedJobRunID  string       `json:"jobRunId"`
+	CachedTaskRunID string       `json:"taskRunId"`
+	Data            JSON         `json:"data" gorm:"type:text"`
+	Status          RunStatus    `json:"status"`
+	ErrorMessage    null.String  `json:"error"`
+	Amount          *assets.Link `json:"amount,omitempty" gorm:"type:varchar(255)"`
 }
 
 // WithValue returns a copy of the RunResult, overriding the "value" field of
@@ -286,8 +300,8 @@ func (rr RunResult) Merge(in RunResult) (RunResult, error) {
 		return in, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
 	}
 	in.Data = merged
-	if len(in.JobRunID) == 0 {
-		in.JobRunID = rr.JobRunID
+	if len(in.CachedJobRunID) == 0 {
+		in.CachedJobRunID = rr.CachedJobRunID
 	}
 	if in.Status.Errored() || rr.Status.Errored() {
 		in.Status = RunStatusErrored

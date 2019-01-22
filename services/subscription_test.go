@@ -73,7 +73,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	job, initr := cltest.NewJobWithLogInitiator()
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	eth.Register("eth_getLogs", []strpkg.Log{log})
 	eth.RegisterSubscription("logs")
@@ -100,7 +101,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	job, initr := cltest.NewJobWithLogInitiator()
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
 	eth.RegisterSubscription("logs")
 
 	var count int32
@@ -121,7 +123,9 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	job, initr := cltest.NewJobWithLogInitiator()
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	eth.Register("eth_getLogs", []strpkg.Log{log}) // backfill
 	logsChan := make(chan strpkg.Log)
@@ -296,7 +300,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		subscriber func(models.Initiator, models.JobSpec,
 			*models.IndexableBlockNumber, *strpkg.Store) (
 			services.Unsubscriber, error)
-		jobConstructor func() (models.JobSpec, models.Initiator)
+		jobConstructor func() models.JobSpec
 	}{
 		{cltest.NewRunLog, services.StartRunLogSubscription, cltest.NewJobWithRunLogInitiator},
 		{cltest.NewServiceAgreementExecutionLog, services.StartSALogSubscription, cltest.NewJobWithSALogInitiator},
@@ -318,7 +322,8 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				})
 				assert.NoError(t, app.Start())
 
-				js, initr := logFuncs.jobConstructor()
+				js := logFuncs.jobConstructor()
+				initr := js.Initiators[0]
 				initr.Requesters = []common.Address{requester}
 				_, err := logFuncs.subscriber(initr, js, nil, app.Store)
 				assert.NoError(t, err)

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -26,7 +28,7 @@ func TestNewRun(t *testing.T) {
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.SaveBridgeType(&bt))
+	assert.Nil(t, store.CreateBridgeType(&bt))
 
 	creationHeight := cltest.BigHexInt(1000)
 
@@ -54,7 +56,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 
 	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.SaveBridgeType(&bt))
+	assert.Nil(t, store.CreateBridgeType(&bt))
 
 	tests := []struct {
 		name           string
@@ -116,10 +118,15 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store.Config.Set("MIN_INCOMING_CONFIRMATIONS", test.configConfirmations)
 
-			jobSpec, initiator := cltest.NewJobWithLogInitiator()
+			jobSpec := cltest.NewJobWithLogInitiator()
 			jobSpec.Tasks[0].Confirmations = test.taskConfirmations
 
-			run, err := services.NewRun(jobSpec, initiator, inputResult, &creationHeight, store)
+			run, err := services.NewRun(
+				jobSpec,
+				jobSpec.Initiators[0],
+				inputResult,
+				&creationHeight,
+				store)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -151,12 +158,12 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			job, initr := cltest.NewJobWithWebInitiator()
+			job := cltest.NewJobWithWebInitiator()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(&job))
 
-			_, err := services.NewRun(job, initr, models.RunResult{}, nil, store)
+			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
 			if test.errored {
 				assert.Error(t, err)
 			} else {
@@ -198,7 +205,7 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
-	assert.Equal(t, run.ID, run.TaskRuns[0].Result.JobRunID)
+	assert.Equal(t, run.ID, run.TaskRuns[0].Result.CachedJobRunID)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
 
 	// completed input with no remaining tasks should get marked as complete
@@ -210,7 +217,7 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
-	assert.Equal(t, run.ID, run.TaskRuns[0].Result.JobRunID)
+	assert.Equal(t, run.ID, run.TaskRuns[0].Result.CachedJobRunID)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
 }
 
@@ -229,24 +236,32 @@ func TestResumeConfirmingTask(t *testing.T) {
 	assert.Error(t, err)
 
 	// leave in pending if not enough confirmations have been met yet
-	creationHeight := cltest.BigHexInt(0)
+	creationHeight := models.NewBig(big.NewInt(0))
 	run = &models.JobRun{
 		ID:             utils.NewBytes32ID(),
-		CreationHeight: &creationHeight,
+		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
-		TaskRuns:       []models.TaskRun{models.TaskRun{MinimumConfirmations: 2, Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
+		TaskRuns: []models.TaskRun{models.TaskRun{
+			ID:                   utils.NewBytes32ID(),
+			MinimumConfirmations: 2,
+			TaskSpec:             models.TaskSpec{Type: adapters.TaskTypeNoOp},
+		}},
 	}
-	run, err = services.ResumeConfirmingTask(run, store, &creationHeight)
+	hexb := hexutil.Big(*creationHeight.ToInt())
+	run, err = services.ResumeConfirmingTask(run, store, &hexb)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
 
 	// input, should go from pending -> in progress and save the input
-	creationHeight = cltest.BigHexInt(0)
 	run = &models.JobRun{
 		ID:             utils.NewBytes32ID(),
-		CreationHeight: &creationHeight,
+		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
-		TaskRuns:       []models.TaskRun{models.TaskRun{MinimumConfirmations: 1, Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
+		TaskRuns: []models.TaskRun{models.TaskRun{
+			ID:                   utils.NewBytes32ID(),
+			MinimumConfirmations: 1,
+			TaskSpec:             models.TaskSpec{Type: adapters.TaskTypeNoOp},
+		}},
 	}
 	observedHeight := cltest.BigHexInt(1)
 	run, err = services.ResumeConfirmingTask(run, store, &observedHeight)
@@ -268,11 +283,15 @@ func TestResumeConnectingTask(t *testing.T) {
 	run, err = services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
+	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp}
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
-		ID:       utils.NewBytes32ID(),
-		Status:   models.RunStatusPendingConnection,
-		TaskRuns: []models.TaskRun{models.TaskRun{Task: models.TaskSpec{Type: adapters.TaskTypeNoOp}}},
+		ID:     utils.NewBytes32ID(),
+		Status: models.RunStatusPendingConnection,
+		TaskRuns: []models.TaskRun{models.TaskRun{
+			ID:       utils.NewBytes32ID(),
+			TaskSpec: taskSpec,
+		}},
 	}
 	run, err = services.ResumeConnectingTask(run, store)
 	assert.NoError(t, err)
@@ -302,9 +321,12 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	// reject a run that is sleeping but its task is not
 	run = &models.JobRun{
-		ID:       utils.NewBytes32ID(),
-		Status:   models.RunStatusPendingSleep,
-		TaskRuns: []models.TaskRun{models.TaskRun{Task: models.TaskSpec{Type: adapters.TaskTypeSleep}}},
+		ID:     utils.NewBytes32ID(),
+		Status: models.RunStatusPendingSleep,
+		TaskRuns: []models.TaskRun{models.TaskRun{
+			ID:       utils.NewBytes32ID(),
+			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep},
+		}},
 	}
 	run, err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
@@ -316,8 +338,9 @@ func TestQueueSleepingTask(t *testing.T) {
 		Status: models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
+				ID:     utils.NewBytes32ID(),
 				Status: models.RunStatusPendingSleep,
-				Task: models.TaskSpec{
+				TaskSpec: models.TaskSpec{
 					Type:   adapters.TaskTypeSleep,
 					Params: inputFromTheFuture,
 				},
@@ -331,9 +354,13 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	// mark run as pending, task as completed if duration has already elapsed
 	run = &models.JobRun{
-		ID:       utils.NewBytes32ID(),
-		Status:   models.RunStatusPendingSleep,
-		TaskRuns: []models.TaskRun{models.TaskRun{Status: models.RunStatusPendingSleep, Task: models.TaskSpec{Type: adapters.TaskTypeSleep}}},
+		ID:     utils.NewBytes32ID(),
+		Status: models.RunStatusPendingSleep,
+		TaskRuns: []models.TaskRun{models.TaskRun{
+			ID:       utils.NewBytes32ID(),
+			Status:   models.RunStatusPendingSleep,
+			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep},
+		}},
 	}
 	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
@@ -355,8 +382,9 @@ func TestQueueSleepingTask(t *testing.T) {
 		Status: models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
+				ID:     utils.NewBytes32ID(),
 				Status: models.RunStatusPendingSleep,
-				Task: models.TaskSpec{
+				TaskSpec: models.TaskSpec{
 					Type:   adapters.TaskTypeSleep,
 					Params: inputFromTheFuture,
 				},

@@ -163,7 +163,7 @@ func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
 		return models.NewValidationError(err.Error())
 	}
 
-	if err := store.SaveBridgeType(bt); err != nil {
+	if err := store.CreateBridgeType(bt); err != nil {
 		return models.NewDatabaseAccessError(err.Error())
 	}
 
@@ -177,7 +177,7 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 	app.bridgeTypeMutex.Lock()
 	defer app.bridgeTypeMutex.Unlock()
 
-	if err := store.DeleteStruct(bt); err != nil {
+	if err := store.DeleteBridgeType(bt.Name); err != nil {
 		return models.NewDatabaseAccessError(err.Error())
 	}
 

@@ -107,15 +107,12 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		})
 	}
 	initiators = appendCronInitiator(initiators, s)
-
 	j := JobSpec{
-		ID:        utils.NewBytes32ID(),
-		CreatedAt: Time{Time: time.Now()},
-		JobSpecRequest: JobSpecRequest{
-			Tasks:      tasks,
-			EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
-			Initiators: initiators,
-		},
+		ID:         utils.NewBytes32ID(),
+		CreatedAt:  Time{Time: time.Now()},
+		Tasks:      tasks,
+		EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
+		Initiators: initiators,
 	}
 	if j.EndAt.Time.IsZero() {
 		j.EndAt.Valid = false
@@ -202,9 +199,7 @@ func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
 	var merr error
 
 	a, err := buildAssignment(j.Tasks)
-	if err != nil {
-		multierr.Append(merr, err)
-	}
+	merr = multierr.Append(merr, err)
 
 	s := buildScheduleFromJobSpec(j)
 
@@ -220,7 +215,7 @@ func ConvertToAssignment(j JobSpec) (AssignmentSpec, error) {
 func ConvertToSnapshot(rr RunResult) Snapshot {
 	return Snapshot{
 		Details: rr.Data,
-		ID:      rr.JobRunID,
+		ID:      rr.CachedJobRunID,
 		Error:   rr.ErrorMessage,
 		Pending: rr.Status.PendingBridge(),
 	}

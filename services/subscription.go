@@ -223,7 +223,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 		initr.Type,
 		presenters.FriendlyBigInt(blockNumber),
 		presenters.LogListeningAddress(initr.Address),
-		initr.JobID)
+		initr.JobSpecID)
 	logger.Infow(msg)
 }
 
@@ -274,8 +274,8 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 
-	currentHead := le.ToIndexableBlockNumber().Number
-	_, err = ExecuteJob(le.Job, initr, input, &currentHead, le.store)
+	currentHead := le.ToIndexableBlockNumber().Number.ToHexUtilBig()
+	_, err = ExecuteJob(le.Job, initr, input, currentHead, le.store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
@@ -517,7 +517,7 @@ func jobIDFromImproperEncodedTopic(log strpkg.Log) string {
 // unblocking the application. This is an effort to mitigate the occasional
 // indefinite block described here from go-ethereum:
 // https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(subscription models.EthSubscription) {
+func timedUnsubscribe(subscription Unsubscriber) {
 	unsubscribed := make(chan struct{})
 	go func() {
 		subscription.Unsubscribe()

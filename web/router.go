@@ -180,9 +180,6 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 			authv2.POST("/keys", kc.Create)
 		}
 
-		backup := BackupController{app}
-		authv2.GET("/backup", backup.Show)
-
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 

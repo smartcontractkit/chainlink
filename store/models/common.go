@@ -1,16 +1,19 @@
 package models
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/store/assets"
 
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
@@ -96,10 +99,47 @@ func (s RunStatus) CanStart() bool {
 	return s.Pending() || s.Unstarted()
 }
 
+// Value returns this instance serialized for database storage.
+func (s RunStatus) Value() (driver.Value, error) {
+	return string(s), nil
+}
+
+// Scan reads the database value and returns an instance.
+func (s *RunStatus) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
+	}
+
+	*s = RunStatus(temp)
+	return nil
+}
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
+}
+
+// Value returns this instance serialized for database storage.
+func (j JSON) Value() (driver.Value, error) {
+	s := j.String()
+	if len(s) == 0 {
+		return "{}", nil
+	}
+	return s, nil
+}
+
+// Scan reads the database value and returns an instance.
+func (j *JSON) Scan(value interface{}) error {
+	bytes, ok := value.([]uint8)
+	temp := string(bytes)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+	}
+
+	*j = JSON{Result: gjson.Parse(temp)}
+	return nil
 }
 
 // ParseJSON attempts to coerce the input byte array into valid JSON
@@ -191,7 +231,7 @@ func (j JSON) CBOR() ([]byte, error) {
 	var b []byte
 	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
 
-	switch v := j.Value().(type) {
+	switch v := j.Result.Value().(type) {
 	case map[string]interface{}, []interface{}, nil:
 		return b, cbor.Encode(v)
 	default:
@@ -229,9 +269,54 @@ func (w WebURL) String() string {
 	return url.String()
 }
 
+// Value returns this instance serialized for database storage.
+func (w WebURL) Value() (driver.Value, error) {
+	return w.String(), nil
+}
+
+// Scan reads the database value and returns an instance.
+func (w *WebURL) Scan(value interface{}) error {
+	var s string
+	switch temp := value.(type) {
+	case []uint8:
+		s = string(temp)
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
+	}
+
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		return err
+	}
+	*w = WebURL(*u)
+	return nil
+}
+
 // Time holds a common field for time.
 type Time struct {
 	time.Time
+}
+
+// Value returns this instance serialized for database storage.
+func (t Time) Value() (driver.Value, error) {
+	return t.Time, nil
+}
+
+// Scan reads the database value and returns an instance.
+func (t *Time) Scan(value interface{}) error {
+	var s string
+	switch temp := value.(type) {
+	case []uint8:
+		s = string(temp)
+		newTime, err := dateparse.ParseAny(s)
+		*t = Time{Time: newTime}
+		return err
+	case time.Time:
+		*t = Time{Time: temp}
+		return nil
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+	}
 }
 
 // UnmarshalJSON parses the raw time stored in JSON-encoded
@@ -311,42 +396,136 @@ type CreateKeyRequest struct {
 	NewAccountPassword string `json:"new_account_password"`
 }
 
-// Int stores large integers and can deserialize a variety of inputs.
-type Int big.Int
+// Big stores large integers and can deserialize a variety of inputs.
+type Big big.Int
 
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (i *Int) UnmarshalText(input []byte) error {
-	input = utils.RemoveQuotes(input)
-	str := string(input)
-	var ok bool
-	if utils.HasHexPrefix(str) {
-		i, ok = i.setString(utils.RemoveHexPrefix(str), 16)
-	} else {
-		i, ok = i.setString(str, 10)
-	}
-
-	if !ok {
-		return fmt.Errorf("could not unmarshal %s to Int", str)
+// NewBig constructs a Big from *big.Int.
+func NewBig(i *big.Int) *Big {
+	if i != nil {
+		b := Big(*i)
+		return &b
 	}
 	return nil
 }
 
+// MarshalText marshals this instance to base 10 number as string.
+func (b *Big) MarshalText() ([]byte, error) {
+	return []byte((*big.Int)(b).Text(10)), nil
+}
+
+// MarshalJSON marshals this instance to base 10 number as string.
+func (b *Big) MarshalJSON() ([]byte, error) {
+	return b.MarshalText()
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (b *Big) UnmarshalText(input []byte) error {
+	input = utils.RemoveQuotes(input)
+	str := string(input)
+	if utils.HasHexPrefix(str) {
+		decoded, err := hexutil.DecodeBig(str)
+		if err != nil {
+			return err
+		}
+		*b = Big(*decoded)
+		return nil
+	}
+
+	_, ok := b.setString(str, 10)
+	if !ok {
+		return fmt.Errorf("Unable to convert %s to Big", str)
+	}
+	return nil
+}
+
+func (b *Big) setString(s string, base int) (*Big, bool) {
+	w, ok := (*big.Int)(b).SetString(s, base)
+	return (*Big)(w), ok
+}
+
 // UnmarshalJSON implements encoding.JSONUnmarshaler.
-func (i *Int) UnmarshalJSON(input []byte) error {
-	return i.UnmarshalText(input)
+func (b *Big) UnmarshalJSON(input []byte) error {
+	return b.UnmarshalText(input)
 }
 
-// MarshalJSON implements encoding.JSONMarshaler.
-func (i *Int) MarshalJSON() ([]byte, error) {
-	return json.Marshal((*big.Int)(i))
+// Value returns this instance serialized for database storage.
+func (b Big) Value() (driver.Value, error) {
+	return b.String(), nil
 }
 
-// ToBig converts *Int to *big.Int.
-func (i *Int) ToBig() *big.Int {
-	return (*big.Int)(i)
+// Scan reads the database value and returns an instance.
+func (b *Big) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Big", value, value)
+	}
+
+	decoded, ok := b.setString(string(temp), 10)
+	if !ok {
+		return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
+	}
+	*b = Big(*decoded)
+	return nil
 }
 
-func (i *Int) setString(s string, base int) (*Int, bool) {
-	w, ok := (*big.Int)(i).SetString(s, base)
-	return (*Int)(w), ok
+// ToInt converts b to a big.Int.
+func (b *Big) ToInt() *big.Int {
+	return (*big.Int)(b)
+}
+
+// ToHexUtilBig returns this as a go-ethereum *hexutil.Big.
+func (b *Big) ToHexUtilBig() *hexutil.Big {
+	h := hexutil.Big(*b)
+	return &h
+}
+
+// String returns the base 10 encoding of b.
+func (b *Big) String() string {
+	return b.ToInt().Text(10)
+}
+
+// Hex returns the hex encoding of b.
+func (b *Big) Hex() string {
+	return hexutil.EncodeBig(b.ToInt())
+}
+
+// AddressCollection is an array of common.Address
+// serializable to and from a database.
+type AddressCollection []common.Address
+
+// ToStrings returns this address collection as an array of strings.
+func (r AddressCollection) ToStrings() []string {
+	// Unable to convert copy-free without unsafe:
+	// https://stackoverflow.com/a/48554123/639773
+	converted := make([]string, len(r))
+	for i, e := range r {
+		converted[i] = e.Hex()
+	}
+	return converted
+}
+
+// Value returns the string value to be written to the database.
+func (r AddressCollection) Value() (driver.Value, error) {
+	return strings.Join(r.ToStrings(), ","), nil
+}
+
+// Scan parses the database value as a string.
+func (r *AddressCollection) Scan(value interface{}) error {
+	temp, ok := value.([]uint8)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
+	}
+
+	str := string(temp)
+	if len(str) == 0 {
+		return nil
+	}
+
+	arr := strings.Split(str, ",")
+	collection := make(AddressCollection, len(arr))
+	for i, a := range arr {
+		collection[i] = common.HexToAddress(a)
+	}
+	*r = collection
+	return nil
 }

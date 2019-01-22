@@ -129,13 +129,13 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 }
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
-	j1, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
 	j1.CreatedAt = models.Time{Time: time.Now().AddDate(0, 0, -1)}
 	err := app.Store.SaveJob(&j1)
 	if err != nil {
 		return nil, err
 	}
-	j2, _ := cltest.NewJobWithWebInitiator()
+	j2 := cltest.NewJobWithWebInitiator()
 	j2.Initiators[0].Ran = true
 	err = app.Store.SaveJob(&j2)
 	return &j1, err
@@ -143,7 +143,7 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 
 func createJobs(app *cltest.TestApplication, n int) (jobs []*models.JobSpec) {
 	for i := 0; i < n; i++ {
-		j, _ := cltest.NewJobWithWebInitiator()
+		j := cltest.NewJobWithWebInitiator()
 		err := app.Store.SaveJob(&j)
 		if err != nil {
 			panic(fmt.Sprintf("Could not save job: %v", err))
@@ -154,7 +154,7 @@ func createJobs(app *cltest.TestApplication, n int) (jobs []*models.JobSpec) {
 	return jobs
 }
 
-func TestJobSpecsController_Create(t *testing.T) {
+func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication()
@@ -165,6 +165,7 @@ func TestJobSpecsController_Create(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
+	// Check Response
 	var j models.JobSpec
 	err := cltest.ParseJSONAPIResponse(resp, &j)
 	require.NoError(t, err)
@@ -185,6 +186,17 @@ func TestJobSpecsController_Create(t *testing.T) {
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
 	assert.NotEqual(t, models.Time{}, j.CreatedAt)
+
+	// Check ORM
+	orm := app.GetStore().ORM
+	j, err = orm.FindJob(j.ID)
+	assert.NoError(t, err)
+	assert.Len(t, j.Initiators, 1)
+	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
+
+	adapter1, _ = adapters.For(j.Tasks[0], app.Store)
+	httpGet = adapter1.BaseAdapter.(*adapters.HTTPGet)
+	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 }
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
@@ -330,8 +342,9 @@ func TestJobSpecsController_Show(t *testing.T) {
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
-	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
+	initr := j.Initiators[0]
 
 	jr1 := j.NewRun(initr)
 	jr1.ID = "2"

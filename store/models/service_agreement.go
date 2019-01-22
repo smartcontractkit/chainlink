@@ -26,13 +26,14 @@ type UnsignedServiceAgreement struct {
 
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
-	CreatedAt   Time        `json:"createdAt" storm:"index"`
-	Encumbrance Encumbrance `json:"encumbrance" storm:"inline"`
-	ID          string      `json:"id" storm:"id,unique"`
-	JobSpecID   string      `json:"jobSpecID"`
-	RequestBody string      `json:"requestBody"`
-	Signature   Signature   `json:"signature"`
-	JobSpec     JobSpec     // JobSpec is used during the initial SA creation.
+	ID            string      `json:"id" gorm:"primary_key"`
+	CreatedAt     Time        `json:"createdAt" gorm:"index"`
+	Encumbrance   Encumbrance `json:"encumbrance"`
+	EncumbranceID uint        `json:"-"`
+	RequestBody   string      `json:"requestBody"`
+	Signature     Signature   `json:"signature"`
+	JobSpec       JobSpec     // JobSpec is used during the initial SA creation.
+	JobSpecID     string      `json:"jobSpecID" gorm:"index"`
 	// If needed later, it can be retrieved from the database with JobSpecID.
 }
 
@@ -150,10 +151,11 @@ func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) 
 
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
-	Payment    *assets.Link   `json:"payment"`
-	Expiration uint64         `json:"expiration"`
-	EndAt      Time           `json:"endAt"`
-	Oracles    []EIP55Address `json:"oracles"`
+	ID         uint                   `json:"-" gorm:"primary_key;auto_increment"`
+	Payment    *assets.Link           `json:"payment" gorm:"type:varchar(255)"`
+	Expiration uint64                 `json:"expiration"`
+	EndAt      Time                   `json:"endAt"`
+	Oracles    EIP55AddressCollection `json:"oracles" gorm:"type:text"`
 }
 
 // ABI packs the encumberance as a byte array using the same technique as

@@ -16,8 +16,9 @@ func TestJobSpec_Save(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1, initr := cltest.NewJobWithSchedule("* * * * 7")
+	j1 := cltest.NewJobWithSchedule("* * * * 7")
 	assert.NoError(t, store.SaveJob(&j1))
+	initr := j1.Initiators[0]
 
 	j2, err := store.FindJob(j1.ID)
 	assert.NoError(t, err)
@@ -29,19 +30,20 @@ func TestJobSpec_NewRun(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, initr := cltest.NewJobWithSchedule("1 * * * *")
+	job := cltest.NewJobWithSchedule("1 * * * *")
+	initr := job.Initiators[0]
 	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp", `{"a":1}`)}
 
 	run := job.NewRun(initr)
 
-	assert.Equal(t, job.ID, run.JobID)
+	assert.Equal(t, job.ID, run.JobSpecID)
 	assert.Equal(t, 1, len(run.TaskRuns))
 
 	taskRun := run.TaskRuns[0]
-	assert.Equal(t, "noop", taskRun.Task.Type.String())
-	adapter, _ := adapters.For(taskRun.Task, store)
+	assert.Equal(t, "noop", taskRun.TaskSpec.Type.String())
+	adapter, _ := adapters.For(taskRun.TaskSpec, store)
 	assert.NotNil(t, adapter)
-	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.Task.Params.String())
+	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 
 	assert.Equal(t, initr, run.Initiator)
 }

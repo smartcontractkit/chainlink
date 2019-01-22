@@ -48,66 +48,73 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 }
 
 // NewJobWithSchedule create new job with the given schedule
-func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
+func NewJobWithSchedule(sched string) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorCron,
+		JobSpecID: j.ID,
+		Type:      models.InitiatorCron,
 		InitiatorParams: models.InitiatorParams{
 			Schedule: models.Cron(sched),
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithWebInitiator create new Job with web inititaor
-func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
+func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
-	j.Initiators = []models.Initiator{{Type: models.InitiatorWeb}}
-	return j, j.Initiators[0]
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorWeb,
+	}}
+	return j
 }
 
 // NewJobWithLogInitiator create new Job with ethlog inititaor
-func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
+func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorEthLog,
+		JobSpecID: j.ID,
+		Type:      models.InitiatorEthLog,
 		InitiatorParams: models.InitiatorParams{
 			Address: NewAddress(),
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithRunLogInitiator creates a new JobSpec with the RunLog initiator
-func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
+func NewJobWithRunLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorRunLog,
+		JobSpecID: j.ID,
+		Type:      models.InitiatorRunLog,
 		InitiatorParams: models.InitiatorParams{
 			Address: NewAddress(),
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithSALogInitiator creates new JobSpec with the ServiceAgreement
 // initiator
-func NewJobWithSALogInitiator() (models.JobSpec, models.Initiator) {
-	j, initiators := NewJobWithRunLogInitiator()
+func NewJobWithSALogInitiator() models.JobSpec {
+	j := NewJobWithRunLogInitiator()
 	j.Initiators[0].Type = models.InitiatorServiceAgreementExecutionLog
-	return j, initiators
+	return j
 }
 
 // NewJobWithRunAtInitiator create new Job with RunAt inititaor
-func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
+func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		Type: models.InitiatorRunAt,
+		JobSpecID: j.ID,
+		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
 			Time: models.Time{Time: t},
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewTx create a tx given from address and sentat
@@ -116,7 +123,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
-		Value:    big.NewInt(0),
+		Value:    models.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
 	}
 }
@@ -339,17 +346,17 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
-func Int(val interface{}) *models.Int {
+func Int(val interface{}) *models.Big {
 	switch x := val.(type) {
 	case int:
-		return (*models.Int)(big.NewInt(int64(x)))
+		return (*models.Big)(big.NewInt(int64(x)))
 	case uint64:
-		return (*models.Int)(big.NewInt(int64(x)))
+		return (*models.Big)(big.NewInt(int64(x)))
 	case int64:
-		return (*models.Int)(big.NewInt(x))
+		return (*models.Big)(big.NewInt(x))
 	default:
-		logger.Panicf("Could not convert %v of type %T to models.Int", val, val)
-		return &models.Int{}
+		logger.Panicf("Could not convert %v of type %T to models.Big", val, val)
+		return &models.Big{}
 	}
 }
 

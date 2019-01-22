@@ -43,7 +43,6 @@ type ConfigSchema struct {
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`
 	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
 	Dev                      bool           `env:"CHAINLINK_DEV" default:"false"`
 	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration   time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
@@ -137,11 +136,6 @@ func (c Config) ChainID() uint64 {
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(c.envVarName("ClientNodeURL"))
-}
-
-// DatabaseTimeout represents how long to tolerate non response from the DB.
-func (c Config) DatabaseTimeout() time.Duration {
-	return c.viper.GetDuration(c.envVarName("DatabaseTimeout"))
 }
 
 // Dev configures "development" mode for chainlink.

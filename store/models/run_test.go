@@ -20,8 +20,8 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, initr := cltest.NewJobWithWebInitiator()
-	jr := job.NewRun(initr)
+	job := cltest.NewJobWithWebInitiator()
+	jr := job.NewRun(job.Initiators[0])
 	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
 	err := store.SaveJobRun(&jr)
 	assert.NoError(t, err)
@@ -30,6 +30,28 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, run.Result.HasError())
 	assert.Equal(t, "bad idea", run.Result.Error())
+}
+
+func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	err := store.SaveJob(&job)
+	initr := job.Initiators[0]
+	assert.NoError(t, err)
+
+	jr := job.NewRun(initr)
+	data := `{"value":"11850.00"}`
+	jr.Result = cltest.RunResultWithData(data)
+	err = store.SaveJobRun(&jr)
+	assert.NoError(t, err)
+
+	run, err := store.FindJobRun(jr.ID)
+	assert.NoError(t, err)
+	assert.False(t, run.Result.HasError())
+	assert.JSONEq(t, data, run.Result.Data.String())
 }
 
 func TestJobRun_NextTaskRun(t *testing.T) {
@@ -41,14 +63,14 @@ func TestJobRun_NextTaskRun(t *testing.T) {
 	defer cleanup()
 	jobRunner.Start()
 
-	job, initiator := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{
 		{Type: adapters.TaskTypeNoOp},
 		{Type: adapters.TaskTypeNoOpPend},
 		{Type: adapters.TaskTypeNoOp},
 	}
 	assert.NoError(t, store.SaveJob(&job))
-	run := job.NewRun(initiator)
+	run := job.NewRun(job.Initiators[0])
 	assert.NoError(t, store.SaveJobRun(&run))
 	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
 
@@ -188,33 +210,33 @@ func TestRunResult_Merge(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			original := models.RunResult{
-				Data:         models.JSON{Result: gjson.Parse(test.originalData)},
-				ErrorMessage: test.originalError,
-				JobRunID:     test.originalJRID,
-				Status:       test.originalStatus,
+				Data:           models.JSON{Result: gjson.Parse(test.originalData)},
+				ErrorMessage:   test.originalError,
+				CachedJobRunID: test.originalJRID,
+				Status:         test.originalStatus,
 			}
 			in := models.RunResult{
-				Data:         cltest.JSONFromString(test.inData),
-				ErrorMessage: test.inError,
-				JobRunID:     test.inJRID,
-				Status:       test.inStatus,
+				Data:           cltest.JSONFromString(test.inData),
+				ErrorMessage:   test.inError,
+				CachedJobRunID: test.inJRID,
+				Status:         test.inStatus,
 			}
 			merged, err := original.Merge(in)
 			assert.Equal(t, test.wantErrored, err != nil)
 
 			assert.JSONEq(t, test.originalData, original.Data.String())
 			assert.Equal(t, test.originalError, original.ErrorMessage)
-			assert.Equal(t, test.originalJRID, original.JobRunID)
+			assert.Equal(t, test.originalJRID, original.CachedJobRunID)
 			assert.Equal(t, test.originalStatus, original.Status)
 
 			assert.JSONEq(t, test.inData, in.Data.String())
 			assert.Equal(t, test.inError, in.ErrorMessage)
-			assert.Equal(t, test.inJRID, in.JobRunID)
+			assert.Equal(t, test.inJRID, in.CachedJobRunID)
 			assert.Equal(t, test.inStatus, in.Status)
 
 			assert.JSONEq(t, test.wantData, merged.Data.String())
 			assert.Equal(t, test.wantErrorMessage, merged.ErrorMessage)
-			assert.Equal(t, test.wantJRID, merged.JobRunID)
+			assert.Equal(t, test.wantJRID, merged.CachedJobRunID)
 			assert.Equal(t, test.wantStatus, merged.Status)
 		})
 	}

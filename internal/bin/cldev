@@ -41,45 +41,8 @@ case "$1" in
     mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
     ;;
   clean)
-    rm -f $ROOT/db.bolt $ROOT/log.jsonl
+    rm -f $ROOT/db.sqlite3 $ROOT/log.jsonl
     rm -f tmp/cldevbuild
-    ;;
-  migration)
-    timestamp=$(date +%s)
-    pkg="store/migrations/migration${timestamp}"
-    echo Creating migration package $pkg
-    mkdir -p $pkg
-    mkdir -p $pkg/old
-    echo package migration${timestamp}_test > $pkg/migrate_test.go
-    cat > $pkg/migrate.go <<-EOF
-package migration$timestamp
-
-import "github.com/smartcontractkit/chainlink/store/orm"
-
-type Migration struct{}
-
-func (m Migration) Timestamp() string {
-    return "$timestamp"
-}
-
-func (m Migration) Migrate(orm *orm.ORM) error {
-    return nil
-}
-EOF
-    cat > $pkg/migrate_test.go <<-EOF
-package migration${timestamp}_test
-
-import (
-  "testing"
-
-  "github.com/stretchr/testify/assert"
-)
-
-func TestMigrate${timestamp}(t *testing.T) {
-    assert.Equal(t, 1, 2)
-}
-EOF
-    echo package old > $pkg/old/types.go
     ;;
   *)
     mainexec $@

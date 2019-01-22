@@ -147,7 +147,6 @@ type whitelist struct {
 	ChainID                  uint64          `json:"ethChainId"`
 	Dev                      bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
-	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
@@ -185,7 +184,6 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ChainID:                  config.ChainID(),
 			Dev:                      config.Dev(),
 			ClientNodeURL:            config.ClientNodeURL(),
-			DatabaseTimeout:          config.DatabaseTimeout(),
 			EthereumURL:              config.EthereumURL(),
 			EthGasBumpThreshold:      config.EthGasBumpThreshold(),
 			EthGasBumpWei:            config.EthGasBumpWei(),

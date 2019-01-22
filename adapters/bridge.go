@@ -50,7 +50,7 @@ func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.UR
 
 	responseURL := bridgeResponseURL
 	if *responseURL != *zeroURL {
-		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID)
+		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.CachedJobRunID)
 	}
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
@@ -122,7 +122,7 @@ func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 		Data        models.JSON `json:"data"`
 		ResponseURL string      `json:"responseURL,omitempty"`
 	}{
-		JobRunID:    bp.JobRunID,
+		JobRunID:    bp.CachedJobRunID,
 		Data:        bp.Data,
 		ResponseURL: bp.ResponseURL.String(),
 	}
