@@ -43,7 +43,7 @@ func initializeDatabase(path string) (*gorm.DB, error) {
 	return db, nil
 }
 
-func multifyWithoutRecordNotFound(db *gorm.DB) error {
+func ignoreRecordNotFound(db *gorm.DB) error {
 	var merr error
 	for _, e := range db.GetErrors() {
 		if e != gorm.ErrRecordNotFound {
@@ -222,7 +222,7 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	var taskSpec models.TaskSpec
 	rval := db.Where("type = ?", taskTypeName).First(&taskSpec)
 	found := !rval.RecordNotFound()
-	return found, multifyWithoutRecordNotFound(rval)
+	return found, ignoreRecordNotFound(rval)
 }
 
 // CreateTx saves the properties of an Ethereum transaction to the database.
@@ -307,8 +307,7 @@ func (orm *ORM) AddTxAttempt(
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	var transaction models.Tx
 	rval := orm.DB.Order("nonce desc").Where("\"from\" = ?", address).First(&transaction)
-	err := multifyWithoutRecordNotFound(rval)
-	return transaction.Nonce, err
+	return transaction.Nonce, ignoreRecordNotFound(rval)
 }
 
 // MarkRan will set Ran to true for a given initiator
@@ -536,10 +535,12 @@ func (orm *ORM) JobRunsSorted(order SortType, offset int, limit int) ([]models.J
 	}
 
 	var runs []models.JobRun
-	rval := orm.preloadJobRuns().
+	err = orm.preloadJobRuns().
 		Order(fmt.Sprintf("created_at %s", order.String())).
-		Limit(limit).Offset(offset).Find(&runs)
-	return runs, count, multifyWithoutRecordNotFound(rval)
+		Limit(limit).
+		Offset(offset).
+		Find(&runs).Error
+	return runs, count, err
 }
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
@@ -551,10 +552,12 @@ func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit in
 	}
 
 	var runs []models.JobRun
-	rval := orm.preloadJobRuns().
+	err = orm.preloadJobRuns().
 		Order(fmt.Sprintf("created_at %s", order.String())).
-		Limit(limit).Offset(offset).Find(&runs)
-	return runs, count, multifyWithoutRecordNotFound(rval)
+		Limit(limit).
+		Offset(offset).
+		Find(&runs).Error
+	return runs, count, err
 }
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
