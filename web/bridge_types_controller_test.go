@@ -204,7 +204,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	assert.NoError(t, app.AddAdapter(&bt))
 
-	js, _ := cltest.NewJobWithWebInitiator()
+	js := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
 	assert.NoError(t, app.Store.SaveJob(&js))
 

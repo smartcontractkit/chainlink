@@ -48,7 +48,7 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 }
 
 // NewJobWithSchedule create new job with the given schedule
-func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
+func NewJobWithSchedule(sched string) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
@@ -57,21 +57,21 @@ func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 			Schedule: models.Cron(sched),
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithWebInitiator create new Job with web inititaor
-func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
+func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
 		Type:      models.InitiatorWeb,
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithLogInitiator create new Job with ethlog inititaor
-func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
+func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
@@ -80,11 +80,11 @@ func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 			Address: NewAddress(),
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithRunLogInitiator creates a new JobSpec with the RunLog initiator
-func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
+func NewJobWithRunLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
@@ -93,19 +93,19 @@ func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
 			Address: NewAddress(),
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewJobWithSALogInitiator creates new JobSpec with the ServiceAgreement
 // initiator
-func NewJobWithSALogInitiator() (models.JobSpec, models.Initiator) {
-	j, initiators := NewJobWithRunLogInitiator()
+func NewJobWithSALogInitiator() models.JobSpec {
+	j := NewJobWithRunLogInitiator()
 	j.Initiators[0].Type = models.InitiatorServiceAgreementExecutionLog
-	return j, initiators
+	return j
 }
 
 // NewJobWithRunAtInitiator create new Job with RunAt inititaor
-func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
+func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
@@ -114,7 +114,7 @@ func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 			Time: models.Time{Time: t},
 		},
 	}}
-	return j, j.Initiators[0]
+	return j
 }
 
 // NewTx create a tx given from address and sentat

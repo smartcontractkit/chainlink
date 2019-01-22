@@ -167,28 +167,28 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 	}{
 		{
 			"runlog contains valid requester",
-			first(cltest.NewJobWithRunLogInitiator()),
+			cltest.NewJobWithRunLogInitiator(),
 			requester,
 			cltest.NewRunLog,
 			models.RunStatusCompleted,
 		},
 		{
 			"runlog has wrong requester",
-			first(cltest.NewJobWithRunLogInitiator()),
+			cltest.NewJobWithRunLogInitiator(),
 			cltest.NewAddress(),
 			cltest.NewRunLog,
 			models.RunStatusErrored,
 		},
 		{
 			"salog contains valid requester",
-			first(cltest.NewJobWithSALogInitiator()),
+			cltest.NewJobWithSALogInitiator(),
 			requester,
 			cltest.NewServiceAgreementExecutionLog,
 			models.RunStatusCompleted,
 		},
 		{
 			"salog has wrong requester",
-			first(cltest.NewJobWithSALogInitiator()),
+			cltest.NewJobWithSALogInitiator(),
 			cltest.NewAddress(),
 			cltest.NewServiceAgreementExecutionLog,
 			models.RunStatusErrored,
@@ -226,8 +226,4 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			}).Should(gomega.Equal(test.wantStatus))
 		})
 	}
-}
-
-func first(a models.JobSpec, b interface{}) models.JobSpec {
-	return a
 }
