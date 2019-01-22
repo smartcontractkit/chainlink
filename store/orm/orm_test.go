@@ -60,10 +60,10 @@ func TestORM_SaveJobRun(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, i := cltest.NewJobWithSchedule("* * * * *")
-	store.SaveJob(&job)
+	job, _ := cltest.NewJobWithSchedule("* * * * *")
+	require.NoError(t, store.SaveJob(&job))
 
-	jr1 := job.NewRun(i)
+	jr1 := job.NewRun(job.Initiators[0])
 	creationHeight := models.NewBig(big.NewInt(0))
 	jr1.CreationHeight = creationHeight
 
@@ -76,25 +76,6 @@ func TestORM_SaveJobRun(t *testing.T) {
 	assert.Equal(t, jr1.Initiator, jr2.Initiator)
 	assert.Equal(t, creationHeight.String(), jr2.CreationHeight.String())
 	assert.Equal(t, job.ID, jr2.Initiator.JobSpecID)
-}
-
-func TestORM_FindJob_OrderedInitiators(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	j, _ := cltest.NewJobWithLogInitiator()
-	j.Initiators[0].Order = 1
-	initr2 := models.Initiator{Type: models.InitiatorCron, Order: 0}
-	j.Initiators = append(j.Initiators, initr2)
-	require.NoError(t, store.SaveJob(&j))
-
-	retrievedJob, err := store.FindJob(j.ID)
-	require.NoError(t, err)
-
-	assert.Equal(t, retrievedJob.Initiators[0].Type, models.InitiatorCron)
-	assert.Equal(t, retrievedJob.Initiators[1].Type, models.InitiatorEthLog)
 }
 
 func TestORM_JobRunsFor(t *testing.T) {
