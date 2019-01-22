@@ -65,12 +65,6 @@ describe('containers/SignIn', () => {
       currentUrl: '/signin'
     })
     expect(newState.authentication.allowed).toEqual(false)
-    expect(newState.authentication.errors).toEqual([])
-  })
-
-  it('cannot submit an empty form', async () => {
-    const store = createStore()
-    const wrapper = mountSignIn(store)
-    expect(wrapper.find('form button').getDOMNode().disabled).toEqual(true)
+    expect(wrapper.text()).toContain('Your email or password is incorrect. Please try again')
   })
 })

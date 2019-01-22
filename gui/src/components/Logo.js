@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import pick from 'lodash/pick'
 import Image from './Image'
-import logo from '../images/chainlink-operator-logo.svg'
 import { withStyles } from '@material-ui/core/styles'
 
 const styles = theme => {
@@ -16,21 +16,16 @@ const styles = theme => {
   }
 }
 
-const Logo = ({ width, height }) => {
-  const size = { width, height }
-
-  return (
-    <Image
-      src={logo}
-      alt='Chainlink Operator'
-      {...size}
-    />
-  )
+const Logo = props => {
+  const imageProps = pick(props, ['src', 'width', 'height', 'alt'])
+  return <Image {...imageProps} />
 }
 
 Logo.propTypes = {
+  src: PropTypes.string.isRequired,
   width: PropTypes.number,
-  height: PropTypes.number
+  height: PropTypes.number,
+  alt: PropTypes.string
 }
 
 export default withStyles(styles)(Logo)
