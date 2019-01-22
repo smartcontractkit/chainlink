@@ -20,8 +20,8 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, initr := cltest.NewJobWithWebInitiator()
-	jr := job.NewRun(initr)
+	job := cltest.NewJobWithWebInitiator()
+	jr := job.NewRun(job.Initiators[0])
 	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
 	err := store.SaveJobRun(&jr)
 	assert.NoError(t, err)
@@ -37,8 +37,9 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, initr := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	err := store.SaveJob(&job)
+	initr := job.Initiators[0]
 	assert.NoError(t, err)
 
 	jr := job.NewRun(initr)
@@ -62,14 +63,14 @@ func TestJobRun_NextTaskRun(t *testing.T) {
 	defer cleanup()
 	jobRunner.Start()
 
-	job, initiator := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{
 		{Type: adapters.TaskTypeNoOp},
 		{Type: adapters.TaskTypeNoOpPend},
 		{Type: adapters.TaskTypeNoOp},
 	}
 	assert.NoError(t, store.SaveJob(&job))
-	run := job.NewRun(initiator)
+	run := job.NewRun(job.Initiators[0])
 	assert.NoError(t, store.SaveJobRun(&run))
 	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
 

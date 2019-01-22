@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDeleteJobRuns(t *testing.T) {
@@ -14,7 +15,9 @@ func TestDeleteJobRuns(t *testing.T) {
 	defer cleanup()
 
 	db := store.ORM.DB
-	job, initiator := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.ORM.SaveJob(&job))
+	initiator := job.Initiators[0]
 
 	// matches updated before but none of the statuses
 	oldIncompleteRun := job.NewRun(initiator)
