@@ -38,7 +38,7 @@ contract('ServiceAgreementConsumer', () => {
         let log = tx.receipt.logs[3]
         assert.equal(log.address, coord.address)
 
-        let [jId, requester, wei, _, ver, cborData] = h.decodeRunRequest(log) 
+        let [jId, requester, wei, _, ver, addr, func, exp, cborData] = h.decodeRunRequest(log)
         let params = await h.decodeDietCBOR(cborData)
         assert.equal(agreement.id, jId)
         assertBigNum(paymentAmount, wei,
