@@ -63,7 +63,7 @@ const bNToStringOrIdentity = a => BN.isBN(a) ? a.toString() : a
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
 export const wrappedERC20 = contract => ({
   ...contract,
-  transfer: async (address, amount) => 
+  transfer: async (address, amount) =>
     await contract.transfer(address, bNToStringOrIdentity(amount)),
   transferAndCall: async (address, amount, payload, options) =>
     await contract.transferAndCall(
@@ -110,7 +110,7 @@ export const isByteRepresentation = h => {
 export const deploy = async (filePath, ...args) =>
   await deployer.perform(filePath, ...args)
 
-export const getEvents = contract => 
+export const getEvents = contract =>
   new Promise((resolve, reject) => contract.allEvents()
               .get((error, events) => (error ? reject(error) : resolve(events))))
 
@@ -178,9 +178,27 @@ const endMapBuffer = Buffer.from([0xFF])
 
 export const decodeRunRequest = log => {
   const runABI = util.toBuffer(log.data)
-  const types = ['uint256', 'uint256', 'bytes']
-  const [requestId, version, data] = abi.rawDecode(types, runABI)
-  return [log.topics[1], log.topics[2], log.topics[3], toHex(requestId), version, autoAddMapDelimiters(data)]
+  const types = ['uint256', 'uint256', 'address', 'bytes4', 'uint256', 'bytes']
+  const [
+    requestId,
+    version,
+    callbackAddress,
+    callbackFunc,
+    expiration,
+    data
+  ] = abi.rawDecode(types, runABI)
+
+  return [
+    log.topics[1],
+    log.topics[2],
+    log.topics[3],
+    toHex(requestId),
+    version,
+    callbackAddress,
+    callbackFunc,
+    expiration,
+    autoAddMapDelimiters(data)
+  ]
 }
 
 const autoAddMapDelimiters = (data) => {
@@ -198,7 +216,7 @@ export const decodeDietCBOR = (data) => {
 }
 
 export const runRequestId = log => {
-  var [_, _, _, requestId, _, _] = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
+  var [_, _, _, requestId, _, _, _, _, _] = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
   return requestId
 }
 

@@ -39,7 +39,7 @@ contract('BasicConsumer', () => {
         let log = tx.receipt.logs[3]
         assert.equal(log.address, oc.address)
 
-        let [jId, requester, wei, id, ver, cborData] = h.decodeRunRequest(log)
+        let [jId, requester, wei, id, ver, addr, func, exp, cborData] = h.decodeRunRequest(log)
         let params = await cbor.decodeFirst(cborData)
         let expected = {
           'path': ['USD'],
