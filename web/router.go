@@ -315,7 +315,8 @@ func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 
 	cleaned := map[string]interface{}{}
 	for k, v := range dst {
-		if _, ok := blacklist[strings.ToLower(k)]; ok || strings.Contains(k, "password") {
+		lowerk := strings.ToLower(k)
+		if _, ok := blacklist[lowerk]; ok || strings.Contains(lowerk, "password") {
 			cleaned[k] = "*REDACTED*"
 			continue
 		}
