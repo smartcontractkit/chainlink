@@ -141,7 +141,7 @@ contract('Coordinator', () => {
         // services.ServiceAgreementExecutionLogTopic. (Which see for the
         // calculation of this hash.)
         let eventSignature =
-            '0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529'
+            '0xe9cf09ba23a60c27cfb5ad84043dba257ed0ccea7f0095ff7054ec8088ce5871'
         assert.equal(eventSignature, log.topics[0])
 
         assert.equal(agreement.id, log.topics[1])
@@ -191,6 +191,7 @@ contract('Coordinator', () => {
           coordinator.address, agreement.payment, payload)
         requestId = h.runRequestId(tx.receipt.logs[2])
       })
+
       context('when called by a non-owner', () => {
         // Turn this test on when multiple-oracle response aggregation is enabled
         xit('raises an error', async () => {

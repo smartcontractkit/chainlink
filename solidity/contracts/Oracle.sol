@@ -37,6 +37,9 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     uint256 indexed amount,
     uint256 requestId,
     uint256 version,
+    address callbackAddr,
+    bytes4 callbackFunctionId,
+    uint256 cancelExpiration,
     bytes data
   );
 
@@ -89,12 +92,16 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _callbackAddress,
       _callbackFunctionId,
       uint64(now.add(EXPIRY_TIME)));
+
     emit RunRequest(
       _specId,
       _sender,
       _amount,
       uint256(requestId),
       _version,
+      _callbackAddress,
+      _callbackFunctionId,
+      now.add(EXPIRY_TIME),
       _data);
   }
 

@@ -39,6 +39,9 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint256 indexed amount,
     uint256 requestId,
     uint256 version,
+    address callbackAddr,
+    bytes4 callbackFunctionId,
+    uint256 cancelExpiration,
     bytes data
   );
 
@@ -92,12 +95,16 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _callbackAddress,
       _callbackFunctionId,
       uint64(now.add(5 minutes)));
+
     emit RunRequest(
       _sAId,
       _sender,
       _amount,
       uint256(requestId),
       _version,
+      _callbackAddress,
+      _callbackFunctionId,
+      now.add(5 minutes),
       _data);
   }
 
