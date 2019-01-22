@@ -20,6 +20,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
   struct Callback {
+    bytes32 commitment;
     uint256 amount;
     address addr;
     bytes4 functionId;
@@ -88,6 +89,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
     callbacks[requestId] = Callback(
+      keccak256(abi.encodePacked(_amount, _callbackAddress, _callbackFunctionId, now.add(EXPIRY_TIME))),
       _amount,
       _callbackAddress,
       _callbackFunctionId,
