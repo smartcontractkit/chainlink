@@ -1,4 +1,4 @@
-db.bolt
+db.sqlite3
 log.jsonl
 cookie
 secret
