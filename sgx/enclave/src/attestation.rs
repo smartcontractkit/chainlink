@@ -29,7 +29,7 @@ type QuoteBuf = [u8; RET_QUOTE_BUF_LEN as usize];
 pub fn report() -> Result<sgx_report_t, sgx_status_t> {
     let (_, public_key) = keypair()?;
 
-    let report_data = init_report(&public_key);
+    let report_data = sgx_report_data_t::default();
     let (target_info, _) = init_quote()?;
 
     let report = tse::rsgx_create_report(&target_info, &report_data)?;
@@ -85,20 +85,6 @@ fn init_quote() -> Result<(sgx_target_info_t, sgx_epid_group_id_t), sgx_status_t
     }
 
     return Ok((target_info, epid_group_id))
-}
-
-fn init_report(public_key: &sgx_ec256_public_t) -> sgx_report_data_t {
-    let mut report_data: sgx_report_data_t = sgx_report_data_t::default();
-
-    // Fill ecc256 public key into report_data
-    let mut pub_k_gx = public_key.gx.clone();
-    pub_k_gx.reverse();
-    let mut pub_k_gy = public_key.gy.clone();
-    pub_k_gy.reverse();
-    report_data.d[..32].clone_from_slice(&pub_k_gx);
-    report_data.d[32..].clone_from_slice(&pub_k_gy);
-
-    report_data
 }
 
 fn keypair() -> Result<(sgx_ec256_private_t, sgx_ec256_public_t), sgx_status_t> {
