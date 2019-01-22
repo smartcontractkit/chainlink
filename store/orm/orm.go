@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite" // follows the gorm convention
+	_ "github.com/jinzhu/gorm/dialects/sqlite" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
