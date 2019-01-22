@@ -37,7 +37,6 @@ func TestNewRun(t *testing.T) {
 		Type: "timecube",
 	}}
 	jobSpec.Initiators = []models.Initiator{{
-		ID:   utils.NewBytes32ID(),
 		Type: models.InitiatorEthLog,
 	}}
 
@@ -82,7 +81,6 @@ func TestNewRun_requiredPayment(t *testing.T) {
 				Type: "timecube",
 			}}
 			jobSpec.Initiators = []models.Initiator{{
-				ID:   utils.NewBytes32ID(),
 				Type: models.InitiatorEthLog,
 			}}
 

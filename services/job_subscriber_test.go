@@ -123,7 +123,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			eth.RegisterSubscription("logs", logChan)
 
 			j := cltest.NewJob()
-			initr := models.Initiator{ID: utils.NewBytes32ID(), Type: test.initType}
+			initr := models.Initiator{Type: test.initType}
 			if !utils.IsEmptyAddress(test.initrAddr) {
 				initr.Address = test.initrAddr
 			}
