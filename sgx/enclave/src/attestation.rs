@@ -1,5 +1,5 @@
 use sgx_rand::{Rng, os::SgxRng};
-use sgx_tcrypto::{self as tcrypto, SgxEccHandle};
+use sgx_tcrypto as tcrypto;
 use sgx_types::*;
 use std::io::{self};
 use std::ptr;
@@ -27,8 +27,6 @@ const RET_QUOTE_BUF_LEN : u32 = 2048;
 type QuoteBuf = [u8; RET_QUOTE_BUF_LEN as usize];
 
 pub fn report() -> Result<sgx_report_t, sgx_status_t> {
-    let (_, public_key) = keypair()?;
-
     let report_data = sgx_report_data_t::default();
     let (target_info, _) = init_quote()?;
 
@@ -85,12 +83,6 @@ fn init_quote() -> Result<(sgx_target_info_t, sgx_epid_group_id_t), sgx_status_t
     }
 
     return Ok((target_info, epid_group_id))
-}
-
-fn keypair() -> Result<(sgx_ec256_private_t, sgx_ec256_public_t), sgx_status_t> {
-    let ecc_handle = SgxEccHandle::new();
-    let _result = ecc_handle.open();
-    ecc_handle.create_key_pair()
 }
 
 fn quote_nonce() -> io::Result<sgx_quote_nonce_t> {
