@@ -51,7 +51,6 @@ func NewTask(taskType string, json ...string) models.TaskSpec {
 func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		ID:        utils.NewBytes32ID(),
 		JobSpecID: j.ID,
 		Type:      models.InitiatorCron,
 		InitiatorParams: models.InitiatorParams{
@@ -65,7 +64,6 @@ func NewJobWithSchedule(sched string) (models.JobSpec, models.Initiator) {
 func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		ID:        utils.NewBytes32ID(),
 		JobSpecID: j.ID,
 		Type:      models.InitiatorWeb,
 	}}
@@ -76,7 +74,6 @@ func NewJobWithWebInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		ID:        utils.NewBytes32ID(),
 		JobSpecID: j.ID,
 		Type:      models.InitiatorEthLog,
 		InitiatorParams: models.InitiatorParams{
@@ -90,7 +87,6 @@ func NewJobWithLogInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithRunLogInitiator() (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		ID:        utils.NewBytes32ID(),
 		JobSpecID: j.ID,
 		Type:      models.InitiatorRunLog,
 		InitiatorParams: models.InitiatorParams{
@@ -112,7 +108,6 @@ func NewJobWithSALogInitiator() (models.JobSpec, models.Initiator) {
 func NewJobWithRunAtInitiator(t time.Time) (models.JobSpec, models.Initiator) {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
-		ID:        utils.NewBytes32ID(),
 		JobSpecID: j.ID,
 		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{

@@ -23,7 +23,7 @@ type JobRun struct {
 	CompletedAt    null.Time `json:"completedAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 	Initiator      Initiator `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    string    `json:"-"`
+	InitiatorID    uint      `json:"-" gorm:"index"`
 	CreationHeight *Big      `json:"creationHeight" gorm:"type:varchar(255)"`
 	ObservedHeight *Big      `json:"observedHeight" gorm:"type:varchar(255)"`
 	Overrides      RunResult `json:"overrides"`

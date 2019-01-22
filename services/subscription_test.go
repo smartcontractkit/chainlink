@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -267,7 +266,6 @@ func TestInitiatorSubscriptionLogEvent_ValidateRunOrSALog(t *testing.T) {
 					Job: job,
 					Log: log,
 					Initiator: models.Initiator{
-						ID: utils.NewBytes32ID(),
 						InitiatorParams: models.InitiatorParams{
 							Requesters: test.initiatorRequesters,
 						},
