@@ -44,7 +44,7 @@ func TestORM_SaveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j1, _ := cltest.NewJobWithSchedule("* * * * *")
+	j1 := cltest.NewJobWithSchedule("* * * * *")
 	store.SaveJob(&j1)
 
 	j2, err := store.FindJob(j1.ID)
@@ -60,7 +60,7 @@ func TestORM_SaveJobRun(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, _ := cltest.NewJobWithSchedule("* * * * *")
+	job := cltest.NewJobWithSchedule("* * * * *")
 	require.NoError(t, store.SaveJob(&job))
 
 	jr1 := job.NewRun(job.Initiators[0])
@@ -84,8 +84,9 @@ func TestORM_JobRunsFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	job, i := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.SaveJob(&job))
+	i := job.Initiators[0]
 	jr1 := job.NewRun(i)
 	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
 	require.NoError(t, store.SaveJobRun(&jr1))
@@ -136,8 +137,9 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	j, i := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&j))
+	i := j.Initiators[0]
 	npr := j.NewRun(i)
 	assert.NoError(t, store.SaveJobRun(&npr))
 
@@ -192,7 +194,7 @@ func TestORM_AnyJobWithType(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	js, _ := cltest.NewJobWithWebInitiator()
+	js := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
 	assert.NoError(t, store.SaveJob(&js))
 	found, err := store.AnyJobWithType("bridgetestname")
@@ -209,16 +211,16 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
-	job, initr := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job))
-	job2, initr := cltest.NewJobWithWebInitiator()
+	job2 := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job2))
 
 	assert.NotEqual(t, job.ID, job2.ID)
 
-	completedRun := job.NewRun(initr)
-	run2 := job.NewRun(initr)
-	run3 := job2.NewRun(initr)
+	completedRun := job.NewRun(job.Initiators[0])
+	run2 := job.NewRun(job.Initiators[0])
+	run3 := job2.NewRun(job2.Initiators[0])
 
 	assert.NoError(t, store.SaveJobRun(&completedRun))
 	assert.NoError(t, store.SaveJobRun(&run2))
@@ -306,8 +308,9 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
-	job, initr := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, store.SaveJob(&job))
+	initr := job.Initiators[0]
 
 	run := job.NewRun(initr)
 	assert.NoError(t, store.SaveJobRun(&run))
@@ -328,9 +331,10 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	bt := cltest.NewBridgeType()
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
-	job, initr := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
 	assert.NoError(t, store.SaveJob(&job))
+	initr := job.Initiators[0]
 
 	unfinishedRun := job.NewRun(initr)
 	retrievedBt, err := store.PendingBridgeType(unfinishedRun)
@@ -383,7 +387,13 @@ func TestORM_MarkRan(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	_, initr := cltest.NewJobWithRunAtInitiator(time.Now())
+	initr := models.Initiator{
+		Type: models.InitiatorRunAt,
+		InitiatorParams: models.InitiatorParams{
+			Time: models.Time{Time: time.Now()},
+		},
+	}
+
 	assert.NoError(t, store.SaveInitiator(&initr))
 
 	assert.NoError(t, store.MarkRan(&initr, true))
