@@ -391,10 +391,10 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j, initr := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
 
-	jr := j.NewRun(initr)
+	jr := j.NewRun(j.Initiators[0])
 	assert.NoError(t, app.Store.SaveJobRun(&jr))
 
 	resp, cleanup := client.Get("/v2/runs/" + jr.ID)
