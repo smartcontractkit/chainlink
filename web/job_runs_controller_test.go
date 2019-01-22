@@ -103,25 +103,25 @@ func TestJobRunsController_Index(t *testing.T) {
 }
 
 func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) (*models.JobRun, *models.JobRun, *models.JobRun) {
-	j1, initr := cltest.NewJobWithWebInitiator()
+	j1 := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j1))
 
-	j2, initr := cltest.NewJobWithWebInitiator()
+	j2 := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j2))
 
 	now := time.Now()
 
-	runA := j1.NewRun(initr)
+	runA := j1.NewRun(j1.Initiators[0])
 	runA.ID = "runA"
 	runA.CreatedAt = now.Add(-2 * time.Second)
 	assert.Nil(t, app.Store.SaveJobRun(&runA))
 
-	runB := j1.NewRun(initr)
+	runB := j1.NewRun(j1.Initiators[0])
 	runB.ID = "runB"
 	runB.CreatedAt = now.Add(-time.Second)
 	assert.Nil(t, app.Store.SaveJobRun(&runB))
 
-	runC := j2.NewRun(initr)
+	runC := j2.NewRun(j2.Initiators[0])
 	runC.ID = "runC"
 	runC.CreatedAt = now
 	assert.Nil(t, app.Store.SaveJobRun(&runC))
@@ -135,7 +135,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	app.Start()
 	defer cleanup()
 
-	j, _ := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
@@ -151,7 +151,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	app.Start()
 	defer cleanup()
 
-	j, _ := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
@@ -165,7 +165,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j, _ := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.SaveJob(&j))
 
 	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBufferString(`{`))
@@ -208,10 +208,10 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
@@ -239,10 +239,10 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
@@ -264,10 +264,10 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := j.NewRun(initr)
+	jr := j.NewRun(j.Initiators[0])
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
@@ -286,10 +286,10 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
@@ -314,10 +314,10 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -344,10 +344,10 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprint(`{`, jr.ID)
@@ -368,10 +368,10 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 
 	bt := cltest.NewBridgeType()
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.SaveJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(initr), 0)
+	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
@@ -391,7 +391,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j, _ := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.SaveJob(&j)
 
 	jr := j.NewRun(j.Initiators[0])

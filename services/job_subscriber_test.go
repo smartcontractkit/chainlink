@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
@@ -21,8 +22,8 @@ func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	j1, _ := cltest.NewJobWithLogInitiator()
-	j2, _ := cltest.NewJobWithLogInitiator()
+	j1 := cltest.NewJobWithLogInitiator()
+	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.SaveJob(&j1))
 	assert.Nil(t, store.SaveJob(&j2))
 	eth.RegisterSubscription("logs")
@@ -42,8 +43,8 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	j1, _ := cltest.NewJobWithLogInitiator()
-	j2, _ := cltest.NewJobWithLogInitiator()
+	j1 := cltest.NewJobWithLogInitiator()
+	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.SaveJob(&j1))
 	assert.Nil(t, store.SaveJob(&j2))
 
@@ -72,8 +73,8 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	store, el, cleanup := cltest.NewJobSubscriber()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	j1, _ := cltest.NewJobWithLogInitiator()
-	j2, _ := cltest.NewJobWithLogInitiator()
+	j1 := cltest.NewJobWithLogInitiator()
+	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.SaveJob(&j1))
 	assert.Nil(t, store.SaveJob(&j2))
 
@@ -176,7 +177,9 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			mockRunChannel := cltest.NewMockRunChannel()
 			store.RunChannel = mockRunChannel
 
-			job, initr := cltest.NewJobWithWebInitiator()
+			job := cltest.NewJobWithWebInitiator()
+			require.NoError(t, store.SaveJob(&job))
+			initr := job.Initiators[0]
 			run := job.NewRun(initr)
 			run = run.ApplyResult(models.RunResult{Status: test.status})
 			assert.Nil(t, store.SaveJobRun(&run))
