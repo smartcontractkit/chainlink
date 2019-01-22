@@ -86,7 +86,7 @@ func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
 }
 
 // FindInitiator returns the single initiator defined by the passed ID.
-func (orm *ORM) FindInitiator(ID string) (models.Initiator, error) {
+func (orm *ORM) FindInitiator(ID uint) (models.Initiator, error) {
 	initr := models.Initiator{}
 	return initr, orm.DB.
 		Set("gorm:auto_preload", true).
@@ -96,7 +96,7 @@ func (orm *ORM) FindInitiator(ID string) (models.Initiator, error) {
 func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Order("\"order\" asc")
+			return db.Order("\"id\" asc")
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
 			return db.Order("id asc")
@@ -193,9 +193,6 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 // SaveJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) SaveJob(job *models.JobSpec) error {
 	for i := range job.Initiators {
-		if job.Initiators[i].ID == "" {
-			job.Initiators[i].ID = utils.NewBytes32ID()
-		}
 		job.Initiators[i].JobSpecID = job.ID
 	}
 	return orm.DB.Save(job).Error
