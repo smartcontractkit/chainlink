@@ -118,10 +118,15 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store.Config.Set("MIN_INCOMING_CONFIRMATIONS", test.configConfirmations)
 
-			jobSpec, initiator := cltest.NewJobWithLogInitiator()
+			jobSpec := cltest.NewJobWithLogInitiator()
 			jobSpec.Tasks[0].Confirmations = test.taskConfirmations
 
-			run, err := services.NewRun(jobSpec, initiator, inputResult, &creationHeight, store)
+			run, err := services.NewRun(
+				jobSpec,
+				jobSpec.Initiators[0],
+				inputResult,
+				&creationHeight,
+				store)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -153,12 +158,12 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			job, initr := cltest.NewJobWithWebInitiator()
+			job := cltest.NewJobWithWebInitiator()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
 			assert.Nil(t, store.SaveJob(&job))
 
-			_, err := services.NewRun(job, initr, models.RunResult{}, nil, store)
+			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
 			if test.errored {
 				assert.Error(t, err)
 			} else {

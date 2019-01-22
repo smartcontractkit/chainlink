@@ -34,8 +34,8 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 func TestRendererTable_RenderShowJob(t *testing.T) {
 	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
-	job, initr := cltest.NewJobWithWebInitiator()
-	run := job.NewRun(initr)
+	job := cltest.NewJobWithWebInitiator()
+	run := job.NewRun(job.Initiators[0])
 	p := presenters.JobSpec{JobSpec: job, Runs: []presenters.JobRun{presenters.JobRun{run}}}
 	assert.Nil(t, r.Render(&p))
 }
@@ -53,8 +53,8 @@ func TestRenderer_RenderJobRun(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			job, i := cltest.NewJobWithWebInitiator()
-			run := job.NewRun(i)
+			job := cltest.NewJobWithWebInitiator()
+			run := job.NewRun(job.Initiators[0])
 			assert.Nil(t, test.renderer.Render(&presenters.JobRun{run}))
 		})
 	}
