@@ -614,16 +614,14 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
 	j := FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	temp := NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
-	j.Tasks[0].Params = temp.Params
+	j.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
 	return CreateJobSpecViaWeb(t, app, j)
 }
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the given MockServer Url
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
 	j := FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
-	temp := NewTask("httpget", fmt.Sprintf(`{"url":"%v"}`, url))
-	j.Tasks[0].Params = temp.Params
+	j.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
 	return CreateJobSpecViaWeb(t, app, j)
 }
 
