@@ -59,7 +59,8 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 	rm, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()
 
-	job, initr := cltest.NewJobWithWebInitiator()
+	job := cltest.NewJobWithWebInitiator()
+	initr := job.Initiators[0]
 	run1 := job.NewRun(initr)
 	run2 := job.NewRun(initr)
 
@@ -81,8 +82,9 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	defer cleanup()
 	assert.NoError(t, rm.Start())
 
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, s.SaveJob(&j))
+	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
 	assert.NoError(t, s.SaveJobRun(&jr))
 
@@ -107,9 +109,10 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 	defer cleanup()
 	assert.NoError(t, rm.Start())
 
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask("nooppend")}
 	assert.NoError(t, s.SaveJob(&j))
+	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
 	assert.NoError(t, s.SaveJobRun(&jr))
 
@@ -129,7 +132,8 @@ func TestJobRunner_Stop(t *testing.T) {
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(s)
 	defer cleanup()
-	j, initr := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
+	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
 
 	require.NoError(t, rm.Start())
