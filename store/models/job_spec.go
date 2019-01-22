@@ -66,10 +66,6 @@ func NewJob() JobSpec {
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
 	jobSpec.Initiators = jsr.Initiators
-	for i := range jobSpec.Initiators {
-		jobSpec.Initiators[i].ID = utils.NewBytes32ID()
-		jobSpec.Initiators[i].Order = uint(i)
-	}
 	jobSpec.Tasks = jsr.Tasks
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
@@ -178,12 +174,11 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        string `json:"id" gorm:"primary_key;not null"`
+	ID        uint   `json:"id" gorm:"primary_key;auto_increment"`
 	JobSpecID string `json:"jobSpecId" gorm:"index"`
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string `json:"type" gorm:"index;not null"`
 	InitiatorParams `json:"params,omitempty"`
-	Order           uint      `json:"-" gorm:"index"`
 	CreatedAt       time.Time `gorm:"index"`
 }
 

@@ -76,7 +76,6 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 				assert.Equal(t, strings.ToLower(wantInitiator.Type), strings.ToLower(actual.Type))
 
 				// ignore the following fields
-				actual.Order = wantInitiator.Order
 				wantInitiator.Type = actual.Type
 				wantInitiator.JobSpecID = actual.JobSpecID
 				wantInitiator.ID = actual.ID
