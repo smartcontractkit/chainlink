@@ -19,7 +19,7 @@ import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import Portal from '@material-ui/core/Portal'
 import LoadingBar from 'components/LoadingBar'
-import Logo from 'components/Logo'
+import MainLogo from 'components/Logos/Main'
 import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
@@ -140,7 +140,7 @@ const Header = useHooks(props => {
           <Grid container alignItems='center'>
             <Grid item xs={11} sm={6} md={4}>
               <Link to='/'>
-                <Logo width={200} />
+                <MainLogo width={200} />
               </Link>
             </Grid>
             <Grid item xs={1} sm={6} md={8}>
