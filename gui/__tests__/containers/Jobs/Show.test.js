@@ -38,9 +38,9 @@ describe('containers/Jobs/Show', () => {
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('IDc60b9927eeae43168ddbe92584937b1b')
+    expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
-    expect(wrapper.text()).toContain('Createda minute ago')
+    expect(wrapper.text()).toContain('Created a minute ago')
     expect(wrapper.text()).toContain('Run Count1')
     expect(wrapper.text()).toContain('{"value":"8400.00"}')
     expect(wrapper.text()).not.toContain('Show More')
