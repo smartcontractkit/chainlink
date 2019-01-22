@@ -58,7 +58,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j, _ := cltest.NewJobWithWebInitiator()
+	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.SaveJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
@@ -227,11 +227,11 @@ func TestClient_CreateJobRun(t *testing.T) {
 		jobSpec models.JobSpec
 		errored bool
 	}{
-		{"CreateSuccess", `{"value": 100}`, first(cltest.NewJobWithWebInitiator()), false},
-		{"EmptyBody", ``, first(cltest.NewJobWithWebInitiator()), false},
-		{"InvalidBody", `{`, first(cltest.NewJobWithWebInitiator()), true},
-		{"WithoutWebInitiator", ``, first(cltest.NewJobWithLogInitiator()), true},
-		{"NotFound", ``, first(cltest.NewJobWithWebInitiator()), true},
+		{"CreateSuccess", `{"value": 100}`, cltest.NewJobWithWebInitiator(), false},
+		{"EmptyBody", ``, cltest.NewJobWithWebInitiator(), false},
+		{"InvalidBody", `{`, cltest.NewJobWithWebInitiator(), true},
+		{"WithoutWebInitiator", ``, cltest.NewJobWithLogInitiator(), true},
+		{"NotFound", ``, cltest.NewJobWithWebInitiator(), true},
 	}
 
 	for _, tt := range tests {
@@ -484,10 +484,6 @@ func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testi
 	})
 
 	return app, cleanup, ethMock.EventuallyAllCalled
-}
-
-func first(a models.JobSpec, b interface{}) models.JobSpec {
-	return a
 }
 
 func TestClient_SendEther(t *testing.T) {

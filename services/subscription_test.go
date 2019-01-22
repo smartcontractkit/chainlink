@@ -19,7 +19,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	job, initr := cltest.NewJobWithLogInitiator()
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	eth.Register("eth_getLogs", []models.Log{log})
 	eth.RegisterSubscription("logs")
@@ -45,7 +46,8 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	job, initr := cltest.NewJobWithLogInitiator()
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
 	eth.RegisterSubscription("logs")
 
 	var count int32
@@ -65,7 +67,9 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 
-	job, initr := cltest.NewJobWithLogInitiator()
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	eth.Register("eth_getLogs", []models.Log{log}) // backfill
 	logsChan := make(chan models.Log)

@@ -20,7 +20,7 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	jobWCron, _ := cltest.NewJobWithSchedule("* * * * * *")
+	jobWCron := cltest.NewJobWithSchedule("* * * * * *")
 	assert.Nil(t, store.SaveJob(&jobWCron))
 	jobWoCron := cltest.NewJob()
 	assert.Nil(t, store.SaveJob(&jobWoCron))
@@ -41,7 +41,7 @@ func TestScheduler_AddJob_WhenStopped(t *testing.T) {
 	sched := services.NewScheduler(store)
 	defer sched.Stop()
 
-	j, _ := cltest.NewJobWithSchedule("* * * * *")
+	j := cltest.NewJobWithSchedule("* * * * *")
 	assert.Nil(t, store.SaveJob(&j))
 	sched.AddJob(j)
 
@@ -56,7 +56,7 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	clock := cltest.UseSettableClock(store)
 
 	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
-	j, _ := cltest.NewJobWithSchedule("* * * * *")
+	j := cltest.NewJobWithSchedule("* * * * *")
 	j.StartAt = cltest.NullableTime(startAt)
 	assert.Nil(t, store.SaveJob(&j))
 
@@ -108,7 +108,7 @@ func TestRecurring_AddJob(t *testing.T) {
 			r.Cron = cron
 			defer r.Stop()
 
-			j, _ := cltest.NewJobWithSchedule("* * * * *")
+			j := cltest.NewJobWithSchedule("* * * * *")
 			j.StartAt = test.startAt
 			j.EndAt = test.endAt
 
@@ -158,7 +158,7 @@ func TestOneTime_AddJob(t *testing.T) {
 				Store: store,
 			}
 
-			j, _ := cltest.NewJobWithRunAtInitiator(test.runAt)
+			j := cltest.NewJobWithRunAtInitiator(test.runAt)
 			assert.Nil(t, store.SaveJob(&j))
 
 			j.StartAt = test.startAt
@@ -190,8 +190,9 @@ func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
 		Store: store,
 	}
 	ot.Start()
-	j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour))
+	j := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour))
 	assert.Nil(t, store.SaveJob(&j))
+	initr := j.Initiators[0]
 
 	finished := abool.New()
 	go func() {
@@ -219,8 +220,9 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 		Clock: store.Clock,
 		Store: store,
 	}
-	j, initr := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour * -1))
+	j := cltest.NewJobWithRunAtInitiator(time.Now().Add(time.Hour * -1))
 	assert.Nil(t, store.SaveJob(&j))
+	initr := j.Initiators[0]
 	initr.ID = j.Initiators[0].ID
 	initr.JobSpecID = j.ID
 
@@ -249,7 +251,7 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 		Store: store,
 	}
 
-	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
+	j := cltest.NewJobWithRunAtInitiator(time.Now())
 	assert.NoError(t, store.SaveJob(&j))
 	ot.RunJobAt(j.Initiators[0], j)
 
@@ -273,7 +275,7 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 		Store: store,
 	}
 
-	j, _ := cltest.NewJobWithRunAtInitiator(time.Now())
+	j := cltest.NewJobWithRunAtInitiator(time.Now())
 	j.EndAt = cltest.NullTime("2000-01-01T00:10:00.000Z")
 	assert.NoError(t, store.SaveJob(&j))
 

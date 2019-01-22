@@ -424,7 +424,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		})
 	defer cleanup()
 
-	j, _ := cltest.NewJobWithLogInitiator()
+	j := cltest.NewJobWithLogInitiator()
 	post := cltest.NewTask("httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
@@ -558,11 +558,13 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 	})
 	app.Start()
 
-	job, initiator := cltest.NewJobWithWebInitiator()
-	completedRun := job.NewRun(initiator)
+	job := cltest.NewJobWithWebInitiator()
+	err := app.GetStore().SaveJob(&job)
+	require.NoError(t, err)
+	completedRun := job.NewRun(job.Initiators[0])
 	completedRun.Status = models.RunStatusCompleted
-	err := app.GetStore().SaveJobRun(&completedRun)
-	assert.NoError(t, err)
+	err = app.GetStore().SaveJobRun(&completedRun)
+	require.NoError(t, err)
 
 	client := app.NewHTTPClient()
 	request := `{
