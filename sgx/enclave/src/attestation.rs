@@ -23,6 +23,44 @@ extern "C" {
                 p_quote_len        : *mut u32) -> sgx_status_t;
 }
 
+const RET_QUOTE_BUF_LEN : u32 = 2048;
+type QuoteBuf = [u8; RET_QUOTE_BUF_LEN as usize];
+
+pub fn report() -> Result<sgx_report_t, sgx_status_t> {
+    let (_, public_key) = keypair()?;
+
+    let report_data = init_report(&public_key);
+    let (target_info, _) = init_quote()?;
+
+    let report = tse::rsgx_create_report(&target_info, &report_data)?;
+
+    let quote_nonce = match quote_nonce() {
+        Ok(n) => n,
+        Err(_) => return Err(sgx_status_t::SGX_ERROR_UNEXPECTED)
+    };
+    let (qe_report, quote_buf, buf_len) = quote(&report, &quote_nonce)?;
+
+    match tse::rsgx_verify_report(&qe_report) {
+        Ok(()) => println!("rsgx_verify_report passed!"),
+        Err(x) => {
+            println!("rsgx_verify_report failed with {:?}", x);
+            return Err(x);
+        },
+    }
+
+    if !report_matches_current_platform(&target_info, &qe_report) {
+        println!("qe_report does not match current target_info!");
+        return Err(sgx_status_t::SGX_ERROR_UNEXPECTED);
+    }
+
+    if report_tampered(&qe_report, &quote_buf, buf_len, &quote_nonce) {
+        println!("report has been tampered with");
+        return Err(sgx_status_t::SGX_ERROR_UNEXPECTED);
+    }
+
+    Ok(qe_report)
+}
+
 fn init_quote() -> Result<(sgx_target_info_t, sgx_epid_group_id_t), sgx_status_t> {
     let mut target_info = sgx_target_info_t::default();
     let mut epid_group_id = sgx_epid_group_id_t::default();
@@ -76,9 +114,6 @@ fn quote_nonce() -> io::Result<sgx_quote_nonce_t> {
     Ok(quote_nonce)
 }
 
-const RET_QUOTE_BUF_LEN : u32 = 2048;
-type QuoteBuf = [u8; RET_QUOTE_BUF_LEN as usize];
-
 fn quote(report: &sgx_report_t, quote_nonce: &sgx_quote_nonce_t)
     -> Result<(sgx_report_t, QuoteBuf, u32), sgx_status_t> {
     let mut qe_report = sgx_report_t::default();
@@ -129,39 +164,4 @@ fn report_tampered(qe_report: &sgx_report_t, quote_buf: &QuoteBuf, quote_len: u3
     let lhs_hash = &qe_report.body.report_data.d[..32];
 
     rhs_hash != lhs_hash
-}
-
-pub fn report() -> Result<sgx_report_t, sgx_status_t> {
-    let (_, public_key) = keypair()?;
-
-    let report_data = init_report(&public_key);
-    let (target_info, _) = init_quote()?;
-
-    let report = tse::rsgx_create_report(&target_info, &report_data)?;
-
-    let quote_nonce = match quote_nonce() {
-        Ok(n) => n,
-        Err(_) => return Err(sgx_status_t::SGX_ERROR_UNEXPECTED)
-    };
-    let (qe_report, quote_buf, buf_len) = quote(&report, &quote_nonce)?;
-
-    match tse::rsgx_verify_report(&qe_report) {
-        Ok(()) => println!("rsgx_verify_report passed!"),
-        Err(x) => {
-            println!("rsgx_verify_report failed with {:?}", x);
-            return Err(x);
-        },
-    }
-
-    if !report_matches_current_platform(&target_info, &qe_report) {
-        println!("qe_report does not match current target_info!");
-        return Err(sgx_status_t::SGX_ERROR_UNEXPECTED);
-    }
-
-    if report_tampered(&qe_report, &quote_buf, buf_len, &quote_nonce) {
-        println!("report has been tampered with");
-        return Err(sgx_status_t::SGX_ERROR_UNEXPECTED);
-    }
-
-    Ok(qe_report)
 }
