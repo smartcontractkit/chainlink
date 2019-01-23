@@ -79,20 +79,16 @@ contract('UpdatableConsumer', () => {
     const response = '1,000,000.00'
     const currency = 'USD'
     const paymentAmount = h.toWei(1, 'ether')
-    let internalId, requestId
+    let request
 
     beforeEach(async () => {
       await link.transfer(uc.address, paymentAmount)
-      await uc.requestEthereumPrice(currency)
-      const event = await h.getLatestEvent(oc)
-      internalId = event.args.requestId
-
-      const event2 = await h.getLatestEvent(uc)
-      requestId = event2.args.id
+      const tx = await uc.requestEthereumPrice(currency)
+      request = h.decodeRunRequest(tx.receipt.logs[3])
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oc.fulfillData(internalId, response, {from: h.oracleNode})
+      await h.fulfillOracleRequest(oc, request, response, {from: h.oracleNode})
 
       const currentPrice = await uc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
@@ -106,7 +102,7 @@ contract('UpdatableConsumer', () => {
       })
 
       it('records the data given to it by the old oracle contract', async () => {
-        await oc.fulfillData(internalId, response, {from: h.oracleNode})
+        await h.fulfillOracleRequest(oc, request, response, {from: h.oracleNode})
 
         const currentPrice = await uc.currentPrice.call()
         assert.equal(h.toUtf8(currentPrice), response)
@@ -114,7 +110,7 @@ contract('UpdatableConsumer', () => {
 
       it('does not accept responses from the new oracle for the old requests', async () => {
         await h.assertActionThrows(async () => {
-          await uc.fulfill(requestId, response, {from: h.oracleNode})
+          await uc.fulfill(request.Id, response, {from: h.oracleNode})
         })
 
         const currentPrice = await uc.currentPrice.call()
@@ -126,7 +122,7 @@ contract('UpdatableConsumer', () => {
         assertBigNum(0, await link.balanceOf.call(uc.address),
                     "Initial balance should be 0")
 
-        await uc.cancelRequest(requestId)
+        await uc.cancelRequest(request.Id)
 
         assertBigNum(paymentAmount, await link.balanceOf.call(uc.address),
                     "Oracle should have been repaid on cancellation.")

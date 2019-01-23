@@ -2,7 +2,9 @@ import {
   assertActionThrows,
   decodeRunABI,
   decodeDietCBOR,
+  decodeRunRequest,
   deploy,
+  fulfillOracleRequest,
   getEvents,
   getLatestEvent,
   linkContract,
@@ -107,41 +109,40 @@ contract('ConcreteChainlinked', () => {
   })
 
   describe('#checkChainlinkFulfillment(modifier)', () => {
-    let internalId, requestId
+    let request
 
     beforeEach(async () => {
-      await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
-      requestId = (await getLatestEvent(cc)).args.id
-      internalId = (await getLatestEvent(oc)).args.requestId
+      const tx = await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      request = decodeRunRequest(tx.receipt.logs[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      await oc.fulfillData(internalId, 'hi mom!')
+      await fulfillOracleRequest(oc, request, 'hi mom!')
 
       let events = await getEvents(cc)
       assert.equal(1, events.length)
       let event = events[0]
       assert.equal(event.event, 'ChainlinkFulfilled')
-      assert.equal(requestId, event.args.id)
+      assert.equal(request.Id, event.args.id)
     })
   })
 
   describe('#completeChainlinkFulfillment(function)', () => {
-    let requestId
+    let request
 
     beforeEach(async () => {
-      await cc.publicRequestRun(specId, cc.address, 'publicCompleteChainlinkFulfillment(bytes32,bytes32)', 0)
-      requestId = (await getLatestEvent(cc)).args.id
+      const tx = await cc.publicRequestRun(specId, cc.address, 'publicCompleteChainlinkFulfillment(bytes32,bytes32)', 0)
+      request = decodeRunRequest(tx.receipt.logs[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      await oc.fulfillData(requestId, 'hi mom!')
+      await fulfillOracleRequest(oc, request, 'hi mom!')
 
-      let events = await getEvents(cc)
+      const events = await getEvents(cc)
       assert.equal(1, events.length)
-      let event = events[0]
+      const event = events[0]
       assert.equal(event.event, 'ChainlinkFulfilled')
-      assert.equal(requestId, event.args.id)
+      assert.equal(request.Id, event.args.id)
     })
   })
 
@@ -153,22 +154,22 @@ contract('ConcreteChainlinked', () => {
   })
 
   describe('#addExternalRequest', () => {
-    let mock, requestId
+    let mock, request
 
     beforeEach(async () => {
       mock = await deploy(sourcePath, link.address, oc.address)
-      await cc.publicRequestRun(specId, mock.address, 'fulfillRequest(bytes32,bytes32)', 0)
-      requestId = (await getLatestEvent(cc)).args.id
-      await mock.publicAddExternalRequest(oc.address, requestId)
+      const tx = await cc.publicRequestRun(specId, mock.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      request = decodeRunRequest(tx.receipt.logs[3])
+      await mock.publicAddExternalRequest(oc.address, request.Id)
     })
 
     it('allows the external request to be fulfilled', async () => {
-      await oc.fulfillData(requestId, 'hi mom!')
+      await fulfillOracleRequest(oc, request, 'hi mom!')
     })
 
     it('does not allow the same requestId to be used', async () => {
       await assertActionThrows(async () => {
-        await cc.publicAddExternalRequest(newoc.address, requestId)
+        await cc.publicAddExternalRequest(newoc.address, request.Id)
       })
     })
   })
