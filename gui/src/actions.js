@@ -295,7 +295,7 @@ const normalizeFetchJob = json => {
     }
   )
 
-  return normalize(validJsonApi)
+  return normalize(validJsonApi, { camelizeKeys: false })
 }
 
 export const fetchAccountBalance = () => request(

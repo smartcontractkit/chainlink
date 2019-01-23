@@ -1,12 +1,11 @@
 import uuid from 'uuid/v4'
-import { decamelizeKeys } from 'humps'
 import isoDate from 'test-helpers/isoDate'
 
 export default (jobs, count) => {
   const j = jobs || []
   const jc = count || j.length
 
-  return decamelizeKeys({
+  return {
     meta: { count: jc },
     data: j.map((c) => {
       const config = c || {}
@@ -34,5 +33,5 @@ export default (jobs, count) => {
         }
       }
     })
-  })
+  }
 }
