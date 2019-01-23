@@ -123,7 +123,7 @@ contract('ConcreteChainlinked', () => {
       assert.equal(1, events.length)
       let event = events[0]
       assert.equal(event.event, 'ChainlinkFulfilled')
-      assert.equal(request.Id, event.args.id)
+      assert.equal(request.id, event.args.id)
     })
   })
 
@@ -142,7 +142,7 @@ contract('ConcreteChainlinked', () => {
       assert.equal(1, events.length)
       const event = events[0]
       assert.equal(event.event, 'ChainlinkFulfilled')
-      assert.equal(request.Id, event.args.id)
+      assert.equal(request.id, event.args.id)
     })
   })
 
@@ -160,7 +160,7 @@ contract('ConcreteChainlinked', () => {
       mock = await deploy(sourcePath, link.address, oc.address)
       const tx = await cc.publicRequestRun(specId, mock.address, 'fulfillRequest(bytes32,bytes32)', 0)
       request = decodeRunRequest(tx.receipt.logs[3])
-      await mock.publicAddExternalRequest(oc.address, request.Id)
+      await mock.publicAddExternalRequest(oc.address, request.id)
     })
 
     it('allows the external request to be fulfilled', async () => {
@@ -169,7 +169,7 @@ contract('ConcreteChainlinked', () => {
 
     it('does not allow the same requestId to be used', async () => {
       await assertActionThrows(async () => {
-        await cc.publicAddExternalRequest(newoc.address, request.Id)
+        await cc.publicAddExternalRequest(newoc.address, request.id)
       })
     })
   })
