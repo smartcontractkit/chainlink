@@ -197,7 +197,7 @@ contract('Coordinator', () => {
         xit('raises an error', async () => {
           await h.assertActionThrows(async () => {
             await coordinator.fulfillData(
-              request.Id, 'Hello World!', { from: h.stranger })
+              request.id, 'Hello World!', { from: h.stranger })
           })
         })
       })
@@ -212,19 +212,19 @@ contract('Coordinator', () => {
 
         it('sets the value on the requested contract', async () => {
           await coordinator.fulfillData(
-            request.Id, 'Hello World!', { from: h.oracleNode })
+            request.id, 'Hello World!', { from: h.oracleNode })
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(request.Id, mockRequestId)
+          assert.equal(request.id, mockRequestId)
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', h.toUtf8(currentValue))
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await coordinator.fulfillData(request.Id, 'First message!', { from: h.oracleNode })
+          await coordinator.fulfillData(request.id, 'First message!', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.Id, 'Second message!!', { from: h.oracleNode })
+            await coordinator.fulfillData(request.id, 'Second message!!', { from: h.oracleNode })
           })
         })
       })
@@ -280,7 +280,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -291,9 +291,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.Id, 'hack the planet 102', { from: h.oracleNode })
+            await coordinator.fulfillData(request.id, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })
@@ -307,7 +307,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -329,7 +329,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -343,9 +343,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.Id, 'hack the planet 102', { from: h.oracleNode })
+            await coordinator.fulfillData(request.id, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })

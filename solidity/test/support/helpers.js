@@ -195,7 +195,7 @@ export const decodeRunRequest = log => {
     jobId: log.topics[1],
     requester: log.topics[2],
     payment: log.topics[3],
-    Id: toHex(requestId),
+    id: toHex(requestId),
     dataVersion: version,
     callbackAddr: Ox(callbackAddress),
     callbackFunc: toHex(callbackFunc),
@@ -460,7 +460,7 @@ export const fulfillOracleRequest = async (oracle, request, response, options) =
   if (!options) options = {from: defaultAccount}
 
   return await oracle.fulfillData(
-    request.Id,
+    request.id,
     request.payment,
     request.callbackAddr,
     request.callbackFunc,

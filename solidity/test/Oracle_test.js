@@ -234,7 +234,7 @@ contract('Oracle', () => {
 
       context('when called by an authorized node', () => {
         it('raises an error if the request ID does not exist', async () => {
-          request.Id = 0xdeadbeef
+          request.id = 0xdeadbeef
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response, { from: h.oracleNode })
           })
@@ -580,7 +580,7 @@ contract('Oracle', () => {
       context('from a stranger', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await oc.cancel(request.Id, { from: h.stranger })
+            await oc.cancel(request.id, { from: h.stranger })
           })
         })
       })
@@ -588,25 +588,25 @@ contract('Oracle', () => {
       context('from the requester', () => {
         it('refunds the correct amount', async () => {
           await h.increaseTime5Minutes()
-          await oc.cancel(request.Id, { from: h.consumer })
+          await oc.cancel(request.id, { from: h.consumer })
           let balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 
         it('triggers a cancellation event', async () => {
           await h.increaseTime5Minutes()
-          const tx = await oc.cancel(request.Id, { from: h.consumer })
+          const tx = await oc.cancel(request.id, { from: h.consumer })
 
           assert.equal(tx.receipt.logs.length, 2)
-          assert.equal(request.Id, tx.receipt.logs[1].data)
+          assert.equal(request.id, tx.receipt.logs[1].data)
         })
 
         context('canceling twice', () => {
           it('fails', async () => {
             await h.increaseTime5Minutes()
-            await oc.cancel(request.Id, { from: h.consumer })
+            await oc.cancel(request.id, { from: h.consumer })
             await h.assertActionThrows(async () => {
-              await oc.cancel(request.Id, { from: h.consumer })
+              await oc.cancel(request.id, { from: h.consumer })
             })
           })
         })
