@@ -68,7 +68,7 @@ contract('ServiceAgreementConsumer', () => {
     })
 
     it('records the data given to it by the oracle', async () => {
-      await coord.fulfillData(request.Id, response, { from: h.oracleNode })
+      await coord.fulfillData(request.id, response, { from: h.oracleNode })
 
       const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
@@ -85,7 +85,7 @@ contract('ServiceAgreementConsumer', () => {
       })
 
       it('does not accept the data provided', async () => {
-        await coord.fulfillData(request2.Id, response, { from: h.oracleNode })
+        await coord.fulfillData(request2.id, response, { from: h.oracleNode })
 
         let received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
@@ -95,7 +95,7 @@ contract('ServiceAgreementConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
-          await cc.fulfill(request.Id, response, { from: h.oracleNode })
+          await cc.fulfill(request.id, response, { from: h.oracleNode })
         })
         let received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')

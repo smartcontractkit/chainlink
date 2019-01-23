@@ -110,7 +110,7 @@ contract('UpdatableConsumer', () => {
 
       it('does not accept responses from the new oracle for the old requests', async () => {
         await h.assertActionThrows(async () => {
-          await uc.fulfill(request.Id, response, {from: h.oracleNode})
+          await uc.fulfill(request.id, response, {from: h.oracleNode})
         })
 
         const currentPrice = await uc.currentPrice.call()
@@ -122,7 +122,7 @@ contract('UpdatableConsumer', () => {
         assertBigNum(0, await link.balanceOf.call(uc.address),
                     "Initial balance should be 0")
 
-        await uc.cancelRequest(request.Id)
+        await uc.cancelRequest(request.id)
 
         assertBigNum(paymentAmount, await link.balanceOf.call(uc.address),
                     "Oracle should have been repaid on cancellation.")

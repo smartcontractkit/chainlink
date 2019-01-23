@@ -105,7 +105,7 @@ contract('BasicConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
-          await cc.fulfill(request.Id, response, {from: h.oracleNode})
+          await cc.fulfill(request.id, response, {from: h.oracleNode})
         })
 
         let received = await cc.currentPrice.call()
