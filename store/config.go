@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
-	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -70,6 +69,8 @@ type ConfigSchema struct {
 	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
 }
 
+var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
+
 // NewConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
 func NewConfig() Config {
@@ -98,7 +99,7 @@ func newConfigWithViper(v *viper.Viper) Config {
 	v.SetConfigName("chainlink")
 	v.AddConfigPath(config.RootDir())
 	err := v.ReadInConfig()
-	if err != nil && err != afero.ErrFileNotFound {
+	if err != nil && reflect.TypeOf(err) != configFileNotFoundError {
 		logger.Warnf("Unable to load config file: %v\n", err)
 	}
 
