@@ -297,15 +297,6 @@ func readBody(reader io.Reader) string {
 	return s
 }
 
-// NOTE: keys must be in lowercase for case insensitive match
-var blacklist = map[string]struct{}{
-	"password":             struct{}{},
-	"newpassword":          struct{}{},
-	"oldpassword":          struct{}{},
-	"current_password":     struct{}{},
-	"new_account_password": struct{}{},
-}
-
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 	var dst map[string]interface{}
 	err := json.Unmarshal(buf.Bytes(), &dst)
@@ -315,8 +306,7 @@ func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 
 	cleaned := map[string]interface{}{}
 	for k, v := range dst {
-		lowerk := strings.ToLower(k)
-		if _, ok := blacklist[lowerk]; ok || strings.Contains(lowerk, "password") {
+		if isBlacklisted(k) {
 			cleaned[k] = "*REDACTED*"
 			continue
 		}
@@ -333,11 +323,28 @@ func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
 func redact(values url.Values) string {
 	cleaned := url.Values{}
 	for k, v := range values {
-		if _, ok := blacklist[strings.ToLower(k)]; ok {
+		if isBlacklisted(k) {
 			cleaned[k] = []string{"REDACTED"}
 			continue
 		}
 		cleaned[k] = v
 	}
 	return cleaned.Encode()
+}
+
+// NOTE: keys must be in lowercase for case insensitive match
+var blacklist = map[string]struct{}{
+	"password":             struct{}{},
+	"newpassword":          struct{}{},
+	"oldpassword":          struct{}{},
+	"current_password":     struct{}{},
+	"new_account_password": struct{}{},
+}
+
+func isBlacklisted(k string) bool {
+	lk := strings.ToLower(k)
+	if _, ok := blacklist[lk]; ok || strings.Contains(lk, "password") {
+		return true
+	}
+	return false
 }
