@@ -38,56 +38,54 @@ contract('ServiceAgreementConsumer', () => {
         let log = tx.receipt.logs[3]
         assert.equal(log.address, coord.address)
 
-        let [jId, requester, wei, _, ver, addr, func, exp, cborData] = h.decodeRunRequest(log)
-        let params = await h.decodeDietCBOR(cborData)
-        assert.equal(agreement.id, jId)
-        assertBigNum(paymentAmount, wei,
+        const request = h.decodeRunRequest(log)
+        let params = await h.decodeDietCBOR(request.data)
+        assert.equal(agreement.id, request.jobId)
+        assertBigNum(paymentAmount, h.bigNum(request.payment),
                      "Logged transfer amount differed from actual amount")
-        assert.equal(cc.address.slice(2), requester.slice(26))
-        assert.equal(1, ver)
+        assert.equal(cc.address.slice(2), request.requester.slice(26))
+        assertBigNum(1, request.dataVersion)
         const url = 'https://min-api.cryptocompare.com/' +
               'data/price?fsym=ETH&tsyms=USD,EUR,JPY'
-        assert.deepEqual(params, { 'path': 'USD', url })
+        assert.deepEqual(params, { 'path': 'USD', url: url })
       })
 
       it('has a reasonable gas cost', async () => {
-        let tx = await cc.requestEthereumPrice(currency)
+        const tx = await cc.requestEthereumPrice(currency)
         assert.isBelow(tx.receipt.gasUsed, 169000)
       })
     })
   })
 
   describe('#fulfillData', () => {
-    let response = '1,000,000.00'
-    let requestId
+    const response = '1,000,000.00'
+    let request
 
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei(1, 'ether'))
-      await cc.requestEthereumPrice(currency)
-      let event = await h.getLatestEvent(coord)
-      requestId = event.args.requestId
+      const tx = await cc.requestEthereumPrice(currency)
+      request = h.decodeRunRequest(tx.receipt.logs[3])
     })
 
     it('records the data given to it by the oracle', async () => {
-      await coord.fulfillData(requestId, response, { from: h.oracleNode })
+      await coord.fulfillData(request.Id, response, { from: h.oracleNode })
 
-      let currentPrice = await cc.currentPrice.call()
+      const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
     })
 
     context('when the consumer does not recognize the request ID', () => {
-      let otherId
+      let request2
 
       beforeEach(async () => {
         let funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
         let args = h.executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 1, '')
-        await h.requestDataFrom(coord, link, 0, args)
-        let event = await h.getLatestEvent(coord)
-        otherId = event.args.requestId
+        const tx = await h.requestDataFrom(coord, link, 0, args)
+        request2 = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
       it('does not accept the data provided', async () => {
-        await coord.fulfillData(otherId, response, { from: h.oracleNode })
+        await coord.fulfillData(request2.Id, response, { from: h.oracleNode })
 
         let received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
@@ -97,7 +95,7 @@ contract('ServiceAgreementConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
-          await cc.fulfill(requestId, response, { from: h.oracleNode })
+          await cc.fulfill(request.Id, response, { from: h.oracleNode })
         })
         let received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')

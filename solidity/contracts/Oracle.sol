@@ -109,6 +109,10 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
 
   function fulfillData(
     uint256 _requestId,
+    uint256 _payment,
+    address _callbackAddress,
+    bytes4 _callbackFunctionId,
+    uint256 _expiration,
     bytes32 _data
   )
     external
@@ -117,14 +121,14 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     returns (bool)
   {
     bytes32 requestId = bytes32(_requestId);
-    Callback memory callback = callbacks[requestId];
-    withdrawableTokens = withdrawableTokens.add(callback.amount);
+    require(callbacks[requestId].commitment == keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, _expiration)));
+    withdrawableTokens = withdrawableTokens.add(_payment);
     delete callbacks[requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return callback.addr.call(callback.functionId, requestId, _data); // solium-disable-line security/no-low-level-calls
+    return _callbackAddress.call(_callbackFunctionId, requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function getAuthorizationStatus(address _node) external view returns (bool) {

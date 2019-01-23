@@ -35,22 +35,21 @@ contract('BasicConsumer', () => {
       })
 
       it('triggers a log event in the Oracle contract', async () => {
-        let tx = await cc.requestEthereumPrice(currency)
-        let log = tx.receipt.logs[3]
+        const tx = await cc.requestEthereumPrice(currency)
+        const log = tx.receipt.logs[3]
         assert.equal(log.address, oc.address)
 
-        let [jId, requester, wei, id, ver, addr, func, exp, cborData] = h.decodeRunRequest(log)
-        let params = await cbor.decodeFirst(cborData)
-        let expected = {
+        const request = h.decodeRunRequest(log)
+        const expected = {
           'path': ['USD'],
           'url': 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
         }
 
-        assert.equal(h.toHex(specId), jId)
-        assertBigNum(h.toWei('1', 'ether'), wei)
-        assert.equal(cc.address.slice(2), requester.slice(26))
-        assert.equal(1, ver)
-        assert.deepEqual(expected, params)
+        assert.equal(h.toHex(specId), request.jobId)
+        assertBigNum(h.toWei('1', 'ether'), request.payment)
+        assert.equal(cc.address.slice(2), request.requester.slice(26))
+        assert.equal(1, request.dataVersion)
+        assert.deepEqual(expected, await cbor.decodeFirst(request.data))
       })
 
       it('has a reasonable gas cost', async () => {
@@ -62,45 +61,43 @@ contract('BasicConsumer', () => {
 
   describe('#fulfillData', () => {
     let response = '1,000,000.00'
-    let requestId
+    let request
 
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei('1', 'ether'))
-      await cc.requestEthereumPrice(currency)
-      let event = await h.getLatestEvent(oc)
-      requestId = event.args.requestId
+      const tx = await cc.requestEthereumPrice(currency)
+      request = h.decodeRunRequest(tx.receipt.logs[3])
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oc.fulfillData(requestId, response, {from: h.oracleNode})
+      await h.fulfillOracleRequest(oc, request, response, {from: h.oracleNode})
 
-      let currentPrice = await cc.currentPrice.call()
+      const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      let tx = await oc.fulfillData(requestId, response, {from: h.oracleNode})
+      const tx = await h.fulfillOracleRequest(oc, request, response, {from: h.oracleNode})
       assert.equal(2, tx.receipt.logs.length)
-      let log = tx.receipt.logs[1]
+      const log = tx.receipt.logs[1]
 
       assert.equal(h.toUtf8(log.topics[2]), response)
     })
 
     context('when the consumer does not recognize the request ID', () => {
-      let otherId
+      let otherRequest
 
       beforeEach(async () => {
-        let funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
-        let args = h.requestDataBytes(h.toHex(specId), cc.address, funcSig, 43, '')
-        await h.requestDataFrom(oc, link, 0, args)
-        let event = await h.getLatestEvent(oc)
-        otherId = event.args.requestId
+        const funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
+        const args = h.requestDataBytes(h.toHex(specId), cc.address, funcSig, 43, '')
+        const tx = await h.requestDataFrom(oc, link, 0, args)
+        otherRequest = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
       it('does not accept the data provided', async () => {
-        await oc.fulfillData(otherId, response, {from: h.oracleNode})
+        await h.fulfillOracleRequest(oc, otherRequest, response, {from: h.oracleNode})
 
-        let received = await cc.currentPrice.call()
+        const received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
       })
     })
@@ -108,7 +105,7 @@ contract('BasicConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
-          await cc.fulfill(requestId, response, {from: h.oracleNode})
+          await cc.fulfill(request.Id, response, {from: h.oracleNode})
         })
 
         let received = await cc.currentPrice.call()
