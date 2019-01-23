@@ -174,7 +174,7 @@ contract('Coordinator', () => {
   })
 
   describe('#fulfillData', () => {
-    let agreement, mock, requestId
+    let agreement, mock, request
     beforeEach(async () => {
       agreement = await h.newServiceAgreement({oracles: [h.oracleNode]})
       const tx = await h.initiateServiceAgreement(coordinator, agreement)
@@ -189,7 +189,7 @@ contract('Coordinator', () => {
         const payload = h.executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
         const tx = await link.transferAndCall(
           coordinator.address, agreement.payment, payload)
-        requestId = h.runRequestId(tx.receipt.logs[2])
+        request = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
       context('when called by a non-owner', () => {
@@ -197,7 +197,7 @@ contract('Coordinator', () => {
         xit('raises an error', async () => {
           await h.assertActionThrows(async () => {
             await coordinator.fulfillData(
-              requestId, 'Hello World!', { from: h.stranger })
+              request.Id, 'Hello World!', { from: h.stranger })
           })
         })
       })
@@ -212,19 +212,19 @@ contract('Coordinator', () => {
 
         it('sets the value on the requested contract', async () => {
           await coordinator.fulfillData(
-            requestId, 'Hello World!', { from: h.oracleNode })
+            request.Id, 'Hello World!', { from: h.oracleNode })
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(requestId, mockRequestId)
+          assert.equal(request.Id, mockRequestId)
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', h.toUtf8(currentValue))
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await coordinator.fulfillData(requestId, 'First message!', { from: h.oracleNode })
+          await coordinator.fulfillData(request.Id, 'First message!', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(requestId, 'Second message!!', { from: h.oracleNode })
+            await coordinator.fulfillData(request.Id, 'Second message!!', { from: h.oracleNode })
           })
         })
       })
@@ -274,14 +274,13 @@ contract('Coordinator', () => {
 
       context('fails during fulfillment', () => {
         beforeEach(async () => {
-          await mock.requestData(agreement.id, 'assertFail(bytes32,bytes32)')
-          let events = await h.getEvents(coordinator)
-          requestId = events[0].args.requestId
+          const tx = await mock.requestData(agreement.id, 'assertFail(bytes32,bytes32)')
+          request = h.decodeRunRequest(tx.receipt.logs[3])
         })
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -292,24 +291,23 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(requestId, 'hack the planet 102', { from: h.oracleNode })
+            await coordinator.fulfillData(request.Id, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })
 
       context('calls selfdestruct', () => {
         beforeEach(async () => {
-          await mock.requestData(agreement.id, 'doesNothing(bytes32,bytes32)')
-          let events = await h.getEvents(coordinator)
-          requestId = events[0].args.requestId
+          const tx = await mock.requestData(agreement.id, 'doesNothing(bytes32,bytes32)')
+          request = h.decodeRunRequest(tx.receipt.logs[3])
           await mock.remove()
         })
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -322,9 +320,8 @@ contract('Coordinator', () => {
 
       context('request is canceled during fulfillment', () => {
         beforeEach(async () => {
-          await mock.requestData(agreement.id, 'cancelRequestOnFulfill(bytes32,bytes32)')
-          let events = await h.getEvents(coordinator)
-          requestId = events[0].args.requestId
+          const tx = await mock.requestData(agreement.id, 'cancelRequestOnFulfill(bytes32,bytes32)')
+          request = h.decodeRunRequest(tx.receipt.logs[3])
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -332,7 +329,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -346,9 +343,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(requestId, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillData(request.Id, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(requestId, 'hack the planet 102', { from: h.oracleNode })
+            await coordinator.fulfillData(request.Id, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })

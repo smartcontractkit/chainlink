@@ -99,8 +99,10 @@ export const toHexWithoutPrefix = arg => {
 }
 
 export const toHex = value => {
-  return `0x${toHexWithoutPrefix(value)}`
+  return Ox(toHexWithoutPrefix(value))
 }
+
+export const Ox = value => ("0x" !== value.slice(0, 2)) ? `0x${value}` : value
 
 // True if h is a standard representation of a byte array, false otherwise
 export const isByteRepresentation = h => {
@@ -188,17 +190,18 @@ export const decodeRunRequest = log => {
     data
   ] = abi.rawDecode(types, runABI)
 
-  return [
-    log.topics[1],
-    log.topics[2],
-    log.topics[3],
-    toHex(requestId),
-    version,
-    callbackAddress,
-    callbackFunc,
-    expiration,
-    autoAddMapDelimiters(data)
-  ]
+  return {
+    topic: log.topics[0],
+    jobId: log.topics[1],
+    requester: log.topics[2],
+    payment: log.topics[3],
+    Id: toHex(requestId),
+    dataVersion: version,
+    callbackAddr: Ox(callbackAddress),
+    callbackFunc: toHex(callbackFunc),
+    expiration: toHex(expiration),
+    data: autoAddMapDelimiters(data)
+  }
 }
 
 const autoAddMapDelimiters = (data) => {
@@ -216,7 +219,7 @@ export const decodeDietCBOR = (data) => {
 }
 
 export const runRequestId = log => {
-  var [_, _, _, requestId, _, _, _, _, _] = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
+  const { requestId } = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
   return requestId
 }
 
@@ -452,3 +455,16 @@ export const newServiceAgreement = async (params) => {
 }
 
 export const sixMonthsFromNow = () => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
+
+export const fulfillOracleRequest = async (oracle, request, response, options) => {
+  if (!options) options = {from: defaultAccount}
+
+  return await oracle.fulfillData(
+    request.Id,
+    request.payment,
+    request.callbackAddr,
+    request.callbackFunc,
+    request.expiration,
+    response,
+    options)
+}
