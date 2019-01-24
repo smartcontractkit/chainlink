@@ -3,7 +3,7 @@ import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import { Provider } from 'react-redux'
-import { Router } from 'react-static'
+import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/JobRuns/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
@@ -12,9 +12,9 @@ const classes = {}
 const mountShow = (props) => (
   mountWithTheme(
     <Provider store={createStore()}>
-      <Router>
+      <MemoryRouter>
         <Show classes={classes} {...props} />
-      </Router>
+      </MemoryRouter>
     </Provider>
   )
 )

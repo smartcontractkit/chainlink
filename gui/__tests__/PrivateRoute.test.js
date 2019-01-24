@@ -3,7 +3,7 @@ import React from 'react'
 import configureStore from 'redux-mock-store'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
-import { Route, Switch } from 'react-static'
+import { Route, Switch } from 'react-router-dom'
 import { MemoryRouter } from 'react-router'
 import PrivateRoute from 'PrivateRoute'
 

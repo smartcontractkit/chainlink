@@ -1,5 +1,5 @@
 import React from 'react'
-import { Router } from 'react-static'
+import { MemoryRouter } from 'react-router-dom'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import JssProvider from 'react-jss/lib/JssProvider'
@@ -21,9 +21,9 @@ export default (children, opts = {}) => (
     <JssProvider registry={sheetsRegistry} generateClassName={generateClassName}>
       <MuiThemeProvider theme={muiTheme} sheetsManager={new Map()}>
         <Provider store={createStore()}>
-          <Router>
+          <MemoryRouter initialEntries={['/']}>
             {children}
-          </Router>
+          </MemoryRouter>
         </Provider>
       </MuiThemeProvider>
     </JssProvider>
