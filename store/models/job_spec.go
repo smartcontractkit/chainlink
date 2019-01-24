@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -202,36 +201,6 @@ func (i *Initiator) UnmarshalJSON(input []byte) error {
 func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog ||
 		i.Type == InitiatorServiceAgreementExecutionLog
-}
-
-// FilterQuery returns the ethereum FilterQuery for this initiator.
-func (i Initiator) FilterQuery(from *IndexableBlockNumber) (ethereum.FilterQuery, error) {
-	switch i.Type {
-	case InitiatorEthLog:
-		return newInitiatorFilterQuery(i, from, nil), nil
-	case InitiatorRunLog:
-		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(RunLogTopic, i.JobID)), nil
-	case InitiatorServiceAgreementExecutionLog:
-		return newInitiatorFilterQuery(
-				i,
-				from,
-				TopicFiltersForRunLog(ServiceAgreementExecutionLogTopic, i.JobID)),
-			nil
-	default:
-		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
-	}
-}
-
-func newInitiatorFilterQuery(
-	initr Initiator,
-	fromBlock *IndexableBlockNumber,
-	topics [][]common.Hash,
-) ethereum.FilterQuery {
-	// Exclude current block from future log subscription to prevent replay.
-	listenFromNumber := fromBlock.NextInt()
-	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
-	q.Topics = topics
-	return q
 }
 
 // TaskSpec is the definition of work to be carried out. The

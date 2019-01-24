@@ -11,37 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// Descriptive indices of a RunLog's Topic array
-const (
-	RunLogTopicSignature = iota
-	RunLogTopicJobID
-	RunLogTopicRequester
-	RunLogTopicAmount
-)
-
-// Descriptive indices of a ServiceAgreementExecutionLog's Topic array
-const (
-	ServiceAgreementExecutionLogTopicSignature = iota
-	ServiceAgreementExecutionLogTopicJobID
-	ServiceAgreementExecutionLogTopicRequester
-	ServiceAgreementExecutionLogTopicAmount
-)
-
-// RunLogTopic is the signature for the RunRequest(...) event
-// which Chainlink RunLog initiators watch for.
-// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-var RunLogTopic = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
-
-// ServiceAgreementExecutionLogTopic is the signature for the
-// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
-// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
-var ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
-
-// OracleFulfillmentFunctionID is the function id of the oracle fulfillment
-// method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
-// Kept in sync with solidity/contracts/Oracle.sol
-const OracleFulfillmentFunctionID = "0x76005c26"
-
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
@@ -250,14 +219,4 @@ func (l *IndexableBlockNumber) NextInt() *big.Int {
 type EthSubscription interface {
 	Err() <-chan error
 	Unsubscribe()
-}
-
-// TopicFiltersForRunLog generates the two variations of RunLog IDs that could
-// possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
-// hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopic common.Hash, jobID string) [][]common.Hash {
-	hexJobID := common.BytesToHash([]byte(jobID))
-	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
-	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{{logTopic}, {hexJobID, jobIDZeroPadded}}
 }
