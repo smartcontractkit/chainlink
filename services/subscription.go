@@ -62,45 +62,30 @@ type JobSubscription struct {
 	unsubscribers []Unsubscriber
 }
 
-// scanInitiatorsLogsStartSubscriptions attempts to subscribe to each type of
-// initiator log, and adds the unsubscriber to unsubscribers if successful, or
-// the resulting error to merr, if not. Returns the extended unsubscribers, merr
-func scanInitiatorLogsStartSubscriptions(
-	initiators []models.Initiator,
-	subscribe func(models.Initiator) (Unsubscriber, error),
-	unsubscribers []Unsubscriber, merr error) ([]Unsubscriber, error) {
-	for _, initr := range initiators {
-		unsubscriber, err := subscribe(initr)
-		if err == nil {
-			unsubscribers = append(unsubscribers, unsubscriber)
-		} else {
-			merr = multierr.Append(merr, err)
-		}
-	}
-	return unsubscribers, merr
-}
-
 // StartJobSubscription constructs a JobSubscription which listens for and
 // tracks event logs corresponding to the specified job. Ignores any errors if
 // there is at least one successful subscription to an initiator log.
 func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (JobSubscription, error) {
-	var merr error
-	var unsubscribers []Unsubscriber
-	unsubscribers, merr = scanInitiatorLogsStartSubscriptions(
+	ethUnsubs, ethErr := subscribeInitiators(
 		job.InitiatorsFor(models.InitiatorEthLog),
 		func(initr models.Initiator) (Unsubscriber, error) {
 			return StartEthLogSubscription(initr, job, head, store)
-		}, unsubscribers, merr)
-	unsubscribers, merr = scanInitiatorLogsStartSubscriptions(
+		})
+
+	runUnsubs, runErr := subscribeInitiators(
 		job.InitiatorsFor(models.InitiatorRunLog),
 		func(initr models.Initiator) (Unsubscriber, error) {
 			return StartRunLogSubscription(initr, job, head, store)
-		}, unsubscribers, merr)
-	unsubscribers, merr = scanInitiatorLogsStartSubscriptions(
+		})
+
+	saUnsubs, saErr := subscribeInitiators(
 		job.InitiatorsFor(models.InitiatorServiceAgreementExecutionLog),
 		func(initr models.Initiator) (Unsubscriber, error) {
 			return StartSALogSubscription(initr, job, head, store)
-		}, unsubscribers, merr)
+		})
+
+	unsubscribers := append(ethUnsubs, append(runUnsubs, saUnsubs...)...)
+	merr := multierr.Combine(ethErr, runErr, saErr)
 
 	if len(unsubscribers) == 0 {
 		return JobSubscription{}, multierr.Append(
@@ -108,6 +93,24 @@ func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber,
 				"unable to subscribe to any logs, check earlier errors in this message, and the initiator types"))
 	}
 	return JobSubscription{Job: job, unsubscribers: unsubscribers}, merr
+}
+
+type subscriberCallback = func(models.Initiator) (Unsubscriber, error)
+
+// subscribeInitiators passes each initiator to the passed callback,
+// returning the array of unsubscribers and errors.
+func subscribeInitiators(initrs []models.Initiator, cb subscriberCallback) ([]Unsubscriber, error) {
+	var merr error
+	var unsubscribers []Unsubscriber
+	for _, initr := range initrs {
+		unsubscriber, err := cb(initr)
+		if err == nil {
+			unsubscribers = append(unsubscribers, unsubscriber)
+		} else {
+			merr = multierr.Append(merr, err)
+		}
+	}
+	return unsubscribers, merr
 }
 
 // Unsubscribe stops the subscription and cleans up associated resources.
