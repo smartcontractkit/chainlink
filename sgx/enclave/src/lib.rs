@@ -12,11 +12,13 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate sgx_rand;
 #[cfg(not(target_env = "sgx"))]
 #[macro_use]
 extern crate sgx_tstd as std;
 extern crate sgx_tse as tse;
 extern crate sgx_types;
+extern crate sgx_tcrypto;
 #[macro_use]
 extern crate utils;
 extern crate wasmi;
@@ -165,11 +167,15 @@ fn report_shim(
 ) -> Result<(), ShimError> {
     let output = match attestation::report() {
         Ok(report) => json!({
-                "report": {
-                    "key_id": report.key_id.id,
-                    "mac": report.mac,
-                }
-            }).to_string(),
+            "report": {
+                "body": {
+                    "report_data": report.body.report_data.d.to_vec(),
+                    "mr_enclave": report.body.mr_enclave.m.to_vec(),
+                },
+                "key_id": report.key_id.id,
+                "mac": report.mac,
+            }
+        }).to_string(),
         Err(err) => format!("error: {:?}", err),
     };
 
