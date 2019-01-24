@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +21,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
-	eth.Register("eth_getLogs", []strpkg.Log{log})
+	eth.Register("eth_getLogs", []models.Log{log})
 	eth.RegisterSubscription("logs")
 
 	var count int32
@@ -66,8 +67,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 
 	job, initr := cltest.NewJobWithLogInitiator()
 	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
-	eth.Register("eth_getLogs", []strpkg.Log{log}) // backfill
-	logsChan := make(chan strpkg.Log)
+	eth.Register("eth_getLogs", []models.Log{log}) // backfill
+	logsChan := make(chan models.Log)
 	eth.RegisterSubscription("logs", logsChan)
 
 	var count int32

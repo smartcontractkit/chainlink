@@ -147,7 +147,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.Log, 1)
+	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 	})
@@ -172,7 +172,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.Log, 1)
+	logs := make(chan models.Log, 1)
 	newHeads := eth.RegisterNewHeads()
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
@@ -261,7 +261,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.Log, 1)
+	logs := make(chan models.Log, 1)
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
@@ -411,7 +411,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	eth := app.MockEthClient()
 	eth.RegisterNewHead(1)
-	logs := make(chan store.Log, 1)
+	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 	})
@@ -515,7 +515,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	logs := make(chan store.Log, 1)
+	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getBlockByNumber", models.BlockHeader{}) // services.(*HeadTracker).fastForwardHeadFromEth

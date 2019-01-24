@@ -104,7 +104,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
+func (sub InitiatorSubscription) dispatchLog(log models.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %v", sub.Initiator.Type, sub.Job.ID),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID)
 
@@ -170,9 +170,9 @@ func runJob(store *strpkg.Store, le LogRequest, data models.JSON) {
 // ethereum node subscription.
 type ManagedSubscription struct {
 	store           *strpkg.Store
-	logs            chan strpkg.Log
+	logs            chan models.Log
 	ethSubscription models.EthSubscription
-	callback        func(strpkg.Log)
+	callback        func(models.Log)
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
@@ -180,9 +180,9 @@ type ManagedSubscription struct {
 func NewManagedSubscription(
 	store *strpkg.Store,
 	filter ethereum.FilterQuery,
-	callback func(strpkg.Log),
+	callback func(models.Log),
 ) (*ManagedSubscription, error) {
-	logs := make(chan strpkg.Log)
+	logs := make(chan models.Log)
 	es, err := store.TxManager.SubscribeToLogs(logs, filter)
 	if err != nil {
 		return nil, err
