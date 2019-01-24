@@ -66,23 +66,26 @@ type JobSubscription struct {
 // tracks event logs corresponding to the specified job. Ignores any errors if
 // there is at least one successful subscription to an initiator log.
 func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (JobSubscription, error) {
-	ethUnsubs, ethErr := subscribeInitiators(
+	ethUnsubs, ethErr := aggregateSubscribe(
+		StartEthLogSubscription,
 		job.InitiatorsFor(models.InitiatorEthLog),
-		func(initr models.Initiator) (Unsubscriber, error) {
-			return StartEthLogSubscription(initr, job, head, store)
-		})
+		job,
+		head,
+		store)
 
-	runUnsubs, runErr := subscribeInitiators(
+	runUnsubs, runErr := aggregateSubscribe(
+		StartRunLogSubscription,
 		job.InitiatorsFor(models.InitiatorRunLog),
-		func(initr models.Initiator) (Unsubscriber, error) {
-			return StartRunLogSubscription(initr, job, head, store)
-		})
+		job,
+		head,
+		store)
 
-	saUnsubs, saErr := subscribeInitiators(
+	saUnsubs, saErr := aggregateSubscribe(
+		StartSALogSubscription,
 		job.InitiatorsFor(models.InitiatorServiceAgreementExecutionLog),
-		func(initr models.Initiator) (Unsubscriber, error) {
-			return StartSALogSubscription(initr, job, head, store)
-		})
+		job,
+		head,
+		store)
 
 	unsubscribers := append(ethUnsubs, append(runUnsubs, saUnsubs...)...)
 	merr := multierr.Combine(ethErr, runErr, saErr)
@@ -95,15 +98,20 @@ func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber,
 	return JobSubscription{Job: job, unsubscribers: unsubscribers}, merr
 }
 
-type subscriberCallback = func(models.Initiator) (Unsubscriber, error)
+type subscriptionStarter = func(initr models.Initiator, job models.JobSpec,
+	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error)
 
-// subscribeInitiators passes each initiator to the passed callback,
-// returning the array of unsubscribers and errors.
-func subscribeInitiators(initrs []models.Initiator, cb subscriberCallback) ([]Unsubscriber, error) {
+func aggregateSubscribe(
+	starter subscriptionStarter,
+	initrs []models.Initiator,
+	job models.JobSpec,
+	head *models.IndexableBlockNumber,
+	store *strpkg.Store) ([]Unsubscriber, error) {
+
 	var merr error
 	var unsubscribers []Unsubscriber
 	for _, initr := range initrs {
-		unsubscriber, err := cb(initr)
+		unsubscriber, err := starter(initr, job, head, store)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
