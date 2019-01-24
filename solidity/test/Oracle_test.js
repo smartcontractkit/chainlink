@@ -167,8 +167,7 @@ contract('Oracle', () => {
         assert.equal(oc.address, log.address)
 
         assert.equal(specId, h.toUtf8(log.topics[1]))
-        assert.equal(h.defaultAccount.toString().toLowerCase(),
-                     '0x' + h.bigNum(log.topics[2]).toString('hex'))
+        assert.equal(h.defaultAccount.toString().toLowerCase(), h.hexToAddress(log.topics[2]))
         assertBigNum(paid, log.topics[3])
       })
 
@@ -267,7 +266,7 @@ contract('Oracle', () => {
         const defaultGasLimit = 500000
 
         beforeEach(async () => {
-          assertBigNum(0, await oc.withdrawable.call(), "Oracle should initially have zero balance.")
+          assertBigNum(0, await oc.withdrawable.call())
         })
 
         it('does not allow the oracle to withdraw the payment', async () => {
@@ -278,7 +277,7 @@ contract('Oracle', () => {
             })
           })
 
-          assertBigNum(0, await oc.withdrawable.call(), "Oracle was paid despite inadequatel gas for fulfillment")
+          assertBigNum(0, await oc.withdrawable.call())
         })
 
         it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
@@ -287,8 +286,7 @@ contract('Oracle', () => {
             gas: defaultGasLimit
           })
 
-          assertBigNum(request.payment, await oc.withdrawable.call(),
-                       "No payment for oracle despite adequate gas for fulfillment")
+          assertBigNum(request.payment, await oc.withdrawable.call())
         })
       })
     })
@@ -344,7 +342,7 @@ contract('Oracle', () => {
 
           await withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
-          assertBigNum(paymentAmount, newBalance, "Oracle did not receive payment")
+          assertBigNum(paymentAmount, newBalance)
         })
 
         it("can't fulfill the data again", async () => {
@@ -373,7 +371,7 @@ contract('Oracle', () => {
 
           await withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
-          assertBigNum(paymentAmount, newBalance, "Oracle did not receive payment")
+          assertBigNum(paymentAmount, newBalance)
         })
       })
 
@@ -396,7 +394,7 @@ contract('Oracle', () => {
 
           await withdraw(h.oracleNode, paymentAmount, { from: h.defaultAccount })
           const newBalance = await link.balanceOf.call(h.oracleNode)
-          assertBigNum(paymentAmount, newBalance, "Oracle did not receive payment")
+          assertBigNum(paymentAmount, newBalance)
         })
 
         it("can't fulfill the data again", async () => {
@@ -538,8 +536,7 @@ contract('Oracle', () => {
 
     it('returns the correct value', async () => {
       const withdrawAmount = await oc.withdrawable.call()
-      assertBigNum(withdrawAmount, request.payment,
-                   "Oracle reports the wrong withdrawable amount")
+      assertBigNum(withdrawAmount, request.payment)
     })
   })
 
@@ -555,19 +552,18 @@ contract('Oracle', () => {
         await h.increaseTime5Minutes()
 
         await h.assertActionThrows(async () => {
-          await h.cancelOracleRequest(oc, fakeRequest,  { from: h.stranger })
+          await h.cancelOracleRequest(oc, fakeRequest, { from: h.stranger })
         })
       })
     })
 
     context('with a pending request', () => {
-      let request, tx, mock, startingBalance
+      const startingBalance = 100
+      let request, tx
 
       beforeEach(async () => {
-        startingBalance = 100
         const requestAmount = 20
 
-        mock = await h.deploy('examples/GetterSetter.sol')
         await link.transfer(h.consumer, startingBalance)
 
         let args = h.requestDataBytes(specId, h.consumer, fHash, 1, '')

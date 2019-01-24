@@ -193,7 +193,7 @@ export const decodeRunRequest = log => {
   return {
     topic: log.topics[0],
     jobId: log.topics[1],
-    requester: log.topics[2],
+    requester: hexToAddress(log.topics[2]),
     payment: log.topics[3],
     id: toHex(requestId),
     dataVersion: version,
@@ -479,3 +479,5 @@ export const cancelOracleRequest = async (oracle, request, options) => {
     request.expiration,
     options)
 }
+
+export const hexToAddress = hex => Ox(bigNum(hex).toString('hex'))
