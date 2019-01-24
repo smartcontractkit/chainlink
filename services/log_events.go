@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
-	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
@@ -19,7 +18,7 @@ import (
 // types of LogEvents.
 // i.e. EthLogEvent, RunLogEvent, ServiceAgreementLogEvent, OracleLogEvent
 type LogRequest interface {
-	GetLog() strpkg.Log
+	GetLog() models.Log
 	GetJobSpec() models.JobSpec
 	GetInitiator() models.Initiator
 
@@ -35,7 +34,7 @@ type LogRequest interface {
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
 // InitiatorSubscription.
 type InitiatorLogEvent struct {
-	Log       strpkg.Log
+	Log       models.Log
 	JobSpec   models.JobSpec
 	Initiator models.Initiator
 }
@@ -57,7 +56,7 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 }
 
 // GetLog returns the log.
-func (le InitiatorLogEvent) GetLog() strpkg.Log {
+func (le InitiatorLogEvent) GetLog() models.Log {
 	return le.Log
 }
 
@@ -193,7 +192,7 @@ func (le RunLogEvent) JSON() (models.JSON, error) {
 	return js.Merge(fullfillmentJSON)
 }
 
-func fulfillmentToJSON(el strpkg.Log) (models.JSON, error) {
+func fulfillmentToJSON(el models.Log) (models.JSON, error) {
 	var js models.JSON
 	js, err := js.Add("address", el.Address.String())
 	if err != nil {
@@ -221,10 +220,10 @@ func decodeABIToJSON(data []byte) (models.JSON, error) {
 	return models.ParseCBOR(data[start:])
 }
 
-func jobIDFromHexEncodedTopic(log strpkg.Log) string {
+func jobIDFromHexEncodedTopic(log models.Log) string {
 	return string(log.Topics[models.RequestLogTopicJobID].Bytes())
 }
 
-func jobIDFromImproperEncodedTopic(log strpkg.Log) string {
+func jobIDFromImproperEncodedTopic(log models.Log) string {
 	return log.Topics[models.RequestLogTopicJobID].String()[2:34]
 }

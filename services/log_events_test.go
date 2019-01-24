@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
-	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,7 @@ func TestRunLogEvent_JSON(t *testing.T) {
 	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
 		name        string
-		el          strpkg.Log
+		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -48,7 +47,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          strpkg.Log
+		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -72,7 +71,7 @@ func TestRequestLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		logFactory (func(string, common.Address, common.Address, int, string) strpkg.Log)
+		logFactory (func(string, common.Address, common.Address, int, string) models.Log)
 		input      common.Hash
 		want       common.Address
 	}{
@@ -164,7 +163,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(string, common.Address, common.Address, int, string) strpkg.Log)
+		logFactory (func(string, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -204,7 +203,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			defer cleanup()
 
 			eth := app.MockEthClient()
-			logs := make(chan strpkg.Log, 1)
+			logs := make(chan models.Log, 1)
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.Register("eth_getBlockByNumber", models.BlockHeader{})
 				eth.Register("eth_getTransactionCount", "0x1")
