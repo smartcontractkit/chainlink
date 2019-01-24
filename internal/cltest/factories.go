@@ -210,9 +210,9 @@ func NullTime(val interface{}) null.Time {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(path string) strpkg.Log {
+func LogFromFixture(path string) models.Log {
 	value := gjson.Get(string(LoadJSON(path)), "params.result")
-	var el strpkg.Log
+	var el models.Log
 	mustNotErr(json.Unmarshal([]byte(value.String()), &el))
 
 	return el
@@ -265,20 +265,20 @@ func EasyJSONFromString(body string, args ...interface{}) EasyJSON {
 	return EasyJSON{JSON: JSONFromString(body, args...)}
 }
 
-// NewRunLog create strpkg.Log for given jobid, address, block, and json
+// NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	jobID string,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
 	json string,
-) strpkg.Log {
-	return strpkg.Log{
+) models.Log {
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData("internalID", json),
 		Topics: []common.Hash{
-			services.RunLogTopic,
+			models.RunLogTopic,
 			StringToHash(jobID),
 			requester.Hash(),
 			minimumContractPayment.ToHash(),
@@ -295,13 +295,13 @@ func NewServiceAgreementExecutionLog(
 	executionRequester common.Address,
 	blockHeight int,
 	serviceAgreementJSON string,
-) strpkg.Log {
-	return strpkg.Log{
+) models.Log {
+	return models.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
 		Data:        StringToVersionedLogData("internalID", serviceAgreementJSON),
 		Topics: []common.Hash{
-			services.ServiceAgreementExecutionLogTopic,
+			models.ServiceAgreementExecutionLogTopic,
 			StringToHash(jobID),
 			executionRequester.Hash(),
 			minimumContractPayment.ToHash(),

@@ -163,7 +163,7 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 func channelFromSubscriptionName(name string) interface{} {
 	switch name {
 	case "logs":
-		return make(chan store.Log)
+		return make(chan models.Log)
 	case "newHeads":
 		return make(chan models.BlockHeader)
 	default:
@@ -183,7 +183,7 @@ func (mock *EthMock) EthSubscribe(
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
-			case chan<- store.Log:
+			case chan<- models.Log:
 				fwdLogs(channel, sub.channel)
 			case chan<- models.BlockHeader:
 				fwdHeaders(channel, sub.channel)
@@ -199,7 +199,7 @@ func (mock *EthMock) EthSubscribe(
 	} else if args[0] == "logs" && !mock.logsCalled {
 		mock.logsCalled = true
 		return MockSubscription{
-			channel: make(chan store.Log),
+			channel: make(chan models.Log),
 			Errors:  make(chan error),
 		}, nil
 	} else if args[0] == "newHeads" {
@@ -227,8 +227,8 @@ func (mock *EthMock) NoMagic() {
 }
 
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- store.Log)
-	mockChan := mock.(chan store.Log)
+	logChan := actual.(chan<- models.Log)
+	mockChan := mock.(chan models.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -266,8 +266,8 @@ func (mes MockSubscription) Unsubscribe() {
 	switch mes.channel.(type) {
 	case chan struct{}:
 		close(mes.channel.(chan struct{}))
-	case chan store.Log:
-		close(mes.channel.(chan store.Log))
+	case chan models.Log:
+		close(mes.channel.(chan models.Log))
 	case chan models.BlockHeader:
 		close(mes.channel.(chan models.BlockHeader))
 	default:

@@ -127,8 +127,8 @@ func (eth *EthClient) GetBlockByNumber(hex string) (models.BlockHeader, error) {
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
-	var results []Log
+func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
+	var results []models.Log
 	err := eth.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
@@ -136,7 +136,7 @@ func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
 func (eth *EthClient) SubscribeToLogs(
-	channel chan<- Log,
+	channel chan<- models.Log,
 	q ethereum.FilterQuery,
 ) (models.EthSubscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
