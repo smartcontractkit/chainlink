@@ -278,7 +278,7 @@ func NewRunLog(
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData("internalID", json),
 		Topics: []common.Hash{
-			services.RunLogTopic,
+			models.RunLogTopic,
 			StringToHash(jobID),
 			requester.Hash(),
 			minimumContractPayment.ToHash(),
@@ -301,7 +301,7 @@ func NewServiceAgreementExecutionLog(
 		BlockNumber: uint64(blockHeight),
 		Data:        StringToVersionedLogData("internalID", serviceAgreementJSON),
 		Topics: []common.Hash{
-			services.ServiceAgreementExecutionLogTopic,
+			models.ServiceAgreementExecutionLogTopic,
 			StringToHash(jobID),
 			executionRequester.Hash(),
 			minimumContractPayment.ToHash(),

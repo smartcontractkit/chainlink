@@ -81,8 +81,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	var count int32
 	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
 	fromBlock := cltest.IndexableBlockNumber(0)
-	filter := services.NewInitiatorFilterQuery(initr, fromBlock, nil)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, fromBlock, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -105,8 +104,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	var count int32
 	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
-	filter := services.NewInitiatorFilterQuery(initr, nil, nil)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, nil, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -130,8 +128,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	var count int32
 	callback := func(services.InitiatorSubscriptionLogEvent) { atomic.AddInt32(&count, 1) }
 	head := cltest.IndexableBlockNumber(0)
-	filter := services.NewInitiatorFilterQuery(initr, head, nil)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, filter, callback)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, head, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -150,13 +147,13 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	t.Parallel()
 
 	jobID := "4a1eb0e8df314cb894024a38991cff0f"
-	topics := services.TopicFiltersForRunLog(services.RunLogTopic, jobID)
+	topics := models.TopicFiltersForRunLog(models.RunLogTopic, jobID)
 
 	assert.Equal(t, 2, len(topics))
 	assert.Equal(
 		t,
-		[]common.Hash{services.RunLogTopic},
-		topics[services.RunLogTopicSignature])
+		[]common.Hash{models.RunLogTopic},
+		topics[models.RunLogTopicSignature])
 
 	assert.Equal(
 		t,
@@ -184,7 +181,7 @@ func TestInitiatorSubscriptionLogEvent_Requester(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			rl := cltest.NewRunLog("id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
-			rl.Topics[services.RunLogTopicRequester] = test.input
+			rl.Topics[models.RunLogTopicRequester] = test.input
 			le := services.InitiatorSubscriptionLogEvent{Log: rl}
 
 			assert.Equal(t, test.want, le.Requester())
@@ -210,7 +207,7 @@ func TestInitiatorSubscriptionServiceAgreementExecutionLogEvent_Requester(t *tes
 		t.Run(test.name, func(t *testing.T) {
 			rl := cltest.NewServiceAgreementExecutionLog(
 				"id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
-			rl.Topics[services.ServiceAgreementExecutionLogTopicRequester] =
+			rl.Topics[models.ServiceAgreementExecutionLogTopicRequester] =
 				test.input
 			le := services.InitiatorSubscriptionLogEvent{Log: rl}
 
@@ -337,5 +334,5 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 }
 
 func TestRunTopic(t *testing.T) {
-	assert.Equal(t, common.HexToHash("0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529"), services.RunLogTopic)
+	assert.Equal(t, common.HexToHash("0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529"), models.RunLogTopic)
 }
