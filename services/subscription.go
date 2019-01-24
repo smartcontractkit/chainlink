@@ -1,21 +1,16 @@
 package services
 
 import (
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/logger"
 	strpkg "github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
-	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -34,29 +29,23 @@ type JobSubscription struct {
 // tracks event logs corresponding to the specified job. Ignores any errors if
 // there is at least one successful subscription to an initiator log.
 func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (JobSubscription, error) {
-	ethUnsubs, ethErr := aggregateSubscribe(
-		StartEthLogSubscription,
-		job.InitiatorsFor(models.InitiatorEthLog),
-		job,
-		head,
-		store)
+	var merr error
+	var unsubscribers []Unsubscriber
 
-	runUnsubs, runErr := aggregateSubscribe(
-		StartRunLogSubscription,
-		job.InitiatorsFor(models.InitiatorRunLog),
-		job,
-		head,
-		store)
+	initrs := job.InitiatorsFor(
+		models.InitiatorEthLog,
+		models.InitiatorRunLog,
+		models.InitiatorServiceAgreementExecutionLog,
+	)
 
-	saUnsubs, saErr := aggregateSubscribe(
-		StartSALogSubscription,
-		job.InitiatorsFor(models.InitiatorServiceAgreementExecutionLog),
-		job,
-		head,
-		store)
-
-	unsubscribers := append(ethUnsubs, append(runUnsubs, saUnsubs...)...)
-	merr := multierr.Combine(ethErr, runErr, saErr)
+	for _, initr := range initrs {
+		unsubscriber, err := NewInitiatorSubscription(initr, job, store, head, ReceiveLogRequest)
+		if err == nil {
+			unsubscribers = append(unsubscribers, unsubscriber)
+		} else {
+			merr = multierr.Append(merr, err)
+		}
+	}
 
 	if len(unsubscribers) == 0 {
 		return JobSubscription{}, multierr.Append(
@@ -64,29 +53,6 @@ func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber,
 				"unable to subscribe to any logs, check earlier errors in this message, and the initiator types"))
 	}
 	return JobSubscription{Job: job, unsubscribers: unsubscribers}, merr
-}
-
-type subscriptionStarter = func(initr models.Initiator, job models.JobSpec,
-	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error)
-
-func aggregateSubscribe(
-	starter subscriptionStarter,
-	initrs []models.Initiator,
-	job models.JobSpec,
-	head *models.IndexableBlockNumber,
-	store *strpkg.Store) ([]Unsubscriber, error) {
-
-	var merr error
-	var unsubscribers []Unsubscriber
-	for _, initr := range initrs {
-		unsubscriber, err := starter(initr, job, head, store)
-		if err == nil {
-			unsubscribers = append(unsubscribers, unsubscriber)
-		} else {
-			merr = multierr.Append(merr, err)
-		}
-	}
-	return unsubscribers, merr
 }
 
 // Unsubscribe stops the subscription and cleans up associated resources.
@@ -104,7 +70,7 @@ type InitiatorSubscription struct {
 	Job       models.JobSpec
 	Initiator models.Initiator
 	store     *strpkg.Store
-	callback  func(InitiatorSubscriptionLogEvent)
+	callback  func(*strpkg.Store, LogRequest)
 }
 
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
@@ -114,9 +80,9 @@ func NewInitiatorSubscription(
 	job models.JobSpec,
 	store *strpkg.Store,
 	from *models.IndexableBlockNumber,
-	callback func(InitiatorSubscriptionLogEvent),
+	callback func(*strpkg.Store, LogRequest),
 ) (InitiatorSubscription, error) {
-	filter, err := initr.FilterQuery(from)
+	filter, err := models.FilterQueryFactory(initr, from)
 	if err != nil {
 		return InitiatorSubscription{}, err
 	}
@@ -141,32 +107,13 @@ func NewInitiatorSubscription(
 func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %v", sub.Initiator.Type, sub.Job.ID),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID)
-	sub.callback(InitiatorSubscriptionLogEvent{
-		Job:       sub.Job,
+
+	base := InitiatorLogEvent{
+		JobSpec:   sub.Job,
 		Initiator: sub.Initiator,
 		Log:       log,
-		store:     sub.store,
-	})
-}
-
-// StartRunLogSubscription starts an InitiatorSubscription tailored for use with
-// RunLogs
-func StartRunLogSubscription(initr models.Initiator, job models.JobSpec,
-	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	return NewInitiatorSubscription(initr, job, store, from, receiveRunOrSALog)
-}
-
-// StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
-func StartEthLogSubscription(initr models.Initiator, job models.JobSpec,
-	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	return NewInitiatorSubscription(initr, job, store, from, receiveEthLog)
-}
-
-// StartSALogSubscription starts an InitiatorSubscription tailored for use with
-// ServiceAgreementExecutionLogs.
-func StartSALogSubscription(initr models.Initiator, job models.JobSpec,
-	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	return NewInitiatorSubscription(initr, job, store, from, receiveRunOrSALog)
+	}
+	sub.callback(sub.store, base.LogRequest())
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -179,37 +126,24 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 	logger.Infow(msg)
 }
 
-// receiveRunOrSALog parses the log and runs the job indicated by a RunLog or
+// ReceiveLogRequest parses the log and runs the job indicated by a RunLog or
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
-func receiveRunOrSALog(le InitiatorSubscriptionLogEvent) {
-	if !le.ValidateRunOrSALog() {
+func ReceiveLogRequest(store *strpkg.Store, le LogRequest) {
+	if !le.Validate() {
 		return
 	}
 
 	le.ToDebug()
-	data, err := le.RunLogJSON()
+	data, err := le.JSON()
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 		return
 	}
 
-	runJob(le, data, le.Initiator)
+	runJob(store, le, data)
 }
 
-// receiveEthLog parses the log and runs the job specific to this initiator log
-// event.
-func receiveEthLog(le InitiatorSubscriptionLogEvent) {
-	le.ToDebug()
-	data, err := le.EthLogJSON()
-	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
-		return
-	}
-
-	runJob(le, data, le.Initiator)
-}
-
-func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Initiator) {
+func runJob(store *strpkg.Store, le LogRequest, data models.JSON) {
 	payment, err := le.ContractPayment()
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
@@ -220,14 +154,13 @@ func runJob(le InitiatorSubscriptionLogEvent, data models.JSON, initr models.Ini
 		Data:   data,
 		Amount: payment,
 	}
-	if !le.validRequester() {
-		err = fmt.Errorf("Run Log didn't have have a valid requester: %v", le.Requester().Hex())
+	if err := le.ValidateRequester(); err != nil {
 		input = input.WithError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 
 	currentHead := le.ToIndexableBlockNumber().Number
-	_, err = ExecuteJob(le.Job, initr, input, &currentHead, le.store)
+	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, &currentHead, store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
@@ -273,6 +206,23 @@ func (sub ManagedSubscription) Unsubscribe() {
 	close(sub.logs)
 }
 
+// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
+// unblocking the application. This is an effort to mitigate the occasional
+// indefinite block described here from go-ethereum:
+// https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
+func timedUnsubscribe(unsubscriber Unsubscriber) {
+	unsubscribed := make(chan struct{})
+	go func() {
+		unsubscriber.Unsubscribe()
+		close(unsubscribed)
+	}()
+	select {
+	case <-unsubscribed:
+	case <-time.After(100 * time.Millisecond):
+		logger.Warnf("Subscription %T Unsubscribe timed out.", unsubscriber)
+	}
+}
+
 func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	backfilledSet := sub.backfillLogs(q)
 	for {
@@ -312,172 +262,4 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 		sub.callback(log)
 	}
 	return backfilledSet
-}
-
-// InitiatorSubscriptionLogEvent encapsulates all information as a result of a received log from an
-// InitiatorSubscription.
-type InitiatorSubscriptionLogEvent struct {
-	Log       strpkg.Log
-	Job       models.JobSpec
-	Initiator models.Initiator
-	store     *strpkg.Store
-}
-
-// ForLogger formats the InitiatorSubscriptionLogEvent for easy common formatting in logs (trace statements, not ethereum events).
-func (le InitiatorSubscriptionLogEvent) ForLogger(kvs ...interface{}) []interface{} {
-	output := []interface{}{
-		"job", le.Job.ID,
-		"log", le.Log.BlockNumber,
-		"initiator", le.Initiator,
-	}
-
-	return append(kvs, output...)
-}
-
-// ToDebug prints this event via logger.Debug.
-func (le InitiatorSubscriptionLogEvent) ToDebug() {
-	friendlyAddress := presenters.LogListeningAddress(le.Initiator.Address)
-	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.Job.ID)
-	logger.Debugw(msg, le.ForLogger()...)
-}
-
-// ToIndexableBlockNumber returns an IndexableBlockNumber for the given InitiatorSubscriptionLogEvent Block
-func (le InitiatorSubscriptionLogEvent) ToIndexableBlockNumber() *models.IndexableBlockNumber {
-	num := new(big.Int)
-	num.SetUint64(le.Log.BlockNumber)
-	return models.NewIndexableBlockNumber(num, le.Log.BlockHash)
-}
-
-// ValidateRunOrSALog returns whether or not the contained log is a RunLog,
-// a specific Chainlink event trigger from smart contracts.
-func (le InitiatorSubscriptionLogEvent) ValidateRunOrSALog() bool {
-	el := le.Log
-	if !isRunLog(el) {
-		logger.Errorw("Skipping; Unable to retrieve runlog parameters from log", le.ForLogger()...)
-		return false
-	}
-
-	jid := jobIDFromHexEncodedTopic(el)
-	if jid != le.Job.ID && jobIDFromImproperEncodedTopic(el) != le.Job.ID {
-		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.Job.ID), le.ForLogger()...)
-		return false
-	}
-
-	return true
-}
-
-func (le InitiatorSubscriptionLogEvent) validRequester() bool {
-	if len(le.Initiator.Requesters) == 0 {
-		return true
-	}
-	for _, r := range le.Initiator.Requesters {
-		if le.Requester() == r {
-			return true
-		}
-	}
-	return false
-}
-
-// RunLogJSON extracts data from the log's topics and data specific to the format defined
-// by RunLogs.
-func (le InitiatorSubscriptionLogEvent) RunLogJSON() (models.JSON, error) {
-	el := le.Log
-	js, err := decodeABIToJSON(el.Data)
-	if err != nil {
-		return js, err
-	}
-
-	fullfillmentJSON, err := fulfillmentToJSON(el)
-	if err != nil {
-		return js, err
-	}
-	return js.Merge(fullfillmentJSON)
-}
-
-func fulfillmentToJSON(el strpkg.Log) (models.JSON, error) {
-	var js models.JSON
-	js, err := js.Add("address", el.Address.String())
-	if err != nil {
-		return js, err
-	}
-
-	js, err = js.Add("dataPrefix", encodeRequestID(el.Data))
-	if err != nil {
-		return js, err
-	}
-
-	return js.Add("functionSelector", models.OracleFulfillmentFunctionID)
-}
-
-// EthLogJSON reformats the log as JSON.
-func (le InitiatorSubscriptionLogEvent) EthLogJSON() (models.JSON, error) {
-	el := le.Log
-	var out models.JSON
-	b, err := json.Marshal(el)
-	if err != nil {
-		return out, err
-	}
-	return out, json.Unmarshal(b, &out)
-}
-
-// ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) {
-	if !isRunLog(le.Log) {
-		return nil, nil
-	}
-	encodedAmount := le.Log.Topics[models.RunLogTopicAmount].Hex()
-	payment, ok := new(assets.Link).SetString(encodedAmount, 0)
-	if !ok {
-		return payment, fmt.Errorf("unable to decoded amount from RunLog: %s", encodedAmount)
-	}
-	return payment, nil
-}
-
-// Requester pulls the requesting address out of the LogEvent's topics.
-func (le InitiatorSubscriptionLogEvent) Requester() common.Address {
-	b := le.Log.Topics[models.RunLogTopicRequester].Bytes()
-	return common.BytesToAddress(b)
-}
-
-func encodeRequestID(data []byte) string {
-	return utils.AddHexPrefix(hex.EncodeToString(data[:common.HashLength]))
-}
-
-func decodeABIToJSON(data []byte) (models.JSON, error) {
-	idSize := common.HashLength
-	versionSize := common.HashLength
-	varLocationSize := common.HashLength
-	varLengthSize := common.HashLength
-	start := idSize + versionSize + varLocationSize + varLengthSize
-	return models.ParseCBOR(data[start:])
-}
-
-func isRunLog(log strpkg.Log) bool {
-	return len(log.Topics) == 4 && (log.Topics[0] == RunLogTopic ||
-		log.Topics[0] == ServiceAgreementExecutionLogTopic)
-}
-
-func jobIDFromHexEncodedTopic(log strpkg.Log) string {
-	return string(log.Topics[models.RunLogTopicJobID].Bytes())
-}
-
-func jobIDFromImproperEncodedTopic(log strpkg.Log) string {
-	return log.Topics[models.RunLogTopicJobID].String()[2:34]
-}
-
-// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
-// unblocking the application. This is an effort to mitigate the occasional
-// indefinite block described here from go-ethereum:
-// https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(subscription models.EthSubscription) {
-	unsubscribed := make(chan struct{})
-	go func() {
-		subscription.Unsubscribe()
-		close(unsubscribed)
-	}()
-	select {
-	case <-unsubscribed:
-	case <-time.After(100 * time.Millisecond):
-		logger.Warnf("Subscription %T Unsubscribe timed out.", subscription)
-	}
 }
