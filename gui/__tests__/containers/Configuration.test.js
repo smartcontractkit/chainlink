@@ -4,7 +4,7 @@ import configurationFactory from 'factories/configuration'
 import syncFetch from 'test-helpers/syncFetch'
 import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
-import { Router } from 'react-static'
+import { MemoryRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { ConnectedConfiguration as Configuration } from 'containers/Configuration'
 
@@ -12,9 +12,9 @@ const classes = {}
 const mountConfiguration = (props) => (
   mount(
     <Provider store={createStore()}>
-      <Router>
+      <MemoryRouter>
         <Configuration classes={classes} {...props} />
-      </Router>
+      </MemoryRouter>
     </Provider>
   )
 )

@@ -4115,16 +4115,6 @@ truffle-provider@^0.0.6:
     truffle-error "^0.0.3"
     web3 "0.20.6"
 
-truffle@5.0.0-next.24:
-  version "5.0.0-next.24"
-  resolved "https://registry.yarnpkg.com/truffle/-/truffle-5.0.0-next.24.tgz#6f8a3d93e99873ef2f45ec98c8efc1740324bbf9"
-  integrity sha512-7ItNE8V1HCCbsJwXBHkJ9yy5vt15ETbxNvMMjrHUZJIV/kCWxh/l8iDl0rfmZsE1+7MmjiAff0VeO5aBtniYGg==
-  dependencies:
-    app-module-path "^2.2.0"
-    mocha "^4.1.0"
-    original-require "1.0.1"
-    solc "0.5.0"
-
 truffle@^4.0.4:
   version "4.1.14"
   resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.14.tgz#8d2c298e29abf9b1e486e44ff9faca6d34bb9030"
@@ -4132,6 +4122,16 @@ truffle@^4.0.4:
     mocha "^4.1.0"
     original-require "1.0.1"
     solc "0.4.24"
+
+truffle@^5.0.0-next.24:
+  version "5.0.1"
+  resolved "https://registry.npmjs.org/truffle/-/truffle-5.0.1.tgz#bd4c3aa15201935c8e35506d9fbabd07814d2323"
+  integrity sha512-SCmbpZGUutMo1zwGPL+xEa80VC8FrnMFqsS/M1WTZUTsU7SrUO+CNuS9s0DDbFuWW8bMAH36YY/9mRwS1imZ/A==
+  dependencies:
+    app-module-path "^2.2.0"
+    mocha "^4.1.0"
+    original-require "1.0.1"
+    solc "0.5.0"
 
 tslib@^1.9.0:
   version "1.9.3"

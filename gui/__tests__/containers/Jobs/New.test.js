@@ -1,7 +1,7 @@
 /* eslint-env jest */
 import React from 'react'
 import { MemoryRouter } from 'react-router'
-import { Switch, Route } from 'react-static'
+import { Switch, Route } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { mount } from 'enzyme'
 import createStore from 'connectors/redux'

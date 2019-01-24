@@ -1,5 +1,5 @@
-require('babel-register')
-require('babel-polyfill')
+require('@babel/register')({ cwd: '../../' })
+require('@babel/polyfill')
 
 module.exports = {
   network: 'test',

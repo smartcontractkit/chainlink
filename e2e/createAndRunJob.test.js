@@ -3,6 +3,7 @@ const expect = require('expect-puppeteer')
 
 describe('End to end', () => {
   let browser, page
+  jest.setTimeout(100000)
   beforeAll(async () => {
     browser = await puppeteer.launch({
       devtools: false,

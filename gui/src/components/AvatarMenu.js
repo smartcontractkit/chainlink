@@ -1,7 +1,7 @@
 import React from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import { Link } from 'react-static'
 import { useHooks, useState, useRef } from 'use-react-hooks'
+import { Link } from 'react-router-dom'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
 import Fab from '@material-ui/core/Fab'
