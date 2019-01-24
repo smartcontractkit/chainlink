@@ -7,8 +7,8 @@
     "build": "cd gui && react-static build",
     "serve": "cd gui && serve dist -p 3000",
     "storybook": "start-storybook -p 9001 -c .storybook",
-    "lint": "standard --fix --verbose --global web3 --global assert --global context --global contract --global artifacts | snazzy",
-    "lint-ci": "standard --verbose --global web3 --global assert --global context --global contract --global artifacts",
+    "lint": "standard --fix --verbose | snazzy",
+    "lint-ci": "standard --verbose",
     "test": "NODE_ENV=test jest",
     "test-ci": "NODE_ENV=test yarn jest gui/ --coverage --reporters jest-silent-reporter",
     "test-e2e": "NODE_ENV=test yarn jest e2e/ -i",
@@ -108,6 +108,14 @@
   ],
   "standard": {
     "parser": "babel-eslint",
+    "globals": [
+      "assert",
+      "artifacts",
+      "context",
+      "contract",
+      "describe",
+      "web3"
+    ],
     "env": [
       "jest"
     ],
