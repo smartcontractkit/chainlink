@@ -11,6 +11,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
 
@@ -70,7 +71,7 @@ type InitiatorSubscription struct {
 	Job       models.JobSpec
 	Initiator models.Initiator
 	store     *strpkg.Store
-	callback  func(*strpkg.Store, LogRequest)
+	callback  func(*strpkg.Store, models.LogRequest)
 }
 
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
@@ -80,7 +81,7 @@ func NewInitiatorSubscription(
 	job models.JobSpec,
 	store *strpkg.Store,
 	from *models.IndexableBlockNumber,
-	callback func(*strpkg.Store, LogRequest),
+	callback func(*strpkg.Store, models.LogRequest),
 ) (InitiatorSubscription, error) {
 	filter, err := models.FilterQueryFactory(initr, from)
 	if err != nil {
@@ -108,7 +109,7 @@ func (sub InitiatorSubscription) dispatchLog(log models.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %v", sub.Initiator.Type, sub.Job.ID),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID)
 
-	base := InitiatorLogEvent{
+	base := models.InitiatorLogEvent{
 		JobSpec:   sub.Job,
 		Initiator: sub.Initiator,
 		Log:       log,
@@ -121,14 +122,14 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 		"Listening for %v from block %v for address %v for job %v",
 		initr.Type,
 		presenters.FriendlyBigInt(blockNumber),
-		presenters.LogListeningAddress(initr.Address),
+		utils.LogListeningAddress(initr.Address),
 		initr.JobID)
 	logger.Infow(msg)
 }
 
 // ReceiveLogRequest parses the log and runs the job indicated by a RunLog or
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
-func ReceiveLogRequest(store *strpkg.Store, le LogRequest) {
+func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 	if !le.Validate() {
 		return
 	}
@@ -143,7 +144,7 @@ func ReceiveLogRequest(store *strpkg.Store, le LogRequest) {
 	runJob(store, le, data)
 }
 
-func runJob(store *strpkg.Store, le LogRequest, data models.JSON) {
+func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 	payment, err := le.ContractPayment()
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)

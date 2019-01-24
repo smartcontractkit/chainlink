@@ -1,4 +1,4 @@
-package services_test
+package models_test
 
 import (
 	"strings"
@@ -17,8 +17,7 @@ func TestRunLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
 	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000017","functionSelector":"0x76005c26"}`)
-
-	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	hwLog := cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
 		name        string
 		el          models.Log
@@ -31,7 +30,7 @@ func TestRunLogEvent_JSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			initr := models.Initiator{Type: models.InitiatorRunLog}
-			le := services.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
+			le := models.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
 			output, err := le.JSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.NoError(t, err)
@@ -43,22 +42,22 @@ func TestRunLogEvent_JSON(t *testing.T) {
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	hwLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
-	exampleLog := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs.json")
+	hwLog := cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json")
+	exampleLog := cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
 		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{"example", exampleLog, false, cltest.JSONResultFromFixture("../internal/fixtures/eth/subscription_logs.json")},
-		{"hello world", hwLog, false, cltest.JSONResultFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")},
+		{"example", exampleLog, false, cltest.JSONResultFromFixture("../../internal/fixtures/eth/subscription_logs.json")},
+		{"hello world", hwLog, false, cltest.JSONResultFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json")},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			initr := models.Initiator{Type: models.InitiatorEthLog}
-			le := services.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
+			le := models.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
 			output, err := le.JSON()
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -93,7 +92,7 @@ func TestRequestLogEvent_Requester(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			rl := cltest.NewRunLog("id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
 			rl.Topics[models.RequestLogTopicRequester] = test.input
-			le := services.RunLogEvent{services.InitiatorLogEvent{Log: rl}}
+			le := models.RunLogEvent{models.InitiatorLogEvent{Log: rl}}
 
 			assert.Equal(t, test.want, le.Requester())
 		})
@@ -137,10 +136,10 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 				test.eventLogTopic,
 				test.jobIDTopic,
 				test.requesterAddress.Hash(),
-				common.Hash{},
+				{},
 			}
 
-			logRequest := services.InitiatorLogEvent{
+			logRequest := models.InitiatorLogEvent{
 				JobSpec: job,
 				Log:     log,
 				Initiator: models.Initiator{
@@ -198,7 +197,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config, _ := cltest.NewConfigWithPrivateKey()
+			config, _ := cltest.NewConfigWithPrivateKey("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 			app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 			defer cleanup()
 
