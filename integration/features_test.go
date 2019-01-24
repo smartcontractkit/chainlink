@@ -517,7 +517,6 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	logs := make(chan store.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
-		eth.Register("eth_getBlockByNumber", models.BlockHeader{}) // services.(*HeadTracker).fastForwardHeadFromEth
 		eth.Register("eth_getTransactionCount", `0x100`)
 	})
 	assert.NoError(t, app.Start())
@@ -552,10 +551,6 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
-	eth := app.MockEthClient()
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.Register("eth_getBlockByNumber", models.BlockHeader{})
-	})
 	app.Start()
 
 	job := cltest.NewJobWithWebInitiator()

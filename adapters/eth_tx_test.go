@@ -93,7 +93,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	inputValue := "cönfirmed" // contains diacritic acute to check bytes counted for length not chars
 
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	require.NoError(t, app.StartAndConnect())
 
@@ -156,7 +155,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	inputValue := "cönfirmed"
 
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	require.NoError(t, app.StartAndConnect())
 

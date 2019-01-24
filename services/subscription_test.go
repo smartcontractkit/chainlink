@@ -316,7 +316,6 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				eth := app.MockEthClient()
 				logs := make(chan strpkg.Log, 1)
 				eth.Context("app.Start()", func(eth *cltest.EthMock) {
-					eth.Register("eth_getBlockByNumber", models.BlockHeader{})
 					eth.Register("eth_getTransactionCount", "0x1")
 					eth.RegisterSubscription("logs", logs)
 				})
