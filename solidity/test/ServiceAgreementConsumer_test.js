@@ -41,13 +41,11 @@ contract('ServiceAgreementConsumer', () => {
         const request = h.decodeRunRequest(log)
         let params = await h.decodeDietCBOR(request.data)
         assert.equal(agreement.id, request.jobId)
-        assertBigNum(paymentAmount, h.bigNum(request.payment),
-                     "Logged transfer amount differed from actual amount")
-        assert.equal(cc.address.slice(2), request.requester.slice(26))
+        assertBigNum(paymentAmount, h.bigNum(request.payment))
+        assert.equal(cc.address, request.requester)
         assertBigNum(1, request.dataVersion)
-        const url = 'https://min-api.cryptocompare.com/' +
-              'data/price?fsym=ETH&tsyms=USD,EUR,JPY'
-        assert.deepEqual(params, { 'path': 'USD', url: url })
+        const url = 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
+        assert.deepEqual(params, { 'path': currency, url: url })
       })
 
       it('has a reasonable gas cost', async () => {
