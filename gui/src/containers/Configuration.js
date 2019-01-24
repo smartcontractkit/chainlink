@@ -2,7 +2,6 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { useHooks, useEffect } from 'use-react-hooks'
 import { connect } from 'react-redux'
-import { withRouteData } from 'react-static'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import PaddedCard from 'components/PaddedCard'
@@ -11,7 +10,10 @@ import Content from 'components/Content'
 import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import { fetchConfiguration } from 'actions'
 import configsSelector from 'selectors/configs'
+import extractBuildInfo from 'utils/extractBuildInfo'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+
+const buildInfo = extractBuildInfo()
 
 export const Configuration = useHooks(props => {
   useEffect(() => { props.fetchConfiguration() }, [])
@@ -35,7 +37,7 @@ export const Configuration = useHooks(props => {
                   Version
                 </Typography>
                 <Typography variant='body1' color='textSecondary'>
-                  {props.version}
+                  {buildInfo.version}
                 </Typography>
               </PaddedCard>
             </Grid>
@@ -45,7 +47,7 @@ export const Configuration = useHooks(props => {
                   SHA
                 </Typography>
                 <Typography variant='body1' color='textSecondary'>
-                  {props.sha}
+                  {buildInfo.sha}
                 </Typography>
               </PaddedCard>
             </Grid>
@@ -81,4 +83,4 @@ export const ConnectedConfiguration = connect(
   matchRouteAndMapDispatchToProps({ fetchConfiguration })
 )(Configuration)
 
-export default withRouteData(ConnectedConfiguration)
+export default ConnectedConfiguration

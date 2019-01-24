@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-static'
+import { Link } from 'react-router-dom'
 
 export default props => (
   <svg id='Layer_1' data-name='Layer 1' width='813px' height='526.5px' viewBox='0 0 780.98 512.82' {...props}>
