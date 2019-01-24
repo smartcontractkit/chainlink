@@ -10,7 +10,6 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/logger"
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
@@ -19,37 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
 )
-
-// Descriptive indices of a RunLog's Topic array
-const (
-	RunLogTopicSignature = iota
-	RunLogTopicJobID
-	RunLogTopicRequester
-	RunLogTopicAmount
-)
-
-// Descriptive indices of a ServiceAgreementExecutionLog's Topic array
-const (
-	ServiceAgreementExecutionLogTopicSignature = iota
-	ServiceAgreementExecutionLogTopicJobID
-	ServiceAgreementExecutionLogTopicRequester
-	ServiceAgreementExecutionLogTopicAmount
-)
-
-// RunLogTopic is the signature for the RunRequest(...) event
-// which Chainlink RunLog initiators watch for.
-// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-var RunLogTopic = mustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
-
-// ServiceAgreementExecutionLogTopic is the signature for the
-// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
-// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
-var ServiceAgreementExecutionLogTopic = mustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
-
-// OracleFulfillmentFunctionID is the function id of the oracle fulfillment
-// method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
-// Kept in sync with solidity/contracts/Oracle.sol
-const OracleFulfillmentFunctionID = "0x76005c26"
 
 // Unsubscriber is the interface for all subscriptions, allowing one to unsubscribe.
 type Unsubscriber interface {
@@ -128,19 +96,6 @@ func (js JobSubscription) Unsubscribe() {
 	}
 }
 
-// NewInitiatorFilterQuery returns a new InitiatorSubscriber with initialized filter.
-func NewInitiatorFilterQuery(
-	initr models.Initiator,
-	fromBlock *models.IndexableBlockNumber,
-	topics [][]common.Hash,
-) ethereum.FilterQuery {
-	// Exclude current block from future log subscription to prevent replay.
-	listenFromNumber := fromBlock.NextInt()
-	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
-	q.Topics = topics
-	return q
-}
-
 // InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the callback.
@@ -158,11 +113,12 @@ func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *strpkg.Store,
-	filter ethereum.FilterQuery,
+	from *models.IndexableBlockNumber,
 	callback func(InitiatorSubscriptionLogEvent),
 ) (InitiatorSubscription, error) {
-	if !initr.IsLogInitiated() {
-		return InitiatorSubscription{}, errors.New("Can only create an initiator subscription for log initiators")
+	filter, err := initr.FilterQuery(from)
+	if err != nil {
+		return InitiatorSubscription{}, err
 	}
 
 	sub := InitiatorSubscription{
@@ -193,39 +149,24 @@ func (sub InitiatorSubscription) dispatchLog(log strpkg.Log) {
 	})
 }
 
-// TopicFiltersForRunLog generates the two variations of RunLog IDs that could
-// possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
-// hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopic common.Hash, jobID string) [][]common.Hash {
-	hexJobID := common.BytesToHash([]byte(jobID))
-	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
-	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{{logTopic}, {hexJobID, jobIDZeroPadded}}
-}
-
 // StartRunLogSubscription starts an InitiatorSubscription tailored for use with
 // RunLogs
 func StartRunLogSubscription(initr models.Initiator, job models.JobSpec,
 	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, from, TopicFiltersForRunLog(RunLogTopic, job.ID))
-	return NewInitiatorSubscription(initr, job, store, filter, receiveRunOrSALog)
+	return NewInitiatorSubscription(initr, job, store, from, receiveRunOrSALog)
 }
 
 // StartEthLogSubscription starts an InitiatorSubscription tailored for use with EthLogs.
 func StartEthLogSubscription(initr models.Initiator, job models.JobSpec,
 	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, from, nil)
-	return NewInitiatorSubscription(initr, job, store, filter, receiveEthLog)
+	return NewInitiatorSubscription(initr, job, store, from, receiveEthLog)
 }
 
 // StartSALogSubscription starts an InitiatorSubscription tailored for use with
 // ServiceAgreementExecutionLogs.
 func StartSALogSubscription(initr models.Initiator, job models.JobSpec,
 	from *models.IndexableBlockNumber, store *strpkg.Store) (Unsubscriber, error) {
-	filter := NewInitiatorFilterQuery(initr, from, TopicFiltersForRunLog(
-		ServiceAgreementExecutionLogTopic, job.ID))
-	return NewInitiatorSubscription(initr, job, store, filter,
-		receiveRunOrSALog)
+	return NewInitiatorSubscription(initr, job, store, from, receiveRunOrSALog)
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -465,7 +406,7 @@ func fulfillmentToJSON(el strpkg.Log) (models.JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionSelector", OracleFulfillmentFunctionID)
+	return js.Add("functionSelector", models.OracleFulfillmentFunctionID)
 }
 
 // EthLogJSON reformats the log as JSON.
@@ -484,7 +425,7 @@ func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) 
 	if !isRunLog(le.Log) {
 		return nil, nil
 	}
-	encodedAmount := le.Log.Topics[RunLogTopicAmount].Hex()
+	encodedAmount := le.Log.Topics[models.RunLogTopicAmount].Hex()
 	payment, ok := new(assets.Link).SetString(encodedAmount, 0)
 	if !ok {
 		return payment, fmt.Errorf("unable to decoded amount from RunLog: %s", encodedAmount)
@@ -494,7 +435,7 @@ func (le InitiatorSubscriptionLogEvent) ContractPayment() (*assets.Link, error) 
 
 // Requester pulls the requesting address out of the LogEvent's topics.
 func (le InitiatorSubscriptionLogEvent) Requester() common.Address {
-	b := le.Log.Topics[RunLogTopicRequester].Bytes()
+	b := le.Log.Topics[models.RunLogTopicRequester].Bytes()
 	return common.BytesToAddress(b)
 }
 
@@ -517,11 +458,11 @@ func isRunLog(log strpkg.Log) bool {
 }
 
 func jobIDFromHexEncodedTopic(log strpkg.Log) string {
-	return string(log.Topics[RunLogTopicJobID].Bytes())
+	return string(log.Topics[models.RunLogTopicJobID].Bytes())
 }
 
 func jobIDFromImproperEncodedTopic(log strpkg.Log) string {
-	return log.Topics[RunLogTopicJobID].String()[2:34]
+	return log.Topics[models.RunLogTopicJobID].String()[2:34]
 }
 
 // timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
@@ -539,12 +480,4 @@ func timedUnsubscribe(subscription models.EthSubscription) {
 	case <-time.After(100 * time.Millisecond):
 		logger.Warnf("Subscription %T Unsubscribe timed out.", subscription)
 	}
-}
-
-func mustHash(in string) common.Hash {
-	out, err := utils.Keccak256([]byte(in))
-	if err != nil {
-		panic(err)
-	}
-	return common.BytesToHash(out)
 }

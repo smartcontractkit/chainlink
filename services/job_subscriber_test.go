@@ -135,7 +135,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
-					services.RunLogTopic,
+					models.RunLogTopic,
 					cltest.StringToHash(j.ID),
 					newAddr().Hash(),
 					common.BigToHash(big.NewInt(0)),
