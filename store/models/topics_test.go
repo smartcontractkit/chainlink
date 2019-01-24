@@ -12,7 +12,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	t.Parallel()
 
 	jobID := "4a1eb0e8df314cb894024a38991cff0f"
-	topics := models.TopicFiltersForRunLog(models.RunLogTopic, jobID)
+	topics := models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic}, jobID)
 
 	assert.Equal(t, 2, len(topics))
 	assert.Equal(
