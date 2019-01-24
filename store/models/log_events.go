@@ -35,6 +35,17 @@ var (
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 )
 
+type logRequestFactory func(InitiatorLogEvent) LogRequest
+
+// topicFactoryMap maps the log topic to a factory method that returns an
+// implementation of the interface LogRequest. The concrete implementations
+// are polymorphic and can have difference behaviors for methods like JSON().
+var topicFactoryMap = map[common.Hash]logRequestFactory{
+	RunLogTopic:                       func(i InitiatorLogEvent) LogRequest { return RunLogEvent{i} },
+	ServiceAgreementExecutionLogTopic: func(i InitiatorLogEvent) LogRequest { return RunLogEvent{i} },
+	OracleLogTopic:                    func(i InitiatorLogEvent) LogRequest { return RunLogEvent{i} },
+}
+
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
 // method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
 // Kept in sync with solidity/contracts/Oracle.sol
@@ -43,11 +54,12 @@ const OracleFulfillmentFunctionID = "0x76005c26"
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
 // possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
 // hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopic common.Hash, jobID string) [][]common.Hash {
+func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) [][]common.Hash {
 	hexJobID := common.BytesToHash([]byte(jobID))
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
-	// RunLogTopic AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{{logTopic}, {hexJobID, jobIDZeroPadded}}
+	// LogTopics AND (0xHEXJOBID OR 0xJOBID0padded)
+	// i.e. (RunLogTopic OR OracleLogTopic) AND (0xHEXJOBID OR 0xJOBID0padded)
+	return [][]common.Hash{logTopics, {hexJobID, jobIDZeroPadded}}
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
@@ -56,13 +68,11 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
-		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(RunLogTopic, i.JobID)), nil
+		topics := []common.Hash{RunLogTopic, OracleLogTopic}
+		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
 	case InitiatorServiceAgreementExecutionLog:
-		return newInitiatorFilterQuery(
-				i,
-				from,
-				TopicFiltersForRunLog(ServiceAgreementExecutionLogTopic, i.JobID)),
-			nil
+		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
+		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}
@@ -109,16 +119,23 @@ type InitiatorLogEvent struct {
 // type based on Initiator.Type, exposed by the LogRequest interface.
 func (le InitiatorLogEvent) LogRequest() LogRequest {
 	switch le.Initiator.Type {
+	case InitiatorEthLog:
+		return EthLogEvent{InitiatorLogEvent: le}
 	case InitiatorServiceAgreementExecutionLog:
 		fallthrough
 	case InitiatorRunLog:
-		return RunLogEvent{InitiatorLogEvent: le}
-	case InitiatorEthLog:
-		return EthLogEvent{InitiatorLogEvent: le}
-	default:
-		logger.Warnw("LogRequest: Unable to discern initiator type for log request", le.ForLogger()...)
-		return EthLogEvent{InitiatorLogEvent: le}
+		topic, err := le.getTopic(0)
+		if err != nil {
+			logger.Errorw(err.Error(), le.ForLogger()...)
+			break
+		}
+		factory, ok := topicFactoryMap[topic]
+		if ok {
+			return factory(le)
+		}
 	}
+	logger.Warnw("LogRequest: Unable to discern initiator type for log request", le.ForLogger()...)
+	return EthLogEvent{InitiatorLogEvent: le}
 }
 
 // GetLog returns the log.
@@ -136,12 +153,25 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 	return le.Initiator
 }
 
+func (le InitiatorLogEvent) getTopic(idx uint) (common.Hash, error) {
+	if len(le.Log.Topics) <= int(idx) {
+		return common.Hash{}, fmt.Errorf("InitiatorLogEvent: Unable to get topic %v for initiator type %s", idx, le.Initiator.Type)
+	}
+
+	return le.Log.Topics[idx], nil
+}
+
 // ForLogger formats the InitiatorSubscriptionLogEvent for easy common
 // formatting in logs (trace statements, not ethereum events).
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
+	topic := ""
+	if len(le.Log.Topics) > 0 {
+		topic = le.Log.Topics[0].Hex()
+	}
 	output := []interface{}{
 		"job", le.JobSpec.ID,
 		"log", le.Log.BlockNumber,
+		"topic0", topic,
 		"initiator", le.Initiator,
 	}
 
