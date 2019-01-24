@@ -383,3 +383,20 @@ func ParseEthereumAddress(addressString string) (common.Address, error) {
 	}
 	return address, nil
 }
+
+// MustHash returns the keccak256 hash, or panics on failure.
+func MustHash(in string) common.Hash {
+	out, err := Keccak256([]byte(in))
+	if err != nil {
+		panic(err)
+	}
+	return common.BytesToHash(out)
+}
+
+// LogListeningAddress returns the LogListeningAddress
+func LogListeningAddress(address common.Address) string {
+	if address == ZeroAddress {
+		return "[all]"
+	}
+	return address.String()
+}

@@ -200,10 +200,10 @@ func (mr *MockTxManagerMockRecorder) GetLINKBalance(arg0 interface{}) *gomock.Ca
 }
 
 // GetLogs mocks base method
-func (m *MockTxManager) GetLogs(arg0 go_ethereum.FilterQuery) ([]store.Log, error) {
+func (m *MockTxManager) GetLogs(arg0 go_ethereum.FilterQuery) ([]models.Log, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLogs", arg0)
-	ret0, _ := ret[0].([]store.Log)
+	ret0, _ := ret[0].([]models.Log)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -253,7 +253,7 @@ func (mr *MockTxManagerMockRecorder) Register(arg0 interface{}) *gomock.Call {
 }
 
 // SubscribeToLogs mocks base method
-func (m *MockTxManager) SubscribeToLogs(arg0 chan<- store.Log, arg1 go_ethereum.FilterQuery) (models.EthSubscription, error) {
+func (m *MockTxManager) SubscribeToLogs(arg0 chan<- models.Log, arg1 go_ethereum.FilterQuery) (models.EthSubscription, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubscribeToLogs", arg0, arg1)
 	ret0, _ := ret[0].(models.EthSubscription)

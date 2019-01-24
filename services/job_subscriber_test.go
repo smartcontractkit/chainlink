@@ -9,7 +9,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
-	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
@@ -116,7 +115,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(store)
-			logChan := make(chan strpkg.Log, 1)
+			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			j := cltest.NewJob()
@@ -131,11 +130,11 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			ht.Attach(el)
 			assert.Nil(t, ht.Start())
 
-			logChan <- strpkg.Log{
+			logChan <- models.Log{
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
-					services.RunLogTopic,
+					models.RunLogTopic,
 					cltest.StringToHash(j.ID),
 					newAddr().Hash(),
 					common.BigToHash(big.NewInt(0)),
