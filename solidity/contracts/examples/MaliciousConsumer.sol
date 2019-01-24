@@ -6,6 +6,7 @@ import "../Chainlinked.sol";
 
 contract MaliciousConsumer is Chainlinked {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 private expiration;
 
   constructor(address _link, address _oracle) public payable {
     setLinkToken(_link);
@@ -16,6 +17,7 @@ contract MaliciousConsumer is Chainlinked {
 
   function requestData(bytes32 _id, bytes _callbackFunc) public {
     ChainlinkLib.Run memory run = newRun(_id, this, bytes4(keccak256(_callbackFunc)));
+    expiration = now.add(5 minutes);
     chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
@@ -24,7 +26,11 @@ contract MaliciousConsumer is Chainlinked {
   }
 
   function cancelRequestOnFulfill(bytes32 _requestId, bytes32) public {
-    cancelChainlinkRequest(_requestId);
+    cancelChainlinkRequest(
+      _requestId,
+      ORACLE_PAYMENT,
+      this.cancelRequestOnFulfill.selector,
+      expiration);
   }
 
   function remove() public {

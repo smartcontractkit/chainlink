@@ -122,7 +122,7 @@ contract('UpdatableConsumer', () => {
         assertBigNum(0, await link.balanceOf.call(uc.address),
                     "Initial balance should be 0")
 
-        await uc.cancelRequest(request.id)
+        await uc.cancelRequest(request.id, request.payment, request.callbackFunc, request.expiration)
 
         assertBigNum(paymentAmount, await link.balanceOf.call(uc.address),
                     "Oracle should have been repaid on cancellation.")

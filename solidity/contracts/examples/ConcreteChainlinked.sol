@@ -62,8 +62,13 @@ contract ConcreteChainlinked is Chainlinked {
     chainlinkRequestFrom(_oracle, run, _wei);
   }
 
-  function publicCancelRequest(bytes32 _requestId) public {
-    cancelChainlinkRequest(_requestId);
+  function publicCancelRequest(
+    bytes32 _requestId,
+    uint256 _payment,
+    bytes4 _callbackFunctionId,
+    uint256 _expiration
+  ) public {
+    cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
   }
 
   function publicChainlinkToken() public view returns (address) {

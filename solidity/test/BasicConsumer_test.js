@@ -116,19 +116,22 @@ contract('BasicConsumer', () => {
 
   describe('#cancelRequest', () => {
     const depositAmount = h.toWei('1', 'ether')
-    let requestId
+    let request
 
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
-      await cc.requestEthereumPrice(currency)
-      let event = await h.getLatestEvent(oc)
-      requestId = event.args.requestId
+      const tx =await cc.requestEthereumPrice(currency)
+      request = h.decodeRunRequest(tx.receipt.logs[3])
     })
 
     context("before 5 minutes", () => {
       it('cant cancel the request', async () => {
         await h.assertActionThrows(async () => {
-          await cc.cancelRequest(requestId, {from: h.consumer})
+          await cc.cancelRequest(request.id,
+            request.payment,
+            request.callbackFunc,
+            request.expiration,
+            {from: h.consumer})
         })
       })
     })
@@ -136,13 +139,19 @@ contract('BasicConsumer', () => {
     context("after 5 minutes", () => {
       it('can cancel the request', async () => {
         await h.increaseTime5Minutes();
-        await cc.cancelRequest(requestId, {from: h.consumer})
+
+        await cc.cancelRequest(request.id,
+          request.payment,
+          request.callbackFunc,
+          request.expiration,
+          {from: h.consumer})
       })
     })
   })
 
   describe('#withdrawLink', () => {
     const depositAmount = h.toWei('1', 'ether')
+
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
       const balance = await link.balanceOf(cc.address);
