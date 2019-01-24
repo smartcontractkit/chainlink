@@ -457,7 +457,7 @@ export const newServiceAgreement = async (params) => {
 export const sixMonthsFromNow = () => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
 
 export const fulfillOracleRequest = async (oracle, request, response, options) => {
-  if (!options) options = {from: defaultAccount}
+	if (!options) options = {from: defaultAccount} // TODO: empty hash?
 
   return await oracle.fulfillData(
     request.id,
@@ -466,5 +466,16 @@ export const fulfillOracleRequest = async (oracle, request, response, options) =
     request.callbackFunc,
     request.expiration,
     response,
+    options)
+}
+
+export const cancelOracleRequest = async (oracle, request, options) => {
+  if (!options) options = {from: defaultAccount} // TODO: empty hash?
+
+  return await oracle.cancel(
+    request.id,
+    request.payment,
+    request.callbackFunc,
+    request.expiration,
     options)
 }

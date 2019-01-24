@@ -86,13 +86,12 @@ contract('ConcreteChainlinked', () => {
     beforeEach(async () => {
       oc = await deploy('examples/EmptyOracle.sol')
       cc = await deploy(sourcePath, link.address, oc.address)
-
       await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
       requestId = (await getLatestEvent(cc)).args.id
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
-      const tx = await cc.publicCancelRequest(requestId)
+      const tx = await cc.publicCancelRequest(requestId, 0, 0, 0)
 
       const events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -103,7 +102,7 @@ contract('ConcreteChainlinked', () => {
 
     it('throws if given a bogus event ID', async () => {
       await assertActionThrows(async () => {
-        await cc.publicCancelRequest("bogus ID")
+        await cc.publicCancelRequest('bogusId', 0, 0, 0)
       })
     })
   })

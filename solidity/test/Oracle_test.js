@@ -546,16 +546,23 @@ contract('Oracle', () => {
   describe('#cancel', () => {
     context('with no pending requests', () => {
       it('fails', async () => {
+        const fakeRequest = {
+          id: 1337,
+          payment: 0,
+          callbackFunc: h.functionSelector('requestedBytes32(bytes32,bytes32)'),
+          expiration: 999999999999
+        }
         await h.increaseTime5Minutes()
+
         await h.assertActionThrows(async () => {
-          await oc.cancel(1337, { from: h.stranger })
+          await h.cancelOracleRequest(oc, fakeRequest,  { from: h.stranger })
         })
       })
     })
 
     context('with a pending request', () => {
       let request, tx, mock, startingBalance
-      assert(mock === undefined, 'silence linter')
+
       beforeEach(async () => {
         startingBalance = 100
         const requestAmount = 20
@@ -580,7 +587,7 @@ contract('Oracle', () => {
       context('from a stranger', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await oc.cancel(request.id, { from: h.stranger })
+            await h.cancelOracleRequest(oc, request, { from: h.consumer })
           })
         })
       })
@@ -588,26 +595,25 @@ contract('Oracle', () => {
       context('from the requester', () => {
         it('refunds the correct amount', async () => {
           await h.increaseTime5Minutes()
-          await oc.cancel(request.id, { from: h.consumer })
+          await h.cancelOracleRequest(oc, request, { from: h.consumer })
           let balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 
         it('triggers a cancellation event', async () => {
           await h.increaseTime5Minutes()
-          const tx = await oc.cancel(request.id, { from: h.consumer })
+          const tx = await h.cancelOracleRequest(oc, request, { from: h.consumer })
 
           assert.equal(tx.receipt.logs.length, 2)
           assert.equal(request.id, tx.receipt.logs[1].data)
         })
 
-        context('canceling twice', () => {
-          it('fails', async () => {
-            await h.increaseTime5Minutes()
-            await oc.cancel(request.id, { from: h.consumer })
-            await h.assertActionThrows(async () => {
-              await oc.cancel(request.id, { from: h.consumer })
-            })
+        it('fails when called twice', async () => {
+          await h.increaseTime5Minutes()
+          await h.cancelOracleRequest(oc, request, { from: h.consumer })
+
+          await h.assertActionThrows(async () => {
+            await h.cancelOracleRequest(oc, request, { from: h.consumer })
           })
         })
       })
