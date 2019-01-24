@@ -392,3 +392,11 @@ func MustHash(in string) common.Hash {
 	}
 	return common.BytesToHash(out)
 }
+
+// LogListeningAddress returns the LogListeningAddress
+func LogListeningAddress(address common.Address) string {
+	if address == ZeroAddress {
+		return "[all]"
+	}
+	return address.String()
+}

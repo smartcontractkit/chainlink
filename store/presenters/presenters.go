@@ -24,14 +24,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-// LogListeningAddress returns the LogListeningAddress
-func LogListeningAddress(address common.Address) string {
-	if address == utils.ZeroAddress {
-		return "[all]"
-	}
-	return address.String()
-}
-
 type requestType int
 
 const (
@@ -377,7 +369,7 @@ func (i Initiator) FriendlyRunAt() string {
 // string if not.
 func (i Initiator) FriendlyAddress() string {
 	if i.IsLogInitiated() {
-		return LogListeningAddress(i.Address)
+		return utils.LogListeningAddress(i.Address)
 	}
 	return ""
 }
