@@ -195,6 +195,9 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
+	headers := make(chan models.BlockHeader)
+	eth.RegisterSubscription("newHeads", headers)
+
 	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
 
 	lastSavedBN := big.NewInt(1)
@@ -202,7 +205,6 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	var connectedValue atomic.Value
 
 	require.NoError(t, ht.Save(models.NewIndexableBlockNumber(lastSavedBN, cltest.NewHash())))
-	eth.Register("eth_getBlockByNumber", models.BlockHeader{Number: hexutil.Big(*currentBN)})
 	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.IndexableBlockNumber) {
 		connectedValue.Store(bn.ToInt())
 	}}
@@ -210,10 +212,11 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	ht.Attach(checker)
 
 	assert.Nil(t, ht.Start())
+	headers <- models.BlockHeader{Number: hexutil.Big(*currentBN)}
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 
 	connectedBN := connectedValue.Load().(*big.Int)
 	assert.Equal(t, lastSavedBN, connectedBN)
-	assert.Equal(t, currentBN, ht.Head().ToInt())
+	g.Eventually(func() *big.Int { return ht.Head().ToInt() }).Should(gomega.Equal(currentBN))
 	assert.NoError(t, ht.Stop())
 }
