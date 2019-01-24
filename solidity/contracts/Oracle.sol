@@ -152,9 +152,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
-  function cancel(bytes32 _requestId)
-    external
-  {
+  function cancel(bytes32 _requestId, uint256, bytes4, uint256) external {
     require(msg.sender == callbacks[_requestId].addr, "Must be called from requester");
     require(callbacks[_requestId].cancelExpiration <= now, "Request is not expired");
     Callback memory cb = callbacks[_requestId];

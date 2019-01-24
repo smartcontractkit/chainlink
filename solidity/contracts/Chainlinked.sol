@@ -36,14 +36,14 @@ contract Chainlinked {
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _payment)
     internal
     returns (bytes32)
   {
-    return chainlinkRequestFrom(oracle, _run, _amount);
+    return chainlinkRequestFrom(oracle, _run, _payment);
   }
 
-  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
@@ -51,19 +51,24 @@ contract Chainlinked {
     _run.nonce = requests;
     unfulfilledRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _amount, encodeRequest(_run)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(_oracle, _payment, encodeRequest(_run)), "unable to transferAndCall to oracle");
     requests += 1;
-    
+
     return requestId;
   }
 
-  function cancelChainlinkRequest(bytes32 _requestId)
+  function cancelChainlinkRequest(
+    bytes32 _requestId,
+    uint256 _payment,
+    bytes4 _callbackFunc,
+    uint256 _expiration
+  )
     internal
   {
     ChainlinkRequestInterface requested = ChainlinkRequestInterface(unfulfilledRequests[_requestId]);
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
-    requested.cancel(_requestId);
+    requested.cancel(_requestId, _payment, _callbackFunc, _expiration);
   }
 
   function setOracle(address _oracle) internal {
