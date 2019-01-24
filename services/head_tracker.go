@@ -112,7 +112,8 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		ht.headMutex.Unlock()
 	} else {
 		ht.headMutex.Unlock()
-		return fmt.Errorf("Cannot save new head confirmation %v that's less than %v", n, ht.head)
+		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %v", n, ht.head, n.Hash.Hex())
+		return errBlockNotLater{msg}
 	}
 	return ht.store.SaveHead(n)
 }
@@ -192,7 +193,6 @@ func (ht *HeadTracker) subscribe() bool {
 				logger.Warnw(fmt.Sprintf("Failed to connect to %v", ht.store.Config.EthereumURL()), "err", err)
 			} else {
 				logger.Info("Connected to node ", ht.store.Config.EthereumURL())
-				ht.fastForwardHeadFromEth()
 				return true
 			}
 		}
@@ -211,7 +211,12 @@ func (ht *HeadTracker) receiveHeaders() error {
 			number := header.ToIndexableBlockNumber()
 			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
 			if err := ht.Save(number); err != nil {
-				logger.Error(err.Error())
+				switch err.(type) {
+				case errBlockNotLater:
+					logger.Warn(err)
+				default:
+					logger.Error(err)
+				}
 			} else {
 				ht.onNewHead(&header)
 			}
@@ -246,20 +251,6 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 
 	ht.connected.UnSet()
 	return nil
-}
-
-func (ht *HeadTracker) fastForwardHeadFromEth() {
-	header, err := ht.store.TxManager.GetBlockByNumber("latest")
-	if err != nil {
-		logger.Errorw("Fast Forward: Unable to update to latest block header", "err", err, "currentHead", ht.Head().String())
-		return
-	}
-
-	bn := header.ToIndexableBlockNumber()
-	if bn.GreaterThan(ht.Head()) {
-		logger.Debug("Fast forwarding to block header ", presenters.FriendlyBigInt(bn.ToInt()))
-		logger.WarnIf(ht.Save(bn))
-	}
 }
 
 func (ht *HeadTracker) updateHeadFromDb() error {
@@ -339,4 +330,12 @@ func indexOf(id string, arr []string) int {
 		}
 	}
 	return -1
+}
+
+type errBlockNotLater struct {
+	message string
+}
+
+func (e errBlockNotLater) Error() string {
+	return e.message
 }
