@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -38,18 +36,16 @@ type PrettyConsole struct {
 // Write reformats the incoming json bytes with colors, newlines and whitespace
 // for better readability in console.
 func (pc PrettyConsole) Write(b []byte) (int, error) {
-	var js models.JSON
-	err := json.Unmarshal(b, &js)
-	if err != nil {
-		return 0, err
+	if !gjson.ValidBytes(b) {
+		return 0, fmt.Errorf("Unable to parse json for pretty console: %s", string(b))
 	}
-
+	js := gjson.ParseBytes(b)
 	headline := generateHeadline(js)
 	details := generateDetails(js)
 	return pc.Sink.Write([]byte(fmt.Sprintln(headline, details)))
 }
 
-func generateHeadline(js models.JSON) string {
+func generateHeadline(js gjson.Result) string {
 	sec, dec := math.Modf(js.Get("ts").Float())
 	headline := []interface{}{
 		utils.ISO8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
@@ -72,7 +68,7 @@ var detailsBlacklist = map[string]bool{
 	"hash":   true,
 }
 
-func generateDetails(js models.JSON) string {
+func generateDetails(js gjson.Result) string {
 	data := js.Map()
 	keys := []string{}
 
