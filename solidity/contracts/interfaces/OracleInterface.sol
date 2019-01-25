@@ -6,7 +6,7 @@ interface OracleInterface {
     uint256 payment,
     address callbackAddress,
     bytes4 _callbackFunctionId,
-    uint256 _expiration,
+    uint256 expiration,
     bytes32 data
   ) external returns (bool);
   function getAuthorizationStatus(address node) external view returns (bool);
