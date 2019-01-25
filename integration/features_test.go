@@ -560,7 +560,7 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 	require.NoError(t, err)
 	completedRun := job.NewRun(job.Initiators[0])
 	completedRun.Status = models.RunStatusCompleted
-	err = app.GetStore().SaveJobRun(&completedRun)
+	err = app.GetStore().CreateJobRun(&completedRun)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient()

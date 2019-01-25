@@ -30,11 +30,11 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	sleepingRun := j.NewRun(i)
 	sleepingRun.Status = models.RunStatusPendingSleep
 	sleepingRun.TaskRuns[0].Status = models.RunStatusPendingSleep
-	assert.NoError(t, store.SaveJobRun(&sleepingRun))
+	assert.NoError(t, store.CreateJobRun(&sleepingRun))
 
 	inProgressRun := j.NewRun(i)
 	inProgressRun.Status = models.RunStatusInProgress
-	assert.NoError(t, store.SaveJobRun(&inProgressRun))
+	assert.NoError(t, store.CreateJobRun(&inProgressRun))
 
 	assert.NoError(t, services.ExportedResumeRunsSinceLastShutdown(rm))
 	messages := []string{}
@@ -86,7 +86,7 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	assert.NoError(t, s.CreateJob(&j))
 	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
-	assert.NoError(t, s.SaveJobRun(&jr))
+	assert.NoError(t, s.CreateJobRun(&jr))
 
 	chan1 := services.ExportedChannelForRun(rm, jr.ID)
 	chan1 <- struct{}{}
@@ -114,7 +114,7 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 	assert.NoError(t, s.CreateJob(&j))
 	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
-	assert.NoError(t, s.SaveJobRun(&jr))
+	assert.NoError(t, s.CreateJobRun(&jr))
 
 	chan1 := services.ExportedChannelForRun(rm, jr.ID)
 
