@@ -129,7 +129,7 @@ func (jr JobRun) MarkCompleted() JobRun {
 // Task to be ran.
 type TaskRun struct {
 	ID                   string    `json:"id" gorm:"primary_key;not null"`
-	JobRunID             string    `json:"-" gorm:"index"`
+	JobRunID             string    `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
 	Result               RunResult `json:"result"`
 	ResultID             uint      `json:"-"`
 	Status               RunStatus `json:"status"`
