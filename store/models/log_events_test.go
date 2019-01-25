@@ -16,15 +16,34 @@ import (
 func TestRunLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	clData := cltest.JSONFromString(`{"url":"https://etherprice.com/api","path":["recent","usd"],"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42","dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000017","functionSelector":"0x76005c26"}`)
-	hwLog := cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json")
 	tests := []struct {
 		name        string
 		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{"hello world", hwLog, false, clData},
+		{
+			name:        "hello world",
+			el:          cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			wantErrored: false,
+			wantData: cltest.JSONFromString(`{
+				"url":"https://etherprice.com/api",
+				"path":["recent","usd"],
+				"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+				"dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000017",
+				"functionSelector":"0x76005c26"}`),
+		},
+		{
+			name:        "on-chain commitment",
+			el:          cltest.LogFromFixture("../../internal/fixtures/eth/request_log20190123.json"),
+			wantErrored: false,
+			wantData: cltest.JSONFromString(`{
+				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
+				"path":["usd"],
+				"address":"0xf25186b5081ff5ce73482ad761db0eb0d25abfbf",
+				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
+				"functionSelector":"0xeea57e70"}`),
+		},
 	}
 
 	for _, test := range tests {
