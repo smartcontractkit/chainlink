@@ -125,6 +125,11 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	return orm.DB.Save(run).Error
 }
 
+// CreateJobRun inserts a new JobRun
+func (orm *ORM) CreateJobRun(run *models.JobRun) error {
+	return orm.DB.Create(run).Error
+}
+
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
 func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
 	var sa models.ServiceAgreement
