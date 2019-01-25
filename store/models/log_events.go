@@ -26,7 +26,8 @@ var (
 	// RunLogTopic is the signature for the RunRequest(...) event
 	// which Chainlink RunLog initiators watch for.
 	// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-	RunLogTopic = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
+	RunLogTopic  = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
+	RunLogTopic2 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
 	// OracleLogTopic is the signature for the OracleRequest(...) event.
 	OracleLogTopic = utils.MustHash("OracleRequest(bytes32,address,uint256,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
@@ -35,21 +36,23 @@ var (
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 )
 
-type logRequestFactory func(InitiatorLogEvent) LogRequest
+type logRequestParser func(RunLogEvent) (JSON, error)
 
 // topicFactoryMap maps the log topic to a factory method that returns an
 // implementation of the interface LogRequest. The concrete implementations
 // are polymorphic and can have difference behaviors for methods like JSON().
-var topicFactoryMap = map[common.Hash]logRequestFactory{
-	RunLogTopic:                       func(i InitiatorLogEvent) LogRequest { return RunLogEvent{i} },
-	ServiceAgreementExecutionLogTopic: func(i InitiatorLogEvent) LogRequest { return RunLogEvent{i} },
-	OracleLogTopic:                    func(i InitiatorLogEvent) LogRequest { return RunLogEvent{i} },
+var topicFactoryMap = map[common.Hash]logRequestParser{
+	ServiceAgreementExecutionLogTopic: parseRunLog,
+	OracleLogTopic:                    parseRunLog,
+	RunLogTopic:                       parseRunLog,
+	RunLogTopic2:                      parseRunLog2,
 }
 
 // OracleFulfillmentFunctionID is the function id of the oracle fulfillment
 // method used by EthTx: bytes4(keccak256("fulfillData(uint256,bytes32)"))
 // Kept in sync with solidity/contracts/Oracle.sol
 const OracleFulfillmentFunctionID = "0x76005c26"
+const OracleFulfillmentFunctionID2 = "0xeea57e70"
 
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
 // possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
@@ -124,15 +127,7 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 	case InitiatorServiceAgreementExecutionLog:
 		fallthrough
 	case InitiatorRunLog:
-		topic, err := le.getTopic(0)
-		if err != nil {
-			logger.Errorw(err.Error(), le.ForLogger()...)
-			break
-		}
-		factory, ok := topicFactoryMap[topic]
-		if ok {
-			return factory(le)
-		}
+		return RunLogEvent{le}
 	}
 	logger.Warnw("LogRequest: Unable to discern initiator type for log request", le.ForLogger()...)
 	return EthLogEvent{InitiatorLogEvent: le}
@@ -274,29 +269,53 @@ func (le RunLogEvent) Requester() common.Address {
 	return common.BytesToAddress(b)
 }
 
-// JSON decodes the CBOR in the ABI of the log event.
-func (le RunLogEvent) JSON() (JSON, error) {
-	el := le.Log
-	js, err := decodeABIToJSON(el.Data)
-	if err != nil {
-		return js, err
-	}
-
-	fullfillmentJSON, err := fulfillmentToJSON(el)
-	if err != nil {
-		return js, err
-	}
-	return js.Merge(fullfillmentJSON)
+func (le RunLogEvent) Payment() common.Address {
+	b := le.Log.Topics[RequestLogTopicRequester].Bytes()
+	return common.BytesToAddress(b)
 }
 
-func fulfillmentToJSON(el Log) (JSON, error) {
-	var js JSON
-	js, err := js.Add("address", el.Address.String())
+// JSON decodes the CBOR in the ABI of the log event.
+func (le RunLogEvent) JSON() (JSON, error) {
+	//el := le.Log
+	//js, err := decodeABIToJSON(el.Data)
+	//if err != nil {
+	//return js, err
+	//}
+
+	topic, err := le.getTopic(0)
+	if err != nil {
+		return JSON{}, err
+	}
+	parse, ok := topicFactoryMap[topic]
+	if !ok {
+		return JSON{}, fmt.Errorf("No parser for the RunLogEvent topic %v", topic)
+	}
+	return parse(le)
+}
+
+var evmWordSize = common.HashLength
+var idSize = evmWordSize
+var versionSize = evmWordSize
+var callbackAddrSize = evmWordSize
+var callbackFuncSize = evmWordSize
+var expirationSize = evmWordSize
+var dataLocationSize = evmWordSize
+var dataLengthSize = evmWordSize
+
+func parseRunLog(le RunLogEvent) (JSON, error) {
+	data := le.Log.Data
+	start := idSize + versionSize + dataLocationSize + dataLengthSize
+
+	js, err := ParseCBOR(data[start:])
+	if err != nil {
+		return js, err
+	}
+	js, err = js.Add("address", le.Log.Address.String())
 	if err != nil {
 		return js, err
 	}
 
-	js, err = js.Add("dataPrefix", encodeRequestID(el.Data))
+	js, err = js.Add("dataPrefix", bytesToHex(data[:idSize]))
 	if err != nil {
 		return js, err
 	}
@@ -304,8 +323,35 @@ func fulfillmentToJSON(el Log) (JSON, error) {
 	return js.Add("functionSelector", OracleFulfillmentFunctionID)
 }
 
-func encodeRequestID(data []byte) string {
-	return utils.AddHexPrefix(hex.EncodeToString(data[:common.HashLength]))
+func parseRunLog2(le RunLogEvent) (JSON, error) {
+	data := le.Log.Data
+	cborStart := idSize + versionSize + callbackAddrSize + callbackFuncSize + expirationSize + dataLocationSize + dataLengthSize
+
+	js, err := ParseCBOR(data[cborStart:])
+	if err != nil {
+		return js, err
+	}
+
+	js, err = js.Add("address", le.Log.Address.String())
+	if err != nil {
+		return js, err
+	}
+
+	callbackAndExpStart := idSize + versionSize
+	callbackAndExpEnd := callbackAndExpStart + callbackAddrSize + callbackFuncSize + expirationSize
+	dataPrefix := bytesToHex(append(append(data[:idSize],
+		le.Log.Topics[RequestLogTopicAmount].Bytes()...),
+		data[callbackAndExpStart:callbackAndExpEnd]...))
+	js, err = js.Add("dataPrefix", dataPrefix)
+	if err != nil {
+		return js, err
+	}
+
+	return js.Add("functionSelector", OracleFulfillmentFunctionID2)
+}
+
+func bytesToHex(data []byte) string {
+	return utils.AddHexPrefix(hex.EncodeToString(data))
 }
 
 func decodeABIToJSON(data []byte) (JSON, error) {
