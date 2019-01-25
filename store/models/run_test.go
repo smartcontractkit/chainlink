@@ -38,7 +38,7 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
-	err := store.SaveJob(&job)
+	err := store.CreateJob(&job)
 	initr := job.Initiators[0]
 	assert.NoError(t, err)
 
@@ -69,7 +69,7 @@ func TestJobRun_NextTaskRun(t *testing.T) {
 		{Type: adapters.TaskTypeNoOpPend},
 		{Type: adapters.TaskTypeNoOp},
 	}
-	assert.NoError(t, store.SaveJob(&job))
+	assert.NoError(t, store.CreateJob(&job))
 	run := job.NewRun(job.Initiators[0])
 	assert.NoError(t, store.SaveJobRun(&run))
 	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())

@@ -190,8 +190,8 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 	return sessions, err
 }
 
-// SaveJob saves a job to the database and adds IDs to associated tables.
-func (orm *ORM) SaveJob(job *models.JobSpec) error {
+// CreateJob saves a job to the database and adds IDs to associated tables.
+func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobSpecID = job.ID
 	}

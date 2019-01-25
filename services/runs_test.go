@@ -161,7 +161,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 			job := cltest.NewJobWithWebInitiator()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
-			assert.Nil(t, store.SaveJob(&job))
+			assert.Nil(t, store.CreateJob(&job))
 
 			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
 			if test.errored {
