@@ -16,7 +16,7 @@ func TestDeleteJobRuns(t *testing.T) {
 
 	db := store.ORM.DB
 	job := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.ORM.SaveJob(&job))
+	require.NoError(t, store.ORM.CreateJob(&job))
 	initiator := job.Initiators[0]
 
 	// matches updated before but none of the statuses

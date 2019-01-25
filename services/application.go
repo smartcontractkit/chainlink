@@ -138,7 +138,7 @@ func (app *ChainlinkApplication) WakeBulkRunDeleter() {
 // an error from adding the job to the store, the job will not be
 // added to the scheduler.
 func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
-	err := app.Store.SaveJob(&job)
+	err := app.Store.CreateJob(&job)
 	if err != nil {
 		return err
 	}

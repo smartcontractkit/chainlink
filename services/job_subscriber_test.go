@@ -24,8 +24,8 @@ func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, store.SaveJob(&j1))
-	assert.Nil(t, store.SaveJob(&j2))
+	assert.Nil(t, store.CreateJob(&j1))
+	assert.Nil(t, store.CreateJob(&j2))
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
@@ -45,8 +45,8 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	eth := cltest.MockEthOnStore(store)
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, store.SaveJob(&j1))
-	assert.Nil(t, store.SaveJob(&j2))
+	assert.Nil(t, store.CreateJob(&j1))
+	assert.Nil(t, store.CreateJob(&j2))
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
@@ -75,8 +75,8 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	eth := cltest.MockEthOnStore(store)
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
-	assert.Nil(t, store.SaveJob(&j1))
-	assert.Nil(t, store.SaveJob(&j2))
+	assert.Nil(t, store.CreateJob(&j1))
+	assert.Nil(t, store.CreateJob(&j2))
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
@@ -178,7 +178,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			store.RunChannel = mockRunChannel
 
 			job := cltest.NewJobWithWebInitiator()
-			require.NoError(t, store.SaveJob(&job))
+			require.NoError(t, store.CreateJob(&job))
 			initr := job.Initiators[0]
 			run := job.NewRun(initr)
 			run = run.ApplyResult(models.RunResult{Status: test.status})
