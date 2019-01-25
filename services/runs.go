@@ -319,7 +319,7 @@ func meetsMinimumConfirmations(
 }
 
 func saveAndTrigger(run *models.JobRun, store *store.Store) error {
-	if err := store.SaveJobRun(run); err != nil {
+	if err := store.CreateJobRun(run); err != nil {
 		return err
 	}
 
