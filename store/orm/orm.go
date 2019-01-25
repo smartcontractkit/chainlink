@@ -203,11 +203,10 @@ func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	return orm.DB.Save(job).Error
 }
 
-// SaveServiceAgreement saves a service agreement and it's associations to the
+// CreateServiceAgreement saves a service agreement and it's associations to the
 // database.
-func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
-	merr := orm.DB.Save(sa).Error
-	return merr
+func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
+	return orm.DB.Create(sa).Error
 }
 
 // JobRunsWithStatus returns the JobRuns which have the passed statuses.
