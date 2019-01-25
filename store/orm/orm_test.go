@@ -103,35 +103,6 @@ func TestORM_JobRunsFor(t *testing.T) {
 	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
 }
 
-func TestORM_SaveServiceAgreement(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{"basic",
-			`{"initiators":[{"type":"web"}],"tasks":[{"type":"HttpGet","url":"https://bitstamp.net/api/ticker/"},{"type":"JsonParse","path":["last"]},{"type":"EthBytes32"},{"type":"EthTx"}]}`,
-			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			sa, err := cltest.ServiceAgreementFromString(test.input)
-			assert.NoError(t, err)
-
-			assert.NoError(t, store.SaveServiceAgreement(&sa))
-
-			sa, err = store.FindServiceAgreement(sa.ID)
-			assert.NoError(t, err)
-			_, err = store.FindJob(sa.JobSpecID)
-			assert.NoError(t, err)
-		})
-	}
-}
-
 func TestORM_JobRunsWithStatus(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
