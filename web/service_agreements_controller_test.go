@@ -102,7 +102,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	input := cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	assert.NoError(t, err)
-	assert.NoError(t, app.Store.SaveServiceAgreement(&sa))
+	assert.NoError(t, app.Store.CreateServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
 	defer cleanup()
