@@ -113,7 +113,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     returns (bool)
   {
     bytes32 requestId = bytes32(_requestId);
-    require(commitments[requestId] == keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, _expiration)));
+    require(commitments[requestId] == keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, _expiration)), "Params do not match request ID");
     withdrawableTokens = withdrawableTokens.add(_payment);
     delete commitments[requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
