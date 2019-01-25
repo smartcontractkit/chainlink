@@ -161,8 +161,14 @@ func NewApp(client *Client) *cli.App {
 			Action: client.Withdraw,
 		},
 		{
-			Name:   "sendether",
-			Usage:  "Send <amount> ETH from the node's ETH account to an <address>.",
+			Name:  "sendether",
+			Usage: "Send <amount> ETH from the node's ETH account to an <address>.",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "from, f",
+					Usage: "optional flag to specify which address should send the transaction",
+				},
+			},
 			Action: client.SendEther,
 		},
 		{
