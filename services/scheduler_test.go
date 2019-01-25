@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v3"
@@ -108,16 +109,17 @@ func TestRecurring_AddJob(t *testing.T) {
 			r.Cron = cron
 			defer r.Stop()
 
-			j := cltest.NewJobWithSchedule("* * * * *")
-			j.StartAt = test.startAt
-			j.EndAt = test.endAt
+			job := cltest.NewJobWithSchedule("* * * * *")
+			job.StartAt = test.startAt
+			job.EndAt = test.endAt
 
-			r.AddJob(j)
+			require.NoError(t, store.CreateJob(&job))
+			r.AddJob(job)
 
 			assert.Equal(t, test.wantEntries, len(cron.Entries))
 
 			cron.RunEntries()
-			jobRuns, err := store.JobRunsFor(j.ID)
+			jobRuns, err := store.JobRunsFor(job.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantRuns, len(jobRuns))
 		})
