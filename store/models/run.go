@@ -14,7 +14,7 @@ import (
 // Result of each Run.
 type JobRun struct {
 	ID             string    `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      string    `json:"jobId" gorm:"index;not null"`
+	JobSpecID      string    `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 	Result         RunResult `json:"result"`
 	ResultID       uint      `json:"-"`
 	Status         RunStatus `json:"status" gorm:"index"`
@@ -134,7 +134,7 @@ type TaskRun struct {
 	ResultID             uint      `json:"-"`
 	Status               RunStatus `json:"status"`
 	TaskSpec             TaskSpec  `json:"task"`
-	TaskSpecID           uint      `json:"-" gorm:"not null"`
+	TaskSpecID           uint      `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES task_specs(id)"`
 	MinimumConfirmations uint64    `json:"minimumConfirmations"`
 	CreatedAt            time.Time `json:"-" gorm:"index"`
 }
