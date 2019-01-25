@@ -342,7 +342,7 @@ func TestORM_MarkRan(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, store.SaveInitiator(&initr))
+	assert.NoError(t, store.CreateInitiator(&initr))
 
 	assert.NoError(t, store.MarkRan(&initr, true))
 	ir, err := store.FindInitiator(initr.ID)
