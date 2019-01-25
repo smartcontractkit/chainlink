@@ -15,6 +15,8 @@ import (
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
+	t.Parallel()
+
 	config, configCleanup := cltest.NewConfig()
 	defer configCleanup()
 	config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
@@ -66,6 +68,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -120,6 +124,8 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 }
 
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		apiFile    string

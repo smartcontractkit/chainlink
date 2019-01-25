@@ -19,6 +19,8 @@ import (
 )
 
 func TestClient_DisplayAccountBalance(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 
@@ -36,6 +38,8 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 }
 
 func TestClient_GetJobSpecs(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -54,6 +58,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 
 func TestClient_ShowJobRun_Exists(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -74,6 +79,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 
 func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -87,6 +93,8 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 }
 
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	job := cltest.NewJob()
@@ -103,6 +111,8 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 }
 
 func TestClient_ShowJobSpec_NotFound(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
@@ -116,6 +126,8 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 }
 
 func TestClient_CreateServiceAgreement(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfigWithPrivateKey()
 	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
@@ -157,6 +169,8 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 }
 
 func TestClient_CreateJobSpec(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
@@ -189,6 +203,8 @@ func TestClient_CreateJobSpec(t *testing.T) {
 }
 
 func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
@@ -204,6 +220,7 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 
 func TestClient_CreateJobRun(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
@@ -250,6 +267,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 
 func TestClient_AddBridge(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
@@ -284,6 +302,8 @@ func TestClient_AddBridge(t *testing.T) {
 }
 
 func TestClient_GetBridges(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bt1 := &models.BridgeType{
@@ -309,6 +329,8 @@ func TestClient_GetBridges(t *testing.T) {
 }
 
 func TestClient_ShowBridge(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bt := &models.BridgeType{
@@ -329,6 +351,8 @@ func TestClient_ShowBridge(t *testing.T) {
 }
 
 func TestClient_RemoveBridge(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	bt := &models.BridgeType{
@@ -417,6 +441,8 @@ func TestClient_RemoteLogin(t *testing.T) {
 }
 
 func TestClient_WithdrawSuccess(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
@@ -432,6 +458,8 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 }
 
 func TestClient_WithdrawNoArgs(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
@@ -451,6 +479,8 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 }
 
 func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup, ethMockCheck := setupWithdrawalsApplication()
 	defer cleanup()
 
@@ -495,6 +525,8 @@ func first(a models.JobSpec, b interface{}) models.JobSpec {
 }
 
 func TestClient_SendEther(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup, _ := setupWithdrawalsApplication()
 	defer cleanup()
 
@@ -506,10 +538,31 @@ func TestClient_SendEther(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 
-	assert.Nil(t, client.SendEther(c))
+	assert.NoError(t, client.SendEther(c))
+}
+
+func TestClient_SendEther_From(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup, _ := setupWithdrawalsApplication()
+	defer cleanup()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("sendether", 0)
+	set.String("from", "0x534E10734271342d8dC78B8B009E40ef06659c0d", "")
+	set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
+
+	cliapp := cli.NewApp()
+	c := cli.NewContext(cliapp, set, nil)
+
+	assert.NoError(t, client.SendEther(c))
 }
 
 func TestClient_ChangePassword(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	app.Start()
@@ -545,6 +598,8 @@ func TestClient_ChangePassword(t *testing.T) {
 }
 
 func TestClient_GetTxAttempts(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 
@@ -579,6 +634,8 @@ func TestClient_GetTxAttempts(t *testing.T) {
 }
 
 func TestClient_CreateExtraKey(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	app.Start()
