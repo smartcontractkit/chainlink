@@ -556,7 +556,7 @@ func TestIntegration_BulkDeleteRuns(t *testing.T) {
 	app.Start()
 
 	job := cltest.NewJobWithWebInitiator()
-	err := app.GetStore().SaveJob(&job)
+	err := app.GetStore().CreateJob(&job)
 	require.NoError(t, err)
 	completedRun := job.NewRun(job.Initiators[0])
 	completedRun.Status = models.RunStatusCompleted

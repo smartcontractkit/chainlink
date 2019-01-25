@@ -104,10 +104,10 @@ func TestJobRunsController_Index(t *testing.T) {
 
 func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication) (*models.JobRun, *models.JobRun, *models.JobRun) {
 	j1 := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, app.Store.SaveJob(&j1))
+	assert.Nil(t, app.Store.CreateJob(&j1))
 
 	j2 := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, app.Store.SaveJob(&j2))
+	assert.Nil(t, app.Store.CreateJob(&j2))
 
 	now := time.Now()
 
@@ -136,7 +136,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, app.Store.SaveJob(&j))
+	assert.NoError(t, app.Store.CreateJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
@@ -152,7 +152,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
@@ -166,7 +166,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJobWithWebInitiator()
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 
 	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBufferString(`{`))
 	defer cleanup()
@@ -181,7 +181,7 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJob()
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 
 	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBuffer([]byte{}))
 	defer cleanup()
@@ -210,7 +210,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -241,7 +241,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -266,7 +266,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := j.NewRun(j.Initiators[0])
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -288,7 +288,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -316,7 +316,7 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
@@ -346,7 +346,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -370,7 +370,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	assert.Nil(t, app.Store.CreateBridgeType(&bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.SaveJob(&j))
+	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.SaveJobRun(&jr))
 
@@ -392,7 +392,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	app.Store.SaveJob(&j)
+	app.Store.CreateJob(&j)
 
 	jr := j.NewRun(j.Initiators[0])
 	assert.NoError(t, app.Store.SaveJobRun(&jr))

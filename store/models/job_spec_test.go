@@ -17,7 +17,7 @@ func TestJobSpec_Save(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
-	assert.NoError(t, store.SaveJob(&j1))
+	assert.NoError(t, store.CreateJob(&j1))
 	initr := j1.Initiators[0]
 
 	j2, err := store.FindJob(j1.ID)

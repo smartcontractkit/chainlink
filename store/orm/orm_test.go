@@ -45,7 +45,7 @@ func TestORM_SaveJob(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * *")
-	store.SaveJob(&j1)
+	store.CreateJob(&j1)
 
 	j2, err := store.FindJob(j1.ID)
 	assert.NoError(t, err)
@@ -61,7 +61,7 @@ func TestORM_SaveJobRun(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("* * * * *")
-	require.NoError(t, store.SaveJob(&job))
+	require.NoError(t, store.CreateJob(&job))
 
 	jr1 := job.NewRun(job.Initiators[0])
 	creationHeight := models.NewBig(big.NewInt(0))
@@ -85,7 +85,7 @@ func TestORM_JobRunsFor(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.SaveJob(&job))
+	require.NoError(t, store.CreateJob(&job))
 	i := job.Initiators[0]
 	jr1 := job.NewRun(i)
 	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
@@ -138,7 +138,7 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.SaveJob(&j))
+	assert.NoError(t, store.CreateJob(&j))
 	i := j.Initiators[0]
 	npr := j.NewRun(i)
 	assert.NoError(t, store.SaveJobRun(&npr))
@@ -196,7 +196,7 @@ func TestORM_AnyJobWithType(t *testing.T) {
 
 	js := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
-	assert.NoError(t, store.SaveJob(&js))
+	assert.NoError(t, store.CreateJob(&js))
 	found, err := store.AnyJobWithType("bridgetestname")
 	assert.NoError(t, err)
 	assert.Equal(t, found, true)
@@ -212,9 +212,9 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	job := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.SaveJob(&job))
+	assert.NoError(t, store.CreateJob(&job))
 	job2 := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.SaveJob(&job2))
+	assert.NoError(t, store.CreateJob(&job2))
 
 	assert.NotEqual(t, job.ID, job2.ID)
 
@@ -309,7 +309,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	job := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.SaveJob(&job))
+	assert.NoError(t, store.CreateJob(&job))
 	initr := job.Initiators[0]
 
 	run := job.NewRun(initr)
@@ -333,7 +333,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
-	assert.NoError(t, store.SaveJob(&job))
+	assert.NoError(t, store.CreateJob(&job))
 	initr := job.Initiators[0]
 
 	unfinishedRun := job.NewRun(initr)
