@@ -22,29 +22,29 @@ func TestDeleteJobRuns(t *testing.T) {
 	// matches updated before but none of the statuses
 	oldIncompleteRun := job.NewRun(initiator)
 	oldIncompleteRun.Status = models.RunStatusInProgress
-	err := db.Save(&oldIncompleteRun).Error
-	assert.NoError(t, err)
+	err := db.Create(&oldIncompleteRun).Error
+	require.NoError(t, err)
 	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
 
 	// matches one of the statuses and the updated before
 	oldCompletedRun := job.NewRun(initiator)
 	oldCompletedRun.Status = models.RunStatusCompleted
-	err = db.Save(&oldCompletedRun).Error
-	assert.NoError(t, err)
+	err = db.Create(&oldCompletedRun).Error
+	require.NoError(t, err)
 	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
 
 	// matches one of the statuses but not the updated before
 	newCompletedRun := job.NewRun(initiator)
 	newCompletedRun.Status = models.RunStatusCompleted
-	err = db.Save(&newCompletedRun).Error
-	assert.NoError(t, err)
+	err = db.Create(&newCompletedRun).Error
+	require.NoError(t, err)
 	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-30T00:00:00Z"))
 
 	// matches nothing
 	newIncompleteRun := job.NewRun(initiator)
 	newIncompleteRun.Status = models.RunStatusCompleted
-	err = db.Save(&newIncompleteRun).Error
-	assert.NoError(t, err)
+	err = db.Create(&newIncompleteRun).Error
+	require.NoError(t, err)
 	db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-30T00:00:00Z"))
 
 	err = services.DeleteJobRuns(store.ORM, &models.BulkDeleteRunRequest{
