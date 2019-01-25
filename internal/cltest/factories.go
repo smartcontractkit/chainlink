@@ -278,7 +278,7 @@ func NewRunLog(
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData("internalID", json),
 		Topics: []common.Hash{
-			models.RunLogTopic,
+			models.RunLogTopic0,
 			StringToHash(jobID),
 			requester.Hash(),
 			minimumContractPayment.ToHash(),
