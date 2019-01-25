@@ -4,7 +4,7 @@ interface OracleInterface {
   function fulfillData(
     uint256 requestId,
     uint256 payment,
-    address _callbackAddress,
+    address callbackAddress,
     bytes4 _callbackFunctionId,
     uint256 _expiration,
     bytes32 data
