@@ -19,16 +19,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
-  struct Callback {
-    bytes32 commitment;
-    uint256 amount;
-    address addr;
-    bytes4 functionId;
-    uint64 cancelExpiration;
-  }
-
   LinkTokenInterface internal LINK;
-  mapping(bytes32 => Callback) private callbacks;
+  mapping(bytes32 => bytes32) private commitments;
   mapping(address => bool) private authorizedNodes;
   uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
@@ -87,13 +79,13 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     checkCallbackAddress(_callbackAddress)
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
-    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
-    callbacks[requestId] = Callback(
-      keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, now.add(EXPIRY_TIME))),
+    require(commitments[requestId] == 0, "Must use a unique ID");
+    uint256 expiration = now.add(EXPIRY_TIME);
+    commitments[requestId] = keccak256(abi.encodePacked(
       _payment,
       _callbackAddress,
       _callbackFunctionId,
-      uint64(now.add(EXPIRY_TIME)));
+      expiration));
 
     emit RunRequest(
       _specId,
@@ -103,7 +95,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _dataVersion,
       _callbackAddress,
       _callbackFunctionId,
-      now.add(EXPIRY_TIME),
+      expiration,
       _data);
   }
 
@@ -121,9 +113,9 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     returns (bool)
   {
     bytes32 requestId = bytes32(_requestId);
-    require(callbacks[requestId].commitment == keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, _expiration)));
+    require(commitments[requestId] == keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, _expiration)));
     withdrawableTokens = withdrawableTokens.add(_payment);
-    delete callbacks[requestId];
+    delete commitments[requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -164,10 +156,10 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _callbackFunc,
       _expiration));
 
-    require(paramsHash == callbacks[_requestId].commitment, "Params do not match request ID");
+    require(paramsHash == commitments[_requestId], "Params do not match request ID");
     require(_expiration <= now, "Request is not expired");
     require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
-    delete callbacks[_requestId];
+    delete commitments[_requestId];
     emit CancelRequest(_requestId);
   }
 
@@ -179,7 +171,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   }
 
   modifier isValidRequest(uint256 _requestId) {
-    require(callbacks[bytes32(_requestId)].addr != address(0), "Must have a valid requestId");
+    require(commitments[bytes32(_requestId)] != 0, "Must have a valid requestId");
     _;
   }
 
