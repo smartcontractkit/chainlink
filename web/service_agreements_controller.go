@@ -40,7 +40,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		} else if err = services.ValidateServiceAgreement(sa, sac.App.GetStore()); err != nil {
 			publicError(c, 422, err)
 			return
-		} else if err = sac.App.GetStore().SaveServiceAgreement(&sa); err != nil {
+		} else if err = sac.App.GetStore().CreateServiceAgreement(&sa); err != nil {
 			_ = c.AbortWithError(500, err)
 			return
 		} else if err = sac.App.AddJob(sa.JobSpec); err != nil {
