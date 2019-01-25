@@ -137,11 +137,11 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 		requesterAddress    common.Address
 		want                bool
 	}{
-		{"wrong jobid", models.RunLogTopic, cltest.StringToHash("wrongjob"), noRequesters, unpermittedAddr, false},
-		{"proper hex jobid", models.RunLogTopic, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
-		{"incorrect encoded jobid", models.RunLogTopic, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
-		{"correct requester", models.RunLogTopic, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
-		{"incorrect requester", models.RunLogTopic, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
+		{"wrong jobid", models.RunLogTopic0, cltest.StringToHash("wrongjob"), noRequesters, unpermittedAddr, false},
+		{"proper hex jobid", models.RunLogTopic0, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
+		{"incorrect encoded jobid", models.RunLogTopic0, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
+		{"correct requester", models.RunLogTopic0, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
+		{"incorrect requester", models.RunLogTopic0, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
 	}
 
 	for _, test := range tests {
