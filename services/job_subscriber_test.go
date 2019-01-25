@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -123,30 +122,29 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
-			j := cltest.NewJob()
+			job := cltest.NewJob()
 			initr := models.Initiator{Type: test.initType}
-			if !utils.IsEmptyAddress(test.initrAddr) {
-				initr.Address = test.initrAddr
-			}
-			j.Initiators = []models.Initiator{initr}
-			el.AddJob(j, cltest.IndexableBlockNumber(1))
+			initr.Address = test.initrAddr
+			job.Initiators = []models.Initiator{initr}
+			require.NoError(t, store.CreateJob(&job))
+			el.AddJob(job, cltest.IndexableBlockNumber(1))
 
 			ht := services.NewHeadTracker(store)
 			ht.Attach(el)
-			assert.Nil(t, ht.Start())
+			require.NoError(t, ht.Start())
 
 			logChan <- models.Log{
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
 					test.topic0,
-					cltest.StringToHash(j.ID),
+					cltest.StringToHash(job.ID),
 					newAddr().Hash(),
 					common.BigToHash(big.NewInt(0)),
 				},
 			}
 
-			cltest.WaitForRuns(t, j, store, test.wantCount)
+			cltest.WaitForRuns(t, job, store, test.wantCount)
 
 			eth.EventuallyAllCalled(t)
 		})
