@@ -300,7 +300,7 @@ func TestResumeConnectingTask(t *testing.T) {
 	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
-	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp}
+	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp, JobSpecID: jobSpec.ID}
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
 		ID:        utils.NewBytes32ID(),
@@ -348,7 +348,7 @@ func TestQueueSleepingTask(t *testing.T) {
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:       utils.NewBytes32ID(),
-			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep},
+			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
 	}
 	require.NoError(t, store.CreateJobRun(run))
@@ -366,8 +366,9 @@ func TestQueueSleepingTask(t *testing.T) {
 				ID:     utils.NewBytes32ID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
-					Type:   adapters.TaskTypeSleep,
-					Params: inputFromTheFuture,
+					JobSpecID: jobSpec.ID,
+					Type:      adapters.TaskTypeSleep,
+					Params:    inputFromTheFuture,
 				},
 			},
 		},
@@ -386,7 +387,7 @@ func TestQueueSleepingTask(t *testing.T) {
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:       utils.NewBytes32ID(),
 			Status:   models.RunStatusPendingSleep,
-			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep},
+			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
 	}
 	require.NoError(t, store.CreateJobRun(run))
@@ -414,8 +415,9 @@ func TestQueueSleepingTask(t *testing.T) {
 				ID:     utils.NewBytes32ID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
-					Type:   adapters.TaskTypeSleep,
-					Params: inputFromTheFuture,
+					JobSpecID: jobSpec.ID,
+					Type:      adapters.TaskTypeSleep,
+					Params:    inputFromTheFuture,
 				},
 			},
 		},
