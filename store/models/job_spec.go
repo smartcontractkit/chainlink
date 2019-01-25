@@ -175,7 +175,7 @@ const (
 // to a parent JobID.
 type Initiator struct {
 	ID        uint   `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID string `json:"jobSpecId" gorm:"index"`
+	JobSpecID string `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string `json:"type" gorm:"index;not null"`
 	InitiatorParams `json:"params,omitempty"`
@@ -217,7 +217,7 @@ func (i Initiator) IsLogInitiated() bool {
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	gorm.Model
-	JobSpecID     string   `json:"-" gorm:"index"`
+	JobSpecID     string   `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	Type          TaskType `json:"type" gorm:"index;not null"`
 	Confirmations uint64   `json:"confirmations"`
 	Params        JSON     `json:"params" gorm:"type:text"`
