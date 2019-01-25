@@ -11,9 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTransfersController_CreateSuccess(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
@@ -46,7 +49,45 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	ethMock.AllCalled()
 }
 
+func TestTransfersController_CreateSuccess_From(t *testing.T) {
+	t.Parallel()
+
+	config, _ := cltest.NewConfig()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	defer cleanup()
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(0))
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
+
+	client := app.NewHTTPClient()
+
+	require.NoError(t, app.StartAndConnect())
+
+	request := models.SendEtherRequest{
+		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+		FromAddress:        app.Store.KeyStore.Accounts()[1].Address,
+		Amount:             assets.NewEth(100),
+	}
+
+	body, err := json.Marshal(&request)
+	assert.NoError(t, err)
+
+	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, 200)
+
+	ethMock.AllCalled()
+}
+
 func TestTransfersController_TransferError(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
@@ -80,6 +121,8 @@ func TestTransfersController_TransferError(t *testing.T) {
 }
 
 func TestTransfersController_JSONBindingError(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
