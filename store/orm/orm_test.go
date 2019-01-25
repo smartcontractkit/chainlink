@@ -55,29 +55,6 @@ func TestORM_SaveJob(t *testing.T) {
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobSpecID)
 }
 
-func TestORM_SaveJobRun(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
-
-	job := cltest.NewJobWithSchedule("* * * * *")
-	require.NoError(t, store.CreateJob(&job))
-
-	jr1 := job.NewRun(job.Initiators[0])
-	creationHeight := models.NewBig(big.NewInt(0))
-	jr1.CreationHeight = creationHeight
-
-	require.NoError(t, store.SaveJobRun(&jr1))
-
-	jr2, err := store.FindJobRun(jr1.ID)
-	assert.NoError(t, err)
-	jr1.Initiator.CreatedAt = jr2.Initiator.CreatedAt
-	assert.Equal(t, jr1.ID, jr2.ID)
-	assert.Equal(t, jr1.Initiator, jr2.Initiator)
-	assert.Equal(t, creationHeight.String(), jr2.CreationHeight.String())
-	assert.Equal(t, job.ID, jr2.Initiator.JobSpecID)
-}
-
 func TestORM_JobRunsFor(t *testing.T) {
 	t.Parallel()
 
@@ -89,13 +66,13 @@ func TestORM_JobRunsFor(t *testing.T) {
 	i := job.Initiators[0]
 	jr1 := job.NewRun(i)
 	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
-	require.NoError(t, store.SaveJobRun(&jr1))
+	require.NoError(t, store.CreateJobRun(&jr1))
 	jr2 := job.NewRun(i)
 	jr2.CreatedAt = time.Now().AddDate(0, 0, 1)
-	require.NoError(t, store.SaveJobRun(&jr2))
+	require.NoError(t, store.CreateJobRun(&jr2))
 	jr3 := job.NewRun(i)
 	jr3.CreatedAt = time.Now().AddDate(0, 0, -9)
-	require.NoError(t, store.SaveJobRun(&jr3))
+	require.NoError(t, store.CreateJobRun(&jr3))
 
 	runs, err := store.JobRunsFor(job.ID)
 	assert.NoError(t, err)
@@ -112,7 +89,7 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&j))
 	i := j.Initiators[0]
 	npr := j.NewRun(i)
-	assert.NoError(t, store.SaveJobRun(&npr))
+	require.NoError(t, store.CreateJobRun(&npr))
 
 	statuses := []models.RunStatus{
 		models.RunStatusPendingBridge,
@@ -122,7 +99,7 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
-		assert.NoError(t, store.SaveJobRun(&run))
+		require.NoError(t, store.CreateJobRun(&run))
 		seedIds = append(seedIds, run.ID)
 	}
 
@@ -183,9 +160,9 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	job := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.CreateJob(&job))
+	require.NoError(t, store.CreateJob(&job))
 	job2 := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.CreateJob(&job2))
+	require.NoError(t, store.CreateJob(&job2))
 
 	assert.NotEqual(t, job.ID, job2.ID)
 
@@ -193,9 +170,9 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 	run2 := job.NewRun(job.Initiators[0])
 	run3 := job2.NewRun(job2.Initiators[0])
 
-	assert.NoError(t, store.SaveJobRun(&completedRun))
-	assert.NoError(t, store.SaveJobRun(&run2))
-	assert.NoError(t, store.SaveJobRun(&run3))
+	assert.NoError(t, store.CreateJobRun(&completedRun))
+	assert.NoError(t, store.CreateJobRun(&run2))
+	assert.NoError(t, store.CreateJobRun(&run3))
 
 	count, err := store.JobRunsCountFor(job.ID)
 	assert.NoError(t, err)
@@ -280,11 +257,11 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	job := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, store.CreateJob(&job))
+	require.NoError(t, store.CreateJob(&job))
 	initr := job.Initiators[0]
 
 	run := job.NewRun(initr)
-	assert.NoError(t, store.SaveJobRun(&run))
+	require.NoError(t, store.CreateJobRun(&run))
 
 	store.RunChannel.Send(run.ID)
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
