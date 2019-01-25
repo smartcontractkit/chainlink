@@ -601,9 +601,9 @@ func (orm *ORM) SaveTx(tx *models.Tx) error {
 	return orm.DB.Save(tx).Error
 }
 
-// SaveInitiator saves the initiator.
-func (orm *ORM) SaveInitiator(initr *models.Initiator) error {
-	return orm.DB.Save(initr).Error
+// CreateInitiator saves the initiator.
+func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
+	return orm.DB.Create(initr).Error
 }
 
 // SaveHead saves the indexable block number related to head tracker.
