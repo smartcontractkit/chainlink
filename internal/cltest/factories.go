@@ -458,6 +458,6 @@ func CreateJobRunWithStatus(store *store.Store, j models.JobSpec, status models.
 	initr := j.Initiators[0]
 	run := j.NewRun(initr)
 	run.Status = status
-	mustNotErr(store.SaveJobRun(&run))
+	mustNotErr(store.CreateJobRun(&run))
 	return run
 }
