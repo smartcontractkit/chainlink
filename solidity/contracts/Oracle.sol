@@ -74,7 +74,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
 
   function requestData(
     address _sender,
-    uint256 _amount,
+    uint256 _payment,
     uint256 _dataVersion,
     bytes32 _specId,
     address _callbackAddress,
@@ -89,8 +89,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
     callbacks[requestId] = Callback(
-      keccak256(abi.encodePacked(_amount, _callbackAddress, _callbackFunctionId, now.add(EXPIRY_TIME))),
-      _amount,
+      keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, now.add(EXPIRY_TIME))),
+      _payment,
       _callbackAddress,
       _callbackFunctionId,
       uint64(now.add(EXPIRY_TIME)));
@@ -98,7 +98,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     emit RunRequest(
       _specId,
       _sender,
-      _amount,
+      _payment,
       uint256(requestId),
       _dataVersion,
       _callbackAddress,
@@ -152,11 +152,21 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
-  function cancel(bytes32 _requestId, uint256, bytes4, uint256) external {
-    require(msg.sender == callbacks[_requestId].addr, "Must be called from requester");
-    require(callbacks[_requestId].cancelExpiration <= now, "Request is not expired");
-    Callback memory cb = callbacks[_requestId];
-    require(LINK.transfer(cb.addr, cb.amount), "Unable to transfer");
+  function cancel(
+    bytes32 _requestId,
+    uint256 _payment,
+    bytes4 _callbackFunc,
+    uint256 _expiration
+  ) external {
+    bytes32 paramsHash = keccak256(abi.encodePacked(
+      _payment,
+      msg.sender,
+      _callbackFunc,
+      _expiration));
+
+    require(paramsHash == callbacks[_requestId].commitment, "Params do not match request ID");
+    require(_expiration <= now, "Request is not expired");
+    require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
     delete callbacks[_requestId];
     emit CancelRequest(_requestId);
   }
