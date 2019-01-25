@@ -206,7 +206,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	js := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
-	assert.NoError(t, app.Store.SaveJob(&js))
+	assert.NoError(t, app.Store.CreateJob(&js))
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()

@@ -57,7 +57,7 @@ func TestAssignmentSpec_ConvertToJobSpec(t *testing.T) {
 
 			j1, err := a.ConvertToJobSpec()
 			assert.NoError(t, err)
-			assert.NoError(t, store.SaveJob(&j1))
+			assert.NoError(t, store.CreateJob(&j1))
 			j2 := cltest.FindJob(store, j1.ID)
 
 			assert.NotEqual(t, "", j2.ID)
