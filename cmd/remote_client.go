@@ -338,8 +338,20 @@ func (cli *Client) SendEther(c *clipkg.Context) error {
 				unparsedDestinationAddress), err))
 	}
 
+	unparsedFromAddress := c.String("from")
+	fromAddress := common.Address{}
+	if unparsedFromAddress != "" {
+		fromAddress, err = utils.ParseEthereumAddress(unparsedFromAddress)
+		if err != nil {
+			return cli.errorOut(multierr.Combine(
+				fmt.Errorf("while parsing withdrawal from address %v",
+					unparsedFromAddress), err))
+		}
+	}
+
 	request := models.SendEtherRequest{
 		DestinationAddress: destinationAddress,
+		FromAddress:        fromAddress,
 		Amount:             assets.NewEth(amount),
 	}
 

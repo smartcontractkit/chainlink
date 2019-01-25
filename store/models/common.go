@@ -302,6 +302,7 @@ type WithdrawalRequest struct {
 // SendEtherRequest represents a request to transfer ETH.
 type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
+	FromAddress        common.Address `json:"from"`
 	Amount             *assets.Eth    `json:"amount"`
 }
 
