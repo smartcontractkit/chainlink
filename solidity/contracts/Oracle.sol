@@ -81,11 +81,15 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(commitments[requestId] == 0, "Must use a unique ID");
     uint256 expiration = now.add(EXPIRY_TIME);
-    commitments[requestId] = keccak256(abi.encodePacked(
-      _payment,
-      _callbackAddress,
-      _callbackFunctionId,
-      expiration));
+
+    commitments[requestId] = keccak256(
+      abi.encodePacked(
+        _payment,
+        _callbackAddress,
+        _callbackFunctionId,
+        expiration
+      )
+    );
 
     emit RunRequest(
       _specId,
@@ -113,7 +117,15 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     returns (bool)
   {
     bytes32 requestId = bytes32(_requestId);
-    require(commitments[requestId] == keccak256(abi.encodePacked(_payment, _callbackAddress, _callbackFunctionId, _expiration)), "Params do not match request ID");
+    bytes32 paramsHash = keccak256(
+      abi.encodePacked(
+        _payment,
+        _callbackAddress,
+        _callbackFunctionId,
+        _expiration
+      )
+    );
+    require(commitments[requestId] == paramsHash, "Params do not match request ID");
     withdrawableTokens = withdrawableTokens.add(_payment);
     delete commitments[requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
@@ -150,12 +162,13 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes4 _callbackFunc,
     uint256 _expiration
   ) external {
-    bytes32 paramsHash = keccak256(abi.encodePacked(
-      _payment,
-      msg.sender,
-      _callbackFunc,
-      _expiration));
-
+    bytes32 paramsHash = keccak256(
+      abi.encodePacked(
+        _payment,
+        msg.sender,
+        _callbackFunc,
+        _expiration)
+    );
     require(paramsHash == commitments[_requestId], "Params do not match request ID");
     require(_expiration <= now, "Request is not expired");
     require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
