@@ -34,10 +34,10 @@ const (
 )
 
 var (
-	// RunLogTopic is the signature for the RunRequest(...) event
-	// which Chainlink RunLog initiators watch for.
-	// See https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Oracle.sol
-	RunLogTopic0        = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
+	// RunLogTopic0 was the original topic to filter for Oracle.sol RunRequest events.
+	RunLogTopic0 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
+	// RunLogTopic20190123 was the new RunRequest filter topic as of 2019-01-23,
+	// when callback address, callback function, and expiration were added to the data payload.
 	RunLogTopic20190123 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
 	// OracleLogTopic is the signature for the OracleRequest(...) event.
 	OracleLogTopic = utils.MustHash("OracleRequest(bytes32,address,uint256,uint256,uint256,bytes)")
@@ -81,7 +81,7 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
-		topics := []common.Hash{RunLogTopic0, OracleLogTopic}
+		topics := []common.Hash{RunLogTopic20190123, RunLogTopic0, OracleLogTopic}
 		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}

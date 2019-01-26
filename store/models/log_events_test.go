@@ -1,9 +1,11 @@
 package models_test
 
 import (
+	"math/big"
 	"strings"
 	"testing"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -249,4 +251,31 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 func first(a models.JobSpec, b interface{}) models.JobSpec {
 	return a
+}
+
+func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
+	t.Parallel()
+
+	i := models.Initiator{
+		Type:  models.InitiatorRunLog,
+		JobID: "4a1eb0e8df314cb894024a38991cff0f",
+	}
+	fromBlock := big.NewInt(42)
+	filter, err := models.FilterQueryFactory(i, cltest.IndexableBlockNumber(fromBlock))
+	assert.NoError(t, err)
+
+	want := ethereum.FilterQuery{
+		FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
+		Topics: [][]common.Hash{
+			{
+				models.RunLogTopic20190123,
+				models.RunLogTopic0,
+				models.OracleLogTopic,
+			}, {
+				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+				common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+			},
+		},
+	}
+	assert.Equal(t, want, filter)
 }
