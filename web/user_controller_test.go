@@ -11,6 +11,8 @@ import (
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
+	t.Parallel()
+
 	appWithUser, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 	client := appWithUser.NewHTTPClient()

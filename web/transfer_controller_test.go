@@ -70,7 +70,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        app.Store.KeyStore.Accounts()[1].Address,
+		FromAddress:        app.Store.TxManager.NextActiveAccount().Address,
 		Amount:             assets.NewEth(100),
 	}
 
