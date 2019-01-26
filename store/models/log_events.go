@@ -67,12 +67,16 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
 // possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
 // hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) [][]common.Hash {
+func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) ([][]common.Hash, error) {
 	hexJobID := common.BytesToHash([]byte(jobID))
-	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(hexutil.MustDecode("0x"+jobID), utils.EVMWordByteLen))
+	b, err := hexutil.Decode("0x" + jobID)
+	if err != nil {
+		return [][]common.Hash{}, fmt.Errorf("Could not hex decode %v: %v", jobID, err)
+	}
+	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(b, utils.EVMWordByteLen))
 	// LogTopics AND (0xHEXJOBID OR 0xJOBID0padded)
 	// i.e. (RunLogTopic OR OracleLogTopic) AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{logTopics, {hexJobID, jobIDZeroPadded}}
+	return [][]common.Hash{logTopics, {hexJobID, jobIDZeroPadded}}, nil
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
@@ -82,10 +86,12 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
 		topics := []common.Hash{RunLogTopic20190123, RunLogTopic0, OracleLogTopic}
-		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
+		filters, err := TopicFiltersForRunLog(topics, i.JobID)
+		return newInitiatorFilterQuery(i, from, filters), err
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
-		return newInitiatorFilterQuery(i, from, TopicFiltersForRunLog(topics, i.JobID)), nil
+		filters, err := TopicFiltersForRunLog(topics, i.JobID)
+		return newInitiatorFilterQuery(i, from, filters), err
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}

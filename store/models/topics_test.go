@@ -12,8 +12,9 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 	t.Parallel()
 
 	jobID := "4a1eb0e8df314cb894024a38991cff0f"
-	topics := models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic0}, jobID)
+	topics, err := models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic0}, jobID)
 
+	assert.NoError(t, err)
 	assert.Equal(t, 2, len(topics))
 	assert.Equal(
 		t,
@@ -27,6 +28,16 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 			common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
 		},
 		topics[1])
+}
+
+func TestTopicFiltersForRunLog_Error(t *testing.T) {
+	t.Parallel()
+
+	jobID := "Q!1eb0e8df314cb894024a38991cff0f"
+	topics, err := models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic0}, jobID)
+
+	assert.Error(t, err)
+	assert.Equal(t, [][]common.Hash{}, topics)
 }
 
 func TestOracleTopic(t *testing.T) {
