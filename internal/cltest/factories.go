@@ -276,9 +276,9 @@ func NewRunLog(
 	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData("internalID", json),
+		Data:        StringToVersionedLogData20190123("internalID", json),
 		Topics: []common.Hash{
-			models.RunLogTopic0,
+			models.RunLogTopic20190123,
 			StringToHash(jobID),
 			requester.Hash(),
 			minimumContractPayment.ToHash(),
@@ -299,7 +299,7 @@ func NewServiceAgreementExecutionLog(
 	return models.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
-		Data:        StringToVersionedLogData("internalID", serviceAgreementJSON),
+		Data:        StringToVersionedLogData0("internalID", serviceAgreementJSON),
 		Topics: []common.Hash{
 			models.ServiceAgreementExecutionLogTopic,
 			StringToHash(jobID),
@@ -309,11 +309,38 @@ func NewServiceAgreementExecutionLog(
 	}
 }
 
-// StringToVersionedLogData encodes a string to the log data field.
-func StringToVersionedLogData(internalID, str string) []byte {
+func StringToVersionedLogData0(internalID, str string) []byte {
 	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
 	buf.Write(utils.EVMWordUint64(1))
 	buf.Write(utils.EVMWordUint64(common.HashLength * 3))
+
+	cbor, err := JSONFromString(str).CBOR()
+	mustNotErr(err)
+	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
+	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
+	buf.Write(common.RightPadBytes(cbor, paddedLength))
+
+	return buf.Bytes()
+}
+
+func StringToVersionedLogData20190123(internalID, str string) []byte {
+	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
+	buf := bytes.NewBuffer(requestID)
+
+	version := utils.EVMWordUint64(1)
+	buf.Write(version)
+
+	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
+	buf.Write(dataLocation)
+
+	callbackAddr := utils.EVMWordUint64(0)
+	buf.Write(callbackAddr)
+
+	callbackFunc := utils.EVMWordUint64(0)
+	buf.Write(callbackFunc)
+
+	expiration := utils.EVMWordUint64(4000000000)
+	buf.Write(expiration)
 
 	cbor, err := JSONFromString(str).CBOR()
 	mustNotErr(err)
