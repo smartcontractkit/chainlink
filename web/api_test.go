@@ -9,6 +9,8 @@ import (
 )
 
 func TestApi_ParsePaginatedRequest(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		sizeParam string
@@ -29,6 +31,8 @@ func TestApi_ParsePaginatedRequest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			size, page, offset, err := ParsePaginatedRequest(test.sizeParam, test.pageParam)
 			if test.err {
 				assert.Error(t, err)
@@ -55,6 +59,8 @@ func (r *TestResource) SetID(value string) error {
 }
 
 func TestApi_NewPaginatedResponse(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		path     string
@@ -104,6 +110,8 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			url, err := url.Parse(test.path)
 			assert.NoError(t, err)
 			buffer, err := NewPaginatedResponse(*url, test.size, test.page, test.count, test.resource)
@@ -118,6 +126,8 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 }
 
 func TestPagination_ParsePaginatedResponse(t *testing.T) {
+	t.Parallel()
+
 	var docs []TestResource
 	var links jsonapi.Links
 
@@ -144,6 +154,8 @@ func (d DummyResource) GetID() string {
 }
 
 func TestNewJSONAPIResponse(t *testing.T) {
+	t.Parallel()
+
 	buffer, err := NewJSONAPIResponse(12981)
 	assert.Error(t, err)
 

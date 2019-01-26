@@ -144,7 +144,9 @@ func (txm *EthTxManager) CreateTxWithEth(to common.Address, value *assets.Eth, f
 	ma := &ManagedAccount{}
 	var err error
 	if len(from) == 1 {
-		ma = txm.getAccount(from[0])
+		if ma = txm.getAccount(from[0]); ma == nil {
+			return nil, errors.New("account does not exist")
+		}
 	} else if ma, err = txm.nextAccount(); err != nil {
 		return nil, err
 	}
