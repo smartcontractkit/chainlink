@@ -8,9 +8,10 @@ library Buffer {
         uint capacity;
     }
 
+    uint constant capacityMask = (2 ** 256) - 32; // ~0x1f
+
     function init(buffer memory buf, uint _capacity) internal pure {
-        uint capacity = _capacity;
-        if(capacity % 32 != 0) capacity += 32 - (capacity % 32);
+        uint capacity = max(32, (_capacity + 0x1f) & capacityMask);
         // Allocate space for the buffer data
         buf.capacity = capacity;
         assembly {
@@ -124,7 +125,7 @@ library Buffer {
             let bufptr := mload(buf)
             // Length of existing buffer data
             let buflen := mload(bufptr)
-            // Address = buffer address + buffer length + sizeof(buffer length) + len
+            // Address = buffer address + buffer length + len
             let dest := add(add(bufptr, buflen), len)
             mstore(dest, or(and(mload(dest), not(mask)), data))
             // Update buffer length
@@ -334,16 +335,22 @@ interface LinkTokenInterface {
 // File: ../solidity/contracts/interfaces/ChainlinkRequestInterface.sol
 
 interface ChainlinkRequestInterface {
-  function cancel(bytes32 requestId) external;
   function requestData(
     address sender,
-    uint256 amount,
+    uint256 payment,
     uint256 version,
     bytes32 id,
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
     bytes data
+  ) external;
+
+  function cancel(
+    bytes32 requestId,
+    uint256 payment,
+    bytes4 callbackFunctionId,
+    uint256 expiration
   ) external;
 }
 
@@ -430,14 +437,14 @@ contract Chainlinked {
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _payment)
     internal
     returns (bytes32)
   {
-    return chainlinkRequestFrom(oracle, _run, _amount);
+    return chainlinkRequestFrom(oracle, _run, _payment);
   }
 
-  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
@@ -445,19 +452,24 @@ contract Chainlinked {
     _run.nonce = requests;
     unfulfilledRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _amount, encodeRequest(_run)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(_oracle, _payment, encodeRequest(_run)), "unable to transferAndCall to oracle");
     requests += 1;
-    
+
     return requestId;
   }
 
-  function cancelChainlinkRequest(bytes32 _requestId)
+  function cancelChainlinkRequest(
+    bytes32 _requestId,
+    uint256 _payment,
+    bytes4 _callbackFunc,
+    uint256 _expiration
+  )
     internal
   {
     ChainlinkRequestInterface requested = ChainlinkRequestInterface(unfulfilledRequests[_requestId]);
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
-    requested.cancel(_requestId);
+    requested.cancel(_requestId, _payment, _callbackFunc, _expiration);
   }
 
   function setOracle(address _oracle) internal {
