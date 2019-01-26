@@ -7,8 +7,10 @@ import {
 import {
   assertActionThrows,
   decodeDietCBOR,
+  decodeRunRequest,
   eth,
   functionSelector,
+  fulfillOracleRequest,
   linkContract,
   oracleNode,
   requestDataBytes,
@@ -25,10 +27,10 @@ contract('UptimeSLA', () => {
   let link, oc, sla, client, serviceProvider, startAt
 
   beforeEach(async () => {
-    client = "0xf000000000000000000000000000000000000001"
-    serviceProvider = "0xf000000000000000000000000000000000000002"
+    client = '0xf000000000000000000000000000000000000001'
+    serviceProvider = '0xf000000000000000000000000000000000000002'
     link = await linkContract()
-    oc = await Oracle.new(link.address, {from: oracleNode})
+    oc = await Oracle.new(link.address, { from: oracleNode })
     sla = await SLA.new(client, serviceProvider, link.address, oc.address, specId, {
       value: deposit
     })
@@ -36,47 +38,45 @@ contract('UptimeSLA', () => {
     startAt = await getLatestTimestamp()
   })
 
-  describe("before updates", () => {
-    it("does not release money to anyone", async () => {
+  describe('before updates', () => {
+    it('does not release money to anyone', async () => {
       assert.equal(await eth.getBalance(sla.address), deposit)
       assert.equal(await eth.getBalance(client), 0)
       assert.equal(await eth.getBalance(serviceProvider), 0)
     })
   })
 
-  describe("#updateUptime", () => {
-    it("triggers a log event in the Oracle contract", async () => {
-      const tx = await sla.updateUptime("0")
+  describe('#updateUptime', () => {
+    it('triggers a log event in the Oracle contract', async () => {
+      await sla.updateUptime('0')
 
       const events = await oc.getPastEvents('allEvents')
       assert.equal(1, events.length)
       assert.equal(events[0].args.specId,
-                   specId + '00000000000000000000000000000000')
+        specId + '00000000000000000000000000000000')
 
       const decoded = await decodeDietCBOR(util.toBuffer(events[0].args.data))
       assert.deepEqual(
         decoded,
-        {'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation']}
+        { 'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation'] }
       )
     })
   })
 
   describe('#fulfillData', () => {
     const response = '0x00000000000000000000000000000000000000000000000000000000000f8c4c'
-    let requestId
+    let request
 
     beforeEach(async () => {
-      await sla.updateUptime('0')
-      const events = await oc.getPastEvents('allEvents')
-      const event = events[events.length - 1]
-      requestId = event.args.requestId
+      const tx = await sla.updateUptime('0')
+      request = decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
-    context("when the value is below 9999", async () => {
-      const response = "0x000000000000000000000000000000000000000000000000000000000000270e"
+    context('when the value is below 9999', async () => {
+      const response = '0x000000000000000000000000000000000000000000000000000000000000270e'
 
       it('sends the deposit to the client', async () => {
-        await oc.fulfillData(requestId, response, {from: oracleNode})
+        await fulfillOracleRequest(oc, request, response, { from: oracleNode })
 
         assert.equal(await eth.getBalance(sla.address), 0)
         assert.equal(await eth.getBalance(client), deposit)
@@ -84,8 +84,8 @@ contract('UptimeSLA', () => {
       })
     })
 
-    context("when the value is 9999 or above", () => {
-      const response = "0x000000000000000000000000000000000000000000000000000000000000270f"
+    context('when the value is 9999 or above', () => {
+      const response = '0x000000000000000000000000000000000000000000000000000000000000270f'
       let originalClientBalance
 
       beforeEach(async () => {
@@ -93,7 +93,7 @@ contract('UptimeSLA', () => {
       })
 
       it('does not move the money', async () => {
-        await oc.fulfillData(requestId, response, {from: oracleNode})
+        await fulfillOracleRequest(oc, request, response, { from: oracleNode })
 
         assertBigNum(await eth.getBalance(sla.address), deposit)
         assertBigNum(await eth.getBalance(client), originalClientBalance)
@@ -106,7 +106,7 @@ contract('UptimeSLA', () => {
         })
 
         it('gives the money back to the service provider', async () => {
-          await oc.fulfillData(requestId, response, {from: oracleNode})
+          await fulfillOracleRequest(oc, request, response, { from: oracleNode })
 
           assertBigNum(await eth.getBalance(sla.address), 0)
           assertBigNum(await eth.getBalance(client), originalClientBalance)
@@ -117,16 +117,15 @@ contract('UptimeSLA', () => {
 
     context('when the consumer does not recognize the request ID', () => {
       beforeEach(async () => {
-        let fid = functionSelector("report(uint256,bytes32)")
-        let args = requestDataBytes(specId, sla.address, fid, "xid", "foo")
-        await requestDataFrom(oc, link, 0, args)
-        const events = await oc.getPastEvents('allEvents')
-        requestId = events[events.length - 1].args.requestId
+        let fid = functionSelector('report(uint256,bytes32)')
+        let args = requestDataBytes(specId, sla.address, fid, 'xid', 'foo')
+        const tx = await requestDataFrom(oc, link, 0, args)
+        request = decodeRunRequest(tx.receipt.logs[2])
       })
 
-      it("does not accept the data provided", async () => {
+      it('does not accept the data provided', async () => {
         let originalUptime = await sla.uptime()
-        await oc.fulfillData(requestId, response, {from: oracleNode})
+        await fulfillOracleRequest(oc, request, response, { from: oracleNode })
         let newUptime = await sla.uptime()
 
         assertBigNum(originalUptime, newUptime)
@@ -136,7 +135,7 @@ contract('UptimeSLA', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await assertActionThrows(async () => {
-          await sla.report(requestId, response, {from: oracleNode})
+          await sla.report(request.id, response, { from: oracleNode })
         })
       })
     })
