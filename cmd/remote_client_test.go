@@ -551,7 +551,7 @@ func TestClient_SendEther_From(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("sendether", 0)
-	set.String("from", "0x534E10734271342d8dC78B8B009E40ef06659c0d", "")
+	set.String("from", app.Store.TxManager.NextActiveAccount().Address.String(), "")
 	set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
 
 	cliapp := cli.NewApp()

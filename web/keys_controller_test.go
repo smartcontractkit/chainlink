@@ -11,6 +11,8 @@ import (
 )
 
 func TestKeysController_CreateSuccess(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
@@ -42,6 +44,8 @@ func TestKeysController_CreateSuccess(t *testing.T) {
 }
 
 func TestKeysController_InvalidPassword(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
@@ -72,6 +76,8 @@ func TestKeysController_InvalidPassword(t *testing.T) {
 }
 
 func TestKeysController_JSONBindingError(t *testing.T) {
+	t.Parallel()
+
 	config, _ := cltest.NewConfig()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
 	defer cleanup()
