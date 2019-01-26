@@ -7498,6 +7498,25 @@ ethjs@^0.4.0:
     js-sha3 "0.5.5"
     number-to-bn "1.7.0"
 
+ethlint@^1.2.2:
+  version "1.2.2"
+  resolved "https://registry.npmjs.org/ethlint/-/ethlint-1.2.2.tgz#29efb5edd54a44863cbb694da1e4cd269b2fd5f9"
+  integrity sha512-yzk7XeBuDLPn0iHuC7FUiY4DvXoXFgP4dmIJ1VwnzrXD5L0O9kCpjUMN9PxRbLbxKAm+PbmmVSh4DgPQjhmjeQ==
+  dependencies:
+    ajv "^5.2.2"
+    chokidar "^1.6.0"
+    colors "^1.1.2"
+    commander "^2.9.0"
+    diff "^3.5.0"
+    eol "^0.9.1"
+    js-string-escape "^1.0.1"
+    lodash "^4.14.2"
+    sol-digger "0.0.2"
+    sol-explore "1.6.1"
+    solium-plugin-security "0.1.1"
+    solparse "2.2.8"
+    text-table "^0.2.0"
+
 event-emitter@~0.3.5:
   version "0.3.5"
   resolved "https://registry.npmjs.org/event-emitter/-/event-emitter-0.3.5.tgz#df8c69eef1647923c7157b9ce83840610b02cc39"
@@ -16168,26 +16187,16 @@ solium-plugin-zeppelin@^0.0.2:
     solparse "^2.2.2"
     util-deprecate "^1.0.2"
 
-solium@^1.1.8:
-  version "1.2.1"
-  resolved "https://registry.npmjs.org/solium/-/solium-1.2.1.tgz#ead11f2921ba2337461752155cc96149ea08f247"
-  integrity sha512-PnNOx3BfYvghJE5aV2lWBcbNIa9g9eXQaGPpQPiYixmF7kVR27J2tmSetdsdpwKMVf2Y+H4JEEL7zyfsRjOMFA==
+solparse@2.2.8:
+  version "2.2.8"
+  resolved "https://registry.npmjs.org/solparse/-/solparse-2.2.8.tgz#d13e42dbed95ce32f43894f5ec53f00d14cf9f11"
+  integrity sha512-Tm6hdfG72DOxD40SD+T5ddbekWglNWjzDRSNq7ZDIOHVsyaJSeeunUuWNj4DE7uDrJK3tGQuX0ZTDZWNYsGPMA==
   dependencies:
-    ajv "^5.2.2"
-    chokidar "^1.6.0"
-    colors "^1.1.2"
-    commander "^2.9.0"
-    diff "^3.5.0"
-    eol "^0.9.1"
-    js-string-escape "^1.0.1"
-    lodash "^4.14.2"
-    sol-digger "0.0.2"
-    sol-explore "1.6.1"
-    solium-plugin-security "0.1.1"
-    solparse "2.2.7"
-    text-table "^0.2.0"
+    mocha "^4.0.1"
+    pegjs "^0.10.0"
+    yargs "^10.0.3"
 
-solparse@2.2.7, solparse@^2.2.2:
+solparse@^2.2.2:
   version "2.2.7"
   resolved "https://registry.npmjs.org/solparse/-/solparse-2.2.7.tgz#5479ff4ba4ca6900df89b902b5af1ee23b816250"
   integrity sha512-s2DKdvVxXcWefPgBSb+HgTylomzbNjsKdZDN6PsWi9h+UYdyw7DFozpPCGETNEz523tIjrqBRnSPIoDVL1zv5Q==
