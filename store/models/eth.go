@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,6 +41,14 @@ type Log struct {
 	// The Removed field is true if this log was reverted due to a chain reorganisation.
 	// You must pay attention to this field if you receive logs through a filter query.
 	Removed bool `json:"removed"`
+}
+
+func (log Log) getTopic(idx uint) (common.Hash, error) {
+	if len(log.Topics) <= int(idx) {
+		return common.Hash{}, fmt.Errorf("Log: Unable to get topic #%v for %v", idx, log)
+	}
+
+	return log.Topics[idx], nil
 }
 
 type logMarshaling struct {

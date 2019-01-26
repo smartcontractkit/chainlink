@@ -47,12 +47,12 @@ var (
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 	// OracleFulfillmentFunctionID0 is the original function selector for fulfilling Ethereum requests.
 	OracleFulfillmentFunctionID0 = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
-	// OracleFulfillmentFunctionID201923 is the function selector for fulfilling Ethereum requests,
-	// as updated on 2019-01-23..
+	// OracleFulfillmentFunctionID20190123 is the function selector for fulfilling Ethereum requests,
+	// as updated on 2019-01-23.
 	OracleFulfillmentFunctionID20190123 = utils.MustHash("fulfillData(uint256,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 )
 
-type logRequestParser func(RunLogEvent) (JSON, error)
+type logRequestParser func(Log) (JSON, error)
 
 // topicFactoryMap maps the log topic to a factory method that returns an
 // implementation of the interface LogRequest. The concrete implementations
@@ -162,14 +162,6 @@ func (le InitiatorLogEvent) GetJobSpec() JobSpec {
 // GetInitiator returns the initiator.
 func (le InitiatorLogEvent) GetInitiator() Initiator {
 	return le.Initiator
-}
-
-func (le InitiatorLogEvent) getTopic(idx uint) (common.Hash, error) {
-	if len(le.Log.Topics) <= int(idx) {
-		return common.Hash{}, fmt.Errorf("InitiatorLogEvent: Unable to get topic %v for initiator type %s", idx, le.Initiator.Type)
-	}
-
-	return le.Log.Topics[idx], nil
 }
 
 // ForLogger formats the InitiatorSubscriptionLogEvent for easy common
@@ -285,14 +277,14 @@ func (le RunLogEvent) Requester() common.Address {
 	return common.BytesToAddress(b)
 }
 
-func (le RunLogEvent) Payment() common.Address {
-	b := le.Log.Topics[RequestLogTopicRequester].Bytes()
-	return common.BytesToAddress(b)
+// JSON decodes the RunLogEvent's data converts it to a JSON object.
+func (le RunLogEvent) JSON() (JSON, error) {
+	return ParseRunLog(le.Log)
 }
 
-// JSON decodes the CBOR in the ABI of the log event.
-func (le RunLogEvent) JSON() (JSON, error) {
-	topic, err := le.getTopic(0)
+// ParseRunLog decodes the CBOR in the ABI of the log event.
+func ParseRunLog(log Log) (JSON, error) {
+	topic, err := log.getTopic(0)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -300,18 +292,18 @@ func (le RunLogEvent) JSON() (JSON, error) {
 	if !ok {
 		return JSON{}, fmt.Errorf("No parser for the RunLogEvent topic %v", topic)
 	}
-	return parse(le)
+	return parse(log)
 }
 
-func parseRunLog0(le RunLogEvent) (JSON, error) {
-	data := le.Log.Data
+func parseRunLog0(log Log) (JSON, error) {
+	data := log.Data
 	start := idSize + versionSize + dataLocationSize + dataLengthSize
 
 	js, err := ParseCBOR(data[start:])
 	if err != nil {
 		return js, err
 	}
-	js, err = js.Add("address", le.Log.Address.String())
+	js, err = js.Add("address", log.Address.String())
 	if err != nil {
 		return js, err
 	}
@@ -324,8 +316,8 @@ func parseRunLog0(le RunLogEvent) (JSON, error) {
 	return js.Add("functionSelector", OracleFulfillmentFunctionID0)
 }
 
-func parseRunLog20190123(le RunLogEvent) (JSON, error) {
-	data := le.Log.Data
+func parseRunLog20190123(log Log) (JSON, error) {
+	data := log.Data
 	cborStart := idSize + versionSize + callbackAddrSize + callbackFuncSize + expirationSize + dataLocationSize + dataLengthSize
 
 	js, err := ParseCBOR(data[cborStart:])
@@ -333,7 +325,7 @@ func parseRunLog20190123(le RunLogEvent) (JSON, error) {
 		return js, err
 	}
 
-	js, err = js.Add("address", le.Log.Address.String())
+	js, err = js.Add("address", log.Address.String())
 	if err != nil {
 		return js, err
 	}
@@ -341,7 +333,7 @@ func parseRunLog20190123(le RunLogEvent) (JSON, error) {
 	callbackAndExpStart := idSize + versionSize
 	callbackAndExpEnd := callbackAndExpStart + callbackAddrSize + callbackFuncSize + expirationSize
 	dataPrefix := bytesToHex(append(append(data[:idSize],
-		le.Log.Topics[RequestLogTopicAmount].Bytes()...),
+		log.Topics[RequestLogTopicAmount].Bytes()...),
 		data[callbackAndExpStart:callbackAndExpEnd]...))
 	js, err = js.Add("dataPrefix", dataPrefix)
 	if err != nil {
