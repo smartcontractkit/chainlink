@@ -15,18 +15,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunLogEvent_JSON(t *testing.T) {
+func TestParseRunLog(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name        string
-		el          models.Log
+		log         models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
 		{
 			name:        "hello world",
-			el:          cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			log:         cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(`{
 				"url":"https://etherprice.com/api",
@@ -37,7 +37,7 @@ func TestRunLogEvent_JSON(t *testing.T) {
 		},
 		{
 			name:        "on-chain commitment",
-			el:          cltest.LogFromFixture("../../internal/fixtures/eth/request_log20190123.json"),
+			log:         cltest.LogFromFixture("../../internal/fixtures/eth/request_log20190123.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(`{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
@@ -50,9 +50,7 @@ func TestRunLogEvent_JSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			initr := models.Initiator{Type: models.InitiatorRunLog}
-			le := models.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
-			output, err := le.JSON()
+			output, err := models.ParseRunLog(test.log)
 			assert.JSONEq(t, strings.ToLower(test.wantData.String()), strings.ToLower(output.String()))
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantErrored, (err != nil))
