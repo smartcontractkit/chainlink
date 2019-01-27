@@ -268,7 +268,6 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 			{
 				models.RunLogTopic20190123,
 				models.RunLogTopic0,
-				models.OracleLogTopic,
 			}, {
 				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 				common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
