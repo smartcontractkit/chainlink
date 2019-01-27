@@ -339,9 +339,11 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     );
     require(paramsHash == commitments[_requestId], "Params do not match request ID");
     require(_expiration <= now, "Request is not expired");
-    require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
+
     delete commitments[_requestId];
     emit CancelRequest(_requestId);
+
+    require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
   }
 
   // MODIFIERS

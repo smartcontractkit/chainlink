@@ -601,7 +601,7 @@ contract('Oracle', () => {
           const tx = await h.cancelOracleRequest(oc, request, { from: h.consumer })
 
           assert.equal(tx.receipt.logs.length, 2)
-          assert.equal(request.id, tx.receipt.logs[1].data)
+          assert.equal(request.id, tx.receipt.logs[0].data)
         })
 
         it('fails when called twice', async () => {
