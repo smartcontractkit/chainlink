@@ -8,7 +8,7 @@ interface ChainlinkRequestInterface {
     bytes32 id,
     address callbackAddress,
     bytes4 callbackFunctionId,
-    uint256 expiration,
+    uint256 nonce,
     bytes data
   ) external;
 
