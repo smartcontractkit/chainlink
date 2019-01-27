@@ -40,10 +40,6 @@ func TestTopicFiltersForRunLog_Error(t *testing.T) {
 	assert.Equal(t, [][]common.Hash{}, topics)
 }
 
-func TestOracleTopic(t *testing.T) {
-	assert.Equal(t, "0x574a42b2507013492566a555e07135cbe40e8085bf9dd794aa2028b1b23702c2", models.OracleLogTopic.Hex())
-}
-
 func TestRunTopic0(t *testing.T) {
 	assert.Equal(t, "0x6d6db1f8fe19d95b1d0fa6a4bce7bb24fbf84597b35a33ff95521fac453c1529", models.RunLogTopic0.Hex())
 }

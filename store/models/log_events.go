@@ -39,8 +39,6 @@ var (
 	// RunLogTopic20190123 was the new RunRequest filter topic as of 2019-01-23,
 	// when callback address, callback function, and expiration were added to the data payload.
 	RunLogTopic20190123 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
-	// OracleLogTopic is the signature for the OracleRequest(...) event.
-	OracleLogTopic = utils.MustHash("OracleRequest(bytes32,address,uint256,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
 	// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
@@ -59,7 +57,6 @@ type logRequestParser func(Log) (JSON, error)
 // are polymorphic and can have difference behaviors for methods like JSON().
 var topicFactoryMap = map[common.Hash]logRequestParser{
 	ServiceAgreementExecutionLogTopic: parseRunLog0,
-	OracleLogTopic:                    parseRunLog0,
 	RunLogTopic0:                      parseRunLog0,
 	RunLogTopic20190123:               parseRunLog20190123,
 }
@@ -75,7 +72,7 @@ func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) ([][]common.Ha
 	}
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(b, utils.EVMWordByteLen))
 	// LogTopics AND (0xHEXJOBID OR 0xJOBID0padded)
-	// i.e. (RunLogTopic OR OracleLogTopic) AND (0xHEXJOBID OR 0xJOBID0padded)
+	// i.e. (RunLogTopic0 OR RunLogTopic20190123) AND (0xHEXJOBID OR 0xJOBID0padded)
 	return [][]common.Hash{logTopics, {hexJobID, jobIDZeroPadded}}, nil
 }
 
@@ -85,7 +82,7 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
-		topics := []common.Hash{RunLogTopic20190123, RunLogTopic0, OracleLogTopic}
+		topics := []common.Hash{RunLogTopic20190123, RunLogTopic0}
 		filters, err := TopicFiltersForRunLog(topics, i.JobID)
 		return newInitiatorFilterQuery(i, from, filters), err
 	case InitiatorServiceAgreementExecutionLog:
