@@ -106,7 +106,7 @@ func (s RunStatus) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (s *RunStatus) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
 	}
@@ -132,8 +132,7 @@ func (j JSON) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (j *JSON) Scan(value interface{}) error {
-	bytes, ok := value.([]uint8)
-	temp := string(bytes)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
 	}
@@ -276,11 +275,8 @@ func (w WebURL) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (w *WebURL) Scan(value interface{}) error {
-	var s string
-	switch temp := value.(type) {
-	case []uint8:
-		s = string(temp)
-	default:
+	s, ok := value.(string)
+	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
 	}
 
@@ -304,11 +300,9 @@ func (t Time) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (t *Time) Scan(value interface{}) error {
-	var s string
 	switch temp := value.(type) {
-	case []uint8:
-		s = string(temp)
-		newTime, err := dateparse.ParseAny(s)
+	case string:
+		newTime, err := dateparse.ParseAny(temp)
 		*t = Time{Time: newTime}
 		return err
 	case time.Time:
@@ -455,12 +449,12 @@ func (b Big) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (b *Big) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to Big", value, value)
 	}
 
-	decoded, ok := b.setString(string(temp), 10)
+	decoded, ok := b.setString(temp, 10)
 	if !ok {
 		return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
 	}
@@ -511,12 +505,11 @@ func (r AddressCollection) Value() (driver.Value, error) {
 
 // Scan parses the database value as a string.
 func (r *AddressCollection) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
 	}
 
-	str := string(temp)
 	if len(str) == 0 {
 		return nil
 	}
