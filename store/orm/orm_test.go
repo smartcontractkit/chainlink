@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -584,4 +585,29 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
 	require.Equal(t, tx1.Hex, tx2.Hex)
 	require.Equal(t, tx1.SentAt, tx2.SentAt)
+}
+
+func TestORM_DeduceDialect(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, connection, expect string
+		wantError                bool
+	}{
+		{"garbage", "89324*$*#@(=", "", true},
+		{"sqlite file", "db.sqlite", "sqlite3", false},
+		{"random file path", "store/db/here", "sqlite3", false},
+		{"file uri", "file://host/path", "sqlite3", false},
+		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
+		{"postgresql uri", "postgresql://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
+		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "postgres", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := orm.DeduceDialect(test.connection)
+			assert.Equal(t, test.expect, actual)
+			assert.Equal(t, test.wantError, err != nil)
+		})
+	}
 }
