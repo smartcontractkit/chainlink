@@ -26,7 +26,7 @@ contract ConcreteChainlinked is Chainlinked {
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(
+    Chainlink.Run memory run = newRun(
       _id, _address, bytes4(keccak256(_fulfillmentSignature)));
     emit Run(
       run.id,
@@ -44,7 +44,7 @@ contract ConcreteChainlinked is Chainlinked {
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(
+    Chainlink.Run memory run = newRun(
       _id, _address, bytes4(keccak256(_fulfillmentSignature)));
     chainlinkRequest(run, _wei);
   }
@@ -58,7 +58,7 @@ contract ConcreteChainlinked is Chainlinked {
   )
     public
   {
-    ChainlinkLib.Run memory run = newRun(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
+    Chainlink.Run memory run = newRun(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
     chainlinkRequestFrom(_oracle, run, _wei);
   }
 

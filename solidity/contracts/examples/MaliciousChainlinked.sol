@@ -1,12 +1,12 @@
 pragma solidity 0.4.24;
 
-import "./MaliciousChainlinkLib.sol";
+import "./MaliciousChainlink.sol";
 import "../Chainlinked.sol";
 
 contract MaliciousChainlinked is Chainlinked {
-  using MaliciousChainlinkLib for MaliciousChainlinkLib.Run;
-  using MaliciousChainlinkLib for MaliciousChainlinkLib.WithdrawRun;
-  using ChainlinkLib for ChainlinkLib.Run;
+  using MaliciousChainlink for MaliciousChainlink.Run;
+  using MaliciousChainlink for MaliciousChainlink.WithdrawRun;
+  using Chainlink for Chainlink.Run;
   using SafeMath for uint256;
 
   uint256 private maliciousRequests = 1;
@@ -16,12 +16,12 @@ contract MaliciousChainlinked is Chainlinked {
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunction
-  ) internal pure returns (MaliciousChainlinkLib.WithdrawRun memory) {
-    MaliciousChainlinkLib.WithdrawRun memory run;
+  ) internal pure returns (MaliciousChainlink.WithdrawRun memory) {
+    MaliciousChainlink.WithdrawRun memory run;
     return run.initializeWithdraw(_specId, _callbackAddress, _callbackFunction);
   }
 
-  function chainlinkTargetRequest(address _target, ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkTargetRequest(address _target, Chainlink.Run memory _run, uint256 _amount)
     internal
     returns(bytes32 requestId)
   {
@@ -36,7 +36,7 @@ contract MaliciousChainlinked is Chainlinked {
     return requestId;
   }
 
-  function chainlinkPriceRequest(ChainlinkLib.Run memory _run, uint256 _amount)
+  function chainlinkPriceRequest(Chainlink.Run memory _run, uint256 _amount)
     internal
     returns(bytes32 requestId)
   {
@@ -51,7 +51,7 @@ contract MaliciousChainlinked is Chainlinked {
     return requestId;
   }
 
-  function chainlinkWithdrawRequest(MaliciousChainlinkLib.WithdrawRun memory _run, uint256 _wei)
+  function chainlinkWithdrawRequest(MaliciousChainlink.WithdrawRun memory _run, uint256 _wei)
     internal
     returns(bytes32 requestId)
   {
@@ -65,7 +65,7 @@ contract MaliciousChainlinked is Chainlinked {
     return requestId;
   }
 
-  function encodeWithdrawRequest(MaliciousChainlinkLib.WithdrawRun memory _run)
+  function encodeWithdrawRequest(MaliciousChainlink.WithdrawRun memory _run)
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
@@ -76,7 +76,7 @@ contract MaliciousChainlinked is Chainlinked {
       _run.buf.buf);
   }
 
-  function encodeTargetRequest(ChainlinkLib.Run memory _run)
+  function encodeTargetRequest(Chainlink.Run memory _run)
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
@@ -91,7 +91,7 @@ contract MaliciousChainlinked is Chainlinked {
       _run.buf.buf);
   }
 
-  function encodePriceRequest(ChainlinkLib.Run memory _run)
+  function encodePriceRequest(Chainlink.Run memory _run)
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
