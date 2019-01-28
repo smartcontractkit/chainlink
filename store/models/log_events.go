@@ -90,7 +90,7 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
 		topics := []common.Hash{RunLogTopic20190128, RunLogTopic20190123, RunLogTopic0}
-		filters, err := TopicFiltersForRunLog(topics, i.JobID)
+		filters, err := TopicFiltersForRunLog(topics, i.JobSpecID)
 		return newInitiatorFilterQuery(i, from, filters), err
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
