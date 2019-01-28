@@ -68,7 +68,7 @@ contract Chainlinked {
     ChainlinkRequestInterface requested = ChainlinkRequestInterface(unfulfilledRequests[_requestId]);
     delete unfulfilledRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
-    requested.cancel(_requestId, _payment, _callbackFunc, _expiration);
+    requested.cancelOracleRequest(_requestId, _payment, _callbackFunc, _expiration);
   }
 
   function setOracle(address _oracle) internal {

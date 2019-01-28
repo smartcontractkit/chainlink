@@ -238,7 +238,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   // Necessary to implement ChainlinkRequestInterface
-  function cancel(bytes32, uint256, bytes4, uint256) external {}
+  function cancelOracleRequest(bytes32, uint256, bytes4, uint256) external {}
 
   modifier checkCallbackAddress(address _to) {
     require(_to != address(LINK), "Cannot callback to LINK");

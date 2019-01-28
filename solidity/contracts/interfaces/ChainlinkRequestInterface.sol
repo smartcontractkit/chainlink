@@ -12,7 +12,7 @@ interface ChainlinkRequestInterface {
     bytes data
   ) external;
 
-  function cancel(
+  function cancelOracleRequest(
     bytes32 requestId,
     uint256 payment,
     bytes4 callbackFunctionId,
