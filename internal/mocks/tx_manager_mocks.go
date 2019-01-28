@@ -113,23 +113,18 @@ func (mr *MockTxManagerMockRecorder) CreateTx(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // CreateTxWithEth mocks base method
-func (m *MockTxManager) CreateTxWithEth(arg0 common.Address, arg1 *assets.Eth, arg2 ...common.Address) (*models.Tx, error) {
+func (m *MockTxManager) CreateTxWithEth(arg0, arg1 common.Address, arg2 *assets.Eth) (*models.Tx, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "CreateTxWithEth", varargs...)
+	ret := m.ctrl.Call(m, "CreateTxWithEth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*models.Tx)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateTxWithEth indicates an expected call of CreateTxWithEth
-func (mr *MockTxManagerMockRecorder) CreateTxWithEth(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockTxManagerMockRecorder) CreateTxWithEth(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTxWithEth", reflect.TypeOf((*MockTxManager)(nil).CreateTxWithEth), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTxWithEth", reflect.TypeOf((*MockTxManager)(nil).CreateTxWithEth), arg0, arg1, arg2)
 }
 
 // CreateTxWithGas mocks base method
