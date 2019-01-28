@@ -47,7 +47,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	config, _ := cltest.NewConfigWithPrivateKey()
 	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
-	eth := app.MockEthClient()
+	eth := app.MockEthClient(cltest.Strict)
 
 	newHeads := make(chan models.BlockHeader)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
