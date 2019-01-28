@@ -165,3 +165,27 @@ func TestStore_urlParser(t *testing.T) {
 		})
 	}
 }
+
+func TestConfig_normalizedDatabaseURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, uri, expect string
+	}{
+		{"empty", "", "/root/db.sqlite3"},
+		{"garbage", "89324*$*#@(=", "89324*$*#@(="},
+		{"random file path", "store/db/here", "store/db/here"},
+		{"file uri", "file://host/path", "file://host/path"},
+		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"},
+		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := NewConfig()
+			config.Set("ROOT", "/root")
+			config.Set("DATABASE_URI", test.uri)
+			assert.Equal(t, test.expect, config.normalizedDatabaseURL())
+		})
+	}
+}

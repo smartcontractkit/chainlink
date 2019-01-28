@@ -5,14 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite" // http://doc.gorm.io/database.html#connecting-to-a-database
+	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	_ "github.com/smartcontractkit/go-sqlite3" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"go.uber.org/multierr"
 )
 
@@ -36,12 +39,34 @@ func NewORM(path string) (*ORM, error) {
 }
 
 func initializeDatabase(path string) (*gorm.DB, error) {
-	db, err := gorm.Open("sqlite3", path)
+	dialect, err := DeduceDialect(path)
+	if err != nil {
+		return nil, err
+	}
+	db, err := gorm.Open(dialect, path)
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to open gorm DB: %+v", err)
 	}
 	db.Exec("PRAGMA foreign_keys = ON")
 	return db, nil
+}
+
+var validPostgresString = regexp.MustCompile("^(?:[A-Za-z]+=.* ?)+")
+var validSqlitePath = regexp.MustCompile("^(.+)/([^/]+)$")
+var validSqliteFilename = regexp.MustCompile(`^[\w\-. ]+$`)
+
+// DeduceDialect returns the appropriate dialect for the passed connection string.
+func DeduceDialect(path string) (string, error) {
+	lower := strings.ToLower(path)
+	if strings.HasPrefix(lower, "postgres://") || strings.HasPrefix(lower, "postgresql://") {
+		return "postgres", nil
+	} else if validPostgresString.MatchString(path) {
+		return "postgres", nil
+	} else if validSqlitePath.MatchString(path) || validSqliteFilename.MatchString(path) {
+		return "sqlite3", nil
+	}
+	return "", fmt.Errorf("Unable to deduce sql dialect from path %s, please try a URI", path)
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
