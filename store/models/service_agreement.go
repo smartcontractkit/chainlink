@@ -32,9 +32,8 @@ type ServiceAgreement struct {
 	EncumbranceID uint        `json:"-"`
 	RequestBody   string      `json:"requestBody"`
 	Signature     Signature   `json:"signature"`
-	JobSpec       JobSpec     // JobSpec is used during the initial SA creation.
-	JobSpecID     string      `json:"jobSpecID" gorm:"index"`
-	// If needed later, it can be retrieved from the database with JobSpecID.
+	JobSpec       JobSpec     `gorm:"foreignkey:JobSpecID"`
+	JobSpecID     string      `json:"jobSpecId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
