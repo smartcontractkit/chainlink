@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 interface OracleInterface {
-  function fulfillData(
+  function fulfillOracleRequest(
     uint256 requestId,
     uint256 payment,
     address callbackAddress,
