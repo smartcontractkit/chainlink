@@ -103,7 +103,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _data);
   }
 
-  function fulfillData(
+  function fulfillOracleRequest(
     uint256 _requestId,
     uint256 _payment,
     address _callbackAddress,

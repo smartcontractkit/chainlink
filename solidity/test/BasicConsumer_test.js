@@ -59,7 +59,7 @@ contract('BasicConsumer', () => {
     })
   })
 
-  describe('#fulfillData', () => {
+  describe('#fulfillOracleRequest', () => {
     let response = '1,000,000.00'
     let request
 

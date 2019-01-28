@@ -60,7 +60,7 @@ contract('UptimeSLA', (accounts) => {
     })
   })
 
-  describe('#fulfillData', () => {
+  describe('#fulfillOracleRequest', () => {
     const response = '0x00000000000000000000000000000000000000000000000000000000000f8c4c'
     let request
 

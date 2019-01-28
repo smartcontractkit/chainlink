@@ -77,7 +77,7 @@ contract('UpdatableConsumer', () => {
     })
   })
 
-  describe('#fulfillData', () => {
+  describe('#fulfillOracleRequest', () => {
     const response = '1,000,000.00'
     const currency = 'USD'
     const paymentAmount = h.toWei(1, 'ether')
