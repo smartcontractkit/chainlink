@@ -36,44 +36,44 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     public
     onlyOwner
   {
-    Chainlink.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
-    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
+    req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
-    run.addStringArray("path", path);
-    run.addInt("times", 100);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    req.addStringArray("path", path);
+    req.addInt("times", 100);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function requestEthereumChange(string _jobId, string _currency)
     public
     onlyOwner
   {
-    Chainlink.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
-    run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
+    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
+    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
     path[1] = "ETH";
     path[2] = _currency;
     path[3] = "CHANGEPCTDAY";
-    run.addStringArray("path", path);
-    run.addInt("times", 1000000000);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    req.addStringArray("path", path);
+    req.addInt("times", 1000000000);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function requestEthereumLastMarket(string _jobId, string _currency)
     public
     onlyOwner
   {
-    Chainlink.Run memory run = newRun(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
-    run.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
+    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
+    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
     path[1] = "ETH";
     path[2] = _currency;
     path[3] = "LASTMARKET";
-    run.addStringArray("path", path);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    req.addStringArray("path", path);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
