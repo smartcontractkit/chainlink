@@ -77,6 +77,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 	eth.EventuallyAllCalled(t)
+	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
 	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
@@ -86,15 +87,18 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
 	eth.Context("ethTx.Perform()#3 at block 23460", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_sendRawTransaction", attempt2Hash)
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
@@ -105,6 +109,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
+	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -175,8 +174,7 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 }
 
 func initializeORM(config Config) (*orm.ORM, error) {
-	path := path.Join(config.RootDir(), "db.sqlite3")
-	orm, err := orm.NewORM(path)
+	orm, err := orm.NewORM(config.normalizedDatabaseURL())
 	if err != nil {
 		return nil, err
 	}

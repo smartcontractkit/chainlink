@@ -9,8 +9,10 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,6 +44,7 @@ type ConfigSchema struct {
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`
 	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
+	DatabaseURI              string         `env:"DATABASE_URI"`
 	Dev                      bool           `env:"CHAINLINK_DEV" default:"false"`
 	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration   time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
@@ -137,6 +140,13 @@ func (c Config) ChainID() uint64 {
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(c.envVarName("ClientNodeURL"))
+}
+
+// DatabaseURI configures the URI for chainlink to connect to. This can be
+// either a local file that gets reference from the Chainlink's root directory,
+// or a URL: postgres://1.2.3.4:5432/dbname
+func (c Config) DatabaseURI() string {
+	return c.viper.GetString(c.envVarName("DatabaseURI"))
 }
 
 // Dev configures "development" mode for chainlink.
@@ -375,6 +385,29 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 		log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
 	}
 	return v
+}
+
+func (c Config) normalizedDatabaseURL() string {
+	if c.DatabaseURI() == "" {
+		return filepath.Join(c.RootDir(), "db.sqlite3")
+	}
+	return c.DatabaseURI()
+}
+
+// TODO: Delete?
+type DatabaseScheme int
+
+const (
+	DatabaseSchemeSqlite DatabaseScheme = iota
+	DatabaseSchemePostgres
+)
+
+// DatabaseScheme returns the scheme for the desired database url.
+func (c Config) DatabaseScheme() DatabaseScheme {
+	if strings.HasPrefix(strings.ToLower(c.normalizedDatabaseURL()), "postgres") {
+		return DatabaseSchemePostgres
+	}
+	return DatabaseSchemeSqlite
 }
 
 // SecretGenerator is the interface for objects that generate a secret
