@@ -613,9 +613,18 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	j := FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/hello_world_job.json")
-	j.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
-	return CreateJobSpecViaWeb(t, app, j)
+	buffer, err := ioutil.ReadFile("../internal/fixtures/web/hello_world_job.json")
+	if err != nil {
+		assert.FailNowf(t, "Unable to read fixture", err.Error())
+	}
+
+	var job models.JobSpec
+	err = json.Unmarshal(buffer, &job)
+	require.NoError(t, err)
+
+	job.ID = utils.NewBytes32ID()
+	job.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
+	return CreateJobSpecViaWeb(t, app, job)
 }
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the given MockServer Url
