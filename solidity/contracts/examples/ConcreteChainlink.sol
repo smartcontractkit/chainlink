@@ -3,45 +3,45 @@ pragma solidity 0.4.24;
 import "../Chainlink.sol";
 
 contract ConcreteChainlink {
-  using Chainlink for Chainlink.Run;
+  using Chainlink for Chainlink.Request;
   using CBOR for Buffer.buffer;
 
-  Chainlink.Run run;
+  Chainlink.Request req;
 
-  event RunData(bytes payload);
+  event RequestData(bytes payload);
 
   function closeEvent() public {
-    emit RunData(run.buf.buf);
+    emit RequestData(req.buf.buf);
   }
 
   function setBuffer(bytes data) public {
-    Chainlink.Run memory r2 = run;
+    Chainlink.Request memory r2 = req;
     r2.setBuffer(data);
-    run = r2;
+    req = r2;
   }
 
   function add(string _key, string _value) public {
-    Chainlink.Run memory r2 = run;
+    Chainlink.Request memory r2 = req;
     r2.add(_key, _value);
-    run = r2;
+    req = r2;
   }
 
   function addBytes(string _key, bytes _value) public {
-    Chainlink.Run memory r2 = run;
+    Chainlink.Request memory r2 = req;
     r2.addBytes(_key, _value);
-    run = r2;
+    req = r2;
   }
 
   function addInt(string _key, int256 _value) public {
-    Chainlink.Run memory r2 = run;
+    Chainlink.Request memory r2 = req;
     r2.addInt(_key, _value);
-    run = r2;
+    req = r2;
   }
 
   function addUint(string _key, uint256 _value) public {
-    Chainlink.Run memory r2 = run;
+    Chainlink.Request memory r2 = req;
     r2.addUint(_key, _value);
-    run = r2;
+    req = r2;
   }
 
   // Temporarily have method receive bytes32[] memory until experimental
@@ -51,9 +51,9 @@ contract ConcreteChainlink {
     for (uint256 i = 0; i < _values.length; i++) {
       strings[i] = bytes32ToString(_values[i]);
     }
-    Chainlink.Run memory r2 = run;
+    Chainlink.Request memory r2 = req;
     r2.addStringArray(_key, strings);
-    run = r2;
+    req = r2;
   }
 
   function bytes32ToString(bytes32 x) private pure returns (string) {
