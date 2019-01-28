@@ -122,15 +122,15 @@ interface ChainlinkRequestInterface {
   function oracleRequest(
     address sender,
     uint256 payment,
-    uint256 version,
     bytes32 id,
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
+    uint256 version,
     bytes data
   ) external;
 
-  function cancel(
+  function cancelOracleRequest(
     bytes32 requestId,
     uint256 payment,
     bytes4 callbackFunctionId,
@@ -141,8 +141,8 @@ interface ChainlinkRequestInterface {
 // File: contracts/interfaces/OracleInterface.sol
 
 interface OracleInterface {
-  function fulfillData(
-    uint256 requestId,
+  function fulfillOracleRequest(
+    bytes32 requestId,
     uint256 payment,
     address callbackAddress,
     bytes4 callbackFunctionId,
@@ -196,15 +196,15 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes32 indexed specId,
     address indexed requester,
     uint256 indexed payment,
-    uint256 requestId,
-    uint256 dataVersion,
+    bytes32 requestId,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
+    uint256 dataVersion,
     bytes data
   );
 
-  event CancelRequest(
+  event CancelOracleRequest(
     bytes32 requestId
   );
 
@@ -235,11 +235,11 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   function oracleRequest(
     address _sender,
     uint256 _payment,
-    uint256 _dataVersion,
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
     uint256 _nonce,
+    uint256 _dataVersion,
     bytes _data
   )
     external
@@ -263,16 +263,16 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _specId,
       _sender,
       _payment,
-      uint256(requestId),
-      _dataVersion,
+      requestId,
       _callbackAddress,
       _callbackFunctionId,
       expiration,
+      _dataVersion,
       _data);
   }
 
-  function fulfillData(
-    uint256 _requestId,
+  function fulfillOracleRequest(
+    bytes32 _requestId,
     uint256 _payment,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
@@ -284,7 +284,6 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     isValidRequest(_requestId)
     returns (bool)
   {
-    bytes32 requestId = bytes32(_requestId);
     bytes32 paramsHash = keccak256(
       abi.encodePacked(
         _payment,
@@ -293,14 +292,14 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
         _expiration
       )
     );
-    require(commitments[requestId] == paramsHash, "Params do not match request ID");
+    require(commitments[_requestId] == paramsHash, "Params do not match request ID");
     withdrawableTokens = withdrawableTokens.add(_payment);
-    delete commitments[requestId];
+    delete commitments[_requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return _callbackAddress.call(_callbackFunctionId, requestId, _data); // solium-disable-line security/no-low-level-calls
+    return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function getAuthorizationStatus(address _node) external view returns (bool) {
@@ -324,7 +323,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
-  function cancel(
+  function cancelOracleRequest(
     bytes32 _requestId,
     uint256 _payment,
     bytes4 _callbackFunc,
@@ -341,7 +340,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     require(_expiration <= now, "Request is not expired");
 
     delete commitments[_requestId];
-    emit CancelRequest(_requestId);
+    emit CancelOracleRequest(_requestId);
 
     require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
   }
@@ -353,8 +352,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     _;
   }
 
-  modifier isValidRequest(uint256 _requestId) {
-    require(commitments[bytes32(_requestId)] != 0, "Must have a valid requestId");
+  modifier isValidRequest(bytes32 _requestId) {
+    require(commitments[_requestId] != 0, "Must have a valid requestId");
     _;
   }
 

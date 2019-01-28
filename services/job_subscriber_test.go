@@ -112,8 +112,8 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 		{"runlog v20190123 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190123, cltest.StringToVersionedLogData20190123("id", `{"value":"100"}`)},
 		{"runlog v20190123 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190123, cltest.StringToVersionedLogData20190123("id", `{"value":"100"}`)},
 		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190123("id", `{"value":"100"}`)},
-		{"runlog v20190128 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190123, cltest.StringToVersionedLogData20190128("id", `{"value":"100"}`)},
-		{"runlog v20190128 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190123, cltest.StringToVersionedLogData20190128("id", `{"value":"100"}`)},
+		{"runlog v20190128 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190128, cltest.StringToVersionedLogData20190128("id", `{"value":"100"}`)},
+		{"runlog v20190128 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190128, cltest.StringToVersionedLogData20190128("id", `{"value":"100"}`)},
 		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190128("id", `{"value":"100"}`)},
 	}
 
