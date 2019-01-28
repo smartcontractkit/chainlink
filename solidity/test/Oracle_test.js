@@ -26,7 +26,7 @@ contract('Oracle', () => {
       'onTokenTransfer',
       'owner',
       'renounceOwnership',
-      'requestData',
+      'oracleRequest',
       'setFulfillmentPermission',
       'transferOwnership',
       'withdraw',
@@ -150,7 +150,7 @@ contract('Oracle', () => {
     })
   })
 
-  describe('#requestData', () => {
+  describe('#oracleRequest', () => {
     context('when called through the LINK token', () => {
       const paid = 100
       let log, tx
@@ -185,7 +185,7 @@ contract('Oracle', () => {
       })
 
       context('when called with a small bytes payload', () => {
-        const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+        const funcSelector = h.functionSelector('oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
         const maliciousData = funcSelector + '000000000000000000000000'
 
         it('throws an error', async () => {
@@ -199,7 +199,7 @@ contract('Oracle', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await oc.requestData(0, 0, 1, specId, to, fHash, 1, '', { from: h.oracleNode })
+          await oc.oracleRequest(0, 0, 1, specId, to, fHash, 1, '', { from: h.oracleNode })
         })
       })
     })
@@ -438,7 +438,7 @@ contract('Oracle', () => {
   })
 
   describe('#withdraw', () => {
-    context('without reserving funds via requestData', () => {
+    context('without reserving funds via oracleRequest', () => {
       it('does nothing', async () => {
         let balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
@@ -450,7 +450,7 @@ contract('Oracle', () => {
       })
     })
 
-    context('reserving funds via requestData', () => {
+    context('reserving funds via oracleRequest', () => {
       const payment = 15
       let request
 

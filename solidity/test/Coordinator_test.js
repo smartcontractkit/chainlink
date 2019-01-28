@@ -14,7 +14,7 @@ contract('Coordinator', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
       'getPackedArguments',
       'getId',
-      'requestData',
+      'oracleRequest',
       'fulfillData',
       'getId',
       'initiateServiceAgreement',
@@ -111,7 +111,7 @@ contract('Coordinator', () => {
     })
   })
 
-  describe('#requestData', () => {
+  describe('#oracleRequest', () => {
     const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
     const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
     let agreement
@@ -167,7 +167,7 @@ contract('Coordinator', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await coordinator.requestData(0, 0, 1, agreement.id, to, fHash, 1, '', { from: h.consumer })
+          await coordinator.oracleRequest(0, 0, 1, agreement.id, to, fHash, 1, '', { from: h.consumer })
         })
       })
     })
