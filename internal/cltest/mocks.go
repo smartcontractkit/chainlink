@@ -26,17 +26,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Strict flag makes the mock eth client panic if an unexpected call is made
+const Strict = "strict"
+
 // MockEthClient create new EthMock Client
-func (ta *TestApplication) MockEthClient() *EthMock {
+func (ta *TestApplication) MockEthClient(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
-	return MockEthOnStore(ta.Store)
+	return MockEthOnStore(ta.Store, flags...)
 }
 
 // MockEthOnStore given store return new EthMock Client
-func MockEthOnStore(s *store.Store) *EthMock {
+func MockEthOnStore(s *store.Store, flags ...string) *EthMock {
 	mock := &EthMock{}
+	for _, flag := range flags {
+		if flag == Strict {
+			mock.strict = true
+		}
+	}
 	eth := &store.EthClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
 		txm.EthClient = eth
@@ -54,6 +62,7 @@ type EthMock struct {
 	logsCalled     bool
 	mutex          sync.RWMutex
 	context        string
+	strict         bool
 }
 
 // Dial mock dial
@@ -137,7 +146,12 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 			return nil
 		}
 	}
-	return fmt.Errorf("EthMock: Method %v not registered", method)
+
+	err := fmt.Errorf("EthMock: Method %v not registered", method)
+	if mock.strict {
+		log.Fatal(err)
+	}
+	return err
 }
 
 // RegisterSubscription register a mock subscription to the given name and channels

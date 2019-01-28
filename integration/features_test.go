@@ -47,7 +47,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	config, _ := cltest.NewConfigWithPrivateKey()
 	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
 	defer cleanup()
-	eth := app.MockEthClient()
+	eth := app.MockEthClient(cltest.Strict)
 
 	newHeads := make(chan models.BlockHeader)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
@@ -100,6 +100,8 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_getBalance", "0x0100")
+		eth.Register("eth_call", "0x0100")
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
