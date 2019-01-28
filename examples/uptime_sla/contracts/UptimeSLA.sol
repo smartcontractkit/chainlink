@@ -28,7 +28,7 @@ contract UptimeSLA is Chainlinked {
   }
 
   function updateUptime(string _when) public {
-    ChainlinkLib.Run memory run = newRun(jobId, this, this.report.selector);
+    Chainlink.Run memory run = newRun(jobId, this, this.report.selector);
     run.add("url", "https://status.heroku.com/api/ui/availabilities");
     string[] memory path = new string[](4);
     path[0] = "data";
