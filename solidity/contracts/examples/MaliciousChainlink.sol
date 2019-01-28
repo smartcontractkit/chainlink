@@ -2,7 +2,7 @@ pragma solidity 0.4.24;
 
 import "solidity-cborutils/contracts/CBOR.sol";
 
-library MaliciousChainlinkLib {
+library MaliciousChainlink {
   using CBOR for Buffer.buffer;
 
   struct Run {
@@ -26,7 +26,7 @@ library MaliciousChainlinkLib {
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunction
-  ) internal pure returns (MaliciousChainlinkLib.WithdrawRun memory) {
+  ) internal pure returns (MaliciousChainlink.WithdrawRun memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;

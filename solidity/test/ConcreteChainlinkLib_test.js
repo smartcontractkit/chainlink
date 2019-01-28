@@ -6,8 +6,8 @@ import {
   deploy
 } from './support/helpers.js'
 
-contract('ConcreteChainlinkLib', () => {
-  const sourcePath = 'examples/ConcreteChainlinkLib.sol'
+contract('ConcreteChainlink', () => {
+  const sourcePath = 'examples/ConcreteChainlink.sol'
   let ccl
 
   beforeEach(async () => {

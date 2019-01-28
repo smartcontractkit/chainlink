@@ -19,24 +19,24 @@ contract MaliciousRequester is MaliciousChainlinked {
   function maliciousWithdraw()
     public
   {
-    MaliciousChainlinkLib.WithdrawRun memory run = newWithdrawRun(
+    MaliciousChainlink.WithdrawRun memory run = newWithdrawRun(
       "specId", this, this.doesNothing.selector);
     chainlinkWithdrawRequest(run, ORACLE_PAYMENT);
   }
 
   function request(bytes32 _id, address _target, bytes _callbackFunc) public returns (bytes32 requestId) {
-    ChainlinkLib.Run memory run = newRun(_id, _target, bytes4(keccak256(_callbackFunc)));
+    Chainlink.Run memory run = newRun(_id, _target, bytes4(keccak256(_callbackFunc)));
     expiration = now.add(5 minutes);
     requestId = chainlinkRequest(run, ORACLE_PAYMENT);
   }
 
   function maliciousPrice(bytes32 _id) public returns (bytes32 requestId) {
-    ChainlinkLib.Run memory run = newRun(_id, this, this.doesNothing.selector);
+    Chainlink.Run memory run = newRun(_id, this, this.doesNothing.selector);
     requestId = chainlinkPriceRequest(run, ORACLE_PAYMENT);
   }
 
   function maliciousTargetConsumer(address _target) public returns (bytes32 requestId) {
-    ChainlinkLib.Run memory run = newRun("specId", _target, bytes4(keccak256("fulfill(bytes32,bytes32)")));
+    Chainlink.Run memory run = newRun("specId", _target, bytes4(keccak256("fulfill(bytes32,bytes32)")));
     requestId = chainlinkTargetRequest(_target, run, ORACLE_PAYMENT);
   }
 
