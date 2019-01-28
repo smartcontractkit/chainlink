@@ -329,6 +329,7 @@
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
+    "dialects/postgres",
   ]
   pruneopts = ""
   revision = "472c70caa40267cb89fd8facb07fe6454b578626"
@@ -357,6 +358,18 @@
   pruneopts = ""
   revision = "ca39e5af3ece67bbcda3d0f4f56a8e24d9f2dad4"
   version = "1.1.3"
+
+[[projects]]
+  digest = "1:29145d7af4adafd72a79df5e41456ac9e232d5a28c1cd4dacf3ff008a217fc10"
+  name = "github.com/lib/pq"
+  packages = [
+    ".",
+    "hstore",
+    "oid",
+  ]
+  pruneopts = ""
+  revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:961dc3b1d11f969370533390fdf203813162980c858e1dabe827b60940c909a5"
@@ -935,7 +948,7 @@
     "github.com/gorilla/sessions",
     "github.com/gorilla/websocket",
     "github.com/jinzhu/gorm",
-    "github.com/jinzhu/gorm/dialects/sqlite",
+    "github.com/jinzhu/gorm/dialects/postgres",
     "github.com/jpillora/backoff",
     "github.com/manyminds/api2go/jsonapi",
     "github.com/mitchellh/go-homedir",
