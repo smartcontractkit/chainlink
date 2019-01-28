@@ -20,7 +20,7 @@ contract('Oracle', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
       'EXPIRY_TIME',
-      'cancel',
+      'cancelOracleRequest',
       'fulfillOracleRequest',
       'getAuthorizationStatus',
       'onTokenTransfer',
@@ -540,7 +540,7 @@ contract('Oracle', () => {
     })
   })
 
-  describe('#cancel', () => {
+  describe('#cancelOracleRequest', () => {
     context('with no pending requests', () => {
       it('fails', async () => {
         const fakeRequest = {

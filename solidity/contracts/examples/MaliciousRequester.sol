@@ -42,7 +42,7 @@ contract MaliciousRequester is MaliciousChainlinked {
 
   function maliciousRequestCancel(bytes32 _id, bytes _callbackFunc) public {
     ChainlinkRequestInterface oracle = ChainlinkRequestInterface(oracleAddress());
-    oracle.cancel(
+    oracle.cancelOracleRequest(
       request(_id, this, _callbackFunc),
       ORACLE_PAYMENT,
       this.maliciousRequestCancel.selector,

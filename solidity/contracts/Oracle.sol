@@ -156,7 +156,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
-  function cancel(
+  function cancelOracleRequest(
     bytes32 _requestId,
     uint256 _payment,
     bytes4 _callbackFunc,
