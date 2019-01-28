@@ -276,7 +276,7 @@ func (t TaskType) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (t *TaskType) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to TaskType", value, value)
 	}
