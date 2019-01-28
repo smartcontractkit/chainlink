@@ -21,7 +21,7 @@ contract('Oracle', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
       'EXPIRY_TIME',
       'cancel',
-      'fulfillData',
+      'fulfillOracleRequest',
       'getAuthorizationStatus',
       'onTokenTransfer',
       'owner',
@@ -205,7 +205,7 @@ contract('Oracle', () => {
     })
   })
 
-  describe('#fulfillData', () => {
+  describe('#fulfillOracleRequest', () => {
     const response = 'Hi Mom!'
     let mock, request
 
@@ -462,7 +462,7 @@ contract('Oracle', () => {
         request = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
-      context('but not freeing funds w fulfillData', () => {
+      context('but not freeing funds w fulfillOracleRequest', () => {
         it('does not transfer funds', async () => {
           await h.assertActionThrows(async () => {
             await withdraw(h.oracleNode, payment, { from: h.defaultAccount })
