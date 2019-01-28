@@ -24,7 +24,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   mapping(address => bool) private authorizedNodes;
   uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
-  event RunRequest(
+  event OracleRequest(
     bytes32 indexed specId,
     address indexed requester,
     uint256 indexed payment,
@@ -91,7 +91,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       )
     );
 
-    emit RunRequest(
+    emit OracleRequest(
       _specId,
       _sender,
       _payment,
