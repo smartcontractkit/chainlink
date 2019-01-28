@@ -33,7 +33,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     LINK = LinkTokenInterface(_link);
   }
 
-  event RunRequest(
+  event OracleRequest(
     bytes32 indexed sAId,
     address indexed requester,
     uint256 indexed amount,
@@ -96,7 +96,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _callbackFunctionId,
       uint64(now.add(5 minutes)));
 
-    emit RunRequest(
+    emit OracleRequest(
       _sAId,
       _sender,
       _amount,
