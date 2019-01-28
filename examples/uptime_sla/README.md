@@ -32,15 +32,15 @@ A float value is pulled out of a nested JSON object and multiplied to a precisio
 The ChainLink Job is configured to not take any specific URL or JSON path, so that this oracle and job can be reused for other APIs. Both `url` and `path` are passed into the oracle by the SLA contract, specifically which data point to use is passed into the contract:
 ```solidity
 function updateUptime(string _when) public {
-   Chainlink.Run memory run = newRun(jobId, this, "report(uint256,uint256)");
-   run.add("url", "https://status.heroku.com/api/ui/availabilities");
+   Chainlink.Request memory req = newRequest(jobId, this, "report(uint256,uint256)");
+   req.add("url", "https://status.heroku.com/api/ui/availabilities");
    string[] memory path = new string[](4);
    path[0] = "data";
    path[1] = _when;           //pick which data point in the array you want to examine
    path[2] = "attributes";
    path[3] = "calculation";
-   run.add("path", path);
-   chainlinkRequest(run, LINK(1));
+   req.add("path", path);
+   chainlinkRequest(req, LINK(1));
 }
 ```
 

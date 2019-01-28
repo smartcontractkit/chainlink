@@ -8,7 +8,7 @@ import "./interfaces/ChainlinkRequestInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Chainlinked {
-  using Chainlink for Chainlink.Run;
+  using Chainlink for Chainlink.Request;
   using SafeMath for uint256;
 
   uint256 constant internal LINK = 10**18;
@@ -27,31 +27,31 @@ contract Chainlinked {
   event ChainlinkFulfilled(bytes32 id);
   event ChainlinkCancelled(bytes32 id);
 
-  function newRun(
+  function newRequest(
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionSignature
-  ) internal pure returns (Chainlink.Run memory) {
-    Chainlink.Run memory run;
-    return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
+  ) internal pure returns (Chainlink.Request memory) {
+    Chainlink.Request memory req;
+    return req.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function chainlinkRequest(Chainlink.Run memory _run, uint256 _payment)
+  function chainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
     internal
     returns (bytes32)
   {
-    return chainlinkRequestFrom(oracle, _run, _payment);
+    return chainlinkRequestFrom(oracle, _req, _payment);
   }
 
-  function chainlinkRequestFrom(address _oracle, Chainlink.Run memory _run, uint256 _payment)
+  function chainlinkRequestFrom(address _oracle, Chainlink.Request memory _req, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
     requestId = keccak256(abi.encodePacked(this, requests));
-    _run.nonce = requests;
+    _req.nonce = requests;
     unfulfilledRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _payment, encodeRequest(_run)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
     requests += 1;
 
     return requestId;
@@ -124,7 +124,7 @@ contract Chainlinked {
     return oracle;
   }
 
-  function encodeRequest(Chainlink.Run memory _run)
+  function encodeRequest(Chainlink.Request memory _req)
     internal
     view
     returns (bytes memory)
@@ -134,11 +134,11 @@ contract Chainlinked {
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
       ARGS_VERSION,
-      _run.id,
-      _run.callbackAddress,
-      _run.callbackFunctionId,
-      _run.nonce,
-      _run.buf.buf);
+      _req.id,
+      _req.callbackAddress,
+      _req.callbackFunctionId,
+      _req.nonce,
+      _req.buf.buf);
   }
 
   function completeChainlinkFulfillment(bytes32 _requestId)

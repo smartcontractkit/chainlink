@@ -14,12 +14,12 @@ contract Consumer is Chainlinked {
   );
 
   function requestEthereumPrice(string _currency) public {
-    Chainlink.Run memory run = newRun(specId, this, this.fulfill.selector);
-    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    Chainlink.Request memory req = newRequest(specId, this, this.fulfill.selector);
+    req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
-    run.addStringArray("path", path);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    req.addStringArray("path", path);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function cancelRequest(
