@@ -24,9 +24,9 @@ contract('ConcreteChainlinked', () => {
     cc = await deploy(sourcePath, link.address, oc.address)
   })
 
-  describe('#newRun', () => {
+  describe('#newRequest', () => {
     it('forwards the information to the oracle contract through the link token', async () => {
-      let tx = await cc.publicNewRun(
+      let tx = await cc.publicNewRequest(
         specId,
         gs.address,
         'requestedBytes32(bytes32,bytes32)')
@@ -42,9 +42,9 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#chainlinkRequest(Run)', () => {
+  describe('#chainlinkRequest(Request)', () => {
     it('emits an event from the contract showing the run ID', async () => {
-      await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      await cc.publicRequest(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
 
       let events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -53,7 +53,7 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#chainlinkRequestTo(Run)', () => {
+  describe('#chainlinkRequestTo(Request)', () => {
     it('emits an event from the contract showing the run ID', async () => {
       await cc.publicRequestRunTo(newoc.address, specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
 
@@ -86,7 +86,7 @@ contract('ConcreteChainlinked', () => {
     beforeEach(async () => {
       oc = await deploy('examples/EmptyOracle.sol')
       cc = await deploy(sourcePath, link.address, oc.address)
-      await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      await cc.publicRequest(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
       requestId = (await getLatestEvent(cc)).args.id
     })
 
@@ -111,7 +111,7 @@ contract('ConcreteChainlinked', () => {
     let request
 
     beforeEach(async () => {
-      const tx = await cc.publicRequestRun(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      const tx = await cc.publicRequest(specId, cc.address, 'fulfillRequest(bytes32,bytes32)', 0)
       request = decodeRunRequest(tx.receipt.logs[3])
     })
 
@@ -130,7 +130,7 @@ contract('ConcreteChainlinked', () => {
     let request
 
     beforeEach(async () => {
-      const tx = await cc.publicRequestRun(specId, cc.address, 'publicFulfillChainlinkRequest(bytes32,bytes32)', 0)
+      const tx = await cc.publicRequest(specId, cc.address, 'publicFulfillChainlinkRequest(bytes32,bytes32)', 0)
       request = decodeRunRequest(tx.receipt.logs[3])
     })
 
@@ -157,7 +157,7 @@ contract('ConcreteChainlinked', () => {
 
     beforeEach(async () => {
       mock = await deploy(sourcePath, link.address, oc.address)
-      const tx = await cc.publicRequestRun(specId, mock.address, 'fulfillRequest(bytes32,bytes32)', 0)
+      const tx = await cc.publicRequest(specId, mock.address, 'fulfillRequest(bytes32,bytes32)', 0)
       request = decodeRunRequest(tx.receipt.logs[3])
       await mock.publicAddExternalRequest(oc.address, request.id)
     })

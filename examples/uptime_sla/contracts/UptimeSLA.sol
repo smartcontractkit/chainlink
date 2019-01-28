@@ -28,15 +28,15 @@ contract UptimeSLA is Chainlinked {
   }
 
   function updateUptime(string _when) public {
-    Chainlink.Run memory run = newRun(jobId, this, this.report.selector);
-    run.add("url", "https://status.heroku.com/api/ui/availabilities");
+    Chainlink.Request memory req = newRequest(jobId, this, this.report.selector);
+    req.add("url", "https://status.heroku.com/api/ui/availabilities");
     string[] memory path = new string[](4);
     path[0] = "data";
     path[1] = _when;
     path[2] = "attributes";
     path[3] = "calculation";
-    run.addStringArray("path", path);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    req.addStringArray("path", path);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function report(bytes32 _externalId, uint256 _uptime)
