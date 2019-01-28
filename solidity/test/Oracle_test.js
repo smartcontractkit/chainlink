@@ -173,7 +173,7 @@ contract('Oracle', () => {
 
       it('uses the expected event signature', async () => {
         // If updating this test, be sure to update models.RunLogTopic.
-        let eventSignature = '0xde0c85a5ce6238254074c071457f1f3bdd9e329b6576f370faa665e904183ed7'
+        const eventSignature = '0xde0c85a5ce6238254074c071457f1f3bdd9e329b6576f370faa665e904183ed7'
         assert.equal(eventSignature, log.topics[0])
       })
 
