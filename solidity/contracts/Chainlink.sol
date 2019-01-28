@@ -2,7 +2,7 @@ pragma solidity 0.4.24;
 
 import "solidity-cborutils/contracts/CBOR.sol";
 
-library ChainlinkLib {
+library Chainlink {
   uint256 internal constant defaultBufferSize = 256;
 
   using CBOR for Buffer.buffer;
@@ -20,7 +20,7 @@ library ChainlinkLib {
     bytes32 _id,
     address _callbackAddress,
     bytes4 _callbackFunction
-  ) internal pure returns (ChainlinkLib.Run memory) {
+  ) internal pure returns (Chainlink.Run memory) {
     Buffer.init(self.buf, defaultBufferSize);
     self.id = _id;
     self.callbackAddress = _callbackAddress;
