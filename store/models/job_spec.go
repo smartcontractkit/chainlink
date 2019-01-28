@@ -66,6 +66,9 @@ func NewJob() JobSpec {
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
 	jobSpec.Initiators = jsr.Initiators
+	for _, initr := range jobSpec.Initiators {
+		initr.JobSpecID = jobSpec.ID
+	}
 	jobSpec.Tasks = jsr.Tasks
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt

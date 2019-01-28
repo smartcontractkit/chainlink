@@ -335,14 +335,17 @@ func TestORM_MarkRan(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
+	js := models.NewJob()
+	require.NoError(t, store.CreateJob(&js))
 	initr := models.Initiator{
-		Type: models.InitiatorRunAt,
+		JobSpecID: js.ID,
+		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
 			Time: models.Time{Time: time.Now()},
 		},
 	}
 
-	assert.NoError(t, store.CreateInitiator(&initr))
+	require.NoError(t, store.CreateInitiator(&initr))
 
 	assert.NoError(t, store.MarkRan(&initr, true))
 	ir, err := store.FindInitiator(initr.ID)
