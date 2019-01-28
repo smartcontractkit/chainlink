@@ -1,10 +1,13 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 )
@@ -24,15 +27,23 @@ func (tc *TransfersController) Create(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&tr); err != nil {
 		publicError(c, 400, err)
-	} else if tr.FromAddress != utils.ZeroAddress {
-		if tx, err := store.TxManager.CreateTxWithEth(tr.DestinationAddress, tr.Amount, tr.FromAddress); err != nil {
-			publicError(c, 400, fmt.Errorf("Transaction failed: %v", err))
-		} else {
-			c.JSON(200, tx)
-		}
-	} else if tx, err := store.TxManager.CreateTxWithEth(tr.DestinationAddress, tr.Amount); err != nil {
+	} else if from, err := retrieveFromAddress(tr.FromAddress, store); err != nil {
+		publicError(c, 400, err)
+	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
 		publicError(c, 400, fmt.Errorf("Transaction failed: %v", err))
 	} else {
 		c.JSON(200, tx)
 	}
+}
+
+func retrieveFromAddress(from common.Address, store *store.Store) (common.Address, error) {
+	if from != utils.ZeroAddress {
+		return from, nil
+	}
+	ma := store.TxManager.NextActiveAccount()
+	if ma == nil {
+		return common.Address{}, errors.New("Must activate an account before creating a transaction")
+	}
+
+	return ma.Address, nil
 }

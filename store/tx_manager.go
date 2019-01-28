@@ -36,7 +36,7 @@ type TxManager interface {
 	Register(accounts []accounts.Account)
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
-	CreateTxWithEth(to common.Address, value *assets.Eth, from ...common.Address) (*models.Tx, error)
+	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
 	BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
@@ -140,15 +140,10 @@ func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPric
 }
 
 // CreateTxWithEth signs and sends a transaction with some ETH to transfer.
-func (txm *EthTxManager) CreateTxWithEth(to common.Address, value *assets.Eth, from ...common.Address) (*models.Tx, error) {
-	ma := &ManagedAccount{}
-	var err error
-	if len(from) == 1 {
-		if ma = txm.getAccount(from[0]); ma == nil {
-			return nil, errors.New("account does not exist")
-		}
-	} else if ma, err = txm.nextAccount(); err != nil {
-		return nil, err
+func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error) {
+	ma := txm.getAccount(from)
+	if ma == nil {
+		return nil, errors.New("account does not exist")
 	}
 
 	return txm.createEthTxWithNonceReload(ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value, 0)
