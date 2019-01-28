@@ -7,7 +7,7 @@ library Chainlink {
 
   using CBOR for Buffer.buffer;
 
-  struct Run {
+  struct Request {
     bytes32 id;
     address callbackAddress;
     bytes4 callbackFunctionId;
@@ -16,11 +16,11 @@ library Chainlink {
   }
 
   function initialize(
-    Run memory self,
+    Request memory self,
     bytes32 _id,
     address _callbackAddress,
     bytes4 _callbackFunction
-  ) internal pure returns (Chainlink.Run memory) {
+  ) internal pure returns (Chainlink.Request memory) {
     Buffer.init(self.buf, defaultBufferSize);
     self.id = _id;
     self.callbackAddress = _callbackAddress;
@@ -28,42 +28,42 @@ library Chainlink {
     return self;
   }
 
-  function setBuffer(Run memory self, bytes data)
+  function setBuffer(Request memory self, bytes data)
     internal pure
   {
     Buffer.init(self.buf, data.length);
     Buffer.append(self.buf, data);
   }
 
-  function add(Run memory self, string _key, string _value)
+  function add(Request memory self, string _key, string _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeString(_value);
   }
 
-  function addBytes(Run memory self, string _key, bytes _value)
+  function addBytes(Request memory self, string _key, bytes _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeBytes(_value);
   }
 
-  function addInt(Run memory self, string _key, int256 _value)
+  function addInt(Request memory self, string _key, int256 _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeInt(_value);
   }
 
-  function addUint(Run memory self, string _key, uint256 _value)
+  function addUint(Request memory self, string _key, uint256 _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeUInt(_value);
   }
 
-  function addStringArray(Run memory self, string _key, string[] memory _values)
+  function addStringArray(Request memory self, string _key, string[] memory _values)
     internal pure
   {
     self.buf.encodeString(_key);

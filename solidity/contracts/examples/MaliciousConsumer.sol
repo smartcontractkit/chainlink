@@ -16,9 +16,9 @@ contract MaliciousConsumer is Chainlinked {
   function () public payable {}
 
   function requestData(bytes32 _id, bytes _callbackFunc) public {
-    Chainlink.Run memory run = newRun(_id, this, bytes4(keccak256(_callbackFunc)));
+    Chainlink.Request memory req = newRequest(_id, this, bytes4(keccak256(_callbackFunc)));
     expiration = now.add(5 minutes);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function assertFail(bytes32, bytes32) public pure {
