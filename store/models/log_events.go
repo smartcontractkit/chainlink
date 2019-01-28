@@ -39,6 +39,9 @@ var (
 	// RunLogTopic20190123 was the new RunRequest filter topic as of 2019-01-23,
 	// when callback address, callback function, and expiration were added to the data payload.
 	RunLogTopic20190123 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
+	// RunLogTopic20190128 was the new RunRequest filter topic as of 2019-01-28,
+	// after renaming Solidity variables, moving data version, and removing the cast of requestId to uint256
+	RunLogTopic20190128 = utils.MustHash("OracleRequest(bytes32,address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
 	// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
@@ -48,6 +51,9 @@ var (
 	// OracleFulfillmentFunctionID20190123 is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-23.
 	OracleFulfillmentFunctionID20190123 = utils.MustHash("fulfillData(uint256,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	// OracleFulfillmentFunctionID20190128 is the function selector for fulfilling Ethereum requests,
+	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
+	OracleFulfillmentFunctionID20190128 = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 )
 
 type logRequestParser func(Log) (JSON, error)
@@ -59,6 +65,7 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 	ServiceAgreementExecutionLogTopic: parseRunLog0,
 	RunLogTopic0:                      parseRunLog0,
 	RunLogTopic20190123:               parseRunLog20190123,
+	RunLogTopic20190128:               parseRunLog20190128,
 }
 
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
@@ -82,8 +89,8 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
-		topics := []common.Hash{RunLogTopic20190123, RunLogTopic0}
-		filters, err := TopicFiltersForRunLog(topics, i.JobSpecID)
+		topics := []common.Hash{RunLogTopic20190128, RunLogTopic20190123, RunLogTopic0}
+		filters, err := TopicFiltersForRunLog(topics, i.JobID)
 		return newInitiatorFilterQuery(i, from, filters), err
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
@@ -338,6 +345,32 @@ func parseRunLog20190123(log Log) (JSON, error) {
 	}
 
 	return js.Add("functionSelector", OracleFulfillmentFunctionID20190123)
+}
+
+func parseRunLog20190128(log Log) (JSON, error) {
+	data := log.Data
+	cborStart := idSize + callbackAddrSize + callbackFuncSize + expirationSize + versionSize + dataLocationSize + dataLengthSize
+	js, err := ParseCBOR(data[cborStart:])
+	if err != nil {
+		return js, err
+	}
+	
+	js, err = js.Add("address", log.Address.String())
+	if err != nil {
+		return js, err
+	}
+	
+	callbackAndExpStart := idSize
+	callbackAndExpEnd := callbackAndExpStart + callbackFuncSize + expirationSize + callbackAddrSize
+	dataPrefix := []byte{}
+	dataPrefix = append(dataPrefix,data[:idSize]...)
+	dataPrefix = append(dataPrefix,log.Topics[RequestLogTopicAmount].Bytes()...)
+	dataPrefix = append(dataPrefix,data[callbackAndExpStart:callbackAndExpEnd]...)
+	js, err = js.Add("dataPrefix", bytesToHex(dataPrefix))
+	if err != nil {
+		return js, err
+	}
+	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128)
 }
 
 func bytesToHex(data []byte) string {

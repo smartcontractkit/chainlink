@@ -46,6 +46,17 @@ func TestParseRunLog(t *testing.T) {
 				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
 				"functionSelector":"0xeea57e70"}`),
 		},
+		{
+			name:        "on-chain commitment",
+			log:         cltest.LogFromFixture("../../internal/fixtures/eth/request_log20190128.json"),
+			wantErrored: false,
+			wantData: cltest.JSONFromString(`{
+				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
+				"path":["usd"],
+				"address":"0xf25186b5081ff5ce73482ad761db0eb0d25abfbf",
+				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
+				"functionSelector":"0x4ab0d190"}`),
+		},
 	}
 
 	for _, test := range tests {
@@ -265,6 +276,7 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
 		Topics: [][]common.Hash{
 			{
+				models.RunLogTopic20190128,
 				models.RunLogTopic20190123,
 				models.RunLogTopic0,
 			}, {

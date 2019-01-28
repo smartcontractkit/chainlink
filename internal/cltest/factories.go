@@ -283,9 +283,9 @@ func NewRunLog(
 	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData20190123("internalID", json),
+		Data:        StringToVersionedLogData20190128("internalID", json),
 		Topics: []common.Hash{
-			models.RunLogTopic20190123,
+			models.RunLogTopic20190128,
 			StringToHash(jobID),
 			requester.Hash(),
 			minimumContractPayment.ToHash(),
@@ -348,6 +348,34 @@ func StringToVersionedLogData20190123(internalID, str string) []byte {
 
 	expiration := utils.EVMWordUint64(4000000000)
 	buf.Write(expiration)
+
+	cbor, err := JSONFromString(str).CBOR()
+	mustNotErr(err)
+	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
+	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
+	buf.Write(common.RightPadBytes(cbor, paddedLength))
+
+	return buf.Bytes()
+}
+
+func StringToVersionedLogData20190128(internalID, str string) []byte {
+	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
+	buf := bytes.NewBuffer(requestID)
+
+	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
+	buf.Write(dataLocation)
+
+	callbackAddr := utils.EVMWordUint64(0)
+	buf.Write(callbackAddr)
+
+	callbackFunc := utils.EVMWordUint64(0)
+	buf.Write(callbackFunc)
+
+	expiration := utils.EVMWordUint64(4000000000)
+	buf.Write(expiration)
+
+	version := utils.EVMWordUint64(1)
+	buf.Write(version)
 
 	cbor, err := JSONFromString(str).CBOR()
 	mustNotErr(err)
