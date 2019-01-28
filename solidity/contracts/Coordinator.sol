@@ -37,7 +37,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes32 indexed sAId,
     address indexed requester,
     uint256 indexed amount,
-    uint256 requestId,
+    bytes32 requestId,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
@@ -100,7 +100,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _sAId,
       _sender,
       _amount,
-      uint256(requestId),
+      requestId,
       _callbackAddress,
       _callbackFunctionId,
       now.add(5 minutes),
@@ -215,22 +215,21 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     _;
   }
 
-  modifier isValidRequest(uint256 _requestId) {
-    require(callbacks[bytes32(_requestId)].addr != address(0), "Must have a valid requestId");
+  modifier isValidRequest(bytes32 _requestId) {
+    require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
     _;
   }
 
   function fulfillOracleRequest(
-    uint256 _requestId,
+    bytes32 _requestId,
     bytes32 _data
   )
     external
     isValidRequest(_requestId)
     returns (bool)
   {
-    bytes32 requestId = bytes32(_requestId);
-    Callback memory callback = callbacks[requestId];
-    delete callbacks[requestId];
+    Callback memory callback = callbacks[_requestId];
+    delete callbacks[_requestId];
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted. See:
     // https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern

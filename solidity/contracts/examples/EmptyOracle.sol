@@ -6,7 +6,7 @@ import "../interfaces/OracleInterface.sol";
 contract EmptyOracle is ChainlinkRequestInterface, OracleInterface {
 
   function cancelOracleRequest(bytes32, uint256, bytes4, uint256) external {}
-  function fulfillOracleRequest(uint256, uint256, address, bytes4, uint256, bytes32) external returns (bool) {}
+  function fulfillOracleRequest(bytes32, uint256, address, bytes4, uint256, bytes32) external returns (bool) {}
   function getAuthorizationStatus(address) external view returns (bool) { return false; }
   function onTokenTransfer(address, uint256, bytes) external pure {}
   function oracleRequest(address, uint256, bytes32, address, bytes4, uint256, uint256, bytes) external {}
