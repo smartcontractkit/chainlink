@@ -11,5 +11,5 @@ interface CoordinatorInterface {
     bytes32[] ss,
     bytes32 requestDigest
   ) external returns (bytes32);
-  function fulfillOracleRequest(uint256 requestId, bytes32 data) external returns (bool);
+  function fulfillOracleRequest(bytes32 requestId, bytes32 data) external returns (bool);
 }

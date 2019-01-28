@@ -28,7 +28,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes32 indexed specId,
     address indexed requester,
     uint256 indexed payment,
-    uint256 requestId,
+    bytes32 requestId,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
@@ -95,7 +95,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _specId,
       _sender,
       _payment,
-      uint256(requestId),
+      requestId,
       _callbackAddress,
       _callbackFunctionId,
       expiration,
@@ -104,7 +104,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   }
 
   function fulfillOracleRequest(
-    uint256 _requestId,
+    bytes32 _requestId,
     uint256 _payment,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
@@ -116,7 +116,6 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     isValidRequest(_requestId)
     returns (bool)
   {
-    bytes32 requestId = bytes32(_requestId);
     bytes32 paramsHash = keccak256(
       abi.encodePacked(
         _payment,
@@ -125,14 +124,14 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
         _expiration
       )
     );
-    require(commitments[requestId] == paramsHash, "Params do not match request ID");
+    require(commitments[_requestId] == paramsHash, "Params do not match request ID");
     withdrawableTokens = withdrawableTokens.add(_payment);
-    delete commitments[requestId];
+    delete commitments[_requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return _callbackAddress.call(_callbackFunctionId, requestId, _data); // solium-disable-line security/no-low-level-calls
+    return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 
   function getAuthorizationStatus(address _node) external view returns (bool) {
@@ -185,8 +184,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     _;
   }
 
-  modifier isValidRequest(uint256 _requestId) {
-    require(commitments[bytes32(_requestId)] != 0, "Must have a valid requestId");
+  modifier isValidRequest(bytes32 _requestId) {
+    require(commitments[_requestId] != 0, "Must have a valid requestId");
     _;
   }
 
