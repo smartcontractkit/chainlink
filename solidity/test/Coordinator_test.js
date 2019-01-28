@@ -141,7 +141,7 @@ contract('Coordinator', () => {
         // services.ServiceAgreementExecutionLogTopic. (Which see for the
         // calculation of this hash.)
         let eventSignature =
-            '0x43b012ac72003feafc39737d5002eeb277f1f75767ecdc35af06bb988193f5b2'
+            '0xf7bf3e16bb71f358b489503632e0308ebefaf3915de91753dc38f19d48fb185d'
         assert.equal(eventSignature, log.topics[0])
 
         assert.equal(agreement.id, log.topics[1])
@@ -167,7 +167,7 @@ contract('Coordinator', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await coordinator.oracleRequest(0, 0, 1, agreement.id, to, fHash, 1, '', { from: h.consumer })
+          await coordinator.oracleRequest(0, 0, agreement.id, to, fHash, 1, 1, '', { from: h.consumer })
         })
       })
     })

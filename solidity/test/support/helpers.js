@@ -180,13 +180,13 @@ const endMapBuffer = Buffer.from([0xFF])
 
 export const decodeRunRequest = log => {
   const runABI = util.toBuffer(log.data)
-  const types = ['uint256', 'uint256', 'address', 'bytes4', 'uint256', 'bytes']
+  const types = ['uint256', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const [
     requestId,
-    version,
     callbackAddress,
     callbackFunc,
     expiration,
+    version,
     data
   ] = abi.rawDecode(types, runABI)
 
@@ -196,10 +196,10 @@ export const decodeRunRequest = log => {
     requester: hexToAddress(log.topics[2]),
     payment: log.topics[3],
     id: toHex(requestId),
-    dataVersion: version,
     callbackAddr: Ox(callbackAddress),
     callbackFunc: toHex(callbackFunc),
     expiration: toHex(expiration),
+    dataVersion: version,
     data: autoAddMapDelimiters(data)
   }
 }
@@ -224,10 +224,10 @@ export const runRequestId = log => {
 }
 
 export const requestDataBytes = (specId, to, fHash, nonce, data) => {
-  const types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
-  const values = [0, 0, 1, specId, to, fHash, nonce, data]
+  const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
+  const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
-  const funcSelector = functionSelector('oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+  const funcSelector = functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
   return funcSelector + encoded
 }
 
@@ -357,10 +357,10 @@ export const personalSign = async (account, message) => {
 }
 
 export const executeServiceAgreementBytes = (sAID, to, fHash, nonce, data) => {
-  let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
-  let values = [0, 0, 1, sAID, to, fHash, nonce, data]
+  let types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
+  let values = [0, 0, sAID, to, fHash, nonce, 1, data]
   let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+  let funcSelector = functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
   return funcSelector + encoded
 }
 
