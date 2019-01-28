@@ -55,7 +55,7 @@ contract('ServiceAgreementConsumer', () => {
     })
   })
 
-  describe('#fulfillData', () => {
+  describe('#fulfillOracleRequest', () => {
     const response = '1,000,000.00'
     let request
 
@@ -66,7 +66,7 @@ contract('ServiceAgreementConsumer', () => {
     })
 
     it('records the data given to it by the oracle', async () => {
-      await coord.fulfillData(request.id, response, { from: h.oracleNode })
+      await coord.fulfillOracleRequest(request.id, response, { from: h.oracleNode })
 
       const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
@@ -83,7 +83,7 @@ contract('ServiceAgreementConsumer', () => {
       })
 
       it('does not accept the data provided', async () => {
-        await coord.fulfillData(request2.id, response, { from: h.oracleNode })
+        await coord.fulfillOracleRequest(request2.id, response, { from: h.oracleNode })
 
         let received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
