@@ -26,7 +26,7 @@ contract('Oracle', () => {
       'onTokenTransfer',
       'owner',
       'renounceOwnership',
-      'requestData',
+      'oracleRequest',
       'setFulfillmentPermission',
       'transferOwnership',
       'withdraw',
@@ -150,7 +150,7 @@ contract('Oracle', () => {
     })
   })
 
-  describe('#requestData', () => {
+  describe('#oracleRequest', () => {
     context('when called through the LINK token', () => {
       const paid = 100
       let log, tx
@@ -193,9 +193,9 @@ contract('Oracle', () => {
             await h.requestDataFrom(oc, link, paid, maliciousData)
           })
         })
-	  })
-	  
-	  context('when called with a payload between 3 and 9 EVM words', () => {
+      })
+
+      context('when called with a payload between 3 and 9 EVM words', () => {
         const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
         const maliciousData = funcSelector + '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
 
@@ -210,7 +210,7 @@ contract('Oracle', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await oc.requestData(0, 0, 1, specId, to, fHash, 1, '', { from: h.oracleNode })
+          await oc.oracleRequest(0, 0, 1, specId, to, fHash, 1, '', { from: h.oracleNode })
         })
       })
     })
@@ -449,7 +449,7 @@ contract('Oracle', () => {
   })
 
   describe('#withdraw', () => {
-    context('without reserving funds via requestData', () => {
+    context('without reserving funds via oracleRequest', () => {
       it('does nothing', async () => {
         let balance = await link.balanceOf(h.oracleNode)
         assert.equal(0, balance)
@@ -461,7 +461,7 @@ contract('Oracle', () => {
       })
     })
 
-    context('reserving funds via requestData', () => {
+    context('reserving funds via oracleRequest', () => {
       const payment = 15
       let request
 
