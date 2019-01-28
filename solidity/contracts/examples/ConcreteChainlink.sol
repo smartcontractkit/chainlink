@@ -1,12 +1,12 @@
 pragma solidity 0.4.24;
 
-import "../ChainlinkLib.sol";
+import "../Chainlink.sol";
 
-contract ConcreteChainlinkLib {
-  using ChainlinkLib for ChainlinkLib.Run;
+contract ConcreteChainlink {
+  using Chainlink for Chainlink.Run;
   using CBOR for Buffer.buffer;
 
-  ChainlinkLib.Run run;
+  Chainlink.Run run;
 
   event RunData(bytes payload);
 
@@ -15,31 +15,31 @@ contract ConcreteChainlinkLib {
   }
 
   function setBuffer(bytes data) public {
-    ChainlinkLib.Run memory r2 = run;
+    Chainlink.Run memory r2 = run;
     r2.setBuffer(data);
     run = r2;
   }
 
   function add(string _key, string _value) public {
-    ChainlinkLib.Run memory r2 = run;
+    Chainlink.Run memory r2 = run;
     r2.add(_key, _value);
     run = r2;
   }
 
   function addBytes(string _key, bytes _value) public {
-    ChainlinkLib.Run memory r2 = run;
+    Chainlink.Run memory r2 = run;
     r2.addBytes(_key, _value);
     run = r2;
   }
 
   function addInt(string _key, int256 _value) public {
-    ChainlinkLib.Run memory r2 = run;
+    Chainlink.Run memory r2 = run;
     r2.addInt(_key, _value);
     run = r2;
   }
 
   function addUint(string _key, uint256 _value) public {
-    ChainlinkLib.Run memory r2 = run;
+    Chainlink.Run memory r2 = run;
     r2.addUint(_key, _value);
     run = r2;
   }
@@ -51,7 +51,7 @@ contract ConcreteChainlinkLib {
     for (uint256 i = 0; i < _values.length; i++) {
       strings[i] = bytes32ToString(_values[i]);
     }
-    ChainlinkLib.Run memory r2 = run;
+    Chainlink.Run memory r2 = run;
     r2.addStringArray(_key, strings);
     run = r2;
   }
