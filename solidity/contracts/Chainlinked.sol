@@ -129,7 +129,7 @@ contract Chainlinked {
     returns (bytes memory)
   {
     return abi.encodeWithSelector(
-      oracle.requestData.selector,
+      oracle.oracleRequest.selector,
       SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
       AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
       ARGS_VERSION,
