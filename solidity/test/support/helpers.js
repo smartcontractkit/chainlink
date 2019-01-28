@@ -459,7 +459,7 @@ export const sixMonthsFromNow = () => Math.round(Date.now() / 1000.0) + 6 * 30 *
 export const fulfillOracleRequest = async (oracle, request, response, options) => {
 	if (!options) options = {}
 
-  return await oracle.fulfillData(
+  return await oracle.fulfillOracleRequest(
     request.id,
     request.payment,
     request.callbackAddr,

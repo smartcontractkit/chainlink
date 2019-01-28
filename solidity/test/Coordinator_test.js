@@ -15,7 +15,7 @@ contract('Coordinator', () => {
       'getPackedArguments',
       'getId',
       'oracleRequest',
-      'fulfillData',
+      'fulfillOracleRequest',
       'getId',
       'initiateServiceAgreement',
       'onTokenTransfer',
@@ -173,7 +173,7 @@ contract('Coordinator', () => {
     })
   })
 
-  describe('#fulfillData', () => {
+  describe('#fulfillOracleRequest', () => {
     let agreement, mock, request
     beforeEach(async () => {
       agreement = await h.newServiceAgreement({oracles: [h.oracleNode]})
@@ -196,7 +196,7 @@ contract('Coordinator', () => {
         // Turn this test on when multiple-oracle response aggregation is enabled
         xit('raises an error', async () => {
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(
+            await coordinator.fulfillOracleRequest(
               request.id, 'Hello World!', { from: h.stranger })
           })
         })
@@ -205,13 +205,13 @@ contract('Coordinator', () => {
       context('when called by an owner', () => {
         it('raises an error if the request ID does not exist', async () => {
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(
+            await coordinator.fulfillOracleRequest(
               0xdeadbeef, 'Hello World!', { from: h.oracleNode })
           })
         })
 
         it('sets the value on the requested contract', async () => {
-          await coordinator.fulfillData(
+          await coordinator.fulfillOracleRequest(
             request.id, 'Hello World!', { from: h.oracleNode })
 
           const mockRequestId = await mock.requestId.call()
@@ -222,9 +222,9 @@ contract('Coordinator', () => {
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await coordinator.fulfillData(request.id, 'First message!', { from: h.oracleNode })
+          await coordinator.fulfillOracleRequest(request.id, 'First message!', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.id, 'Second message!!', { from: h.oracleNode })
+            await coordinator.fulfillOracleRequest(request.id, 'Second message!!', { from: h.oracleNode })
           })
         })
       })
@@ -280,7 +280,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillOracleRequest(request.id, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -291,9 +291,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillOracleRequest(request.id, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.id, 'hack the planet 102', { from: h.oracleNode })
+            await coordinator.fulfillOracleRequest(request.id, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })
@@ -307,7 +307,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillOracleRequest(request.id, 'hack the planet 101', { from: h.oracleNode })
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -329,7 +329,7 @@ contract('Coordinator', () => {
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
-          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillOracleRequest(request.id, 'hack the planet 101', { from: h.oracleNode })
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assert.isTrue(mockBalance.equals(0))
@@ -343,9 +343,9 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
-          await coordinator.fulfillData(request.id, 'hack the planet 101', { from: h.oracleNode })
+          await coordinator.fulfillOracleRequest(request.id, 'hack the planet 101', { from: h.oracleNode })
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.id, 'hack the planet 102', { from: h.oracleNode })
+            await coordinator.fulfillOracleRequest(request.id, 'hack the planet 102', { from: h.oracleNode })
           })
         })
       })

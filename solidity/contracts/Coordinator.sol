@@ -220,7 +220,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     _;
   }
 
-  function fulfillData(
+  function fulfillOracleRequest(
     uint256 _requestId,
     bytes32 _data
   )
