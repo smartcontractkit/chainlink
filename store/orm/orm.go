@@ -322,6 +322,7 @@ func (orm *ORM) MarkRan(i *models.Initiator, ran bool) error {
 	}
 
 	if ran && newi.Ran {
+		tx.Rollback()
 		return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID)
 	}
 
