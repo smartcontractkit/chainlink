@@ -14,7 +14,7 @@ contract RunLog is Chainlinked {
   }
 
   function request() public {
-    ChainlinkLib.Run memory run = newRun(jobId, this, this.fulfill.selector);
+    Chainlink.Run memory run = newRun(jobId, this, this.fulfill.selector);
     run.add("msg", "hello_chainlink");
     chainlinkRequest(run, ORACLE_PAYMENT);
   }

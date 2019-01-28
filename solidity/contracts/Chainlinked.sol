@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "./ChainlinkLib.sol";
+import "./Chainlink.sol";
 import "./ENSResolver.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
@@ -8,7 +8,7 @@ import "./interfaces/ChainlinkRequestInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Chainlinked {
-  using ChainlinkLib for ChainlinkLib.Run;
+  using Chainlink for Chainlink.Run;
   using SafeMath for uint256;
 
   uint256 constant internal LINK = 10**18;
@@ -31,19 +31,19 @@ contract Chainlinked {
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionSignature
-  ) internal pure returns (ChainlinkLib.Run memory) {
-    ChainlinkLib.Run memory run;
+  ) internal pure returns (Chainlink.Run memory) {
+    Chainlink.Run memory run;
     return run.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
-  function chainlinkRequest(ChainlinkLib.Run memory _run, uint256 _payment)
+  function chainlinkRequest(Chainlink.Run memory _run, uint256 _payment)
     internal
     returns (bytes32)
   {
     return chainlinkRequestFrom(oracle, _run, _payment);
   }
 
-  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
+  function chainlinkRequestFrom(address _oracle, Chainlink.Run memory _run, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
@@ -124,7 +124,7 @@ contract Chainlinked {
     return oracle;
   }
 
-  function encodeRequest(ChainlinkLib.Run memory _run)
+  function encodeRequest(Chainlink.Run memory _run)
     internal
     view
     returns (bytes memory)
