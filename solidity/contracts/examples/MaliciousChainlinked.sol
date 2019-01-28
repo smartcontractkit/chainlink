@@ -83,10 +83,10 @@ contract MaliciousChainlinked is Chainlinked {
       bytes4(keccak256("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")),
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
-      1,
       _req.id,
       _req.callbackAddress,
       _req.callbackFunctionId,
+      1,
       _req.nonce,
       _req.buf.buf);
   }
@@ -98,11 +98,11 @@ contract MaliciousChainlinked is Chainlinked {
       bytes4(keccak256("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")),
       0, // overridden by onTokenTransfer
       2000000000000000000, // overridden by onTokenTransfer
-      1,
       _req.id,
       _req.callbackAddress,
       _req.callbackFunctionId,
       _req.nonce,
+      1,
       _req.buf.buf);
   }
 }
