@@ -80,7 +80,7 @@ contract MaliciousChainlinked is Chainlinked {
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
-      bytes4(keccak256("oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)")),
+      bytes4(keccak256("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")),
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
       1,
@@ -95,7 +95,7 @@ contract MaliciousChainlinked is Chainlinked {
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
-      bytes4(keccak256("oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)")),
+      bytes4(keccak256("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")),
       0, // overridden by onTokenTransfer
       2000000000000000000, // overridden by onTokenTransfer
       1,

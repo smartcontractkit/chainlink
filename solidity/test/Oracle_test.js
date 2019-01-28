@@ -173,7 +173,7 @@ contract('Oracle', () => {
 
       it('uses the expected event signature', async () => {
         // If updating this test, be sure to update models.RunLogTopic.
-        let eventSignature = '0x43b012ac72003feafc39737d5002eeb277f1f75767ecdc35af06bb988193f5b2'
+        let eventSignature = '0xf7bf3e16bb71f358b489503632e0308ebefaf3915de91753dc38f19d48fb185d'
         assert.equal(eventSignature, log.topics[0])
       })
 
@@ -185,7 +185,7 @@ contract('Oracle', () => {
       })
 
       context('when called with a payload less than 2 EVM words + function selector', () => {
-        const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+        const funcSelector = h.functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
         const maliciousData = funcSelector + '0000000000000000000000000000000000000000000000000000000000000000000'
 
         it('throws an error', async () => {
@@ -196,7 +196,7 @@ contract('Oracle', () => {
       })
 
       context('when called with a payload between 3 and 9 EVM words', () => {
-        const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+        const funcSelector = h.functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
         const maliciousData = funcSelector + '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
 
         it('throws an error', async () => {
@@ -210,7 +210,7 @@ contract('Oracle', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await oc.oracleRequest(0, 0, 1, specId, to, fHash, 1, '', { from: h.oracleNode })
+          await oc.oracleRequest(0, 0, specId, to, fHash, 1, 1, '', { from: h.oracleNode })
         })
       })
     })
