@@ -38,10 +38,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     address indexed requester,
     uint256 indexed amount,
     uint256 requestId,
-    uint256 dataVersion,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
+    uint256 dataVersion,
     bytes data
   );
 
@@ -76,11 +76,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   function oracleRequest(
     address _sender,
     uint256 _amount,
-    uint256 _dataVersion,
     bytes32 _sAId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
     uint256 _nonce,
+    uint256 _dataVersion,
     bytes _data
   )
     external
@@ -101,10 +101,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _sender,
       _amount,
       uint256(requestId),
-      _dataVersion,
       _callbackAddress,
       _callbackFunctionId,
       now.add(5 minutes),
+      _dataVersion,
       _data);
   }
 

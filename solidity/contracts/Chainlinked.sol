@@ -133,11 +133,11 @@ contract Chainlinked {
       oracle.oracleRequest.selector,
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
-      ARGS_VERSION,
       _req.id,
       _req.callbackAddress,
       _req.callbackFunctionId,
       _req.nonce,
+      ARGS_VERSION,
       _req.buf.buf);
   }
 
