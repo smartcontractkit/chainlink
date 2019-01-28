@@ -63,6 +63,7 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
+		eth.Register("eth_getBlockByNumber", models.BlockHeader{})
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 	})
 	assert.NoError(t, app.Start())
