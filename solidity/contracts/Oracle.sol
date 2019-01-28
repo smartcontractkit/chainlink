@@ -36,7 +36,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes data
   );
 
-  event CancelRequest(
+  event CancelOracleRequest(
     bytes32 indexed requestId
   );
 
@@ -173,7 +173,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     require(_expiration <= now, "Request is not expired");
 
     delete commitments[_requestId];
-    emit CancelRequest(_requestId);
+    emit CancelOracleRequest(_requestId);
 
     assert(LinkToken.transfer(msg.sender, _payment));
   }
