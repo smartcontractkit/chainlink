@@ -29,10 +29,10 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     address indexed requester,
     uint256 indexed payment,
     uint256 requestId,
-    uint256 dataVersion,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
+    uint256 dataVersion,
     bytes data
   );
 
@@ -67,11 +67,11 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   function oracleRequest(
     address _sender,
     uint256 _payment,
-    uint256 _dataVersion,
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionId,
     uint256 _nonce,
+    uint256 _dataVersion,
     bytes _data
   )
     external
@@ -96,10 +96,10 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _sender,
       _payment,
       uint256(requestId),
-      _dataVersion,
       _callbackAddress,
       _callbackFunctionId,
       expiration,
+      _dataVersion,
       _data);
   }
 

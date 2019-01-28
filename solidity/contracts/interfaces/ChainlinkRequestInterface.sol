@@ -4,11 +4,11 @@ interface ChainlinkRequestInterface {
   function oracleRequest(
     address sender,
     uint256 payment,
-    uint256 version,
     bytes32 id,
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
+    uint256 version,
     bytes data
   ) external;
 
