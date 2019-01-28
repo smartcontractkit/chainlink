@@ -70,10 +70,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
+    require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
   }
 
-  function requestData(
+  function oracleRequest(
     address _sender,
     uint256 _amount,
     uint256 _dataVersion,
@@ -206,7 +206,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       // solium-disable-next-line security/no-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == this.requestData.selector, "Must use whitelisted functions");
+    require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");
     _;
   }
 

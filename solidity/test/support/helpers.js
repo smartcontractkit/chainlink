@@ -227,7 +227,7 @@ export const requestDataBytes = (specId, to, fHash, nonce, data) => {
   const types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
   const values = [0, 0, 1, specId, to, fHash, nonce, data]
   const encoded = abiEncode(types, values)
-  const funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+  const funcSelector = functionSelector('oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
   return funcSelector + encoded
 }
 
@@ -360,7 +360,7 @@ export const executeServiceAgreementBytes = (sAID, to, fHash, nonce, data) => {
   let types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
   let values = [0, 0, 1, sAID, to, fHash, nonce, data]
   let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+  let funcSelector = functionSelector('oracleRequest(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
   return funcSelector + encoded
 }
 

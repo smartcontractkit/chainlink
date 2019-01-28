@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 interface ChainlinkRequestInterface {
-  function requestData(
+  function oracleRequest(
     address sender,
     uint256 payment,
     uint256 version,
