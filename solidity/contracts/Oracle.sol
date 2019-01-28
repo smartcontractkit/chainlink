@@ -61,10 +61,10 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solium-disable-next-line security/no-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls requestData
+    require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
   }
 
-  function requestData(
+  function oracleRequest(
     address _sender,
     uint256 _payment,
     uint256 _dataVersion,
@@ -206,7 +206,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       // solium-disable-next-line security/no-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
-    require(funcSelector == this.requestData.selector, "Must use whitelisted functions");
+    require(funcSelector == this.oracleRequest.selector, "Must use whitelisted functions");
     _;
   }
 
