@@ -4,79 +4,79 @@ import "./MaliciousChainlink.sol";
 import "../Chainlinked.sol";
 
 contract MaliciousChainlinked is Chainlinked {
-  using MaliciousChainlink for MaliciousChainlink.Run;
-  using MaliciousChainlink for MaliciousChainlink.WithdrawRun;
-  using Chainlink for Chainlink.Run;
+  using MaliciousChainlink for MaliciousChainlink.Request;
+  using MaliciousChainlink for MaliciousChainlink.WithdrawRequest;
+  using Chainlink for Chainlink.Request;
   using SafeMath for uint256;
 
   uint256 private maliciousRequests = 1;
   mapping(bytes32 => address) private maliciousUnfulfilledRequests;
 
-  function newWithdrawRun(
+  function newWithdrawRequest(
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunction
-  ) internal pure returns (MaliciousChainlink.WithdrawRun memory) {
-    MaliciousChainlink.WithdrawRun memory run;
-    return run.initializeWithdraw(_specId, _callbackAddress, _callbackFunction);
+  ) internal pure returns (MaliciousChainlink.WithdrawRequest memory) {
+    MaliciousChainlink.WithdrawRequest memory req;
+    return req.initializeWithdraw(_specId, _callbackAddress, _callbackFunction);
   }
 
-  function chainlinkTargetRequest(address _target, Chainlink.Run memory _run, uint256 _amount)
+  function chainlinkTargetRequest(address _target, Chainlink.Request memory _req, uint256 _amount)
     internal
     returns(bytes32 requestId)
   {
     requestId = keccak256(abi.encodePacked(_target, maliciousRequests));
-    _run.nonce = maliciousRequests;
+    _req.nonce = maliciousRequests;
     maliciousUnfulfilledRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
-    require(link.transferAndCall(oracleAddress(), _amount, encodeTargetRequest(_run)), "Unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracleAddress(), _amount, encodeTargetRequest(_req)), "Unable to transferAndCall to oracle");
     maliciousRequests += 1;
 
     return requestId;
   }
 
-  function chainlinkPriceRequest(Chainlink.Run memory _run, uint256 _amount)
+  function chainlinkPriceRequest(Chainlink.Request memory _req, uint256 _amount)
     internal
     returns(bytes32 requestId)
   {
     requestId = keccak256(abi.encodePacked(this, maliciousRequests));
-    _run.nonce = maliciousRequests;
+    _req.nonce = maliciousRequests;
     maliciousUnfulfilledRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
-    require(link.transferAndCall(oracleAddress(), _amount, encodePriceRequest(_run)), "Unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracleAddress(), _amount, encodePriceRequest(_req)), "Unable to transferAndCall to oracle");
     maliciousRequests += 1;
 
     return requestId;
   }
 
-  function chainlinkWithdrawRequest(MaliciousChainlink.WithdrawRun memory _run, uint256 _wei)
+  function chainlinkWithdrawRequest(MaliciousChainlink.WithdrawRequest memory _req, uint256 _wei)
     internal
     returns(bytes32 requestId)
   {
     requestId = keccak256(abi.encodePacked(this, maliciousRequests));
-    _run.nonce = maliciousRequests;
+    _req.nonce = maliciousRequests;
     maliciousUnfulfilledRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
-    require(link.transferAndCall(oracleAddress(), _wei, encodeWithdrawRequest(_run)), "Unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracleAddress(), _wei, encodeWithdrawRequest(_req)), "Unable to transferAndCall to oracle");
     maliciousRequests += 1;
     return requestId;
   }
 
-  function encodeWithdrawRequest(MaliciousChainlink.WithdrawRun memory _run)
+  function encodeWithdrawRequest(MaliciousChainlink.WithdrawRequest memory _req)
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
       bytes4(keccak256("withdraw(address,uint256)")),
-      _run.callbackAddress,
-      _run.callbackFunctionId,
-      _run.nonce,
-      _run.buf.buf);
+      _req.callbackAddress,
+      _req.callbackFunctionId,
+      _req.nonce,
+      _req.buf.buf);
   }
 
-  function encodeTargetRequest(Chainlink.Run memory _run)
+  function encodeTargetRequest(Chainlink.Request memory _req)
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
@@ -84,14 +84,14 @@ contract MaliciousChainlinked is Chainlinked {
       0, // overridden by onTokenTransfer
       0, // overridden by onTokenTransfer
       1,
-      _run.id,
-      _run.callbackAddress,
-      _run.callbackFunctionId,
-      _run.nonce,
-      _run.buf.buf);
+      _req.id,
+      _req.callbackAddress,
+      _req.callbackFunctionId,
+      _req.nonce,
+      _req.buf.buf);
   }
 
-  function encodePriceRequest(Chainlink.Run memory _run)
+  function encodePriceRequest(Chainlink.Request memory _req)
     internal pure returns (bytes memory)
   {
     return abi.encodeWithSelector(
@@ -99,10 +99,10 @@ contract MaliciousChainlinked is Chainlinked {
       0, // overridden by onTokenTransfer
       2000000000000000000, // overridden by onTokenTransfer
       1,
-      _run.id,
-      _run.callbackAddress,
-      _run.callbackFunctionId,
-      _run.nonce,
-      _run.buf.buf);
+      _req.id,
+      _req.callbackAddress,
+      _req.callbackFunctionId,
+      _req.nonce,
+      _req.buf.buf);
   }
 }

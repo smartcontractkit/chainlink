@@ -15,10 +15,10 @@ contract ServiceAgreementConsumer is Chainlinked {
   }
 
   function requestEthereumPrice(string _currency) public {
-    Chainlink.Run memory run = newRun(sAId, this, this.fulfill.selector);
-    run.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
-    run.add("path", _currency);
-    chainlinkRequest(run, ORACLE_PAYMENT);
+    Chainlink.Request memory req = newRequest(sAId, this, this.fulfill.selector);
+    req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    req.add("path", _currency);
+    chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function fulfill(bytes32 _requestId, bytes32 _price)

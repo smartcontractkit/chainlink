@@ -5,7 +5,7 @@ import "solidity-cborutils/contracts/CBOR.sol";
 library MaliciousChainlink {
   using CBOR for Buffer.buffer;
 
-  struct Run {
+  struct Request {
     bytes32 specId;
     address callbackAddress;
     bytes4 callbackFunctionId;
@@ -13,7 +13,7 @@ library MaliciousChainlink {
     Buffer.buffer buf;
   }
 
-  struct WithdrawRun {
+  struct WithdrawRequest {
     bytes32 specId;
     address callbackAddress;
     bytes4 callbackFunctionId;
@@ -22,11 +22,11 @@ library MaliciousChainlink {
   }
 
   function initializeWithdraw(
-    WithdrawRun memory self,
+    WithdrawRequest memory self,
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunction
-  ) internal pure returns (MaliciousChainlink.WithdrawRun memory) {
+  ) internal pure returns (MaliciousChainlink.WithdrawRequest memory) {
     Buffer.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
@@ -34,35 +34,35 @@ library MaliciousChainlink {
     return self;
   }
 
-  function add(Run memory self, string _key, string _value)
+  function add(Request memory self, string _key, string _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeString(_value);
   }
 
-  function addBytes(Run memory self, string _key, bytes _value)
+  function addBytes(Request memory self, string _key, bytes _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeBytes(_value);
   }
 
-  function addInt(Run memory self, string _key, int256 _value)
+  function addInt(Request memory self, string _key, int256 _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeInt(_value);
   }
 
-  function addUint(Run memory self, string _key, uint256 _value)
+  function addUint(Request memory self, string _key, uint256 _value)
     internal pure
   {
     self.buf.encodeString(_key);
     self.buf.encodeUInt(_value);
   }
 
-  function addStringArray(Run memory self, string _key, string[] memory _values)
+  function addStringArray(Request memory self, string _key, string[] memory _values)
     internal pure
   {
     self.buf.encodeString(_key);

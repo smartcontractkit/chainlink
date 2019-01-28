@@ -12,31 +12,31 @@ contract ConcreteChainlinked is Chainlinked {
     setOracle(_oracle);
   }
 
-  event Run(
+  event Request(
     bytes32 id,
     address callbackAddress,
     bytes4 callbackfunctionSelector,
     bytes data
   );
 
-  function publicNewRun(
+  function publicNewRequest(
     bytes32 _id,
     address _address,
     bytes _fulfillmentSignature
   )
     public
   {
-    Chainlink.Run memory run = newRun(
+    Chainlink.Request memory req = newRequest(
       _id, _address, bytes4(keccak256(_fulfillmentSignature)));
-    emit Run(
-      run.id,
-      run.callbackAddress,
-      run.callbackFunctionId,
-      run.buf.buf
+    emit Request(
+      req.id,
+      req.callbackAddress,
+      req.callbackFunctionId,
+      req.buf.buf
     );
   }
 
-  function publicRequestRun(
+  function publicRequest(
     bytes32 _id,
     address _address,
     bytes _fulfillmentSignature,
@@ -44,12 +44,12 @@ contract ConcreteChainlinked is Chainlinked {
   )
     public
   {
-    Chainlink.Run memory run = newRun(
+    Chainlink.Request memory req = newRequest(
       _id, _address, bytes4(keccak256(_fulfillmentSignature)));
-    chainlinkRequest(run, _wei);
+    chainlinkRequest(req, _wei);
   }
 
-  function publicRequestRunFrom(
+  function publicRequestFrom(
     address _oracle,
     bytes32 _id,
     address _address,
@@ -58,8 +58,8 @@ contract ConcreteChainlinked is Chainlinked {
   )
     public
   {
-    Chainlink.Run memory run = newRun(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
-    chainlinkRequestFrom(_oracle, run, _wei);
+    Chainlink.Request memory req = newRequest(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
+    chainlinkRequestFrom(_oracle, req, _wei);
   }
 
   function publicCancelRequest(
