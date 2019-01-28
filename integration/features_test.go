@@ -63,7 +63,6 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
-		eth.Register("eth_getBlockByNumber", models.BlockHeader{})
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 	})
 	assert.NoError(t, app.Start())
@@ -101,6 +100,8 @@ func TestIntegration_HelloWorld(t *testing.T) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_getBalance", "0x0100")
+		eth.Register("eth_call", "0x0100")
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
