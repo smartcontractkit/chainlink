@@ -472,7 +472,7 @@ export const fulfillOracleRequest = async (oracle, request, response, options) =
 export const cancelOracleRequest = async (oracle, request, options) => {
   if (!options) options = {}
 
-  return await oracle.cancel(
+  return await oracle.cancelOracleRequest(
     request.id,
     request.payment,
     request.callbackFunc,

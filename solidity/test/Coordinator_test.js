@@ -20,7 +20,7 @@ contract('Coordinator', () => {
       'initiateServiceAgreement',
       'onTokenTransfer',
       'serviceAgreements',
-      'cancel'
+      'cancelOracleRequest'
     ])
   })
 
