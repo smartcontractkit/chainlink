@@ -50,7 +50,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes32 indexed requestDigest
   );
 
-  event CancelRequest(
+  event CancelOracleRequest(
     bytes32 internalId
   );
 
