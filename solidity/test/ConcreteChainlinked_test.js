@@ -69,7 +69,7 @@ contract('ConcreteChainlinked', () => {
       let events = await getEvents(newoc)
       assert.equal(1, events.length)
       let event = events[0]
-      assert.equal(event.event, 'RunRequest')
+      assert.equal(event.event, 'OracleRequest')
     })
 
     it('does not modify the stored oracle address', async () => {
