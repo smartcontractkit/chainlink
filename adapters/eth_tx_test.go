@@ -317,7 +317,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
-	value, err := output.Value()
+	value, err := output.Result()
 	assert.Nil(t, err)
 	assert.Equal(t, confirmedHash.String(), value)
 
