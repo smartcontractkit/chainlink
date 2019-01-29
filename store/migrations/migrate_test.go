@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
