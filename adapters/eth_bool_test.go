@@ -18,10 +18,10 @@ func TestEthBool_Perform(t *testing.T) {
 		json     string
 		expected string
 	}{
-		{"value is bool false", `{"value":false}`, evmFalse},
-		{"value is bool true", `{"value":true}`, evmTrue},
-		{"value is null string", `{"value":"null"}`, evmTrue},
-		{"value is null", `{"value":null}`, evmFalse},
+		{"value is bool false", `{"result":false}`, evmFalse},
+		{"value is bool true", `{"result":true}`, evmTrue},
+		{"value is null string", `{"result":"null"}`, evmTrue},
+		{"value is null", `{"result":null}`, evmFalse},
 		{"empty object", `{}`, evmFalse},
 	}
 
@@ -35,7 +35,7 @@ func TestEthBool_Perform(t *testing.T) {
 			adapter := adapters.EthBool{}
 			result := adapter.Perform(past, nil)
 
-			val, err := result.Result()
+			val, err := result.ResultString()
 			assert.Equal(t, test.expected, val)
 			assert.NoError(t, err)
 			assert.NoError(t, result.GetError())
