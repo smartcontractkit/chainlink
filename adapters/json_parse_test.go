@@ -13,27 +13,27 @@ func TestJsonParse_Perform(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name            string
-		value           string
+		result          string
 		path            []string
 		want            string
 		wantError       bool
 		wantResultError bool
 	}{
 		{"existing path", `{"high":"11850.00","last":"11779.99"}`, []string{"last"},
-			`{"value":"11779.99"}`, false, false},
+			`{"result":"11779.99"}`, false, false},
 		{"nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"doesnotexist"},
-			`{"value":null}`, true, false},
+			`{"result":null}`, true, false},
 		{"double nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"no", "really"},
-			`{"value":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, true, true},
+			`{"result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, true, true},
 		{"array index path", `{"data":[{"availability":"0.99991"}]}`, []string{"data", "0", "availability"},
-			`{"value":"0.99991"}`, false, false},
-		{"float value", `{"availability":0.99991}`, []string{"availability"},
-			`{"value":0.99991}`, false, false},
+			`{"result":"0.99991"}`, false, false},
+		{"float result", `{"availability":0.99991}`, []string{"availability"},
+			`{"result":0.99991}`, false, false},
 		{
 			"index array",
 			`{"data": [0, 1]}`,
 			[]string{"data", "0"},
-			`{"value":0}`,
+			`{"result":0}`,
 			false,
 			false,
 		},
@@ -41,7 +41,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"index array of array",
 			`{"data": [[0, 1]]}`,
 			[]string{"data", "0", "0"},
-			`{"value":0}`,
+			`{"result":0}`,
 			false,
 			false,
 		},
@@ -49,7 +49,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"index of negative one",
 			`{"data": [0, 1]}`,
 			[]string{"data", "-1"},
-			`{"value":1}`,
+			`{"result":1}`,
 			false,
 			false,
 		},
@@ -57,7 +57,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"index of negative array length",
 			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`,
 			[]string{"data", "-10"},
-			`{"value":0}`,
+			`{"result":0}`,
 			false,
 			false,
 		},
@@ -65,7 +65,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"index of negative array length minus one",
 			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`,
 			[]string{"data", "-12"},
-			`{"value":null}`,
+			`{"result":null}`,
 			false,
 			false,
 		},
@@ -73,7 +73,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"maximum index array",
 			`{"data": [0, 1]}`,
 			[]string{"data", "18446744073709551615"},
-			`{"value":null}`,
+			`{"result":null}`,
 			false,
 			false,
 		},
@@ -81,7 +81,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"overflow index array",
 			`{"data": [0, 1]}`,
 			[]string{"data", "18446744073709551616"},
-			`{"value":null}`,
+			`{"result":null}`,
 			false,
 			false,
 		},
@@ -89,7 +89,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"return array",
 			`{"data": [[0, 1]]}`,
 			[]string{"data", "0"},
-			`{"value":[0,1]}`,
+			`{"result":[0,1]}`,
 			false,
 			false,
 		},
@@ -97,7 +97,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"return false",
 			`{"data": false}`,
 			[]string{"data"},
-			`{"value":false}`,
+			`{"result":false}`,
 			false,
 			false,
 		},
@@ -105,7 +105,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			"return true",
 			`{"data": true}`,
 			[]string{"data"},
-			`{"value":true}`,
+			`{"result":true}`,
 			false,
 			false,
 		},
@@ -114,7 +114,7 @@ func TestJsonParse_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithValue(test.value)
+			input := cltest.RunResultWithResult(test.result)
 			adapter := adapters.JSONParse{Path: test.path}
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.want, result.Data.String())

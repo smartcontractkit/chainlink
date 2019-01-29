@@ -15,7 +15,7 @@ type Copy struct {
 func (c *Copy) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	jp := JSONParse{Path: c.CopyPath}
 
-	data, err := input.Data.Add("value", input.Data.String())
+	data, err := input.Data.Add("result", input.Data.String())
 	if err != nil {
 		return input.WithError(err)
 	}

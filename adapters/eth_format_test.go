@@ -15,19 +15,19 @@ func TestEthBytes32_Perform(t *testing.T) {
 		json     string
 		expected string
 	}{
-		{"string", `{"value":"Hello World!"}`, "0x48656c6c6f20576f726c64210000000000000000000000000000000000000000"},
-		{"special characters", `{"value":"¡Holá Mündo!"}`, "0xc2a1486f6cc3a1204dc3bc6e646f210000000000000000000000000000000000"},
-		{"long string", `{"value":"string that is waaAAAaaay toooo long!!!!!"}`, "0x737472696e672074686174206973207761614141416161617920746f6f6f6f20"},
-		{"empty string", `{"value":""}`, "0x0000000000000000000000000000000000000000000000000000000000000000"},
-		{"string of number", `{"value":"16800.01"}`, "0x31363830302e3031000000000000000000000000000000000000000000000000"},
-		{"float", `{"value":16800.01}`, "0x31363830302e3031000000000000000000000000000000000000000000000000"},
-		{"scientific float", `{"value":1.68e+4}`,
+		{"string", `{"result":"Hello World!"}`, "0x48656c6c6f20576f726c64210000000000000000000000000000000000000000"},
+		{"special characters", `{"result":"¡Holá Mündo!"}`, "0xc2a1486f6cc3a1204dc3bc6e646f210000000000000000000000000000000000"},
+		{"long string", `{"result":"string that is waaAAAaaay toooo long!!!!!"}`, "0x737472696e672074686174206973207761614141416161617920746f6f6f6f20"},
+		{"empty string", `{"result":""}`, "0x0000000000000000000000000000000000000000000000000000000000000000"},
+		{"string of number", `{"result":"16800.01"}`, "0x31363830302e3031000000000000000000000000000000000000000000000000"},
+		{"float", `{"result":16800.01}`, "0x31363830302e3031000000000000000000000000000000000000000000000000"},
+		{"scientific float", `{"result":1.68e+4}`,
 			"0x3136383030000000000000000000000000000000000000000000000000000000"},
-		{"roundable float", `{"value":16800.00}`, "0x3136383030000000000000000000000000000000000000000000000000000000"},
-		{"integer", `{"value":16800}`, "0x3136383030000000000000000000000000000000000000000000000000000000"},
-		{"boolean true", `{"value":true}`, "0x7472756500000000000000000000000000000000000000000000000000000000"},
-		{"boolean false", `{"value":false}`, "0x66616c7365000000000000000000000000000000000000000000000000000000"},
-		{"null", `{"value":null}`, "0x0000000000000000000000000000000000000000000000000000000000000000"},
+		{"roundable float", `{"result":16800.00}`, "0x3136383030000000000000000000000000000000000000000000000000000000"},
+		{"integer", `{"result":16800}`, "0x3136383030000000000000000000000000000000000000000000000000000000"},
+		{"boolean true", `{"result":true}`, "0x7472756500000000000000000000000000000000000000000000000000000000"},
+		{"boolean false", `{"result":false}`, "0x66616c7365000000000000000000000000000000000000000000000000000000"},
+		{"null", `{"result":null}`, "0x0000000000000000000000000000000000000000000000000000000000000000"},
 	}
 
 	for _, tt := range tests {
@@ -40,7 +40,7 @@ func TestEthBytes32_Perform(t *testing.T) {
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)
 
-			val, err := result.Result()
+			val, err := result.ResultString()
 			assert.NoError(t, err)
 			assert.NoError(t, result.GetError())
 			assert.Equal(t, test.expected, val)
@@ -56,23 +56,23 @@ func TestEthInt256_Perform(t *testing.T) {
 		want    string
 		errored bool
 	}{
-		{"string", `{"value":"123"}`,
+		{"string", `{"result":"123"}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"integer", `{"value":123}`,
+		{"integer", `{"result":123}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"float", `{"value":123.0}`,
+		{"float", `{"result":123.0}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"rounded float", `{"value":123.99}`,
+		{"rounded float", `{"result":123.99}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"negative string", `{"value":"-123"}`,
+		{"negative string", `{"result":"-123"}`,
 			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85", false},
-		{"scientific", `{"value":1.68e+4}`,
+		{"scientific", `{"result":1.68e+4}`,
 			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
-		{"scientific string", `{"value":"1.68e+4"}`,
+		{"scientific string", `{"result":"1.68e+4"}`,
 			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
-		{"negative float", `{"value":-123.99}`,
+		{"negative float", `{"result":-123.99}`,
 			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85", false},
-		{"object", `{"value":{"a": "b"}}`, "", true},
+		{"object", `{"result":{"a": "b"}}`, "", true},
 	}
 
 	adapter := adapters.EthInt256{}
@@ -86,7 +86,7 @@ func TestEthInt256_Perform(t *testing.T) {
 			if test.errored {
 				assert.Error(t, result.GetError())
 			} else {
-				val, err := result.Result()
+				val, err := result.ResultString()
 				assert.NoError(t, result.GetError())
 				assert.NoError(t, err)
 				assert.Equal(t, test.want, val)
@@ -103,22 +103,22 @@ func TestEthUint256_Perform(t *testing.T) {
 		want    string
 		errored bool
 	}{
-		{"string", `{"value":"123"}`,
+		{"string", `{"result":"123"}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"integer", `{"value":123}`,
+		{"integer", `{"result":123}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"float", `{"value":123.0}`,
+		{"float", `{"result":123.0}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"rounded float", `{"value":123.99}`,
+		{"rounded float", `{"result":123.99}`,
 			"0x000000000000000000000000000000000000000000000000000000000000007b", false},
-		{"scientific", `{"value":1.68e+4}`,
+		{"scientific", `{"result":1.68e+4}`,
 			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
-		{"scientific string", `{"value":"1.68e+4"}`,
+		{"scientific string", `{"result":"1.68e+4"}`,
 			"0x00000000000000000000000000000000000000000000000000000000000041a0", false},
-		{"negative integer", `{"value":-123}`, "", true},
-		{"negative string", `{"value":"-123"}`, "", true},
-		{"negative float", `{"value":-123.99}`, "", true},
-		{"object", `{"value":{"a": "b"}}`, "", true},
+		{"negative integer", `{"result":-123}`, "", true},
+		{"negative string", `{"result":"-123"}`, "", true},
+		{"negative float", `{"result":-123.99}`, "", true},
+		{"object", `{"result":{"a": "b"}}`, "", true},
 	}
 
 	adapter := adapters.EthUint256{}
@@ -132,7 +132,7 @@ func TestEthUint256_Perform(t *testing.T) {
 			if test.errored {
 				assert.Error(t, result.GetError())
 			} else {
-				val, err := result.Result()
+				val, err := result.ResultString()
 				assert.NoError(t, result.GetError())
 				assert.NoError(t, err)
 				assert.Equal(t, test.want, val)

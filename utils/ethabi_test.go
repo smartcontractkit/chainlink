@@ -400,33 +400,33 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 		output string
 	}{
 		{
-			"value is string",
+			"result is string",
 			FormatBytes,
-			`{"value": "hello world"}`,
+			`{"result": "hello world"}`,
 			"0x" +
 				"000000000000000000000000000000000000000000000000000000000000000b" +
 				"68656c6c6f20776f726c64000000000000000000000000000000000000000000",
 		},
 		{
-			"value is number",
+			"result is number",
 			FormatUint256,
-			`{"value": 31223}`,
+			`{"result": 31223}`,
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"00000000000000000000000000000000000000000000000000000000000079f7",
 		},
 		{
-			"value is negative number",
+			"result is negative number",
 			FormatInt256,
-			`{"value": -123481273.1}`,
+			`{"result": -123481273.1}`,
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"fffffffffffffffffffffffffffffffffffffffffffffffffffffffff8a3d347",
 		},
 		{
-			"value is true",
+			"result is true",
 			FormatBool,
-			`{"value": true}`,
+			`{"result": true}`,
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000001",
@@ -436,7 +436,7 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			input := gjson.GetBytes([]byte(test.input), "value")
+			input := gjson.GetBytes([]byte(test.input), "result")
 			out, err := EVMTranscodeJSONWithFormat(input, test.format)
 			assert.NoError(t, err)
 			assert.Equal(t, test.output, hexutil.Encode(out))

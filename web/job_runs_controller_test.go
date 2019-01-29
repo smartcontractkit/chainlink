@@ -138,9 +138,9 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
 
-	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.Result()
+	val, err := jr.Result.ResultString()
 	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -214,7 +214,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
 	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
@@ -225,7 +225,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	assert.Equal(t, jr.ID, jrID)
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.Result()
+	val, err := jr.Result.ResultString()
 	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -245,7 +245,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + "wrongaccesstoken"}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
@@ -270,7 +270,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	jr := j.NewRun(j.Initiators[0])
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
@@ -292,7 +292,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"value": "0"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
@@ -301,7 +301,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Equal(t, jr.ID, jrID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
-	val, err := jr.Result.Result()
+	val, err := jr.Result.ResultString()
 	assert.NoError(t, err)
 	assert.Equal(t, "0", val)
 }
@@ -321,7 +321,7 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
 	url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
 	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
@@ -374,7 +374,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"value": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID+"1", bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
