@@ -622,7 +622,6 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 	err = json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 
-	job.ID = utils.NewBytes32ID()
 	job.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
 	return CreateJobSpecViaWeb(t, app, job)
 }
