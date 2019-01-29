@@ -50,7 +50,7 @@ type BulkDeleteRunTask struct {
 	Query        BulkDeleteRunRequest `json:"query"`
 	QueryID      uint                 `json:"-"`
 	Status       BulkTaskStatus       `json:"status"`
-	ErrorMessage string               `json:"error" gorm:"type:varchar(255)"`
+	ErrorMessage string               `json:"error" gorm:"type:text"`
 	CreatedAt    time.Time            `gorm:"index"`
 }
 
