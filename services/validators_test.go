@@ -75,10 +75,10 @@ func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
 	sleepingJob := cltest.NewJobWithWebInitiator()
 	sleepingJob.Tasks[0].Type = adapters.TaskTypeSleep
 
-	store.Config.Set("CHAINLINK_DEV", false)
+	store.Config.Set("CHAINLINK_DEV", true)
 	assert.NoError(t, services.ValidateJob(sleepingJob, store))
 
-	store.Config.Set("CHAINLINK_DEV", true)
+	store.Config.Set("CHAINLINK_DEV", false)
 	assert.Error(t, services.ValidateJob(sleepingJob, store))
 }
 

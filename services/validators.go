@@ -99,7 +99,7 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 
 func validateTask(task models.TaskSpec, store *store.Store) error {
 	adapter, err := adapters.For(task, store)
-	if store.Config.Dev() {
+	if !store.Config.Dev() {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
