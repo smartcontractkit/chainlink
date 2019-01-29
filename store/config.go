@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -387,27 +386,11 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 	return v
 }
 
-func (c Config) normalizedDatabaseURL() string {
+func (c Config) NormalizedDatabaseURL() string {
 	if c.DatabaseURI() == "" {
-		return filepath.Join(c.RootDir(), "db.sqlite3")
+		return "file://" + filepath.Join(c.RootDir(), "db.sqlite3")
 	}
 	return c.DatabaseURI()
-}
-
-// TODO: Delete?
-type DatabaseScheme int
-
-const (
-	DatabaseSchemeSqlite DatabaseScheme = iota
-	DatabaseSchemePostgres
-)
-
-// DatabaseScheme returns the scheme for the desired database url.
-func (c Config) DatabaseScheme() DatabaseScheme {
-	if strings.HasPrefix(strings.ToLower(c.normalizedDatabaseURL()), "postgres") {
-		return DatabaseSchemePostgres
-	}
-	return DatabaseSchemeSqlite
 }
 
 // SecretGenerator is the interface for objects that generate a secret

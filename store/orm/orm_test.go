@@ -495,7 +495,7 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 }
 
-func TestORM_SavenAndFindBulkDeleteRunTask(t *testing.T) {
+func TestORM_SaveAndFindBulkDeleteRunTask(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
