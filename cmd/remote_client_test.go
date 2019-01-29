@@ -56,7 +56,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.SaveJob(&j))
 
-	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -210,7 +210,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 		jobSpec models.JobSpec
 		errored bool
 	}{
-		{"CreateSuccess", `{"value": 100}`, cltest.NewJobWithWebInitiator(), false},
+		{"CreateSuccess", `{"result": 100}`, cltest.NewJobWithWebInitiator(), false},
 		{"EmptyBody", ``, cltest.NewJobWithWebInitiator(), false},
 		{"InvalidBody", `{`, cltest.NewJobWithWebInitiator(), true},
 		{"WithoutWebInitiator", ``, cltest.NewJobWithLogInitiator(), true},
