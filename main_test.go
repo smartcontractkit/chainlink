@@ -11,6 +11,7 @@ import (
 
 func ExampleRun() {
 	tc, cleanup := cltest.NewConfig()
+	defer cltest.WipePostgresDatabase(tc.Config)
 	defer cleanup()
 	tc.Config.Set("CHAINLINK_DEV", false)
 	testClient := &cmd.Client{
@@ -65,6 +66,7 @@ func ExampleRun() {
 
 func ExampleVersion() {
 	tc, cleanup := cltest.NewConfig()
+	defer cltest.WipePostgresDatabase(tc.Config)
 	defer cleanup()
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},

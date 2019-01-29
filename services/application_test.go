@@ -21,7 +21,8 @@ import (
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 	config, cleanup := cltest.NewConfig()
 	defer cleanup()
-	app, _ := cltest.NewApplicationWithConfig(config)
+	app, appCleanUp := cltest.NewApplicationWithConfig(config)
+	defer appCleanUp()
 
 	completed := abool.New()
 	app.Exiter = func(code int) {

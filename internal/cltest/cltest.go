@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,6 +33,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
@@ -172,6 +174,7 @@ func NewApplication() (*TestApplication, func()) {
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
+	WipePostgresDatabase(tc.Config)
 	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
 	ethMock := MockEthOnStore(app.Store)
 	ta := &TestApplication{ChainlinkApplication: app}
@@ -249,7 +252,11 @@ func (ta *TestApplication) StartAndConnect() error {
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
+	// TODO: Here we double close, and it's preventing cleanup proper
+	// cleanup because the db is closed at `cleanUpStore`
+	// Stop gap is to reopen db.
 	err := ta.ChainlinkApplication.Stop()
+	mustNotErr(err)
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -257,7 +264,7 @@ func (ta *TestApplication) Stop() error {
 	if ta.wsServer != nil {
 		ta.wsServer.Close()
 	}
-	return err
+	return nil
 }
 
 func (ta *TestApplication) MustSeedUserSession() models.User {
@@ -316,6 +323,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
+	WipePostgresDatabase(config.Config)
 	s := strpkg.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(s)
@@ -339,15 +347,29 @@ func cleanUpStore(store *strpkg.Store) {
 		}
 	}()
 	logger.Sync()
-	wipePostgresDatabase(store)
 	mustNotErr(store.Close())
 }
 
-func wipePostgresDatabase(store *strpkg.Store) {
-	if store.ORM.DB.Dialect().GetName() == "postgres" {
-		logger.WarnIf(store.ORM.DB.Exec(`
-select 'drop table if exists "' || tablename || '" cascade;' from pg_tables;
+func WipePostgresDatabase(c strpkg.Config) {
+	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), "postgres") {
+		orm, err := orm.NewORM(c.NormalizedDatabaseURL())
+		if err != nil {
+			logger.Warn("unable to wipe postgres database", err)
+			return
+		}
+		defer orm.Close()
+
+		tx := orm.DB.Begin()
+		logger.WarnIf(tx.Exec(`
+DO $$ DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = current_schema()) LOOP
+        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+END $$;
 		`).Error)
+		logger.WarnIf(tx.Commit().Error)
 	}
 }
 
