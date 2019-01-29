@@ -57,7 +57,7 @@ func TestHttpGet_Perform(t *testing.T) {
 			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL)}
 			result := hga.Perform(input, nil)
 
-			val, err := result.Value()
+			val, err := result.Result()
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, result.HasError())

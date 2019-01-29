@@ -35,7 +35,7 @@ func TestEthBool_Perform(t *testing.T) {
 			adapter := adapters.EthBool{}
 			result := adapter.Perform(past, nil)
 
-			val, err := result.Value()
+			val, err := result.Result()
 			assert.Equal(t, test.expected, val)
 			assert.NoError(t, err)
 			assert.NoError(t, result.GetError())
