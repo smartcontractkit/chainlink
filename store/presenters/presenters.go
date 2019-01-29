@@ -5,6 +5,7 @@ package presenters
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -471,7 +472,7 @@ func (u UserPresenter) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// NewAccount is a jsonapi wrapper for a geth account
+// NewAccount is a jsonapi wrapper for an Ethereum account.
 type NewAccount struct {
 	*accounts.Account
 }
@@ -484,4 +485,50 @@ func (a NewAccount) GetID() string {
 // GetName returns the collection name for jsonapi.
 func (a NewAccount) GetName() string {
 	return "keys"
+}
+
+// NewTx is a jsonapi wrapper for an Ethereum Transaction.
+type NewTx struct {
+	*models.Tx
+}
+
+// GetID returns the jsonapi ID.
+func (tx NewTx) GetID() string {
+	return tx.Hash.String()
+}
+
+// GetName returns the collection name for jsonapi.
+func (NewTx) GetName() string {
+	return "transactions"
+}
+
+// MarshalJSON returns the User as json.
+func (t NewTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		ID        uint64   `json:"id"`
+		From      string   `json:"from"`
+		To        string   `json:"to"`
+		Data      string   `json:"data"`
+		Nonce     uint64   `json:"nonce"`
+		Value     *big.Int `json:"value"`
+		GasLimit  uint64   `json:"gasLimit"`
+		Hash      string   `json:"Hash"`
+		GasPrice  *big.Int `json:"gasPrice"`
+		Confirmed bool     `json:"confirmed"`
+		Hex       string   `json:"rawHex"`
+		SentAt    uint64   `json:"sentAt"`
+	}{
+		ID:        t.ID,
+		From:      t.From.Hex(),
+		To:        t.To.Hex(),
+		Data:      "0x" + hex.EncodeToString(t.Data),
+		Nonce:     t.Nonce,
+		Value:     t.Value,
+		GasLimit:  t.GasLimit,
+		Hash:      t.Hash.Hex(),
+		GasPrice:  t.GasPrice,
+		Confirmed: t.Confirmed,
+		Hex:       t.Hex,
+		SentAt:    t.SentAt,
+	})
 }
