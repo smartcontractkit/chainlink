@@ -344,22 +344,12 @@ func cleanUpStore(store *strpkg.Store) {
 }
 
 func wipePostgresDatabase(store *strpkg.Store) {
-	fmt.Println("--- clearing pg db:", store.ORM.DB.Dialect().GetName())
 	if store.ORM.DB.Dialect().GetName() == "postgres" {
 		logger.WarnIf(store.ORM.DB.Exec(`
-			DROP SCHEMA public CASCADE;
-			CREATE SCHEMA public;
-			GRANT ALL ON SCHEMA public TO public;
-			COMMENT ON SCHEMA public IS 'standard public schema';
+select 'drop table if exists "' || tablename || '" cascade;' from pg_tables;
 		`).Error)
 	}
 }
-
-//DROP SCHEMA public CASCADE;
-//CREATE SCHEMA public;
-//GRANT ALL ON SCHEMA public TO postgres;
-//GRANT ALL ON SCHEMA public TO public;
-//COMMENT ON SCHEMA public IS 'standard public schema';
 
 // NewJobSubscriber creates a new JobSubscriber
 func NewJobSubscriber() (*strpkg.Store, services.JobSubscriber, func()) {
