@@ -40,7 +40,7 @@ func TestEthBytes32_Perform(t *testing.T) {
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)
 
-			val, err := result.Value()
+			val, err := result.Result()
 			assert.NoError(t, err)
 			assert.NoError(t, result.GetError())
 			assert.Equal(t, test.expected, val)
@@ -86,7 +86,7 @@ func TestEthInt256_Perform(t *testing.T) {
 			if test.errored {
 				assert.Error(t, result.GetError())
 			} else {
-				val, err := result.Value()
+				val, err := result.Result()
 				assert.NoError(t, result.GetError())
 				assert.NoError(t, err)
 				assert.Equal(t, test.want, val)
@@ -132,7 +132,7 @@ func TestEthUint256_Perform(t *testing.T) {
 			if test.errored {
 				assert.Error(t, result.GetError())
 			} else {
-				val, err := result.Value()
+				val, err := result.Result()
 				assert.NoError(t, result.GetError())
 				assert.NoError(t, err)
 				assert.Equal(t, test.want, val)
