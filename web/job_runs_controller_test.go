@@ -27,8 +27,8 @@ type JobRun struct {
 
 func BenchmarkJobRunsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
-	app.Start()
 	defer cleanup()
+	app.Start()
 	run1, _, _ := setupJobRunsControllerIndex(b, app)
 	client := app.NewHTTPClient()
 

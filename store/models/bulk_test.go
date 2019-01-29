@@ -35,7 +35,8 @@ func TestBulkDeleteRunTask_RetrieveFromDB(t *testing.T) {
 	defer cleanup()
 
 	task, err := models.NewBulkDeleteRunTask(models.BulkDeleteRunRequest{
-		Status: []models.RunStatus{models.RunStatusCompleted, models.RunStatusErrored},
+		Status:        []models.RunStatus{models.RunStatusCompleted, models.RunStatusErrored},
+		UpdatedBefore: cltest.ParseISO8601("2018-06-19T22:17:19Z"),
 	})
 	require.NoError(t, err)
 

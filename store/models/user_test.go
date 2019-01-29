@@ -10,7 +10,6 @@ import (
 
 func TestNewUser(t *testing.T) {
 	t.Parallel()
-	zeroTime := models.AnyTime{}
 
 	tests := []struct {
 		email, pwd string
@@ -29,13 +28,12 @@ func TestNewUser(t *testing.T) {
 			user, err := models.NewUser(test.email, test.pwd)
 			if test.wantError {
 				assert.Error(t, err)
-				assert.Equal(t, zeroTime, user.CreatedAt)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
+				assert.NotEmpty(t, user.HashedPassword)
 				newHash, _ := utils.HashPassword(test.pwd)
-				assert.NotEmpty(t, newHash, user.HashedPassword)
-				assert.NotEqual(t, zeroTime, user.CreatedAt)
+				assert.NotEqual(t, newHash, user.HashedPassword, "Salt should prevent equality")
 			}
 		})
 	}
