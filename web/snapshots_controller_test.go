@@ -68,6 +68,7 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 
 	config, _ := cltest.NewConfigWithPrivateKey()
 	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+	defer cleanup()
 	eth := app.MockEthClient()
 
 	newHeads := make(chan models.BlockHeader, 10)
@@ -82,7 +83,6 @@ func TestSnapshotsController_ShowSnapshot_V1_Format(t *testing.T) {
 	eth.Register("eth_getTransactionReceipt", store.TxReceipt{})
 
 	require.NoError(t, app.StartAndConnect())
-	defer cleanup()
 	client := app.NewHTTPClient()
 
 	j := cltest.CreateMockAssignmentViaWeb(t, app, mockServer.URL)
