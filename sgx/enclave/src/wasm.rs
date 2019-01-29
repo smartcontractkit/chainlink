@@ -32,9 +32,9 @@ pub fn perform(adapter: &serde_json::Value, input: &RunResult) -> WasmResult {
     let module_ref = ModuleInstance::new(&module, &ImportsBuilder::default())?;
     let instance = module_ref.run_start(&mut NopExternals)?;
 
-    let arguments = json_as_wasm_arguments(&input.data["value"])?;
+    let arguments = json_as_wasm_arguments(&input.data["result"])?;
     match instance.invoke_export("perform", &arguments.as_slice(), &mut NopExternals)? {
-        Some(v) => Ok(json!({"value": wasm_as_json(&v)?})),
+        Some(v) => Ok(json!({"result": wasm_as_json(&v)?})),
         _ => Err(WasmError::EmptyResultError),
     }
 }
