@@ -27,11 +27,11 @@ type UnsignedServiceAgreement struct {
 // ServiceAgreement connects job specifications with on-chain encumbrances.
 type ServiceAgreement struct {
 	ID            string      `json:"id" gorm:"primary_key"`
-	CreatedAt     Time        `json:"createdAt" gorm:"index"`
+	CreatedAt     time.Time   `json:"createdAt" gorm:"index"`
 	Encumbrance   Encumbrance `json:"encumbrance"`
 	EncumbranceID uint        `json:"-"`
 	RequestBody   string      `json:"requestBody"`
-	Signature     Signature   `json:"signature"`
+	Signature     Signature   `json:"signature" gorm:"type:varchar(255)"`
 	JobSpec       JobSpec     `gorm:"foreignkey:JobSpecID"`
 	JobSpecID     string      `json:"jobSpecId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 }
@@ -66,7 +66,6 @@ func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceA
 	}
 	return ServiceAgreement{
 		ID:          us.ID.String(),
-		CreatedAt:   Time{time.Now()},
 		Encumbrance: us.Encumbrance,
 		JobSpec:     NewJobFromRequest(us.JobSpecRequest),
 		RequestBody: us.RequestBody,
@@ -153,7 +152,7 @@ type Encumbrance struct {
 	ID         uint                   `json:"-" gorm:"primary_key;auto_increment"`
 	Payment    *assets.Link           `json:"payment" gorm:"type:varchar(255)"`
 	Expiration uint64                 `json:"expiration"`
-	EndAt      Time                   `json:"endAt"`
+	EndAt      AnyTime                `json:"endAt"`
 	Oracles    EIP55AddressCollection `json:"oracles" gorm:"type:text"`
 }
 

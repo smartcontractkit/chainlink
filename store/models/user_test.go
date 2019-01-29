@@ -10,7 +10,7 @@ import (
 
 func TestNewUser(t *testing.T) {
 	t.Parallel()
-	zeroTime := models.Time{}
+	zeroTime := models.AnyTime{}
 
 	tests := []struct {
 		email, pwd string

@@ -82,6 +82,12 @@ func NullISO8601UTC(t null.Time) string {
 	return ""
 }
 
+// DurationFromNow returns the amount of time since the Time
+// field was last updated.
+func DurationFromNow(t time.Time) time.Duration {
+	return t.Sub(time.Now())
+}
+
 // FormatJSON applies indent to format a JSON response.
 func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
