@@ -140,7 +140,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -225,7 +225,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	assert.Equal(t, jr.ID, jrID)
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -301,7 +301,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Equal(t, jr.ID, jrID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "0", val)
 }

@@ -88,7 +88,7 @@ func createTxRunResult(
 }
 
 func ensureTxRunResult(input models.RunResult, str *store.Store) models.RunResult {
-	val, err := input.Value()
+	val, err := input.Result()
 	if err != nil {
 		return input.WithError(err)
 	}

@@ -108,16 +108,16 @@ func TestIntegration_HelloWorld(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.TaskRuns[0].Result.Value()
+	val, err := jr.TaskRuns[0].Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, tickerResponse, val)
-	val, err = jr.TaskRuns[1].Result.Value()
+	val, err = jr.TaskRuns[1].Result.Result()
 	assert.Equal(t, "10583.75", val)
 	assert.NoError(t, err)
-	val, err = jr.TaskRuns[3].Result.Value()
+	val, err = jr.TaskRuns[3].Result.Result()
 	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
-	val, err = jr.Result.Value()
+	val, err = jr.Result.Result()
 	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
 	assert.Equal(t, jr.Result.CachedJobRunID, jr.ID)
@@ -293,7 +293,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
-	val, err := tr.Result.Value()
+	val, err := tr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, eaValue, val)
 	res := tr.Result.Get("extra")
@@ -345,7 +345,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	assert.Equal(t, "assetprice", tr.TaskSpec.Type.String())
 	tr = jr.TaskRuns[1]
 	assert.Equal(t, "copy", tr.TaskSpec.Type.String())
-	val, err := tr.Result.Value()
+	val, err := tr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, eaPrice, val)
 	res := tr.Result.Get("quote")
@@ -391,7 +391,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
-	val, err := tr.Result.Value()
+	val, err := tr.Result.Result()
 	assert.Error(t, err)
 	assert.Equal(t, "", val)
 
@@ -399,7 +399,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
-	val, err = tr.Result.Value()
+	val, err = tr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "100", val)
 }
@@ -449,7 +449,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"-10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0674e", val)
 }
@@ -463,7 +463,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.Result.Value()
+	val, err := jr.Result.Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
 }

@@ -108,7 +108,7 @@ func TestRunResult_Value(t *testing.T) {
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &data))
 			rr := models.RunResult{Data: data}
 
-			val, err := rr.Value()
+			val, err := rr.Result()
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
