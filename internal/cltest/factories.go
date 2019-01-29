@@ -111,7 +111,7 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
-			Time: models.Time{Time: t},
+			Time: models.NewAnyTime(t),
 		},
 	}}
 	return j

@@ -38,7 +38,7 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 			defer store.ORM.ClearSessions()
 
 			session := cltest.NewSession(test.name)
-			session.LastUsed = models.Time{test.lastUsed}
+			session.LastUsed = test.lastUsed
 			require.NoError(t, store.SaveSession(&session))
 
 			r.WakeUp()

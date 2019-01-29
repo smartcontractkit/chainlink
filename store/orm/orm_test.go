@@ -342,7 +342,7 @@ func TestORM_MarkRan(t *testing.T) {
 		JobSpecID: js.ID,
 		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
-			Time: models.Time{Time: time.Now()},
+			Time: models.NewAnyTime(time.Now()),
 		},
 	}
 
@@ -363,7 +363,7 @@ func TestORM_FindUser(t *testing.T) {
 	defer cleanup()
 	user1 := cltest.MustUser("test1@email1.net", "password1")
 	user2 := cltest.MustUser("test2@email2.net", "password2")
-	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
+	user2.CreatedAt = time.Now().Add(-24 * time.Hour)
 
 	require.NoError(t, store.SaveUser(&user1))
 	require.NoError(t, store.SaveUser(&user2))
@@ -399,10 +399,10 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			prevSession := cltest.NewSession("correctID")
-			prevSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
+			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration("2m"))
 			require.NoError(t, store.SaveSession(&prevSession))
 
-			expectedTime := models.Time{time.Now()}.HumanString()
+			expectedTime := utils.ISO8601UTC(time.Now())
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
 			assert.Equal(t, test.wantEmail, actual.Email)
 			if test.wantError {
@@ -412,7 +412,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 				var bumpedSession models.Session
 				err = store.ORM.DB.First(&bumpedSession, "ID = ?", prevSession.ID).Error
 				require.NoError(t, err)
-				assert.Equal(t, expectedTime[0:13], bumpedSession.LastUsed.HumanString()[0:13]) // only compare up to the hour
+				assert.Equal(t, expectedTime[0:13], utils.ISO8601UTC(bumpedSession.LastUsed)[0:13]) // only compare up to the hour
 			}
 		})
 	}
