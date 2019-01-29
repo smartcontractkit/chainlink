@@ -186,9 +186,11 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 
-		txs := TxAttemptsController{app}
-		authv2.GET("/txattempts", txs.Index)
-		authv2.GET("/txattempts/:TxHash", txs.Show)
+		tas := TxAttemptsController{app}
+		authv2.GET("/txattempts", tas.Index)
+
+		txs := TransactionsController{app}
+		authv2.GET("/transactions/:TxHash", txs.Show)
 
 		bdc := BulkDeletesController{app}
 		authv2.POST("/bulk_delete_runs", bdc.Create)
