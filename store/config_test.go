@@ -184,7 +184,7 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := NewConfig()
 			config.Set("ROOT", "/root")
-			config.Set("DATABASE_URI", test.uri)
+			config.Set("DATABASE_URL", test.uri)
 			assert.Equal(t, test.expect, config.NormalizedDatabaseURL())
 		})
 	}
