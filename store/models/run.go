@@ -256,8 +256,8 @@ func (rr RunResult) value() gjson.Result {
 	return rr.Get("value")
 }
 
-// Value returns the string value of the Data JSON field.
-func (rr RunResult) Value() (string, error) {
+// Result returns the string value of the Data JSON field.
+func (rr RunResult) Result() (string, error) {
 	val := rr.value()
 	if val.Type != gjson.String {
 		return "", fmt.Errorf("non string value")
