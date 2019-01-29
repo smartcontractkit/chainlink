@@ -286,7 +286,7 @@ func TestAnyTime_MarshalJSON(t *testing.T) {
 		input models.AnyTime
 		want  string
 	}{
-		{"valid", models.NewAnyTime(time.Unix(1529446639, 0)), `"2018-06-19T18:17:19-04:00"`},
+		{"valid", models.NewAnyTime(time.Unix(1529446639, 0).UTC()), `"2018-06-19T22:17:19Z"`},
 		{"invalid", models.AnyTime{}, `null`},
 	}
 	for _, test := range tests {
