@@ -17,6 +17,7 @@ func (m Migration) Timestamp() string {
 func (m Migration) Migrate(orm *orm.ORM) error {
 	return multierr.Combine(
 		setTimezone(orm),
+		setForeignKeysOn(orm),
 		migrationHelper(orm, &models.JobSpec{}),
 		migrationHelper(orm, &models.TaskSpec{}),
 		migrationHelper(orm, &models.JobRun{}),
@@ -38,6 +39,13 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 func setTimezone(orm *orm.ORM) error {
 	if orm.DB.Dialect().GetName() == "postgres" {
 		return orm.DB.Exec(`SET TIME ZONE 'UTC';`).Error
+	}
+	return nil
+}
+
+func setForeignKeysOn(orm *orm.ORM) error {
+	if orm.DB.Dialect().GetName() == "sqlite" {
+		return orm.DB.Exec("PRAGMA foreign_keys = ON").Error
 	}
 	return nil
 }
