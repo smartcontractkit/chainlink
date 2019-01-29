@@ -40,6 +40,7 @@ func initializeDatabase(path string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open gorm DB: %+v", err)
 	}
+	db.Exec("PRAGMA foreign_keys = ON")
 	return db, nil
 }
 
@@ -125,6 +126,11 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	return orm.DB.Save(run).Error
 }
 
+// CreateJobRun inserts a new JobRun
+func (orm *ORM) CreateJobRun(run *models.JobRun) error {
+	return orm.DB.Create(run).Error
+}
+
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
 func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
 	var sa models.ServiceAgreement
@@ -190,19 +196,18 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 	return sessions, err
 }
 
-// SaveJob saves a job to the database and adds IDs to associated tables.
-func (orm *ORM) SaveJob(job *models.JobSpec) error {
+// CreateJob saves a job to the database and adds IDs to associated tables.
+func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobSpecID = job.ID
 	}
-	return orm.DB.Save(job).Error
+	return orm.DB.Create(job).Error
 }
 
-// SaveServiceAgreement saves a service agreement and it's associations to the
+// CreateServiceAgreement saves a service agreement and it's associations to the
 // database.
-func (orm *ORM) SaveServiceAgreement(sa *models.ServiceAgreement) error {
-	merr := orm.DB.Save(sa).Error
-	return merr
+func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
+	return orm.DB.Create(sa).Error
 }
 
 // JobRunsWithStatus returns the JobRuns which have the passed statuses.
@@ -597,9 +602,9 @@ func (orm *ORM) SaveTx(tx *models.Tx) error {
 	return orm.DB.Save(tx).Error
 }
 
-// SaveInitiator saves the initiator.
-func (orm *ORM) SaveInitiator(initr *models.Initiator) error {
-	return orm.DB.Save(initr).Error
+// CreateInitiator saves the initiator.
+func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
+	return orm.DB.Create(initr).Error
 }
 
 // SaveHead saves the indexable block number related to head tracker.

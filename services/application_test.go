@@ -52,7 +52,7 @@ func TestChainlinkApplication_resumesPendingConnection(t *testing.T) {
 	store := app.Store
 
 	j := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.SaveJob(&j))
+	require.NoError(t, store.CreateJob(&j))
 
 	jr := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
 
@@ -72,7 +72,7 @@ func TestPendingConnectionResumer(t *testing.T) {
 	pcr := services.ExportedNewPendingConnectionResumer(store, resumer)
 
 	j := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.SaveJob(&j))
+	require.NoError(t, store.CreateJob(&j))
 
 	expectedRun := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
 	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConfirmations)

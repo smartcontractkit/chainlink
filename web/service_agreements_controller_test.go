@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServiceAgreementsController_Create(t *testing.T) {
@@ -101,8 +102,9 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	input := cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
-	assert.NoError(t, err)
-	assert.NoError(t, app.Store.SaveServiceAgreement(&sa))
+	require.NoError(t, err)
+	require.NoError(t, app.Store.CreateJob(&sa.JobSpec))
+	require.NoError(t, app.Store.CreateServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
 	defer cleanup()

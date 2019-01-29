@@ -24,6 +24,7 @@ type Application interface {
 	WakeSessionReaper()
 	WakeBulkRunDeleter()
 	AddJob(job models.JobSpec) error
+	AddServiceAgreement(*models.ServiceAgreement) error
 	AddAdapter(bt *models.BridgeType) error
 	RemoveAdapter(bt *models.BridgeType) error
 	NewBox() packr.Box
@@ -138,13 +139,30 @@ func (app *ChainlinkApplication) WakeBulkRunDeleter() {
 // an error from adding the job to the store, the job will not be
 // added to the scheduler.
 func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
-	err := app.Store.SaveJob(&job)
+	err := app.Store.CreateJob(&job)
 	if err != nil {
 		return err
 	}
 
 	app.Scheduler.AddJob(job)
 	return app.JobSubscriber.AddJob(job, nil) // nil for latest
+}
+
+// AddServiceAgreement adds a Service Agreement which includes a job that needs
+// to be scheduled.
+func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement) error {
+	err := app.Store.CreateJob(&sa.JobSpec)
+	if err != nil {
+		return err
+	}
+
+	err = app.Store.CreateServiceAgreement(sa)
+	if err != nil {
+		return err
+	}
+
+	app.Scheduler.AddJob(sa.JobSpec)
+	return app.JobSubscriber.AddJob(sa.JobSpec, nil) // nil for latest
 }
 
 // AddAdapter adds an adapter to the store. If another

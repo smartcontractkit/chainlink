@@ -36,9 +36,9 @@ func TestClient_GetJobSpecs(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJob()
-	app.Store.SaveJob(&j1)
+	app.Store.CreateJob(&j1)
 	j2 := cltest.NewJob()
-	app.Store.SaveJob(&j2)
+	app.Store.CreateJob(&j2)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -54,7 +54,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
-	assert.NoError(t, app.Store.SaveJob(&j))
+	assert.NoError(t, app.Store.CreateJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"value":"100"}`)
 
@@ -86,7 +86,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	job := cltest.NewJob()
-	app.Store.SaveJob(&job)
+	app.Store.CreateJob(&job)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -220,7 +220,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			assert.Nil(t, app.Store.SaveJob(&test.jobSpec))
+			assert.Nil(t, app.Store.CreateJob(&test.jobSpec))
 
 			args := make([]string, 1)
 			args[0] = test.jobSpec.ID

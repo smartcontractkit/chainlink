@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -21,10 +22,12 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
 	jr := job.NewRun(job.Initiators[0])
+	jr.JobSpecID = job.ID
 	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
-	err := store.SaveJobRun(&jr)
-	assert.NoError(t, err)
+	err := store.CreateJobRun(&jr)
+	require.NoError(t, err)
 
 	run, err := store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
@@ -38,14 +41,14 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
-	err := store.SaveJob(&job)
+	err := store.CreateJob(&job)
 	initr := job.Initiators[0]
 	assert.NoError(t, err)
 
 	jr := job.NewRun(initr)
 	data := `{"value":"11850.00"}`
 	jr.Result = cltest.RunResultWithData(data)
-	err = store.SaveJobRun(&jr)
+	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
 	run, err := store.FindJobRun(jr.ID)
@@ -69,9 +72,9 @@ func TestJobRun_NextTaskRun(t *testing.T) {
 		{Type: adapters.TaskTypeNoOpPend},
 		{Type: adapters.TaskTypeNoOp},
 	}
-	assert.NoError(t, store.SaveJob(&job))
+	assert.NoError(t, store.CreateJob(&job))
 	run := job.NewRun(job.Initiators[0])
-	assert.NoError(t, store.SaveJobRun(&run))
+	assert.NoError(t, store.CreateJobRun(&run))
 	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
 
 	store.RunChannel.Send(run.ID)

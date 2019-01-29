@@ -20,7 +20,7 @@ import (
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string      `json:"id" gorm:"primary_key;not null"`
+	ID         string      `json:"id,omitempty" gorm:"primary_key;not null"`
 	CreatedAt  Time        `json:"createdAt" gorm:"index"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks"`
@@ -66,6 +66,9 @@ func NewJob() JobSpec {
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
 	jobSpec.Initiators = jsr.Initiators
+	for _, initr := range jobSpec.Initiators {
+		initr.JobSpecID = jobSpec.ID
+	}
 	jobSpec.Tasks = jsr.Tasks
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
@@ -175,7 +178,7 @@ const (
 // to a parent JobID.
 type Initiator struct {
 	ID        uint   `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID string `json:"jobSpecId" gorm:"index"`
+	JobSpecID string `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string `json:"type" gorm:"index;not null"`
 	InitiatorParams `json:"params,omitempty"`
@@ -217,7 +220,7 @@ func (i Initiator) IsLogInitiated() bool {
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	gorm.Model
-	JobSpecID     string   `json:"-" gorm:"index"`
+	JobSpecID     string   `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	Type          TaskType `json:"type" gorm:"index;not null"`
 	Confirmations uint64   `json:"confirmations"`
 	Params        JSON     `json:"params" gorm:"type:text"`

@@ -131,20 +131,20 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
 	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
 	j1.CreatedAt = models.Time{Time: time.Now().AddDate(0, 0, -1)}
-	err := app.Store.SaveJob(&j1)
+	err := app.Store.CreateJob(&j1)
 	if err != nil {
 		return nil, err
 	}
 	j2 := cltest.NewJobWithWebInitiator()
 	j2.Initiators[0].Ran = true
-	err = app.Store.SaveJob(&j2)
+	err = app.Store.CreateJob(&j2)
 	return &j1, err
 }
 
 func createJobs(app *cltest.TestApplication, n int) (jobs []*models.JobSpec) {
 	for i := 0; i < n; i++ {
 		j := cltest.NewJobWithWebInitiator()
-		err := app.Store.SaveJob(&j)
+		err := app.Store.CreateJob(&j)
 		if err != nil {
 			panic(fmt.Sprintf("Could not save job: %v", err))
 		}
@@ -343,16 +343,16 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
-	app.Store.SaveJob(&j)
+	app.Store.CreateJob(&j)
 	initr := j.Initiators[0]
 
 	jr1 := j.NewRun(initr)
 	jr1.ID = "2"
-	assert.Nil(t, app.Store.SaveJobRun(&jr1))
+	assert.Nil(t, app.Store.CreateJobRun(&jr1))
 	jr2 := j.NewRun(initr)
 	jr2.ID = "1"
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
-	assert.Nil(t, app.Store.SaveJobRun(&jr2))
+	assert.Nil(t, app.Store.CreateJobRun(&jr2))
 
 	return &j
 }

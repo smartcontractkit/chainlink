@@ -33,7 +33,7 @@ func ExecuteJob(
 		return nil, err
 	}
 
-	return run, saveAndTrigger(run, store)
+	return run, createAndTrigger(run, store)
 }
 
 // NewRun returns a run from an input job, in an initial state ready for
@@ -159,7 +159,7 @@ func ResumeConfirmingTask(
 		run.Status = models.RunStatusPendingConfirmations
 	}
 
-	return run, saveAndTrigger(run, store)
+	return run, updateAndTrigger(run, store)
 }
 
 // ResumeConnectingTask resumes a run that was left in pending_connection.
@@ -180,7 +180,7 @@ func ResumeConnectingTask(
 	}
 
 	run.Status = models.RunStatusInProgress
-	return run, saveAndTrigger(run, store)
+	return run, updateAndTrigger(run, store)
 }
 
 // ResumePendingTask takes the body provided from an external adapter,
@@ -225,7 +225,7 @@ func ResumePendingTask(
 		*run = run.ApplyResult(input)
 	}
 
-	return run, saveAndTrigger(run, store)
+	return run, updateAndTrigger(run, store)
 }
 
 // QueueSleepingTask creates a go routine which will wake up the job runner
@@ -276,7 +276,7 @@ func performTaskSleep(
 		task.Status = models.RunStatusCompleted
 		run.TaskRuns[currentTaskRunIndex] = *task
 		run.Status = models.RunStatusInProgress
-		return saveAndTrigger(run, store)
+		return updateAndTrigger(run, store)
 	}
 
 	// XXX: This is to eliminate data race that occurs because slices share their
@@ -296,7 +296,7 @@ func performTaskSleep(
 
 		logger.Debugw("Waking job up after sleep", run.ForLogger()...)
 
-		if err := saveAndTrigger(&run, store); err != nil {
+		if err := updateAndTrigger(&run, store); err != nil {
 			logger.Errorw("Error resuming sleeping job:", "error", err)
 		}
 	}(runCopy, *task)
@@ -318,11 +318,21 @@ func meetsMinimumConfirmations(
 	return diff.Cmp(min) >= 0
 }
 
-func saveAndTrigger(run *models.JobRun, store *store.Store) error {
+func updateAndTrigger(run *models.JobRun, store *store.Store) error {
 	if err := store.SaveJobRun(run); err != nil {
 		return err
 	}
+	return triggerIfReady(run, store)
+}
 
+func createAndTrigger(run *models.JobRun, store *store.Store) error {
+	if err := store.CreateJobRun(run); err != nil {
+		return err
+	}
+	return triggerIfReady(run, store)
+}
+
+func triggerIfReady(run *models.JobRun, store *store.Store) error {
 	if run.Status == models.RunStatusInProgress {
 		logger.Debugw(fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type), run.ForLogger()...)
 		return store.RunChannel.Send(run.ID)

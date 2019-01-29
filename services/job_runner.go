@@ -256,7 +256,7 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 		run = queueNextTask(run, store)
 	}
 
-	if err := saveAndTrigger(run, store); err != nil {
+	if err := updateAndTrigger(run, store); err != nil {
 		return run, err
 	}
 	logger.Infow("Run finished processing", run.ForLogger()...)

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -161,7 +162,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 			job := cltest.NewJobWithWebInitiator()
 			job.StartAt = test.startAt
 			job.EndAt = test.endAt
-			assert.Nil(t, store.SaveJob(&job))
+			assert.Nil(t, store.CreateJob(&job))
 
 			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
 			if test.errored {
@@ -235,19 +236,27 @@ func TestResumeConfirmingTask(t *testing.T) {
 	run, err = services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
+	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	require.NoError(t, store.ORM.CreateJob(&jobSpec))
+
 	// leave in pending if not enough confirmations have been met yet
 	creationHeight := models.NewBig(big.NewInt(0))
 	run = &models.JobRun{
 		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
 		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:                   utils.NewBytes32ID(),
 			MinimumConfirmations: 2,
-			TaskSpec:             models.TaskSpec{Type: adapters.TaskTypeNoOp},
+			TaskSpec: models.TaskSpec{
+				JobSpecID: jobSpec.ID,
+				Type:      adapters.TaskTypeNoOp,
+			},
 		}},
 	}
 	hexb := hexutil.Big(*creationHeight.ToInt())
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.ResumeConfirmingTask(run, store, &hexb)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
@@ -255,15 +264,20 @@ func TestResumeConfirmingTask(t *testing.T) {
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
 		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
 		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:                   utils.NewBytes32ID(),
 			MinimumConfirmations: 1,
-			TaskSpec:             models.TaskSpec{Type: adapters.TaskTypeNoOp},
+			TaskSpec: models.TaskSpec{
+				JobSpecID: jobSpec.ID,
+				Type:      adapters.TaskTypeNoOp,
+			},
 		}},
 	}
 	observedHeight := cltest.BigHexInt(1)
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.ResumeConfirmingTask(run, store, &observedHeight)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
@@ -283,16 +297,21 @@ func TestResumeConnectingTask(t *testing.T) {
 	run, err = services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
-	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp}
+	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	require.NoError(t, store.ORM.CreateJob(&jobSpec))
+
+	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp, JobSpecID: jobSpec.ID}
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
-		ID:     utils.NewBytes32ID(),
-		Status: models.RunStatusPendingConnection,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: jobSpec.ID,
+		Status:    models.RunStatusPendingConnection,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:       utils.NewBytes32ID(),
 			TaskSpec: taskSpec,
 		}},
 	}
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.ResumeConnectingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
@@ -319,34 +338,42 @@ func TestQueueSleepingTask(t *testing.T) {
 	run, err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
+	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	require.NoError(t, store.ORM.CreateJob(&jobSpec))
+
 	// reject a run that is sleeping but its task is not
 	run = &models.JobRun{
-		ID:     utils.NewBytes32ID(),
-		Status: models.RunStatusPendingSleep,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: jobSpec.ID,
+		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:       utils.NewBytes32ID(),
-			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep},
+			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
 	}
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// error decoding params into adapter
 	inputFromTheFuture := cltest.ParseJSON(bytes.NewBuffer([]byte(`{"until": -1}`)))
 	run = &models.JobRun{
-		ID:     utils.NewBytes32ID(),
-		Status: models.RunStatusPendingSleep,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: jobSpec.ID,
+		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
 				ID:     utils.NewBytes32ID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
-					Type:   adapters.TaskTypeSleep,
-					Params: inputFromTheFuture,
+					JobSpecID: jobSpec.ID,
+					Type:      adapters.TaskTypeSleep,
+					Params:    inputFromTheFuture,
 				},
 			},
 		},
 	}
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusErrored), string(run.TaskRuns[0].Status))
@@ -354,14 +381,16 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	// mark run as pending, task as completed if duration has already elapsed
 	run = &models.JobRun{
-		ID:     utils.NewBytes32ID(),
-		Status: models.RunStatusPendingSleep,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: jobSpec.ID,
+		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:       utils.NewBytes32ID(),
 			Status:   models.RunStatusPendingSleep,
-			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep},
+			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
 	}
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
@@ -378,19 +407,22 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	inputFromTheFuture = sleepAdapterParams(60)
 	run = &models.JobRun{
-		ID:     utils.NewBytes32ID(),
-		Status: models.RunStatusPendingSleep,
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: jobSpec.ID,
+		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
 				ID:     utils.NewBytes32ID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
-					Type:   adapters.TaskTypeSleep,
-					Params: inputFromTheFuture,
+					JobSpecID: jobSpec.ID,
+					Type:      adapters.TaskTypeSleep,
+					Params:    inputFromTheFuture,
 				},
 			},
 		},
 	}
+	require.NoError(t, store.CreateJobRun(run))
 	run, err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.TaskRuns[0].Status))
