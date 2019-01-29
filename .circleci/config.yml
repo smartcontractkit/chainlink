@@ -39,7 +39,6 @@ jobs:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.15
-      # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -100,10 +99,16 @@ jobs:
             - ./vendor
       - run: make enclave
       - run: ./internal/ci/sgx_test
-  geth:
+  geth-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.15
+      - image: circleci/postgres:11-alpine
+        environment:
+          POSTGRES_USER: circleci_postgres
+          POSTGRES_DB: circleci_test
+    environment:
+      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -186,7 +191,7 @@ workflows:
       - go-sqlite-race
       - go-postgres
       - truffle
-      - geth
+      - geth-postgres
       - gui
       - rust
       - sgx
@@ -200,7 +205,7 @@ workflows:
             - go-sqlite-race
             - go-postgres
             - truffle
-            - geth
+            - geth-postgres
             - gui
           filters:
             branches:
