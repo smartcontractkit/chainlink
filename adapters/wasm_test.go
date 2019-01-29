@@ -15,7 +15,7 @@ import (
 
 const (
 	// CheckEthProgram was compiled then base64ed from internal/fixtures/wasm/checkethf.wat
-	// This program compares the input value to 450 using i64.lt_s
+	// This program compares the input result to 450 using i64.lt_s
 	CheckEthProgram = "AGFzbQEAAAABBgFgAXwBfwMCAQAHCwEHcGVyZm9ybQAAChABDgBEAAAAAAAgfEAgAGML"
 )
 
@@ -31,7 +31,7 @@ func TestWasm_Perform(t *testing.T) {
 		{
 			"check eth less than 450",
 			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
-			`{"value": 449.9}`,
+			`{"result": 449.9}`,
 			"0",
 			false,
 			false,
@@ -39,7 +39,7 @@ func TestWasm_Perform(t *testing.T) {
 		{
 			"check eth equals 450",
 			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
-			`{"value": 450.0}`,
+			`{"result": 450.0}`,
 			"0",
 			false,
 			false,
@@ -47,7 +47,7 @@ func TestWasm_Perform(t *testing.T) {
 		{
 			"check eth greater than 450",
 			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
-			`{"value": 450.1}`,
+			`{"result": 450.1}`,
 			"1",
 			false,
 			false,
@@ -63,7 +63,7 @@ func TestWasm_Perform(t *testing.T) {
 		{
 			"invalid input",
 			fmt.Sprintf(`{"wasm":"%s"}`, CheckEthProgram),
-			`{"value": null}`,
+			`{"result": null}`,
 			"",
 			true,
 			false,
@@ -88,7 +88,7 @@ func TestWasm_Perform(t *testing.T) {
 				assert.Error(t, result.GetError())
 				assert.NoError(t, jsonErr)
 			} else {
-				val, err := result.Value()
+				val, err := result.ResultString()
 				assert.NoError(t, err)
 				assert.Equal(t, test.want, val)
 				assert.NoError(t, result.GetError())
