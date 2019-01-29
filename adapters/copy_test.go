@@ -14,27 +14,27 @@ import (
 func TestCopy_Perform(t *testing.T) {
 	tests := []struct {
 		name            string
-		value           string
+		result          string
 		copyPath        []string
 		want            string
 		wantError       bool
 		wantResultError bool
 	}{
 		{"existing path", `{"high":"11850.00","last":"11779.99"}`, []string{"last"},
-			`{"high":"11850.00","last":"11779.99","value":"11779.99"}`, false, false},
+			`{"high":"11850.00","last":"11779.99","result":"11779.99"}`, false, false},
 		{"nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"doesnotexist"},
-			`{"high":"11850.00","last":"11779.99","value":null}`, true, false},
+			`{"high":"11850.00","last":"11779.99","result":null}`, true, false},
 		{"double nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"no", "really"},
-			`{"high":"11850.00","last":"11779.99","value":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, true, true},
+			`{"high":"11850.00","last":"11779.99","result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, true, true},
 		{"array index path", `{"data":[{"availability":"0.99991"}]}`, []string{"data", "0", "availability"},
-			`{"data":[{"availability":"0.99991"}],"value":"0.99991"}`, false, false},
-		{"float value", `{"availability":0.99991}`, []string{"availability"},
-			`{"availability":0.99991,"value":0.99991}`, false, false},
+			`{"data":[{"availability":"0.99991"}],"result":"0.99991"}`, false, false},
+		{"float result", `{"availability":0.99991}`, []string{"availability"},
+			`{"availability":0.99991,"result":0.99991}`, false, false},
 		{
 			"index array of array",
 			`{"data":[[0,1]]}`,
 			[]string{"data", "0", "0"},
-			`{"data":[[0,1]],"value":0}`,
+			`{"data":[[0,1]],"result":0}`,
 			false,
 			false,
 		},
@@ -44,7 +44,7 @@ func TestCopy_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithData(test.value)
+			input := cltest.RunResultWithData(test.result)
 			log.Print(input)
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)

@@ -393,10 +393,10 @@ func NewBigHexInt(val interface{}) *hexutil.Big {
 	return &rval
 }
 
-// RunResultWithValue creates a runresult with given value
-func RunResultWithValue(val string) models.RunResult {
+// RunResultWithResult creates a RunResult with given result
+func RunResultWithResult(val string) models.RunResult {
 	data := models.JSON{}
-	data, err := data.Add("value", val)
+	data, err := data.Add("result", val)
 	if err != nil {
 		return RunResultWithError(err)
 	}

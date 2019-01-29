@@ -40,7 +40,7 @@ func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input.WithError(fmt.Errorf(body))
 	}
 
-	return input.WithValue(body)
+	return input.WithResult(body)
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -82,7 +82,7 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 		return input.WithError(fmt.Errorf(body))
 	}
 
-	return input.WithValue(body)
+	return input.WithResult(body)
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field

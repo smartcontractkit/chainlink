@@ -63,7 +63,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
-	input := cltest.RunResultWithValue(inputValue)
+	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
 	assert.False(t, data.HasError())
@@ -126,7 +126,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 		FunctionSelector: fHash,
 		DataFormat:       adapters.DataFormatBytes,
 	}
-	input := cltest.RunResultWithValue(inputValue)
+	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
 	assert.False(t, data.HasError())
@@ -186,7 +186,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 		FunctionSelector: fHash,
 		DataFormat:       adapters.DataFormatBytes,
 	}
-	input := cltest.RunResultWithValue(inputValue)
+	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
 	assert.False(t, data.HasError())
@@ -227,7 +227,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	sentResult := cltest.RunResultWithResult(a.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
 
 	output := adapter.Perform(input, store)
@@ -267,7 +267,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	sentResult := cltest.RunResultWithResult(a.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
 
 	output := adapter.Perform(input, store)
@@ -308,7 +308,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunResultWithValue(a3.Hash.String())
+	sentResult := cltest.RunResultWithResult(a3.Hash.String())
 	input := sentResult.MarkPendingConfirmations()
 
 	assert.False(t, tx.Confirmed)
@@ -317,7 +317,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
-	value, err := output.Result()
+	value, err := output.ResultString()
 	assert.Nil(t, err)
 	assert.Equal(t, confirmedHash.String(), value)
 
@@ -361,7 +361,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunResultWithValue(a.Hash.String())
+	sentResult := cltest.RunResultWithResult(a.Hash.String())
 
 	input := sentResult.MarkPendingConfirmations()
 	previousReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
@@ -392,7 +392,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunResultWithValue("0x9786856756")
+	input := cltest.RunResultWithResult("0x9786856756")
 	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
@@ -415,7 +415,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1"),
 	}
-	input := cltest.RunResultWithValue("0x9786856756")
+	input := cltest.RunResultWithResult("0x9786856756")
 	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
@@ -438,7 +438,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testi
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunResultWithValue("")
+	input := cltest.RunResultWithResult("")
 	input.Status = models.RunStatusPendingConfirmations
 	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
@@ -474,7 +474,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	assert.Equal(t, ethtx.DataFormat, adapters.DataFormatBytes)
 
 	input := models.RunResult{
-		Data:   cltest.JSONFromString(`{"value": "hello world"}`),
+		Data:   cltest.JSONFromString(`{"result": "hello world"}`),
 		Status: models.RunStatusInProgress,
 	}
 	result := adapter.Perform(input, store)
@@ -512,7 +512,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	}
 
 	input := models.RunResult{
-		Data:   cltest.JSONFromString(`{"value": "hello world"}`),
+		Data:   cltest.JSONFromString(`{"result": "hello world"}`),
 		Status: models.RunStatusInProgress,
 	}
 
