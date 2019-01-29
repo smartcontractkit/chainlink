@@ -224,7 +224,7 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 	assert.Equal(t, "", w.String())
 }
 
-func TestTime_UnmarshalJSON(t *testing.T) {
+func TestAnyTime_UnmarshalJSON_Valid(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -241,7 +241,7 @@ func TestTime_UnmarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var actual models.Time
+			var actual models.AnyTime
 			err := json.Unmarshal([]byte(test.input), &actual)
 			if test.errored {
 				assert.Error(t, err)
@@ -253,11 +253,49 @@ func TestTime_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestTime_DurationFromNow(t *testing.T) {
+func TestAnyTime_UnmarshalJSON_Null(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    models.AnyTime
+		errored bool
+	}{
+		{"null", `null`, models.AnyTime{}, false},
+		{"empty", `""`, models.AnyTime{}, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual models.AnyTime
+			err := json.Unmarshal([]byte(test.input), &actual)
+			if test.errored {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.want, actual)
+			}
+		})
+	}
+}
+
+func TestAnyTime_MarshalJSON(t *testing.T) {
 	t.Parallel()
-	future := models.Time{Time: time.Now().Add(time.Second)}
-	duration := future.DurationFromNow()
-	assert.True(t, 0 < duration)
+
+	tests := []struct {
+		name  string
+		input models.AnyTime
+		want  string
+	}{
+		{"valid", models.NewAnyTime(time.Unix(1529446639, 0)), `"2018-06-19T18:17:19-04:00"`},
+		{"invalid", models.AnyTime{}, `null`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			b, err := json.Marshal(&test.input)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, string(b))
+		})
+	}
 }
 
 func TestBig_UnmarshalText(t *testing.T) {

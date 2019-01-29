@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,
@@ -161,9 +162,12 @@ func (ot *OneTime) Stop() {
 // RunJobAt wait until the Stop() function has been called on the run
 // or the specified time for the run is after the present time.
 func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
+	if !initr.Time.Valid {
+		logger.Panicf("RunJobAt must have initiator with valid run at time: %v", initr)
+	}
 	select {
 	case <-ot.done:
-	case <-ot.Clock.After(initr.Time.DurationFromNow()):
+	case <-ot.Clock.After(utils.DurationFromNow(initr.Time.Time)):
 		if err := ot.Store.MarkRan(&initr, true); err != nil {
 			logger.Error(err.Error())
 			return

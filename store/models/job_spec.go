@@ -21,7 +21,7 @@ import (
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
 	ID         string      `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  Time        `json:"createdAt" gorm:"index"`
+	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks"`
 	StartAt    null.Time   `json:"startAt" gorm:"index"`
@@ -56,8 +56,7 @@ func (j *JobSpec) SetID(value string) error {
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
 	return JobSpec{
-		ID:        utils.NewBytes32ID(),
-		CreatedAt: Time{Time: time.Now()},
+		ID: utils.NewBytes32ID(),
 	}
 }
 
@@ -180,16 +179,16 @@ type Initiator struct {
 	ID        uint   `json:"id" gorm:"primary_key;auto_increment"`
 	JobSpecID string `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	// Type is one of the Initiator* string constants defined just above.
-	Type            string `json:"type" gorm:"index;not null"`
-	InitiatorParams `json:"params,omitempty"`
+	Type            string    `json:"type" gorm:"index;not null"`
 	CreatedAt       time.Time `gorm:"index"`
+	InitiatorParams `json:"params,omitempty"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
 	Schedule   Cron              `json:"schedule,omitempty"`
-	Time       Time              `json:"time,omitempty"`
+	Time       AnyTime           `json:"time,omitempty"`
 	Ran        bool              `json:"ran,omitempty"`
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`

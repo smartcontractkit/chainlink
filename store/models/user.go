@@ -10,9 +10,9 @@ import (
 
 // User holds the credentials for API user.
 type User struct {
-	Email          string `json:"email" gorm:"primary_key"`
-	HashedPassword string `json:"hashedPassword"`
-	CreatedAt      Time   `json:"createdAt" gorm:"index"`
+	Email          string    `json:"email" gorm:"primary_key"`
+	HashedPassword string    `json:"hashedPassword"`
+	CreatedAt      time.Time `json:"createdAt" gorm:"index"`
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -40,7 +40,6 @@ func NewUser(email, plainPwd string) (User, error) {
 	return User{
 		Email:          email,
 		HashedPassword: pwd,
-		CreatedAt:      Time{Time: time.Now()},
 	}, nil
 }
 
@@ -53,9 +52,9 @@ type SessionRequest struct {
 
 // Session holds the unique id for the authenticated session.
 type Session struct {
-	ID        string `json:"id" gorm:"primary_key"`
-	LastUsed  Time   `json:"lastUsed" gorm:"index"`
-	CreatedAt Time   `json:"createdAt" gorm:"index"`
+	ID        string    `json:"id" gorm:"primary_key"`
+	LastUsed  time.Time `json:"lastUsed" gorm:"index"`
+	CreatedAt time.Time `json:"createdAt" gorm:"index"`
 }
 
 // NewSession returns a session instance with ID set to a random ID and
@@ -63,7 +62,7 @@ type Session struct {
 func NewSession() Session {
 	return Session{
 		ID:       utils.NewBytes32ID(),
-		LastUsed: Time{Time: time.Now()},
+		LastUsed: time.Now(),
 	}
 }
 

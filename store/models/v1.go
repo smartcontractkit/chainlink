@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
@@ -32,13 +31,13 @@ type Subtask struct {
 // Schedule defines the frequency to run the Assignment
 // Schedule uses standard cron syntax
 type Schedule struct {
-	EndAt       Time        `json:"endAt"`
+	EndAt       AnyTime     `json:"endAt"`
 	Hour        null.String `json:"hour"`
 	Minute      null.String `json:"minute"`
 	DayOfMonth  null.String `json:"dayOfMonth"`
 	MonthOfYear null.String `json:"monthOfYear"`
 	DayOfWeek   null.String `json:"dayOfWeek"`
-	RunAt       []Time      `json:"runAt"`
+	RunAt       []AnyTime   `json:"runAt"`
 }
 
 // Snapshot captures the result of an individual subtask
@@ -90,7 +89,7 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 	tasks := []TaskSpec{}
 	for _, st := range s.Assignment.Subtasks {
 		tt, err := NewTaskType(st.Type)
-		multierr.Append(merr, err)
+		merr = multierr.Append(merr, err)
 
 		tasks = append(tasks, TaskSpec{
 			Type:   tt,
@@ -102,16 +101,15 @@ func (s AssignmentSpec) ConvertToJobSpec() (JobSpec, error) {
 		initiators = append(initiators, Initiator{
 			Type: "runAt",
 			InitiatorParams: InitiatorParams{
-				Time: r,
+				Time: NewAnyTime(r.Time),
 			},
 		})
 	}
 	initiators = appendCronInitiator(initiators, s)
 	j := JobSpec{
 		ID:         utils.NewBytes32ID(),
-		CreatedAt:  Time{Time: time.Now()},
 		Tasks:      tasks,
-		EndAt:      null.TimeFrom(s.Schedule.EndAt.Time),
+		EndAt:      null.NewTime(s.Schedule.EndAt.Time, true),
 		Initiators: initiators,
 	}
 	if j.EndAt.Time.IsZero() {
@@ -163,7 +161,7 @@ func buildAssignment(ts []TaskSpec) (Assignment, error) {
 		var err error
 		t.Params, err = removeTypeFromParams(t.Params.String())
 		if err != nil {
-			multierr.Append(merr, err)
+			merr = multierr.Append(merr, err)
 		}
 
 		st = append(st, Subtask{
@@ -189,7 +187,7 @@ func buildScheduleFromJobSpec(j JobSpec) Schedule {
 			s.RunAt = append(s.RunAt, r.Time)
 		}
 	}
-	s.EndAt.Time = j.EndAt.Time
+	s.EndAt = NewAnyTime(j.EndAt.Time)
 
 	return s
 }

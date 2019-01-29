@@ -70,6 +70,13 @@ func TestUtils_BackoffSleeper(t *testing.T) {
 	assert.Equal(t, d2, bs.Duration())
 }
 
+func TestUtils_DurationFromNow(t *testing.T) {
+	t.Parallel()
+	future := time.Now().Add(time.Second)
+	duration := utils.DurationFromNow(future)
+	assert.True(t, 0 < duration)
+}
+
 func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 	t.Parallel()
 
