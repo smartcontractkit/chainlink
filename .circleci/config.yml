@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  go:
+  go-sqlite:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.15
@@ -18,7 +18,7 @@ jobs:
             - ./vendor
       - run: ./internal/ci/init_gcloud
       - run: ./internal/ci/go_test
-  gorace:
+  go-sqlite-race:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.15
@@ -35,6 +35,30 @@ jobs:
           paths:
             - ./vendor
       - run: ./internal/ci/gorace_test
+  go-postgres:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.15
+      # CircleCI PostgreSQL images available at: https://hub.docker.com/r/circleci/postgres/
+      - image: circleci/postgres:11-alpine
+        environment:
+          POSTGRES_USER: circleci_postgres
+          POSTGRES_DB: circleci_test
+    environment:
+      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+      - run: dep ensure -vendor-only
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - ./vendor
+      - run: ./internal/ci/go_postgres_test
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -158,8 +182,9 @@ workflows:
   version: 2
   test:
     jobs:
-      - go
-      - gorace
+      - go-sqlite
+      - go-sqlite-race
+      - go-postgres
       - truffle
       - geth
       - gui
@@ -167,12 +192,13 @@ workflows:
       - sgx
       - reportcoverage:
           requires:
-            - go
+            - go-sqlite
             - gui
       - deploy:
           requires:
-            - go
-            - gorace
+            - go-sqlite
+            - go-sqlite-race
+            - go-postgres
             - truffle
             - geth
             - gui
