@@ -20,7 +20,7 @@ import (
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string      `json:"id" gorm:"primary_key;not null"`
+	ID         string      `json:"id,omitempty" gorm:"primary_key;not null"`
 	CreatedAt  Time        `json:"createdAt" gorm:"index"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks"`
