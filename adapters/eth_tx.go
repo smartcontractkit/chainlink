@@ -3,7 +3,6 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -26,7 +25,7 @@ type EthTx struct {
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
 	DataFormat       string                  `json:"format"`
-	GasPrice         *big.Int                `json:"gasPrice" gorm:"type:varchar(255)"`
+	GasPrice         *models.Big             `json:"gasPrice" gorm:"type:varchar(255)"`
 	GasLimit         uint64                  `json:"gasLimit"`
 }
 
@@ -78,7 +77,7 @@ func createTxRunResult(
 		return input.WithError(err)
 	}
 
-	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice, e.GasLimit)
+	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
 	if err != nil {
 		return input.WithError(err)
 	}
