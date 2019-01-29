@@ -43,7 +43,7 @@ type ConfigSchema struct {
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`
 	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseURI              string         `env:"DATABASE_URI"`
+	DatabaseURL              string         `env:"DATABASE_URL"`
 	Dev                      bool           `env:"CHAINLINK_DEV" default:"false"`
 	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration   time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
@@ -141,11 +141,11 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(c.envVarName("ClientNodeURL"))
 }
 
-// DatabaseURI configures the URI for chainlink to connect to. This can be
-// either a local file that gets reference from the Chainlink's root directory,
-// or a URL: postgres://1.2.3.4:5432/dbname
-func (c Config) DatabaseURI() string {
-	return c.viper.GetString(c.envVarName("DatabaseURI"))
+// DatabaseURL configures the URL for chainlink to connect to. This must be
+// a properly formatted URL, with a valid scheme (postgres://, file://), or
+// an empty string, so the application defaults to .chainlink/db.sqlite.
+func (c Config) DatabaseURL() string {
+	return c.viper.GetString(c.envVarName("DatabaseURL"))
 }
 
 // Dev configures "development" mode for chainlink.
@@ -387,10 +387,10 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 }
 
 func (c Config) NormalizedDatabaseURL() string {
-	if c.DatabaseURI() == "" {
+	if c.DatabaseURL() == "" {
 		return "file://" + filepath.Join(c.RootDir(), "db.sqlite3")
 	}
-	return c.DatabaseURI()
+	return c.DatabaseURL()
 }
 
 // SecretGenerator is the interface for objects that generate a secret
