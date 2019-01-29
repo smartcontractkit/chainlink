@@ -130,7 +130,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
 	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
-	j1.CreatedAt = models.Time{Time: time.Now().AddDate(0, 0, -1)}
+	j1.CreatedAt = time.Now().AddDate(0, 0, -1)
 	err := app.Store.CreateJob(&j1)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorWeb, initr.Type)
-	assert.NotEqual(t, models.Time{}, j.CreatedAt)
+	assert.NotEqual(t, models.AnyTime{}, j.CreatedAt)
 
 	// Check ORM
 	orm := app.GetStore().ORM

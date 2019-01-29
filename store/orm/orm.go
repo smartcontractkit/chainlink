@@ -382,10 +382,10 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 		return models.User{}, err
 	}
 	now := time.Now()
-	if session.LastUsed.Time.Add(sessionDuration).Before(now) {
+	if session.LastUsed.Add(sessionDuration).Before(now) {
 		return models.User{}, errors.New("Session has expired")
 	}
-	session.LastUsed = models.Time{Time: now}
+	session.LastUsed = now
 	if err := orm.DB.Save(&session).Error; err != nil {
 		return models.User{}, err
 	}

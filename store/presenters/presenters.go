@@ -270,7 +270,7 @@ func (job JobSpec) MarshalJSON() ([]byte, error) {
 // FriendlyCreatedAt returns a human-readable string of the Job's
 // CreatedAt field.
 func (job JobSpec) FriendlyCreatedAt() string {
-	return job.CreatedAt.HumanString()
+	return utils.ISO8601UTC(job.CreatedAt)
 }
 
 // FriendlyStartAt returns a human-readable string of the Job's
@@ -341,9 +341,9 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Schedule}, nil
 	case models.InitiatorRunAt:
 		return struct {
-			Time models.Time `json:"time"`
-			Ran  bool        `json:"ran"`
-		}{i.Time, i.Ran}, nil
+			Time models.AnyTime `json:"time"`
+			Ran  bool           `json:"ran"`
+		}{models.NewAnyTime(i.Time.Time), i.Ran}, nil
 	case models.InitiatorEthLog:
 		fallthrough
 	case models.InitiatorRunLog:
@@ -358,7 +358,7 @@ func initiatorParams(i Initiator) (interface{}, error) {
 // FriendlyRunAt returns a human-readable string for Cron Initiator types.
 func (i Initiator) FriendlyRunAt() string {
 	if i.Type == models.InitiatorRunAt {
-		return i.Time.HumanString()
+		return utils.ISO8601UTC(i.Time.Time)
 	}
 	return ""
 }
@@ -427,7 +427,7 @@ func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
 // FriendlyCreatedAt returns the ServiceAgreement's created at time in a human
 // readable format.
 func (sa ServiceAgreement) FriendlyCreatedAt() string {
-	return sa.CreatedAt.HumanString()
+	return utils.ISO8601UTC(sa.CreatedAt)
 }
 
 // FriendlyExpiration returns the ServiceAgreement's Encumbrance expiration time
@@ -465,7 +465,7 @@ func (u UserPresenter) MarshalJSON() ([]byte, error) {
 		CreatedAt string `json:"createdAt"`
 	}{
 		Email:     u.User.Email,
-		CreatedAt: u.User.CreatedAt.ISO8601(),
+		CreatedAt: utils.ISO8601UTC(u.User.CreatedAt),
 	})
 }
 
