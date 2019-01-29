@@ -16,14 +16,14 @@ pub type MultiplyResult = Result<serde_json::Value, MultiplyError>;
 
 pub fn perform(adapter: &serde_json::Value, input: &RunResult) -> MultiplyResult {
     let multiplier_str = get_value(&adapter, "times")?;
-    let multiplicand_str = get_value(&input.data, "value")?;
+    let multiplicand_str = get_value(&input.data, "result")?;
 
     let multiplicand = BigDecimal::from_str(&multiplicand_str)?;
     let multiplier = BigDecimal::from_str(&multiplier_str)?;
 
     let result = multiplicand * multiplier;
 
-    Ok(json!({"value": format_decimal(&result)}))
+    Ok(json!({"result": format_decimal(&result)}))
 }
 
 // format_decimal returns the result without any trailing 0s
