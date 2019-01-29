@@ -24,7 +24,7 @@ assert "RunLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
 # Check that the run completed
 assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
 
-txid=$(chainlink -j s $jid | jq '.runs[].result.data.value' | sed 's/"//g')
+txid=$(chainlink -j s $jid | jq '.runs[].result.data.result' | sed 's/"//g')
 echo "Test created TX: $txid"
 
 tx_receiver=$(chainlink -j s $jid | jq '.runs[].result.data.address' | sed 's/"//g')
