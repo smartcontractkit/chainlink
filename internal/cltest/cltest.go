@@ -37,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -626,11 +627,18 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 	return CreateJobSpecViaWeb(t, app, job)
 }
 
-// CreateMockAssignmentViaWeb creates a JobSpec with the given MockServer Url
+// CreateMockAssignmentViaWeb creates a JobSpec with the v1 format
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	j := FixtureCreateJobWithAssignmentViaWeb(t, app, "../internal/fixtures/web/v1_format_job.json")
-	j.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
-	return j
+	ejson := EasyJSONFromFixture("../internal/fixtures/web/v1_format_job.json")
+	json, err := sjson.Set(ejson.String(), "assignment.subtasks.0.adapterParams.get", url)
+	require.NoError(t, err)
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v1/assignments", bytes.NewBufferString(json))
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+
+	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
 // UpdateJobRunViaWeb updates jobrun via web using /v2/runs/ID
