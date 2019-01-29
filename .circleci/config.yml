@@ -58,7 +58,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/go_postgres_test
+      - run: ./internal/ci/go_single_threaded_test
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
