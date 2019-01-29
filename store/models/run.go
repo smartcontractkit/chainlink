@@ -134,7 +134,7 @@ type TaskRun struct {
 	ResultID             uint      `json:"-"`
 	Status               RunStatus `json:"status"`
 	TaskSpec             TaskSpec  `json:"task"`
-	TaskSpecID           uint      `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES task_specs(id)"`
+	TaskSpecID           uint      `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
 	MinimumConfirmations uint64    `json:"minimumConfirmations"`
 	CreatedAt            time.Time `json:"-" gorm:"index"`
 }
