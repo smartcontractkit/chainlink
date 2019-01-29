@@ -252,13 +252,13 @@ func (rr RunResult) Get(path string) gjson.Result {
 	return rr.Data.Get(path)
 }
 
-func (rr RunResult) value() gjson.Result {
-	return rr.Get("value")
+func (rr RunResult) result() gjson.Result {
+	return rr.Get("result")
 }
 
 // Result returns the string value of the Data JSON field.
 func (rr RunResult) Result() (string, error) {
-	val := rr.value()
+	val := rr.result()
 	if val.Type != gjson.String {
 		return "", fmt.Errorf("non string value")
 	}
