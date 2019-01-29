@@ -507,7 +507,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
-		GasPrice:         gasPrice,
+		GasPrice:         models.NewBig(gasPrice),
 		GasLimit:         gasLimit,
 	}
 
