@@ -2,15 +2,14 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
-import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
-import PaddedCard from 'components/PaddedCard'
 import JobRunsList from 'components/JobRuns/List'
 import Link from 'components/Link'
+import KeyValueList from 'components/KeyValueList'
 import Content from 'components/Content'
 import RegionalNav from 'components/Jobs/RegionalNav'
-import TimeAgo from 'components/TimeAgo'
+import CardTitle from 'components/Cards/Title'
 import { fetchJob } from 'actions'
 import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
@@ -31,53 +30,18 @@ const styles = theme => ({
 })
 
 const renderJobSpec = ({ job }) => {
-  return (
-    <Grid container spacing={0}>
-      <Grid item xs={4}>
-        <PaddedCard>
-          <Grid container spacing={0}>
-            <Grid item xs={12}>
-              <Typography variant='subtitle1' color='textSecondary'>ID</Typography>
-              <Typography variant='body1' color='inherit'>
-                {job.id}
-              </Typography>
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant='subtitle1' color='textSecondary'>Created</Typography>
-              <Typography variant='body1' color='inherit'>
-                <TimeAgo>{job.createdAt}</TimeAgo>
-              </Typography>
-            </Grid>
-            <Grid item xs={12}>
-              <Grid container spacing={0}>
-                <Grid item xs={6}>
-                  <Typography variant='subtitle1' color='textSecondary'>Initiator</Typography>
-                  <Typography variant='body1' color='inherit'>
-                    {formatInitiators(job.initiators)}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant='subtitle1' color='textSecondary'>Run Count</Typography>
-                  <Typography variant='body1' color='inherit'>
-                    {job.runs && job.runs.length}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
-        </PaddedCard>
-      </Grid>
-    </Grid>
-  )
+  const info = {
+    runCount: job.runs && job.runs.length,
+    initiator: formatInitiators(job.initiators)
+  }
+
+  return <KeyValueList entries={Object.entries(info)} titleize />
 }
 
 const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => (
   <React.Fragment>
-    <Typography variant='h5' className={classes.lastRun}>
-      Last Run
-    </Typography>
-
     <Card>
+      <CardTitle divider>Recent Job Runs</CardTitle>
       <JobRunsList jobSpecId={job.id} runs={latestJobRuns} />
     </Card>
     {job.runs && job.runs.length > showJobRunsCount && (
@@ -91,10 +55,14 @@ const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => 
 const renderDetails = props => {
   if (props.job) {
     return (
-      <React.Fragment>
-        {renderJobSpec(props)}
-        {renderLatestRuns(props)}
-      </React.Fragment>
+      <Grid container spacing={24}>
+        <Grid item xs={8}>
+          {renderLatestRuns(props)}
+        </Grid>
+        <Grid item xs={4}>
+          {renderJobSpec(props)}
+        </Grid>
+      </Grid>
     )
   }
 

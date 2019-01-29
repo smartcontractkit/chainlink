@@ -12,6 +12,7 @@ import Link from 'components/Link'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import CopyJobSpec from 'components/CopyJobSpec'
 import ErrorMessage from 'components/Notifications/DefaultError'
+import TimeAgo from 'components/TimeAgo'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJob, createJobRun } from 'actions'
@@ -65,14 +66,14 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
     <Card className={classes.container}>
       <Grid container spacing={0}>
         <Grid item xs={12}>
-          <Typography variant='h3' color='secondary'>
+          <Typography variant='subtitle2' color='secondary' gutterBottom>
             Job Spec Detail
           </Typography>
         </Grid>
         <Grid item xs={12}>
           <Grid container spacing={0} alignItems='center'>
             <Grid item xs={7}>
-              <Typography variant='subtitle1' color='textSecondary'>
+              <Typography variant='h3' color='secondary' gutterBottom>
                 @{jobSpecId}
               </Typography>
             </Grid>
@@ -97,6 +98,11 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
               }
             </Grid>
           </Grid>
+        </Grid>
+        <Grid item xs={12}>
+          <Typography variant='subtitle2' color='textSecondary'>
+            {job && <React.Fragment>Created <TimeAgo>{job.createdAt}</TimeAgo></React.Fragment>}
+          </Typography>
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
