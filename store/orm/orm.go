@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"regexp"
+	"net/url"
 	"strings"
 	"time"
 
@@ -51,21 +51,21 @@ func initializeDatabase(path string) (*gorm.DB, error) {
 	return db, nil
 }
 
-var validPostgresString = regexp.MustCompile("^(?:[A-Za-z]+=.* ?)+")
-var validSqlitePath = regexp.MustCompile("^(.+)/([^/]+)$")
-var validSqliteFilename = regexp.MustCompile(`^[\w\-. ]+$`)
-
 // DeduceDialect returns the appropriate dialect for the passed connection string.
 func DeduceDialect(path string) (string, error) {
-	lower := strings.ToLower(path)
-	if strings.HasPrefix(lower, "postgres://") || strings.HasPrefix(lower, "postgresql://") {
+	url, err := url.Parse(path)
+	if err != nil {
+		return "", err
+	}
+	scheme := strings.ToLower(url.Scheme)
+	switch scheme {
+	case "postgresql", "postgres":
 		return "postgres", nil
-	} else if validPostgresString.MatchString(path) {
-		return "postgres", nil
-	} else if validSqlitePath.MatchString(path) || validSqliteFilename.MatchString(path) {
+	case "file", "sqlite3", "sqlite":
 		return "sqlite3", nil
 	}
-	return "", fmt.Errorf("Unable to deduce sql dialect from path %s, please try a URI", path)
+
+	return "", fmt.Errorf("Unable to deduce sql dialect from path %s, please try a proper URL", path)
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {

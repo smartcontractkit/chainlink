@@ -526,12 +526,14 @@ func TestORM_DeduceDialect(t *testing.T) {
 		wantError                bool
 	}{
 		{"garbage", "89324*$*#@(=", "", true},
-		{"sqlite file", "db.sqlite", "sqlite3", false},
-		{"random file path", "store/db/here", "sqlite3", false},
-		{"file uri", "file://host/path", "sqlite3", false},
-		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
-		{"postgresql uri", "postgresql://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
-		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "postgres", false},
+		{"relative file", "db.sqlite", "", true},
+		{"relative dir path", "store/db/here", "", true},
+		{"file url", "file://host/path", "sqlite3", false},
+		{"sqlite url", "sqlite:///path/to/sqlite.db", "sqlite3", false},
+		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "sqlite3", false},
+		{"postgres url", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
+		{"postgresql url", "postgresql://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
+		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "", true},
 	}
 
 	for _, test := range tests {
