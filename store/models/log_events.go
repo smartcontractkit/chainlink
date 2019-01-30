@@ -377,15 +377,6 @@ func bytesToHex(data []byte) string {
 	return utils.AddHexPrefix(hex.EncodeToString(data))
 }
 
-func decodeABIToJSON(data []byte) (JSON, error) {
-	idSize := common.HashLength
-	versionSize := common.HashLength
-	varLocationSize := common.HashLength
-	varLengthSize := common.HashLength
-	start := idSize + versionSize + varLocationSize + varLengthSize
-	return ParseCBOR(data[start:])
-}
-
 func jobIDFromHexEncodedTopic(log Log) string {
 	return string(log.Topics[RequestLogTopicJobID].Bytes())
 }
