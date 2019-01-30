@@ -62,7 +62,7 @@ contract('Coordinator', () => {
   describe('#initiateServiceAgreement', () => {
     let agreement
     before(async () => {
-      agreement = await h.newServiceAgreement({oracles: [h.oracleNode]})
+      agreement = await h.newServiceAgreement({ oracles: [h.oracleNode] })
     })
 
     context('with valid oracle signatures', () => {
@@ -94,7 +94,7 @@ contract('Coordinator', () => {
 
       it('saves no service agreement struct, if signatures invalid', async () => {
         await h.assertActionThrows(
-          async () => await h.initiateServiceAgreement(coordinator,
+          async () => h.initiateServiceAgreement(coordinator,
             Object.assign(agreement, { oracleSignature: badOracleSignature })))
         await h.checkServiceAgreementAbsent(coordinator, agreement.id)
       })
@@ -103,7 +103,7 @@ contract('Coordinator', () => {
     context('Validation of service agreement deadlines', () => {
       it('Rejects a service agreement with an endAt date in the past', async () => {
         await h.assertActionThrows(
-          async () => await h.initiateServiceAgreement(
+          async () => h.initiateServiceAgreement(
             coordinator,
             Object.assign(agreement, { endAt: 1 })))
         await h.checkServiceAgreementAbsent(coordinator, agreement.id)
@@ -116,7 +116,7 @@ contract('Coordinator', () => {
     const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
     let agreement
     before(async () => {
-      agreement = await h.newServiceAgreement({oracles: [h.oracleNode]})
+      agreement = await h.newServiceAgreement({ oracles: [h.oracleNode] })
     })
 
     beforeEach(async () => {
@@ -125,7 +125,7 @@ contract('Coordinator', () => {
     })
 
     context('when called through the LINK token with enough payment', () => {
-      let payload, tx
+      let tx
       beforeEach(async () => {
         const payload = h.executeServiceAgreementBytes(
           agreement.id, to, fHash, '1', '')
@@ -146,9 +146,9 @@ contract('Coordinator', () => {
 
         assert.equal(agreement.id, log.topics[1])
         assertBigNum(h.consumer, log.topics[2],
-                     "Logged consumer address doesn't match")
+          "Logged consumer address doesn't match")
         assertBigNum(agreement.payment, log.topics[3],
-                     "Logged payment amount doesn't match")
+          "Logged payment amount doesn't match")
       })
     })
 
@@ -176,7 +176,7 @@ contract('Coordinator', () => {
   describe('#fulfillOracleRequest', () => {
     let agreement, mock, request
     beforeEach(async () => {
-      agreement = await h.newServiceAgreement({oracles: [h.oracleNode]})
+      agreement = await h.newServiceAgreement({ oracles: [h.oracleNode] })
       const tx = await h.initiateServiceAgreement(coordinator, agreement)
       assert.equal(tx.logs[0].args.said, agreement.id)
     })
@@ -256,10 +256,10 @@ contract('Coordinator', () => {
           const req = await mock.maliciousPrice(agreement.id)
           const amountRefunded = req.receipt.logs[3].topics[3]
           assertBigNum(paymentAmount, amountRefunded, [
-            "Malicious data request tricked oracle into refunding more than",
-            "the requester paid, by claiming a larger amount",
+            'Malicious data request tricked oracle into refunding more than',
+            'the requester paid, by claiming a larger amount',
             `(${amountRefunded}) than the requester paid (${paymentAmount})`
-          ].join(" "))
+          ].join(' '))
         })
       })
     })
