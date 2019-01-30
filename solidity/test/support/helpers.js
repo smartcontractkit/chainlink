@@ -75,13 +75,11 @@ export const linkContract = async () => {
 }
 
 export const bigNum = number => web3.utils.toBN(number)
-assertBigNum(bigNum('1'), bigNum(1),
-  'Different representations should give same BNs')
+assertBigNum(bigNum('1'), bigNum(1), 'Different representations should give same BNs')
 
 // toWei(n) is n * 10**18, as a BN.
 export const toWei = number => bigNum(web3.utils.toWei(bigNum(number)))
-assertBigNum(toWei('1'), toWei(1),
-  'Different representations should give same BNs')
+assertBigNum(toWei('1'), toWei(1), 'Different representations should give same BNs')
 
 export const toUtf8 = web3.utils.toUtf8
 
