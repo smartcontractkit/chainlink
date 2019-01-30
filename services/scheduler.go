@@ -163,7 +163,8 @@ func (ot *OneTime) Stop() {
 // or the specified time for the run is after the present time.
 func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	if !initr.Time.Valid {
-		logger.Panicf("RunJobAt must have initiator with valid run at time: %v", initr)
+		logger.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID, initr)
+		return
 	}
 	select {
 	case <-ot.done:
