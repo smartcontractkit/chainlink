@@ -266,35 +266,6 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-type EasyJSON struct {
-	models.JSON
-}
-
-func (ejs EasyJSON) Add(key string, val interface{}) EasyJSON {
-	ejs = ejs.Delete(key)
-
-	var err error
-	ejs.JSON, err = ejs.JSON.Add(key, val)
-	mustNotErr(err)
-
-	return ejs
-}
-
-func (ejs EasyJSON) Delete(key string) EasyJSON {
-	var err error
-	ejs.JSON, err = ejs.JSON.Delete(key)
-	mustNotErr(err)
-	return ejs
-}
-
-func EasyJSONFromFixture(t *testing.T, path string) EasyJSON {
-	return EasyJSON{JSON: JSONFromFixture(t, path)}
-}
-
-func EasyJSONFromString(t *testing.T, body string, args ...interface{}) EasyJSON {
-	return EasyJSON{JSON: JSONFromString(t, body, args...)}
-}
-
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
