@@ -30,7 +30,7 @@ func TestEthBool_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			past := models.RunResult{
-				Data: cltest.JSONFromString(test.json),
+				Data: cltest.JSONFromString(t, test.json),
 			}
 			adapter := adapters.EthBool{}
 			result := adapter.Perform(past, nil)

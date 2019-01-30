@@ -21,7 +21,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	token := ""
 	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`,
 		func(h http.Header, b string) {
-			body := cltest.JSONFromString(string(b))
+			body := cltest.JSONFromString(t, b)
 			data = body.Get("data").String()
 			token = h.Get("Authorization")
 		},
@@ -29,11 +29,11 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	defer cleanup()
 
 	bt := cltest.NewBridgeType("auctionBidding", mock.URL)
-	params := cltest.JSONFromString(`{"bodyParam": true}`)
+	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
 	input := models.RunResult{
-		Data:   cltest.JSONFromString(`{"result":"100"}`),
+		Data:   cltest.JSONFromString(t, `{"result":"100"}`),
 		Status: models.RunStatusUnstarted,
 	}
 	ba.Perform(input, store)
@@ -67,7 +67,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			ba := &adapters.Bridge{BridgeType: bt}
 
 			input := models.RunResult{
-				Data:   cltest.JSONFromString(`{"result":"100"}`),
+				Data:   cltest.JSONFromString(t, `{"result":"100"}`),
 				Status: test.status,
 			}
 
