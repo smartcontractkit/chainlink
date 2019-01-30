@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -343,7 +342,7 @@ func NewStore() (*strpkg.Store, func()) {
 func cleanUpStore(store *strpkg.Store) {
 	defer func() {
 		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
-			log.Println(err)
+			logger.Warn("unable to clear test store:", err)
 		}
 	}()
 	logger.Sync()
