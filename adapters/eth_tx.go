@@ -25,7 +25,7 @@ type EthTx struct {
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
 	DataFormat       string                  `json:"format"`
-	GasPrice         *models.Big             `json:"gasPrice" gorm:"type:varchar(255)"`
+	GasPrice         *models.Big             `json:"gasPrice" gorm:"type:numeric"`
 	GasLimit         uint64                  `json:"gasLimit"`
 }
 
