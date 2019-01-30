@@ -4,10 +4,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/web"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,12 +50,12 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, 200)
 
-			var links jsonapi.Links
-			var tx models.Tx
-			err := web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &tx, &links)
-			require.NoError(t, err)
+			ptx := presenters.Tx{}
+			require.NoError(t, cltest.ParseJSONAPIResponse(resp, &ptx))
 
-			assert.Equal(t, test.want, tx)
+			test.want.ID = 0
+			test.want.TxID = 0
+			assert.Equal(t, &test.want, ptx.Tx)
 		})
 	}
 }
