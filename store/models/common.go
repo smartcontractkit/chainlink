@@ -497,7 +497,7 @@ func (b *Big) Scan(value interface{}) error {
 	if !ok {
 		return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
 	}
-	*b = Big(*decoded)
+	*b = *decoded
 	return nil
 }
 
