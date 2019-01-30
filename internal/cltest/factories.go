@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -248,6 +249,21 @@ func JSONFromBytes(t *testing.T, body []byte) models.JSON {
 	j, err := models.ParseJSON(body)
 	require.NoError(t, err)
 	return j
+}
+
+// MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
+// See https://github.com/tidwall/sjson
+func MustJSONSet(t *testing.T, json, path, value string) string {
+	json, err := sjson.Set(json, path, value)
+	require.NoError(t, err)
+	return json
+}
+
+// MustJSONDel uses sjson.Delete to remove a path from a JSON string and returns the string
+func MustJSONDel(t *testing.T, json, path string) string {
+	json, err := sjson.Delete(json, path)
+	require.NoError(t, err)
+	return json
 }
 
 type EasyJSON struct {
