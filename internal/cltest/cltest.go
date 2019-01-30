@@ -395,10 +395,10 @@ func ParseJSONAPIErrors(body io.Reader) *models.JSONAPIErrors {
 	return &respJSON
 }
 
-// LoadJSON loads json from file and returns a byte slice
-func LoadJSON(file string) []byte {
+// MustReadFile loads a file but should never fail
+func MustReadFile(t *testing.T, file string) []byte {
 	content, err := ioutil.ReadFile(file)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return content
 }
 
@@ -511,7 +511,7 @@ func ReadLogs(app *TestApplication) (string, error) {
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(LoadJSON(path)))
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(MustReadFile(t, path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 
@@ -547,7 +547,7 @@ func FindServiceAgreement(s *store.Store, id string) models.ServiceAgreement {
 // FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
 func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v1/assignments", bytes.NewBuffer(LoadJSON(path)))
+	resp, cleanup := client.Post("/v1/assignments", bytes.NewBuffer(MustReadFile(t, path)))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
@@ -561,7 +561,7 @@ func FixtureCreateServiceAgreementViaWeb(
 ) models.ServiceAgreement {
 	client := app.NewHTTPClient()
 
-	agreementWithoutOracle := EasyJSONFromFixture(path)
+	agreementWithoutOracle := EasyJSONFromFixture(t, path)
 	from := GetAccountAddress(app.ChainlinkApplication.GetStore())
 	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{from.Hex()})
 
@@ -623,13 +623,13 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 	err = json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 
-	job.Tasks[0].Params = JSONFromString(fmt.Sprintf(`{"url":"%v"}`, url))
+	job.Tasks[0].Params = JSONFromString(t, `{"url":"%v"}`, url)
 	return CreateJobSpecViaWeb(t, app, job)
 }
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the v1 format
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	ejson := EasyJSONFromFixture("../internal/fixtures/web/v1_format_job.json")
+	ejson := EasyJSONFromFixture(t, "../internal/fixtures/web/v1_format_job.json")
 	json, err := sjson.Set(ejson.String(), "assignment.subtasks.0.adapterParams.get", url)
 	require.NoError(t, err)
 

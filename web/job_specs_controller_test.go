@@ -161,7 +161,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.LoadJSON("../internal/fixtures/web/hello_world_job.json")))
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_job.json")))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -231,7 +231,7 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/nonexistent_task_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/nonexistent_task_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -247,7 +247,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/run_at_wo_time_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/run_at_wo_time_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -263,7 +263,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/invalid_cron.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/invalid_cron.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -279,7 +279,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/initiator_only_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/initiator_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -295,7 +295,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.LoadJSON("../internal/fixtures/web/task_only_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/task_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 

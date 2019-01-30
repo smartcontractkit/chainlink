@@ -474,7 +474,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	assert.Equal(t, ethtx.DataFormat, adapters.DataFormatBytes)
 
 	input := models.RunResult{
-		Data:   cltest.JSONFromString(`{"result": "hello world"}`),
+		Data:   cltest.JSONFromString(t, `{"result": "hello world"}`),
 		Status: models.RunStatusInProgress,
 	}
 	result := adapter.Perform(input, store)
@@ -512,7 +512,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	}
 
 	input := models.RunResult{
-		Data:   cltest.JSONFromString(`{"result": "hello world"}`),
+		Data:   cltest.JSONFromString(t, `{"result": "hello world"}`),
 		Status: models.RunStatusInProgress,
 	}
 
