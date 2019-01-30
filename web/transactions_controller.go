@@ -8,6 +8,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"github.com/smartcontractkit/chainlink/store/presenters"
 )
 
 // TransactionsController displays Ethereum transactions requests.
@@ -24,7 +25,7 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		c.AbortWithError(404, errors.New("Transaction not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
-	} else if doc, err := jsonapi.Marshal(tx); err != nil {
+	} else if doc, err := jsonapi.Marshal(presenters.Tx{Tx: tx}); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.Data(200, MediaType, doc)
