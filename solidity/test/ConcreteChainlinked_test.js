@@ -91,7 +91,7 @@ contract('ConcreteChainlinked', () => {
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
-      const tx = await cc.publicCancelRequest(requestId, 0, 0, 0)
+      await cc.publicCancelRequest(requestId, 0, 0, 0)
 
       const events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -147,7 +147,7 @@ contract('ConcreteChainlinked', () => {
 
   describe('#chainlinkToken', () => {
     it('returns the Link Token address', async () => {
-      const addr = await cc.publicChainlinkToken.call();
+      const addr = await cc.publicChainlinkToken.call()
       assert.equal(addr, link.address)
     })
   })
