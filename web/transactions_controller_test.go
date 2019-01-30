@@ -77,7 +77,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
 
-	resp, cleanup := client.Get("/v2/txattempts/" + (tx.Hash.String() + "1"))
+	resp, cleanup := client.Get("/v2/transactions/" + (tx.Hash.String() + "1"))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 404)
 }
