@@ -12,7 +12,7 @@ import (
 func TestNormalizedJSON(t *testing.T) {
 	t.Parallel()
 
-	base := cltest.EasyJSONFromString(`{"a": "!", "A": "1"}`)
+	base := cltest.EasyJSONFromString(t, `{"a": "!", "A": "1"}`)
 
 	tests := []struct {
 		name      string

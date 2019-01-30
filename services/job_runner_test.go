@@ -24,7 +24,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	i := models.Initiator{Type: models.InitiatorWeb}
 	j.Initiators = []models.Initiator{i}
 	json := fmt.Sprintf(`{"until":"%v"}`, utils.ISO8601UTC(time.Now().Add(time.Second)))
-	j.Tasks = []models.TaskSpec{cltest.NewTask("sleep", json)}
+	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "sleep", json)}
 	assert.NoError(t, store.CreateJob(&j))
 
 	sleepingRun := j.NewRun(i)
@@ -110,7 +110,7 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 	assert.NoError(t, rm.Start())
 
 	j := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{cltest.NewTask("nooppend")}
+	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "nooppend")}
 	assert.NoError(t, s.CreateJob(&j))
 	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
