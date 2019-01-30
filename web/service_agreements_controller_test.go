@@ -22,15 +22,15 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	client := app.NewHTTPClient()
-	base := cltest.EasyJSONFromFixture(t, "../internal/fixtures/web/hello_world_agreement.json")
+	base := string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 
 	tests := []struct {
 		name     string
 		input    string
 		wantCode int
 	}{
-		{"success", base.String(), 200},
-		{"fails validation", base.Delete("payment").String(), 422},
+		{"success", base, 200},
+		{"fails validation", cltest.MustJSONDel(t, base, "payment"), 422},
 		{"invalid JSON", "{", 422},
 	}
 
