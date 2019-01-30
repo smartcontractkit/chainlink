@@ -439,7 +439,7 @@ func (sa ServiceAgreement) FriendlyExpiration() string {
 // FriendlyPayment returns the ServiceAgreement's Encumbrance payment amount in
 // a human readable format.
 func (sa ServiceAgreement) FriendlyPayment() string {
-	return fmt.Sprintf("%v LINK", (*assets.Link)(sa.Encumbrance.Payment).String())
+	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.String())
 }
 
 // UserPresenter wraps the user record for shipping as a jsonapi response in

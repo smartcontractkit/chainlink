@@ -252,9 +252,9 @@ func (ta *TestApplication) StartAndConnect() error {
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
-	// TODO: Here we double close, and it's preventing cleanup proper
-	// cleanup because the db is closed at `cleanUpStore`
-	// Stop gap is to reopen db.
+	// TODO: Here we double close, which is less than ideal.
+	// We would prefer to invoke a method on an interface that
+	// cleans up only in test.
 	err := ta.ChainlinkApplication.Stop()
 	mustNotErr(err)
 	cleanUpStore(ta.Store)
@@ -359,8 +359,7 @@ func WipePostgresDatabase(c strpkg.Config) {
 		}
 		defer orm.Close()
 
-		tx := orm.DB.Begin()
-		logger.WarnIf(tx.Exec(`
+		logger.WarnIf(orm.DB.Exec(`
 DO $$ DECLARE
     r RECORD;
 BEGIN
@@ -369,7 +368,6 @@ BEGIN
     END LOOP;
 END $$;
 		`).Error)
-		logger.WarnIf(tx.Commit().Error)
 	}
 }
 
