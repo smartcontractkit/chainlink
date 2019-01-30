@@ -97,7 +97,7 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var header models.BlockHeader
 
-			data := cltest.LoadJSON(test.path)
+			data := cltest.MustReadFile(t, test.path)
 			value := gjson.Get(string(data), "params.result")
 			assert.NoError(t, json.Unmarshal([]byte(value.String()), &header))
 

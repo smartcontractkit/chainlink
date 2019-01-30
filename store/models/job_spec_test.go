@@ -32,7 +32,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
 	initr := job.Initiators[0]
-	job.Tasks = []models.TaskSpec{cltest.NewTask("NoOp", `{"a":1}`)}
+	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp", `{"a":1}`)}
 
 	run := job.NewRun(initr)
 

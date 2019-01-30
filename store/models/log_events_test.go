@@ -26,9 +26,9 @@ func TestParseRunLog(t *testing.T) {
 	}{
 		{
 			name:        "hello world",
-			log:         cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
 			wantErrored: false,
-			wantData: cltest.JSONFromString(`{
+			wantData: cltest.JSONFromString(t, `{
 				"url":"https://etherprice.com/api",
 				"path":["recent","usd"],
 				"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
@@ -37,9 +37,9 @@ func TestParseRunLog(t *testing.T) {
 		},
 		{
 			name:        "on-chain commitment",
-			log:         cltest.LogFromFixture("../../internal/fixtures/eth/request_log20190123.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
 			wantErrored: false,
-			wantData: cltest.JSONFromString(`{
+			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
 				"path":["usd"],
 				"address":"0xf25186b5081ff5ce73482ad761db0eb0d25abfbf",
@@ -48,9 +48,9 @@ func TestParseRunLog(t *testing.T) {
 		},
 		{
 			name:        "on-chain commitment",
-			log:         cltest.LogFromFixture("../../internal/fixtures/eth/request_log20190128.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190128.json"),
 			wantErrored: false,
-			wantData: cltest.JSONFromString(`{
+			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
 				"path":["usd"],
 				"address":"0xf25186b5081ff5ce73482ad761db0eb0d25abfbf",
@@ -72,16 +72,16 @@ func TestParseRunLog(t *testing.T) {
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	hwLog := cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json")
-	exampleLog := cltest.LogFromFixture("../../internal/fixtures/eth/subscription_logs.json")
+	hwLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json")
+	exampleLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
 		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{"example", exampleLog, false, cltest.JSONResultFromFixture("../../internal/fixtures/eth/subscription_logs.json")},
-		{"hello world", hwLog, false, cltest.JSONResultFromFixture("../../internal/fixtures/eth/subscription_logs_hello_world.json")},
+		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/subscription_logs.json")},
+		{"hello world", hwLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json")},
 	}
 
 	for _, test := range tests {
@@ -100,7 +100,7 @@ func TestRequestLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		logFactory (func(string, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, string, common.Address, common.Address, int, string) models.Log)
 		input      common.Hash
 		want       common.Address
 	}{
@@ -120,7 +120,7 @@ func TestRequestLogEvent_Requester(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rl := cltest.NewRunLog("id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
+			rl := cltest.NewRunLog(t, "id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
 			rl.Topics[models.RequestLogTopicRequester] = test.input
 			le := models.RunLogEvent{models.InitiatorLogEvent{Log: rl}}
 
@@ -159,6 +159,7 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Any log factory works since we overwrite topics.
 			log := cltest.NewRunLog(
+				t,
 				job.ID, cltest.NewAddress(),
 				test.requesterAddress, 1, "{}")
 
@@ -192,7 +193,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(string, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, string, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -246,7 +247,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, app.Store.CreateJob(&js))
 
-			logs <- test.logFactory(js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+			logs <- test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
 			eth.EventuallyAllCalled(t)
 
 			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {

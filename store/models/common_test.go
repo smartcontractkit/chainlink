@@ -39,8 +39,8 @@ func TestJSON_Merge(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			orig := `{"value":"OLD","other":1}`
-			j1 := cltest.JSONFromString(orig)
-			j2 := cltest.JSONFromString(test.input)
+			j1 := cltest.JSONFromString(t, orig)
+			j2 := cltest.JSONFromString(t, test.input)
 
 			merged, err := j1.Merge(j2)
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -80,8 +80,8 @@ func TestJSON_ParseJSON(t *testing.T) {
 		want        models.JSON
 		wantErrored bool
 	}{
-		{"basic", `{"num": 100}`, cltest.JSONFromString(`{"num": 100}`), false},
-		{"empty string", ``, cltest.JSONFromString(`{}`), false},
+		{"basic", `{"num": 100}`, cltest.JSONFromString(t, `{"num": 100}`), false},
+		{"empty string", ``, cltest.JSONFromString(t, `{}`), false},
 		{"invalid JSON", `{`, models.JSON{}, true},
 	}
 
@@ -111,7 +111,7 @@ func TestJSON_Add(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(`{"a":"1"}`)
+			json := cltest.JSONFromString(t, `{"a":"1"}`)
 
 			json, err := json.Add(test.key, test.value)
 			assert.Equal(t, test.errored, (err != nil))
@@ -134,7 +134,7 @@ func TestJSON_Delete(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(`{"a":"1","b":2}`)
+			json := cltest.JSONFromString(t, `{"a":"1","b":2}`)
 
 			json, err := json.Delete(test.key)
 
@@ -152,14 +152,14 @@ func TestJSON_CBOR(t *testing.T) {
 		in   models.JSON
 	}{
 		{"empty object", models.JSON{}},
-		{"array", cltest.JSONFromString(`[1,2,3,4]`)},
+		{"array", cltest.JSONFromString(t, `[1,2,3,4]`)},
 		{
 			"hello world",
-			cltest.JSONFromString(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+			cltest.JSONFromString(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
 		},
 		{
 			"complex object",
-			cltest.JSONFromString(`{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
+			cltest.JSONFromString(t, `{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
 		},
 	}
 
