@@ -37,7 +37,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -627,8 +626,7 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 // CreateMockAssignmentViaWeb creates a JobSpec with the v1 format
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
 	ejson := MustReadFile(t, "../internal/fixtures/web/v1_format_job.json")
-	json, err := sjson.Set(string(ejson), "assignment.subtasks.0.adapterParams.get", url)
-	require.NoError(t, err)
+	json := MustJSONSet(t, string(ejson), "assignment.subtasks.0.adapterParams.get", url)
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v1/assignments", bytes.NewBufferString(json))
