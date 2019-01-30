@@ -46,7 +46,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, {'a':'b'})
+      assert.deepEqual(decoded, { 'a': 'b' })
     })
   })
 
