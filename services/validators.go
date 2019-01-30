@@ -72,11 +72,11 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 
 func validateRunAtInitiator(i models.Initiator, j models.JobSpec) error {
 	fe := models.NewJSONAPIErrors()
-	if i.Time.Unix() <= 0 {
+	if !i.Time.Valid {
 		fe.Add("RunAt must have a time")
-	} else if j.StartAt.Valid && i.Time.Unix() < j.StartAt.Time.Unix() {
+	} else if j.StartAt.Valid && i.Time.Time.Unix() < j.StartAt.Time.Unix() {
 		fe.Add("RunAt time must be after job's StartAt")
-	} else if j.EndAt.Valid && i.Time.Unix() > j.EndAt.Time.Unix() {
+	} else if j.EndAt.Valid && i.Time.Time.Unix() > j.EndAt.Time.Unix() {
 		fe.Add("RunAt time must be before job's EndAt")
 	}
 	return fe.CoerceEmptyToNil()
@@ -144,13 +144,13 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	untilEndAt := time.Until(sa.Encumbrance.EndAt.Time)
 
 	if untilEndAt > config.MaximumServiceDuration() {
-		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %s is too far in the future. Furthest allowed date is %s",
+		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %v is too far in the future. Furthest allowed date is %v",
 			sa.Encumbrance.EndAt,
 			time.Now().Add(config.MaximumServiceDuration())))
 	}
 
 	if untilEndAt < config.MinimumServiceDuration() {
-		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %s is too soon. Earliest allowed date is %s",
+		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %v is too soon. Earliest allowed date is %v",
 			sa.Encumbrance.EndAt,
 			time.Now().Add(config.MinimumServiceDuration())))
 	}

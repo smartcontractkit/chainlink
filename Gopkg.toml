@@ -137,3 +137,7 @@
 [[override]]
   name = "github.com/spf13/viper.git"
   version = "1.3.1"
+
+[[constraint]]
+  name = "github.com/smartcontractkit/go-sqlite3"
+  branch = "master"

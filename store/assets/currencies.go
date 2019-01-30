@@ -107,21 +107,18 @@ func (l Link) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (l *Link) Scan(value interface{}) error {
-	var s string
 	switch temp := value.(type) {
-	case []uint8:
-		s = string(temp)
-		_, ok := l.SetString(s, 10)
+	case string:
+		_, ok := l.SetString(temp, 10)
 		if !ok {
-			return fmt.Errorf("Unable to scan Link string from %s", s)
+			return fmt.Errorf("Unable to scan Link string from %s", temp)
 		}
+		return nil
 	case int64:
 		return fmt.Errorf("Unable to convert %v of %T to Link, is the sql type set to varchar?", value, value)
 	default:
 		return fmt.Errorf("Unable to convert %v of %T to Link", value, value)
 	}
-
-	return nil
 }
 
 // Eth contains a field to represent the smallest units of ETH

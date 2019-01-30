@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -341,7 +342,7 @@ func TestORM_MarkRan(t *testing.T) {
 		JobSpecID: js.ID,
 		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
-			Time: models.Time{Time: time.Now()},
+			Time: models.NewAnyTime(time.Now()),
 		},
 	}
 
@@ -362,7 +363,7 @@ func TestORM_FindUser(t *testing.T) {
 	defer cleanup()
 	user1 := cltest.MustUser("test1@email1.net", "password1")
 	user2 := cltest.MustUser("test2@email2.net", "password2")
-	user2.CreatedAt = models.Time{time.Now().Add(-24 * time.Hour)}
+	user2.CreatedAt = time.Now().Add(-24 * time.Hour)
 
 	require.NoError(t, store.SaveUser(&user1))
 	require.NoError(t, store.SaveUser(&user2))
@@ -398,10 +399,10 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			prevSession := cltest.NewSession("correctID")
-			prevSession.LastUsed = models.Time{time.Now().Add(-cltest.MustParseDuration("2m"))}
+			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration("2m"))
 			require.NoError(t, store.SaveSession(&prevSession))
 
-			expectedTime := models.Time{time.Now()}.HumanString()
+			expectedTime := utils.ISO8601UTC(time.Now())
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
 			assert.Equal(t, test.wantEmail, actual.Email)
 			if test.wantError {
@@ -411,7 +412,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 				var bumpedSession models.Session
 				err = store.ORM.DB.First(&bumpedSession, "ID = ?", prevSession.ID).Error
 				require.NoError(t, err)
-				assert.Equal(t, expectedTime[0:13], bumpedSession.LastUsed.HumanString()[0:13]) // only compare up to the hour
+				assert.Equal(t, expectedTime[0:13], utils.ISO8601UTC(bumpedSession.LastUsed)[0:13]) // only compare up to the hour
 			}
 		})
 	}
@@ -494,7 +495,7 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 }
 
-func TestORM_SavenAndFindBulkDeleteRunTask(t *testing.T) {
+func TestORM_SaveAndFindBulkDeleteRunTask(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore()
@@ -515,4 +516,31 @@ func TestORM_SavenAndFindBulkDeleteRunTask(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, dt.Query.Status, retrieved.Query.Status)
+}
+
+func TestORM_DeduceDialect(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, connection, expect string
+		wantError                bool
+	}{
+		{"garbage", "89324*$*#@(=", "", true},
+		{"relative file", "db.sqlite", "", true},
+		{"relative dir path", "store/db/here", "", true},
+		{"file url", "file://host/path", "sqlite3", false},
+		{"sqlite url", "sqlite:///path/to/sqlite.db", "", true},
+		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "", true},
+		{"postgres url", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
+		{"postgresql url", "postgresql://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
+		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := orm.DeduceDialect(test.connection)
+			assert.Equal(t, test.expect, actual)
+			assert.Equal(t, test.wantError, err != nil)
+		})
+	}
 }

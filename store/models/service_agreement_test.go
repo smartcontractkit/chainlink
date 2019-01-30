@@ -76,7 +76,7 @@ func TestBuildServiceAgreement(t *testing.T) {
 			assert.Equal(t, test.wantDigest, sa.ID)
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
 			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sa.RequestBody)
-			assert.NotEqual(t, models.Time{}, sa.CreatedAt)
+			assert.NotEqual(t, models.AnyTime{}, sa.CreatedAt)
 			assert.NotEqual(t, "", sa.Signature.String())
 		})
 	}
@@ -90,22 +90,22 @@ func TestEncumbrance_ABI(t *testing.T) {
 		name       string
 		payment    *assets.Link
 		expiration int
-		endAt      models.Time
+		endAt      models.AnyTime
 		oracles    []models.EIP55Address
 		want       string
 	}{
-		{"basic", assets.NewLink(1), 2, models.Time{}, []models.EIP55Address{},
+		{"basic", assets.NewLink(1), 2, models.AnyTime{}, []models.EIP55Address{},
 			"0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002886e0900"},
-		{"basic dead beef payment", assets.NewLink(3735928559), 2, models.Time{}, []models.EIP55Address{},
+		{"basic dead beef payment", assets.NewLink(3735928559), 2, models.AnyTime{}, []models.EIP55Address{},
 			"0x00000000000000000000000000000000000000000000000000000000deadbeef0000000000000000000000000000000000000000000000000000000000000002886e0900"},
-		{"empty", nil, 0, models.Time{}, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900"},
-		{"oracle address", nil, 0, models.Time{},
+		{"empty", nil, 0, models.AnyTime{}, []models.EIP55Address{}, "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900"},
+		{"oracle address", nil, 0, models.AnyTime{},
 			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
-		{"oracle address", nil, 0, models.Time{},
+		{"oracle address", nil, 0, models.AnyTime{},
 			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000886e0900000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
-		{"different endAt", nil, 0, models.Time{endAt},
+		{"different endAt", nil, 0, models.NewAnyTime(endAt),
 			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000459a7465000000000000000000000000a0788fc17b1dee36f057c42b6f373a34b014687e"},
 	}

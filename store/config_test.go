@@ -1,7 +1,6 @@
 package store
 
 import (
-	"fmt"
 	"math/big"
 	"net/url"
 	"os"
@@ -31,9 +30,10 @@ func TestStore_ConfigDefaults(t *testing.T) {
 func TestConfig_sessionSecret(t *testing.T) {
 	t.Parallel()
 	config := NewConfig()
-	config.Set("ROOT", path.Join("/tmp/chainlink_test", fmt.Sprintf("%s", "TestConfig_sessionSecret")))
+	config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
 	require.NoError(t, err)
+	defer os.RemoveAll(config.RootDir())
 
 	initial, err := config.SessionSecret()
 	require.NoError(t, err)
@@ -162,6 +162,30 @@ func TestStore_urlParser(t *testing.T) {
 				require.True(t, ok)
 				assert.Equal(t, test.input, w.String())
 			}
+		})
+	}
+}
+
+func TestConfig_NormalizedDatabaseURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, uri, expect string
+	}{
+		{"empty", "", "file:///root/db.sqlite3"},
+		{"garbage", "89324*$*#@(=", "89324*$*#@(="},
+		{"random file path", "store/db/here", "store/db/here"},
+		{"file uri", "file://host/path", "file://host/path"},
+		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"},
+		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := NewConfig()
+			config.Set("ROOT", "/root")
+			config.Set("DATABASE_URL", test.uri)
+			assert.Equal(t, test.expect, config.NormalizedDatabaseURL())
 		})
 	}
 }

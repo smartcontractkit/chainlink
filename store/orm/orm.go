@@ -5,14 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite" // http://doc.gorm.io/database.html#connecting-to-a-database
+	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	_ "github.com/smartcontractkit/go-sqlite3" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"go.uber.org/multierr"
 )
 
@@ -36,12 +39,40 @@ func NewORM(path string) (*ORM, error) {
 }
 
 func initializeDatabase(path string) (*gorm.DB, error) {
-	db, err := gorm.Open("sqlite3", path)
+	dialect, err := DeduceDialect(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open gorm DB: %+v", err)
+		return nil, err
 	}
-	db.Exec("PRAGMA foreign_keys = ON")
+	db, err := gorm.Open(dialect, path)
+
+	if err != nil {
+		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
+	}
 	return db, nil
+}
+
+const (
+	dialectPostgres = "postgres"
+	dialectSqlite   = "sqlite3"
+)
+
+// DeduceDialect returns the appropriate dialect for the passed connection string.
+func DeduceDialect(path string) (string, error) {
+	url, err := url.Parse(path)
+	if err != nil {
+		return "", err
+	}
+	scheme := strings.ToLower(url.Scheme)
+	switch scheme {
+	case "postgresql", "postgres":
+		return dialectPostgres, nil
+	case "file":
+		return dialectSqlite, nil
+	case "sqlite3", "sqlite":
+		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
+	}
+
+	return "", fmt.Errorf("unable to deduce sql dialect from path %s, please try a proper URL", path)
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
@@ -322,6 +353,7 @@ func (orm *ORM) MarkRan(i *models.Initiator, ran bool) error {
 	}
 
 	if ran && newi.Ran {
+		tx.Rollback()
 		return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID)
 	}
 
@@ -356,10 +388,10 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 		return models.User{}, err
 	}
 	now := time.Now()
-	if session.LastUsed.Time.Add(sessionDuration).Before(now) {
+	if session.LastUsed.Add(sessionDuration).Before(now) {
 		return models.User{}, errors.New("Session has expired")
 	}
-	session.LastUsed = models.Time{Time: now}
+	session.LastUsed = now
 	if err := orm.DB.Save(&session).Error; err != nil {
 		return models.User{}, err
 	}

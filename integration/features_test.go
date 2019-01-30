@@ -135,7 +135,7 @@ func TestIntegration_RunAt(t *testing.T) {
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
-	assert.Equal(t, "2018-01-08T18:12:01Z", initr.Time.ISO8601())
+	assert.Equal(t, "2018-01-08T18:12:01Z", utils.ISO8601UTC(initr.Time.Time))
 
 	app.Start()
 

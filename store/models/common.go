@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/store/assets"
-
 	"github.com/araddon/dateparse"
+	"github.com/smartcontractkit/chainlink/store/assets"
+	null "gopkg.in/guregu/null.v3"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mrwonko/cron"
@@ -106,7 +107,7 @@ func (s RunStatus) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (s *RunStatus) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
 	}
@@ -132,8 +133,7 @@ func (j JSON) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (j *JSON) Scan(value interface{}) error {
-	bytes, ok := value.([]uint8)
-	temp := string(bytes)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
 	}
@@ -276,11 +276,8 @@ func (w WebURL) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (w *WebURL) Scan(value interface{}) error {
-	var s string
-	switch temp := value.(type) {
-	case []uint8:
-		s = string(temp)
-	default:
+	s, ok := value.(string)
+	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
 	}
 
@@ -292,59 +289,94 @@ func (w *WebURL) Scan(value interface{}) error {
 	return nil
 }
 
-// Time holds a common field for time.
-type Time struct {
+// AnyTime holds a common field for time, and serializes it as
+// a json number.
+type AnyTime struct {
 	time.Time
+	Valid bool
 }
 
-// Value returns this instance serialized for database storage.
-func (t Time) Value() (driver.Value, error) {
-	return t.Time, nil
+// NewAnyTime creates a new Time.
+func NewAnyTime(t time.Time) AnyTime {
+	return AnyTime{Time: t, Valid: true}
 }
 
-// Scan reads the database value and returns an instance.
-func (t *Time) Scan(value interface{}) error {
-	var s string
-	switch temp := value.(type) {
-	case []uint8:
-		s = string(temp)
-		newTime, err := dateparse.ParseAny(s)
-		*t = Time{Time: newTime}
-		return err
-	case time.Time:
-		*t = Time{Time: temp}
-		return nil
-	default:
-		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+// AnyTimeFromNull returns an AnyTime from a null.Time.
+func AnyTimeFromNull(t null.Time) AnyTime {
+	return AnyTime{Time: t.Time, Valid: t.Valid}
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this time is null.
+func (t AnyTime) MarshalJSON() ([]byte, error) {
+	if !t.Valid {
+		return []byte("null"), nil
 	}
+	return t.Time.MarshalJSON()
 }
 
 // UnmarshalJSON parses the raw time stored in JSON-encoded
 // data and stores it to the Time field.
-func (t *Time) UnmarshalJSON(b []byte) error {
+func (t *AnyTime) UnmarshalJSON(b []byte) error {
 	var n json.Number
 	if err := json.Unmarshal(b, &n); err != nil {
 		return err
 	}
+
+	if len(n) == 0 {
+		t.Valid = false
+		return nil
+	}
+
 	newTime, err := dateparse.ParseAny(n.String())
 	t.Time = newTime.UTC()
+	t.Valid = true
 	return err
 }
 
-// ISO8601 formats and returns the time in ISO 8601 standard.
-func (t Time) ISO8601() string {
-	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
+// MarshalText returns null if not set, or the time.
+func (t AnyTime) MarshalText() ([]byte, error) {
+	if !t.Valid {
+		return []byte("null"), nil
+	}
+	return t.Time.MarshalText()
 }
 
-// DurationFromNow returns the amount of time since the Time
-// field was last updated.
-func (t Time) DurationFromNow() time.Duration {
-	return t.Time.Sub(time.Now())
+// UnmarshalText parses null or a valid time.
+func (t *AnyTime) UnmarshalText(text []byte) error {
+	str := string(text)
+	if str == "" || str == "null" {
+		t.Valid = false
+		return nil
+	}
+	if err := t.Time.UnmarshalText(text); err != nil {
+		return err
+	}
+	t.Valid = true
+	return nil
 }
 
-// HumanString formats and returns the time in RFC 3339 standard.
-func (t Time) HumanString() string {
-	return utils.ISO8601UTC(t.Time)
+// Value returns this instance serialized for database storage.
+func (t AnyTime) Value() (driver.Value, error) {
+	if !t.Valid {
+		return nil, nil
+	}
+	return t.Time, nil
+}
+
+// Scan reads the database value and returns an instance.
+func (t *AnyTime) Scan(value interface{}) error {
+	switch temp := value.(type) {
+	case time.Time:
+		t.Time = temp
+		t.Valid = true
+		return nil
+	case nil:
+		t.Valid = false
+		return nil
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+	}
 }
 
 // Cron holds the string that will represent the spec of the cron-job.
@@ -455,16 +487,16 @@ func (b Big) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (b *Big) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to Big", value, value)
 	}
 
-	decoded, ok := b.setString(string(temp), 10)
+	decoded, ok := b.setString(temp, 10)
 	if !ok {
 		return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
 	}
-	*b = Big(*decoded)
+	*b = *decoded
 	return nil
 }
 
@@ -511,12 +543,11 @@ func (r AddressCollection) Value() (driver.Value, error) {
 
 // Scan parses the database value as a string.
 func (r *AddressCollection) Scan(value interface{}) error {
-	temp, ok := value.([]uint8)
+	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
 	}
 
-	str := string(temp)
 	if len(str) == 0 {
 		return nil
 	}

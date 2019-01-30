@@ -2,6 +2,7 @@ package migration0
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -16,6 +17,8 @@ func (m Migration) Timestamp() string {
 
 func (m Migration) Migrate(orm *orm.ORM) error {
 	return multierr.Combine(
+		setTimezone(orm),
+		setForeignKeysOn(orm),
 		migrationHelper(orm, &models.JobSpec{}),
 		migrationHelper(orm, &models.TaskSpec{}),
 		migrationHelper(orm, &models.JobRun{}),
@@ -32,6 +35,20 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 		migrationHelper(orm, &models.ServiceAgreement{}),
 		migrationHelper(orm, &models.BulkDeleteRunTask{}),
 		migrationHelper(orm, &models.BulkDeleteRunRequest{}))
+}
+
+func setTimezone(orm *orm.ORM) error {
+	if orm.DB.Dialect().GetName() == "postgres" {
+		return orm.DB.Exec(`SET TIME ZONE 'UTC';`).Error
+	}
+	return nil
+}
+
+func setForeignKeysOn(orm *orm.ORM) error {
+	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
+		return orm.DB.Exec("PRAGMA foreign_keys = ON").Error
+	}
+	return nil
 }
 
 func migrationHelper(orm *orm.ORM, model interface{}) error {
