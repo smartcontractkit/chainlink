@@ -5,7 +5,6 @@ package presenters
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -487,48 +486,84 @@ func (a NewAccount) GetName() string {
 	return "keys"
 }
 
-// NewTx is a jsonapi wrapper for an Ethereum Transaction.
-type NewTx struct {
+// Tx is a jsonapi wrapper for an Ethereum Transaction.
+type Tx struct {
 	*models.Tx
 }
 
 // GetID returns the jsonapi ID.
-func (tx NewTx) GetID() string {
-	return tx.Hash.String()
+func (t Tx) GetID() string {
+	return t.Hash.String()
 }
 
 // GetName returns the collection name for jsonapi.
-func (NewTx) GetName() string {
+func (Tx) GetName() string {
 	return "transactions"
 }
 
-// MarshalJSON returns the User as json.
-func (t NewTx) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		ID        uint64   `json:"id"`
-		From      string   `json:"from"`
-		To        string   `json:"to"`
-		Data      string   `json:"data"`
-		Nonce     uint64   `json:"nonce"`
-		Value     *big.Int `json:"value"`
-		GasLimit  uint64   `json:"gasLimit"`
-		Hash      string   `json:"Hash"`
-		GasPrice  *big.Int `json:"gasPrice"`
-		Confirmed bool     `json:"confirmed"`
-		Hex       string   `json:"rawHex"`
-		SentAt    uint64   `json:"sentAt"`
-	}{
-		ID:        t.ID,
-		From:      t.From.Hex(),
-		To:        t.To.Hex(),
-		Data:      "0x" + hex.EncodeToString(t.Data),
-		Nonce:     t.Nonce,
-		Value:     t.Value,
-		GasLimit:  t.GasLimit,
-		Hash:      t.Hash.Hex(),
-		GasPrice:  t.GasPrice,
+type txJSON struct {
+	Confirmed bool   `json:"confirmed"`
+	Data      string `json:"data"`
+	From      string `json:"from"`
+	GasLimit  uint64 `json:"gasLimit"`
+	GasPrice  string `json:"gasPrice"`
+	Hash      string `json:"hash"`
+	Hex       string `json:"rawHex"`
+	Nonce     uint64 `json:"nonce"`
+	SentAt    uint64 `json:"sentAt"`
+	To        string `json:"to"`
+	Value     string `json:"value"`
+}
+
+// MarshalJSON returns the Transaction as json.
+func (t Tx) MarshalJSON() ([]byte, error) {
+	txj := txJSON{
 		Confirmed: t.Confirmed,
+		Data:      common.Bytes2Hex(t.Data),
+		From:      t.From.Hex(),
+		GasLimit:  t.GasLimit,
+		GasPrice:  t.GasPrice.String(),
+		Hash:      t.Hash.Hex(),
 		Hex:       t.Hex,
+		Nonce:     t.Nonce,
 		SentAt:    t.SentAt,
-	})
+		To:        t.To.Hex(),
+		Value:     t.Value.String(),
+	}
+	return json.Marshal(&txj)
+}
+
+// UnmarshalJSON deserializes the Transaction from json.
+func (t *Tx) UnmarshalJSON(b []byte) error {
+	var txj txJSON
+	if err := json.Unmarshal(b, &txj); err != nil {
+		return err
+	}
+
+	gasPrice, ok := big.NewInt(0).SetString(txj.GasPrice, 10)
+	if !ok {
+		return fmt.Errorf("presents.Tx could not unmarshal gasPrice from JSON: %v", b)
+	}
+	value, ok := big.NewInt(0).SetString(txj.Value, 10)
+	if !ok {
+		return fmt.Errorf("presents.Tx could not unmarshal value from JSON: %v", b)
+	}
+	tx := models.Tx{
+		Data:     common.Hex2Bytes(txj.Data),
+		From:     common.HexToAddress(txj.From),
+		GasLimit: txj.GasLimit,
+		Nonce:    txj.Nonce,
+		To:       common.HexToAddress(txj.To),
+		TxAttempt: models.TxAttempt{
+			Confirmed: txj.Confirmed,
+			GasPrice:  gasPrice,
+			Hash:      common.HexToHash(txj.Hash),
+			Hex:       txj.Hex,
+			SentAt:    txj.SentAt,
+		},
+		Value: value,
+	}
+	t.Tx = &tx
+
+	return nil
 }
