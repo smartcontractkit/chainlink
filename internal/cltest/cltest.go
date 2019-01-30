@@ -642,13 +642,10 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	buffer, err := ioutil.ReadFile("../internal/fixtures/web/hello_world_job.json")
-	if err != nil {
-		assert.FailNowf(t, "Unable to read fixture", err.Error())
-	}
+	buffer := MustReadFile(t, "../internal/fixtures/web/hello_world_job.json")
 
 	var job models.JobSpec
-	err = json.Unmarshal(buffer, &job)
+	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 
 	job.Tasks[0].Params = JSONFromString(t, `{"url":"%v"}`, url)
@@ -657,8 +654,8 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 
 // CreateMockAssignmentViaWeb creates a JobSpec with the v1 format
 func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	ejson := EasyJSONFromFixture(t, "../internal/fixtures/web/v1_format_job.json")
-	json, err := sjson.Set(ejson.String(), "assignment.subtasks.0.adapterParams.get", url)
+	ejson := MustReadFile(t, "../internal/fixtures/web/v1_format_job.json")
+	json, err := sjson.Set(string(ejson), "assignment.subtasks.0.adapterParams.get", url)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient()
