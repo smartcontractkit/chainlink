@@ -75,14 +75,14 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	reader := bytes.NewBufferString(cltest.EasyJSONFromFixture(t, "../internal/fixtures/web/hello_world_agreement.json").String())
+	reader := bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	resp, cleanup := client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	response1 := models.ServiceAgreement{}
 	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response1))
 
-	reader = bytes.NewBufferString(cltest.EasyJSONFromFixture(t, "../internal/fixtures/web/hello_world_agreement.json").String())
+	reader = bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)

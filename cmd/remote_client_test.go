@@ -129,7 +129,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	sa := cltest.EasyJSONFromFixture(t, "../internal/fixtures/web/hello_world_agreement.json")
+	sa := cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")
 
 	tests := []struct {
 		name        string
@@ -139,7 +139,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	}{
 		{"invalid json", "{bad son}", false, true},
 		{"bad file path", "bad/filepath/", false, true},
-		{"valid service agreement", sa.String(), true, false},
+		{"valid service agreement", string(sa), true, false},
 		{"service agreement specified as path", "../internal/fixtures/web/hello_world_agreement.json", true, false},
 	}
 
