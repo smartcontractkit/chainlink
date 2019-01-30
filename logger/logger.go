@@ -172,6 +172,11 @@ func Fatal(args ...interface{}) {
 	logger.Fatal(args...)
 }
 
+// Errorf logs a message at the error level using Sprintf.
+func Errorf(format string, values ...interface{}) {
+	Error(fmt.Sprintf(format, values...))
+}
+
 // Fatalf logs a message at the fatal level using Sprintf.
 func Fatalf(format string, values ...interface{}) {
 	Fatal(fmt.Sprintf(format, values...))
