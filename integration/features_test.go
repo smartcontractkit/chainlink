@@ -161,7 +161,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	logs <- cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	logs <- cltest.LogFromFixture(t, "../internal/fixtures/eth/subscription_logs_hello_world.json")
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
@@ -187,7 +187,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 	logBlockNumber := 1
-	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	logs <- cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	cltest.WaitForRuns(t, j, app.Store, 1)
 
 	runs, err := app.Store.JobRunsFor(j.ID)
@@ -281,7 +281,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
-	logs <- cltest.NewRunLog(j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	logs <- cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -321,7 +321,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 		b, err := ioutil.ReadAll(r.Body)
 		assert.NoError(t, err)
-		body := cltest.JSONFromString(string(b))
+		body := cltest.JSONFromBytes(t, b)
 		data := body.Get("data")
 		assert.True(t, data.Exists())
 		bodyParam := data.Get("bodyParam")
@@ -366,7 +366,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
-			body := cltest.JSONFromString(b)
+			body := cltest.JSONFromString(t, b)
 
 			jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 			jr := jrs[0]
@@ -417,7 +417,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 	})
 
-	log := cltest.LogFromFixture("../internal/fixtures/eth/subscription_logs_hello_world.json")
+	log := cltest.LogFromFixture(t, "../internal/fixtures/eth/subscription_logs_hello_world.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
@@ -427,7 +427,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	defer cleanup()
 
 	j := cltest.NewJobWithLogInitiator()
-	post := cltest.NewTask("httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
+	post := cltest.NewTask(t, "httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
@@ -535,6 +535,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 
 	// Request execution of the job associated with this ServiceAgreement
 	logs <- cltest.NewServiceAgreementExecutionLog(
+		t,
 		j.ID,
 		cltest.NewAddress(),
 		cltest.NewAddress(),

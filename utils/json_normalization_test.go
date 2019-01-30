@@ -12,8 +12,6 @@ import (
 func TestNormalizedJSON(t *testing.T) {
 	t.Parallel()
 
-	base := cltest.EasyJSONFromString(`{"a": "!", "A": "1"}`)
-
 	tests := []struct {
 		name      string
 		input     interface{}
@@ -34,14 +32,16 @@ func TestNormalizedJSON(t *testing.T) {
 			"\"\u00c5\u0073\u0074\u0072\u00f6\u006d\"",
 			false,
 		},
-		{name: "reordering",
-			input:     base,
-			want:      `{"A":"1","a":"!"}`,
-			wantError: false},
-		{name: "more key reordering",
-			input:     base.Add("B", "@").Add("b", "?").Add("c", "..."),
-			want:      `{"A":"1","B":"@","a":"!","b":"?","c":"..."}`,
-			wantError: false},
+		{"reordering",
+			cltest.JSONFromString(t, `{"a": "!", "A": "1"}`),
+			`{"A":"1","a":"!"}`,
+			false,
+		},
+		{"more key reordering",
+			cltest.JSONFromString(t, `{"a": "!", "A": "1", "B": "@", "b":"?", "c":"..."}`),
+			`{"A":"1","B":"@","a":"!","b":"?","c":"..."}`,
+			false,
+		},
 	}
 
 	for _, test := range tests {

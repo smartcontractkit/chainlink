@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +21,9 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -33,13 +36,13 @@ func NewJob() models.JobSpec {
 }
 
 // NewTask given the tasktype and json params return a TaskSpec
-func NewTask(taskType string, json ...string) models.TaskSpec {
+func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
 	if len(json) == 0 {
 		json = append(json, ``)
 	}
-	params := JSONFromString(json[0])
+	params := JSONFromString(t, json[0])
 	params, err := params.Add("type", taskType)
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	return models.TaskSpec{
 		Type:   models.MustNewTaskType(taskType),
@@ -217,63 +220,55 @@ func NullTime(val interface{}) null.Time {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(path string) models.Log {
-	value := gjson.Get(string(LoadJSON(path)), "params.result")
+func LogFromFixture(t *testing.T, path string) models.Log {
+	value := gjson.Get(string(MustReadFile(t, path)), "params.result")
 	var el models.Log
-	mustNotErr(json.Unmarshal([]byte(value.String()), &el))
+	require.NoError(t, json.Unmarshal([]byte(value.String()), &el))
 
 	return el
 }
 
 // JSONFromFixture create models.JSON from file path
-func JSONFromFixture(path string) models.JSON {
-	return JSONFromString(string(LoadJSON(path)))
+func JSONFromFixture(t *testing.T, path string) models.JSON {
+	return JSONFromBytes(t, MustReadFile(t, path))
 }
 
 // JSONResultFromFixture create model.JSON with params.result found in the given file path
-func JSONResultFromFixture(path string) models.JSON {
-	res := gjson.Get(string(LoadJSON(path)), "params.result")
-	return JSONFromString(res.String())
+func JSONResultFromFixture(t *testing.T, path string) models.JSON {
+	res := gjson.Get(string(MustReadFile(t, path)), "params.result")
+	return JSONFromString(t, res.String())
 }
 
 // JSONFromString create JSON from given body and arguments
-func JSONFromString(body string, args ...interface{}) models.JSON {
-	j, err := models.ParseJSON([]byte(fmt.Sprintf(body, args...)))
-	mustNotErr(err)
+func JSONFromString(t *testing.T, body string, args ...interface{}) models.JSON {
+	return JSONFromBytes(t, []byte(fmt.Sprintf(body, args...)))
+}
+
+// JSONFromBytes creates JSON from a given byte array
+func JSONFromBytes(t *testing.T, body []byte) models.JSON {
+	j, err := models.ParseJSON(body)
+	require.NoError(t, err)
 	return j
 }
 
-type EasyJSON struct {
-	models.JSON
+// MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
+// See https://github.com/tidwall/sjson
+func MustJSONSet(t *testing.T, json, path string, value interface{}) string {
+	json, err := sjson.Set(json, path, value)
+	require.NoError(t, err)
+	return json
 }
 
-func (ejs EasyJSON) Add(key string, val interface{}) EasyJSON {
-	ejs = ejs.Delete(key)
-
-	var err error
-	ejs.JSON, err = ejs.JSON.Add(key, val)
-	mustNotErr(err)
-
-	return ejs
-}
-
-func (ejs EasyJSON) Delete(key string) EasyJSON {
-	var err error
-	ejs.JSON, err = ejs.JSON.Delete(key)
-	mustNotErr(err)
-	return ejs
-}
-
-func EasyJSONFromFixture(path string) EasyJSON {
-	return EasyJSON{JSON: JSONFromFixture(path)}
-}
-
-func EasyJSONFromString(body string, args ...interface{}) EasyJSON {
-	return EasyJSON{JSON: JSONFromString(body, args...)}
+// MustJSONDel uses sjson.Delete to remove a path from a JSON string and returns the string
+func MustJSONDel(t *testing.T, json, path string) string {
+	json, err := sjson.Delete(json, path)
+	require.NoError(t, err)
+	return json
 }
 
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
+	t *testing.T,
 	jobID string,
 	emitter common.Address,
 	requester common.Address,
@@ -283,7 +278,7 @@ func NewRunLog(
 	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData20190128("internalID", json),
+		Data:        StringToVersionedLogData20190128(t, "internalID", json),
 		Topics: []common.Hash{
 			models.RunLogTopic20190128,
 			StringToHash(jobID),
@@ -297,6 +292,7 @@ func NewRunLog(
 // address, block, and json, to simulate a request for execution on a service
 // agreement.
 func NewServiceAgreementExecutionLog(
+	t *testing.T,
 	jobID string,
 	logEmitter common.Address,
 	executionRequester common.Address,
@@ -306,7 +302,7 @@ func NewServiceAgreementExecutionLog(
 	return models.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
-		Data:        StringToVersionedLogData0("internalID", serviceAgreementJSON),
+		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
 		Topics: []common.Hash{
 			models.ServiceAgreementExecutionLogTopic,
 			StringToHash(jobID),
@@ -316,13 +312,13 @@ func NewServiceAgreementExecutionLog(
 	}
 }
 
-func StringToVersionedLogData0(internalID, str string) []byte {
+func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
 	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
 	buf.Write(utils.EVMWordUint64(1))
 	buf.Write(utils.EVMWordUint64(common.HashLength * 3))
 
-	cbor, err := JSONFromString(str).CBOR()
-	mustNotErr(err)
+	cbor, err := JSONFromString(t, str).CBOR()
+	require.NoError(t, err)
 	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
 	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
 	buf.Write(common.RightPadBytes(cbor, paddedLength))
@@ -330,7 +326,7 @@ func StringToVersionedLogData0(internalID, str string) []byte {
 	return buf.Bytes()
 }
 
-func StringToVersionedLogData20190123(internalID, str string) []byte {
+func StringToVersionedLogData20190123(t *testing.T, internalID, str string) []byte {
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf := bytes.NewBuffer(requestID)
 
@@ -349,8 +345,8 @@ func StringToVersionedLogData20190123(internalID, str string) []byte {
 	expiration := utils.EVMWordUint64(4000000000)
 	buf.Write(expiration)
 
-	cbor, err := JSONFromString(str).CBOR()
-	mustNotErr(err)
+	cbor, err := JSONFromString(t, str).CBOR()
+	require.NoError(t, err)
 	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
 	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
 	buf.Write(common.RightPadBytes(cbor, paddedLength))
@@ -358,7 +354,7 @@ func StringToVersionedLogData20190123(internalID, str string) []byte {
 	return buf.Bytes()
 }
 
-func StringToVersionedLogData20190128(internalID, str string) []byte {
+func StringToVersionedLogData20190128(t *testing.T, internalID, str string) []byte {
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf := bytes.NewBuffer(requestID)
 
@@ -377,8 +373,8 @@ func StringToVersionedLogData20190128(internalID, str string) []byte {
 	version := utils.EVMWordUint64(1)
 	buf.Write(version)
 
-	cbor, err := JSONFromString(str).CBOR()
-	mustNotErr(err)
+	cbor, err := JSONFromString(t, str).CBOR()
+	require.NoError(t, err)
 	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
 	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
 	buf.Write(common.RightPadBytes(cbor, paddedLength))

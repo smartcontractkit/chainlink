@@ -22,15 +22,15 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	client := app.NewHTTPClient()
-	base := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	base := string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 
 	tests := []struct {
 		name     string
 		input    string
 		wantCode int
 	}{
-		{"success", base.String(), 200},
-		{"fails validation", base.Delete("payment").String(), 422},
+		{"success", base, 200},
+		{"fails validation", cltest.MustJSONDel(t, base, "payment"), 422},
 		{"invalid JSON", "{", 422},
 	}
 
@@ -75,14 +75,14 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	reader := bytes.NewBufferString(cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json").String())
+	reader := bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	resp, cleanup := client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	response1 := models.ServiceAgreement{}
 	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response1))
 
-	reader = bytes.NewBufferString(cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json").String())
+	reader = bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
@@ -100,7 +100,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	input := cltest.LoadJSON("../internal/fixtures/web/hello_world_agreement.json")
+	input := cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	require.NoError(t, err)
 	require.NoError(t, app.Store.CreateJob(&sa.JobSpec))
@@ -113,6 +113,6 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	b, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	normalizedInput := cltest.NormalizedJSON(input)
-	saBody := cltest.JSONFromString(string(b)).Get("data").Get("attributes")
+	saBody := cltest.JSONFromBytes(t, b).Get("data").Get("attributes")
 	assert.Equal(t, normalizedInput, saBody.String())
 }
