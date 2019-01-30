@@ -2,7 +2,7 @@ import cbor from 'cbor'
 import { resolve, join } from 'path'
 import { assertBigNum } from './matchers'
 
-const contractPathHead = resolve(__dirname + '/../..')
+const contractPathHead = resolve(join(__dirname, '/../..'))
 
 // Paths for finding solidity files during compilation via deployer.
 // See compile.js for more info.
@@ -13,7 +13,7 @@ process.env.SOLIDITY_INCLUDE = [
   'node_modules/',
   'node_modules/link_token/contracts',
   'node_modules/openzeppelin-solidity/contracts/ownership/',
-  'node_modules/@ensdomains/ens/contracts/',
+  'node_modules/@ensdomains/ens/contracts/'
 ].map(p => join(contractPathHead, p)).join(':')
 
 // Relative paths needed for chainlink/examples/{uptime_sla,echo_server}
@@ -38,7 +38,7 @@ const HEX_BASE = 16
 // https://github.com/ethereum/web3.js/issues/1119#issuecomment-394217563
 web3.providers.HttpProvider.prototype.sendAsync =
   web3.providers.HttpProvider.prototype.send
-export const eth = web3.eth;
+export const eth = web3.eth
 
 const INVALIDVALUE = {
   // If you got this value, you probably tried to use one of the variables below
@@ -52,7 +52,7 @@ export let [accounts, defaultAccount, oracleNode, stranger, consumer] =
 before(async function queryEthClientForConstants () {
   accounts = (await eth.getAccounts());
   [defaultAccount, oracleNode, stranger, consumer] = accounts.slice(0, 4)
-  })
+})
 
 export const utils = Utils(web3.currentProvider)
 export const wallet = Wallet(PRIVATE_KEY, utils)
@@ -64,23 +64,23 @@ const bNToStringOrIdentity = a => BN.isBN(a) ? a.toString() : a
 export const wrappedERC20 = contract => ({
   ...contract,
   transfer: async (address, amount) =>
-    await contract.transfer(address, bNToStringOrIdentity(amount)),
+    contract.transfer(address, bNToStringOrIdentity(amount)),
   transferAndCall: async (address, amount, payload, options) =>
-    await contract.transferAndCall(
+    contract.transferAndCall(
       address, bNToStringOrIdentity(amount), payload, options)
-});
+})
 
 export const linkContract = async () =>
   wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
 
 export const bigNum = number => web3.utils.toBN(number)
-assertBigNum(bigNum("1"), bigNum(1),
-             "Different representations should give same BNs")
+assertBigNum(bigNum('1'), bigNum(1),
+  'Different representations should give same BNs')
 
 // toWei(n) is n * 10**18, as a BN.
 export const toWei = number => bigNum(web3.utils.toWei(bigNum(number)))
-assertBigNum(toWei("1"), toWei(1),
-             "Different representations should give same BNs")
+assertBigNum(toWei('1'), toWei(1),
+  'Different representations should give same BNs')
 
 export const toUtf8 = web3.utils.toUtf8
 
@@ -102,19 +102,19 @@ export const toHex = value => {
   return Ox(toHexWithoutPrefix(value))
 }
 
-export const Ox = value => ("0x" !== value.slice(0, 2)) ? `0x${value}` : value
+export const Ox = value => (value.slice(0, 2) !== '0x') ? `0x${value}` : value
 
 // True if h is a standard representation of a byte array, false otherwise
 export const isByteRepresentation = h => {
-  return (h instanceof Buffer || h instanceof BN || h instanceof Uint8Array )
+  return (h instanceof Buffer || h instanceof BN || h instanceof Uint8Array)
 }
 
 export const deploy = async (filePath, ...args) =>
-  await deployer.perform(filePath, ...args)
+  deployer.perform(filePath, ...args)
 
 export const getEvents = contract =>
   new Promise((resolve, reject) => contract.allEvents()
-              .get((error, events) => (error ? reject(error) : resolve(events))))
+    .get((error, events) => (error ? reject(error) : resolve(events))))
 
 export const getLatestEvent = async (contract) => {
   let events = await getEvents(contract)
@@ -145,8 +145,8 @@ export const assertActionThrows = action => (
       const reverted = errorMessage.includes(
         'VM Exception while processing transaction: revert')
       assert(invalidOpcode || reverted,
-             'expected following error message to include "invalid JUMP" or ' +
-             `"revert": "${errorMessage}"`)
+        'expected following error message to include "invalid JUMP" or ' +
+        `"revert": "${errorMessage}"`)
       // see https://github.com/ethereumjs/testrpc/issues/39
       // for why the "invalid JUMP" is the throw related error when using TestRPC
     })
@@ -393,34 +393,34 @@ export const initiateServiceAgreement = async (coordinator, args) =>
   coordinator.initiateServiceAgreement(...initiateServiceAgreementArgs(args))
 
 /** Check that the given service agreement was stored at the correct location */
-export const checkServiceAgreementPresent = async (coordinator,
-        { payment, expiration, endAt, requestDigest, id }) => {
-        const sa = await coordinator.serviceAgreements.call(id)
-        assertBigNum(sa[0], bigNum(payment))
-        assertBigNum(sa[1], bigNum(expiration))
-        assertBigNum(sa[2], bigNum(endAt))
-        assert.equal(sa[3], toHex(requestDigest))
+export const checkServiceAgreementPresent =
+  async (coordinator, { payment, expiration, endAt, requestDigest, id }) => {
+    const sa = await coordinator.serviceAgreements.call(id)
+    assertBigNum(sa[0], bigNum(payment))
+    assertBigNum(sa[1], bigNum(expiration))
+    assertBigNum(sa[2], bigNum(endAt))
+    assert.equal(sa[3], toHex(requestDigest))
 
-        /// / TODO:
+    /// / TODO:
 
-        /// / Web3.js doesn't support generating an artifact for arrays
-        /// within a struct. / This means that we aren't returned the
-        /// list of oracles and / can't assert on their values.
-        /// /
+    /// / Web3.js doesn't support generating an artifact for arrays
+    /// within a struct. / This means that we aren't returned the
+    /// list of oracles and / can't assert on their values.
+    /// /
 
-        /// / However, we can pass them into the function to generate the
-        /// ID / & solidity won't compile unless we pass the correct
-        /// number and / type of params when initializing the
-        /// ServiceAgreement struct, / so we have some indirect test
-        /// coverage.
-        /// /
-        /// / https://github.com/ethereum/web3.js/issues/1241
-        /// / assert.equal(
-        /// /   sa[2],
-        /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d',
-        /// /    '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
-        /// / )
-      }
+    /// / However, we can pass them into the function to generate the
+    /// ID / & solidity won't compile unless we pass the correct
+    /// number and / type of params when initializing the
+    /// ServiceAgreement struct, / so we have some indirect test
+    /// coverage.
+    /// /
+    /// / https://github.com/ethereum/web3.js/issues/1241
+    /// / assert.equal(
+    /// /   sa[2],
+    /// /   ['0x70AEc4B9CFFA7b55C0711b82DD719049d615E21d',
+    /// /    '0xd26114cd6EE289AccF82350c8d8487fedB8A0C07']
+    /// / )
+  }
 
 /** Check that all values for the struct at this SAID have default
     values. I.e., nothing was changed due to invalid request */
@@ -457,9 +457,9 @@ export const newServiceAgreement = async (params) => {
 export const sixMonthsFromNow = () => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
 
 export const fulfillOracleRequest = async (oracle, request, response, options) => {
-	if (!options) options = {}
+  if (!options) options = {}
 
-  return await oracle.fulfillOracleRequest(
+  return oracle.fulfillOracleRequest(
     request.id,
     request.payment,
     request.callbackAddr,
@@ -472,7 +472,7 @@ export const fulfillOracleRequest = async (oracle, request, response, options) =
 export const cancelOracleRequest = async (oracle, request, options) => {
   if (!options) options = {}
 
-  return await oracle.cancelOracleRequest(
+  return oracle.cancelOracleRequest(
     request.id,
     request.payment,
     request.callbackFunc,

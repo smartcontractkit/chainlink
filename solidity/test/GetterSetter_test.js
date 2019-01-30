@@ -1,4 +1,4 @@
-import { bigNum, deploy, stranger, toUtf8 } from './support/helpers'
+import { deploy, stranger, toUtf8 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
 contract('GetterSetter', () => {
@@ -14,14 +14,14 @@ contract('GetterSetter', () => {
 
   describe('#setBytes32Val', () => {
     it('updates the bytes32 value', async () => {
-      await gs.setBytes32(bytes32, {from: stranger})
+      await gs.setBytes32(bytes32, { from: stranger })
 
       let currentBytes32 = await gs.getBytes32.call()
       assert.equal(toUtf8(currentBytes32), bytes32)
     })
 
     it('logs an event', async () => {
-      let tx = await gs.setBytes32(bytes32, {from: stranger})
+      let tx = await gs.setBytes32(bytes32, { from: stranger })
 
       assert.equal(1, tx.logs.length)
       assert.equal(stranger.toLowerCase(), tx.logs[0].args.from)
@@ -31,7 +31,7 @@ contract('GetterSetter', () => {
 
   describe('#requestedBytes32', () => {
     it('updates the request ID and value', async () => {
-      await gs.requestedBytes32(requestId, bytes32, {from: stranger})
+      await gs.requestedBytes32(requestId, bytes32, { from: stranger })
 
       let currentRequestId = await gs.requestId.call()
       assert.equal(currentRequestId, requestId)
@@ -43,14 +43,14 @@ contract('GetterSetter', () => {
 
   describe('#setUint256', () => {
     it('updates uint256 value', async () => {
-      await gs.setUint256(uint256, {from: stranger})
+      await gs.setUint256(uint256, { from: stranger })
 
       let currentUint256 = await gs.getUint256.call()
       assert.equal(currentUint256, uint256)
     })
 
     it('logs an event', async () => {
-      let tx = await gs.setUint256(uint256, {from: stranger})
+      let tx = await gs.setUint256(uint256, { from: stranger })
 
       assert.equal(1, tx.logs.length)
       assert.equal(stranger.toLowerCase(), tx.logs[0].args.from)
@@ -60,7 +60,7 @@ contract('GetterSetter', () => {
 
   describe('#requestedUint256', () => {
     it('updates the request ID and value', async () => {
-      await gs.requestedUint256(requestId, uint256, {from: stranger})
+      await gs.requestedUint256(requestId, uint256, { from: stranger })
 
       let currentRequestId = await gs.requestId.call()
       assert.equal(currentRequestId, requestId)
