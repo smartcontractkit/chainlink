@@ -18,7 +18,7 @@ type TransactionsController struct {
 
 // Show returns the details of a Ethereum Transasction details.
 // Example:
-//  "<application>/txattempts/:TxHash"
+//  "<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 	if tx, err := tc.App.GetStore().FindTxByAttempt(hash); err == orm.ErrorNotFound {
