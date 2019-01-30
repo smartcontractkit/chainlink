@@ -42,7 +42,7 @@ func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
 	}
 	params := JSONFromString(t, json[0])
 	params, err := params.Add("type", taskType)
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	return models.TaskSpec{
 		Type:   models.MustNewTaskType(taskType),
@@ -346,7 +346,7 @@ func StringToVersionedLogData20190123(t *testing.T, internalID, str string) []by
 	buf.Write(expiration)
 
 	cbor, err := JSONFromString(t, str).CBOR()
-	mustNotErr(err)
+	require.NoError(t, err)
 	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
 	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
 	buf.Write(common.RightPadBytes(cbor, paddedLength))
@@ -374,7 +374,7 @@ func StringToVersionedLogData20190128(t *testing.T, internalID, str string) []by
 	buf.Write(version)
 
 	cbor, err := JSONFromString(t, str).CBOR()
-	mustNotErr(err)
+	require.NoError(t, err)
 	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
 	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
 	buf.Write(common.RightPadBytes(cbor, paddedLength))
