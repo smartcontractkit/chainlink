@@ -544,7 +544,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 
 	var job models.JobSpec
 	err := ParseJSONAPIResponse(resp, &job)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return job
 }
 
@@ -614,7 +614,7 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 
 	var createdJob models.JobSpec
 	err = ParseJSONAPIResponse(resp, &createdJob)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return createdJob
 }
 
