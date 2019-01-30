@@ -588,19 +588,17 @@ func FixtureCreateServiceAgreementViaWeb(
 ) models.ServiceAgreement {
 	client := app.NewHTTPClient()
 
-	agreementWithoutOracle := EasyJSONFromFixture(t, path)
+	agreementWithoutOracle := string(MustReadFile(t, path))
 	from := GetAccountAddress(app.ChainlinkApplication.GetStore())
-	agreementWithOracle := agreementWithoutOracle.Add("oracles", []string{from.Hex()})
+	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
 
-	b, err := json.Marshal(agreementWithOracle)
-	assert.NoError(t, err)
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewReader(b))
+	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
 	responseSA := models.ServiceAgreement{}
-	err = ParseJSONAPIResponse(resp, &responseSA)
-	assert.NoError(t, err)
+	err := ParseJSONAPIResponse(resp, &responseSA)
+	require.NoError(t, err)
 
 	return FindServiceAgreement(app.Store, responseSA.ID)
 }
