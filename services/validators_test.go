@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -65,6 +66,20 @@ func TestValidateJob(t *testing.T) {
 			assert.Equal(t, test.want, result)
 		})
 	}
+}
+
+func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	sleepingJob := cltest.NewJobWithWebInitiator()
+	sleepingJob.Tasks[0].Type = adapters.TaskTypeSleep
+
+	store.Config.Set("CHAINLINK_DEV", true)
+	assert.NoError(t, services.ValidateJob(sleepingJob, store))
+
+	store.Config.Set("CHAINLINK_DEV", false)
+	assert.Error(t, services.ValidateJob(sleepingJob, store))
 }
 
 func TestValidateAdapter(t *testing.T) {
