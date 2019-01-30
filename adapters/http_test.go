@@ -49,7 +49,7 @@ func TestHttpGet_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithValue("inputValue")
+			input := cltest.RunResultWithResult("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(_ http.Header, body string) { assert.Equal(t, ``, body) })
 			defer cleanup()
@@ -57,7 +57,7 @@ func TestHttpGet_Perform(t *testing.T) {
 			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL)}
 			result := hga.Perform(input, nil)
 
-			val, err := result.Value()
+			val, err := result.ResultString()
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, val)
 			assert.Equal(t, test.wantErrored, result.HasError())
@@ -85,8 +85,8 @@ func TestHttpPost_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithValue("inputVal")
-			wantedBody := `{"value":"inputVal"}`
+			input := cltest.RunResultWithResult("inputVal")
+			wantedBody := `{"result":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(_ http.Header, body string) { assert.Equal(t, wantedBody, body) })
 			defer cleanup()
@@ -94,7 +94,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			hpa := adapters.HTTPPost{URL: cltest.WebURL(mock.URL)}
 			result := hpa.Perform(input, nil)
 
-			val := result.Get("value")
+			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, true, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())

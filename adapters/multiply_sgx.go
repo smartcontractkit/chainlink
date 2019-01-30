@@ -41,7 +41,7 @@ type Multiply struct {
 	Times Multiplier `json:"times"`
 }
 
-// Perform returns the input's "value" field, multiplied times the adapter's
+// Perform returns the input's "result" field, multiplied times the adapter's
 // "times" field.
 //
 // For example, if input value is "99.994" and the adapter's "times" is

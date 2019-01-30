@@ -18,14 +18,14 @@ type EthBytes32 struct{}
 // ABI, it would be:
 // "0x31363830302e3031000000000000000000000000000000000000000000000000"
 func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	result := input.Get("value")
+	result := input.Result()
 	value := common.RightPadBytes([]byte(result.String()), utils.EVMWordByteLen)
 	hex := utils.RemoveHexPrefix(hexutil.Encode(value))
 
 	if len(hex) > utils.EVMWordHexLen {
 		hex = hex[:utils.EVMWordHexLen]
 	}
-	return input.WithValue(utils.AddHexPrefix(hex))
+	return input.WithResult(utils.AddHexPrefix(hex))
 }
 
 // EthInt256 holds no fields
@@ -38,12 +38,12 @@ type EthInt256 struct{}
 // ABI, it would be:
 // "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85"
 func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	value, err := utils.EVMTranscodeInt256(input.Get("value"))
+	value, err := utils.EVMTranscodeInt256(input.Result())
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	return input.WithValue(hexutil.Encode(value))
+	return input.WithResult(hexutil.Encode(value))
 }
 
 // EthUint256 holds no fields.
@@ -56,10 +56,10 @@ type EthUint256 struct{}
 // ABI, it would be:
 // "0x000000000000000000000000000000000000000000000000000000000000007b"
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	value, err := utils.EVMTranscodeUint256(input.Get("value"))
+	value, err := utils.EVMTranscodeUint256(input.Result())
 	if err != nil {
 		return input.WithError(err)
 	}
 
-	return input.WithValue(hexutil.Encode(value))
+	return input.WithResult(hexutil.Encode(value))
 }

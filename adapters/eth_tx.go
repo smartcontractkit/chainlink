@@ -47,16 +47,16 @@ func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.Run
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
 func getTxData(e *EthTx, input models.RunResult) ([]byte, error) {
-	value := input.Get("value")
+	result := input.Result()
 	if e.DataFormat == "" {
-		return common.HexToHash(value.Str).Bytes(), nil
+		return common.HexToHash(result.Str).Bytes(), nil
 	}
 
 	payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
 	if len(e.DataPrefix) > 0 {
 		payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
 	}
-	output, err := utils.EVMTranscodeJSONWithFormat(value, e.DataFormat)
+	output, err := utils.EVMTranscodeJSONWithFormat(result, e.DataFormat)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -83,12 +83,12 @@ func createTxRunResult(
 		return input.WithError(err)
 	}
 
-	sendResult := input.WithValue(tx.Hash.String())
+	sendResult := input.WithResult(tx.Hash.String())
 	return ensureTxRunResult(sendResult, store)
 }
 
 func ensureTxRunResult(input models.RunResult, str *store.Store) models.RunResult {
-	val, err := input.Value()
+	val, err := input.ResultString()
 	if err != nil {
 		return input.WithError(err)
 	}
@@ -121,5 +121,5 @@ func addReceiptToResult(receipt *store.TxReceipt, in models.RunResult) models.Ru
 
 	receipts = append(receipts, *receipt)
 	in = in.Add("ethereumReceipts", receipts)
-	return in.WithValue(receipt.Hash.String())
+	return in.WithResult(receipt.Hash.String())
 }

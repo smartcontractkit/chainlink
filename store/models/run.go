@@ -193,16 +193,16 @@ type RunResult struct {
 	Amount          *assets.Link `json:"amount,omitempty" gorm:"type:varchar(255)"`
 }
 
-// WithValue returns a copy of the RunResult, overriding the "value" field of
+// WithResult returns a copy of the RunResult, overriding the "result" field of
 // Data and setting the status to completed.
-func (rr RunResult) WithValue(val interface{}) RunResult {
+func (rr RunResult) WithResult(val interface{}) RunResult {
 	rr.Status = RunStatusCompleted
-	return rr.Add("value", val)
+	return rr.Add("result", val)
 }
 
-// Add adds a key and value to the RunResult's JSON payload.
-func (rr RunResult) Add(key string, value interface{}) RunResult {
-	data, err := rr.Data.Add(key, value)
+// Add adds a key and result to the RunResult's JSON payload.
+func (rr RunResult) Add(key string, result interface{}) RunResult {
+	data, err := rr.Data.Add(key, result)
 	if err != nil {
 		return rr.WithError(err)
 	}
@@ -210,10 +210,10 @@ func (rr RunResult) Add(key string, value interface{}) RunResult {
 	return rr
 }
 
-// WithNull returns a copy of the RunResult, overriding the "value" field of
+// WithNull returns a copy of the RunResult, overriding the "result" field of
 // Data to null.
 func (rr RunResult) WithNull() RunResult {
-	data, err := rr.Data.Add("value", nil)
+	data, err := rr.Data.Add("result", nil)
 	if err != nil {
 		return rr.WithError(err)
 	}
@@ -252,17 +252,18 @@ func (rr RunResult) Get(path string) gjson.Result {
 	return rr.Data.Get(path)
 }
 
-func (rr RunResult) value() gjson.Result {
-	return rr.Get("value")
-}
-
-// Value returns the string value of the Data JSON field.
-func (rr RunResult) Value() (string, error) {
-	val := rr.value()
+// ResultString returns the string result of the Data JSON field.
+func (rr RunResult) ResultString() (string, error) {
+	val := rr.Result()
 	if val.Type != gjson.String {
-		return "", fmt.Errorf("non string value")
+		return "", fmt.Errorf("non string result")
 	}
 	return val.String(), nil
+}
+
+// Result returns the result as a gjson object
+func (rr RunResult) Result() gjson.Result {
+	return rr.Get("result")
 }
 
 // HasError returns true if the ErrorMessage is present.
@@ -284,8 +285,8 @@ func (rr RunResult) GetError() error {
 }
 
 // Merge returns a copy which is the result of joining the input RunResult
-// with the instance it is called on, preferring the RunResult values passed in,
-// but using the existing values if the input RunResult values are of their
+// with the instance it is called on, preferring the RunResult results passed in,
+// but using the existing results if the input RunResult results are of their
 // respective zero value.
 //
 // Returns an error if called on a RunResult that already has an error.
