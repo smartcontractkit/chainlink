@@ -2,6 +2,7 @@ package migration0
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -44,7 +45,7 @@ func setTimezone(orm *orm.ORM) error {
 }
 
 func setForeignKeysOn(orm *orm.ORM) error {
-	if orm.DB.Dialect().GetName() == "sqlite" {
+	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
 		return orm.DB.Exec("PRAGMA foreign_keys = ON").Error
 	}
 	return nil

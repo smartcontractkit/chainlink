@@ -46,10 +46,15 @@ func initializeDatabase(path string) (*gorm.DB, error) {
 	db, err := gorm.Open(dialect, path)
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to open gorm DB: %+v", err)
+		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
 	return db, nil
 }
+
+const (
+	dialectPostgres = "postgres"
+	dialectSqlite   = "sqlite3"
+)
 
 // DeduceDialect returns the appropriate dialect for the passed connection string.
 func DeduceDialect(path string) (string, error) {
@@ -60,12 +65,14 @@ func DeduceDialect(path string) (string, error) {
 	scheme := strings.ToLower(url.Scheme)
 	switch scheme {
 	case "postgresql", "postgres":
-		return "postgres", nil
-	case "file", "sqlite3", "sqlite":
-		return "sqlite3", nil
+		return dialectPostgres, nil
+	case "file":
+		return dialectSqlite, nil
+	case "sqlite3", "sqlite":
+		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
 	}
 
-	return "", fmt.Errorf("Unable to deduce sql dialect from path %s, please try a proper URL", path)
+	return "", fmt.Errorf("unable to deduce sql dialect from path %s, please try a proper URL", path)
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
