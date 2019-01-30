@@ -219,7 +219,7 @@ func TestRunResult_Merge(t *testing.T) {
 				Status:         test.originalStatus,
 			}
 			in := models.RunResult{
-				Data:           cltest.JSONFromString(test.inData),
+				Data:           cltest.JSONFromString(t, test.inData),
 				ErrorMessage:   test.inError,
 				CachedJobRunID: test.inJRID,
 				Status:         test.inStatus,

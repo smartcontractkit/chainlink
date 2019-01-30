@@ -76,7 +76,7 @@ func TestWasm_Perform(t *testing.T) {
 			t.Parallel()
 
 			input := models.RunResult{
-				Data: cltest.JSONFromString(test.json),
+				Data: cltest.JSONFromString(t, test.json),
 			}
 			adapter := adapters.Wasm{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)

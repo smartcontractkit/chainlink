@@ -129,7 +129,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	sa := cltest.EasyJSONFromFixture("../internal/fixtures/web/hello_world_agreement.json")
+	sa := cltest.EasyJSONFromFixture(t, "../internal/fixtures/web/hello_world_agreement.json")
 
 	tests := []struct {
 		name        string
