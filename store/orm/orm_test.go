@@ -522,8 +522,9 @@ func TestORM_DeduceDialect(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name, connection, expect string
-		wantError                bool
+		name, connection string
+		expect           orm.DialectName
+		wantError        bool
 	}{
 		{"garbage", "89324*$*#@(=", "", true},
 		{"relative file", "db.sqlite", "", true},

@@ -24,40 +24,60 @@ var (
 	ErrorNotFound = gorm.ErrRecordNotFound
 )
 
+// DialectName is a compiler enforced type used that maps to gorm's dialect
+// names.
+type DialectName string
+
+const (
+	// DialectPostgres represents the postgres dialect.
+	DialectPostgres DialectName = "postgres"
+	// DialectSqlite represents the sqlite dialect.
+	DialectSqlite = "sqlite3"
+)
+
 // ORM contains the database object used by Chainlink.
 type ORM struct {
-	DB *gorm.DB
+	DB              *gorm.DB
+	lockingStrategy LockingStrategy
 }
 
 // NewORM initializes a new database file at the configured path.
 func NewORM(path string) (*ORM, error) {
-	db, err := initializeDatabase(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to init DB: %+v", err)
-	}
-	return &ORM{DB: db}, nil
-}
-
-func initializeDatabase(path string) (*gorm.DB, error) {
 	dialect, err := DeduceDialect(path)
 	if err != nil {
 		return nil, err
 	}
-	db, err := gorm.Open(dialect, path)
 
+	lockingStrategy, err := NewLockingStrategy(dialect, path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = lockingStrategy.Lock(time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := initializeDatabase(string(dialect), path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init DB: %+v", err)
+	}
+	return &ORM{
+		DB:              db,
+		lockingStrategy: lockingStrategy,
+	}, nil
+}
+
+func initializeDatabase(dialect, path string) (*gorm.DB, error) {
+	db, err := gorm.Open(dialect, path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
 	return db, nil
 }
 
-const (
-	dialectPostgres = "postgres"
-	dialectSqlite   = "sqlite3"
-)
-
 // DeduceDialect returns the appropriate dialect for the passed connection string.
-func DeduceDialect(path string) (string, error) {
+func DeduceDialect(path string) (DialectName, error) {
 	url, err := url.Parse(path)
 	if err != nil {
 		return "", err
@@ -65,9 +85,9 @@ func DeduceDialect(path string) (string, error) {
 	scheme := strings.ToLower(url.Scheme)
 	switch scheme {
 	case "postgresql", "postgres":
-		return dialectPostgres, nil
+		return DialectPostgres, nil
 	case "file":
-		return dialectSqlite, nil
+		return DialectSqlite, nil
 	case "sqlite3", "sqlite":
 		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
 	}
@@ -87,6 +107,7 @@ func ignoreRecordNotFound(db *gorm.DB) error {
 
 // Close closes the underlying database connection.
 func (orm *ORM) Close() error {
+	orm.lockingStrategy.Unlock()
 	return orm.DB.Close()
 }
 
