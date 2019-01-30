@@ -111,6 +111,7 @@
     "globals": [
       "assert",
       "artifacts",
+      "before",
       "context",
       "contract",
       "describe",
