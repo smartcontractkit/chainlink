@@ -180,25 +180,25 @@ func TestValidateServiceAgreement(t *testing.T) {
 
 	oracles := []string{account.Address.Hex()}
 
-	basic := cltest.EasyJSONFromFixture(t, "../internal/fixtures/web/hello_world_agreement.json")
-	basic = basic.Add("oracles", oracles)
+	basic := string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
+	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)
 	threeDays, _ := time.ParseDuration("72h")
-	basic = basic.Add("endAt", time.Now().Add(threeDays))
+	basic = cltest.MustJSONSet(t, basic, "endAt", time.Now().Add(threeDays))
 
 	tests := []struct {
 		name      string
-		input     cltest.EasyJSON
+		input     string
 		wantError bool
 	}{
 		{"basic", basic, false},
-		{"no payment", basic.Delete("payment"), true},
-		{"less than minimum payment", basic.Add("payment", "1"), true},
-		{"less than minimum expiration", basic.Add("expiration", 1), true},
-		{"without being listed as an oracle", basic.Add("oracles", []string{}), true},
-		{"past allowed end at", basic.Add("endAt", "3000-06-19T22:17:19Z"), true},
-		{"before allowed end at", basic.Add("endAt", "2018-06-19T22:17:19Z"), true},
+		{"no payment", cltest.MustJSONDel(t, basic, "payment"), true},
+		{"less than minimum payment", cltest.MustJSONSet(t, basic, "payment", "1"), true},
+		{"less than minimum expiration", cltest.MustJSONSet(t, basic, "expiration", 1), true},
+		{"without being listed as an oracle", cltest.MustJSONSet(t, basic, "oracles", []string{}), true},
+		{"past allowed end at", cltest.MustJSONSet(t, basic, "endAt", "3000-06-19T22:17:19Z"), true},
+		{"before allowed end at", cltest.MustJSONSet(t, basic, "endAt", "2018-06-19T22:17:19Z"), true},
 		{"more than one initiator should fail",
-			basic.Add("initiators",
+			cltest.MustJSONSet(t, basic, "initiators",
 				[]models.Initiator{{
 					JobSpecID:       "",
 					Type:            models.InitiatorServiceAgreementExecutionLog,
@@ -214,7 +214,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sa, err := cltest.ServiceAgreementFromString(test.input.String())
+			sa, err := cltest.ServiceAgreementFromString(test.input)
 			require.NoError(t, err)
 
 			result := services.ValidateServiceAgreement(sa, store)
