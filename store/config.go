@@ -386,6 +386,8 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 	return v
 }
 
+// NormalizedDatabaseURL returns the DatabaseURL with the empty default
+// coerced to a sqlite3 URL.
 func (c Config) NormalizedDatabaseURL() string {
 	if c.DatabaseURL() == "" {
 		return "file://" + filepath.Join(c.RootDir(), "db.sqlite3")
