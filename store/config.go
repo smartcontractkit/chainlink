@@ -396,7 +396,9 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 // coerced to a sqlite3 URL.
 func (c Config) NormalizedDatabaseURL() string {
 	if c.DatabaseURL() == "" {
-		return "file://" + filepath.Join(c.RootDir(), "db.sqlite3")
+		// Using filepath.ToSlash, we create a golang path that resolves
+		// regardless of OS.
+		return "file://" + filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
 	}
 	return c.DatabaseURL()
 }
@@ -468,7 +470,11 @@ func parseBigInt(str string) (interface{}, error) {
 }
 
 func parseHomeDir(str string) (interface{}, error) {
-	return homedir.Expand(str)
+	exp, err := homedir.Expand(str)
+	if err != nil {
+		return nil, err
+	}
+	return filepath.ToSlash(exp), nil
 }
 
 // LogLevel determines the verbosity of the events to be logged.
