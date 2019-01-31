@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
+	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	_ "github.com/smartcontractkit/go-sqlite3" // http://doc.gorm.io/database.html#connecting-to-a-database
@@ -53,6 +54,7 @@ func NewORM(path string) (*ORM, error) {
 		return nil, err
 	}
 
+	logger.Infof("Locking %v for exclusive access with %T", dialect, lockingStrategy)
 	err = lockingStrategy.Lock(2 * time.Second)
 	if err != nil {
 		return nil, err
