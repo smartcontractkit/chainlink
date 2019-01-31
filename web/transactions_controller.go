@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,26 @@ import (
 // TransactionsController displays Ethereum transactions requests.
 type TransactionsController struct {
 	App services.Application
+}
+
+// Index returns paginated transaction attempts
+func (tc *TransactionsController) Index(c *gin.Context) {
+	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
+	if err != nil {
+		c.AbortWithError(422, err)
+		return
+	}
+
+	attempts, count, err := tc.App.GetStore().TxAttempts(offset, size)
+	if err == orm.ErrorNotFound {
+		c.Data(404, MediaType, emptyJSON)
+	} else if err != nil {
+		c.AbortWithError(500, fmt.Errorf("error getting paged TxAttempts: %+v", err))
+	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, attempts); err != nil {
+		c.AbortWithError(500, err)
+	} else {
+		c.Data(200, MediaType, buffer)
+	}
 }
 
 // Show returns the details of a Ethereum Transasction details.

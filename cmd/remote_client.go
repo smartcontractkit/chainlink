@@ -377,12 +377,12 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	return nil
 }
 
-// GetTxAttempts returns the list of transaction attempts in descending order,
+// GetTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
+func (cli *Client) GetTransactions(c *clipkg.Context) error {
 	var links jsonapi.Links
 	attempts := []models.TxAttempt{}
-	err := cli.getPage("/v2/txattempts", c.Int("page"), &attempts, &links)
+	err := cli.getPage("/v2/transactions", c.Int("page"), &attempts, &links)
 	if err != nil {
 		return err
 	}
