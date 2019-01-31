@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gofrs/flock"
 	"github.com/jinzhu/gorm"
+	"go.uber.org/multierr"
 )
 
 // NewLockingStrategy returns the locking strategy for a particular dialect
@@ -52,7 +54,7 @@ type FileLockingStrategy struct {
 func NewFileLockingStrategy(_ DialectName, dbpath string) (LockingStrategy, error) {
 	uri, err := url.Parse(dbpath)
 	if err != nil {
-		return nil, err
+		return nil, multierr.Append(errors.New("unable to create file locking strategy"), err)
 	}
 	dbpath = uri.Path
 	directory := filepath.Dir(dbpath)
