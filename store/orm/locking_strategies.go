@@ -8,29 +8,24 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	"github.com/jinzhu/gorm"
 )
 
-// NewLockingStrategy returns the appropriate dialect for the
-// passed connection string.
+// NewLockingStrategy returns the locking strategy for a particular dialect
+// to ensure exlusive access to the orm.
 func NewLockingStrategy(dialect DialectName, path string) (LockingStrategy, error) {
-	uri, err := url.Parse(path)
-	if err != nil {
-		return nil, err
-	}
-	path = uri.Path
 	switch dialect {
 	case DialectPostgres:
-		return UnlockedLockingStrategy{}, nil
+		return NewPostgresLockingStrategy(dialect, path)
 	case DialectSqlite:
-		directory := filepath.Dir(path)
-		return NewFileLockingStrategy(filepath.Join(directory, "chainlink.lock")), nil
+		return NewFileLockingStrategy(dialect, path)
 	}
 
 	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, path)
 }
 
 // LockingStrategy employs the locking and unlocking of an underlying
-// resource, usually a file or db.
+// resource for exclusive access, usually a file or database.
 type LockingStrategy interface {
 	Lock(timeout time.Duration) error
 	Unlock() error
@@ -45,8 +40,7 @@ func (s UnlockedLockingStrategy) Lock(timeout time.Duration) error { return nil 
 // Unlock is a noop.
 func (s UnlockedLockingStrategy) Unlock() error { return nil }
 
-// FileLockingStrategy uses the write lock for a file on disk to ensure
-// exclusive operations.
+// FileLockingStrategy uses a file lock on disk to ensure exclusive access.
 type FileLockingStrategy struct {
 	path     string
 	fileLock *flock.Flock
@@ -55,16 +49,23 @@ type FileLockingStrategy struct {
 
 // NewFileLockingStrategy creates a new instance of FileLockingStrategy
 // at the passed path.
-func NewFileLockingStrategy(path string) LockingStrategy {
-	return FileLockingStrategy{
-		path:     path,
-		fileLock: flock.New(path),
-		m:        &sync.Mutex{},
+func NewFileLockingStrategy(_ DialectName, dbpath string) (LockingStrategy, error) {
+	uri, err := url.Parse(dbpath)
+	if err != nil {
+		return nil, err
 	}
+	dbpath = uri.Path
+	directory := filepath.Dir(dbpath)
+	lockPath := filepath.Join(directory, "chainlink.lock")
+	return &FileLockingStrategy{
+		path:     lockPath,
+		fileLock: flock.New(lockPath),
+		m:        &sync.Mutex{},
+	}, nil
 }
 
 // Lock returns immediately and assumes is always unlocked.
-func (s FileLockingStrategy) Lock(timeout time.Duration) error {
+func (s *FileLockingStrategy) Lock(timeout time.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -83,8 +84,64 @@ func (s FileLockingStrategy) Lock(timeout time.Duration) error {
 }
 
 // Unlock is a noop.
-func (s FileLockingStrategy) Unlock() error {
+func (s *FileLockingStrategy) Unlock() error {
 	s.m.Lock()
 	defer s.m.Unlock()
 	return s.fileLock.Unlock()
+}
+
+// PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive
+// access.
+type PostgresLockingStrategy struct {
+	db          *gorm.DB
+	dialectName DialectName
+	path        string
+	m           *sync.Mutex
+}
+
+// NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
+func NewPostgresLockingStrategy(dialectName DialectName, path string) (LockingStrategy, error) {
+	return &PostgresLockingStrategy{
+		m:           &sync.Mutex{},
+		dialectName: dialectName,
+		path:        path,
+	}, nil
+}
+
+const postgresAdvisoryLockID int64 = 1027321974924625846
+
+// Lock uses a blocking postgres advisory lock that times out at the passed
+// timeout.
+func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	db, err := gorm.Open(string(s.dialectName), s.path)
+	if err != nil {
+		return err
+	}
+	s.db = db
+
+	locked := make(chan struct{})
+	go func() {
+		err = s.db.Exec("SELECT pg_advisory_lock(?);", postgresAdvisoryLockID).Error
+		close(locked)
+	}()
+	select {
+	case <-locked:
+	case <-time.After(timeout):
+		return fmt.Errorf("postgres advisory locking strategy timed out for advisory lock ID %v", postgresAdvisoryLockID)
+	}
+	return err
+}
+
+// Unlock unlocks the locked postgres advisory lock.
+func (s *PostgresLockingStrategy) Unlock() error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s.db != nil {
+		return s.db.Close()
+	}
+	return nil
 }
