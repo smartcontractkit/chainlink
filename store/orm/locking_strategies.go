@@ -79,10 +79,17 @@ func (s *FileLockingStrategy) Lock(timeout time.Duration) error {
 	}()
 	select {
 	case <-locked:
-	case <-time.After(timeout):
+	case <-normalizedTimeout(timeout):
 		return fmt.Errorf("file locking strategy timed out for %s", s.path)
 	}
 	return err
+}
+
+func normalizedTimeout(timeout time.Duration) <-chan time.Time {
+	if timeout == 0 {
+		return make(chan time.Time) // never time out
+	}
+	return time.After(timeout)
 }
 
 // Unlock is a noop.
@@ -131,7 +138,7 @@ func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
 	}()
 	select {
 	case <-locked:
-	case <-time.After(timeout):
+	case <-normalizedTimeout(timeout):
 		return fmt.Errorf("postgres advisory locking strategy timed out for advisory lock ID %v", postgresAdvisoryLockID)
 	}
 	return err

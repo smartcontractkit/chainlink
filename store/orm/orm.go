@@ -54,7 +54,7 @@ func NewORM(path string, timeout time.Duration) (*ORM, error) {
 		return nil, err
 	}
 
-	logger.Infof("Locking %v for exclusive access with a %v timeout", dialect, timeout)
+	logger.Infof("Locking %v for exclusive access with %v timeout", dialect, displayTimeout(timeout))
 	err = lockingStrategy.Lock(timeout)
 	if err != nil {
 		return nil, err
@@ -68,6 +68,13 @@ func NewORM(path string, timeout time.Duration) (*ORM, error) {
 		DB:              db,
 		lockingStrategy: lockingStrategy,
 	}, nil
+}
+
+func displayTimeout(timeout time.Duration) string {
+	if timeout == 0 {
+		return "indefinite"
+	}
+	return timeout.String()
 }
 
 func initializeDatabase(dialect, path string) (*gorm.DB, error) {
