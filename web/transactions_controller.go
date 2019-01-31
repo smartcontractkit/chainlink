@@ -46,7 +46,7 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		c.AbortWithError(404, errors.New("Transaction not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
-	} else if doc, err := jsonapi.Marshal(presenters.Tx{Tx: tx}); err != nil {
+	} else if doc, err := jsonapi.Marshal(presenters.NewTx(tx)); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.Data(200, MediaType, doc)

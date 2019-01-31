@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/assets"
@@ -488,7 +489,34 @@ func (a NewAccount) GetName() string {
 
 // Tx is a jsonapi wrapper for an Ethereum Transaction.
 type Tx struct {
-	*models.Tx
+	Confirmed bool           `json:"confirmed"`
+	Data      hexutil.Bytes  `json:"data"`
+	From      common.Address `json:"from"`
+	GasLimit  string         `json:"gasLimit"`
+	GasPrice  string         `json:"gasPrice"`
+	Hash      common.Hash    `json:"hash"`
+	Hex       string         `json:"rawHex"`
+	Nonce     string         `json:"nonce"`
+	SentAt    string         `json:"sentAt"`
+	To        common.Address `json:"to"`
+	Value     string         `json:"value"`
+}
+
+// NewTx builds a transaction presenter.
+func NewTx(tx *models.Tx) Tx {
+	return Tx{
+		Confirmed: tx.Confirmed,
+		Data:      hexutil.Bytes(tx.Data),
+		From:      tx.From,
+		GasLimit:  string(tx.GasLimit),
+		GasPrice:  tx.GasPrice.String(),
+		Hash:      tx.Hash,
+		Hex:       tx.Hex,
+		Nonce:     string(tx.Nonce),
+		SentAt:    string(tx.SentAt),
+		To:        tx.To,
+		Value:     tx.Value.String(),
+	}
 }
 
 // GetID returns the jsonapi ID.
@@ -501,73 +529,9 @@ func (Tx) GetName() string {
 	return "transactions"
 }
 
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (t *Tx) SetID(value string) error {
-	t.Hash = common.HexToHash(value)
-	return nil
-}
-
-type txJSON struct {
-	Confirmed bool   `json:"confirmed"`
-	Data      string `json:"data"`
-	From      string `json:"from"`
-	GasLimit  uint64 `json:"gasLimit"`
-	GasPrice  string `json:"gasPrice"`
-	Hash      string `json:"hash"`
-	Hex       string `json:"rawHex"`
-	Nonce     uint64 `json:"nonce"`
-	SentAt    uint64 `json:"sentAt"`
-	To        string `json:"to"`
-	Value     string `json:"value"`
-}
-
-// MarshalJSON returns the Transaction as json.
-func (t Tx) MarshalJSON() ([]byte, error) {
-	txj := txJSON{
-		Confirmed: t.Confirmed,
-		Data:      common.Bytes2Hex(t.Data),
-		From:      t.From.Hex(),
-		GasLimit:  t.GasLimit,
-		GasPrice:  t.GasPrice.String(),
-		Hash:      t.Hash.Hex(),
-		Hex:       t.Hex,
-		Nonce:     t.Nonce,
-		SentAt:    t.SentAt,
-		To:        t.To.Hex(),
-		Value:     t.Value.String(),
-	}
-	return json.Marshal(&txj)
-}
-
-// UnmarshalJSON deserializes the Transaction from json.
-func (t *Tx) UnmarshalJSON(b []byte) error {
-	var txj txJSON
-	if err := json.Unmarshal(b, &txj); err != nil {
-		return err
-	}
-
-	gasPrice, ok := big.NewInt(0).SetString(txj.GasPrice, 10)
-	if !ok {
-		return fmt.Errorf("presents.Tx could not unmarshal gasPrice from JSON: %v", b)
-	}
-	value, ok := big.NewInt(0).SetString(txj.Value, 10)
-	if !ok {
-		return fmt.Errorf("presents.Tx could not unmarshal value from JSON: %v", b)
-	}
-	tx := models.Tx{
-		Data:      common.Hex2Bytes(txj.Data),
-		From:      common.HexToAddress(txj.From),
-		GasLimit:  txj.GasLimit,
-		Nonce:     txj.Nonce,
-		To:        common.HexToAddress(txj.To),
-		Confirmed: txj.Confirmed,
-		GasPrice:  models.NewBig(gasPrice),
-		Hash:      common.HexToHash(txj.Hash),
-		Hex:       txj.Hex,
-		SentAt:    txj.SentAt,
-		Value:     models.NewBig(value),
-	}
-	t.Tx = &tx
-
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (t *Tx) SetID(hash string) error {
+	t.Hash = common.HexToHash(hash)
 	return nil
 }
