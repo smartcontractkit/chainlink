@@ -53,7 +53,7 @@ func NewORM(path string) (*ORM, error) {
 		return nil, err
 	}
 
-	err = lockingStrategy.Lock(time.Second)
+	err = lockingStrategy.Lock(2 * time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +107,10 @@ func ignoreRecordNotFound(db *gorm.DB) error {
 
 // Close closes the underlying database connection.
 func (orm *ORM) Close() error {
-	orm.lockingStrategy.Unlock()
-	return orm.DB.Close()
+	return multierr.Append(
+		orm.DB.Close(),
+		orm.lockingStrategy.Unlock(),
+	)
 }
 
 // Where fetches multiple objects with "Find".
