@@ -16,7 +16,7 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -54,7 +54,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", "0x100")
@@ -106,7 +106,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			require.NoError(t, cltest.ParseJSONAPIResponse(resp, &ptx))
 
 			test.want.ID = 0
-			assert.Equal(t, &test.want, ptx.Tx)
+			assert.Equal(t, presenters.NewTx(&test.want), ptx)
 		})
 	}
 }
