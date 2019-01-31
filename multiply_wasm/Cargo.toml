@@ -18,6 +18,7 @@ serde_json = "*"
 [profile.release]
 lto = true
 incremental = false
+
 [profile.dev]
 lto = true
 incremental = false
