@@ -350,7 +350,7 @@ func cleanUpStore(store *strpkg.Store) {
 
 func WipePostgresDatabase(c strpkg.Config) {
 	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), "postgres") {
-		orm, err := orm.NewORM(c.NormalizedDatabaseURL())
+		orm, err := orm.NewORM(c.NormalizedDatabaseURL(), c.DatabaseTimeout())
 		if err != nil {
 			logger.Warn("unable to wipe postgres database", err)
 			return

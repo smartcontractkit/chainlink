@@ -43,7 +43,7 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured path.
-func NewORM(path string) (*ORM, error) {
+func NewORM(path string, timeout time.Duration) (*ORM, error) {
 	dialect, err := DeduceDialect(path)
 	if err != nil {
 		return nil, err
@@ -54,8 +54,8 @@ func NewORM(path string) (*ORM, error) {
 		return nil, err
 	}
 
-	logger.Infof("Locking %v for exclusive access with %T", dialect, lockingStrategy)
-	err = lockingStrategy.Lock(2 * time.Second)
+	logger.Infof("Locking %v for exclusive access with a %v timeout with %T", dialect, timeout, lockingStrategy)
+	err = lockingStrategy.Lock(timeout)
 	if err != nil {
 		return nil, err
 	}
