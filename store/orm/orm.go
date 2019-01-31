@@ -54,7 +54,7 @@ func NewORM(path string, timeout time.Duration) (*ORM, error) {
 		return nil, err
 	}
 
-	logger.Infof("Locking %v for exclusive access with a %v timeout with %T", dialect, timeout, lockingStrategy)
+	logger.Infof("Locking %v for exclusive access with a %v timeout", dialect, timeout)
 	err = lockingStrategy.Lock(timeout)
 	if err != nil {
 		return nil, err
