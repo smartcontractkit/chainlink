@@ -123,6 +123,11 @@ func Infof(format string, values ...interface{}) {
 	logger.Info(fmt.Sprintf(format, values...))
 }
 
+// Debugf formats and then logs the message.
+func Debugf(format string, values ...interface{}) {
+	logger.Debug(fmt.Sprintf(format, values...))
+}
+
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
 	logger.Warn(fmt.Sprintf(format, values...))
