@@ -3,6 +3,7 @@
 package adapters_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -18,6 +20,21 @@ const (
 	// This program compares the input value to 450 using i64.lt_s
 	CheckEthProgram = "AGFzbQEAAAABBgFgAXwBfwMCAQAHCwEHcGVyZm9ybQAAChABDgBEAAAAAAAgfEAgAGML"
 )
+
+func TestWasm_Perform_WithJSONInput(t *testing.T) {
+	wasm := cltest.MustReadFile(t, "multiply_wasm.wasm")
+	wasmInput := base64.StdEncoding.EncodeToString(wasm)
+
+	input := models.RunResult{
+		Data: cltest.JSONFromString(t, fmt.Sprintf(`{"wasm":"%s"}`, wasmInput)),
+	}
+	adapter := adapters.Wasm{}
+	jsonErr := json.Unmarshal([]byte(`{"result":"8616460799"}`), &adapter)
+	require.NoError(t, jsonErr)
+
+	result := adapter.Perform(input, nil)
+	assert.NoError(t, result.GetError())
+}
 
 func TestWasm_Perform(t *testing.T) {
 	tests := []struct {
