@@ -47,17 +47,19 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		store, cleanup := cltest.NewStore()
-		defer cleanup()
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore()
+			defer cleanup()
 
-		store.KeyStore.NewAccount(test.passphrase1)
-		store.KeyStore.NewAccount(test.passphrase2)
+			store.KeyStore.NewAccount(test.passphrase1)
+			store.KeyStore.NewAccount(test.passphrase2)
 
-		if test.wantErr {
-			assert.Error(t, store.KeyStore.Unlock(correctPassphrase))
-		} else {
-			assert.NoError(t, store.KeyStore.Unlock(correctPassphrase))
-		}
+			if test.wantErr {
+				assert.Error(t, store.KeyStore.Unlock(correctPassphrase))
+			} else {
+				assert.NoError(t, store.KeyStore.Unlock(correctPassphrase))
+			}
+		})
 	}
 }
 
