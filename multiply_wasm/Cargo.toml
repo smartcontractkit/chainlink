@@ -1,0 +1,23 @@
+[package]
+name = "multiply_wasm"
+version = "0.1.0"
+authors = ["John Barker <jebarker@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+
+[dependencies]
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+
+[profile.release]
+lto = true
+incremental = false
+[profile.dev]
+lto = true
+incremental = false
