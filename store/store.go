@@ -174,7 +174,7 @@ func (Clock) After(d time.Duration) <-chan time.Time {
 }
 
 func initializeORM(config Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL())
+	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
 	if err != nil {
 		return nil, err
 	}
