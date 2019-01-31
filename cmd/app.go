@@ -172,9 +172,9 @@ func NewApp(client *Client) *cli.App {
 			Action: client.ChangePassword,
 		},
 		{
-			Name:   "txattempts",
-			Usage:  "List the transaction attempts in descending order",
-			Action: client.GetTxAttempts,
+			Name:   "transactions",
+			Usage:  "List the transactions in descending order",
+			Action: client.GetTransactions,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
