@@ -137,8 +137,9 @@ type whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  uint64          `json:"ethChainId"`
-	Dev                      bool            `json:"chainlinkDev"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
+	Dev                      bool            `json:"chainlinkDev"`
+	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
@@ -174,8 +175,9 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			AllowOrigins:             config.AllowOrigins(),
 			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
-			Dev:                      config.Dev(),
 			ClientNodeURL:            config.ClientNodeURL(),
+			Dev:                      config.Dev(),
+			DatabaseTimeout:          config.DatabaseTimeout(),
 			EthereumURL:              config.EthereumURL(),
 			EthGasBumpThreshold:      config.EthGasBumpThreshold(),
 			EthGasBumpWei:            config.EthGasBumpWei(),

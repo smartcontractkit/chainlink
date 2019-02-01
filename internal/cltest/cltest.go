@@ -24,6 +24,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
+	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -349,15 +350,15 @@ func cleanUpStore(store *strpkg.Store) {
 }
 
 func WipePostgresDatabase(c strpkg.Config) {
-	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), "postgres") {
-		orm, err := orm.NewORM(c.NormalizedDatabaseURL())
+	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
+		db, err := gorm.Open(string(orm.DialectPostgres), c.NormalizedDatabaseURL())
 		if err != nil {
 			logger.Warn("unable to wipe postgres database", err)
 			return
 		}
-		defer orm.Close()
+		defer db.Close()
 
-		logger.WarnIf(orm.DB.Exec(`
+		logger.WarnIf(db.Exec(`
 DO $$ DECLARE
     r RECORD;
 BEGIN

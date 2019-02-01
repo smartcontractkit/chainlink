@@ -141,3 +141,7 @@
 [[constraint]]
   name = "github.com/smartcontractkit/go-sqlite3"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/gofrs/flock"
+  version = "0.7.0"

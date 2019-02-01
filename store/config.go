@@ -43,6 +43,7 @@ type ConfigSchema struct {
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`
 	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
+	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
 	DatabaseURL              string         `env:"DATABASE_URL"`
 	Dev                      bool           `env:"CHAINLINK_DEV" default:"false"`
 	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
@@ -139,6 +140,11 @@ func (c Config) ChainID() uint64 {
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(c.envVarName("ClientNodeURL"))
+}
+
+// DatabaseTimeout represents how long to tolerate non response from the DB.
+func (c Config) DatabaseTimeout() time.Duration {
+	return c.viper.GetDuration(c.envVarName("DatabaseTimeout"))
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -390,7 +396,9 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 // coerced to a sqlite3 URL.
 func (c Config) NormalizedDatabaseURL() string {
 	if c.DatabaseURL() == "" {
-		return "file://" + filepath.Join(c.RootDir(), "db.sqlite3")
+		// Using filepath.ToSlash, we create a golang path that resolves
+		// regardless of OS.
+		return "file://" + filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
 	}
 	return c.DatabaseURL()
 }
@@ -462,7 +470,11 @@ func parseBigInt(str string) (interface{}, error) {
 }
 
 func parseHomeDir(str string) (interface{}, error) {
-	return homedir.Expand(str)
+	exp, err := homedir.Expand(str)
+	if err != nil {
+		return nil, err
+	}
+	return filepath.ToSlash(exp), nil
 }
 
 // LogLevel determines the verbosity of the events to be logged.
