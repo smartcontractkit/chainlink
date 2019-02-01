@@ -21,7 +21,7 @@ contract Chainlinked {
   LinkTokenInterface private link;
   ChainlinkRequestInterface private oracle;
   uint256 private requests = 1;
-  mapping(bytes32 => address) private unfulfilledRequests;
+  mapping(bytes32 => address) private pendingRequests;
 
   event ChainlinkRequested(bytes32 indexed id);
   event ChainlinkFulfilled(bytes32 indexed id);
@@ -49,7 +49,7 @@ contract Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(this, requests));
     _run.nonce = requests;
-    unfulfilledRequests[requestId] = _oracle;
+    pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _payment, encodeRequest(_run)), "unable to transferAndCall to oracle");
     requests += 1;
@@ -65,8 +65,8 @@ contract Chainlinked {
   )
     internal
   {
-    ChainlinkRequestInterface requested = ChainlinkRequestInterface(unfulfilledRequests[_requestId]);
-    delete unfulfilledRequests[_requestId];
+    ChainlinkRequestInterface requested = ChainlinkRequestInterface(pendingRequests[_requestId]);
+    delete pendingRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
     requested.cancel(_requestId, _payment, _callbackFunc, _expiration);
   }
@@ -97,9 +97,9 @@ contract Chainlinked {
 
   function addExternalRequest(address _oracle, bytes32 _requestId)
     internal
-    isUnfulfilledRequest(_requestId)
+    isPendingRequest(_requestId)
   {
-    unfulfilledRequests[_requestId] = _oracle;
+    pendingRequests[_requestId] = _oracle;
   }
 
   function newChainlinkWithENS(address _ens, bytes32 _node)
@@ -147,14 +147,14 @@ contract Chainlinked {
   {}
 
   modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
-    delete unfulfilledRequests[_requestId];
+    require(msg.sender == pendingRequests[_requestId], "source must be the oracle of the request");
+    delete pendingRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
     _;
   }
 
-  modifier isUnfulfilledRequest(bytes32 _requestId) {
-    require(unfulfilledRequests[_requestId] == address(0), "Request is already fulfilled");
+  modifier isPendingRequest(bytes32 _requestId) {
+    require(pendingRequests[_requestId] == address(0), "Request is already fulfilled");
     _;
   }
 }
