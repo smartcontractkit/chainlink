@@ -25,12 +25,12 @@ func (tc *TransactionsController) Index(c *gin.Context) {
 		return
 	}
 
-	attempts, count, err := tc.App.GetStore().TxAttempts(offset, size)
+	txs, count, err := tc.App.GetStore().Transactions(offset, size)
 	if err == orm.ErrorNotFound {
 		c.Data(404, MediaType, emptyJSON)
 	} else if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting paged TxAttempts: %+v", err))
-	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, attempts); err != nil {
+		c.AbortWithError(500, fmt.Errorf("error getting paged Transactions: %+v", err))
+	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, txs); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.Data(200, MediaType, buffer)
