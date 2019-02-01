@@ -61,13 +61,20 @@ func TestUtils_StringToHex(t *testing.T) {
 
 func TestUtils_BackoffSleeper(t *testing.T) {
 	bs := utils.NewBackoffSleeper()
+	assert.Equal(t, time.Duration(0), bs.Duration(), "should initially return immediately")
+	bs.Sleep()
+
 	d := 1 * time.Nanosecond
 	bs.Min = d
 	bs.Factor = 2
 	assert.Equal(t, d, bs.Duration())
 	bs.Sleep()
+
 	d2 := 2 * time.Nanosecond
 	assert.Equal(t, d2, bs.Duration())
+
+	bs.Reset()
+	assert.Equal(t, time.Duration(0), bs.Duration(), "should initially return immediately")
 }
 
 func TestUtils_DurationFromNow(t *testing.T) {
