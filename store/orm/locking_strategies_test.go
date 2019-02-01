@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestORM_NewLockingStrategy(t *testing.T) {
+func TestNewLockingStrategy(t *testing.T) {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	c := tc.Config
@@ -45,7 +45,7 @@ func TestORM_NewLockingStrategy(t *testing.T) {
 
 const delay = 10 * time.Millisecond
 
-func TestORM_FileLockingStrategy_Lock(t *testing.T) {
+func TestFileLockingStrategy_Lock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	c := tc.Config
@@ -68,7 +68,7 @@ func TestORM_FileLockingStrategy_Lock(t *testing.T) {
 	require.NoError(t, ls2.Unlock())
 }
 
-func TestORM_PostgresLockingStrategy_Lock(t *testing.T) {
+func TestPostgresLockingStrategy_Lock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig()
 	defer cleanup()
 	c := tc.Config
