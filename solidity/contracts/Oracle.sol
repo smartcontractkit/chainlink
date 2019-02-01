@@ -19,7 +19,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
-  LinkTokenInterface internal LINK;
+  LinkTokenInterface internal LinkToken;
   mapping(bytes32 => bytes32) private commitments;
   mapping(address => bool) private authorizedNodes;
   uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
@@ -41,7 +41,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   );
 
   constructor(address _link) Ownable() public {
-    LINK = LinkTokenInterface(_link);
+    LinkToken = LinkTokenInterface(_link);
   }
 
   function onTokenTransfer(
@@ -149,7 +149,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     hasAvailableFunds(_amount)
   {
     withdrawableTokens = withdrawableTokens.sub(_amount);
-    require(LINK.transfer(_recipient, _amount), "Failed to transfer LINK");
+    require(LinkToken.transfer(_recipient, _amount), "Failed to transfer LINK");
   }
 
   function withdrawable() external view onlyOwner returns (uint256) {
@@ -175,7 +175,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     delete commitments[_requestId];
     emit CancelRequest(_requestId);
 
-    require(LINK.transfer(msg.sender, _payment), "Unable to transfer");
+    require(LinkToken.transfer(msg.sender, _payment), "Unable to transfer");
   }
 
   // MODIFIERS
@@ -196,7 +196,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   }
 
   modifier onlyLINK() {
-    require(msg.sender == address(LINK), "Must use LINK token");
+    require(msg.sender == address(LinkToken), "Must use LINK token");
     _;
   }
 
@@ -211,7 +211,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   }
 
   modifier checkCallbackAddress(address _to) {
-    require(_to != address(LINK), "Cannot callback to LINK");
+    require(_to != address(LinkToken), "Cannot callback to LINK");
     _;
   }
 
