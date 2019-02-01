@@ -170,7 +170,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.GET("/config", cc.Show)
 
 		tas := TxAttemptsController{app}
-		authv2.GET("/tx_attempts", tas.Index)
+		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
 
 		txs := TransactionsController{app}
 		authv2.GET("/transactions", txs.Index)

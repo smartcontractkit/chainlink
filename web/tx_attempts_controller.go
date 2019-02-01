@@ -11,13 +11,7 @@ type TxAttemptsController struct {
 }
 
 // Index returns paginated transaction attempts
-func (tac *TxAttemptsController) Index(c *gin.Context) {
-	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
-	if err != nil {
-		c.AbortWithError(422, err)
-		return
-	}
-
+func (tac *TxAttemptsController) Index(c *gin.Context, size, page, offset int) {
 	tas, count, err := tac.App.GetStore().TxAttempts(offset, size)
 	paginatedResponse(c, "TxAttempts", size, page, tas, count, err)
 }
