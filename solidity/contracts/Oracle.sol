@@ -149,7 +149,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     hasAvailableFunds(_amount)
   {
     withdrawableTokens = withdrawableTokens.sub(_amount);
-    require(LinkToken.transfer(_recipient, _amount), "Failed to transfer LINK");
+    assert(LinkToken.transfer(_recipient, _amount));
   }
 
   function withdrawable() external view onlyOwner returns (uint256) {
@@ -175,7 +175,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     delete commitments[_requestId];
     emit CancelRequest(_requestId);
 
-    require(LinkToken.transfer(msg.sender, _payment), "Unable to transfer");
+    assert(LinkToken.transfer(msg.sender, _payment));
   }
 
   // MODIFIERS
