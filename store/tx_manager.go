@@ -161,7 +161,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 
 	ma := txm.NextActiveAccount()
 	if ma == nil {
-		return nil, errors.New("Must activate an account before creating a transaction")
+		return nil, errors.New("Must connect and activate an account before creating a transaction")
 	}
 
 	return ma, nil
