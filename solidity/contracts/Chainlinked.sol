@@ -109,8 +109,8 @@ contract Chainlinked {
   {
     ens = ENSInterface(_ens);
     ensNode = _node;
-    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
+    ENSResolver resolver = ENSResolver(ens.resolver(linkSubnode));
     setLinkToken(resolver.addr(linkSubnode));
     setOracleWithENS();
   }
@@ -118,8 +118,8 @@ contract Chainlinked {
   function setOracleWithENS()
     internal
   {
-    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
+    ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
     setOracle(resolver.addr(oracleSubnode));
   }
 
