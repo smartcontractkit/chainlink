@@ -169,6 +169,9 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 
+		tas := TxAttemptsController{app}
+		authv2.GET("/tx_attempts", tas.Index)
+
 		txs := TransactionsController{app}
 		authv2.GET("/transactions", txs.Index)
 		authv2.GET("/transactions/:TxHash", txs.Show)

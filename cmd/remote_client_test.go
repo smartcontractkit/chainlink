@@ -567,11 +567,14 @@ func TestClient_GetTransactions(t *testing.T) {
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	_, count, err := store.Transactions(0, 100)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
 
 	client, r := app.NewClientAndRenderer()
 
 	// page 1
-	set := flag.NewFlagSet("test txattempts", 0)
+	set := flag.NewFlagSet("test transactions", 0)
 	set.Int("page", 1, "doc")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
@@ -590,6 +593,42 @@ func TestClient_GetTransactions(t *testing.T) {
 
 	renderedTxs = *r.Renders[1].(*[]models.Tx)
 	assert.Equal(t, 0, len(renderedTxs))
+}
+
+func TestClient_GetTxAttempts(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey()
+	defer cleanup()
+
+	store := app.GetStore()
+	from := cltest.GetAccountAddress(store)
+	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	attempts, err := store.TxAttemptsFor(tx.ID)
+	require.NoError(t, err)
+
+	client, r := app.NewClientAndRenderer()
+
+	// page 1
+	set := flag.NewFlagSet("test txattempts", 0)
+	set.Int("page", 1, "doc")
+	c := cli.NewContext(nil, set, nil)
+	require.Equal(t, 1, c.Int("page"))
+	assert.NoError(t, client.GetTxAttempts(c))
+
+	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
+	assert.Equal(t, 1, len(renderedAttempts))
+	assert.Equal(t, attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+
+	// page 2 which doesn't exist
+	set = flag.NewFlagSet("test transactions", 0)
+	set.Int("page", 2, "doc")
+	c = cli.NewContext(nil, set, nil)
+	require.Equal(t, 2, c.Int("page"))
+	assert.NoError(t, client.GetTxAttempts(c))
+
+	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
+	assert.Equal(t, 0, len(renderedAttempts))
 }
 
 func TestClient_CreateExtraKey(t *testing.T) {
