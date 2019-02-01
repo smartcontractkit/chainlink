@@ -189,33 +189,53 @@ type Sleeper interface {
 	Duration() time.Duration
 }
 
-// BackoffSleeper is a counter to assist with reattempts.
+// BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
-	*backoff.Backoff
+	backoff.Backoff
+	beenRun bool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
-// sleep for 1 second minimum, and 10 seconds maximum.
-func NewBackoffSleeper() BackoffSleeper {
-	return BackoffSleeper{&backoff.Backoff{
+// sleep for 0 seconds initially, then backs off from 1 second minimum
+// to 10 seconds maximum.
+func NewBackoffSleeper() *BackoffSleeper {
+	return &BackoffSleeper{Backoff: backoff.Backoff{
 		Min: 1 * time.Second,
 		Max: 10 * time.Second,
 	}}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
-func (bs BackoffSleeper) Sleep() {
+func (bs *BackoffSleeper) Sleep() {
+	if !bs.beenRun {
+		time.Sleep(0)
+		bs.beenRun = true
+		return
+	}
 	time.Sleep(bs.Backoff.Duration())
 }
 
 // After returns the duration for the next stop, and increments the backoff.
-func (bs BackoffSleeper) After() time.Duration {
+func (bs *BackoffSleeper) After() time.Duration {
+	if !bs.beenRun {
+		bs.beenRun = true
+		return 0
+	}
 	return bs.Backoff.Duration()
 }
 
 // Duration returns the current duration value.
-func (bs BackoffSleeper) Duration() time.Duration {
+func (bs *BackoffSleeper) Duration() time.Duration {
+	if !bs.beenRun {
+		return 0
+	}
 	return bs.ForAttempt(bs.Attempt())
+}
+
+// Reset resets the backoff intervals.
+func (bs *BackoffSleeper) Reset() {
+	bs.beenRun = false
+	bs.Backoff.Reset()
 }
 
 // ConstantSleeper is to assist with reattempts with

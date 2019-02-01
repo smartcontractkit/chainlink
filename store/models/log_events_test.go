@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -238,22 +237,24 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				eth.Register("eth_getTransactionCount", "0x1")
 				eth.RegisterSubscription("logs", logs)
 			})
-			assert.NoError(t, app.Start())
+			assert.NoError(t, app.StartAndConnect())
 
 			js := test.job
-			initr := js.Initiators[0]
-			initr.Requesters = []common.Address{requester}
-			_, err := services.NewInitiatorSubscription(initr, js, app.Store, nil, services.ReceiveLogRequest)
-			require.NoError(t, err)
-			require.NoError(t, app.Store.CreateJob(&js))
+			js.Initiators[0].Requesters = []common.Address{requester}
+			require.NoError(t, app.AddJob(js))
 
 			logs <- test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
 			eth.EventuallyAllCalled(t)
 
+			gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
+				runs, err := app.Store.JobRunsFor(js.ID)
+				require.NoError(t, err)
+				return runs
+			}).Should(gomega.HaveLen(1))
+
 			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 				runs, err := app.Store.JobRunsFor(js.ID)
 				require.NoError(t, err)
-				require.Len(t, runs, 1)
 				return runs[0].Status
 			}).Should(gomega.Equal(test.wantStatus))
 		})

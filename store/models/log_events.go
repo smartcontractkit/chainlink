@@ -354,18 +354,18 @@ func parseRunLog20190128(log Log) (JSON, error) {
 	if err != nil {
 		return js, err
 	}
-	
+
 	js, err = js.Add("address", log.Address.String())
 	if err != nil {
 		return js, err
 	}
-	
+
 	callbackAndExpStart := idSize
 	callbackAndExpEnd := callbackAndExpStart + callbackFuncSize + expirationSize + callbackAddrSize
 	dataPrefix := []byte{}
-	dataPrefix = append(dataPrefix,data[:idSize]...)
-	dataPrefix = append(dataPrefix,log.Topics[RequestLogTopicAmount].Bytes()...)
-	dataPrefix = append(dataPrefix,data[callbackAndExpStart:callbackAndExpEnd]...)
+	dataPrefix = append(dataPrefix, data[:idSize]...)
+	dataPrefix = append(dataPrefix, log.Topics[RequestLogTopicAmount].Bytes()...)
+	dataPrefix = append(dataPrefix, data[callbackAndExpStart:callbackAndExpEnd]...)
 	js, err = js.Add("dataPrefix", bytesToHex(dataPrefix))
 	if err != nil {
 		return js, err

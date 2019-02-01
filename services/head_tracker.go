@@ -126,9 +126,14 @@ func (ht *HeadTracker) Head() *models.IndexableBlockNumber {
 }
 
 // Attach registers an object that will have HeadTrackable events fired on occurence,
-// such as Connect.
+// such as Connect. If the HeadTracker is already connected, Connect will be
+// called on the newly attached parameter.
 func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
-	return ht.attachments.attach(t)
+	rval := ht.attachments.attach(t)
+	if ht.connected.IsSet() {
+		logger.WarnIf(t.Connect(ht.Head()))
+	}
+	return rval
 }
 
 // Detach deregisters an object from having HeadTrackable events fired.
