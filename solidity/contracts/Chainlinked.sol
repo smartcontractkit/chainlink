@@ -12,6 +12,8 @@ contract Chainlinked {
   using SafeMath for uint256;
 
   uint256 constant internal LINK = 10**18;
+  uint256 constant private AMOUNT_OVERRIDE = 0;
+  address constant private SENDER_OVERRIDE = 0x0;
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
@@ -128,8 +130,8 @@ contract Chainlinked {
   {
     return abi.encodeWithSelector(
       oracle.requestData.selector,
-      0, // overridden by onTokenTransfer
-      0, // overridden by onTokenTransfer
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
       ARGS_VERSION,
       _run.id,
       _run.callbackAddress,
