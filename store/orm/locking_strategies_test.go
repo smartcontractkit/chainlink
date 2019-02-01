@@ -80,6 +80,14 @@ func TestORM_PostgresLockingStrategy_Lock(t *testing.T) {
 	ls, err := orm.NewPostgresLockingStrategy(c.DatabaseURL())
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
-	require.Error(t, ls.Lock(delay), "should not get 2nd exclusive lock")
+	require.NoError(t, ls.Lock(delay), "relocking on same instance is noop")
+
+	ls2, err := orm.NewPostgresLockingStrategy(c.DatabaseURL())
+	require.NoError(t, err)
+	require.Error(t, ls2.Lock(delay), "should not get 2nd exclusive lock")
+	require.NoError(t, ls2.Unlock())
+
 	require.NoError(t, ls.Unlock())
+	require.NoError(t, ls2.Lock(delay), "should get exclusive lock")
+	require.NoError(t, ls2.Unlock())
 }

@@ -1,6 +1,8 @@
 package orm
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/url"
@@ -9,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
-	"github.com/jinzhu/gorm"
 	"go.uber.org/multierr"
 )
 
@@ -93,10 +94,10 @@ func (s *FileLockingStrategy) Unlock() error {
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive
 // access.
 type PostgresLockingStrategy struct {
-	db          *gorm.DB
-	dialectName DialectName
-	path        string
-	m           *sync.Mutex
+	db     *sql.DB
+	path   string
+	m      *sync.Mutex
+	locked bool
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
@@ -115,23 +116,30 @@ func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	db, err := gorm.Open(string(DialectPostgres), s.path)
+	if s.locked {
+		return nil
+	}
+
+	db, err := sql.Open(string(DialectPostgres), s.path)
 	if err != nil {
 		return err
 	}
 	s.db = db
 
-	locked := make(chan struct{})
-	go func() {
-		err = s.db.Exec("SELECT pg_advisory_lock(?);", postgresAdvisoryLockID).Error
-		close(locked)
-	}()
-	select {
-	case <-locked:
-	case <-normalizedTimeout(timeout):
-		return fmt.Errorf("postgres advisory locking strategy timed out for advisory lock ID %v", postgresAdvisoryLockID)
+	ctx := context.Background()
+	if timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
 	}
-	return err
+	_, err = s.db.ExecContext(ctx, "SELECT pg_advisory_lock($1)", postgresAdvisoryLockID)
+	if err != nil {
+		return multierr.Append(
+			fmt.Errorf("postgres advisory locking strategy failed, timeout set to %v", displayTimeout(timeout)),
+			err)
+	}
+	s.locked = true
+	return nil
 }
 
 // Unlock unlocks the locked postgres advisory lock.
@@ -139,6 +147,7 @@ func (s *PostgresLockingStrategy) Unlock() error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
+	s.locked = false
 	if s.db != nil {
 		return s.db.Close()
 	}
