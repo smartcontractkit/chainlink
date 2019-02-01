@@ -56,6 +56,7 @@ func ExampleRun() {
 	//      sendether                 Send <amount> ETH from the node's ETH account to an <address>.
 	//      chpass                    Change your password
 	//      transactions              List the transactions in descending order
+	//      txattempts                List the transaction attempts in descending order
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:

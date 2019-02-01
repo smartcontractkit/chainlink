@@ -381,8 +381,20 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 // taking an optional page parameter
 func (cli *Client) GetTransactions(c *clipkg.Context) error {
 	var links jsonapi.Links
-	attempts := []models.Tx{}
-	err := cli.getPage("/v2/transactions", c.Int("page"), &attempts, &links)
+	txs := []models.Tx{}
+	err := cli.getPage("/v2/transactions", c.Int("page"), &txs, &links)
+	if err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(&txs))
+}
+
+// GetTxAttempts returns the list of transactions in descending order,
+// taking an optional page parameter
+func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
+	var links jsonapi.Links
+	attempts := []models.TxAttempt{}
+	err := cli.getPage("/v2/tx_attempts", c.Int("page"), &attempts, &links)
 	if err != nil {
 		return err
 	}
