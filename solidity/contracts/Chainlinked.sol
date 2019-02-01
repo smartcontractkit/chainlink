@@ -102,26 +102,23 @@ contract Chainlinked {
     pendingRequests[_requestId] = _oracle;
   }
 
-  function newChainlinkWithENS(address _ens, bytes32 _node)
+  function setChainlinkWithENS(address _ens, bytes32 _node)
     internal
-    returns (address, address)
   {
     ens = ENSInterface(_ens);
     ensNode = _node;
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
     setLinkToken(resolver.addr(linkSubnode));
-    return (link, updateOracleWithENS());
+    setOracleWithENS();
   }
 
-  function updateOracleWithENS()
+  function setOracleWithENS()
     internal
-    returns (address)
   {
     ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     setOracle(resolver.addr(oracleSubnode));
-    return oracle;
   }
 
   function encodeRequest(ChainlinkLib.Run memory _run)
