@@ -114,7 +114,7 @@
   revision = "f664265f5a662fb4d1df7f3533b1e8d0e0277120"
 
 [[projects]]
-  digest = "1:3d26f660432345429f6b09595e4707ee12745547323bcd1dc91457125aefeedc"
+  digest = "1:ef56a889da489cd51a892c658b59d85ec60c7a9fe33846ef5951dd68270b7b99"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -139,8 +139,8 @@
     "trie",
   ]
   pruneopts = ""
-  revision = "9dc5d1a915ac0e0bd8429d6ac41df50eec91de5f"
-  version = "v1.8.21"
+  revision = "7fa3509e2eaf1a4ebc12344590e5699406690f15"
+  version = "v1.8.22"
 
 [[projects]]
   digest = "1:e988ed0ca0d81f4d28772760c02ee95084961311291bdfefc1b04617c178b722"
