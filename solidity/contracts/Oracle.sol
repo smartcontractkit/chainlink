@@ -37,7 +37,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   );
 
   event CancelRequest(
-    bytes32 requestId
+    bytes32 indexed requestId
   );
 
   constructor(address _link) Ownable() public {
