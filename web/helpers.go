@@ -49,3 +49,14 @@ func paginatedResponse(
 		c.Data(200, MediaType, buffer)
 	}
 }
+
+func paginatedRequest(action func(*gin.Context, int, int, int)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
+		if err != nil {
+			publicError(c, 422, err)
+			return
+		}
+		action(c, size, page, offset)
+	}
+}
