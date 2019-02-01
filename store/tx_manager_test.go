@@ -313,8 +313,6 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
 
-	assert.NoError(t, app.Start())
-
 	_, err = manager.CreateTx(to, data)
 	assert.Equal(t, strpkg.ErrPendingConnection, err)
 }

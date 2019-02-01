@@ -527,8 +527,6 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 
-	assert.NoError(t, app.Start())
-
 	adapter := adapters.EthTx{}
 	input := models.RunResult{}
 	data := adapter.Perform(input, store)
