@@ -246,12 +246,15 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			logs <- test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
 			eth.EventuallyAllCalled(t)
 
+			gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
+				runs, err := app.Store.JobRunsFor(js.ID)
+				require.NoError(t, err)
+				return runs
+			}).Should(gomega.HaveLen(1))
+
 			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 				runs, err := app.Store.JobRunsFor(js.ID)
 				require.NoError(t, err)
-				if len(runs) == 0 {
-					return "noruns"
-				}
 				return runs[0].Status
 			}).Should(gomega.Equal(test.wantStatus))
 		})
