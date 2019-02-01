@@ -216,7 +216,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   }
 
   modifier validRequestLength(bytes _data) {
-    require(_data.length >= MINIMUM_REQUEST_LENGTH, "Cannot callback to LINK");
+    require(_data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     _;
   }
 
