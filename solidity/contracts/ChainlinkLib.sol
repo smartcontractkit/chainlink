@@ -31,10 +31,8 @@ library ChainlinkLib {
   function setBuffer(Run memory self, bytes data)
     internal pure
   {
-    Buffer.buffer memory buffer;
-    Buffer.init(buffer, data.length);
-    Buffer.append(buffer, data);
-    self.buf = buffer;
+    Buffer.init(self.buf, data.length);
+    Buffer.append(self.buf, data);
   }
 
   function add(Run memory self, string _key, string _value)
