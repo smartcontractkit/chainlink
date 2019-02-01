@@ -2,7 +2,6 @@ package web
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -26,15 +25,7 @@ func (tc *TransactionsController) Index(c *gin.Context) {
 	}
 
 	txs, count, err := tc.App.GetStore().Transactions(offset, size)
-	if err == orm.ErrorNotFound {
-		c.Data(404, MediaType, emptyJSON)
-	} else if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting paged Transactions: %+v", err))
-	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, txs); err != nil {
-		c.AbortWithError(500, err)
-	} else {
-		c.Data(200, MediaType, buffer)
-	}
+	paginatedResponse(c, "Transactions", size, page, txs, count, err)
 }
 
 // Show returns the details of a Ethereum Transasction details.

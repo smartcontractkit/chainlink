@@ -42,20 +42,12 @@ func (btc *BridgeTypesController) Index(c *gin.Context) {
 	}
 
 	bridges, count, err := btc.App.GetStore().BridgeTypes(offset, size)
-	if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting bridges: %+v", err))
-		return
-	}
 	pbt := make([]presenters.BridgeType, len(bridges))
 	for i, j := range bridges {
 		pbt[i] = presenters.BridgeType{BridgeType: j}
 	}
-	buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pbt)
-	if err != nil {
-		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
-	} else {
-		c.Data(200, MediaType, buffer)
-	}
+
+	paginatedResponse(c, "Bridges", size, page, pbt, count, err)
 }
 
 // Show returns the details of a specific Bridge.

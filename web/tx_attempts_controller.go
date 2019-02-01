@@ -1,11 +1,8 @@
 package web
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
-	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
 // TxAttemptsController lists TxAttempts requests.
@@ -21,14 +18,6 @@ func (tac *TxAttemptsController) Index(c *gin.Context) {
 		return
 	}
 
-	attempts, count, err := tac.App.GetStore().TxAttempts(offset, size)
-	if err == orm.ErrorNotFound {
-		c.Data(404, MediaType, emptyJSON)
-	} else if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting paged TxAttempts: %+v", err))
-	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, attempts); err != nil {
-		c.AbortWithError(500, err)
-	} else {
-		c.Data(200, MediaType, buffer)
-	}
+	tas, count, err := tac.App.GetStore().TxAttempts(offset, size)
+	paginatedResponse(c, "TxAttempts", size, page, tas, count, err)
 }

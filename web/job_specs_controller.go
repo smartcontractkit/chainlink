@@ -34,21 +34,18 @@ func (jsc *JobSpecsController) Index(c *gin.Context) {
 		order = orm.Ascending
 	}
 
-	if jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size); err != nil {
-		c.AbortWithError(500, fmt.Errorf("erorr fetching All JobSpecs: %+v", err))
-	} else {
-		pjs := make([]presenters.JobSpec, len(jobs))
-		for i, j := range jobs {
-			pjs[i] = presenters.JobSpec{JobSpec: j}
-		}
-
-		buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, pjs)
-		if err != nil {
-			c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
-		} else {
-			c.Data(200, MediaType, buffer)
-		}
+	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
+	if err != nil {
+		c.AbortWithError(500, fmt.Errorf("error getting count of JobSpec: %+v", err))
+		return
 	}
+
+	pjs := make([]presenters.JobSpec, len(jobs))
+	for i, j := range jobs {
+		pjs[i] = presenters.JobSpec{JobSpec: j}
+	}
+
+	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
 // Create adds validates, saves, and starts a new JobSpec.
