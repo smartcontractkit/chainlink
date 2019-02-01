@@ -15,15 +15,15 @@ import (
 
 // NewLockingStrategy returns the locking strategy for a particular dialect
 // to ensure exlusive access to the orm.
-func NewLockingStrategy(dialect DialectName, path string) (LockingStrategy, error) {
+func NewLockingStrategy(dialect DialectName, dbpath string) (LockingStrategy, error) {
 	switch dialect {
 	case DialectPostgres:
-		return NewPostgresLockingStrategy(dialect, path)
+		return NewPostgresLockingStrategy(dbpath)
 	case DialectSqlite:
-		return NewFileLockingStrategy(dialect, path)
+		return NewFileLockingStrategy(dbpath)
 	}
 
-	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, path)
+	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, dbpath)
 }
 
 // LockingStrategy employs the locking and unlocking of an underlying
@@ -32,15 +32,6 @@ type LockingStrategy interface {
 	Lock(timeout time.Duration) error
 	Unlock() error
 }
-
-// UnlockedLockingStrategy is a strategy that's always unlocked.
-type UnlockedLockingStrategy struct{}
-
-// Lock returns immediately and assumes is always unlocked.
-func (s UnlockedLockingStrategy) Lock(timeout time.Duration) error { return nil }
-
-// Unlock is a noop.
-func (s UnlockedLockingStrategy) Unlock() error { return nil }
 
 // FileLockingStrategy uses a file lock on disk to ensure exclusive access.
 type FileLockingStrategy struct {
@@ -51,7 +42,7 @@ type FileLockingStrategy struct {
 
 // NewFileLockingStrategy creates a new instance of FileLockingStrategy
 // at the passed path.
-func NewFileLockingStrategy(_ DialectName, dbpath string) (LockingStrategy, error) {
+func NewFileLockingStrategy(dbpath string) (LockingStrategy, error) {
 	uri, err := url.Parse(dbpath)
 	if err != nil {
 		return nil, multierr.Append(errors.New("unable to create file locking strategy"), err)
@@ -109,11 +100,10 @@ type PostgresLockingStrategy struct {
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
-func NewPostgresLockingStrategy(dialectName DialectName, path string) (LockingStrategy, error) {
+func NewPostgresLockingStrategy(path string) (LockingStrategy, error) {
 	return &PostgresLockingStrategy{
-		m:           &sync.Mutex{},
-		dialectName: dialectName,
-		path:        path,
+		m:    &sync.Mutex{},
+		path: path,
 	}, nil
 }
 
@@ -125,7 +115,7 @@ func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	db, err := gorm.Open(string(s.dialectName), s.path)
+	db, err := gorm.Open(string(DialectPostgres), s.path)
 	if err != nil {
 		return err
 	}
