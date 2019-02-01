@@ -138,18 +138,18 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.GET("/user/balances", uc.AccountBalances)
 
 		j := JobSpecsController{app}
-		authv2.GET("/specs", j.Index)
+		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs/:SpecID", j.Show)
 
-		authv2.GET("/runs", jr.Index)
+		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.POST("/specs/:SpecID/runs", jr.Create)
 		authv2.GET("/runs/:RunID", jr.Show)
 
 		authv2.GET("/service_agreements/:SAID", sa.Show)
 
 		bt := BridgeTypesController{app}
-		authv2.GET("/bridge_types", bt.Index)
+		authv2.GET("/bridge_types", paginatedRequest(bt.Index))
 		authv2.POST("/bridge_types", bt.Create)
 		authv2.GET("/bridge_types/:BridgeName", bt.Show)
 		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
@@ -173,7 +173,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
 
 		txs := TransactionsController{app}
-		authv2.GET("/transactions", txs.Index)
+		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)
 
 		bdc := BulkDeletesController{app}
