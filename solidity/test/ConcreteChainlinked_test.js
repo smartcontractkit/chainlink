@@ -107,7 +107,7 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#checkChainlinkFulfillment(modifier)', () => {
+  describe('#recordChainlinkFulfillment(modifier)', () => {
     let request
 
     beforeEach(async () => {
@@ -126,11 +126,11 @@ contract('ConcreteChainlinked', () => {
     })
   })
 
-  describe('#completeChainlinkFulfillment(function)', () => {
+  describe('#fulfillChainlinkRequest(function)', () => {
     let request
 
     beforeEach(async () => {
-      const tx = await cc.publicRequestRun(specId, cc.address, 'publicCompleteChainlinkFulfillment(bytes32,bytes32)', 0)
+      const tx = await cc.publicRequestRun(specId, cc.address, 'publicFulfillChainlinkRequest(bytes32,bytes32)', 0)
       request = decodeRunRequest(tx.receipt.logs[3])
     })
 

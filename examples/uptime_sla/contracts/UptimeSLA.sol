@@ -41,7 +41,7 @@ contract UptimeSLA is Chainlinked {
 
   function report(bytes32 _externalId, uint256 _uptime)
     public
-    checkChainlinkFulfillment(_externalId)
+    recordChainlinkFulfillment(_externalId)
   {
     uptime = _uptime;
     if (_uptime < uptimeThreshold) {

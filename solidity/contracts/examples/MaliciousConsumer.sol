@@ -37,17 +37,17 @@ contract MaliciousConsumer is Chainlinked {
     selfdestruct(address(0));
   }
 
-  function stealEthCall(bytes32 _requestId, bytes32) public checkChainlinkFulfillment(_requestId) {
+  function stealEthCall(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
     // solium-disable-next-line security/no-call-value
     require(address(this).call.value(100)(), "Call failed");
   }
 
-  function stealEthSend(bytes32 _requestId, bytes32) public checkChainlinkFulfillment(_requestId) {
+  function stealEthSend(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
     // solium-disable-next-line security/no-send
     require(address(this).send(100), "Send failed");
   }
 
-  function stealEthTransfer(bytes32 _requestId, bytes32) public checkChainlinkFulfillment(_requestId) {
+  function stealEthTransfer(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
     address(this).transfer(100);
   }
 
