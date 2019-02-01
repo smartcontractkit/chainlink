@@ -82,7 +82,7 @@ type Tx struct {
 
 // EthTx creates a new Ethereum transaction with a given gasPrice in wei
 // that is ready to be signed.
-func (tx *Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
+func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	return types.NewTransaction(
 		tx.Nonce,
 		tx.To,
@@ -100,6 +100,22 @@ func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
 	tx.Confirmed = txat.Confirmed
 	tx.Hex = txat.Hex
 	tx.SentAt = txat.SentAt
+}
+
+// GetID returns the ID of this structure for jsonapi serialization.
+func (tx Tx) GetID() string {
+	return tx.Hash.Hex()
+}
+
+// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+func (tx Tx) GetName() string {
+	return "transactions"
+}
+
+// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
+func (tx *Tx) SetID(value string) error {
+	tx.Hash = common.HexToHash(value)
+	return nil
 }
 
 // TxAttempt is used for keeping track of transactions that

@@ -578,13 +578,18 @@ func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 }
 
 // Transactions returns all transactions limited by passed parameters.
-func (orm *ORM) Transactions(offset, limit int) ([]models.Tx, error) {
+func (orm *ORM) Transactions(offset, limit int) ([]models.Tx, int, error) {
+	var count int
+	err := orm.DB.Model(&models.Tx{}).Count(&count).Error
+	if err != nil {
+		return nil, 0, err
+	}
 	var txs []models.Tx
-	err := orm.DB.
+	err = orm.DB.
 		Set("gorm:auto_preload", true).
 		Order("id desc").Limit(limit).Offset(offset).
 		Find(&txs).Error
-	return txs, err
+	return txs, count, err
 }
 
 // TxAttempts returns the last tx attempts sorted by sent at descending.
