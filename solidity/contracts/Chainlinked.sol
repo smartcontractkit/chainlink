@@ -40,10 +40,10 @@ contract Chainlinked {
     internal
     returns (bytes32)
   {
-    return chainlinkRequestFrom(oracle, _run, _payment);
+    return chainlinkRequestTo(oracle, _run, _payment);
   }
 
-  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
+  function chainlinkRequestTo(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
