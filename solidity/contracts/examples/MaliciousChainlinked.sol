@@ -10,7 +10,7 @@ contract MaliciousChainlinked is Chainlinked {
   using SafeMath for uint256;
 
   uint256 private maliciousRequests = 1;
-  mapping(bytes32 => address) private maliciousUnfulfilledRequests;
+  mapping(bytes32 => address) private maliciousPendingRequests;
 
   function newWithdrawRun(
     bytes32 _specId,
@@ -27,7 +27,7 @@ contract MaliciousChainlinked is Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(_target, maliciousRequests));
     _run.nonce = maliciousRequests;
-    maliciousUnfulfilledRequests[requestId] = oracleAddress();
+    maliciousPendingRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(link.transferAndCall(oracleAddress(), _amount, encodeTargetRequest(_run)), "Unable to transferAndCall to oracle");
@@ -42,7 +42,7 @@ contract MaliciousChainlinked is Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(this, maliciousRequests));
     _run.nonce = maliciousRequests;
-    maliciousUnfulfilledRequests[requestId] = oracleAddress();
+    maliciousPendingRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(link.transferAndCall(oracleAddress(), _amount, encodePriceRequest(_run)), "Unable to transferAndCall to oracle");
@@ -57,7 +57,7 @@ contract MaliciousChainlinked is Chainlinked {
   {
     requestId = keccak256(abi.encodePacked(this, maliciousRequests));
     _run.nonce = maliciousRequests;
-    maliciousUnfulfilledRequests[requestId] = oracleAddress();
+    maliciousPendingRequests[requestId] = oracleAddress();
     emit ChainlinkRequested(requestId);
     LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
     require(link.transferAndCall(oracleAddress(), _wei, encodeWithdrawRequest(_run)), "Unable to transferAndCall to oracle");
