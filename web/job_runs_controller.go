@@ -2,7 +2,6 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -45,15 +44,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 		runs, count, err = store.JobRunsSortedFor(id, order, offset, size)
 	}
 
-	if err == orm.ErrorNotFound {
-		c.Data(404, MediaType, emptyJSON)
-	} else if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting paged JobRuns: %+v", err))
-	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, runs); err != nil {
-		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
-	} else {
-		c.Data(200, MediaType, buffer)
-	}
+	paginatedResponse(c, "JobRuns", size, page, runs, count, err)
 }
 
 // Create starts a new Run for the requested JobSpec.
