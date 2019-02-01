@@ -140,13 +140,13 @@ contract Chainlinked {
       _run.buf.buf);
   }
 
-  function completeChainlinkFulfillment(bytes32 _requestId)
+  function fulfillChainlinkRequest(bytes32 _requestId)
     internal
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {}
 
-  modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == pendingRequests[_requestId], "source must be the oracle of the request");
+  modifier recordChainlinkFulfillment(bytes32 _requestId) {
+    require(msg.sender == pendingRequests[_requestId], "Source must be the oracle of the request");
     delete pendingRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
     _;

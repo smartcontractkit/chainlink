@@ -38,7 +38,7 @@ contract Consumer is Chainlinked {
 
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;

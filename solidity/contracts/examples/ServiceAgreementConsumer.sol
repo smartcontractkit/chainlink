@@ -23,7 +23,7 @@ contract ServiceAgreementConsumer is Chainlinked {
 
   function fulfill(bytes32 _requestId, bytes32 _price)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     currentPrice = _price;
   }
