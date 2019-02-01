@@ -29,26 +29,29 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
+	tx1 := cltest.CreateTxAndAttempt(store, from, 1)
+	_, err := store.AddTxAttempt(tx1, tx1.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
-	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
+	tx2 := cltest.CreateTxAndAttempt(store, from, 3)
+	tx3 := cltest.CreateTxAndAttempt(store, from, 4)
+	_, count, err := store.Transactions(0, 100)
 	require.NoError(t, err)
+	require.Equal(t, count, 3)
 
 	resp, cleanup := client.Get("/v2/transactions?size=2")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var links jsonapi.Links
-	var attempts []models.TxAttempt
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &attempts, &links)
-	require.NoError(t, err)
+	var txs []models.Tx
+	body := cltest.ParseResponseBody(resp)
+	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	assert.Len(t, attempts, 2)
-	assert.Equal(t, uint64(3), attempts[0].SentAt, "expected tx attempts order by sentAt descending")
-	assert.Equal(t, uint64(2), attempts[1].SentAt, "expected tx attempts order by sentAt descending")
+	require.Len(t, txs, 2)
+	require.Equal(t, tx3.SentAt, txs[0].SentAt, "expected tx attempts order by sentAt descending")
+	require.Equal(t, tx2.SentAt, txs[1].SentAt, "expected tx attempts order by sentAt descending")
 }
 
 func TestTransactionsController_Index_Error(t *testing.T) {

@@ -164,7 +164,7 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	_, err = manager.CreateTx(to, data)
 	assert.Error(t, err)
 
-	txs, err := store.Transactions(0, 10)
+	txs, _, err := store.Transactions(0, 10)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(txs))
 
