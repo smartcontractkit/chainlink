@@ -34,13 +34,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 }
 
 // Index lists Bridges, one page at a time.
-func (btc *BridgeTypesController) Index(c *gin.Context) {
-	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
-	if err != nil {
-		publicError(c, 422, err)
-		return
-	}
-
+func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) {
 	bridges, count, err := btc.App.GetStore().BridgeTypes(offset, size)
 	pbt := make([]presenters.BridgeType, len(bridges))
 	for i, j := range bridges {

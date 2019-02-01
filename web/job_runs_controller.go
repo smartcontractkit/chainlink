@@ -22,13 +22,8 @@ type JobRunsController struct {
 // Index returns paginated JobRuns for a given JobSpec
 // Example:
 //  "<application>/runs?jobSpecId=:jobSpecId&size=1&page=2"
-func (jrc *JobRunsController) Index(c *gin.Context) {
+func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Query("jobSpecId")
-	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
-	if err != nil {
-		c.AbortWithError(422, err)
-		return
-	}
 
 	order := orm.Ascending
 	if c.Query("sort") == "-createdAt" {
@@ -38,6 +33,7 @@ func (jrc *JobRunsController) Index(c *gin.Context) {
 	store := jrc.App.GetStore()
 	var runs []models.JobRun
 	var count int
+	var err error
 	if id == "" {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
 	} else {

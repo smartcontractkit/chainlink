@@ -17,13 +17,7 @@ type TransactionsController struct {
 }
 
 // Index returns paginated transaction attempts
-func (tc *TransactionsController) Index(c *gin.Context) {
-	size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
-	if err != nil {
-		c.AbortWithError(422, err)
-		return
-	}
-
+func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
 	txs, count, err := tc.App.GetStore().Transactions(offset, size)
 	paginatedResponse(c, "Transactions", size, page, txs, count, err)
 }
