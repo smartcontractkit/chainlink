@@ -236,10 +236,8 @@ library ChainlinkLib {
   function setBuffer(Run memory self, bytes data)
     internal pure
   {
-    Buffer.buffer memory buffer;
-    Buffer.init(buffer, data.length);
-    Buffer.append(buffer, data);
-    self.buf = buffer;
+    Buffer.init(self.buf, data.length);
+    Buffer.append(self.buf, data);
   }
 
   function add(Run memory self, string _key, string _value)
@@ -413,6 +411,8 @@ contract Chainlinked {
   using SafeMath for uint256;
 
   uint256 constant internal LINK = 10**18;
+  uint256 constant private AMOUNT_OVERRIDE = 0;
+  address constant private SENDER_OVERRIDE = 0x0;
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
@@ -422,11 +422,11 @@ contract Chainlinked {
   LinkTokenInterface private link;
   ChainlinkRequestInterface private oracle;
   uint256 private requests = 1;
-  mapping(bytes32 => address) private unfulfilledRequests;
+  mapping(bytes32 => address) private pendingRequests;
 
-  event ChainlinkRequested(bytes32 id);
-  event ChainlinkFulfilled(bytes32 id);
-  event ChainlinkCancelled(bytes32 id);
+  event ChainlinkRequested(bytes32 indexed id);
+  event ChainlinkFulfilled(bytes32 indexed id);
+  event ChainlinkCancelled(bytes32 indexed id);
 
   function newRun(
     bytes32 _specId,
@@ -441,16 +441,16 @@ contract Chainlinked {
     internal
     returns (bytes32)
   {
-    return chainlinkRequestFrom(oracle, _run, _payment);
+    return chainlinkRequestTo(oracle, _run, _payment);
   }
 
-  function chainlinkRequestFrom(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
+  function chainlinkRequestTo(address _oracle, ChainlinkLib.Run memory _run, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
     requestId = keccak256(abi.encodePacked(this, requests));
     _run.nonce = requests;
-    unfulfilledRequests[requestId] = _oracle;
+    pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _payment, encodeRequest(_run)), "unable to transferAndCall to oracle");
     requests += 1;
@@ -466,8 +466,8 @@ contract Chainlinked {
   )
     internal
   {
-    ChainlinkRequestInterface requested = ChainlinkRequestInterface(unfulfilledRequests[_requestId]);
-    delete unfulfilledRequests[_requestId];
+    ChainlinkRequestInterface requested = ChainlinkRequestInterface(pendingRequests[_requestId]);
+    delete pendingRequests[_requestId];
     emit ChainlinkCancelled(_requestId);
     requested.cancel(_requestId, _payment, _callbackFunc, _expiration);
   }
@@ -498,31 +498,28 @@ contract Chainlinked {
 
   function addExternalRequest(address _oracle, bytes32 _requestId)
     internal
-    isUnfulfilledRequest(_requestId)
+    isPendingRequest(_requestId)
   {
-    unfulfilledRequests[_requestId] = _oracle;
+    pendingRequests[_requestId] = _oracle;
   }
 
-  function newChainlinkWithENS(address _ens, bytes32 _node)
+  function setChainlinkWithENS(address _ens, bytes32 _node)
     internal
-    returns (address, address)
   {
     ens = ENSInterface(_ens);
     ensNode = _node;
-    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
+    ENSResolver resolver = ENSResolver(ens.resolver(linkSubnode));
     setLinkToken(resolver.addr(linkSubnode));
-    return (link, updateOracleWithENS());
+    setOracleWithENS();
   }
 
-  function updateOracleWithENS()
+  function setOracleWithENS()
     internal
-    returns (address)
   {
-    ENSResolver resolver = ENSResolver(ens.resolver(ensNode));
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
+    ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
     setOracle(resolver.addr(oracleSubnode));
-    return oracle;
   }
 
   function encodeRequest(ChainlinkLib.Run memory _run)
@@ -532,8 +529,8 @@ contract Chainlinked {
   {
     return abi.encodeWithSelector(
       oracle.requestData.selector,
-      0, // overridden by onTokenTransfer
-      0, // overridden by onTokenTransfer
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
       ARGS_VERSION,
       _run.id,
       _run.callbackAddress,
@@ -542,20 +539,20 @@ contract Chainlinked {
       _run.buf.buf);
   }
 
-  function completeChainlinkFulfillment(bytes32 _requestId)
+  function fulfillChainlinkRequest(bytes32 _requestId)
     internal
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {}
 
-  modifier checkChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == unfulfilledRequests[_requestId], "source must be the oracle of the request");
-    delete unfulfilledRequests[_requestId];
+  modifier recordChainlinkFulfillment(bytes32 _requestId) {
+    require(msg.sender == pendingRequests[_requestId], "Source must be the oracle of the request");
+    delete pendingRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
     _;
   }
 
-  modifier isUnfulfilledRequest(bytes32 _requestId) {
-    require(unfulfilledRequests[_requestId] == address(0), "Request is already fulfilled");
+  modifier isPendingRequest(bytes32 _requestId) {
+    require(pendingRequests[_requestId] == address(0), "Request is already fulfilled");
     _;
   }
 }
@@ -652,7 +649,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   );
 
   constructor() Ownable() public {
-    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function requestEthereumPrice(string _jobId, string _currency) 
@@ -701,7 +698,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestEthereumPriceFulfilled(_requestId, _price);
     currentPrice = _price;
@@ -709,7 +706,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
 
   function fulfillEthereumChange(bytes32 _requestId, int256 _change)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestEthereumChangeFulfilled(_requestId, _change);
     changeDay = _change;
@@ -717,14 +714,14 @@ contract ARopstenConsumer is Chainlinked, Ownable {
 
   function fulfillEthereumLastMarket(bytes32 _requestId, bytes32 _market)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestEthereumLastMarket(_requestId, _market);
     lastMarket = _market;
   }
 
   function updateChainlinkAddresses() public onlyOwner {
-    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function getChainlinkToken() public view returns (address) {

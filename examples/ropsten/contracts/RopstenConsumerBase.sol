@@ -29,7 +29,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   );
 
   constructor() Ownable() public {
-    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function requestEthereumPrice(string _jobId, string _currency) 
@@ -101,7 +101,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   }
 
   function updateChainlinkAddresses() public onlyOwner {
-    newChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function getChainlinkToken() public view returns (address) {
