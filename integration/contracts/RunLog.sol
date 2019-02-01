@@ -20,7 +20,7 @@ contract RunLog is Chainlinked {
 
   function fulfill(bytes32 _externalId, bytes32 _data)
     public
-    checkChainlinkFulfillment(_externalId)
+    recordChainlinkFulfillment(_externalId)
   {
       emit Fulfillment(_data);
   }

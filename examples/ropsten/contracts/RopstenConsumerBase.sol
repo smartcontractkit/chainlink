@@ -78,7 +78,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestEthereumPriceFulfilled(_requestId, _price);
     currentPrice = _price;
@@ -86,7 +86,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
 
   function fulfillEthereumChange(bytes32 _requestId, int256 _change)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestEthereumChangeFulfilled(_requestId, _change);
     changeDay = _change;
@@ -94,7 +94,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
 
   function fulfillEthereumLastMarket(bytes32 _requestId, bytes32 _market)
     public
-    checkChainlinkFulfillment(_requestId)
+    recordChainlinkFulfillment(_requestId)
   {
     emit RequestEthereumLastMarket(_requestId, _market);
     lastMarket = _market;
