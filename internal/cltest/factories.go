@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -139,6 +140,9 @@ func CreateTxAndAttempt(
 	sentAt uint64,
 ) *models.Tx {
 	tx := NewTx(from, sentAt)
+	b := make([]byte, 36)
+	binary.LittleEndian.PutUint64(b, uint64(sentAt))
+	tx.Data = b
 	mustNotErr(store.SaveTx(tx))
 	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	mustNotErr(err)
@@ -147,16 +151,18 @@ func CreateTxAndAttempt(
 
 // NewHash return random Keccak256
 func NewHash() common.Hash {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return common.BytesToHash(b)
+	return common.BytesToHash(randomBytes(32))
 }
 
 // NewAddress return a random new address
 func NewAddress() common.Address {
-	b := make([]byte, 20)
+	return common.BytesToAddress(randomBytes(20))
+}
+
+func randomBytes(n int) []byte {
+	b := make([]byte, n)
 	rand.Read(b)
-	return common.BytesToAddress(b)
+	return b
 }
 
 // NewBridgeType create new bridge type given info slice
