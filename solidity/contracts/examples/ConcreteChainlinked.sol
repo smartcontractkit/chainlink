@@ -49,7 +49,7 @@ contract ConcreteChainlinked is Chainlinked {
     chainlinkRequest(run, _wei);
   }
 
-  function publicRequestRunFrom(
+  function publicRequestRunTo(
     address _oracle,
     bytes32 _id,
     address _address,
@@ -59,7 +59,7 @@ contract ConcreteChainlinked is Chainlinked {
     public
   {
     ChainlinkLib.Run memory run = newRun(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
-    chainlinkRequestFrom(_oracle, run, _wei);
+    chainlinkRequestTo(_oracle, run, _wei);
   }
 
   function publicCancelRequest(
