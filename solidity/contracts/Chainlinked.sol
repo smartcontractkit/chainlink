@@ -23,9 +23,9 @@ contract Chainlinked {
   uint256 private requests = 1;
   mapping(bytes32 => address) private unfulfilledRequests;
 
-  event ChainlinkRequested(bytes32 id);
-  event ChainlinkFulfilled(bytes32 id);
-  event ChainlinkCancelled(bytes32 id);
+  event ChainlinkRequested(bytes32 indexed id);
+  event ChainlinkFulfilled(bytes32 indexed id);
+  event ChainlinkCancelled(bytes32 indexed id);
 
   function newRun(
     bytes32 _specId,
