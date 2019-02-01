@@ -182,6 +182,17 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
+		{
+			Name:   "txattempts",
+			Usage:  "List the transaction attempts in descending order",
+			Action: client.GetTxAttempts,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "page",
+					Usage: "page of results to display",
+				},
+			},
+		},
 	}
 
 	if client.Config.Dev() {
