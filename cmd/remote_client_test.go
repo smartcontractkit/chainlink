@@ -567,9 +567,6 @@ func TestClient_GetTransactions(t *testing.T) {
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(store)
 	tx := cltest.CreateTxAndAttempt(store, from, 1)
-	_, count, err := store.Transactions(0, 100)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -580,7 +577,7 @@ func TestClient_GetTransactions(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.GetTransactions(c))
 
-	renderedTxs := *r.Renders[0].(*[]models.Tx)
+	renderedTxs := *r.Renders[0].(*[]presenters.Tx)
 	assert.Equal(t, 1, len(renderedTxs))
 	assert.Equal(t, tx.Hash.Hex(), renderedTxs[0].Hash.Hex())
 
@@ -591,7 +588,7 @@ func TestClient_GetTransactions(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.GetTransactions(c))
 
-	renderedTxs = *r.Renders[1].(*[]models.Tx)
+	renderedTxs = *r.Renders[1].(*[]presenters.Tx)
 	assert.Equal(t, 0, len(renderedTxs))
 }
 

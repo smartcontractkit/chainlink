@@ -19,7 +19,11 @@ type TransactionsController struct {
 // Index returns paginated transaction attempts
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
 	txs, count, err := tc.App.GetStore().Transactions(offset, size)
-	paginatedResponse(c, "Transactions", size, page, txs, count, err)
+	ptxs := make([]presenters.Tx, len(txs))
+	for i, tx := range txs {
+		ptxs[i] = presenters.NewTx(&tx)
+	}
+	paginatedResponse(c, "Transactions", size, page, ptxs, count, err)
 }
 
 // Show returns the details of a Ethereum Transasction details.

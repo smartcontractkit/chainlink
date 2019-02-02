@@ -43,15 +43,15 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var links jsonapi.Links
-	var txs []models.Tx
+	var txs []presenters.Tx
 	body := cltest.ParseResponseBody(resp)
 	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
 	require.Len(t, txs, 2)
-	require.Equal(t, tx3.SentAt, txs[0].SentAt, "expected tx attempts order by sentAt descending")
-	require.Equal(t, tx2.SentAt, txs[1].SentAt, "expected tx attempts order by sentAt descending")
+	require.Equal(t, string(tx3.SentAt), txs[0].SentAt, "expected tx attempts order by sentAt descending")
+	require.Equal(t, string(tx2.SentAt), txs[1].SentAt, "expected tx attempts order by sentAt descending")
 }
 
 func TestTransactionsController_Index_Error(t *testing.T) {
