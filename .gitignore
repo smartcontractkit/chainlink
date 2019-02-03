@@ -13,9 +13,6 @@ gui/dist
 # Log files
 *.log
 
-# Truffle migrations
-build/
-
 # misc
 .envrc
 
