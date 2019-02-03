@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"math/big"
 	"os"
 	"regexp"
-	"strings"
 	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -358,7 +358,7 @@ func transact(contractName string, method string, args ...interface{}) ([]byte, 
 		return nil, err
 	}
 
-	abiParsed, err := abi.JSON(strings.NewReader(string(abiBytes)))
+	abiParsed, err := abi.JSON(bytes.NewReader(abiBytes))
 	if err != nil {
 		return nil, err
 	}
