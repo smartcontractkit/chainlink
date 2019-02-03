@@ -1,10 +1,15 @@
 package store
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"regexp"
+	"strings"
 	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -330,19 +335,41 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	return *linkBalance, nil
 }
 
+// transact converts arguments for a method in a contract to a byte array that can be used to interact with the contract
+func transact(contractName string, method string, args ...interface{}) ([]byte, error) {
+	jsonFile, err := os.Open("../solidity/build/contracts/" + contractName + ".json")
+	if err != nil {
+		return nil, errors.New("unable to read contract JSON")
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	var contract struct {
+		ABI interface{} `json:"abi"`
+	}
+	err = json.Unmarshal([]byte(byteValue), &contract)
+	if err != nil {
+		return nil, err
+	}
+
+	abiBytes, err := json.Marshal(contract.ABI)
+	if err != nil {
+		return nil, err
+	}
+
+	abiParsed, err := abi.JSON(strings.NewReader(string(abiBytes)))
+	if err != nil {
+		return nil, err
+	}
+	return abiParsed.Pack(method, args...)
+}
+
 // WithdrawLINK withdraws the given amount of LINK from the contract to the
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
 func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	functionSelector := models.HexToFunctionSelector("f3fef3a3") // withdraw(address _recipient, uint256 _amount)
-
-	amount := (*big.Int)(wr.Amount)
-	data, err := utils.ConcatBytes(
-		functionSelector.Bytes(),
-		common.LeftPadBytes(wr.DestinationAddress.Bytes(), utils.EVMWordByteLen),
-		common.LeftPadBytes(amount.Bytes(), utils.EVMWordByteLen),
-	)
-
+	data, err := transact("Oracle", "withdraw", wr.DestinationAddress, (*big.Int)(wr.Amount))
 	if err != nil {
 		return common.Hash{}, err
 	}
