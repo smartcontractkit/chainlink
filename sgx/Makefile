@@ -98,8 +98,8 @@ $(LIBADAPTERS): libadapters/Cargo.toml $(wildcard libadapters/src/*.rs) $(ENCLAV
 
 $(RT_PATCH):
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
-	$(MAKE) -C ./compiler-rt/
-	cp ./compiler-rt/libcompiler-rt-patch.a $@
+	$(MAKE) -C $(SGX_RUST_SDK)/compiler-rt/
+	cp $(SGX_RUST_SDK)/compiler-rt/libcompiler-rt-patch.a $@
 
 $(ENCLAVE): enclave/Cargo.toml $(wildcard enclave/src/*.rs)
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
