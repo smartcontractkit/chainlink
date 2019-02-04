@@ -1,8 +1,5 @@
 #![feature(libc)]
 
-#![feature(alloc_system)]
-extern crate alloc_system;
-
 extern crate errno;
 extern crate libc;
 extern crate sgx_types;
