@@ -345,9 +345,10 @@ contract('Coordinator', () => {
     })
 
     context("when aggregating answers", () => {
-      let oracle1, oracle2, oracle3, request
+      let oracle1, oracle2, oracle3, request, strangerOracle
 
       beforeEach(async () => {
+        strangerOracle = h.stranger
         oracle1 = h.oracleNode1
         oracle2 = h.oracleNode2
         oracle3 = h.oracleNode3
@@ -384,6 +385,13 @@ contract('Coordinator', () => {
 
         const currentValue = await mock.getUint256.call()
         assertBigNum(h.bigNum(17), currentValue)
+	  })
+	  
+      it('rejects oracles not part of the service agreement', async () => {
+        await h.assertActionThrows(async () => {
+          await coordinator.fulfillData(request.id, h.toHex(18),
+            { from: strangerOracle })
+          })
       })
 
       context('when an oracle reports multiple times', async () => {
