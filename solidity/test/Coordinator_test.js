@@ -475,7 +475,7 @@ contract('Coordinator', () => {
     })
 
     context("when aggregating answers", () => {
-      let oracle1, oracle2, oracle3
+      let oracle1, oracle2, oracle3, request
 
       beforeEach(async () => {
         oracle1 = h.oracleNode1
