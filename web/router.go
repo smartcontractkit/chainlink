@@ -55,7 +55,6 @@ func Router(app services.Application) *gin.Engine {
 
 	metricRoutes(app, engine)
 	sessionRoutes(app, engine)
-	v1Routes(app, engine)
 	v2Routes(app, engine)
 	guiAssetRoutes(app.NewBox(), engine)
 
@@ -121,19 +120,6 @@ func sessionRoutes(app services.Application, engine *gin.Engine) {
 	engine.POST("/sessions", sc.Create)
 	auth := engine.Group("/", authRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
-}
-
-func v1Routes(app services.Application, engine *gin.Engine) {
-	v1 := engine.Group("/v1")
-	v1.Use(authRequired(app.GetStore()))
-
-	ac := AssignmentsController{app}
-	v1.POST("/assignments", ac.Create)
-	v1.GET("/assignments/:ID", ac.Show)
-
-	sc := SnapshotsController{app}
-	v1.POST("/assignments/:AID/snapshots", sc.CreateSnapshot)
-	v1.GET("/snapshots/:ID", sc.ShowSnapshot)
 }
 
 func v2Routes(app services.Application, engine *gin.Engine) {

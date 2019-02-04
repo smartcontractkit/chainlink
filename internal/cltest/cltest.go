@@ -572,15 +572,6 @@ func FindServiceAgreement(s *strpkg.Store, id string) models.ServiceAgreement {
 	return sa
 }
 
-// FixtureCreateJobWithAssignmentViaWeb creates a job from a fixture using /v1/assignments
-func FixtureCreateJobWithAssignmentViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v1/assignments", bytes.NewBuffer(MustReadFile(t, path)))
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
-}
-
 // FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
 func FixtureCreateServiceAgreementViaWeb(
 	t *testing.T,
@@ -648,19 +639,6 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 
 	job.Tasks[0].Params = JSONFromString(t, `{"url":"%v"}`, url)
 	return CreateJobSpecViaWeb(t, app, job)
-}
-
-// CreateMockAssignmentViaWeb creates a JobSpec with the v1 format
-func CreateMockAssignmentViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	ejson := MustReadFile(t, "../internal/fixtures/web/v1_format_job.json")
-	json := MustJSONSet(t, string(ejson), "assignment.subtasks.0.adapterParams.get", url)
-
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v1/assignments", bytes.NewBufferString(json))
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-
-	return FindJob(app.Store, ParseCommonJSON(resp.Body).ID)
 }
 
 // UpdateJobRunViaWeb updates jobrun via web using /v2/runs/ID
