@@ -30,6 +30,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   mapping(bytes32 => Callback) private callbacks;
+  mapping(bytes32 => mapping(address => bool)) private allowedOracles;
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
 
   constructor(address _link) public {
@@ -178,6 +179,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint256 result;
     for (uint i = 0; i < responseCount; i++) {
       result = result.add(callbacks[requestId].responses[oracles[i]]);
+      delete callbacks[requestId].responses[oracles[i]];
     }
     result = result.div(responseCount);
     delete callbacks[requestId];
@@ -194,11 +196,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes32[] _rs,
     bytes32[] _ss
   )
-    private pure
+    private
   {
     for (uint i = 0; i < _oracles.length; i++) {
       address signer = getOracleAddressFromSASignature(_serviceAgreementID, _vs[i], _rs[i], _ss[i]);
       require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
+      allowedOracles[_serviceAgreementID][_oracles[i]] = true;
     }
 
   }
@@ -239,6 +242,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes32 requestId = bytes32(_requestId);
     require(callbacks[requestId].addr != address(0), "Must have a valid requestId");
     require(callbacks[requestId].responses[msg.sender] == 0, "Cannot respond twice");
+    require(allowedOracles[callbacks[requestId].sAId][msg.sender], "Oracle not recognized on service agreement");
     _;
   }
 
