@@ -345,7 +345,7 @@ contract('Coordinator', () => {
     })
 
     context("when aggregating answers", () => {
-      let oracle1, oracle2, oracle3
+      let oracle1, oracle2, oracle3, request
 
       beforeEach(async () => {
         oracle1 = h.oracleNode1
@@ -362,11 +362,11 @@ contract('Coordinator', () => {
         const payload = h.executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
         tx = await link.transferAndCall(
           coordinator.address, agreement.payment, payload)
-        requestId = h.runRequestId(tx.receipt.logs[2])
+        request = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
       it('does not set the value with only one oracle', async () => {
-        await coordinator.fulfillData(requestId, h.toHex(17),
+        await coordinator.fulfillData(request.id, h.toHex(17),
           { from: oracle1 })
 
         const currentValue = await mock.getUint256.call()
@@ -375,11 +375,11 @@ contract('Coordinator', () => {
       })
 
       it('sets the average of the reported values', async () => {
-        await coordinator.fulfillData(requestId, h.toHex(16),
+        await coordinator.fulfillData(request.id, h.toHex(16),
           { from: oracle1 })
-        await coordinator.fulfillData(requestId, h.toHex(17),
+        await coordinator.fulfillData(request.id, h.toHex(17),
           { from: oracle2 })
-        await coordinator.fulfillData(requestId, h.toHex(18),
+        await coordinator.fulfillData(request.id, h.toHex(18),
           { from: oracle3 })
 
         const currentValue = await mock.getUint256.call()
@@ -388,13 +388,13 @@ contract('Coordinator', () => {
 
       context('when an oracle reports multiple times', async () => {
         beforeEach(async () => {
-          await coordinator.fulfillData(requestId, h.toHex(16),
+          await coordinator.fulfillData(request.id, h.toHex(16),
             { from: oracle1 })
-          await coordinator.fulfillData(requestId, h.toHex(17),
+          await coordinator.fulfillData(request.id, h.toHex(17),
             { from: oracle2 })
 
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(requestId, h.toHex(18),
+            await coordinator.fulfillData(request.id, h.toHex(18),
               { from: oracle2 })
           })
         })
@@ -404,7 +404,7 @@ contract('Coordinator', () => {
         })
 
         it('still allows the other oracles to report', async () => {
-          await coordinator.fulfillData(requestId, h.toHex(18),
+          await coordinator.fulfillData(request.id, h.toHex(18),
             { from: oracle3 })
           const currentValue = await mock.getUint256.call()
           assertBigNum(h.bigNum(17), currentValue)

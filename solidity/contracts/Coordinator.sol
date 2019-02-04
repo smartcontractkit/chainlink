@@ -185,7 +185,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   // Necessary to implement ChainlinkRequestInterface
-  function cancel(bytes32) external {}
+  function cancel(bytes32, uint256, bytes4, uint256) external {}
 
   function verifyOracleSignatures(
     bytes32 _serviceAgreementID,
