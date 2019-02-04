@@ -5,6 +5,7 @@ enclave {
   from "sgx_tstdc.edl" import *;
   from "sgx_net.edl" import *;
   from "sgx_time.edl" import *;
+  from "sgx_fd.edl" import *;
 
   include "sgx_quote.h"
 
