@@ -10,6 +10,7 @@ ENVIRONMENT ?= release
 
 SGX_SDK ?= /opt/sgxsdk
 SGX_SIMULATION ?= no
+SGX_RUST_SDK ?= /opt/rust-sgx-sdk
 
 #
 # Flags -----------------
@@ -36,15 +37,15 @@ ifneq (,$(filter yes true,$(SGX_SIMULATION)))
 	SERVICE_LIB := sgx_tservice_sim
 endif
 
-INCLUDES := -I $(SGX_SDK)/include
+INCLUDES := -I$(SGX_SDK)/include -I$(SGX_RUST_SDK)/edl
 CC_FLAGS := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(INCLUDES)
 
-ENCLAVE_RS_INCLUDE := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid
+ENCLAVE_RS_INCLUDE := -I$(SGX_RUST_SDK)/common/inc -I$(SGX_RUST_SDK)/edl -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid
 ENCLAVE_RS_LIBS := -L./target/$(ENVIRONMENT) -lcompiler-rt-patch -lenclave
 ENCLAVE_RS_FLAGS := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(ENCLAVE_RS_INCLUDE)
 ENCLAVE_RS_LD_FLAGS := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(TRTS_LIB) -l$(SERVICE_LIB) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -lsgx_tcrypto $(ENCLAVE_RS_LIBS) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_tcrypto $(ENCLAVE_RS_LIBS) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic \
 	-Wl,--defsym,__ImageBase=0 \
@@ -79,7 +80,7 @@ all: $(LIBADAPTERS) $(SIGNED_ENCLAVE)
 .PHONY: $(UNTRUSTED_EDL_FILES)
 $(UNTRUSTED_EDL_FILES): $(SGX_EDGER8R) enclave/enclave.edl
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
-	$(SGX_EDGER8R) --untrusted enclave/enclave.edl --search-path $(SGX_SDK)/include --search-path ./edl --untrusted-dir $(@D)
+	$(SGX_EDGER8R) --untrusted enclave/enclave.edl --search-path $(SGX_SDK)/include --search-path $(SGX_RUST_SDK)/edl --untrusted-dir $(@D)
 
 target/$(ENVIRONMENT)/enclave_u.o: $(UNTRUSTED_EDL_FILES)
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
@@ -106,7 +107,7 @@ $(ENCLAVE): enclave/Cargo.toml $(wildcard enclave/src/*.rs)
 
 $(TRUSTED_EDL_FILES): $(SGX_EDGER8R) enclave/enclave.edl
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
-	$(SGX_EDGER8R) --trusted enclave/enclave.edl --search-path $(SGX_SDK)/include --search-path ./edl --trusted-dir $(@D)
+	$(SGX_EDGER8R) --trusted enclave/enclave.edl --search-path $(SGX_SDK)/include --search-path $(SGX_RUST_SDK)/edl --trusted-dir $(@D)
 
 target/$(ENVIRONMENT)/enclave_t.o: $(TRUSTED_EDL_FILES) $(ENCLAVE) $(RT_PATCH)
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
