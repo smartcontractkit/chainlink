@@ -31,9 +31,4 @@
 //
 // Router defines the valid paths for the node and responds
 // to requests.
-//
-// SnapshotsController
-//
-// SnapshotsController allows for the creation and showing of
-// V1 snapshots in the node.
 package web

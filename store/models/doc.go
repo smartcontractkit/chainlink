@@ -36,12 +36,4 @@
 // i.e. We have a Scheduler Initiator that creates a JobRun every monday
 // based on a JobDefinition. And in turn, those JobRuns have TaskRuns based
 // on the JobDefinition's TaskDefinitions.
-//
-// V1
-//
-// V1 contains the backwards compatibility for the Chainlink Ruby node.
-// The Ruby node used a different JSON schema for Assignments, Subtasks,
-// and Snapshots (now Specs, Tasks, and Runs). The functions in V1 allow
-// for the node to accept and store V1-spec JSON with the same functionality
-// of the V2 spec.
 package models
