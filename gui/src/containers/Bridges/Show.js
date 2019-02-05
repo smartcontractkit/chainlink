@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { Button } from '@material-ui/core'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
@@ -12,6 +11,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchBridgeSpec } from 'actions'
 import bridgeSelector from 'selectors/bridge'
 import Content from 'components/Content'
+import Button from 'components/Button'
 import { useHooks, useEffect } from 'use-react-hooks'
 
 const renderLoading = () => (
@@ -61,8 +61,7 @@ export const Show = useHooks(props => {
                     <Grid item>
                       {props.bridge &&
                         <Button
-                          variant='outlined'
-                          color='primary'
+                          variant='secondary'
                           component={ReactStaticLinkComponent}
                           to={`/bridges/${props.bridge.id}/edit`}
                         >

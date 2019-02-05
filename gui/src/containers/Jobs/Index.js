@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 import Title from 'components/Title'
 import List from 'components/Jobs/List'
 import Content from 'components/Content'
@@ -20,7 +20,7 @@ export const Index = props => (
       <Grid item xs={3}>
         <Grid container justify='flex-end' >
           <Grid item>
-            <Button variant='outlined' color='primary' component={ReactStaticLinkComponent} to={'/jobs/new'}>
+            <Button variant='secondary' component={ReactStaticLinkComponent} to={'/jobs/new'}>
               New Job
             </Button>
           </Grid>

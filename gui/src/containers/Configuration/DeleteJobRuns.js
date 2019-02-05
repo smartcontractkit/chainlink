@@ -6,7 +6,7 @@ import { bindActionCreators } from 'redux'
 import PaddedCard from 'components/PaddedCard'
 import Divider from '@material-ui/core/Divider'
 import Typography from '@material-ui/core/Typography'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 import Grid from '@material-ui/core/Grid'
 import Slide from '@material-ui/core/Slide'
 import {
@@ -16,13 +16,6 @@ import {
 
 const styles = theme => {
   return {
-    confirmButton: {
-      backgroundColor: theme.palette.error.main,
-      color: theme.palette.common.white,
-      '&:hover': {
-        backgroundColor: theme.palette.error.dark
-      }
-    },
     deleteRunsDivider: {
       marginTop: theme.spacing.unit * 3,
       marginBottom: theme.spacing.unit * 2
@@ -64,14 +57,14 @@ const DeleteJobRuns = useHooks(({ classes, deleteCompletedJobRuns, deleteErrored
         <Grid item xs={12}>
           {!showCompletedConfirm &&
             <Slide direction='right' in={!showCompletedConfirm} mountOnEnter unmountOnExit>
-              <Button variant='outlined' onClick={() => setCompletedConfirm(true)}>
+              <Button onClick={() => setCompletedConfirm(true)}>
                 Delete Completed Jobs
               </Button>
             </Slide>
           }
           {showCompletedConfirm &&
             <Slide direction='right' in={showCompletedConfirm} mountOnEnter unmountOnExit>
-              <Button variant='contained' className={classes.confirmButton} onClick={() => confirmCompletedDelete()}>
+              <Button variant='danger' onClick={() => confirmCompletedDelete()}>
                 Confirm delete all completed job runs up to {updatedBefore}
               </Button>
             </Slide>
@@ -80,14 +73,14 @@ const DeleteJobRuns = useHooks(({ classes, deleteCompletedJobRuns, deleteErrored
         <Grid item xs={12}>
           {!showErroredConfirm &&
             <Slide direction='right' in={!showErroredConfirm} mountOnEnter unmountOnExit>
-              <Button variant='outlined' onClick={() => setErroredConfirm(true)}>
+              <Button onClick={() => setErroredConfirm(true)}>
                 Delete Errored Jobs
               </Button>
             </Slide>
           }
           {showErroredConfirm &&
             <Slide direction='right' in={showErroredConfirm} mountOnEnter unmountOnExit>
-              <Button variant='contained' className={classes.confirmButton} onClick={() => confirmErroredDeleted()}>
+              <Button variant='danger' onClick={() => confirmErroredDeleted()}>
                 Confirm delete all errored job runs up to {updatedBefore}
               </Button>
             </Slide>
