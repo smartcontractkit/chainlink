@@ -14,6 +14,7 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
 import StatusIcon from 'components/JobRuns/StatusIcon'
+import NoContentLogo from 'components/Logos/NoContent'
 
 const styles = theme => {
   return {
@@ -43,9 +44,30 @@ const styles = theme => {
       paddingBottom: theme.spacing.unit * 3,
       paddingLeft: theme.spacing.unit * 4,
       paddingRight: theme.spacing.unit * 4
+    },
+    noActivity: {
+      backgroundColor: theme.palette.primary.light,
+      padding: theme.spacing.unit * 3
     }
   }
 }
+
+const NoRecentActivity = ({ classes }) => (
+  <CardContent>
+    <Card elevation={0} className={classes.noActivity}>
+      <Grid container alignItems='center' spacing={16}>
+        <Grid item>
+          <NoContentLogo width={40} />
+        </Grid>
+        <Grid item>
+          <Typography variant='body1' color='textPrimary' inline>
+            No recent activity
+          </Typography>
+        </Grid>
+      </Grid>
+    </Card>
+  </CardContent>
+)
 
 const RecentActivity = ({ classes, runs }) => {
   const loading = !runs
@@ -58,13 +80,7 @@ const RecentActivity = ({ classes, runs }) => {
       </CardContent>
     )
   } else if (runs.length === 0) {
-    activity = (
-      <CardContent>
-        <Typography variant='body1' color='textSecondary'>
-          No recently activity :(
-        </Typography>
-      </CardContent>
-    )
+    activity = <NoRecentActivity classes={classes} />
   } else {
     activity = (
       <Table>
