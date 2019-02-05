@@ -45,6 +45,10 @@ const styles = theme => {
         color: theme.palette.primary.main,
         borderBottomColor: theme.palette.primary.main
       }
+    },
+    jobSpecId: {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
     }
   })
 }
@@ -73,8 +77,8 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
         <Grid item xs={12}>
           <Grid container spacing={0} alignItems='center'>
             <Grid item xs={7}>
-              <Typography variant='h3' color='secondary' gutterBottom>
-                @{jobSpecId}
+              <Typography variant='h3' color='secondary' className={classes.jobSpecId} gutterBottom>
+                {jobSpecId}
               </Typography>
             </Grid>
             <Grid item align='right' xs={5}>
