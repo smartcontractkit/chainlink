@@ -19,7 +19,9 @@ contract('Coordinator', () => {
       'initiateServiceAgreement',
       'onTokenTransfer',
       'serviceAgreements',
-      'cancelOracleRequest'
+	  'cancel',
+	  'withdrawableTokens',
+	  'withdraw'
     ])
   })
 
@@ -419,6 +421,97 @@ contract('Coordinator', () => {
           assert.notEqual(0, await mock.requestId.call()) // check if called
         })
       })
+	})
+	
+    context('after aggregation', () => {
+	  let oracle1, oracle2, oracle3, request
+	  
+      beforeEach(async () => {
+        oracle1 = h.oracleNode1
+        oracle2 = h.oracleNode2
+        oracle3 = h.oracleNode3
+        
+        agreement = await h.newServiceAgreement({oracles: [oracle1, oracle2, oracle3]})
+        let tx = await h.initiateServiceAgreement(coordinator, agreement)
+        assert.equal(tx.logs[0].args.said, agreement.id)
+        
+        mock = await h.deploy('examples/GetterSetter.sol')
+        const fHash = h.functionSelector('requestedUint256(bytes32,uint256)')
+        
+        const payload = h.executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
+        tx = await link.transferAndCall(
+	      coordinator.address, agreement.payment, payload)
+		request = h.decodeRunRequest(tx.receipt.logs[2])
+		
+        await coordinator.fulfillData(request.id, h.toHex(16),
+	      { from: oracle1 })
+        await coordinator.fulfillData(request.id, h.toHex(17),
+	      { from: oracle2 })
+        await coordinator.fulfillData(request.id, h.toHex(18),
+		  { from: oracle3 })
+		  
+        const currentValue = await mock.getUint256.call()
+        assertBigNum(h.bigNum(17), currentValue)
+	  })
+	  
+      it('oracle balances are updated', async () => {
+		const expected = h.bigNum('333333333333333333')
+		const balance1 = await coordinator.withdrawableTokens.call(oracle1)
+		assertBigNum(expected, balance1)
+      })
+	})
+
+	context('withdraw', () => {
+	  let oracle1, oracle2, oracle3, request
+		
+	  beforeEach(async () => {
+	    oracle1 = h.oracleNode1
+		oracle2 = h.oracleNode2
+		oracle3 = h.oracleNode3
+		  
+		agreement = await h.newServiceAgreement({oracles: [oracle1, oracle2, oracle3]})
+		let tx = await h.initiateServiceAgreement(coordinator, agreement)
+		assert.equal(tx.logs[0].args.said, agreement.id)
+		  
+		mock = await h.deploy('examples/GetterSetter.sol')
+		const fHash = h.functionSelector('requestedUint256(bytes32,uint256)')
+		  
+		const payload = h.executeServiceAgreementBytes(agreement.id, mock.address, fHash, 1, '')
+		tx = await link.transferAndCall(
+		  coordinator.address, agreement.payment, payload)
+		request = h.decodeRunRequest(tx.receipt.logs[2])
+		  
+		await coordinator.fulfillData(request.id, h.toHex(16),
+		  { from: oracle1 })
+		await coordinator.fulfillData(request.id, h.toHex(17),
+		  { from: oracle2 })
+		await coordinator.fulfillData(request.id, h.toHex(18),
+		  { from: oracle3 })
+			
+		const currentValue = await mock.getUint256.call()
+		assertBigNum(h.bigNum(17), currentValue)
+	  })
+		
+	  it('allows the oracle to withdraw their full amount', async () => {
+        const coordBalance1 = await link.balanceOf.call(coordinator.address)
+	    const withdrawAmount = await coordinator.withdrawableTokens.call(oracle1)
+		await coordinator.withdraw(oracle1, withdrawAmount.toString(), { from: oracle1 })
+		const oracleBalance = await link.balanceOf.call(oracle1)
+		const afterWithdrawBalance = await coordinator.withdrawableTokens.call(oracle1)
+		const coordBalance2 = await link.balanceOf.call(coordinator.address)
+		const expectedCoordFinalBalance = coordBalance1.sub(withdrawAmount)
+		assertBigNum(withdrawAmount, oracleBalance)
+		assertBigNum(expectedCoordFinalBalance, coordBalance2)
+		assertBigNum(h.bigNum(0), afterWithdrawBalance)
+	  })
+
+	  it('rejects amounts greater than allowed', async () => {
+		const oracleBalance = await coordinator.withdrawableTokens.call(oracle1)
+		const withdrawAmount = oracleBalance.add(1)
+		await h.assertActionThrows(async () => {
+          await coordinator.withdraw(oracle1, withdrawAmount.toString(), { from: oracle1 })
+	    })
+	  })
     })
   })
 })
