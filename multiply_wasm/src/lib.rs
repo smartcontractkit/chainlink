@@ -1,26 +1,24 @@
+#![feature(link_args)]
+#![allow(unused_attributes)] // link_args actually is used
+#![link_args = "--import-memory"]
+
 #[cfg(no_std)]
 
 extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use std::slice;
 use std::str::FromStr;
+use std::ffi::CStr;
 
 #[derive(Debug)]
 pub enum Error {
     InvalidEncoding,
 }
 
-// string_from_cstr_with_len creates a rust String from a string pointer with a specific length.
-fn string_from_cstr_with_len(ptr: *const u8, len: usize) -> Result<String, std::string::FromUtf8Error> {
-    let slice = unsafe { slice::from_raw_parts(ptr, len) };
-    String::from_utf8(slice.to_vec())
-}
-
 #[no_mangle]
-pub extern "C" fn perform(input_ptr: *const u8, input_str_len: usize) {
-    let input_str = string_from_cstr_with_len(input_ptr, input_str_len)
+pub extern "C" fn perform(input_ptr: *const i8) {
+    let input_str = unsafe { CStr::from_ptr(input_ptr) }.to_str()
         .expect("error converting input string");
     let input: serde_json::Value = serde_json::from_str(&input_str)
         .expect("failed to parse input");

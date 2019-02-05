@@ -26,10 +26,10 @@ func TestWasm_Perform_WithJSONInput(t *testing.T) {
 	wasmInput := base64.StdEncoding.EncodeToString(wasm)
 
 	input := models.RunResult{
-		Data: cltest.JSONFromString(t, fmt.Sprintf(`{"wasm":"%s"}`, wasmInput)),
+		Data: cltest.JSONFromString(t, `{"result":"8616460799"}`),
 	}
 	adapter := adapters.Wasm{}
-	jsonErr := json.Unmarshal([]byte(`{"result":"8616460799"}`), &adapter)
+	jsonErr := json.Unmarshal([]byte(fmt.Sprintf(`{"wasm":"%s"}`, wasmInput)), &adapter)
 	require.NoError(t, jsonErr)
 
 	result := adapter.Perform(input, nil)

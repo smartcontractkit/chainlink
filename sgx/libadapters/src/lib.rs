@@ -1,12 +1,18 @@
 #![feature(libc)]
 
+extern crate base64;
 extern crate errno;
 extern crate libc;
 extern crate sgx_types;
 extern crate sgx_urts;
+extern crate serde;
+extern crate serde_derive;
+#[macro_use]
+extern crate serde_json;
 extern crate utils;
 #[macro_use]
 extern crate lazy_static;
+extern crate wasmi;
 
 use sgx_types::*;
 use sgx_urts::SgxEnclave;

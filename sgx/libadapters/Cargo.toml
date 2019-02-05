@@ -16,10 +16,15 @@ global_init = []
 global_exit = []
 
 [dependencies]
+base64 = "*"
 errno = "0.2.3"
 lazy_static = "1.0.0"
 libc = "*"
+serde = "1.0.6"
+serde_derive = "*"
+serde_json = "*"
 utils = { path = "../utils" }
+wasmi = "*"
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
 sgx_trts = { path = "/opt/rust-sgx-sdk/sgx_trts" }

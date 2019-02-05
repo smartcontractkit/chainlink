@@ -1,9 +1,9 @@
-use errno::{set_errno, Errno};
 use libc;
 use sgx_types::*;
-use utils::cstr_len;
-
-use use_enclave;
+use base64;
+use std::{num, vec::Vec};
+use wasmi::{self, ImportsBuilder, ModuleInstance, NopExternals, ExternVal};
+use std::ffi::CStr;
 
 extern "C" {
     fn sgx_wasm(
@@ -21,38 +21,44 @@ extern "C" {
 
 #[no_mangle]
 pub extern "C" fn wasm(
-    adapter: *const libc::c_char,
-    input: *const libc::c_char,
+    adapter_ptr: *const libc::c_char,
+    input_ptr: *const libc::c_char,
     result_ptr: *mut libc::c_char,
     result_capacity: usize,
     result_len: *mut usize,
 ) {
-    use_enclave(|enclave_id| {
-        let mut retval = sgx_status_t::SGX_SUCCESS;
-        let result = unsafe {
-            sgx_wasm(
-                enclave_id,
-                &mut retval,
-                adapter as *const u8,
-                cstr_len(adapter),
-                input as *const u8,
-                cstr_len(input),
-                result_ptr as *mut u8,
-                result_capacity,
-                result_len as *mut usize,
-            )
-        };
+    let adapter_str = unsafe { CStr::from_ptr(adapter_ptr) }.to_str().expect("from_ptr failed on adapter_ptr");
+    let adapter : serde_json::Value = serde_json::from_str(&adapter_str)
+        .expect("serde_json::from_str failed on adapter_str");
 
-        if result != sgx_status_t::SGX_SUCCESS {
-                set_errno(Errno(result as i32));
-                return;
-        }
+    let encoded_program = &adapter.pointer("/wasm")
+        .expect("no wasm in data")
+        .as_str().expect("input not string");
+    let data = base64::decode(&encoded_program).expect("base64::decode failed");
+    let module = wasmi::Module::from_buffer(data).expect("wasmi::from_buffer failed");
+    let module_ref = ModuleInstance::new(&module, &ImportsBuilder::default()).expect("ModuleInstance::new failed");
 
-        if retval != sgx_status_t::SGX_SUCCESS {
-                set_errno(Errno(retval as i32));
-                return;
-        }
 
-        set_errno(Errno(0));
-    });
+    let instance = module_ref.run_start(&mut NopExternals).expect("module_ref.run_start failed");
+
+    let arguments = encode_json_as_wasm(input_ptr);
+    let output = match instance.invoke_export("perform", &arguments.as_slice(), &mut NopExternals)
+        .expect("instance.invoke_export failed") {
+        Some(v) => json!({"result": wasm_as_json(&v)}),
+        _ => panic!("empty result error"),
+    };
+
+    println!("output: {:?}", output);
+}
+
+fn encode_json_as_wasm(input: *const libc::c_char) -> Vec<wasmi::RuntimeValue> {
+    vec![wasmi::RuntimeValue::I32(input as i32)]
+}
+
+fn wasm_as_json(input: &wasmi::RuntimeValue) -> serde_json::Value {
+    match input {
+        // RunResult in chainlink only supports string values
+        wasmi::RuntimeValue::I32(v) => serde_json::Value::String(format!("{}", v)),
+        _ => panic!("argument type not implemented yet"),
+    }
 }
