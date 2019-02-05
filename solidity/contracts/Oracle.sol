@@ -15,7 +15,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   uint256 constant private SELECTOR_LENGTH = 4;
-  uint256 constant private EXPECTED_REQUEST_WORDS = 9;
+  uint256 constant private EXPECTED_REQUEST_WORDS = 2;
   // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
