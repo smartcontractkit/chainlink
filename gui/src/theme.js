@@ -13,7 +13,7 @@ export default {
       hoverOpacity: 0.3
     },
     primary: {
-      light: '#776bfa',
+      light: '#E5F1FF',
       main: '#3c40c6',
       contrastText: '#fff'
     },
