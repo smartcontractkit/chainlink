@@ -197,17 +197,18 @@ func prepareTaskInput(run *models.JobRun, currentTaskRun *models.TaskRun) (model
 }
 
 func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
+	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 	var err error
-	if currentTaskRun.TaskSpec.Params, err = currentTaskRun.TaskSpec.Params.Merge(run.Overrides.Data); err != nil {
+	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
 		return currentTaskRun.Result.WithError(err)
 	}
 
-	adapter, err := adapters.For(currentTaskRun.TaskSpec, store)
+	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
 		return currentTaskRun.Result.WithError(err)
 	}
 
-	logger.Infow(fmt.Sprintf("Processing task %s", currentTaskRun.TaskSpec.Type), []interface{}{"task", currentTaskRun.ID}...)
+	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID}...)
 
 	input, err := prepareTaskInput(run, currentTaskRun)
 	if err != nil {
@@ -216,7 +217,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 
 	result := adapter.Perform(input, store)
 
-	logger.Infow(fmt.Sprintf("Finished processing task %s", currentTaskRun.TaskSpec.Type), []interface{}{
+	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
 		"result", result.Status,
 		"result_data", result.Data,
