@@ -48,7 +48,6 @@ dependencies = [
  "sgx_tse 1.0.5",
  "sgx_tstd 1.0.5",
  "sgx_types 1.0.5",
- "sgx_urts 1.0.5",
  "utils 0.1.0",
  "wabt-core 0.4.0",
  "wasmi 0.4.0",
@@ -60,11 +59,6 @@ version = "0.4.1"
 dependencies = [
  "sgx_tstd 1.0.5",
 ]
-
-[[package]]
-name = "libc"
-version = "0.2.48"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "memory_units"
@@ -280,14 +274,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sgx_urts"
-version = "1.0.5"
-dependencies = [
- "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 1.0.5",
-]
-
-[[package]]
 name = "syn"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -343,7 +329,6 @@ dependencies = [
 
 [metadata]
 "checksum byteorder 1.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "90492c5858dd7d2e78691cfb89f90d273a2800fc11d98f60786e5d87e2f83781"
-"checksum libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)" = "e962c7641008ac010fa60a7dfdc1712449f29c44ef2d4702394aea943ee75047"
 "checksum memory_units 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 "checksum parity-wasm 0.31.3 (registry+https://github.com/rust-lang/crates.io-index)" = "511379a8194230c2395d2f5fa627a5a7e108a9f976656ce723ae68fca4097bfc"
 "checksum proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)" = "3d7b7eaaa90b4a90a932a9ea6666c95a389e424eff347f0f793979289429feee"
