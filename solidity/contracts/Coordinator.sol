@@ -34,6 +34,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   mapping(bytes32 => Callback) private callbacks;
   mapping(bytes32 => mapping(address => bool)) private allowedOracles;
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
+  mapping(address => uint256) public withdrawableTokens;
 
   /**
    * @notice Deploy with the address of the LINK token
@@ -316,9 +317,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     }
 
     uint256 result;
+    uint256 oraclePayment = callback.amount.div(oracles.length);
     for (uint i = 0; i < responseCount; i++) {
       result = result.add(callbacks[requestId].responses[oracles[i]]);
       delete callbacks[requestId].responses[oracles[i]];
+      withdrawableTokens[oracles[i]] = withdrawableTokens[oracles[i]].add(oraclePayment);
     }
     result = result.div(responseCount);
     delete callbacks[requestId];
@@ -337,5 +340,23 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   modifier checkCallbackAddress(address _to) {
     require(_to != address(LINK), "Cannot callback to LINK");
     _;
+  }
+
+  modifier hasAvailableFunds(uint256 _amount) {
+    require(withdrawableTokens[msg.sender] >= _amount, "Amount requested is greater than withdrawable balance");
+    _;
+  }
+
+  /**
+   * @dev Allows the oracle operator to withdraw their LINK
+   * @param _recipient is the address the funds will be sent to
+   * @param _amount is the amount of LINK transfered from the Coordinator contract
+   */
+  function withdraw(address _recipient, uint256 _amount)
+    external
+    hasAvailableFunds(_amount)
+  {
+    withdrawableTokens[msg.sender] = withdrawableTokens[msg.sender].sub(_amount);
+    assert(LINK.transfer(_recipient, _amount));
   }
 }
