@@ -40,8 +40,10 @@ func paginatedResponse(
 	err error,
 ) {
 	if err == orm.ErrorNotFound {
-		c.Data(404, MediaType, emptyJSON)
-	} else if err != nil {
+		err = nil
+	}
+
+	if err != nil {
 		c.AbortWithError(500, fmt.Errorf("error getting paged %s: %+v", name, err))
 	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, resource); err != nil {
 		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
