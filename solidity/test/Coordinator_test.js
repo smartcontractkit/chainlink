@@ -12,16 +12,16 @@ contract('Coordinator', () => {
 
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
-      'getId',
-      'oracleRequest',
+      'EXPIRY_TIME',
+      'cancelOracleRequest',
       'fulfillOracleRequest',
       'getId',
       'initiateServiceAgreement',
       'onTokenTransfer',
+      'oracleRequest',
       'serviceAgreements',
-      'cancelOracleRequest',
-      'withdrawableTokens',
-      'withdraw'
+      'withdraw',
+      'withdrawableTokens'
     ])
   })
 
