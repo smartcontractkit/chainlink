@@ -2,7 +2,6 @@ import React from 'react'
 import { withSiteData } from 'react-static'
 import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
-import { Button } from '@material-ui/core'
 import Grid from '@material-ui/core/Grid'
 import Title from 'components/Title'
 import BridgeList from 'components/BridgeList'
@@ -11,6 +10,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import bridgesSelector from 'selectors/bridges'
 import { fetchBridges } from 'actions'
 import Content from 'components/Content'
+import Button from 'components/Button'
 
 export const Index = (props) => {
   const { bridges, bridgeCount, pageSize, bridgesError, fetchBridges, history, match } = props
@@ -24,8 +24,7 @@ export const Index = (props) => {
           <Grid container justify='flex-end'>
             <Grid item>
               <Button
-                variant='outlined'
-                color='primary'
+                variant='secondary'
                 component={ReactStaticLinkComponent}
                 to={'/bridges/new'}
               >
