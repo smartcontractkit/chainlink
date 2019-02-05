@@ -750,3 +750,36 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 		})
 	}
 }
+
+func TestEthTxManager_Transact(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+
+	type args struct {
+		contractName string
+		method       string
+		args         []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"Withdraw LINK from Oracle contract", args{"Oracle", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}}, false},
+		{"Invalid contract name", args{"This will never be a contract", "anything", []interface{}{}}, true},
+		{"Invalid contract method", args{"Oracle", "not-a-method", []interface{}{}}, true},
+		{"Too few arguments for Oracle withdraw method", args{"Oracle", "withdraw", []interface{}{cltest.NewAddress()}}, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := manager.Transact(test.args.contractName, test.args.method, test.args.args...)
+			assert.Equal(t, test.wantErr, err != nil, fmt.Errorf("EthTxManager.Transact() error = %v, wantErr %v", err, test.wantErr))
+			// Imply !wantErr means we want a non-empty byte array
+			assert.Equal(t, test.wantErr, len(actual) == 0, fmt.Errorf("EthTxManager.Transact() bytes = %v, expect empty byte-array %v", err, test.wantErr))
+		})
+	}
+}
