@@ -282,6 +282,26 @@ func (mr *MockTxManagerMockRecorder) SubscribeToNewHeads(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeToNewHeads", reflect.TypeOf((*MockTxManager)(nil).SubscribeToNewHeads), arg0)
 }
 
+// Transact mocks base method
+func (m *MockTxManager) Transact(arg0, arg1 string, arg2 ...interface{}) ([]byte, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Transact", varargs...)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Transact indicates an expected call of Transact
+func (mr *MockTxManagerMockRecorder) Transact(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transact", reflect.TypeOf((*MockTxManager)(nil).Transact), varargs...)
+}
+
 // WithdrawLINK mocks base method
 func (m *MockTxManager) WithdrawLINK(arg0 models.WithdrawalRequest) (common.Hash, error) {
 	m.ctrl.T.Helper()
