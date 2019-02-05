@@ -439,3 +439,32 @@ func TestQueueSleepingTask(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
+
+func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+	store := app.Store
+
+	job := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
+	require.NoError(t, store.CreateJob(&job))
+
+	store.ORM.DB.LogMode(true)
+	initr := job.Initiators[0]
+	jr, err := services.ExecuteJob(
+		job,
+		initr,
+		cltest.RunResultWithData(`{"random": "input"}`),
+		nil,
+		store,
+	)
+	require.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, store, *jr)
+
+	retrievedJob, err := store.FindJob(job.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, job.Tasks[0].Params, retrievedJob.Tasks[0].Params)
+}
