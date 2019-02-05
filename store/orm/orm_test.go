@@ -56,6 +56,38 @@ func TestORM_SaveJob(t *testing.T) {
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobSpecID)
 }
 
+func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithSchedule("* * * * *")
+	require.NoError(t, store.CreateJob(&job))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	var err error
+	jr.TaskRuns[0].TaskSpec.Params, err =
+		jr.TaskRuns[0].TaskSpec.Params.Merge(cltest.JSONFromString(t, `{"random": "input"}`))
+	require.NoError(t, err)
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	retrievedJob, err := store.FindJob(job.ID)
+	require.NoError(t, err)
+	assert.JSONEq(
+		t,
+		coercedJSON(job.Tasks[0].Params.String()),
+		retrievedJob.Tasks[0].Params.String())
+}
+
+func coercedJSON(v string) string {
+	if v == "" {
+		return "{}"
+	}
+	return v
+}
+
 func TestORM_JobRunsFor(t *testing.T) {
 	t.Parallel()
 
