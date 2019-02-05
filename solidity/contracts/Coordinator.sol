@@ -111,6 +111,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _callbackAddress,
       _callbackFunctionId,
       now.add(EXPIRY_TIME),
+      _dataVersion,
       _data);
   }
 
@@ -157,21 +158,20 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     emit NewServiceAgreement(serviceAgreementID, _requestDigest);
   }
 
-  function fulfillData(
-    uint256 _requestId,
+  function fulfillOracleRequest(
+    bytes32 _requestId,
     bytes32 _data
   )
     external
     isValidResponse(_requestId)
     returns (bool)
   {
-    bytes32 requestId = bytes32(_requestId);
-    callbacks[requestId].responses[msg.sender] = uint256(_data);
+    callbacks[_requestId].responses[msg.sender] = uint256(_data);
 
-    Callback memory callback = callbacks[requestId];
-    callbacks[requestId].responseCount += 1;
-    uint256 responseCount = callbacks[requestId].responseCount;
-    bytes32 sAId = callbacks[requestId].sAId;
+    Callback memory callback = callbacks[_requestId];
+    callbacks[_requestId].responseCount += 1;
+    uint256 responseCount = callbacks[_requestId].responseCount;
+    bytes32 sAId = callbacks[_requestId].sAId;
     address[] memory oracles = serviceAgreements[sAId].oracles;
     if (oracles.length > responseCount) {
       return true;
@@ -180,13 +180,13 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint256 result;
     uint256 oraclePayment = callback.amount.div(oracles.length);
     for (uint i = 0; i < responseCount; i++) {
-      result = result.add(callbacks[requestId].responses[oracles[i]]);
-      delete callbacks[requestId].responses[oracles[i]];
+      result = result.add(callbacks[_requestId].responses[oracles[i]]);
+      delete callbacks[_requestId].responses[oracles[i]];
       withdrawableTokens[oracles[i]] = withdrawableTokens[oracles[i]].add(oraclePayment);
     }
     result = result.div(responseCount);
-    delete callbacks[requestId];
-    return callback.addr.call(callback.functionId, requestId, result); // solium-disable-line security/no-low-level-calls
+    delete callbacks[_requestId];
+    return callback.addr.call(callback.functionId, _requestId, result); // solium-disable-line security/no-low-level-calls
   }
 
   function withdraw(address _recipient, uint256 _amount) 
@@ -198,7 +198,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   // Necessary to implement ChainlinkRequestInterface
-  function cancel(bytes32, uint256, bytes4, uint256) external {}
+  function cancelOracleRequest(bytes32, uint256, bytes4, uint256) external {}
 
   function verifyOracleSignatures(
     bytes32 _serviceAgreementID,
@@ -249,11 +249,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     _;
   }
 
-  modifier isValidResponse(uint256 _requestId) {
-    bytes32 requestId = bytes32(_requestId);
-    require(callbacks[requestId].addr != address(0), "Must have a valid requestId");
-    require(callbacks[requestId].responses[msg.sender] == 0, "Cannot respond twice");
-    require(allowedOracles[callbacks[requestId].sAId][msg.sender], "Oracle not recognized on service agreement");
+  modifier isValidResponse(bytes32 _requestId) {
+    require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
+    require(callbacks[_requestId].responses[msg.sender] == 0, "Cannot respond twice");
+    require(allowedOracles[callbacks[_requestId].sAId][msg.sender], "Oracle not recognized on service agreement");
     _;
   }
 

@@ -13,13 +13,13 @@ contract('Coordinator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(sourcePath), [
       'EXPIRY_TIME',
-      'requestData',
-      'fulfillData',
+      'oracleRequest',
+      'fulfillOracleRequest',
       'getId',
       'initiateServiceAgreement',
       'onTokenTransfer',
       'serviceAgreements',
-      'cancel',
+      'cancelOracleRequest',
       'withdrawableTokens',
       'withdraw'
     ])
@@ -369,7 +369,7 @@ contract('Coordinator', () => {
       })
 
       it('does not set the value with only one oracle', async () => {
-        await coordinator.fulfillData(request.id, h.toHex(17),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
           { from: oracle1 })
 
         const currentValue = await mock.getUint256.call()
@@ -378,11 +378,11 @@ contract('Coordinator', () => {
       })
 
       it('sets the average of the reported values', async () => {
-        await coordinator.fulfillData(request.id, h.toHex(16),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(16),
           { from: oracle1 })
-        await coordinator.fulfillData(request.id, h.toHex(17),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
           { from: oracle2 })
-        await coordinator.fulfillData(request.id, h.toHex(18),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
           { from: oracle3 })
 
         const currentValue = await mock.getUint256.call()
@@ -391,20 +391,20 @@ contract('Coordinator', () => {
 
       it('rejects oracles not part of the service agreement', async () => {
         await h.assertActionThrows(async () => {
-          await coordinator.fulfillData(request.id, h.toHex(18),
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
             { from: strangerOracle })
           })
       })
 
       context('when an oracle reports multiple times', async () => {
         beforeEach(async () => {
-          await coordinator.fulfillData(request.id, h.toHex(16),
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(16),
             { from: oracle1 })
-          await coordinator.fulfillData(request.id, h.toHex(17),
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
             { from: oracle2 })
 
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillData(request.id, h.toHex(18),
+            await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
               { from: oracle2 })
           })
         })
@@ -414,7 +414,7 @@ contract('Coordinator', () => {
         })
 
         it('still allows the other oracles to report', async () => {
-          await coordinator.fulfillData(request.id, h.toHex(18),
+          await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
             { from: oracle3 })
           const currentValue = await mock.getUint256.call()
           assertBigNum(h.bigNum(17), currentValue)
@@ -443,11 +443,11 @@ contract('Coordinator', () => {
           coordinator.address, agreement.payment, payload)
         request = h.decodeRunRequest(tx.receipt.logs[2])
         
-        await coordinator.fulfillData(request.id, h.toHex(16),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(16),
           { from: oracle1 })
-        await coordinator.fulfillData(request.id, h.toHex(17),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
           { from: oracle2 })
-        await coordinator.fulfillData(request.id, h.toHex(18),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
           { from: oracle3 })
   
         const currentValue = await mock.getUint256.call()
@@ -481,11 +481,11 @@ contract('Coordinator', () => {
           coordinator.address, agreement.payment, payload)
         request = h.decodeRunRequest(tx.receipt.logs[2])
           
-        await coordinator.fulfillData(request.id, h.toHex(16),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(16),
           { from: oracle1 })
-        await coordinator.fulfillData(request.id, h.toHex(17),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
           { from: oracle2 })
-        await coordinator.fulfillData(request.id, h.toHex(18),
+        await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
           { from: oracle3 })
             
         const currentValue = await mock.getUint256.call()
