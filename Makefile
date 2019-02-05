@@ -60,6 +60,7 @@ dockerpush: ## Push the docker image to dockerhub
 	docker push $(TAGGED_REPO)
 
 chainlink: $(SGX_BUILD_ENCLAVE)
+	CGO_ENABLED=0 go run gui/main.go "${CURDIR}/store"
 	go build $(GOFLAGS) -o chainlink
 
 .PHONY: $(SGX_ENCLAVE)
