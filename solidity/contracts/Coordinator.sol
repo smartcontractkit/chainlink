@@ -11,6 +11,7 @@ import "./interfaces/LinkTokenInterface.sol";
 contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   using SafeMath for uint256;
 
+  uint256 constant public EXPIRY_TIME = 5 minutes;
   LinkTokenInterface internal LINK;
 
   struct ServiceAgreement {
@@ -128,7 +129,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     callbacks[requestId].amount = _amount;
     callbacks[requestId].addr = _callbackAddress;
     callbacks[requestId].functionId = _callbackFunctionId;
-    callbacks[requestId].cancelExpiration = uint64(now.add(5 minutes));
+    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
 
     emit OracleRequest(
       _sAId,
@@ -137,7 +138,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _amount,
       _callbackAddress,
       _callbackFunctionId,
-      now.add(5 minutes),
+      now.add(EXPIRY_TIME),
       _dataVersion,
       _data);
   }
