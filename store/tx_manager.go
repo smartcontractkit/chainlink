@@ -6,9 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"io/ioutil"
+	"github.com/gobuffalo/packr"
 	"math/big"
-	"os"
 	"regexp"
 	"sync"
 
@@ -47,6 +46,7 @@ type TxManager interface {
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
+	Transact(contractName string, method string, args ...interface{}) ([]byte, error)
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
@@ -69,6 +69,7 @@ type EthTxManager struct {
 	availableAccountIdx int
 	accountsMutex       *sync.Mutex
 	connected           *abool.AtomicBool
+	contracts           packr.Box
 }
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
@@ -81,6 +82,7 @@ func NewEthTxManager(ethClient *EthClient, config Config, keyStore *KeyStore, or
 		orm:           orm,
 		accountsMutex: &sync.Mutex{},
 		connected:     abool.New(),
+		contracts:     newContractsBox(),
 	}
 }
 
@@ -335,20 +337,22 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	return *linkBalance, nil
 }
 
-// transact converts arguments for a method in a contract to a byte array that can be used to interact with the contract
-func transact(contractName string, method string, args ...interface{}) ([]byte, error) {
-	jsonFile, err := os.Open("../solidity/build/contracts/" + contractName + ".json")
+// newContractsBox returns the packr.Box instance that holds the contract JSON files
+func newContractsBox() packr.Box {
+	return packr.NewBox("../solidity/build/contracts")
+}
+
+// Transact converts arguments for a method in a contract to a byte array that can be used to interact with the contract
+func (txm *EthTxManager) Transact(contractName string, method string, args ...interface{}) ([]byte, error) {
+	jsonFile, err := txm.contracts.MustBytes(contractName + ".json")
 	if err != nil {
 		return nil, errors.New("unable to read contract JSON")
 	}
-	defer jsonFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(jsonFile)
 
 	var contract struct {
 		ABI interface{} `json:"abi"`
 	}
-	err = json.Unmarshal([]byte(byteValue), &contract)
+	err = json.Unmarshal(jsonFile, &contract)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +373,7 @@ func transact(contractName string, method string, args ...interface{}) ([]byte, 
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
 func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	data, err := transact("Oracle", "withdraw", wr.DestinationAddress, (*big.Int)(wr.Amount))
+	data, err := txm.Transact("Oracle", "withdraw", wr.DestinationAddress, (*big.Int)(wr.Amount))
 	if err != nil {
 		return common.Hash{}, err
 	}
