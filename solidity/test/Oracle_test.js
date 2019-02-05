@@ -184,9 +184,20 @@ contract('Oracle', () => {
         })
       })
 
-      context('when called with a small bytes payload', () => {
+      context('when called with a payload less than 2 EVM words + function selector', () => {
         const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
-        const maliciousData = funcSelector + '000000000000000000000000'
+        const maliciousData = funcSelector + '0000000000000000000000000000000000000000000000000000000000000000000'
+
+        it('throws an error', async () => {
+          await h.assertActionThrows(async () => {
+            await h.requestDataFrom(oc, link, paid, maliciousData)
+          })
+        })
+	  })
+	  
+	  context('when called with a payload between 3 and 9 EVM words', () => {
+        const funcSelector = h.functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+        const maliciousData = funcSelector + '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
 
         it('throws an error', async () => {
           await h.assertActionThrows(async () => {
