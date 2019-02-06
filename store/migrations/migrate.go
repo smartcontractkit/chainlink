@@ -3,6 +3,7 @@ package migrations
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -30,6 +31,10 @@ type MigrationTimestamp struct {
 func Migrate(orm *orm.ORM) error {
 	db := orm.DB
 	if err := db.AutoMigrate(&MigrationTimestamp{}).Error; err != nil {
+		return err
+	}
+
+	if err := runAlways(orm); err != nil {
 		return err
 	}
 
@@ -82,4 +87,25 @@ func availableMigrationTimestamps() []string {
 	}
 	sort.Strings(sortedTimestamps)
 	return sortedTimestamps
+}
+
+func runAlways(orm *orm.ORM) error {
+	return multierr.Append(
+		setTimezone(orm),
+		setForeignKeysOn(orm),
+	)
+}
+
+func setTimezone(orm *orm.ORM) error {
+	if orm.DB.Dialect().GetName() == "postgres" {
+		return orm.DB.Exec(`SET TIME ZONE 'UTC';`).Error
+	}
+	return nil
+}
+
+func setForeignKeysOn(orm *orm.ORM) error {
+	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
+		return orm.DB.Exec("PRAGMA foreign_keys = ON").Error
+	}
+	return nil
 }
