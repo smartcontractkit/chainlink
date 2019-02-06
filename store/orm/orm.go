@@ -702,24 +702,11 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
 }
 
-// SaveBulkDeleteRunTask saves the instance to the database.
-func (orm *ORM) SaveBulkDeleteRunTask(task *models.BulkDeleteRunTask) error {
-	return orm.DB.Save(task).Error
-}
-
-// FindBulkDeleteRunTask retrieves the instance with the id from the database.
-func (orm *ORM) FindBulkDeleteRunTask(id string) (*models.BulkDeleteRunTask, error) {
-	task := &models.BulkDeleteRunTask{}
-	return task, orm.DB.Set("gorm:auto_preload", true).First(task, "ID = ?", id).Error
-}
-
-// BulkDeletesInProgress retrieves all bulk deletes in progress.
-func (orm *ORM) BulkDeletesInProgress() ([]models.BulkDeleteRunTask, error) {
-	deleteTasks := []models.BulkDeleteRunTask{}
-	err := orm.DB.
-		Set("gorm:auto_preload", true).
-		Where("status = ?", models.BulkTaskStatusInProgress).
-		Order("created_at asc").
-		Find(&deleteTasks).Error
-	return deleteTasks, err
+// BulkDeleteRuns removes runs given a query.
+func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
+	return orm.DB.
+		Where("status IN (?)", bulkQuery.Status.ToStrings()).
+		Where("updated_at < ?", bulkQuery.UpdatedBefore).
+		Delete(&[]models.JobRun{}).
+		Error
 }

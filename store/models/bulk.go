@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // BulkTaskStatus indicates what a bulk task is doing.
@@ -44,43 +42,14 @@ type BulkDeleteRunRequest struct {
 	UpdatedBefore time.Time           `json:"updatedBefore"`
 }
 
-// BulkDeleteRunTask represents a task that is working to delete runs with a query
-type BulkDeleteRunTask struct {
-	ID           string               `json:"id" gorm:"primary_key"`
-	Query        BulkDeleteRunRequest `json:"query"`
-	QueryID      uint                 `json:"-"`
-	Status       BulkTaskStatus       `json:"status"`
-	ErrorMessage string               `json:"error" gorm:"type:text"`
-	CreatedAt    time.Time            `gorm:"index"`
-}
-
-// NewBulkDeleteRunTask returns a task from a request to make a task
-func NewBulkDeleteRunTask(request BulkDeleteRunRequest) (*BulkDeleteRunTask, error) {
+// ValidateBulkDeleteRunRequest returns a task from a request to make a task
+func ValidateBulkDeleteRunRequest(request *BulkDeleteRunRequest) error {
 	for _, status := range request.Status {
 		if status != RunStatusCompleted && status != RunStatusErrored {
-			return nil, fmt.Errorf("cannot delete Runs with status %s", status)
+			return fmt.Errorf("cannot delete Runs with status %s", status)
 		}
 	}
 
-	return &BulkDeleteRunTask{
-		ID:    utils.NewBytes32ID(),
-		Query: request,
-	}, nil
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (t BulkDeleteRunTask) GetID() string {
-	return t.ID
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (t BulkDeleteRunTask) GetName() string {
-	return "bulk_delete_runs_tasks"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (t *BulkDeleteRunTask) SetID(value string) error {
-	t.ID = value
 	return nil
 }
 
