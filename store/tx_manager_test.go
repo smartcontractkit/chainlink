@@ -751,35 +751,62 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	}
 }
 
-func TestEthTxManager_Transact(t *testing.T) {
+func TestGetContract(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
-	defer cleanup()
-	store := app.Store
-	manager := store.TxManager
-
-	type args struct {
-		contractName string
-		method       string
-		args         []interface{}
-	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name      string
+		contract  string
+		expectErr bool
 	}{
-		{"Withdraw LINK from Oracle contract", args{"Oracle", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}}, false},
-		{"Invalid contract name", args{"This will never be a contract", "anything", []interface{}{}}, true},
-		{"Invalid contract method", args{"Oracle", "not-a-method", []interface{}{}}, true},
-		{"Too few arguments for Oracle withdraw method", args{"Oracle", "withdraw", []interface{}{cltest.NewAddress()}}, true},
+		{"Get Oracle contract", "Oracle", false},
+		{"Get non-existent contract", "not-a-contract", true},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual, err := manager.Transact(test.args.contractName, test.args.method, test.args.args...)
-			assert.Equal(t, test.wantErr, err != nil, fmt.Errorf("EthTxManager.Transact() error = %v, wantErr %v", err, test.wantErr))
-			// Imply !wantErr means we want a non-empty byte array
-			assert.Equal(t, test.wantErr, len(actual) == 0, fmt.Errorf("EthTxManager.Transact() bytes = %v, expect empty byte-array %v", err, test.wantErr))
+			contract, err := strpkg.GetContract(test.contract)
+			if test.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, contract)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, contract)
+			}
+		})
+	}
+}
+
+func TestContract_EncodeMessageCall(t *testing.T) {
+	t.Parallel()
+
+	// Test with the Oracle contract
+	oracle, err := strpkg.GetContract("Oracle")
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		method    string
+		args      []interface{}
+		expectErr bool
+	}{
+		{"Withdraw LINK", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}, false},
+		{"Non-existent method", "not-a-method", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}, true},
+		{"Too few arguments", "withdraw", []interface{}{cltest.NewAddress()}, true},
+		{"Too many arguments", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10)), (*big.Int)(assets.NewLink(10))}, true},
+		{"Incorrect argument types", "withdraw", []interface{}{(*big.Int)(assets.NewLink(10)), cltest.NewAddress()}, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := oracle.EncodeMessageCall(test.method, test.args...)
+			if test.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, data)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, data)
+			}
 		})
 	}
 }
