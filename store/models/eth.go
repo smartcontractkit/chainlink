@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 )
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
@@ -282,4 +285,31 @@ func (l *IndexableBlockNumber) NextInt() *big.Int {
 type EthSubscription interface {
 	Err() <-chan error
 	Unsubscribe()
+}
+
+type Key struct {
+	Address EIP55Address `gorm:"primary_key;type:varchar(64)"`
+	JSON    JSON         `gorm:"type:text"`
+}
+
+func NewKeyFromFile(path string) (*Key, error) {
+	dat, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	js := gjson.ParseBytes(dat)
+	address, err := NewEIP55Address(common.HexToAddress(js.Get("address").String()).Hex())
+	if err != nil {
+		return nil, multierr.Append(errors.New("unable to create Key model"), err)
+	}
+
+	return &Key{
+		Address: address,
+		JSON:    JSON{Result: js},
+	}, nil
+}
+
+func (k *Key) WriteToDisk(path string) error {
+	return ioutil.WriteFile(path, []byte(k.JSON.String()), 0700)
 }

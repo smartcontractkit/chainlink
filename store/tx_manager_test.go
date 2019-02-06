@@ -64,9 +64,10 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 
 func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfigWithPrivateKey() // second account
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	app.AddUnlockedKey() // second account
+	config := app.Config
 	store := app.Store
 	manager := store.TxManager
 	accounts := store.KeyStore.Accounts()

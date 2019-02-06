@@ -44,9 +44,9 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
 
-	config, _ := cltest.NewConfigWithPrivateKey()
-	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	config := app.Config
 	eth := app.MockEthClient(cltest.Strict)
 
 	newHeads := make(chan models.BlockHeader)
@@ -516,8 +516,8 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 
 func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfigWithPrivateKey()
-	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+
+	app, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
 
 	eth := app.MockEthClient()
