@@ -15,13 +15,13 @@ import {
 import { assertBigNum } from '../../../solidity/test/support/matchers'
 
 contract('UptimeSLA', (accounts) => {
-  let Oracle = artifacts.require('Oracle')
-  let SLA = artifacts.require('UptimeSLA')
-  let LinkToken = artifacts.require('LinkToken')
-  let specId = '0x4c7b7ffb66b344fbaa64995af81e355a'
-  let deposit = 1000000000
-  let link, oc, sla, client, serviceProvider, startAt
+  const Oracle = artifacts.require('Oracle')
+  const SLA = artifacts.require('UptimeSLA')
+  const LinkToken = artifacts.require('LinkToken')
+  const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'
+  const deposit = 1000000000
   const oracleNode = accounts[1]
+  let link, oc, sla, client, serviceProvider, startAt
 
   beforeEach(async () => {
     client = '0xf000000000000000000000000000000000000001'
