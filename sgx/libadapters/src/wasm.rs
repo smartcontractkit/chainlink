@@ -2,7 +2,8 @@ use libc;
 use sgx_types::*;
 use base64;
 use std::{num, vec::Vec};
-use wasmi::{self, ImportsBuilder, ModuleInstance, NopExternals, ExternVal};
+use wasmi::{self, ImportsBuilder, ModuleInstance, NopExternals, ExternVal, MemoryInstance};
+use wasmi::memory_units::Pages;
 use std::ffi::CStr;
 
 extern "C" {
@@ -31,15 +32,25 @@ pub extern "C" fn wasm(
     let adapter : serde_json::Value = serde_json::from_str(&adapter_str)
         .expect("serde_json::from_str failed on adapter_str");
 
+    let input_str = unsafe { CStr::from_ptr(input_ptr) }.to_str()
+        .expect("from_ptr failed on input_ptr");
+
     let encoded_program = &adapter.pointer("/wasm")
         .expect("no wasm in data")
         .as_str().expect("input not string");
     let data = base64::decode(&encoded_program).expect("base64::decode failed");
-    let module = wasmi::Module::from_buffer(data).expect("wasmi::from_buffer failed");
+    let module = wasmi::Module::from_buffer(data)
+        .memory()
+        .with_data(0, input_str.as_bytes())
+        .expect("wasmi::from_buffer failed");
     let module_ref = ModuleInstance::new(&module, &ImportsBuilder::default()).expect("ModuleInstance::new failed");
 
-
     let instance = module_ref.run_start(&mut NopExternals).expect("module_ref.run_start failed");
+
+    // Attempt to put something into the module's memory space
+    //let mut memory = MemoryInstance::alloc(wasmi::memory_units::Pages(1), None).unwrap();
+    //memory.set(0, );
+    //instance.push_memory(memory);
 
     let arguments = encode_json_as_wasm(input_ptr);
     let output = match instance.invoke_export("perform", &arguments.as_slice(), &mut NopExternals)
