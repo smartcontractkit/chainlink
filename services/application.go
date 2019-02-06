@@ -22,7 +22,6 @@ type Application interface {
 	OnConnect(func())
 	GetStore() *store.Store
 	WakeSessionReaper()
-	WakeBulkRunDeleter()
 	AddJob(job models.JobSpec) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	AddAdapter(bt *models.BridgeType) error
@@ -41,7 +40,6 @@ type ChainlinkApplication struct {
 	Scheduler                                         *Scheduler
 	Store                                             *store.Store
 	SessionReaper                                     SleeperTask
-	BulkRunDeleter                                    SleeperTask
 	pendingConnectionResumer                          *pendingConnectionResumer
 	bridgeTypeMutex                                   sync.Mutex
 	jobSubscriberID, txManagerID, connectionResumerID string
@@ -61,7 +59,6 @@ func NewApplication(config store.Config) Application {
 		Scheduler:                NewScheduler(store),
 		Store:                    store,
 		SessionReaper:            NewStoreReaper(store),
-		BulkRunDeleter:           NewBulkRunDeleter(store),
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: newPendingConnectionResumer(store),
 	}
@@ -98,7 +95,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.HeadTracker.Start(),
 		app.Scheduler.Start(),
 		app.SessionReaper.Start(),
-		app.BulkRunDeleter.Start(),
 	)
 }
 
@@ -113,7 +109,6 @@ func (app *ChainlinkApplication) Stop() error {
 	merr = multierr.Append(merr, app.HeadTracker.Stop())
 	app.JobRunner.Stop()
 	merr = multierr.Append(merr, app.SessionReaper.Stop())
-	merr = multierr.Append(merr, app.BulkRunDeleter.Stop())
 	app.HeadTracker.Detach(app.jobSubscriberID)
 	app.HeadTracker.Detach(app.txManagerID)
 	app.HeadTracker.Detach(app.connectionResumerID)
@@ -128,11 +123,6 @@ func (app *ChainlinkApplication) GetStore() *store.Store {
 // WakeSessionReaper wakes up the reaper to do its reaping.
 func (app *ChainlinkApplication) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
-}
-
-// WakeBulkRunDeleter wakes up the bulk task runner to process tasks.
-func (app *ChainlinkApplication) WakeBulkRunDeleter() {
-	app.BulkRunDeleter.WakeUp()
 }
 
 // AddJob adds a job to the store and the scheduler. If there was
