@@ -8,41 +8,38 @@ import {
   assertActionThrows,
   decodeDietCBOR,
   decodeRunRequest,
-  eth,
   functionSelector,
   fulfillOracleRequest,
-  linkContract,
-  oracleNode,
-  requestDataBytes,
-  requestDataFrom,
-  toWei
+  requestDataBytes
 } from '../../../solidity/test/support/helpers'
 import { assertBigNum } from '../../../solidity/test/support/matchers'
 
-contract('UptimeSLA', () => {
+contract('UptimeSLA', (accounts) => {
   let Oracle = artifacts.require('Oracle')
   let SLA = artifacts.require('UptimeSLA')
+  let LinkToken = artifacts.require('LinkToken')
   let specId = '0x4c7b7ffb66b344fbaa64995af81e355a'
   let deposit = 1000000000
   let link, oc, sla, client, serviceProvider, startAt
+  const oracleNode = accounts[1]
 
   beforeEach(async () => {
     client = '0xf000000000000000000000000000000000000001'
     serviceProvider = '0xf000000000000000000000000000000000000002'
-    link = await linkContract()
+    link = await LinkToken.new()
     oc = await Oracle.new(link.address, { from: oracleNode })
     sla = await SLA.new(client, serviceProvider, link.address, oc.address, specId, {
       value: deposit
     })
-    link.transfer(sla.address, toWei('1', 'ether'))
+    link.transfer(sla.address, web3.utils.toWei('1', 'ether'))
     startAt = await getLatestTimestamp()
   })
 
   describe('before updates', () => {
     it('does not release money to anyone', async () => {
-      assert.equal(await eth.getBalance(sla.address), deposit)
-      assert.equal(await eth.getBalance(client), 0)
-      assert.equal(await eth.getBalance(serviceProvider), 0)
+      assert.equal(await web3.eth.getBalance(sla.address), deposit)
+      assert.equal(await web3.eth.getBalance(client), 0)
+      assert.equal(await web3.eth.getBalance(serviceProvider), 0)
     })
   })
 
@@ -78,9 +75,9 @@ contract('UptimeSLA', () => {
       it('sends the deposit to the client', async () => {
         await fulfillOracleRequest(oc, request, response, { from: oracleNode })
 
-        assert.equal(await eth.getBalance(sla.address), 0)
-        assert.equal(await eth.getBalance(client), deposit)
-        assert.equal(await eth.getBalance(serviceProvider), 0)
+        assert.equal(await web3.eth.getBalance(sla.address), 0)
+        assert.equal(await web3.eth.getBalance(client), deposit)
+        assert.equal(await web3.eth.getBalance(serviceProvider), 0)
       })
     })
 
@@ -89,15 +86,15 @@ contract('UptimeSLA', () => {
       let originalClientBalance
 
       beforeEach(async () => {
-        originalClientBalance = await eth.getBalance(client)
+        originalClientBalance = await web3.eth.getBalance(client)
       })
 
       it('does not move the money', async () => {
         await fulfillOracleRequest(oc, request, response, { from: oracleNode })
 
-        assertBigNum(await eth.getBalance(sla.address), deposit)
-        assertBigNum(await eth.getBalance(client), originalClientBalance)
-        assertBigNum(await eth.getBalance(serviceProvider), 0)
+        assertBigNum(await web3.eth.getBalance(sla.address), deposit)
+        assertBigNum(await web3.eth.getBalance(client), originalClientBalance)
+        assertBigNum(await web3.eth.getBalance(serviceProvider), 0)
       })
 
       context('and a month has passed', () => {
@@ -108,9 +105,9 @@ contract('UptimeSLA', () => {
         it('gives the money back to the service provider', async () => {
           await fulfillOracleRequest(oc, request, response, { from: oracleNode })
 
-          assertBigNum(await eth.getBalance(sla.address), 0)
-          assertBigNum(await eth.getBalance(client), originalClientBalance)
-          assertBigNum(await eth.getBalance(serviceProvider), deposit)
+          assertBigNum(await web3.eth.getBalance(sla.address), 0)
+          assertBigNum(await web3.eth.getBalance(client), originalClientBalance)
+          assertBigNum(await web3.eth.getBalance(serviceProvider), deposit)
         })
       })
     })
@@ -119,8 +116,8 @@ contract('UptimeSLA', () => {
       beforeEach(async () => {
         let fid = functionSelector('report(uint256,bytes32)')
         let args = requestDataBytes(specId, sla.address, fid, 'xid', 'foo')
-        const tx = await requestDataFrom(oc, link, 0, args)
-        request = decodeRunRequest(tx.receipt.logs[2])
+        const tx = await link.transferAndCall(oc.address, 0, args)
+        request = decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       it('does not accept the data provided', async () => {
