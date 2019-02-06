@@ -57,35 +57,40 @@ const SECONDARY = 'secondary'
 const DANGER = 'danger'
 const VARIANTS = [DEFAULT, PRIMARY, SECONDARY, DANGER]
 
+const PRIMARY_MUI_PROPS = { variant: 'contained' }
+const SECONDARY_MUI_PROPS = {
+  variant: 'outlined',
+  color: 'primary'
+}
+const DANGER_MUI_PROPS = {
+  variant: 'outlined',
+  color: 'primary'
+}
+const DEFAULT_MUI_PROPS = {
+  variant: 'outlined',
+  color: 'secondary'
+}
+
 const buildMuiProps = props => {
   switch (props.variant) {
-    case PRIMARY: {
-      return {
-        variant: 'contained'
-      }
-    }
-    case SECONDARY: {
-      return {
-        variant: 'outlined',
-        color: 'primary'
-      }
-    }
-    case DANGER: {
-      return {
-        variant: 'outlined',
-        color: 'primary'
-      }
-    }
+    case PRIMARY:
+      return PRIMARY_MUI_PROPS
+    case SECONDARY:
+      return SECONDARY_MUI_PROPS
+    case DANGER:
+      return DANGER_MUI_PROPS
     default: {
-      return {
-        variant: 'outlined',
-        color: 'secondary',
-        TouchRippleProps: {
-          classes: {
-            root: props.classes.defaultRipple
+      return Object.assign(
+        {},
+        DEFAULT_MUI_PROPS,
+        {
+          TouchRippleProps: {
+            classes: {
+              root: props.classes.defaultRipple
+            }
           }
         }
-      }
+      )
     }
   }
 }
