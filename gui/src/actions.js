@@ -349,7 +349,7 @@ export const fetchJobRun = id => request(
 export const deleteCompletedJobRuns = updatedBefore => request(
   'DELETE_COMPLETED_JOB_RUNS',
   api.bulkDeleteJobRuns,
-  json => normalize(json),
+  normalize,
   ['completed'],
   updatedBefore
 )
@@ -357,7 +357,7 @@ export const deleteCompletedJobRuns = updatedBefore => request(
 export const deleteErroredJobRuns = updatedBefore => request(
   'DELETE_ERRORED_JOB_RUNS',
   api.bulkDeleteJobRuns,
-  json => normalize(json),
+  normalize,
   ['errored'],
   updatedBefore
 )
