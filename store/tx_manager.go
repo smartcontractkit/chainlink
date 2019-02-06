@@ -46,7 +46,6 @@ type TxManager interface {
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
-	Transact(contractName string, method string, args ...interface{}) ([]byte, error)
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
@@ -69,7 +68,6 @@ type EthTxManager struct {
 	availableAccountIdx int
 	accountsMutex       *sync.Mutex
 	connected           *abool.AtomicBool
-	contracts           packr.Box
 }
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
@@ -82,7 +80,6 @@ func NewEthTxManager(ethClient *EthClient, config Config, keyStore *KeyStore, or
 		orm:           orm,
 		accountsMutex: &sync.Mutex{},
 		connected:     abool.New(),
-		contracts:     newContractsBox(),
 	}
 }
 
@@ -337,43 +334,16 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	return *linkBalance, nil
 }
 
-// newContractsBox returns the packr.Box instance that holds the contract JSON files
-func newContractsBox() packr.Box {
-	return packr.NewBox("../solidity/build/contracts")
-}
-
-// Transact converts arguments for a method in a contract to a byte array that can be used to interact with the contract
-func (txm *EthTxManager) Transact(contractName string, method string, args ...interface{}) ([]byte, error) {
-	jsonFile, err := txm.contracts.MustBytes(contractName + ".json")
-	if err != nil {
-		return nil, errors.New("unable to read contract JSON")
-	}
-
-	var contract struct {
-		ABI interface{} `json:"abi"`
-	}
-	err = json.Unmarshal(jsonFile, &contract)
-	if err != nil {
-		return nil, err
-	}
-
-	abiBytes, err := json.Marshal(contract.ABI)
-	if err != nil {
-		return nil, err
-	}
-
-	abiParsed, err := abi.JSON(bytes.NewReader(abiBytes))
-	if err != nil {
-		return nil, err
-	}
-	return abiParsed.Pack(method, args...)
-}
-
 // WithdrawLINK withdraws the given amount of LINK from the contract to the
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
 func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	data, err := txm.Transact("Oracle", "withdraw", wr.DestinationAddress, (*big.Int)(wr.Amount))
+	oracle, err := GetContract("Oracle")
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	data, err := oracle.EncodeMessageCall("withdraw", wr.DestinationAddress, (*big.Int)(wr.Amount))
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -627,4 +597,46 @@ func (txm *EthTxManager) getBlockNumber() (uint64, error) {
 	}
 
 	return txm.GetBlockNumber()
+}
+
+// Contract holds the solidity contract's parsed ABI
+type Contract struct {
+	ABI abi.ABI
+}
+
+// GetContract loads the contract JSON file from ../solidity/build/contracts
+// and parses the ABI JSON contents into an abi.ABI object
+func GetContract(name string) (*Contract, error) {
+	box := packr.NewBox("../solidity/build/contracts")
+	jsonFile, err := box.MustBytes(name + ".json")
+	if err != nil {
+		return nil, errors.New("unable to read contract JSON")
+	}
+
+	var contractJson struct {
+		ABI interface{} `json:"abi"`
+	}
+
+	err = json.Unmarshal(jsonFile, &contractJson)
+	if err != nil {
+		return nil, err
+	}
+
+	abiBytes, err := json.Marshal(contractJson.ABI)
+	if err != nil {
+		return nil, err
+	}
+
+	abiParsed, err := abi.JSON(bytes.NewReader(abiBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Contract{abiParsed}, nil
+}
+
+// EncodeMessageCall encodes method name and arguments into a byte array
+// to conform with the contract's ABI
+func (contract *Contract) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
+	return contract.ABI.Pack(method, args...)
 }
