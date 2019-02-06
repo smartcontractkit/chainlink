@@ -1,8 +1,6 @@
 package services
 
 import (
-	"fmt"
-
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -55,26 +53,9 @@ func RunPendingTask(orm *orm.ORM, task *models.BulkDeleteRunTask) error {
 
 // DeleteJobRuns removes runs that match a query
 func DeleteJobRuns(orm *orm.ORM, bulkQuery *models.BulkDeleteRunRequest) error {
-	runIDs := []models.JobRun{}
-
-	err := orm.DB.
-		// reduce memory consumption by limiting fields in lieu of pagination as stopgap.
-		Select("id, status").
+	return orm.DB.
 		Where("status IN (?)", bulkQuery.Status.ToStrings()).
 		Where("updated_at < ?", bulkQuery.UpdatedBefore).
-		Order("completed_at asc").
-		Find(&runIDs).Error
-
-	if err != nil {
-		return err
-	}
-
-	for _, run := range runIDs {
-		logger.Debugw("Deleting run", "job_run_id", run.ID, "status", run.Status)
-		err := orm.DeleteJobRun(run.ID)
-		if err != nil {
-			return fmt.Errorf("error deleting run %s: %+v", run.ID, err)
-		}
-	}
-	return nil
+		Delete(&[]models.JobRun{}).
+		Error
 }
