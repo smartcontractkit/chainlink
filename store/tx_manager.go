@@ -613,16 +613,16 @@ func GetContract(name string) (*Contract, error) {
 		return nil, errors.New("unable to read contract JSON")
 	}
 
-	var contractJson struct {
+	var contractJSON struct {
 		ABI interface{} `json:"abi"`
 	}
 
-	err = json.Unmarshal(jsonFile, &contractJson)
+	err = json.Unmarshal(jsonFile, &contractJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	abiBytes, err := json.Marshal(contractJson.ABI)
+	abiBytes, err := json.Marshal(contractJSON.ABI)
 	if err != nil {
 		return nil, err
 	}
