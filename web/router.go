@@ -176,8 +176,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.GET("/transactions/:TxHash", txs.Show)
 
 		bdc := BulkDeletesController{app}
-		authv2.POST("/bulk_delete_runs", bdc.Create)
-		authv2.GET("/bulk_delete_runs/:taskID", bdc.Show)
+		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 }
 
