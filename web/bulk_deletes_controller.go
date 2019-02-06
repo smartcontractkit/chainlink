@@ -17,7 +17,7 @@ type BulkDeletesController struct {
 func (c *BulkDeletesController) Delete(ctx *gin.Context) {
 	request := &models.BulkDeleteRunRequest{}
 	if err := ctx.ShouldBindJSON(request); err != nil {
-		ctx.AbortWithError(422, err)
+		ctx.AbortWithError(400, err)
 	} else if err := models.ValidateBulkDeleteRunRequest(request); err != nil {
 		ctx.AbortWithError(422, err)
 	} else if err := c.App.GetStore().BulkDeleteRuns(request); err != nil {
