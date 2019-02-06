@@ -32,9 +32,7 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 		migrationHelper(orm, &models.User{}),
 		migrationHelper(orm, &models.Session{}),
 		migrationHelper(orm, &models.Encumbrance{}),
-		migrationHelper(orm, &models.ServiceAgreement{}),
-		migrationHelper(orm, &models.BulkDeleteRunTask{}),
-		migrationHelper(orm, &models.BulkDeleteRunRequest{}))
+		migrationHelper(orm, &models.ServiceAgreement{}))
 }
 
 func setTimezone(orm *orm.ORM) error {
