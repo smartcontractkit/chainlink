@@ -292,7 +292,7 @@ func (c Config) TLSPort() uint16 {
 
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
-	return path.Join(c.RootDir(), "keys")
+	return path.Join(c.RootDir(), "tempkeys")
 }
 
 func (c Config) tlsDir() string {
