@@ -227,8 +227,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config, _ := cltest.NewConfigWithPrivateKey("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-			app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+			app, cleanup := cltest.NewApplicationWithKeyStore()
 			defer cleanup()
 
 			eth := app.MockEthClient()
