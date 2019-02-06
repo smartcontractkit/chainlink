@@ -16,7 +16,9 @@ const formatURI = (path, query = {}) => {
 }
 
 const parseResponse = response => {
-  if (response.status >= 200 && response.status < 300) {
+  if (response.status === 204) {
+    return {}
+  } else if (response.status >= 200 && response.status < 300) {
     return response.json()
   } else if (response.status === 400) {
     return response.json().then(json => { throw new BadRequestError(json) })
@@ -69,11 +71,12 @@ const patch = (path, body) => {
     .then(parseResponse)
 }
 
-const destroy = (path) => (
+const destroy = (path, body) => (
   global.fetch(
-    formatURI(path),
+    formatURI(path, body),
     {
       method: 'DELETE',
+      body: JSON.stringify(body),
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
     }
@@ -125,7 +128,7 @@ export const updateBridge = data => {
 
 export const destroySession = () => destroy(`/sessions`)
 
-export const bulkDeleteJobRuns = (status, updatedBefore) => post(
+export const bulkDeleteJobRuns = (status, updatedBefore) => destroy(
   '/v2/bulk_delete_runs',
   {
     status: status,
