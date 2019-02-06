@@ -1,2 +1,4 @@
 node_modules/
 .python-version
+build/contracts/*
+!build/contracts/Oracle.sol
