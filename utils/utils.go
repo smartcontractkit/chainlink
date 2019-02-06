@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -425,4 +427,49 @@ func LogListeningAddress(address common.Address) string {
 		return "[all]"
 	}
 	return address.String()
+}
+
+// RemoveContents removes everything in a directory but not the directory
+// itself.
+// https://stackoverflow.com/questions/33450980/how-to-remove-all-contents-of-a-directory-using-golang
+func RemoveContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func FilesInDir(dir string) ([]string, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return []string{}, err
+	}
+	defer f.Close()
+
+	r, err := f.Readdirnames(-1)
+	if err != nil {
+		return []string{}, err
+	}
+
+	return r, nil
+}
+
+func FileContents(path string) (string, error) {
+	dat, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(dat), nil
 }

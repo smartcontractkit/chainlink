@@ -64,9 +64,9 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 func TestUserController_AccountBalances_Success(t *testing.T) {
 	t.Parallel()
 
-	cfg, _ := cltest.NewConfigWithPrivateKey()                                 // first wallet
-	appWithAccount, cleanup := cltest.NewApplicationWithConfigAndKeyStore(cfg) // second wallet
+	appWithAccount, cleanup := cltest.NewApplicationWithKeyStore()
 	defer cleanup()
+	appWithAccount.AddUnlockedKey()
 	client := appWithAccount.NewHTTPClient()
 
 	ethMock := appWithAccount.MockEthClient()

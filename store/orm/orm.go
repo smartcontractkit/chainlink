@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -753,4 +755,36 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 		return err
 	}
 	return tx.Commit().Error
+}
+
+func (orm *ORM) Keys() ([]*models.Key, error) {
+	var keys []*models.Key
+	return keys, orm.DB.Find(&keys).Error
+}
+
+func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
+	return orm.DB.FirstOrCreate(k).Error
+}
+
+func (orm *ORM) SyncDbKeyStoreToDisk(keysDir string) error {
+	if err := os.RemoveAll(keysDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(keysDir, 0700); err != nil {
+		return err
+	}
+
+	keys, err := orm.Keys()
+	if err != nil {
+		return err
+	}
+
+	var merr error
+	for _, k := range keys {
+		merr = multierr.Append(
+			k.WriteToDisk(filepath.Join(keysDir, fmt.Sprintf("%s.json", k.Address.String()))),
+			merr)
+	}
+	return merr
 }

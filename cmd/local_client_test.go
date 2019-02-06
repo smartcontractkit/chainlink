@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"flag"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/cmd"
@@ -42,7 +43,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	eth.Register("eth_getTransactionCount", `0x1`)
 
 	assert.NoError(t, client.RunNode(c))
-
+	logger.Sync()
 	logs, err := cltest.ReadLogs(app)
 	assert.NoError(t, err)
 
@@ -175,13 +176,21 @@ func TestClient_ImportKey(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	os.MkdirAll(app.Store.Config.KeysDir(), os.FileMode(0700))
-
 	set := flag.NewFlagSet("import", 0)
 	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
 	c := cli.NewContext(nil, set, nil)
-	assert.Nil(t, client.ImportKey(c))
-	assert.Error(t, client.ImportKey(c))
+	assert.NoError(t, client.ImportKey(c))
+
+	keys, err := app.GetStore().Keys()
+	require.NoError(t, err)
+	addresses := []string{}
+	for _, k := range keys {
+		addresses = append(addresses, k.Address.String())
+	}
+
+	sort.Strings(addresses)
+	expectation := []string{"0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"}
+	require.Equal(t, expectation, addresses)
 }
 
 func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
