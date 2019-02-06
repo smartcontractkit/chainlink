@@ -82,7 +82,6 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
-	db.Exec("PRAGMA foreign_keys = ON")
 	return db, nil
 }
 
