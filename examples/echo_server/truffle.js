@@ -1,4 +1,4 @@
-require('@babel/register')({ cwd: '../../' })
+require('@babel/register')
 require('@babel/polyfill')
 
 module.exports = {
@@ -13,7 +13,7 @@ module.exports = {
   },
   compilers: {
     solc: {
-      version: '0.4.24',
+      version: '0.4.24'
     }
-  },
+  }
 }

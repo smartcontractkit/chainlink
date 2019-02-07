@@ -1,5 +1,3 @@
-import {resolve, join } from 'path'
-
 contract('RunLog', () => {
   const LinkToken = artifacts.require('LinkToken')
   const Oracle = artifacts.require('Oracle')
