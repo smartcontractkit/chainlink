@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "bignumber.js": "^6.0.0",
+    "bn.js": "^4.11.8",
     "cbor": "^4.0.0",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
@@ -11,6 +12,15 @@
     "request-promise": "^4.2.2",
     "solidity-cborutils": "github:smartcontractkit/solidity-cborutils",
     "truffle": "^5.0.0-next.24",
-    "truffle-contract": "^3.0.6"
+    "truffle-contract": "^3.0.6",
+    "web3": "^1.0.0-beta.35"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.2.2",
+    "@babel/preset-env": "^7.2.3",
+    "@babel/preset-stage-2": "^7.0.0",
+    "@babel/plugin-proposal-class-properties": "^7.2.3",
+    "@babel/plugin-proposal-export-namespace-from": "^7.2.0",
+    "@babel/plugin-proposal-throw-expressions": "^7.2.0"
   }
 }

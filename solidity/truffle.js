@@ -1,11 +1,11 @@
-require('@babel/register')({ cwd: '../' })
+require('@babel/register')
 require('@babel/polyfill')
 
 module.exports = {
   network: 'test',
   compilers: {
     solc: {
-      version: '0.4.24',
+      version: '0.4.24'
     }
   },
   networks: {
@@ -14,7 +14,7 @@ module.exports = {
       port: 18545,
       network_id: '*',
       gas: 4700000,
-      gasPrice: 5e9,
+      gasPrice: 5e9
     },
     ropsten: {
       host: 'localhost',

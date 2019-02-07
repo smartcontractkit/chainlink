@@ -1,4 +1,4 @@
-import util from 'ethereumjs-util'
+import { toBuffer } from 'ethereumjs-util'
 import {
   days,
   fastForwardTo,
@@ -11,8 +11,8 @@ import {
   functionSelector,
   fulfillOracleRequest,
   requestDataBytes
-} from '../../../solidity/test/support/helpers'
-import { assertBigNum } from '../../../solidity/test/support/matchers'
+} from './support/moreHelpers'
+import { assertBigNum } from './support/matchers'
 
 contract('UptimeSLA', (accounts) => {
   const Oracle = artifacts.require('Oracle')
@@ -52,7 +52,7 @@ contract('UptimeSLA', (accounts) => {
       assert.equal(events[0].args.specId,
         specId + '00000000000000000000000000000000')
 
-      const decoded = await decodeDietCBOR(util.toBuffer(events[0].args.data))
+      const decoded = await decodeDietCBOR(toBuffer(events[0].args.data))
       assert.deepEqual(
         decoded,
         { 'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation'] }
