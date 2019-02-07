@@ -45,13 +45,13 @@ library Chainlink {
    * @notice Sets the data for the buffer without encoding CBOR on-chain
    * @dev CBOR can be closed with curly-brackets {} or they can be left off
    * @param self The initialized request
-   * @param data The CBOR data
+   * @param _data The CBOR data
    */
-  function setBuffer(Request memory self, bytes data)
+  function setBuffer(Request memory self, bytes _data)
     internal pure
   {
-    Buffer.init(self.buf, data.length);
-    Buffer.append(self.buf, data);
+    Buffer.init(self.buf, _data.length);
+    Buffer.append(self.buf, _data);
   }
 
   /**
