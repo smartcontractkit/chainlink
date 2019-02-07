@@ -160,7 +160,7 @@ contract Chainlinked {
    */
   function addExternalRequest(address _oracle, bytes32 _requestId)
     internal
-    isPendingRequest(_requestId)
+    notPendingRequest(_requestId)
   {
     pendingRequests[_requestId] = _oracle;
   }
@@ -244,8 +244,8 @@ contract Chainlinked {
    * @dev Reverts if the request is already pending
    * @param _requestId The request ID for fulfillment
    */
-  modifier isPendingRequest(bytes32 _requestId) {
-    require(pendingRequests[_requestId] == address(0), "Request is already fulfilled");
+  modifier notPendingRequest(bytes32 _requestId) {
+    require(pendingRequests[_requestId] == address(0), "Request is already pending");
     _;
   }
 }
