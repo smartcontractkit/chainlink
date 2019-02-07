@@ -19,7 +19,8 @@ export default {
   beforeRenderToElement: (render, Comp) => render(Comp),
   plugins: [
     ['react-static-plugin-jss', { providerProps: { generateClassName } }],
-    ['react-static-plugin-react-router']
+    'react-static-plugin-react-router',
+    'react-static-plugin-typescript'
   ],
   Document: class CustomHtml extends Component {
     render () {
