@@ -168,7 +168,8 @@ contract('Oracle', () => {
 
         assert.equal(specId, h.toUtf8(log.topics[1]))
         assert.equal(h.defaultAccount.toString().toLowerCase(), h.hexToAddress(log.topics[2]))
-        assertBigNum(paid, log.topics[3])
+        const req = h.decodeRunRequest(tx.receipt.logs[2])
+        assertBigNum(paid, req.payment)
       })
 
       it('uses the expected event signature', async () => {
@@ -323,10 +324,10 @@ contract('Oracle', () => {
 
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
-          const req = await mock.maliciousPrice(specId)
-          const log = req.receipt.logs[3]
+          const tx = await mock.maliciousPrice(specId)
+          const req = h.decodeRunRequest(tx.receipt.logs[3])
 
-          assert(h.toWei(1).eq(h.bigNum(log.topics[3])))
+          assert(h.toWei(1).eq(h.bigNum(req.payment)))
         })
       })
     })
