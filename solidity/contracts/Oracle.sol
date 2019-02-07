@@ -31,7 +31,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   event OracleRequest(
     bytes32 indexed specId,
     address indexed requester,
-    uint256 indexed payment,
+    uint256 payment,
     bytes32 requestId,
     address callbackAddr,
     bytes4 callbackFunctionId,

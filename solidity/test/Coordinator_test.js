@@ -146,7 +146,8 @@ contract('Coordinator', () => {
         assert.equal(agreement.id, log.topics[1])
         assertBigNum(h.consumer, log.topics[2],
           "Logged consumer address doesn't match")
-        assertBigNum(agreement.payment, log.topics[3],
+        const req = h.decodeRunRequest(tx.receipt.logs[2])
+        assertBigNum(agreement.payment, req.payment,
           "Logged payment amount doesn't match")
       })
     })
@@ -252,12 +253,12 @@ contract('Coordinator', () => {
 
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
-          const req = await mock.maliciousPrice(agreement.id)
-          const amountRefunded = req.receipt.logs[3].topics[3]
-          assertBigNum(paymentAmount, amountRefunded, [
+          const tx = await mock.maliciousPrice(agreement.id)
+          const req = h.decodeRunRequest(tx.receipt.logs[3])
+          assertBigNum(paymentAmount, req.payment, [
             'Malicious data request tricked oracle into refunding more than',
             'the requester paid, by claiming a larger amount',
-            `(${amountRefunded}) than the requester paid (${paymentAmount})`
+            `(${req.payment}) than the requester paid (${paymentAmount})`
           ].join(' '))
         })
       })
