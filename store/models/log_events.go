@@ -24,6 +24,7 @@ const (
 
 const (
 	evmWordSize      = common.HashLength
+	requesterSize    = evmWordSize
 	idSize           = evmWordSize
 	paymentSize      = evmWordSize
 	versionSize      = evmWordSize
@@ -263,7 +264,7 @@ func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
 	if oldRequestVersion(version) {
 		encodedAmount = le.Log.Topics[RequestLogTopicPayment]
 	} else {
-		paymentStart := idSize
+		paymentStart := requesterSize + idSize
 		encodedAmount = common.BytesToHash(le.Log.Data[paymentStart : paymentStart+paymentSize])
 	}
 
@@ -275,7 +276,9 @@ func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
 }
 
 func oldRequestVersion(version common.Hash) bool {
-	return version == RunLogTopic0 || version == RunLogTopic20190123
+	return version == RunLogTopic0 ||
+		version == RunLogTopic20190123 ||
+		version == ServiceAgreementExecutionLogTopic
 }
 
 // ValidateRequester returns true if the requester matches the one associated
@@ -294,8 +297,15 @@ func (le RunLogEvent) ValidateRequester() error {
 
 // Requester pulls the requesting address out of the LogEvent's topics.
 func (le RunLogEvent) Requester() common.Address {
-	b := le.Log.Topics[RequestLogTopicRequester].Bytes()
-	return common.BytesToAddress(b)
+	version, err := le.Log.getTopic(0)
+	if err != nil {
+		return common.Address{}
+	}
+
+	if oldRequestVersion(version) {
+		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes())
+	}
+	return common.BytesToAddress(le.Log.Data[:requesterSize])
 }
 
 // JSON decodes the RunLogEvent's data converts it to a JSON object.
@@ -366,8 +376,8 @@ func parseRunLog20190123(log Log) (JSON, error) {
 
 func parseRunLog20190207(log Log) (JSON, error) {
 	data := log.Data
-	idStart := 0
-	expirationEnd := idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
+	idStart := requesterSize
+	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
 	cborStart := expirationEnd + versionSize + dataLocationSize + dataLengthSize
 	js, err := ParseCBOR(data[cborStart:])
 	if err != nil {
