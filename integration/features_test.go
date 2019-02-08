@@ -526,7 +526,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/noop_agreement.json")
 
 	assert.NotEqual(t, "", sa.ID)

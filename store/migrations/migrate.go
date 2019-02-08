@@ -101,7 +101,7 @@ func automigrateMigrationsTable(orm *orm.ORM) error {
 
 func setTimezone(orm *orm.ORM) error {
 	if orm.DB.Dialect().GetName() == "postgres" {
-		return orm.DB.Exec(`SET TIME ZONE 'UTC';`).Error
+		return orm.DB.Exec(`SET TIME ZONE 'UTC'`).Error
 	}
 	return nil
 }
