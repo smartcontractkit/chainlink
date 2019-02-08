@@ -31,8 +31,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   event OracleRequest(
     bytes32 indexed specId,
     address indexed requester,
-    uint256 payment,
     bytes32 requestId,
+    uint256 payment,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
@@ -124,8 +124,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     emit OracleRequest(
       _specId,
       _sender,
-      _payment,
       requestId,
+      _payment,
       _callbackAddress,
       _callbackFunctionId,
       expiration,
