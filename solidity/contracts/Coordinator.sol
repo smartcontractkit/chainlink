@@ -42,7 +42,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   event OracleRequest(
     bytes32 indexed sAId,
-    address indexed requester,
+    address requester,
     bytes32 requestId,
     uint256 payment,
     address callbackAddr,
