@@ -2,11 +2,13 @@ package orm_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -530,36 +532,39 @@ func TestBulkDeleteRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	db := store.ORM.DB
+	orm := store.ORM
+	db := orm.DB
 	job := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
 	require.NoError(t, store.ORM.CreateJob(&job))
 	initiator := job.Initiators[0]
 
 	// matches updated before but none of the statuses
 	oldIncompleteRun := job.NewRun(initiator)
 	oldIncompleteRun.Status = models.RunStatusInProgress
-	err := db.Create(&oldIncompleteRun).Error
+	fmt.Println("oldIncompleteRun", oldIncompleteRun)
+	err := orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
 
 	// matches one of the statuses and the updated before
 	oldCompletedRun := job.NewRun(initiator)
 	oldCompletedRun.Status = models.RunStatusCompleted
-	err = db.Create(&oldCompletedRun).Error
+	err = orm.CreateJobRun(&oldCompletedRun)
 	require.NoError(t, err)
 	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
 
 	// matches one of the statuses but not the updated before
 	newCompletedRun := job.NewRun(initiator)
 	newCompletedRun.Status = models.RunStatusCompleted
-	err = db.Create(&newCompletedRun).Error
+	err = orm.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
 	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-30T00:00:00Z"))
 
 	// matches nothing
 	newIncompleteRun := job.NewRun(initiator)
 	newIncompleteRun.Status = models.RunStatusCompleted
-	err = db.Create(&newIncompleteRun).Error
+	err = orm.CreateJobRun(&newIncompleteRun)
 	require.NoError(t, err)
 	db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-30T00:00:00Z"))
 
@@ -568,11 +573,22 @@ func TestBulkDeleteRuns(t *testing.T) {
 		UpdatedBefore: cltest.ParseISO8601("2018-01-15T00:00:00Z"),
 	})
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	var runCount int
 	err = db.Model(&models.JobRun{}).Count(&runCount).Error
 	assert.NoError(t, err)
 	assert.Equal(t, 3, runCount)
+
+	var taskCount int
+	err = db.Model(&models.TaskRun{}).Count(&taskCount).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 3, taskCount)
+
+	var resultCount int
+	err = db.Model(&models.RunResult{}).Count(&resultCount).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 6, resultCount)
 }
 
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
