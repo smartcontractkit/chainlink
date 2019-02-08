@@ -144,9 +144,9 @@ contract('Coordinator', () => {
         assert.equal(eventSignature, log.topics[0])
 
         assert.equal(agreement.id, log.topics[1])
-        assertBigNum(h.consumer, log.topics[2],
-          "Logged consumer address doesn't match")
         const req = h.decodeRunRequest(tx.receipt.logs[2])
+        assertBigNum(h.consumer, req.requester,
+          "Logged consumer address doesn't match")
         assertBigNum(agreement.payment, req.payment,
           "Logged payment amount doesn't match")
       })
