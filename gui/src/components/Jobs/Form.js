@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import * as formik from 'formik'
 import { withStyles } from '@material-ui/core/styles'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 import { TextField, Grid } from '@material-ui/core'
 import { Prompt } from 'react-static'
 
@@ -58,11 +58,10 @@ const Form = ({
           </Grid>
           <Grid item xs={12}>
             <Button
-              className={classes.button}
-              variant='contained'
-              color='primary'
+              variant='primary'
               type='submit'
-              disabled={isSubmitting || !values.json}
+              disabled={isSubmitting}
+              className={classes.button}
             >
               {actionText}
             </Button>

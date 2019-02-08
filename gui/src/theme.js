@@ -52,7 +52,8 @@ export default {
   overrides: {
     MuiButton: {
       root: {
-        borderRadius: spacing.unit / 2
+        borderRadius: spacing.unit / 2,
+        textTransform: 'none'
       }
     }
   },

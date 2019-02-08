@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Redirect } from 'react-router'
 import { withStyles } from '@material-ui/core/styles'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Typography from '@material-ui/core/Typography'
@@ -115,7 +115,7 @@ export const SignIn = useHooks((props) => {
                 <Grid item xs={12}>
                   <Grid container spacing={0} justify='center'>
                     <Grid item>
-                      <Button type='submit' variant='contained' color='primary'>
+                      <Button type='submit' variant='primary'>
                         Access Account
                       </Button>
                     </Grid>

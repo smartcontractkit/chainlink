@@ -3,13 +3,13 @@ import PropTypes from 'prop-types'
 import { Link } from 'react-static'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
-import { Button } from '@material-ui/core'
 import Typography from '@material-ui/core/Typography'
 import Form from 'components/Bridges/Form'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Divider from '@material-ui/core/Divider'
 import ErrorMessage from 'components/Notifications/DefaultError'
+import Button from 'components/Button'
 import bridgeSelector from 'selectors/bridge'
 import {
   fetchBridgeSpec,
@@ -53,8 +53,6 @@ export const Edit = useHooks(props => {
                     <Grid item>
                       {bridge &&
                         <Button
-                          variant='outlined'
-                          color='primary'
                           component={ReactStaticLinkComponent}
                           to={`/bridges/${bridge.id}`}
                         >
