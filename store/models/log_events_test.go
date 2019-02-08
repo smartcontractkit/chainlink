@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func TestParseRunLog(t *testing.T) {
 		wantData    models.JSON
 	}{
 		{
-			name:        "hello world",
+			name:        "old non-commitment",
 			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
@@ -35,7 +36,7 @@ func TestParseRunLog(t *testing.T) {
 				"functionSelector":"0x76005c26"}`),
 		},
 		{
-			name:        "on-chain commitment",
+			name:        "20190123 on-chain commitment",
 			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
@@ -46,14 +47,14 @@ func TestParseRunLog(t *testing.T) {
 				"functionSelector":"0xeea57e70"}`),
 		},
 		{
-			name:        "on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190128.json"),
+			name:        "20190207 on-chain commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190207.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
 				"path":["usd"],
 				"address":"0xf25186b5081ff5ce73482ad761db0eb0d25abfbf",
-				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
+				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400010000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
 				"functionSelector":"0x4ab0d190"}`),
 		},
 	}
@@ -279,7 +280,7 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
 		Topics: [][]common.Hash{
 			{
-				models.RunLogTopic20190128,
+				models.RunLogTopic20190207,
 				models.RunLogTopic20190123,
 				models.RunLogTopic0,
 			}, {
@@ -289,4 +290,45 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		},
 	}
 	assert.Equal(t, want, filter)
+}
+
+func TestContractPayment(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		log         models.Log
+		wantErrored bool
+		want        *assets.Link
+	}{
+		{
+			name:        "old non-commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			wantErrored: false,
+			want:        assets.NewLink(1),
+		},
+		{
+			name:        "20190123 on-chain commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
+			wantErrored: false,
+			want:        assets.NewLink(1000000000000000000),
+		},
+		{
+			name:        "20190207 on-chain commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190207.json"),
+			wantErrored: false,
+			want:        assets.NewLink(1000000000000000001),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rle := models.RunLogEvent{models.InitiatorLogEvent{Log: test.log}}
+
+			received, err := rle.ContractPayment()
+
+			cltest.AssertError(t, test.wantErrored, err)
+			assert.Equal(t, test.want, received)
+		})
+	}
 }
