@@ -260,7 +260,7 @@ func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
 	}
 
 	var encodedAmount common.Hash
-	if version == RunLogTopic0 || version == RunLogTopic20190123 {
+	if oldRequestVersion(version) {
 		encodedAmount = le.Log.Topics[RequestLogTopicPayment]
 	} else {
 		paymentStart := idSize
@@ -272,6 +272,10 @@ func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
 		return payment, fmt.Errorf("unable to decoded amount from RunLog: %s", encodedAmount.Hex())
 	}
 	return payment, nil
+}
+
+func oldRequestVersion(version common.Hash) bool {
+	return version == RunLogTopic0 || version == RunLogTopic20190123
 }
 
 // ValidateRequester returns true if the requester matches the one associated
