@@ -167,8 +167,8 @@ contract('Oracle', () => {
         assert.equal(oc.address, log.address)
 
         assert.equal(specId, h.toUtf8(log.topics[1]))
-        assert.equal(h.defaultAccount.toString().toLowerCase(), h.hexToAddress(log.topics[2]))
         const req = h.decodeRunRequest(tx.receipt.logs[2])
+        assert.equal(h.defaultAccount.toString().toLowerCase(), req.requester)
         assertBigNum(paid, req.payment)
       })
 
