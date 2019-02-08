@@ -25,21 +25,17 @@ type migration interface {
 
 // MigrationTimestamp tracks already run and available migrations.
 type MigrationTimestamp struct {
-	Timestamp string `json:"timestamp" gorm:"primary_key"`
+	Timestamp string `json:"timestamp" gorm:"primary_key;type:varchar(12)"`
 }
 
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(orm *orm.ORM) error {
-	db := orm.DB
-	if err := db.AutoMigrate(&MigrationTimestamp{}).Error; err != nil {
-		return err
-	}
-
 	if err := runAlways(orm); err != nil {
 		return err
 	}
 
+	db := orm.DB
 	var migrationTimestamps []MigrationTimestamp
 	err := db.Order("timestamp asc").Find(&migrationTimestamps).Error
 	if err != nil {
@@ -92,10 +88,15 @@ func availableMigrationTimestamps() []string {
 }
 
 func runAlways(orm *orm.ORM) error {
-	return multierr.Append(
+	return multierr.Combine(
+		automigrateMigrationsTable(orm),
 		setTimezone(orm),
 		setForeignKeysOn(orm),
 	)
+}
+
+func automigrateMigrationsTable(orm *orm.ORM) error {
+	return orm.DB.AutoMigrate(&MigrationTimestamp{}).Error
 }
 
 func setTimezone(orm *orm.ORM) error {
