@@ -179,10 +179,10 @@ const endMapBuffer = Buffer.from([0xFF])
 
 export const decodeRunRequest = log => {
   const runABI = util.toBuffer(log.data)
-  const types = ['uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
+  const types = ['bytes32', 'uint256', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const [
-    payment,
     requestId,
+    payment,
     callbackAddress,
     callbackFunc,
     expiration,
@@ -194,8 +194,8 @@ export const decodeRunRequest = log => {
     topic: log.topics[0],
     jobId: log.topics[1],
     requester: hexToAddress(log.topics[2]),
-    payment: toHex(payment),
     id: toHex(requestId),
+    payment: toHex(payment),
     callbackAddr: Ox(callbackAddress),
     callbackFunc: toHex(callbackFunc),
     expiration: toHex(expiration),
