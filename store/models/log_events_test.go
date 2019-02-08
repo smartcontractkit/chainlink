@@ -95,36 +95,6 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	}
 }
 
-func TestRequestLogEvent_Requester(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		logFactory (func(*testing.T, string, common.Address, common.Address, int, string) models.Log)
-		address    common.Address
-	}{
-		{
-			name:       "runlog basic",
-			logFactory: cltest.NewRunLog,
-			address:    common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
-		},
-		{
-			name:       "salog basic",
-			logFactory: cltest.NewServiceAgreementExecutionLog,
-			address:    common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			rl := test.logFactory(t, "id", cltest.NewAddress(), test.address, 0, "{}")
-			le := models.RunLogEvent{models.InitiatorLogEvent{Log: rl}}
-
-			assert.Equal(t, test.address, le.Requester())
-		})
-	}
-}
-
 func TestRequestLogEvent_Validate(t *testing.T) {
 	t.Parallel()
 
