@@ -7,7 +7,7 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 import CardContent from '@material-ui/core/CardContent'
 import Card from '@material-ui/core/Card'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
@@ -135,8 +135,6 @@ const RecentActivity = ({ classes, runs }) => {
           </Grid>
           <Grid item xs={12} sm={4} align='right'>
             <Button
-              variant='outlined'
-              color='primary'
               component={ReactStaticLinkComponent}
               to={'/jobs/new'}
             >

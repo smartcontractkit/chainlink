@@ -4,7 +4,7 @@ import { Prompt } from 'react-static'
 import * as formik from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import { TextField, Grid } from '@material-ui/core'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 
 const styles = theme => ({
   textfield: {
@@ -95,11 +95,10 @@ const Form = props => (
         </Grid>
         <Grid item xs={12} md={7}>
           <Button
-            variant='contained'
-            color='primary'
+            variant='primary'
             type='submit'
             className={props.classes.button}
-            disabled={props.isSubmitting || !props.values.name || !props.values.url}
+            disabled={props.isSubmitting}
           >
             {props.actionText}
           </Button>

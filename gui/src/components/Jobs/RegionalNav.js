@@ -7,7 +7,7 @@ import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
-import Button from '@material-ui/core/Button'
+import Button from 'components/Button'
 import Link from 'components/Link'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import CopyJobSpec from 'components/CopyJobSpec'
@@ -25,7 +25,8 @@ const styles = theme => {
       paddingBottom: 0
     },
     duplicate: {
-      margin: theme.spacing.unit
+      marginLeft: theme.spacing.unit,
+      marginRight: theme.spacing.unit
     },
     horizontalNav: {
       paddingBottom: 0
@@ -83,23 +84,17 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
             </Grid>
             <Grid item align='right' xs={5}>
               {job && isWebInitiator(job.initiators) && (
-                <Button variant='outlined' color='primary' onClick={handleClick}>
-                  Run
-                </Button>
+                <Button onClick={handleClick}>Run</Button>
               )}
               {definition &&
                 <Button
                   to={{ pathname: '/jobs/new', state: { definition: definition } }}
                   component={ReactStaticLinkComponent}
-                  color='primary'
-                  className={classes.duplicate}
-                  variant='outlined'>
+                  className={classes.duplicate}>
                   Duplicate
                 </Button>
               }
-              {definition &&
-                <CopyJobSpec JobSpec={definition} />
-              }
+              {definition && <CopyJobSpec JobSpec={definition} />}
             </Grid>
           </Grid>
         </Grid>
