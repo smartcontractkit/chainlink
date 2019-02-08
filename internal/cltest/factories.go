@@ -278,12 +278,11 @@ func NewRunLog(
 	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData20190128(t, "internalID", json),
+		Data:        StringToVersionedLogData20190207(t, "internalID", json),
 		Topics: []common.Hash{
-			models.RunLogTopic20190128,
+			models.RunLogTopic20190207,
 			StringToHash(jobID),
 			requester.Hash(),
-			minimumContractPayment.ToHash(),
 		},
 	}
 }
@@ -307,7 +306,6 @@ func NewServiceAgreementExecutionLog(
 			models.ServiceAgreementExecutionLogTopic,
 			StringToHash(jobID),
 			executionRequester.Hash(),
-			minimumContractPayment.ToHash(),
 		},
 	}
 }
@@ -354,9 +352,12 @@ func StringToVersionedLogData20190123(t *testing.T, internalID, str string) []by
 	return buf.Bytes()
 }
 
-func StringToVersionedLogData20190128(t *testing.T, internalID, str string) []byte {
+func StringToVersionedLogData20190207(t *testing.T, internalID, str string) []byte {
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf := bytes.NewBuffer(requestID)
+
+	payment := hexutil.MustDecode(minimumContractPayment.ToHash().Hex())
+	buf.Write(payment)
 
 	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
 	buf.Write(dataLocation)
