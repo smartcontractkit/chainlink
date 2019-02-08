@@ -17,7 +17,7 @@ import (
 func TestClient_DisplayAccountBalance(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -124,7 +124,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 func TestClient_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -465,7 +465,7 @@ func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testi
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
 
 	hash := cltest.NewHash()
 	sentAt := "0x5BA0"
@@ -561,7 +561,7 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_GetTxAttempts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	store := app.GetStore()

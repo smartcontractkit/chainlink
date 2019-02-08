@@ -13,7 +13,7 @@ import (
 func TestUserController_UpdatePassword(t *testing.T) {
 	t.Parallel()
 
-	appWithUser, cleanup := cltest.NewApplicationWithKeyStore()
+	appWithUser, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	client := appWithUser.NewHTTPClient()
 
@@ -64,7 +64,7 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 func TestUserController_AccountBalances_Success(t *testing.T) {
 	t.Parallel()
 
-	appWithAccount, cleanup := cltest.NewApplicationWithKeyStore()
+	appWithAccount, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	appWithAccount.AddUnlockedKey()
 	client := appWithAccount.NewHTTPClient()
