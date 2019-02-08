@@ -669,11 +669,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f813eefc9a07e6b088dd71a1e0f74bc8ec75be48845088fce670508320995835"
+  digest = "1:41f0b40cd6a395994a0b4d8c23e3f02c762e2e211bc4ddbdc276424424de8f54"
   name = "github.com/willf/pad"
   packages = ["."]
   pruneopts = ""
-  revision = "b3d7806010228b1a954b4d9c4ee4cf6cb476b063"
+  revision = "eccfe5d84172e4f9dfd83fac9ed3a5f0eafbc2b4"
 
 [[projects]]
   digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
