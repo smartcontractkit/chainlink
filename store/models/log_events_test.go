@@ -101,30 +101,26 @@ func TestRequestLogEvent_Requester(t *testing.T) {
 	tests := []struct {
 		name       string
 		logFactory (func(*testing.T, string, common.Address, common.Address, int, string) models.Log)
-		input      common.Hash
-		want       common.Address
+		address    common.Address
 	}{
 		{
-			"runlog basic",
-			cltest.NewRunLog,
-			common.HexToHash("0x00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee"),
-			common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
+			name:       "runlog basic",
+			logFactory: cltest.NewRunLog,
+			address:    common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
 		},
 		{
-			"salog basic",
-			cltest.NewServiceAgreementExecutionLog,
-			common.HexToHash("0x00000000000000000000000059b15a7ae74c803cc151ffe63042faa826c96eee"),
-			common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
+			name:       "salog basic",
+			logFactory: cltest.NewServiceAgreementExecutionLog,
+			address:    common.HexToAddress("0x59b15a7ae74c803cc151ffe63042faa826c96eee"),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rl := cltest.NewRunLog(t, "id", cltest.NewAddress(), cltest.NewAddress(), 0, "{}")
-			rl.Topics[models.RequestLogTopicRequester] = test.input
+			rl := test.logFactory(t, "id", cltest.NewAddress(), test.address, 0, "{}")
 			le := models.RunLogEvent{models.InitiatorLogEvent{Log: rl}}
 
-			assert.Equal(t, test.want, le.Requester())
+			assert.Equal(t, test.address, le.Requester())
 		})
 	}
 }
@@ -292,7 +288,7 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	assert.Equal(t, want, filter)
 }
 
-func TestContractPayment(t *testing.T) {
+func TestRunLogEvent_ContractPayment(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -328,6 +324,46 @@ func TestContractPayment(t *testing.T) {
 			received, err := rle.ContractPayment()
 
 			cltest.AssertError(t, test.wantErrored, err)
+			assert.Equal(t, test.want, received)
+		})
+	}
+}
+
+func TestRunLogEvent_Requester(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		log         models.Log
+		wantErrored bool
+		want        common.Address
+	}{
+		{
+			name:        "old non-commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			wantErrored: false,
+			want:        common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
+		},
+		{
+			name:        "20190123 on-chain commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
+			wantErrored: false,
+			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
+		},
+		{
+			name:        "20190207 on-chain commitment",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190207.json"),
+			wantErrored: false,
+			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db40"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rle := models.RunLogEvent{models.InitiatorLogEvent{Log: test.log}}
+
+			received := rle.Requester()
+
 			assert.Equal(t, test.want, received)
 		})
 	}
