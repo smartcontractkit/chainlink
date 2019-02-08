@@ -43,8 +43,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   event OracleRequest(
     bytes32 indexed sAId,
     address indexed requester,
-    uint256 payment,
     bytes32 requestId,
+    uint256 payment,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
@@ -127,8 +127,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     emit OracleRequest(
       _sAId,
       _sender,
-      _amount,
       requestId,
+      _amount,
       _callbackAddress,
       _callbackFunctionId,
       now.add(5 minutes),
