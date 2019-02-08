@@ -106,5 +106,5 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, 400)
-	assert.True(t, ethMock.AllCalled(), "Not Called")
+	assert.True(t, ethMock.AllCalled(), ethMock.Remaining())
 }
