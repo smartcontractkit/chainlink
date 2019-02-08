@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store"
 	strpkg "github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/require"
@@ -278,11 +279,10 @@ func NewRunLog(
 	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData20190207(t, "internalID", json),
+		Data:        StringToVersionedLogData20190207(t, "internalID", requester, json),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207,
 			StringToHash(jobID),
-			requester.Hash(),
 		},
 	}
 }
@@ -306,6 +306,7 @@ func NewServiceAgreementExecutionLog(
 			models.ServiceAgreementExecutionLogTopic,
 			StringToHash(jobID),
 			executionRequester.Hash(),
+			assets.NewLink(1000000000).ToHash(),
 		},
 	}
 }
@@ -352,15 +353,20 @@ func StringToVersionedLogData20190123(t *testing.T, internalID, str string) []by
 	return buf.Bytes()
 }
 
-func StringToVersionedLogData20190207(t *testing.T, internalID, str string) []byte {
+func StringToVersionedLogData20190207(
+	t *testing.T,
+	internalID string,
+	requester common.Address,
+	str string,
+) []byte {
+	requesterBytes := requester.Hash().Bytes()
+	buf := bytes.NewBuffer(requesterBytes)
+
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
-	buf := bytes.NewBuffer(requestID)
+	buf.Write(requestID)
 
 	payment := hexutil.MustDecode(minimumContractPayment.ToHash().Hex())
 	buf.Write(payment)
-
-	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
-	buf.Write(dataLocation)
 
 	callbackAddr := utils.EVMWordUint64(0)
 	buf.Write(callbackAddr)
@@ -373,6 +379,9 @@ func StringToVersionedLogData20190207(t *testing.T, internalID, str string) []by
 
 	version := utils.EVMWordUint64(1)
 	buf.Write(version)
+
+	dataLocation := utils.EVMWordUint64(common.HashLength * 8)
+	buf.Write(dataLocation)
 
 	cbor, err := JSONFromString(t, str).CBOR()
 	require.NoError(t, err)
