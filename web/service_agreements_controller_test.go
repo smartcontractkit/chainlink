@@ -15,7 +15,7 @@ import (
 func TestServiceAgreementsController_Create(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(app.GetStore())
 	eth.RegisterSubscription("logs")
@@ -66,7 +66,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(app.GetStore())
 	eth.RegisterSubscription("logs")

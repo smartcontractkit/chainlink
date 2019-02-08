@@ -183,19 +183,19 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	}
 }
 
-// NewApplicationWithKeyStore creates a new TestApplication along with a new config
-func NewApplicationWithKeyStore() (*TestApplication, func()) {
+// NewApplicationWithKey creates a new TestApplication along with a new config
+func NewApplicationWithKey() (*TestApplication, func()) {
 	config, cfgCleanup := NewConfig()
-	app, cleanup := NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := NewApplicationWithConfigAndKey(config)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
 	}
 }
 
-// NewApplicationWithConfigAndKeyStore creates a new TestApplication with the given testconfig
+// NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(tc *TestConfig) (*TestApplication, func()) {
 	app, cleanup := NewApplicationWithConfig(tc)
 	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	return app, cleanup

@@ -29,7 +29,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
 	defer cleanup()
 	hash := cltest.NewHash()
 	client := app.NewHTTPClient()
@@ -74,7 +74,7 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
 	defer cleanup()
 	client := app.NewHTTPClient()
 
