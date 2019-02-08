@@ -14,7 +14,7 @@ import (
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -59,7 +59,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	ethMock := app.MockEthClient()

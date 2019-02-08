@@ -39,7 +39,7 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 
 func TestEthClient_GetNonce(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
@@ -52,7 +52,7 @@ func TestEthClient_GetNonce(t *testing.T) {
 
 func TestEthClient_GetBlockNumber(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
@@ -65,7 +65,7 @@ func TestEthClient_GetBlockNumber(t *testing.T) {
 
 func TestEthClient_SendRawTx(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
@@ -77,7 +77,7 @@ func TestEthClient_SendRawTx(t *testing.T) {
 
 func TestEthClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	tests := []struct {
@@ -104,7 +104,7 @@ func TestEthClient_GetEthBalance(t *testing.T) {
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
