@@ -21,7 +21,7 @@ import (
 func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	store := app.Store
 	config := store.Config
@@ -81,7 +81,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	store := app.Store
 	config := store.Config
@@ -144,7 +144,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	store := app.Store
 	config := store.Config
@@ -209,7 +209,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	store := app.Store
 	config := store.Config
@@ -245,7 +245,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	store := app.Store
 	config := store.Config
@@ -285,7 +285,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	store := app.Store
@@ -341,7 +341,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	store := app.Store
@@ -380,7 +380,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	store := app.Store
@@ -403,7 +403,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	store := app.Store
@@ -426,7 +426,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	store := app.Store
@@ -523,7 +523,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 	store := app.Store
 
