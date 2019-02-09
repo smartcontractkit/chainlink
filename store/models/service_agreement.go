@@ -176,7 +176,7 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	}
 
 	// Get the absolute end date as a big-endian uint32 (unix seconds)
-	var endAt int64 = e.EndAt.Time.Unix()
+	endAt := e.EndAt.Time.Unix()
 	if endAt > 0xffffffff { // Optimistically, this could be an issue in 2038...
 		return []byte{}, fmt.Errorf(
 			"endat date %s is too late to fit in uint32",

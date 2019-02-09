@@ -327,7 +327,7 @@ func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	return tx, err
 }
 
-// FindTxAttempt returns the specific transaction attempt with the hash.
+// FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
 	txat := &models.TxAttempt{}
 	if err := orm.DB.Set("gorm:auto_preload", true).First(txat, "hash = ?", hash).Error; err != nil {
@@ -757,15 +757,18 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	return tx.Commit().Error
 }
 
+// Keys returns all keys stored in the orm.
 func (orm *ORM) Keys() ([]*models.Key, error) {
 	var keys []*models.Key
 	return keys, orm.DB.Find(&keys).Error
 }
 
+// FirstOrCreateKey returns the first key found or creates a new one in the orm.
 func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 	return orm.DB.FirstOrCreate(k).Error
 }
 
+// SyncDbKeyStoreToDisk writes all keys stored in the orm to a folder on disk.
 func (orm *ORM) SyncDbKeyStoreToDisk(keysDir string) error {
 	if err := os.RemoveAll(keysDir); err != nil {
 		return err

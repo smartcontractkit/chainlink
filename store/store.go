@@ -159,6 +159,8 @@ func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error)
 	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout())
 }
 
+// SyncDiskKeyStoreToDB writes all keys in the keys directory to the underlying
+// orm.
 func (s *Store) SyncDiskKeyStoreToDB() error {
 	files, err := utils.FilesInDir(s.Config.KeysDir())
 	if err != nil {
