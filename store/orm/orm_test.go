@@ -702,7 +702,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 
 	keysDir := store.Config.KeysDir()
 	require.True(t, isDirEmpty(t, keysDir))
-	require.NoError(t, orm.SyncDbKeyStoreToDisk(keysDir))
+	require.NoError(t, orm.ClobberDiskKeyStoreWithDBKeys(keysDir))
 
 	dbkeys, err := store.Keys()
 	require.NoError(t, err)
