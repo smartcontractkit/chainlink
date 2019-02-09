@@ -35,12 +35,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	pwd, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
-	}
-	if err := store.ImportDatabaseKeys(pwd); err != nil {
-		return cli.errorOut(fmt.Errorf("unable to write keystore from database: %+v", err))
 	}
 
 	var user models.User
