@@ -287,11 +287,14 @@ type EthSubscription interface {
 	Unsubscribe()
 }
 
+// Key holds the private key metadata for a given address that is used to unlock
+// said key when given a password.
 type Key struct {
 	Address EIP55Address `gorm:"primary_key;type:varchar(64)"`
 	JSON    JSON         `gorm:"type:text"`
 }
 
+// NewKeyFromFile creates an instance in memory from a key file on disk.
 func NewKeyFromFile(path string) (*Key, error) {
 	dat, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -310,6 +313,7 @@ func NewKeyFromFile(path string) (*Key, error) {
 	}, nil
 }
 
+// WriteToDisk writes this key to disk at the passed path.
 func (k *Key) WriteToDisk(path string) error {
 	return ioutil.WriteFile(path, []byte(k.JSON.String()), 0700)
 }
