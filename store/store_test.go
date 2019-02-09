@@ -1,8 +1,6 @@
 package store_test
 
 import (
-	"io"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/internal/mocks"
 	"github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -160,47 +157,6 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, acc.Address.Hex(), keys[0].Address.String())
-}
-
-func TestStore_ImportDatabaseKeys(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-
-	store := app.GetStore()
-
-	seed, err := models.NewKeyFromFile("../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	require.NoError(t, err)
-	require.NoError(t, store.FirstOrCreateKey(seed), "should be able to create key in db")
-
-	keysDir := store.Config.KeysDir()
-	require.True(t, isDirEmpty(t, keysDir), "keys directory should start empty")
-
-	require.NoError(t, store.ImportDatabaseKeys(cltest.Password)) // import
-
-	diskkeys, err := utils.FilesInDir(keysDir)
-	require.NoError(t, err)
-	assert.Len(t, diskkeys, 1, "key should have been imported to the disk keystore")
-
-	content, err := utils.FileContents(filepath.Join(keysDir, diskkeys[0]))
-	require.NoError(t, err)
-	assert.JSONEq(t, seed.JSON.String(), content)
-}
-
-func isDirEmpty(t *testing.T, dir string) bool {
-	f, err := os.Open(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return true
-		}
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true
-	}
-
-	return false
 }
 
 func TestQueuedRunChannel_Send(t *testing.T) {
