@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -766,28 +764,4 @@ func (orm *ORM) Keys() ([]*models.Key, error) {
 // FirstOrCreateKey returns the first key found or creates a new one in the orm.
 func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 	return orm.DB.FirstOrCreate(k).Error
-}
-
-// SyncDbKeyStoreToDisk writes all keys stored in the orm to a folder on disk.
-func (orm *ORM) SyncDbKeyStoreToDisk(keysDir string) error {
-	if err := os.RemoveAll(keysDir); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(keysDir, 0700); err != nil {
-		return err
-	}
-
-	keys, err := orm.Keys()
-	if err != nil {
-		return err
-	}
-
-	var merr error
-	for _, k := range keys {
-		merr = multierr.Append(
-			k.WriteToDisk(filepath.Join(keysDir, fmt.Sprintf("%s.json", k.Address.String()))),
-			merr)
-	}
-	return merr
 }
