@@ -451,6 +451,7 @@ func RemoveContents(dir string) error {
 	return nil
 }
 
+// FilesInDir returns an array of filenames in the directory.
 func FilesInDir(dir string) ([]string, error) {
 	f, err := os.Open(dir)
 	if err != nil {
@@ -466,6 +467,7 @@ func FilesInDir(dir string) ([]string, error) {
 	return r, nil
 }
 
+// FileContents returns the contents of a file as a string.
 func FileContents(path string) (string, error) {
 	dat, err := ioutil.ReadFile(path)
 	if err != nil {
