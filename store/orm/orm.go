@@ -706,32 +706,46 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 // BulkDeleteRuns removes runs given a query.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	tx := orm.DB.Begin()
-	err := orm.DB.Exec(`DELETE
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// NOTE: SQLite doesn't support compound delete statements, so delete run
+	// results for job_runs ...
+	err := tx.Exec(`
+		DELETE
 		FROM run_results
 		WHERE run_results.id IN (SELECT result_id
-													  FROM job_runs
-														WHERE status IN (?) AND updated_at < ?)`,
+													   FROM job_runs
+														 WHERE status IN (?) AND updated_at < ?)`,
 		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 	if err != nil {
-		return err
+		tx.Rollback()
+		return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
 	}
-	err = orm.DB.Exec(`DELETE
+
+	// and then task runs using a join in the subquery
+	err = tx.Exec(`
+		DELETE
 		FROM run_results
 		WHERE run_results.id IN (SELECT task_runs.result_id
-													  FROM task_runs
-														INNER JOIN job_runs ON
-															task_runs.job_run_id = job_runs.id
-														WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
+													   FROM task_runs
+														 INNER JOIN job_runs ON
+															 task_runs.job_run_id = job_runs.id
+														 WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
 		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 	if err != nil {
-		return err
+		tx.Rollback()
+		return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
 	}
-	err = orm.DB.
+
+	err = tx.
 		Where("status IN (?)", bulkQuery.Status.ToStrings()).
 		Where("updated_at < ?", bulkQuery.UpdatedBefore).
 		Delete(&[]models.JobRun{}).
 		Error
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 	return tx.Commit().Error
