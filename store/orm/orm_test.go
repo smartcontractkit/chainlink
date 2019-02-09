@@ -2,10 +2,7 @@ package orm_test
 
 import (
 	"encoding/hex"
-	"io"
 	"math/big"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -687,50 +684,4 @@ func TestORM_DeduceDialect(t *testing.T) {
 			assert.Equal(t, test.wantError, err != nil)
 		})
 	}
-}
-
-func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
-	defer cleanup()
-
-	store := app.GetStore()
-	orm := store.ORM
-
-	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	require.NoError(t, err)
-	require.NoError(t, orm.FirstOrCreateKey(seed))
-
-	keysDir := store.Config.KeysDir()
-	require.True(t, isDirEmpty(t, keysDir))
-	require.NoError(t, orm.SyncDbKeyStoreToDisk(keysDir))
-
-	dbkeys, err := store.Keys()
-	require.NoError(t, err)
-	assert.Len(t, dbkeys, 1)
-
-	diskkeys, err := utils.FilesInDir(keysDir)
-	require.NoError(t, err)
-	assert.Len(t, diskkeys, 1)
-
-	key := dbkeys[0]
-	content, err := utils.FileContents(filepath.Join(keysDir, diskkeys[0]))
-	require.NoError(t, err)
-	assert.Equal(t, key.JSON.String(), content)
-}
-
-func isDirEmpty(t *testing.T, dir string) bool {
-	f, err := os.Open(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return true
-		}
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true
-	}
-
-	return false
 }

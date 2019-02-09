@@ -125,11 +125,8 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
-	if err := orm.SyncDbKeyStoreToDisk(config.KeysDir()); err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
-	}
-	keyStore := NewKeyStore(config.KeysDir())
 
+	keyStore := NewKeyStore(config.KeysDir())
 	store := &Store{
 		Clock:      Clock{},
 		Config:     config,
@@ -179,6 +176,31 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 		if err != nil {
 			merr = multierr.Append(err, merr)
 		}
+	}
+	return merr
+}
+
+// ImportDatabaseKeys writes all keys stored in the orm to the keystore
+// keys directory.
+func (s *Store) ImportDatabaseKeys(pwd string) error {
+	keysDir := s.Config.KeysDir()
+	if err := os.RemoveAll(keysDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(keysDir, 0700); err != nil {
+		return err
+	}
+
+	keys, err := s.Keys()
+	if err != nil {
+		return err
+	}
+
+	var merr error
+	for _, k := range keys {
+		_, err := s.KeyStore.Import([]byte(k.JSON.String()), pwd, pwd)
+		merr = multierr.Append(err, merr)
 	}
 	return merr
 }
