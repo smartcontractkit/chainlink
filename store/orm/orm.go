@@ -768,8 +768,9 @@ func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 	return orm.DB.FirstOrCreate(k).Error
 }
 
-// SyncDbKeyStoreToDisk writes all keys stored in the orm to a folder on disk.
-func (orm *ORM) SyncDbKeyStoreToDisk(keysDir string) error {
+// ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
+// the keys folder on disk, deleting anything there prior.
+func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 	if err := os.RemoveAll(keysDir); err != nil {
 		return err
 	}

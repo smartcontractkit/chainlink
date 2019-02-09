@@ -125,7 +125,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
-	if err := orm.SyncDbKeyStoreToDisk(config.KeysDir()); err != nil {
+	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
 	}
 	keyStore := NewKeyStore(config.KeysDir())
