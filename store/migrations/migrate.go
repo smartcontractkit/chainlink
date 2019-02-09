@@ -89,9 +89,9 @@ func availableMigrationTimestamps() []string {
 
 func runAlways(orm *orm.ORM) error {
 	return multierr.Combine(
-		automigrateMigrationsTable(orm),
 		setTimezone(orm),
 		setForeignKeysOn(orm),
+		automigrateMigrationsTable(orm),
 	)
 }
 
