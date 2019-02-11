@@ -82,6 +82,7 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
+	db.Exec("PRAGMA foreign_keys = ON")
 	return db, nil
 }
 
@@ -702,11 +703,55 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
 }
 
-// BulkDeleteRuns removes runs given a query.
+// BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
+// RunResults.
+//
+// TaskRuns are removed by ON DELETE CASCADE when the JobRuns are
+// deleted, but RunResults are not using foreign keys because multiple foreign
+// keys on a record creates an ambiguity with gorm.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
-	return orm.DB.
+	tx := orm.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// NOTE: SQLite doesn't support compound delete statements, so delete run
+	// results for job_runs ...
+	err := tx.Exec(`
+		DELETE
+		FROM run_results
+		WHERE run_results.id IN (SELECT result_id
+													   FROM job_runs
+														 WHERE status IN (?) AND updated_at < ?)`,
+		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
+	}
+
+	// and then task runs using a join in the subquery
+	err = tx.Exec(`
+		DELETE
+		FROM run_results
+		WHERE run_results.id IN (SELECT task_runs.result_id
+													   FROM task_runs
+														 INNER JOIN job_runs ON
+															 task_runs.job_run_id = job_runs.id
+														 WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
+		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
+	}
+
+	err = tx.
 		Where("status IN (?)", bulkQuery.Status.ToStrings()).
 		Where("updated_at < ?", bulkQuery.UpdatedBefore).
 		Delete(&[]models.JobRun{}).
 		Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }
