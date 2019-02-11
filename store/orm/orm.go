@@ -703,7 +703,12 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
 }
 
-// BulkDeleteRuns removes runs given a query.
+// BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
+// RunResults.
+//
+// TaskRuns are removed by ON DELETE CASCADE when the JobRuns are
+// deleted, but RunResults are not using foreign keys because multiple foreign
+// keys on a record creates an ambiguity with gorm.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	tx := orm.DB.Begin()
 	if tx.Error != nil {
