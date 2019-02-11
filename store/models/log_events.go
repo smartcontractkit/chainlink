@@ -43,7 +43,7 @@ var (
 	RunLogTopic20190123 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
 	// RunLogTopic20190207 was the new RunRequest filter topic as of 2019-01-28,
 	// after renaming Solidity variables, moving data version, and removing the cast of requestId to uint256
-	RunLogTopic20190207 = utils.MustHash("OracleRequest(bytes32,address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")
+	RunLogTopic20190207 = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
 	// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
@@ -55,7 +55,7 @@ var (
 	OracleFulfillmentFunctionID20190123 = utils.MustHash("fulfillData(uint256,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 	// OracleFulfillmentFunctionID20190207 is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
-	OracleFulfillmentFunctionID20190207 = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	OracleFulfillmentFunctionID20190128 = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 )
 
 type logRequestParser func(Log) (JSON, error)
@@ -394,7 +394,7 @@ func parseRunLog20190207(log Log) (JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190207)
+	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128)
 }
 
 func bytesToHex(data []byte) string {
