@@ -2,7 +2,6 @@ package orm_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -542,7 +541,6 @@ func TestBulkDeleteRuns(t *testing.T) {
 	// matches updated before but none of the statuses
 	oldIncompleteRun := job.NewRun(initiator)
 	oldIncompleteRun.Status = models.RunStatusInProgress
-	fmt.Println("oldIncompleteRun", oldIncompleteRun)
 	err := orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
