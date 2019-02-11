@@ -16,28 +16,39 @@ pub enum Error {
     InvalidEncoding,
 }
 
+extern {
+    fn debug(input: i32);
+}
+
 #[no_mangle]
 pub extern "C" fn perform(input_ptr: *const i8) {
+    unsafe { debug(input_ptr as i32); }
+
     let input_str = unsafe { CStr::from_ptr(input_ptr) }.to_str()
         .expect("error converting input string");
     let input: serde_json::Value = serde_json::from_str(&input_str)
         .expect("failed to parse input");
 
+    unsafe { debug(0); }
+
     let multiplier_str = match &input.pointer("/adapter/times") {
         Some(serde_json::Value::String(v)) => v,
         _ => panic!("no times value in adapter"),
     };
-    let multiplicand_str = match &input.pointer("/input/value/") {
+    let multiplicand_str = match &input.pointer("/input/data/result") {
         Some(serde_json::Value::String(v)) => v,
         _ => panic!("no value param in input"),
     };
+
+    unsafe { debug(0); }
 
     let multiplicand = f64::from_str(&multiplicand_str)
         .expect("invalid multiplicand");
     let multiplier = f64::from_str(&multiplier_str)
         .expect("invalid multiplier");
 
-    let _result = multiplicand * multiplier;
+    let result = multiplicand * multiplier;
+    unsafe { debug(result as i32); }
 }
 
 #[cfg(test)]
