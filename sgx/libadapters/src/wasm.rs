@@ -85,25 +85,6 @@ impl<'a> ValidationExternals<'a> {
         
         println!("debug({:?})", target);
         Ok(())
-        //let data_ptr: u32 = args.nth_checked(1)?;
-        //let data_len: u32 = args.nth_checked(2)?;
-
-        //let (data_ptr, data_len) = (data_ptr as usize, data_len as usize);
-
-        //self.memory.with_direct_access(|mem| {
-        //if mem.len() < (data_ptr + data_len) {
-        //Err(Trap::new(wasmi::TrapKind::MemoryAccessOutOfBounds))
-        //} else {
-        //let res = self.externalities.post_message(MessageRef {
-        //target,
-        //data: &mem[data_ptr..][..data_len],
-        //});
-
-        //res.map_err(|e| Trap::new(wasmi::TrapKind::Host(
-        //Box::new(e) as Box<_>
-        //)))
-        //}
-        //})
     }
 }
 
@@ -124,9 +105,9 @@ impl<'a> Externals for ValidationExternals<'a> {
 pub extern "C" fn wasm(
     adapter_ptr: *const libc::c_char,
     input_ptr: *const libc::c_char,
-    result_ptr: *mut libc::c_char,
-    result_capacity: usize,
-    result_len: *mut usize,
+    _result_ptr: *mut libc::c_char,
+    _result_capacity: usize,
+    _result_len: *mut usize,
 ) {
     let adapter_str = unsafe { CStr::from_ptr(adapter_ptr) }.to_str()
         .expect("from_ptr failed on adapter_ptr");
@@ -168,8 +149,6 @@ pub extern "C" fn wasm(
     let input = json!({"input": input, "adapter": {
         "times": "2",
     }}).to_string();
-
-    println!("input {:?}", input);
 
     let call_data_pages: Pages = Bytes(input.len()).round_up_to();
     let allocated_mem_start: Bytes = memory.grow(call_data_pages).unwrap().into();
