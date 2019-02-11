@@ -48,6 +48,10 @@ func TestRunTopic20190123(t *testing.T) {
 	assert.Equal(t, "0xe9cf09ba23a60c27cfb5ad84043dba257ed0ccea7f0095ff7054ec8088ce5871", models.RunLogTopic20190123.Hex())
 }
 
+func TestRunTopic20190207(t *testing.T) {
+	assert.Equal(t, "0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65", models.RunLogTopic20190207.Hex())
+}
+
 func TestOracleFulfillmentFunctionID0(t *testing.T) {
 	assert.Equal(t, "0x76005c26", models.OracleFulfillmentFunctionID0)
 }
