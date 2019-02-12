@@ -459,6 +459,7 @@
   packages = [
     ".",
     "dialects/postgres",
+    "dialects/sqlite",
   ]
   pruneopts = ""
   revision = "472c70caa40267cb89fd8facb07fe6454b578626"
@@ -587,6 +588,14 @@
   pruneopts = ""
   revision = "3ee7d812e62a0804a7d0a324e0249ca2db3476d3"
   version = "v0.0.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:7a4df523f2dcf1f86a32015b4735831ae90c064817426a3bea0f592d8f66b156"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = ""
+  revision = "4cb37250b60d3254997cc8b53d9951278bdf3059"
 
 [[projects]]
   branch = "master"
@@ -732,14 +741,6 @@
   pruneopts = ""
   revision = "e1e72e9de974bd926e5c56f83753fba2df402ce5"
   version = "v1.3.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:d3ca878ff3aad20097360953acf1e70ac9d8d260e06ab6a277f4df8fc34c73bf"
-  name = "github.com/smartcontractkit/go-sqlite3"
-  packages = ["."]
-  pruneopts = ""
-  revision = "afc6923569ada8f454208d6a50b95004a709feb5"
 
 [[projects]]
   digest = "1:d9f371ceb44045ca4405b65fed916e4b45396340b9e8674851c3d652f6351cde"
@@ -1159,6 +1160,7 @@
     "github.com/gorilla/websocket",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/postgres",
+    "github.com/jinzhu/gorm/dialects/sqlite",
     "github.com/jpillora/backoff",
     "github.com/manyminds/api2go/jsonapi",
     "github.com/mitchellh/go-homedir",
@@ -1166,7 +1168,6 @@
     "github.com/olekukonko/tablewriter",
     "github.com/onsi/gomega",
     "github.com/satori/go.uuid",
-    "github.com/smartcontractkit/go-sqlite3",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
