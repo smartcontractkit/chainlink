@@ -3,13 +3,14 @@ package store
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/gobuffalo/packr"
-	"github.com/tidwall/gjson"
 	"math/big"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/gobuffalo/packr"
+	"github.com/tidwall/gjson"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -475,18 +476,28 @@ func (txm *EthTxManager) handleUnconfirmed(
 	txat *models.TxAttempt,
 	blkNum uint64,
 ) (*TxReceipt, error) {
-	logger.Debugw(
-		fmt.Sprintf("TxManager handleUnconfirmed: tx attempt %s", txat.Hash.Hex()),
+	bumpable := tx.Hash == txat.Hash
+	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold()
+	if bumpable && pastThreshold {
+		logger.Debugw(
+			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txat.TxID, txat.Hash.Hex()),
+			"txHash", txat.Hash.String(),
+			"txid", txat.TxID,
+			"gasPrice", txat.GasPrice.String(),
+			"from", tx.From.Hex(),
+			"blkNum", blkNum,
+		)
+		return nil, txm.bumpGas(txat, blkNum)
+	}
+	logger.Infow(
+		fmt.Sprintf("Unconfirmed TX %d has not yet met gas bump threshold", txat.TxID),
+		"txAttempt", txat.Hash.Hex(),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"gasPrice", txat.GasPrice.String(),
 		"from", tx.From.Hex(),
+		"blkNum", blkNum,
 	)
-	bumpable := tx.Hash == txat.Hash
-	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold()
-	if bumpable && pastThreshold {
-		return nil, txm.bumpGas(txat, blkNum)
-	}
 	return nil, nil
 }
 
