@@ -26,7 +26,7 @@ func TestParseRunLog(t *testing.T) {
 	}{
 		{
 			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://etherprice.com/api",
@@ -36,8 +36,8 @@ func TestParseRunLog(t *testing.T) {
 				"functionSelector":"0x76005c26"}`),
 		},
 		{
-			name:        "20190123 on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
+			name:        "20190123 fulfillment params",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
@@ -47,8 +47,8 @@ func TestParseRunLog(t *testing.T) {
 				"functionSelector":"0xeea57e70"}`),
 		},
 		{
-			name:        "20190207 on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190207.json"),
+			name:        "20190207 without indexes",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
@@ -72,7 +72,7 @@ func TestParseRunLog(t *testing.T) {
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	hwLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json")
+	hwLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json")
 	exampleLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
@@ -81,7 +81,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 		wantData    models.JSON
 	}{
 		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/subscription_logs.json")},
-		{"hello world", hwLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json")},
+		{"hello world", hwLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json")},
 	}
 
 	for _, test := range tests {
@@ -114,11 +114,11 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 		requesterAddress    common.Address
 		want                bool
 	}{
-		{"wrong jobid", models.RunLogTopic0, cltest.StringToHash("wrongjob"), noRequesters, unpermittedAddr, false},
-		{"proper hex jobid", models.RunLogTopic0, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
-		{"incorrect encoded jobid", models.RunLogTopic0, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
-		{"correct requester", models.RunLogTopic0, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
-		{"incorrect requester", models.RunLogTopic0, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
+		{"wrong jobid", models.RunLogTopic0original, cltest.StringToHash("wrongjob"), noRequesters, unpermittedAddr, false},
+		{"proper hex jobid", models.RunLogTopic0original, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
+		{"incorrect encoded jobid", models.RunLogTopic0original, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
+		{"correct requester", models.RunLogTopic0original, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
+		{"incorrect requester", models.RunLogTopic0original, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
 	}
 
 	for _, test := range tests {
@@ -246,9 +246,9 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
 		Topics: [][]common.Hash{
 			{
-				models.RunLogTopic20190207,
-				models.RunLogTopic20190123,
-				models.RunLogTopic0,
+				models.RunLogTopic20190207withoutIndexes,
+				models.RunLogTopic20190123withFullfillmentParams,
+				models.RunLogTopic0original,
 			}, {
 				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 				common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
@@ -269,19 +269,19 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 	}{
 		{
 			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1),
 		},
 		{
-			name:        "20190123 on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
+			name:        "20190123 with fulfillment params",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1000000000000000000),
 		},
 		{
-			name:        "20190207 on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190207.json"),
+			name:        "20190207 without indexes",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1000000000000000001),
 		},
@@ -310,19 +310,19 @@ func TestRunLogEvent_Requester(t *testing.T) {
 	}{
 		{
 			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs_hello_world.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
 		},
 		{
-			name:        "20190123 on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190123.json"),
+			name:        "20190123 with fulfillment params",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
 		},
 		{
-			name:        "20190207 on-chain commitment",
-			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/request_log20190207.json"),
+			name:        "20190207 without indexes",
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db40"),
 		},

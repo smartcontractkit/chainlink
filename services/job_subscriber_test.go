@@ -106,14 +106,14 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}{
 		{"ethlog matching address", "ethlog", sharedAddr, sharedAddr, 1, common.Hash{}, hexutil.Bytes{}},
 		{"ethlog all address", "ethlog", noAddr, newAddr(), 1, common.Hash{}, hexutil.Bytes{}},
-		{"runlog v0 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic0, cltest.StringToVersionedLogData0(t, "id", `{"value":"100"}`)},
-		{"runlog v0 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic0, cltest.StringToVersionedLogData0(t, "id", `{"value":"100"}`)},
-		{"runlog v20190123 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190123, cltest.StringToVersionedLogData20190123(t, "id", `{"value":"100"}`)},
-		{"runlog v20190123 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190123, cltest.StringToVersionedLogData20190123(t, "id", `{"value":"100"}`)},
-		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190123(t, "id", `{"value":"100"}`)},
-		{"runlog v20190207 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190207, cltest.StringToVersionedLogData20190207(t, "id", cltest.NewAddress(), `{"value":"100"}`)},
-		{"runlog v20190207 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190207, cltest.StringToVersionedLogData20190207(t, "id", cltest.NewAddress(), `{"value":"100"}`)},
-		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190207(t, "id", cltest.NewAddress(), `{"value":"100"}`)},
+		{"runlog v0 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic0original, cltest.StringToVersionedLogData0(t, "id", `{"value":"100"}`)},
+		{"runlog v0 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic0original, cltest.StringToVersionedLogData0(t, "id", `{"value":"100"}`)},
+		{"runlog v20190123 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190123withFullfillmentParams, cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
+		{"runlog v20190123 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190123withFullfillmentParams, cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
+		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
+		{"runlog v20190207 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190207withoutIndexes, cltest.StringToVersionedLogData20190207withoutIndexes(t, "id", cltest.NewAddress(), `{"value":"100"}`)},
+		{"runlog v20190207 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190207withoutIndexes, cltest.StringToVersionedLogData20190207withoutIndexes(t, "id", cltest.NewAddress(), `{"value":"100"}`)},
+		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190207withoutIndexes(t, "id", cltest.NewAddress(), `{"value":"100"}`)},
 	}
 
 	for _, test := range tests {
