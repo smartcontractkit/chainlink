@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"
@@ -58,7 +58,7 @@ func SetLogger(zl *zap.Logger) {
 // ProductionLoggerFilepath returns the full path to the file the
 // ProductionLogger logs to.
 func ProductionLoggerFilepath(configRootDir string) string {
-	return path.Join(configRootDir, "log.jsonl")
+	return filepath.ToSlash(filepath.Join(configRootDir, "log.jsonl"))
 }
 
 // CreateProductionLogger returns a log config for the passed directory
