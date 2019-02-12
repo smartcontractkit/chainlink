@@ -279,9 +279,9 @@ func NewRunLog(
 	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData20190207(t, "internalID", requester, json),
+		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
 		Topics: []common.Hash{
-			models.RunLogTopic20190207,
+			models.RunLogTopic20190207withoutIndexes,
 			StringToHash(jobID),
 		},
 	}
@@ -325,7 +325,7 @@ func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
 	return buf.Bytes()
 }
 
-func StringToVersionedLogData20190123(t *testing.T, internalID, str string) []byte {
+func StringToVersionedLogData20190123withFulfillmentParams(t *testing.T, internalID, str string) []byte {
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf := bytes.NewBuffer(requestID)
 
@@ -353,7 +353,7 @@ func StringToVersionedLogData20190123(t *testing.T, internalID, str string) []by
 	return buf.Bytes()
 }
 
-func StringToVersionedLogData20190207(
+func StringToVersionedLogData20190207withoutIndexes(
 	t *testing.T,
 	internalID string,
 	requester common.Address,

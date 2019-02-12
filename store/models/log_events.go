@@ -36,26 +36,26 @@ const (
 )
 
 var (
-	// RunLogTopic0 was the original topic to filter for Oracle.sol RunRequest events.
-	RunLogTopic0 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
-	// RunLogTopic20190123 was the new RunRequest filter topic as of 2019-01-23,
+	// RunLogTopic0original was the original topic to filter for Oracle.sol RunRequest events.
+	RunLogTopic0original = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,bytes)")
+	// RunLogTopic20190123withFullfillmentParams was the new RunRequest filter topic as of 2019-01-23,
 	// when callback address, callback function, and expiration were added to the data payload.
-	RunLogTopic20190123 = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
-	// RunLogTopic20190207 was the new RunRequest filter topic as of 2019-01-28,
+	RunLogTopic20190123withFullfillmentParams = utils.MustHash("RunRequest(bytes32,address,uint256,uint256,uint256,address,bytes4,uint256,bytes)")
+	// RunLogTopic20190207withoutIndexes was the new RunRequest filter topic as of 2019-01-28,
 	// after renaming Solidity variables, moving data version, and removing the cast of requestId to uint256
-	RunLogTopic20190207 = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
+	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
 	// https://github.com/smartcontractkit/chainlink/blob/master/solidity/contracts/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
-	// OracleFulfillmentFunctionID0 is the original function selector for fulfilling Ethereum requests.
-	OracleFulfillmentFunctionID0 = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
-	// OracleFulfillmentFunctionID20190123 is the function selector for fulfilling Ethereum requests,
-	// as updated on 2019-01-23.
-	OracleFulfillmentFunctionID20190123 = utils.MustHash("fulfillData(uint256,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
-	// OracleFulfillmentFunctionID20190207 is the function selector for fulfilling Ethereum requests,
+	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
+	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
+	// OracleFulfillmentFunctionID20190123withFulfillmentParams is the function selector for fulfilling Ethereum requests,
+	// as updated on 2019-01-23, accepting all fulfillment callback parameters.
+	OracleFulfillmentFunctionID20190123withFulfillmentParams = utils.MustHash("fulfillData(uint256,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
-	OracleFulfillmentFunctionID20190128 = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 )
 
 type logRequestParser func(Log) (JSON, error)
@@ -64,10 +64,10 @@ type logRequestParser func(Log) (JSON, error)
 // implementation of the interface LogRequest. The concrete implementations
 // are polymorphic and can have difference behaviors for methods like JSON().
 var topicFactoryMap = map[common.Hash]logRequestParser{
-	ServiceAgreementExecutionLogTopic: parseRunLog0,
-	RunLogTopic0:                      parseRunLog0,
-	RunLogTopic20190123:               parseRunLog20190123,
-	RunLogTopic20190207:               parseRunLog20190207,
+	ServiceAgreementExecutionLogTopic:         parseRunLog0original,
+	RunLogTopic0original:                      parseRunLog0original,
+	RunLogTopic20190123withFullfillmentParams: parseRunLog20190123withFulfillmentParams,
+	RunLogTopic20190207withoutIndexes:         parseRunLog20190207withoutIndexes,
 }
 
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
@@ -81,7 +81,7 @@ func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) ([][]common.Ha
 	}
 	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(b, utils.EVMWordByteLen))
 	// LogTopics AND (0xHEXJOBID OR 0xJOBID0padded)
-	// i.e. (RunLogTopic0 OR RunLogTopic20190123) AND (0xHEXJOBID OR 0xJOBID0padded)
+	// i.e. (RunLogTopic0original OR RunLogTopic20190123withFullfillmentParams) AND (0xHEXJOBID OR 0xJOBID0padded)
 	return [][]common.Hash{logTopics, {hexJobID, jobIDZeroPadded}}, nil
 }
 
@@ -91,7 +91,7 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
-		topics := []common.Hash{RunLogTopic20190207, RunLogTopic20190123, RunLogTopic0}
+		topics := []common.Hash{RunLogTopic20190207withoutIndexes, RunLogTopic20190123withFullfillmentParams, RunLogTopic0original}
 		filters, err := TopicFiltersForRunLog(topics, i.JobSpecID)
 		return newInitiatorFilterQuery(i, from, filters), err
 	case InitiatorServiceAgreementExecutionLog:
@@ -257,7 +257,7 @@ func (le RunLogEvent) Validate() bool {
 func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
 	version, err := le.Log.getTopic(0)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Missing RunLogEvent Topic#0: %v", err)
 	}
 
 	var encodedAmount common.Hash
@@ -276,8 +276,8 @@ func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
 }
 
 func oldRequestVersion(version common.Hash) bool {
-	return version == RunLogTopic0 ||
-		version == RunLogTopic20190123 ||
+	return version == RunLogTopic0original ||
+		version == RunLogTopic20190123withFullfillmentParams ||
 		version == ServiceAgreementExecutionLogTopic
 }
 
@@ -326,7 +326,9 @@ func ParseRunLog(log Log) (JSON, error) {
 	return parse(log)
 }
 
-func parseRunLog0(log Log) (JSON, error) {
+// parseRunLog0original parses the original OracleRequest log format.
+// It responds with only the request ID and data.
+func parseRunLog0original(log Log) (JSON, error) {
 	data := log.Data
 	start := idSize + versionSize + dataLocationSize + dataLengthSize
 
@@ -344,10 +346,14 @@ func parseRunLog0(log Log) (JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionSelector", OracleFulfillmentFunctionID0)
+	return js.Add("functionSelector", OracleFullfillmentFunctionID0original)
 }
 
-func parseRunLog20190123(log Log) (JSON, error) {
+// parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
+// which includes the callback, the payment amount, and expiration time
+// The fulfillment also includes the callback, payment amount, and expiration,
+// in addtion to the request ID and data.
+func parseRunLog20190123withFulfillmentParams(log Log) (JSON, error) {
 	data := log.Data
 	cborStart := idSize + versionSize + callbackAddrSize + callbackFuncSize + expirationSize + dataLocationSize + dataLengthSize
 
@@ -371,10 +377,15 @@ func parseRunLog20190123(log Log) (JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190123)
+	return js.Add("functionSelector", OracleFulfillmentFunctionID20190123withFulfillmentParams)
 }
 
-func parseRunLog20190207(log Log) (JSON, error) {
+// parseRunLog20190207withoutIndexes parses the OracleRequest log format after
+// the sender and payment amount indexes were removed.
+// Additionally, the version field for the data payload was moved next to the
+// data that it corresponds to. The fulfillment is made up of the request ID,
+// payment amount, callback, expiration, and data.
+func parseRunLog20190207withoutIndexes(log Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
@@ -394,7 +405,7 @@ func parseRunLog20190207(log Log) (JSON, error) {
 		return js, err
 	}
 
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128)
+	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128withoutCast)
 }
 
 func bytesToHex(data []byte) string {

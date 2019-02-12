@@ -85,7 +85,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	// Add the same original log
 	logsChan <- log
 	// Add a log after the repeated log to make sure it gets processed
-	log2 := cltest.LogFromFixture(t, "../internal/fixtures/eth/subscription_logs_hello_world.json")
+	log2 := cltest.LogFromFixture(t, "../internal/fixtures/eth/requestLog0original.json")
 	logsChan <- log2
 
 	eth.EventuallyAllCalled(t)
