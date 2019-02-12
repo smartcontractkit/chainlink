@@ -82,16 +82,6 @@ func NewConfig() (*TestConfig, func()) {
 	return NewConfigWithWSServer(wsserver), cleanup
 }
 
-func NewConfigWithPrivateKey(paths ...string) (*TestConfig, func()) {
-	if len(paths) == 0 {
-		paths = append(paths, "../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
-	}
-	wsserver, cleanup := newWSServer()
-	config := NewConfigWithWSServer(wsserver)
-	AddPrivateKey(config, paths[0])
-	return config, cleanup
-}
-
 // NewConfigWithWSServer return new config with specified wsserver
 func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
@@ -193,31 +183,21 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 	}
 }
 
-// NewApplicationWithKeyStore creates a new TestApplication along with a new config
-func NewApplicationWithKeyStore() (*TestApplication, func()) {
+// NewApplicationWithKey creates a new TestApplication along with a new config
+func NewApplicationWithKey() (*TestApplication, func()) {
 	config, cfgCleanup := NewConfig()
-	app, cleanup := NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := NewApplicationWithConfigAndKey(config)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
 	}
 }
 
-// NewApplicationWithConfigAndKeyStore creates a new TestApplication with the given testconfig
+// NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKeyStore(tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(tc *TestConfig) (*TestApplication, func()) {
 	app, cleanup := NewApplicationWithConfig(tc)
-	_, err := app.Store.KeyStore.NewAccount(Password)
-	mustNotErr(err)
-	mustNotErr(app.Store.KeyStore.Unlock(Password))
-	return app, cleanup
-}
-
-// NewApplicationWithConfigAndUnlockedAccount creates a new TestApplication
-// with an unlocked account, expected to be used with NewConfigWithPrivateKey
-func NewApplicationWithConfigAndUnlockedAccount(tc *TestConfig) (*TestApplication, func()) {
-	app, cleanup := NewApplicationWithConfig(tc)
-	mustNotErr(app.Store.KeyStore.Unlock(Password))
+	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	return app, cleanup
 }
 
@@ -272,6 +252,19 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 	session := NewSession(APISessionID)
 	mustNotErr(ta.Store.SaveSession(&session))
 	return mockUser
+}
+
+// ImportKey adds private key to the application disk keystore, not database.
+func (ta *TestApplication) ImportKey(content string) {
+	_, err := ta.Store.KeyStore.Import([]byte(content), Password, Password)
+	mustNotErr(err)
+	mustNotErr(ta.Store.KeyStore.Unlock(Password))
+}
+
+func (ta *TestApplication) AddUnlockedKey() {
+	_, err := ta.Store.KeyStore.NewAccount(Password)
+	mustNotErr(err)
+	mustNotErr(ta.Store.KeyStore.Unlock(Password))
 }
 
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
@@ -441,15 +434,6 @@ func copyFile(src, dst string) {
 	_, err = io.Copy(to, from)
 	mustNotErr(err)
 	mustNotErr(to.Close())
-}
-
-// AddPrivateKey adds private key from src to config
-func AddPrivateKey(config *TestConfig, src string) {
-	err := os.MkdirAll(config.KeysDir(), os.FileMode(0700))
-	mustNotErr(err)
-
-	dst := config.KeysDir() + "/testwallet.json"
-	copyFile(src, dst)
 }
 
 type HTTPClientCleaner struct {

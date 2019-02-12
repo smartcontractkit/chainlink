@@ -44,9 +44,9 @@ func TestIntegration_HelloWorld(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
 
-	config, _ := cltest.NewConfigWithPrivateKey()
-	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
+	config := app.Config
 	eth := app.MockEthClient(cltest.Strict)
 
 	newHeads := make(chan models.BlockHeader)
@@ -476,7 +476,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/web_initiated_eth_tx_job.json")
@@ -516,8 +516,8 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 
 func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfigWithPrivateKey()
-	app, cleanup := cltest.NewApplicationWithConfigAndUnlockedAccount(config)
+
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -526,7 +526,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
 	})
-	assert.NoError(t, app.Start())
+	assert.NoError(t, app.StartAndConnect())
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/noop_agreement.json")
 
 	assert.NotEqual(t, "", sa.ID)

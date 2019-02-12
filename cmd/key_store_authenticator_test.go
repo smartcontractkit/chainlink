@@ -44,7 +44,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	// prompt loop tries all in array
@@ -61,7 +61,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKeyStore()
+	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
 	tests := []struct {

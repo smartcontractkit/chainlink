@@ -13,6 +13,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/utils"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
@@ -138,6 +139,7 @@ func logConfigVariables(store *strpkg.Store) {
 func (cli *Client) DeleteUser(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
+	defer app.Stop()
 	store := app.GetStore()
 	user, err := store.DeleteUser()
 	if err == nil {
@@ -148,16 +150,22 @@ func (cli *Client) DeleteUser(c *clipkg.Context) error {
 
 // ImportKey imports a key to be used with the chainlink node
 func (cli *Client) ImportKey(c *clipkg.Context) error {
-	cfg := cli.Config
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	app := cli.AppFactory.NewApplication(cli.Config)
+	defer app.Stop()
+
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))
 	}
 
 	src := c.Args().First()
-	kdir := cfg.KeysDir()
+	kdir := cli.Config.KeysDir()
 
-	if e, err := isDirEmpty(kdir); !e && err != nil {
-		return cli.errorOut(err)
+	if !utils.FileExists(kdir) {
+		err := os.MkdirAll(kdir, os.FileMode(0700))
+		if err != nil {
+			return cli.errorOut(err)
+		}
 	}
 
 	if i := strings.LastIndex(src, "/"); i < 0 {
@@ -165,21 +173,12 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 	} else {
 		kdir += src[strings.LastIndex(src, "/"):]
 	}
-	return cli.errorOut(copyFile(src, kdir))
-}
 
-func isDirEmpty(dir string) (bool, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true, nil
+	if err := copyFile(src, kdir); err != nil {
+		return cli.errorOut(err)
 	}
 
-	return false, fmt.Errorf("Account already present in keystore: %s", dir)
+	return app.GetStore().SyncDiskKeyStoreToDB()
 }
 
 func copyFile(src, dst string) error {

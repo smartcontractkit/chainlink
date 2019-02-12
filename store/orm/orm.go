@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -82,7 +84,6 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
-	db.Exec("PRAGMA foreign_keys = ON")
 	return db, nil
 }
 
@@ -326,7 +327,7 @@ func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	return tx, err
 }
 
-// FindTxAttempt returns the specific transaction attempt with the hash.
+// FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
 	txat := &models.TxAttempt{}
 	if err := orm.DB.Set("gorm:auto_preload", true).First(txat, "hash = ?", hash).Error; err != nil {
@@ -754,4 +755,40 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 		return err
 	}
 	return tx.Commit().Error
+}
+
+// Keys returns all keys stored in the orm.
+func (orm *ORM) Keys() ([]*models.Key, error) {
+	var keys []*models.Key
+	return keys, orm.DB.Find(&keys).Error
+}
+
+// FirstOrCreateKey returns the first key found or creates a new one in the orm.
+func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
+	return orm.DB.FirstOrCreate(k).Error
+}
+
+// ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
+// the keys folder on disk, deleting anything there prior.
+func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
+	if err := os.RemoveAll(keysDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(keysDir, 0700); err != nil {
+		return err
+	}
+
+	keys, err := orm.Keys()
+	if err != nil {
+		return err
+	}
+
+	var merr error
+	for _, k := range keys {
+		merr = multierr.Append(
+			k.WriteToDisk(filepath.Join(keysDir, fmt.Sprintf("%s.json", k.Address.String()))),
+			merr)
+	}
+	return merr
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -116,6 +117,19 @@ func (mock *EthMock) AllCalled() bool {
 	mock.mutex.RLock()
 	defer mock.mutex.RUnlock()
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
+}
+
+func (mock *EthMock) Remaining() string {
+	mock.mutex.RLock()
+	defer mock.mutex.RUnlock()
+	rvals := []string{}
+	for _, r := range mock.Responses {
+		rvals = append(rvals, fmt.Sprintf("Response %s#%s not called", r.context, r.methodName))
+	}
+	for _, s := range mock.Subscriptions {
+		rvals = append(rvals, fmt.Sprintf("Subscription %s not called", s.name))
+	}
+	return strings.Join(rvals, ",")
 }
 
 // EventuallyAllCalled eventually will return after all the mock subscriptions and responses are called
@@ -398,7 +412,15 @@ type seededAppFactory struct {
 }
 
 func (s seededAppFactory) NewApplication(config store.Config) services.Application {
-	return s.Application
+	return noopStopApplication{s.Application}
+}
+
+type noopStopApplication struct {
+	services.Application
+}
+
+func (a noopStopApplication) Stop() error {
+	return nil
 }
 
 // CallbackAuthenticator contains a call back authenticator method

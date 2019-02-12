@@ -312,7 +312,7 @@ func (t AnyTime) MarshalJSON() ([]byte, error) {
 	if !t.Valid {
 		return []byte("null"), nil
 	}
-	return t.Time.MarshalJSON()
+	return t.Time.UTC().MarshalJSON()
 }
 
 // UnmarshalJSON parses the raw time stored in JSON-encoded
@@ -368,7 +368,7 @@ func (t AnyTime) Value() (driver.Value, error) {
 func (t *AnyTime) Scan(value interface{}) error {
 	switch temp := value.(type) {
 	case time.Time:
-		t.Time = temp
+		t.Time = temp.UTC()
 		t.Valid = true
 		return nil
 	case nil:

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/tevino/abool"
+	"go.uber.org/multierr"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -122,6 +125,9 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
+	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
+		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
+	}
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
@@ -138,7 +144,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
 	s.TxManager.Register(s.KeyStore.Accounts())
-	return nil
+	return s.SyncDiskKeyStoreToDB()
 }
 
 // Close shuts down all of the working parts of the store.
@@ -151,6 +157,30 @@ func (s *Store) Close() error {
 // and hasn't expired, and update session's LastUsed field.
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
 	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout())
+}
+
+// SyncDiskKeyStoreToDB writes all keys in the keys directory to the underlying
+// orm.
+func (s *Store) SyncDiskKeyStoreToDB() error {
+	files, err := utils.FilesInDir(s.Config.KeysDir())
+	if err != nil {
+		return multierr.Append(errors.New("unable to sync disk keystore to db"), err)
+	}
+
+	var merr error
+	for _, f := range files {
+		key, err := models.NewKeyFromFile(filepath.Join(s.Config.KeysDir(), f))
+		if err != nil {
+			merr = multierr.Append(err, merr)
+			continue
+		}
+
+		err = s.FirstOrCreateKey(key)
+		if err != nil {
+			merr = multierr.Append(err, merr)
+		}
+	}
+	return merr
 }
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`

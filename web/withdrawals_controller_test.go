@@ -29,7 +29,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
 	defer cleanup()
 	hash := cltest.NewHash()
 	client := app.NewHTTPClient()
@@ -71,10 +71,10 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfigWithPrivateKey()
+	config, _ := cltest.NewConfig()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyStore(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -91,7 +91,6 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getTransactionCount", "0x101")
 	})
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_call", "0x0",
@@ -107,5 +106,5 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, 400)
-	assert.True(t, ethMock.AllCalled(), "Not Called")
+	assert.True(t, ethMock.AllCalled(), ethMock.Remaining())
 }

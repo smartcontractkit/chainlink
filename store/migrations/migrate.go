@@ -3,16 +3,19 @@ package migrations
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1549496047"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"go.uber.org/multierr"
 )
 
 func init() {
 	registerMigration(migration0.Migration{})
+	registerMigration(migration1549496047.Migration{})
 }
 
 type migration interface {
@@ -22,17 +25,17 @@ type migration interface {
 
 // MigrationTimestamp tracks already run and available migrations.
 type MigrationTimestamp struct {
-	Timestamp string `json:"timestamp" gorm:"primary_key"`
+	Timestamp string `json:"timestamp" gorm:"primary_key;type:varchar(12)"`
 }
 
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(orm *orm.ORM) error {
-	db := orm.DB
-	if err := db.AutoMigrate(&MigrationTimestamp{}).Error; err != nil {
+	if err := runAlways(orm); err != nil {
 		return err
 	}
 
+	db := orm.DB
 	var migrationTimestamps []MigrationTimestamp
 	err := db.Order("timestamp asc").Find(&migrationTimestamps).Error
 	if err != nil {
@@ -82,4 +85,30 @@ func availableMigrationTimestamps() []string {
 	}
 	sort.Strings(sortedTimestamps)
 	return sortedTimestamps
+}
+
+func runAlways(orm *orm.ORM) error {
+	return multierr.Combine(
+		setTimezone(orm),
+		setForeignKeysOn(orm),
+		automigrateMigrationsTable(orm),
+	)
+}
+
+func automigrateMigrationsTable(orm *orm.ORM) error {
+	return orm.DB.AutoMigrate(&MigrationTimestamp{}).Error
+}
+
+func setTimezone(orm *orm.ORM) error {
+	if orm.DB.Dialect().GetName() == "postgres" {
+		return orm.DB.Exec(`SET TIME ZONE 'UTC'`).Error
+	}
+	return nil
+}
+
+func setForeignKeysOn(orm *orm.ORM) error {
+	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
+		return orm.DB.Exec("PRAGMA foreign_keys = ON").Error
+	}
+	return nil
 }
