@@ -437,13 +437,13 @@ func (txm *EthTxManager) handleConfirmed(
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 
 	logger.Debugw(
-		fmt.Sprintf("TxManager handleConfirmed: tx attempt %s checking confirmations", txat.Hash.Hex()),
-		"currentBlockNumber", blkNum,
+		fmt.Sprintf("Confirmed TX: %d attempt %s waiting on %v confirmations", txat.TxID, txat.Hash.Hex(), minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"gasPrice", txat.GasPrice.String(),
 		"from", tx.From.Hex(),
 		"receiptBlockNumber", rcpt.BlockNumber.ToInt(),
+		"currentBlockNumber", blkNum,
 		"receiptHash", rcpt.Hash.Hex(),
 		"confirmedAt", confirmedAt,
 	)
@@ -458,7 +458,7 @@ func (txm *EthTxManager) handleConfirmed(
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 	logger.Infow(
-		fmt.Sprintf("Confirmed tx %v", txat.Hash.String()),
+		fmt.Sprintf("Confirmed TX %d: %s", txat.TxID, txat.Hash.String()),
 		"txHash", txat.Hash.String(),
 		"ethBalance", ethBalance,
 		"linkBalance", linkBalance,
@@ -475,8 +475,8 @@ func (txm *EthTxManager) handleUnconfirmed(
 	txat *models.TxAttempt,
 	blkNum uint64,
 ) (*TxReceipt, error) {
-	if tx.Hash == txat.Hash {
-		// Only handle the latest transaction attempt, not the remainder
+	// Only handle the latest transaction attempt, not the remainder
+	if tx.Hash != txat.Hash {
 		return nil, nil
 	}
 
