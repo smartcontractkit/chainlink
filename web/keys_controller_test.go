@@ -28,8 +28,7 @@ func TestKeysController_CreateSuccess(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	request := models.CreateKeyRequest{
-		CurrentPassword:    cltest.Password,
-		NewAccountPassword: "kwyjibo",
+		CurrentPassword: cltest.Password,
 	}
 
 	body, err := json.Marshal(&request)

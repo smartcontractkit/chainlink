@@ -18,18 +18,15 @@ type KeysController struct {
 //  "<application>/keys"
 func (c *KeysController) Create(ctx *gin.Context) {
 	request := models.CreateKeyRequest{}
-	// TODO: Change CreateKeyRequest to only have one password
-	// or validate that they are the same.
-
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		publicError(ctx, 422, err)
 	} else if err := c.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
 		publicError(ctx, 401, err)
-	} else if account, err := c.App.GetStore().KeyStore.NewAccount(request.NewAccountPassword); err != nil {
+	} else if account, err := c.App.GetStore().KeyStore.NewAccount(request.CurrentPassword); err != nil {
 		ctx.AbortWithError(500, err)
 	} else if err := c.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
 		ctx.AbortWithError(500, err)
-	} else if doc, err := jsonapi.Marshal(&presenters.NewAccount{&account}); err != nil {
+	} else if doc, err := jsonapi.Marshal(&presenters.NewAccount{Account: &account}); err != nil {
 		ctx.AbortWithError(500, err)
 	} else {
 		ctx.Data(201, MediaType, doc)
