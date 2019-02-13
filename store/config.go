@@ -396,9 +396,11 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 // coerced to a sqlite3 URL.
 func (c Config) NormalizedDatabaseURL() string {
 	if c.DatabaseURL() == "" {
-		// Using filepath.ToSlash, we create a golang path that resolves
-		// regardless of OS.
-		return "file://" + filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
+		u, err := url.Parse(filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3")))
+		if err == nil {
+			u.Scheme = "file"
+			return u.String()
+		}
 	}
 	return c.DatabaseURL()
 }
