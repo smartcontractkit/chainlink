@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Prompt } from 'react-static'
+import { Prompt } from 'react-router-dom'
 import * as formik from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import { TextField, Grid } from '@material-ui/core'

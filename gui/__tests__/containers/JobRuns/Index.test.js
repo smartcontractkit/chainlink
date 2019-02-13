@@ -8,16 +8,16 @@ import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
-import { Router } from 'react-static'
+import { MemoryRouter } from 'react-router-dom'
 import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 
 const classes = {}
 const mountIndex = (props) => (
   mount(
     <Provider store={createStore()}>
-      <Router>
+      <MemoryRouter>
         <Index classes={classes} {...props} />
-      </Router>
+      </MemoryRouter>
     </Provider>
   )
 )

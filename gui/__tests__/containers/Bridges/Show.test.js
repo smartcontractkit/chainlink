@@ -3,16 +3,16 @@ import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
-import { Router } from 'react-static'
+import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Bridges/Show'
 
 const classes = {}
 const mountShow = (props) => (
   mount(
     <Provider store={createStore()}>
-      <Router>
+      <MemoryRouter>
         <Show classes={classes} {...props} />
-      </Router>
+      </MemoryRouter>
     </Provider>
   )
 )

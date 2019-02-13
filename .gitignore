@@ -8,6 +8,7 @@ tmp/
 
 # GUI
 gui/dist
+gui/artifacts
 *-packr.go
 
 # Log files
