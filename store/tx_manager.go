@@ -508,6 +508,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 		"from", tx.From.Hex(),
 		"blkNum", blkNum,
 		"sentAt", txat.SentAt,
+		"bumpable", bumpable,
 	)
 	return nil, nil
 }
