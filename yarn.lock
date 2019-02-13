@@ -1374,6 +1374,40 @@
     prop-types "^15.6.2"
     scheduler "^0.12.0"
 
+"@machinomy/types-truffle-contract@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/@machinomy/types-truffle-contract/-/types-truffle-contract-0.0.3.tgz#76442f485647382ce8d676af04ebcff35afee68f"
+  integrity sha1-dkQvSFZHOCzo1navBOvP81r+5o8=
+  dependencies:
+    "@machinomy/types-web3" "^0.0.4"
+    truffle-contract "^3.0.0"
+    web3 "^0.20.2"
+
+"@machinomy/types-truffle-contract@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.npmjs.org/@machinomy/types-truffle-contract/-/types-truffle-contract-0.0.4.tgz#0d0b0cef62ccc9a300aaef5d45f0881a932d0a42"
+  integrity sha512-rmJiDOnW7Ib3TxVSqELZWWPYuifIIGkH1kqP1ce5DL70uEXtEMDY4anTH56nfFtjlpjA4jFbs825ePtKUhcPDw==
+  dependencies:
+    "@machinomy/types-web3" "^0.0.4"
+    truffle-contract "^3.0.0"
+    web3 "^0.20.2"
+
+"@machinomy/types-truffle-deployer@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/@machinomy/types-truffle-deployer/-/types-truffle-deployer-0.0.3.tgz#9e5883cc6932578e2ce6f6df6dcbba8cc35c43cb"
+  integrity sha1-nliDzGkyV44s5vbfbcu6jMNcQ8s=
+  dependencies:
+    "@machinomy/types-truffle-contract" "^0.0.3"
+    truffle-contract "^3.0.2"
+    truffle-deployer "^2.0.1"
+
+"@machinomy/types-web3@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.npmjs.org/@machinomy/types-web3/-/types-web3-0.0.4.tgz#aca033c0cabfc89757511410f5d5149af17fb497"
+  integrity sha1-rKAzwMq/yJdXURQQ9dUUmvF/tJc=
+  dependencies:
+    bignumber.js "^4.0.2"
+
 "@material-ui/core@^3.9.2":
   version "3.9.2"
   resolved "https://registry.npmjs.org/@material-ui/core/-/core-3.9.2.tgz#41ed1a470e981d199829eb5d9317a671c66a6f7d"
@@ -1906,6 +1940,11 @@
   dependencies:
     csstype "^2.0.0"
     indefinite-observable "^1.0.1"
+
+"@types/mocha@^5.2.0":
+  version "5.2.6"
+  resolved "https://registry.npmjs.org/@types/mocha/-/mocha-5.2.6.tgz#b8622d50557dd155e9f2f634b7d68fd38de5e94b"
+  integrity sha512-1axi39YdtBI7z957vdqXI4Ac25e7YihYQtJa+Clnxg1zTJEaIRbndt71O3sP4GAMgiAm0pY26/b9BrY4MR/PMw==
 
 "@types/node@*", "@types/node@^10.11.7", "@types/node@^10.3.2":
   version "10.12.18"
@@ -16517,7 +16556,7 @@ truffle-contract-schema@^2.0.2:
     crypto-js "^3.1.9-1"
     debug "^3.1.0"
 
-truffle-contract@^3.0.6, truffle-contract@^3.0.7:
+truffle-contract@^3.0.0, truffle-contract@^3.0.2, truffle-contract@^3.0.6, truffle-contract@^3.0.7:
   version "3.0.7"
   resolved "https://registry.npmjs.org/truffle-contract/-/truffle-contract-3.0.7.tgz#487b2e1e9c5f01d223148766f6f320ba16bb4f63"
   integrity sha512-av4MTJDP29PI3oVh8TrvRzRHt+nZJH8ODSiil/TfcXrKMSes52DTA5LHj00siLvcadkxUgoEZfEZ04qqhNGoiA==
@@ -16527,6 +16566,14 @@ truffle-contract@^3.0.6, truffle-contract@^3.0.7:
     truffle-contract-schema "^2.0.2"
     truffle-error "^0.0.3"
     web3 "0.20.6"
+
+truffle-deployer@^2.0.1:
+  version "2.0.8"
+  resolved "https://registry.npmjs.org/truffle-deployer/-/truffle-deployer-2.0.8.tgz#1bbc4307010a0c63a654f9c27399657273d0f1ea"
+  integrity sha512-g6pGDt4ld1mY+fA7eZAwKl974LH0nCIskGJUwHgMLA4kPIeXzZCAbDNY8jOgQy1D8JzquO7TMlaa97pK3bVrCw==
+  dependencies:
+    truffle-contract "^3.0.7"
+    truffle-expect "^0.0.4"
 
 truffle-error@^0.0.3:
   version "0.0.3"
@@ -17468,6 +17515,17 @@ web3@^0.19.1:
     xhr2 "*"
     xmlhttprequest "*"
 
+web3@^0.20.2:
+  version "0.20.7"
+  resolved "https://registry.npmjs.org/web3/-/web3-0.20.7.tgz#1605e6d81399ed6f85a471a4f3da0c8be57df2f7"
+  integrity sha512-VU6/DSUX93d1fCzBz7WP/SGCQizO1rKZi4Px9j/3yRyfssHyFcZamMw2/sj4E8TlfMXONvZLoforR8B4bRoyTQ==
+  dependencies:
+    bignumber.js "git+https://github.com/frozeman/bignumber.js-nolookahead.git"
+    crypto-js "^3.1.4"
+    utf8 "^2.1.1"
+    xhr2-cookies "^1.1.0"
+    xmlhttprequest "*"
+
 web3@^1.0.0-beta.35, web3@^1.0.0-beta.37:
   version "1.0.0-beta.37"
   resolved "https://registry.npmjs.org/web3/-/web3-1.0.0-beta.37.tgz#b42c30e67195f816cd19d048fda872f70eca7083"
@@ -17892,7 +17950,7 @@ xhr-request@^1.0.1:
     url-set-query "^1.0.0"
     xhr "^2.0.4"
 
-xhr2-cookies@1.1.0:
+xhr2-cookies@1.1.0, xhr2-cookies@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/xhr2-cookies/-/xhr2-cookies-1.1.0.tgz#7d77449d0999197f155cb73b23df72505ed89d48"
   integrity sha1-fXdEnQmZGX8VXLc7I99yUF7YnUg=

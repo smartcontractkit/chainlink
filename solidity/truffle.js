@@ -1,4 +1,6 @@
-require('@babel/register')
+require('@babel/register')({
+  extensions: ['.es6', '.es', '.jsx', '.js', '.mjs', '.ts']
+})
 require('@babel/polyfill')
 
 module.exports = {
