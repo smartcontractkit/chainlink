@@ -95,13 +95,7 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 
 // GetJobSpecs returns all job specs.
 func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
-	var links jsonapi.Links
-	var jobs []models.JobSpec
-	err := cli.getPage("/v2/specs", c.Int("page"), &jobs, &links)
-	if err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&jobs))
+	return cli.getPage("/v2/specs", c.Int("page"), &[]models.JobSpec{})
 }
 
 // CreateJobSpec creates a JobSpec based on JSON input
@@ -172,16 +166,10 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 
 // GetBridges returns all bridges.
 func (cli *Client) GetBridges(c *clipkg.Context) error {
-	var links jsonapi.Links
-	var bridges []models.BridgeType
-	err := cli.getPage("/v2/bridge_types", c.Int("page"), &bridges, &links)
-	if err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&bridges))
+	return cli.getPage("/v2/bridge_types", c.Int("page"), &[]models.BridgeType{})
 }
 
-func (cli *Client) getPage(requestURI string, page int, model interface{}, links *jsonapi.Links) error {
+func (cli *Client) getPage(requestURI string, page int, model interface{}) error {
 	uri, err := url.Parse(requestURI)
 	if err != nil {
 		return err
@@ -198,7 +186,11 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}, links
 	}
 	defer resp.Body.Close()
 
-	return cli.deserializeAPIResponse(resp, model, links)
+	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
+	if err != nil {
+		return err
+	}
+	return cli.errorOut(cli.Render(model))
 }
 
 // ShowBridge returns the info for the given Bridge name.
@@ -380,25 +372,13 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 // GetTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) GetTransactions(c *clipkg.Context) error {
-	var links jsonapi.Links
-	txs := []presenters.Tx{}
-	err := cli.getPage("/v2/transactions", c.Int("page"), &txs, &links)
-	if err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&txs))
+	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
 }
 
 // GetTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
-	var links jsonapi.Links
-	attempts := []models.TxAttempt{}
-	err := cli.getPage("/v2/tx_attempts", c.Int("page"), &attempts, &links)
-	if err != nil {
-		return err
-	}
-	return cli.errorOut(cli.Render(&attempts))
+	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]models.TxAttempt{})
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
