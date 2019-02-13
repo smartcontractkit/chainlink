@@ -486,6 +486,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 			"gasPrice", txat.GasPrice.String(),
 			"from", tx.From.Hex(),
 			"blkNum", blkNum,
+			"sentAt", txat.SentAt,
 		)
 		return nil, txm.bumpGas(txat, blkNum)
 	}
@@ -497,6 +498,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 		"gasPrice", txat.GasPrice.String(),
 		"from", tx.From.Hex(),
 		"blkNum", blkNum,
+		"sentAt", txat.SentAt,
 	)
 	return nil, nil
 }
