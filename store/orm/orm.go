@@ -97,7 +97,10 @@ func DeduceDialect(path string) (DialectName, error) {
 	switch scheme {
 	case "postgresql", "postgres":
 		return DialectPostgres, nil
-	case "file":
+	case "file", "":
+		if len(strings.Split(url.Path, " ")) > 1 {
+			return "", errors.New("error deducing ORM dialect, no spaces allowed, please use a postgres URL or file path")
+		}
 		return DialectSqlite, nil
 	case "sqlite3", "sqlite":
 		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
