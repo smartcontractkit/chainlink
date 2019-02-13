@@ -13,7 +13,7 @@ class App extends PureComponent {
     }
   }
 
-  render () {
+  render (): JSX.Element {
     return (
       <Provider store={createStore()}>
         <Layout />
