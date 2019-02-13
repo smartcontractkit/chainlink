@@ -475,40 +475,29 @@ func (txm *EthTxManager) handleUnconfirmed(
 	txat *models.TxAttempt,
 	blkNum uint64,
 ) (*TxReceipt, error) {
-	bumpable := tx.Hash == txat.Hash
-	pastThreshold := blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold()
-	logger.Debugw(
-		fmt.Sprintf("TxManager handleUnconfirmed: tx attempt %s", txat.Hash.Hex()),
-		"currentBlockNumber", blkNum,
-		"txHash", txat.Hash.String(),
-		"txid", txat.TxID,
-		"gasPrice", txat.GasPrice.String(),
-		"from", tx.From.Hex(),
-		"bumpable", bumpable,
-		"pastThreshold", pastThreshold,
-	)
-	if bumpable && pastThreshold {
-		logger.Debugw(
-			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txat.TxID, txat.Hash.Hex()),
-			"txHash", txat.Hash.String(),
-			"txid", txat.TxID,
-			"gasPrice", txat.GasPrice.String(),
-			"from", tx.From.Hex(),
-			"blkNum", blkNum,
-			"sentAt", txat.SentAt,
-		)
-		return nil, txm.bumpGas(txat, blkNum)
+	if tx.Hash == txat.Hash {
+		// Only handle the latest transaction attempt, not the remainder
+		return nil, nil
 	}
-	logger.Infow(
-		fmt.Sprintf("Unconfirmed TX %d has not yet met gas bump threshold", txat.TxID),
-		"txAttempt", txat.Hash.Hex(),
+
+	logParams := []interface{}{
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"gasPrice", txat.GasPrice.String(),
 		"from", tx.From.Hex(),
 		"blkNum", blkNum,
 		"sentAt", txat.SentAt,
-		"bumpable", bumpable,
+	}
+	if blkNum >= txat.SentAt+txm.config.EthGasBumpThreshold() {
+		logger.Debugw(
+			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txat.TxID, txat.Hash.Hex()),
+			logParams...,
+		)
+		return nil, txm.bumpGas(txat, blkNum)
+	}
+	logger.Infow(
+		fmt.Sprintf("Unconfirmed TX %d has not yet met gas bump threshold", txat.TxID),
+		logParams...,
 	)
 	return nil, nil
 }
