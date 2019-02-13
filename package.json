@@ -10,8 +10,8 @@
     "lint": "standard --fix --verbose | snazzy",
     "lint-ci": "standard --verbose",
     "test": "NODE_ENV=test jest",
-    "test-ci": "NODE_ENV=test yarn jest gui/ --coverage --reporters jest-silent-reporter",
-    "test-e2e": "NODE_ENV=test yarn jest e2e/ -i",
+    "test-ci": "NODE_ENV=test yarn jest gui/ --runInBand --coverage --reporters jest-silent-reporter",
+    "test-e2e": "NODE_ENV=test yarn jest e2e/ --runInBand",
     "test-sol": "./internal/ci/truffle_test",
     "watch": "NODE_ENV=test jest --watchAll --notify",
     "flatten": "./internal/bin/flatten-ropsten"
