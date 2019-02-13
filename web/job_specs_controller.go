@@ -2,7 +2,6 @@ package web
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -29,11 +28,6 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 	}
 
 	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
-	if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting count of JobSpec: %+v", err))
-		return
-	}
-
 	pjs := make([]presenters.JobSpec, len(jobs))
 	for i, j := range jobs {
 		pjs[i] = presenters.JobSpec{JobSpec: j}
