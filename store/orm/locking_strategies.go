@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/url"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -44,13 +42,10 @@ type FileLockingStrategy struct {
 // NewFileLockingStrategy creates a new instance of FileLockingStrategy
 // at the passed path.
 func NewFileLockingStrategy(dbpath string) (LockingStrategy, error) {
-	uri, err := url.Parse(dbpath)
+	lockPath, err := getLockPath(dbpath)
 	if err != nil {
 		return nil, multierr.Append(errors.New("unable to create file locking strategy"), err)
 	}
-	dbpath = uri.Path
-	directory := filepath.Dir(dbpath)
-	lockPath := filepath.Join(directory, "chainlink.lock")
 	return &FileLockingStrategy{
 		path:     lockPath,
 		fileLock: flock.New(lockPath),
