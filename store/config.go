@@ -396,11 +396,7 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 // coerced to a sqlite3 URL.
 func (c Config) NormalizedDatabaseURL() string {
 	if c.DatabaseURL() == "" {
-		u, err := url.Parse(filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3")))
-		if err == nil {
-			u.Scheme = "file"
-			return u.String()
-		}
+		return filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
 	}
 	return c.DatabaseURL()
 }
