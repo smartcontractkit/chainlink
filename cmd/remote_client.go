@@ -502,8 +502,7 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 	password := cli.PasswordPrompter.Prompt()
 	request := models.CreateKeyRequest{
-		CurrentPassword:    password,
-		NewAccountPassword: password,
+		CurrentPassword: password,
 	}
 
 	requestData, err := json.Marshal(request)
