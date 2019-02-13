@@ -425,8 +425,7 @@ type SendEtherRequest struct {
 
 // CreateKeyRequest represents a request to add an ethereum key.
 type CreateKeyRequest struct {
-	CurrentPassword    string `json:"current_password"`
-	NewAccountPassword string `json:"new_account_password"`
+	CurrentPassword string `json:"current_password"`
 }
 
 // Big stores large integers and can deserialize a variety of inputs.
