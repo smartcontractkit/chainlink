@@ -1,11 +1,9 @@
 import React from 'react'
-import Routes from 'react-static-routes'
 import Grid from '@material-ui/core/Grid'
 import universal from 'react-universal-component'
-import { Switch } from 'react-static'
+import { Switch } from 'react-router-dom'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
-import { useHooks, useState } from 'use-react-hooks'
 import Header from 'containers/Header'
 import Loading from 'components/Loading'
 import Notifications from 'containers/Notifications'
@@ -37,68 +35,73 @@ const styles = theme => {
   }
 }
 
-const Private = useHooks(props => {
-  const [headerHeight, resizeHeaderHeight] = useState(0)
-
-  const onHeaderResize = (_width, height) => {
-    resizeHeaderHeight(height)
+class Private extends React.Component {
+  constructor (props) {
+    super(props)
+    this.state = { headerHeight: 0 }
+    this.setHeaderHeight = this.setHeaderHeight.bind(this)
   }
 
-  const { classes } = props
+  setHeaderHeight (_width, height) {
+    this.setState({ headerHeight: height })
+  }
 
-  return (
-    <Grid container spacing={0}>
-      <Grid item xs={12}>
-        <Header
-          onResize={onHeaderResize}
-          drawerContainer={props.drawerContainer}
-        />
+  render () {
+    const { classes } = this.props
+    let drawerContainer
 
-        <main
-          ref={ref => { props.drawerContainer = ref }}
-          style={{ paddingTop: headerHeight }}
-        >
-          <Notifications />
+    return (
+      <Grid container>
+        <Grid item xs={12}>
+          <Header
+            onResize={this.setHeaderHeight}
+            drawerContainer={drawerContainer}
+          />
+          <main
+            ref={ref => { drawerContainer = ref }}
+            style={{ paddingTop: this.state.headerHeight }}
+          >
+            <Notifications />
 
-          <div className={classes.content}>
-            <Switch>
-              <PrivateRoute
-                exact
-                path='/'
-                render={props => (
-                  <DashboardsIndex
-                    {...props}
-                    recentJobRunsCount={5}
-                    recentlyCreatedPageSize={4}
-                  />
-                )}
-              />
-              <PrivateRoute exact path='/jobs' component={JobsIndex} />
-              <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
-              <PrivateRoute exact path='/jobs/new' component={JobsNew} />
-              <PrivateRoute
-                exact
-                path='/jobs/:jobSpecId'
-                render={props => <JobsShow {...props} showJobRunsCount={5} />}
-              />
-              <PrivateRoute exact path='/jobs/:jobSpecId/definition' component={JobsDefinition} />
-              <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
-              <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
-              <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobRunsShow} />
-              <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId/json' component={JobRunsShowJson} />
-              <PrivateRoute exact path='/bridges' component={BridgesIndex} />
-              <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
-              <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
-              <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
-              <PrivateRoute exact path='/bridges/:bridgeId/edit' component={BridgesEdit} />
-              <PrivateRoute exact path='/config' component={Configuration} />
-              <Routes />
-            </Switch>
-          </div>
-        </main>
+            <div className={classes.content}>
+              <Switch>
+                <PrivateRoute
+                  exact
+                  path='/'
+                  render={props => (
+                    <DashboardsIndex
+                      {...props}
+                      recentJobRunsCount={5}
+                      recentlyCreatedPageSize={4}
+                    />
+                  )}
+                />
+                <PrivateRoute exact path='/jobs' component={JobsIndex} />
+                <PrivateRoute exact path='/jobs/page/:jobPage' component={JobsIndex} />
+                <PrivateRoute exact path='/jobs/new' component={JobsNew} />
+                <PrivateRoute
+                  exact
+                  path='/jobs/:jobSpecId'
+                  render={props => <JobsShow {...props} showJobRunsCount={5} />}
+                />
+                <PrivateRoute exact path='/jobs/:jobSpecId/definition' component={JobsDefinition} />
+                <PrivateRoute exact path='/jobs/:jobSpecId/runs' component={JobRunsIndex} />
+                <PrivateRoute exact path='/jobs/:jobSpecId/runs/page/:jobRunsPage' component={JobRunsIndex} />
+                <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId' component={JobRunsShow} />
+                <PrivateRoute exact path='/jobs/:jobSpecId/runs/id/:jobRunId/json' component={JobRunsShowJson} />
+                <PrivateRoute exact path='/bridges' component={BridgesIndex} />
+                <PrivateRoute exact path='/bridges/page/:bridgePage' component={BridgesIndex} />
+                <PrivateRoute exact path='/bridges/new' component={BridgesNew} />
+                <PrivateRoute exact path='/bridges/:bridgeId' component={BridgesShow} />
+                <PrivateRoute exact path='/bridges/:bridgeId/edit' component={BridgesEdit} />
+                <PrivateRoute exact path='/config' component={Configuration} />
+              </Switch>
+            </div>
+          </main>
+        </Grid>
       </Grid>
-    </Grid>
-  )
-})
+    )
+  }
+}
 
 export default hot(module)(withStyles(styles)(Private))

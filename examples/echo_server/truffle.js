@@ -1,5 +1,5 @@
-require('babel-register')
-require('babel-polyfill')
+require('@babel/register')
+require('@babel/polyfill')
 
 module.exports = {
   network: 'test',
@@ -13,7 +13,7 @@ module.exports = {
   },
   compilers: {
     solc: {
-      version: '0.4.24',
+      version: '0.4.24'
     }
-  },
+  }
 }

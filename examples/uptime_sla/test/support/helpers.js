@@ -1,9 +1,13 @@
-import { eth } from '../../../../solidity/test/support/helpers'
+module.exports = {}
 
-export const getLatestTimestamp = async () => {
-  const latestBlock = await eth.getBlock('latest', false)
+web3.providers.HttpProvider.prototype.sendAsync = web3.providers.HttpProvider.prototype.send
+
+const getLatestTimestamp = async () => {
+  const latestBlock = await web3.eth.getBlock('latest', false)
   return web3.utils.toDecimal(latestBlock.timestamp)
 }
+
+module.exports.getLatestTimestamp = getLatestTimestamp
 
 const sendEth = (method, params) => (
   new Promise((resolve, reject) => {
@@ -21,7 +25,7 @@ const sendEth = (method, params) => (
   })
 )
 
-export const fastForwardTo = async target => {
+const fastForwardTo = async target => {
   const now = await getLatestTimestamp()
   assert.isAbove(target, now, 'Cannot fast forward to the past')
   const difference = target - now
@@ -29,6 +33,11 @@ export const fastForwardTo = async target => {
   await sendEth('evm_mine')
 }
 
+module.exports.fastForwardTo = fastForwardTo
+
 const minutes = number => number * 60
 const hours = number => (number * minutes(60))
-export const days = number => (number * hours(24))
+
+const days = number => (number * hours(24))
+
+module.exports.days = days

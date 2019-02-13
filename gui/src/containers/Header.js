@@ -1,11 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { useHooks, useState } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
-import { Link } from 'react-static'
+import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import ReactResizeDetector from 'react-resize-detector'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
@@ -23,6 +21,7 @@ import MainLogo from 'components/Logos/Main'
 import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
+import ReactResizeDetector from 'react-resize-detector'
 
 const drawerWidth = 240
 
@@ -77,96 +76,113 @@ const SHARED_NAV_ITEMS = [
   ['/config', 'Configuration']
 ]
 
-const Header = useHooks(props => {
-  const [drawerOpen, setDrawerState] = useState(false)
-  const toggleDrawer = () => setDrawerState(!drawerOpen)
-  const signOut = () => props.submitSignOut()
-  const { classes, fetchCount } = props
+class Header extends React.Component {
+  constructor (props) {
+    super(props)
+    this.state = { drawerOpen: false }
+  }
 
-  const drawer = (<Drawer
-    anchor='right'
-    open={drawerOpen}
-    classes={{
-      paper: classes.drawerPaper
-    }}
-    onClose={toggleDrawer}
-  >
-    <div
-      tabIndex={0}
-      role='button'
-      onClick={toggleDrawer}
+  setDrawerOpen (isOpen) {
+    this.setState({
+      drawerOpen: isOpen
+    })
+  }
+
+  render () {
+    const toggleDrawer = () => this.setDrawerOpen(!this.state.drawerOpen)
+    const signOut = () => this.props.submitSignOut()
+    const { classes, fetchCount } = this.props
+
+    const drawer = (<Drawer
+      anchor='right'
+      open={this.state.drawerOpen}
+      classes={{
+        paper: classes.drawerPaper
+      }}
+      onClose={toggleDrawer}
     >
-      <List className={classes.drawerList}>
-        {SHARED_NAV_ITEMS.map(([to, text]) => (
-          <ListItem key={to} button component={Link} to={to} className={classes.menuitem}>
-            <ListItemText primary={text} />
-          </ListItem>
-        ))}
-        {props.authenticated &&
-          <ListItem button onClick={signOut} className={classes.menuitem}>
-            <ListItemText primary='Sign Out' />
-          </ListItem>
-        }
-      </List>
-    </div>
-  </Drawer>)
+      <div
+        tabIndex={0}
+        role='button'
+        onClick={toggleDrawer}
+      >
+        <List className={classes.drawerList}>
+          {SHARED_NAV_ITEMS.map(([to, text]) => (
+            <ListItem key={to} button component={Link} to={to} className={classes.menuitem}>
+              <ListItemText primary={text} />
+            </ListItem>
+          ))}
+          {this.props.authenticated &&
+            <ListItem button onClick={signOut} className={classes.menuitem}>
+              <ListItemText primary='Sign Out' />
+            </ListItem>
+          }
+        </List>
+      </div>
+    </Drawer>)
 
-  const nav = (<Typography variant='body1' component='div'>
-    <List className={classes.horizontalNav}>
-      {SHARED_NAV_ITEMS.map(([to, text]) => (
-        <ListItem key={to} className={classes.horizontalNavItem}>
-          <Link to={to} className={classes.horizontalNavLink}>{text}</Link>
-        </ListItem>
-      ))}
-      {props.authenticated &&
-        <ListItem className={classes.horizontalNavItem}>
-          <AvatarMenu />
-        </ListItem>
-      }
-    </List>
-  </Typography>
-  )
+    const nav = (
+      <Typography variant='body1' component='div'>
+        <List className={classes.horizontalNav}>
+          {SHARED_NAV_ITEMS.map(([to, text]) => (
+            <ListItem key={to} className={classes.horizontalNavItem}>
+              <Link to={to} className={classes.horizontalNavLink}>{text}</Link>
+            </ListItem>
+          ))}
+          {this.props.authenticated &&
+            <ListItem className={classes.horizontalNavItem}>
+              <AvatarMenu />
+            </ListItem>
+          }
+        </List>
+      </Typography>
+    )
 
-  return (
-    <AppBar
-      className={classes.appBar}
-      color='default'
-      position='absolute'
-    >
-      <ReactResizeDetector handleHeight onResize={props.onResize}>
-        <LoadingBar fetchCount={fetchCount} />
+    return (
+      <AppBar
+        className={classes.appBar}
+        color='default'
+        position='absolute'
+      >
+        <ReactResizeDetector
+          refreshMode='debounce'
+          refreshRate={200}
+          onResize={this.props.onResize}
+          handleHeight
+        >
+          <LoadingBar fetchCount={fetchCount} />
 
-        <Toolbar className={classes.toolbar}>
-          <Grid container alignItems='center'>
-            <Grid item xs={11} sm={6} md={4}>
-              <Link to='/'>
-                <MainLogo width={200} />
-              </Link>
-            </Grid>
-            <Grid item xs={1} sm={6} md={8}>
-              <Grid container justify='flex-end'>
-                <Grid item>
-                  <Hidden mdUp>
-                    <IconButton aria-label='open drawer' onClick={toggleDrawer}>
-                      <MenuIcon />
-                    </IconButton>
-                  </Hidden>
-                  <Hidden smDown>
-                    {nav}
-                  </Hidden>
+          <Toolbar className={classes.toolbar}>
+            <Grid container alignItems='center'>
+              <Grid item xs={11} sm={6} md={4}>
+                <Link to='/'>
+                  <MainLogo width={200} />
+                </Link>
+              </Grid>
+              <Grid item xs={1} sm={6} md={8}>
+                <Grid container justify='flex-end'>
+                  <Grid item>
+                    <Hidden mdUp>
+                      <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                        <MenuIcon />
+                      </IconButton>
+                    </Hidden>
+                    <Hidden smDown>
+                      {nav}
+                    </Hidden>
+                  </Grid>
                 </Grid>
               </Grid>
             </Grid>
-          </Grid>
-        </Toolbar>
-      </ReactResizeDetector>
-      <Portal container={props.drawerContainer}>
-        {drawer}
-      </Portal>
-    </AppBar>
-  )
+          </Toolbar>
+        </ReactResizeDetector>
+        <Portal container={this.props.drawerContainer}>
+          {drawer}
+        </Portal>
+      </AppBar>
+    )
+  }
 }
-)
 
 Header.propTypes = {
   onResize: PropTypes.func.isRequired,

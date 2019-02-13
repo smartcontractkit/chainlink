@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import Typography from '@material-ui/core/Typography'
-import { Link as ReactStaticLink } from 'react-static'
+import { Link as ReactStaticLink } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
 import { grey } from '@material-ui/core/colors'
 import classNames from 'classnames'

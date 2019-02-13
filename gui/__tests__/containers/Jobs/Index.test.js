@@ -6,7 +6,7 @@ import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
 import createStore from 'connectors/redux'
 import { mount } from 'enzyme'
-import { Router } from 'react-static'
+import { MemoryRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { ConnectedIndex as Index } from 'containers/Jobs/Index'
 
@@ -14,9 +14,9 @@ const classes = {}
 const mountIndex = (opts = {}) => (
   mount(
     <Provider store={createStore()}>
-      <Router>
+      <MemoryRouter>
         <Index classes={classes} pageSize={opts.pageSize} />
-      </Router>
+      </MemoryRouter>
     </Provider>
   )
 )

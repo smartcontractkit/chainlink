@@ -330,7 +330,7 @@ export const calculateSAID =
       newHash(endAt.toString()),
       concatTypedArrays(...oracles.map(newAddress).map(toHex).map(newHash)),
       requestDigest)
-    const serviceAgreementIDInputDigest = ethjsUtils.sha3(toHex(serviceAgreementIDInput))
+    const serviceAgreementIDInputDigest = ethjsUtils.keccak(toHex(serviceAgreementIDInput))
     return newHash(toHex(serviceAgreementIDInputDigest))
   }
 
@@ -341,7 +341,7 @@ export const recoverPersonalSignature = (message, signature) => {
     newUint8ArrayFromStr(message.length.toString()),
     message
   )
-  const digest = ethjsUtils.sha3(toBuffer(personalSignMessage))
+  const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
   const requestDigestPubKey = ethjsUtils.ecrecover(digest,
     signature.v,
     toBuffer(signature.r),
