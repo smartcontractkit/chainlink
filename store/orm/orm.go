@@ -44,14 +44,14 @@ type ORM struct {
 	lockingStrategy LockingStrategy
 }
 
-// NewORM initializes a new database file at the configured path.
-func NewORM(path string, timeout time.Duration) (*ORM, error) {
-	dialect, err := DeduceDialect(path)
+// NewORM initializes a new database file at the configured uri.
+func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	lockingStrategy, err := NewLockingStrategy(dialect, path)
+	lockingStrategy, err := NewLockingStrategy(dialect, uri)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ORM lock: %+v", err)
 	}
@@ -62,7 +62,7 @@ func NewORM(path string, timeout time.Duration) (*ORM, error) {
 		return nil, fmt.Errorf("unable to lock ORM: %+v", err)
 	}
 
-	db, err := initializeDatabase(string(dialect), path)
+	db, err := initializeDatabase(string(dialect), uri)
 	if err != nil {
 		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
