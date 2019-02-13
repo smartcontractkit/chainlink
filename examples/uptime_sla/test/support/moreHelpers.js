@@ -68,26 +68,28 @@ export const decodeDietCBOR = data => {
 
 export const decodeRunRequest = log => {
   const runABI = util.toBuffer(log.data)
-  const types = ['uint256', 'uint256', 'address', 'bytes4', 'uint256', 'bytes']
+  const types = ['address', 'bytes32', 'uint256', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const [
+    requester,
     requestId,
-    version,
+    payment,
     callbackAddress,
     callbackFunc,
     expiration,
+    version,
     data
   ] = abi.rawDecode(types, runABI)
 
   return {
     topic: log.topics[0],
     jobId: log.topics[1],
-    requester: hexToAddress(log.topics[2]),
-    payment: log.topics[3],
+    requester: zeroX(requester),
     id: toHex(requestId),
-    dataVersion: version,
+    payment: toHex(payment),
     callbackAddr: zeroX(callbackAddress),
     callbackFunc: toHex(callbackFunc),
     expiration: toHex(expiration),
+    dataVersion: version,
     data: autoAddMapDelimiters(data)
   }
 }
@@ -98,7 +100,7 @@ export const functionSelector = signature =>
 export const fulfillOracleRequest = async (oracle, request, response, options) => {
   if (!options) options = {}
 
-  return oracle.fulfillData(
+  return oracle.fulfillOracleRequest(
     request.id,
     request.payment,
     request.callbackAddr,
@@ -109,9 +111,9 @@ export const fulfillOracleRequest = async (oracle, request, response, options) =
 }
 
 export const requestDataBytes = (specId, to, fHash, nonce, data) => {
-  const types = ['address', 'uint256', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'bytes']
-  const values = [0, 0, 1, specId, to, fHash, nonce, data]
+  const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
+  const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
-  const funcSelector = functionSelector('requestData(address,uint256,uint256,bytes32,address,bytes4,uint256,bytes)')
+  const funcSelector = functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
   return funcSelector + encoded
 }
