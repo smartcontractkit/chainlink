@@ -53,13 +53,13 @@ func NewORM(path string, timeout time.Duration) (*ORM, error) {
 
 	lockingStrategy, err := NewLockingStrategy(dialect, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create ORM lock: %+v", err)
 	}
 
 	logger.Infof("Locking %v for exclusive access with %v timeout", dialect, displayTimeout(timeout))
 	err = lockingStrategy.Lock(timeout)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to lock ORM: %+v", err)
 	}
 
 	db, err := initializeDatabase(string(dialect), path)
