@@ -669,6 +669,7 @@ func TestORM_DeduceDialect(t *testing.T) {
 		expect           orm.DialectName
 		wantError        bool
 	}{
+		{"windows full path", `D:/node-0/node/db.sqlite3`, `sqlite3`, false},
 		{"relative file", "db.sqlite", "sqlite3", false},
 		{"relative dir path", "store/db/here", "sqlite3", false},
 		{"file url", "file://host/path", "sqlite3", false},

@@ -106,7 +106,7 @@ func DeduceDialect(path string) (DialectName, error) {
 		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
 	}
 
-	return "", fmt.Errorf("unable to deduce sql dialect from path %s, please try a proper URL", path)
+	return DialectSqlite, nil
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
