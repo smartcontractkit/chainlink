@@ -553,20 +553,16 @@ func (s SortType) String() string {
 
 // JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering
 // to the passed parameters.
-func (orm *ORM) JobsSorted(order SortType, offset int, limit int) ([]models.JobSpec, int, error) {
-	var count int
-	err := orm.preloadJobs().Model(&models.JobSpec{}).Count(&count).Error
+func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSpec, int, error) {
+	count, err := orm.countOf(&models.JobSpec{})
 	if err != nil {
 		return nil, 0, err
 	}
+
 	var jobs []models.JobSpec
-	rval := orm.DB.
-		Set("gorm:auto_preload", true).
-		Order(fmt.Sprintf("created_at %s", order.String())).
-		Limit(limit).
-		Offset(offset).
-		Find(&jobs)
-	return jobs, count, rval.Error
+	order := fmt.Sprintf("created_at %s", sort.String())
+	err = orm.getRecords(&jobs, order, offset, limit)
+	return jobs, count, err
 }
 
 // TxFrom returns all transactions from a particular address.
@@ -579,54 +575,38 @@ func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 
 // Transactions returns all transactions limited by passed parameters.
 func (orm *ORM) Transactions(offset, limit int) ([]models.Tx, int, error) {
-	var count int
-	err := orm.DB.Model(&models.Tx{}).Count(&count).Error
+	count, err := orm.countOf(&models.Tx{})
 	if err != nil {
 		return nil, 0, err
 	}
+
 	var txs []models.Tx
-	err = orm.DB.
-		Set("gorm:auto_preload", true).
-		Order("id desc").Limit(limit).Offset(offset).
-		Find(&txs).Error
+	err = orm.getRecords(&txs, "id desc", offset, limit)
 	return txs, count, err
 }
 
 // TxAttempts returns the last tx attempts sorted by sent at descending.
 func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
-	var count int
-	err := orm.DB.Model(&models.TxAttempt{}).Count(&count).Error
+	count, err := orm.countOf(&models.TxAttempt{})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	var attempts []models.TxAttempt
-	err = orm.DB.
-		Set("gorm:auto_preload", true).
-		Order("sent_at desc").Limit(limit).Offset(offset).
-		Find(&attempts).Error
+	err = orm.getRecords(&attempts, "sent_at desc", offset, limit)
 	return attempts, count, err
 }
 
-// JobRunsCount returns the total number of job runs
-func (orm *ORM) JobRunsCount() (int, error) {
-	var count int
-	return count, orm.DB.Model(&models.JobRun{}).Count(&count).Error
-}
-
 // JobRunsSorted returns job runs ordered and filtered by the passed params.
-func (orm *ORM) JobRunsSorted(order SortType, offset int, limit int) ([]models.JobRun, int, error) {
-	count, err := orm.JobRunsCount()
+func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.JobRun, int, error) {
+	count, err := orm.countOf(&models.JobRun{})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	var runs []models.JobRun
-	err = orm.preloadJobRuns().
-		Order(fmt.Sprintf("created_at %s", order.String())).
-		Limit(limit).
-		Offset(offset).
-		Find(&runs).Error
+	order := fmt.Sprintf("created_at %s", sort.String())
+	err = orm.getRecords(&runs, order, offset, limit)
 	return runs, count, err
 }
 
@@ -650,15 +630,13 @@ func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit in
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
 func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, error) {
-	db := orm.DB
-	var count int
-	err := db.Model(&models.BridgeType{}).Count(&count).Error
+	count, err := orm.countOf(&models.BridgeType{})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	var bridges []models.BridgeType
-	err = db.Order("name asc").Limit(limit).Offset(offset).Find(&bridges).Error
+	err = orm.getRecords(&bridges, "name asc", offset, limit)
 	return bridges, count, err
 }
 
@@ -799,4 +777,16 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 			merr)
 	}
 	return merr
+}
+
+func (orm *ORM) countOf(t interface{}) (int, error) {
+	var count int
+	return count, orm.DB.Model(t).Count(&count).Error
+}
+
+func (orm *ORM) getRecords(collection interface{}, order string, offset, limit int) error {
+	return orm.DB.
+		Set("gorm:auto_preload", true).
+		Order(order).Limit(limit).Offset(offset).
+		Find(collection).Error
 }
