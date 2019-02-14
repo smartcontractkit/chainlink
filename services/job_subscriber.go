@@ -91,7 +91,7 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 
 	ibn := head.ToIndexableBlockNumber().Number.ToHexUtilBig()
 	logger.Debugw("Received new head",
-		"current_height", ibn,
+		"current_height", ibn.ToInt(),
 		"pending_run_count", len(pendingRuns),
 	)
 	for _, jr := range pendingRuns {
