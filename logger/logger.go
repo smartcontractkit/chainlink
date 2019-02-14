@@ -67,7 +67,7 @@ func CreateProductionLogger(
 		config.OutputPaths = []string{"pretty://console"}
 	}
 	if toDisk {
-		destination := ProductionLoggerFilepath(dir)
+		destination := logFileURI(dir)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
