@@ -10,11 +10,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// ProductionLoggerFilepath returns the full path to the file the
-// ProductionLogger logs to, with a custom scheme specifically tailored for
-// Windows to get around their handling of the file:// schema.
+// logFileURI returns the scheme and path to the log file for the passed
+// directory, with a custom scheme winfile:/// specifically tailored for
+// Windows to get around their handling of the file:// schema in uber.org/zap.
 // https://github.com/uber-go/zap/issues/621
-func ProductionLoggerFilepath(configRootDir string) string {
+func logFileURI(configRootDir string) string {
 	return "winfile:///" + filepath.ToSlash(filepath.Join(configRootDir, "log.jsonl"))
 }
 
