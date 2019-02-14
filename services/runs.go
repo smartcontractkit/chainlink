@@ -144,18 +144,10 @@ func ResumeConfirmingTask(
 	run.ObservedHeight = models.NewBig(currentBlockHeight.ToInt())
 
 	if meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
-		logger.Debugw("Minimum confirmations met, resuming job", []interface{}{
-			"run", run.ID,
-			"job", run.JobSpecID,
-			"observed_height", currentBlockHeight,
-		}...)
+		logger.Debugw("Minimum confirmations met, resuming job", run.ForLogger()...)
 		run.Status = models.RunStatusInProgress
 	} else {
-		logger.Debugw("Insufficient confirmations to wake job", []interface{}{
-			"run", run.ID,
-			"job", run.JobSpecID,
-			"observed_height", currentBlockHeight,
-		}...)
+		logger.Debugw("Insufficient confirmations to wake job", run.ForLogger()...)
 		run.Status = models.RunStatusPendingConfirmations
 	}
 
