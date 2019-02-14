@@ -174,6 +174,10 @@ interface LinkTokenInterface {
 
 // File: contracts/Oracle.sol
 
+/**
+ * @title The Chainlink Oracle contract
+ * @notice Node operators can deploy this contract to fulfill requests sent to them
+ */
 contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   using SafeMath for uint256;
 
@@ -183,7 +187,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   uint256 constant private SELECTOR_LENGTH = 4;
-  uint256 constant private EXPECTED_REQUEST_WORDS = 9;
+  uint256 constant private EXPECTED_REQUEST_WORDS = 2;
   // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
@@ -194,9 +198,9 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
 
   event OracleRequest(
     bytes32 indexed specId,
-    address indexed requester,
-    uint256 indexed payment,
+    address requester,
     bytes32 requestId,
+    uint256 payment,
     address callbackAddr,
     bytes4 callbackFunctionId,
     uint256 cancelExpiration,
@@ -208,10 +212,23 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     bytes32 indexed requestId
   );
 
+  /**
+   * @notice Deploy with the address of the LINK token
+   * @dev Sets the LinkToken address for the imported LinkTokenInterface
+   * @param _link The address of the LINK token
+   */
   constructor(address _link) Ownable() public {
     LinkToken = LinkTokenInterface(_link);
   }
 
+  /**
+   * @notice Called when LINK is sent to the contract via `transferAndCall`
+   * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
+   * values to ensure correctness. Calls oracleRequest.
+   * @param _sender Address of the sender
+   * @param _amount Amount of LINK sent (specified in wei)
+   * @param _data Payload of the transaction
+   */
   function onTokenTransfer(
     address _sender,
     uint256 _amount,
@@ -232,6 +249,19 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
   }
 
+  /**
+   * @notice Creates the Chainlink request
+   * @dev Stores the hash of the params as the on-chain commitment for the request.
+   * Emits OracleRequest event for the Chainlink node to detect.
+   * @param _sender The sender of the request
+   * @param _payment The amount of payment given (specified in wei)
+   * @param _specId The Job Specification ID
+   * @param _callbackAddress The callback address for the response
+   * @param _callbackFunctionId The callback function ID for the response
+   * @param _nonce The nonce sent by the requester
+   * @param _dataVersion The specified data version
+   * @param _data The CBOR payload of the request
+   */
   function oracleRequest(
     address _sender,
     uint256 _payment,
@@ -262,8 +292,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     emit OracleRequest(
       _specId,
       _sender,
-      _payment,
       requestId,
+      _payment,
       _callbackAddress,
       _callbackFunctionId,
       expiration,
@@ -271,6 +301,19 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
       _data);
   }
 
+  /**
+   * @notice Called by the Chainlink node to fulfill requests
+   * @dev Given params must hash back to the commitment stored from `oracleRequest`.
+   * Will call the callback address' callback function without bubbling up error
+   * checking in a `require` so that the node can get paid.
+   * @param _requestId The fulfillment request ID that must match the requester's
+   * @param _payment The payment amount that will be released for the oracle (specified in wei)
+   * @param _callbackAddress The callback address to call for fulfillment
+   * @param _callbackFunctionId The callback function ID to use for fulfillment
+   * @param _expiration The expiration that the node should respond by before the requester can cancel
+   * @param _data The data to return to the consuming contract
+   * @return Status if the external call was successful
+   */
   function fulfillOracleRequest(
     bytes32 _requestId,
     uint256 _payment,
@@ -302,14 +345,30 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
   }
 
+  /**
+   * @notice Use this to check if a node is authorized for fulfilling requests
+   * @param _node The address of the Chainlink node
+   * @return The authorization status of the node
+   */
   function getAuthorizationStatus(address _node) external view returns (bool) {
     return authorizedNodes[_node];
   }
 
+  /**
+   * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
+   * @param _node The address of the Chainlink node
+   * @param _allowed Bool value to determine if the node can fulfill requests
+   */
   function setFulfillmentPermission(address _node, bool _allowed) external onlyOwner {
     authorizedNodes[_node] = _allowed;
   }
 
+  /**
+   * @notice Allows the node operator to withdraw earned LINK to a given address
+   * @dev The owner of the contract can be another wallet and does not have to be a Chainlink node
+   * @param _recipient The address to send the LINK token to
+   * @param _amount The amount to send (specified in wei)
+   */
   function withdraw(address _recipient, uint256 _amount)
     external
     onlyOwner
@@ -319,10 +378,25 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     assert(LinkToken.transfer(_recipient, _amount));
   }
 
+  /**
+   * @notice Displays the amount of LINK that is available for the node operator to withdraw
+   * @dev We use `ONE_FOR_CONSISTENT_GAS_COST` in place of 0 in storage
+   * @return The amount of withdrawable LINK on the contract
+   */
   function withdrawable() external view onlyOwner returns (uint256) {
     return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
+  /**
+   * @notice Allows requesters to cancel requests sent to this oracle contract. Will transfer the LINK
+   * sent for the request back to the requester's address.
+   * @dev Given params must hash to a commitment stored on the contract in order for the request to be valid
+   * Emits CancelOracleRequest event.
+   * @param _requestId The request ID
+   * @param _payment The amount of payment given (specified in wei)
+   * @param _callbackFunc The requester's specified callback address
+   * @param _expiration The time of the expiration for the request
+   */
   function cancelOracleRequest(
     bytes32 _requestId,
     uint256 _payment,
@@ -347,26 +421,44 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
 
   // MODIFIERS
 
+  /**
+   * @dev Reverts if amount requested is greater than withdrawable balance
+   * @param _amount The given amount to compare to `withdrawableTokens`
+   */
   modifier hasAvailableFunds(uint256 _amount) {
     require(withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
     _;
   }
 
+  /**
+   * @dev Reverts if request ID does not exist
+   * @param _requestId The given request ID to check in stored `commitments`
+   */
   modifier isValidRequest(bytes32 _requestId) {
     require(commitments[_requestId] != 0, "Must have a valid requestId");
     _;
   }
 
+  /**
+   * @dev Reverts if `msg.sender` is not authorized to fulfill requests
+   */
   modifier onlyAuthorizedNode() {
     require(authorizedNodes[msg.sender] || msg.sender == owner, "Not an authorized node to fulfill requests");
     _;
   }
 
+  /**
+   * @dev Reverts if not sent from the LINK token
+   */
   modifier onlyLINK() {
     require(msg.sender == address(LinkToken), "Must use LINK token");
     _;
   }
 
+  /**
+   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
+   * @param _data The data payload of the request
+   */
   modifier permittedFunctionsForLINK(bytes _data) {
     bytes4 funcSelector;
     assembly {
@@ -377,11 +469,19 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     _;
   }
 
+  /**
+   * @dev Reverts if the callback address is the LINK token
+   * @param _to The callback address
+   */
   modifier checkCallbackAddress(address _to) {
     require(_to != address(LinkToken), "Cannot callback to LINK");
     _;
   }
 
+  /**
+   * @dev Reverts if the given payload is less than needed to create a request
+   * @param _data The request payload
+   */
   modifier validRequestLength(bytes _data) {
     require(_data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     _;
