@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 
@@ -214,7 +215,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			defer os.RemoveAll(config.RootDir())
 
 			logger.SetLogger(config.CreateProductionLogger())
-			filepath := logger.ProductionLoggerFilepath(config.RootDir())
+			filepath := filepath.Join(config.RootDir(), "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})

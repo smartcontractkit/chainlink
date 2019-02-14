@@ -22,23 +22,17 @@ func TestNewLockingStrategy(t *testing.T) {
 		dialectName orm.DialectName
 		path        string
 		expect      reflect.Type
-		wantError   bool
 	}{
-		{"sqlite", orm.DialectSqlite, c.RootDir(), reflect.ValueOf(&orm.FileLockingStrategy{}).Type(), false},
-		{"sqlite bad path", orm.DialectSqlite, ":/\\fd/8970382094", nil, true},
-		{"postgres", orm.DialectPostgres, "postgres://something:5432", reflect.ValueOf(&orm.PostgresLockingStrategy{}).Type(), false},
+		{"sqlite", orm.DialectSqlite, c.RootDir(), reflect.ValueOf(&orm.FileLockingStrategy{}).Type()},
+		{"postgres", orm.DialectPostgres, "postgres://something:5432", reflect.ValueOf(&orm.PostgresLockingStrategy{}).Type()},
 	}
 
 	for _, test := range tests {
 		t.Run(string(test.name), func(t *testing.T) {
 			rval, err := orm.NewLockingStrategy(test.dialectName, test.path)
-			if test.wantError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				rtype := reflect.ValueOf(rval).Type()
-				require.Equal(t, test.expect, rtype)
-			}
+			require.NoError(t, err)
+			rtype := reflect.ValueOf(rval).Type()
+			require.Equal(t, test.expect, rtype)
 		})
 	}
 }

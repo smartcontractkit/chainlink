@@ -44,25 +44,25 @@ type ORM struct {
 	lockingStrategy LockingStrategy
 }
 
-// NewORM initializes a new database file at the configured path.
-func NewORM(path string, timeout time.Duration) (*ORM, error) {
-	dialect, err := DeduceDialect(path)
+// NewORM initializes a new database file at the configured uri.
+func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	lockingStrategy, err := NewLockingStrategy(dialect, path)
+	lockingStrategy, err := NewLockingStrategy(dialect, uri)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create ORM lock: %+v", err)
 	}
 
 	logger.Infof("Locking %v for exclusive access with %v timeout", dialect, displayTimeout(timeout))
 	err = lockingStrategy.Lock(timeout)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to lock ORM: %+v", err)
 	}
 
-	db, err := initializeDatabase(string(dialect), path)
+	db, err := initializeDatabase(string(dialect), uri)
 	if err != nil {
 		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
@@ -97,13 +97,16 @@ func DeduceDialect(path string) (DialectName, error) {
 	switch scheme {
 	case "postgresql", "postgres":
 		return DialectPostgres, nil
-	case "file":
+	case "file", "":
+		if len(strings.Split(url.Path, " ")) > 1 {
+			return "", errors.New("error deducing ORM dialect, no spaces allowed, please use a postgres URL or file path")
+		}
 		return DialectSqlite, nil
 	case "sqlite3", "sqlite":
 		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
 	}
 
-	return "", fmt.Errorf("unable to deduce sql dialect from path %s, please try a proper URL", path)
+	return DialectSqlite, nil
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {

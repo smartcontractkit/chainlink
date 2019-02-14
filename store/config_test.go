@@ -172,9 +172,11 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 	tests := []struct {
 		name, uri, expect string
 	}{
-		{"empty", "", "file:///root/db.sqlite3"},
+		{"default", "", "/root/db.sqlite3"},
+		{"root", "/root/db.sqlite3", "/root/db.sqlite3"},
+		{"windows root", `C:\root\db.sqlite3`, `C:\root\db.sqlite3`},
 		{"garbage", "89324*$*#@(=", "89324*$*#@(="},
-		{"random file path", "store/db/here", "store/db/here"},
+		{"relative path", "store/db/here", "store/db/here"},
 		{"file uri", "file://host/path", "file://host/path"},
 		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"},
 		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"},
