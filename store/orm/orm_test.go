@@ -669,9 +669,9 @@ func TestORM_DeduceDialect(t *testing.T) {
 		expect           orm.DialectName
 		wantError        bool
 	}{
-		{"garbage", "89324*$*#@(=", "", true},
-		{"relative file", "db.sqlite", "", true},
-		{"relative dir path", "store/db/here", "", true},
+		{"windows full path", `D:/node-0/node/db.sqlite3`, `sqlite3`, false},
+		{"relative file", "db.sqlite", "sqlite3", false},
+		{"relative dir path", "store/db/here", "sqlite3", false},
 		{"file url", "file://host/path", "sqlite3", false},
 		{"sqlite url", "sqlite:///path/to/sqlite.db", "", true},
 		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "", true},

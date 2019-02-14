@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"path/filepath"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"
@@ -20,6 +19,10 @@ func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
 	if err != nil {
 		log.Fatalf("failed to register pretty printer %+v", err)
+	}
+	err = registerOSSinks()
+	if err != nil {
+		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
 
 	zl, err := zap.NewProduction()
@@ -55,12 +58,6 @@ func SetLogger(zl *zap.Logger) {
 	logger = &Logger{zl.Sugar()}
 }
 
-// ProductionLoggerFilepath returns the full path to the file the
-// ProductionLogger logs to.
-func ProductionLoggerFilepath(configRootDir string) string {
-	return filepath.ToSlash(filepath.Join(configRootDir, "log.jsonl"))
-}
-
 // CreateProductionLogger returns a log config for the passed directory
 // with the given LogLevel and customizes stdout for pretty printing.
 func CreateProductionLogger(
@@ -70,7 +67,7 @@ func CreateProductionLogger(
 		config.OutputPaths = []string{"pretty://console"}
 	}
 	if toDisk {
-		destination := ProductionLoggerFilepath(dir)
+		destination := logFileURI(dir)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
