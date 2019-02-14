@@ -1,7 +1,7 @@
 import React, { PureComponent } from 'react'
 import { Provider } from 'react-redux'
-import createStore from 'connectors/redux'
-import Layout from 'Layout'
+import createStore from './connectors/redux'
+import Layout from './Layout'
 import './index.css'
 
 class App extends PureComponent {
@@ -13,7 +13,7 @@ class App extends PureComponent {
     }
   }
 
-  render () {
+  render (): JSX.Element {
     return (
       <Provider store={createStore()}>
         <Layout />
