@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import { useHooks, useState, useRef } from 'use-react-hooks'
 import { Link } from 'react-router-dom'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
@@ -43,7 +42,7 @@ const styles = theme => {
   }
 }
 
-const AvatarMenu = useHooks(({ classes }) => {
+const AvatarMenu = ({ classes }) => {
   const anchorEl = useRef(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
@@ -99,6 +98,6 @@ const AvatarMenu = useHooks(({ classes }) => {
       </Popper>
     </React.Fragment>
   )
-})
+}
 
 export default withStyles(styles)(AvatarMenu)

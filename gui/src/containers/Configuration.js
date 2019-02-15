@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { useHooks, useEffect } from 'use-react-hooks'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
@@ -15,7 +14,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 
 const buildInfo = extractBuildInfo()
 
-export const Configuration = useHooks(props => {
+export const Configuration = props => {
   useEffect(() => { props.fetchConfiguration() }, [])
 
   return (
@@ -59,7 +58,7 @@ export const Configuration = useHooks(props => {
       </Grid>
     </Content>
   )
-})
+}
 
 Configuration.propTypes = {
   configs: PropTypes.array.isRequired,

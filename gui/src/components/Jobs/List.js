@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
-import { useHooks, useState, useEffect } from 'use-react-hooks'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
@@ -60,7 +59,7 @@ const renderBody = (jobs, error) => {
   )
 }
 
-export const List = useHooks(props => {
+export const List = props => {
   const [ page, setPage ] = useState(FIRST_PAGE)
   useEffect(() => {
     const queryPage = (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
@@ -116,7 +115,6 @@ export const List = useHooks(props => {
     </Card>
   )
 }
-)
 
 List.propTypes = {
   jobs: PropTypes.array,

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
@@ -13,7 +13,6 @@ import { fetchJob, createJobRun } from 'actions'
 import jobSelector from 'selectors/job'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   definitionTitle: {
@@ -50,7 +49,7 @@ const renderDetails = ({ job, classes }) => {
   return <React.Fragment>Fetching ...</React.Fragment>
 }
 
-const Definition = useHooks((props) => {
+const Definition = (props) => {
   useEffect(() => { props.fetchJob(props.jobSpecId) }, [])
   const { jobSpecId, job } = props
 
@@ -65,7 +64,6 @@ const Definition = useHooks((props) => {
     </Content>
   </div>
 }
-)
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId

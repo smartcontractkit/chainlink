@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { connect } from 'react-redux'
 import { Redirect } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
@@ -8,7 +8,6 @@ import CardContent from '@material-ui/core/CardContent'
 import Typography from '@material-ui/core/Typography'
 import TextField from '@material-ui/core/TextField'
 import { Grid } from '@material-ui/core'
-import { useHooks, useState } from 'use-react-hooks'
 import { hot } from 'react-hot-loader'
 import { submitSignIn } from 'actions'
 import HexagonLogo from 'components/Logos/Hexagon'
@@ -38,7 +37,7 @@ const styles = theme => ({
   }
 })
 
-export const SignIn = useHooks((props) => {
+export const SignIn = (props) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const handleChange = name => event => {
@@ -133,7 +132,7 @@ export const SignIn = useHooks((props) => {
       </Grid>
     </Grid>
   )
-})
+}
 
 const mapStateToProps = state => ({
   fetching: state.authentication.fetching,

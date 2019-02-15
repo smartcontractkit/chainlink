@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -14,7 +14,6 @@ import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
-import { useHooks, useEffect, useState } from 'use-react-hooks'
 
 const styles = theme => ({
   breadcrumb: {
@@ -63,7 +62,7 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-export const Index = useHooks((props) => {
+export const Index = (props) => {
   const [ page, setPage ] = useState(FIRST_PAGE)
   useEffect(() => {
     const queryPage = props.match ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
@@ -90,7 +89,6 @@ export const Index = useHooks((props) => {
     </Content>
   )
 }
-)
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,

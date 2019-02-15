@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import { useHooks, useState } from 'use-react-hooks'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import PaddedCard from 'components/PaddedCard'
@@ -25,7 +24,7 @@ const styles = theme => {
 
 const WEEK_MS = (1000 * 60 * 60 * 24 * 7)
 
-const DeleteJobRuns = useHooks(({ classes, deleteCompletedJobRuns, deleteErroredJobRuns }) => {
+const DeleteJobRuns = ({ classes, deleteCompletedJobRuns, deleteErroredJobRuns }) => {
   const updatedBefore = new Date(Date.now() - WEEK_MS).toISOString()
   const [showCompletedConfirm, setCompletedConfirm] = useState(false)
   const [showErroredConfirm, setErroredConfirm] = useState(false)
@@ -89,7 +88,7 @@ const DeleteJobRuns = useHooks(({ classes, deleteCompletedJobRuns, deleteErrored
       </Grid>
     </PaddedCard>
   )
-})
+}
 
 const mapStateToProps = state => ({})
 

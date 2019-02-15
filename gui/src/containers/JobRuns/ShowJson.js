@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
 import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import PaddedCard from 'components/PaddedCard'
@@ -40,7 +39,7 @@ const renderDetails = ({ fetching, jobRun }) => {
   )
 }
 
-const Show = useHooks(props => {
+const Show = props => {
   useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
 
   return (
@@ -56,7 +55,7 @@ const Show = useHooks(props => {
       </Content>
     </div>
   )
-})
+}
 
 const mapStateToProps = (state, ownProps) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
