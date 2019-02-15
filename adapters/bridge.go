@@ -31,7 +31,8 @@ func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.Run
 	} else if input.Status.PendingBridge() {
 		return resumeBridge(input)
 	}
-	return ba.handleNewRun(input, store.Config.BridgeResponseURL())
+	ba.handleNewRun(&input, store.Config.BridgeResponseURL())
+	return input
 }
 
 func resumeBridge(input models.RunResult) models.RunResult {
@@ -39,12 +40,13 @@ func resumeBridge(input models.RunResult) models.RunResult {
 	return input
 }
 
-func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.URL) models.RunResult {
+func (ba *Bridge) handleNewRun(input *models.RunResult, bridgeResponseURL *url.URL) {
 	var err error
 	if ba.Params != nil {
 		input.Data, err = input.Data.Merge(*ba.Params)
 		if err != nil {
-			return baRunResultError(input, "handling data param", err)
+			input.WithError(baRunResultError("handling data param", err))
+			return
 		}
 	}
 
@@ -54,30 +56,35 @@ func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.UR
 	}
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
-		return baRunResultError(input, "post to external adapter", err)
+		input.WithError(baRunResultError("post to external adapter", err))
+		return
 	}
 
-	return responseToRunResult(body, input)
+	err = responseToRunResult(body, input)
+	if err != nil {
+		input.WithError(baRunResultError("post to external adapter", err))
+		return
+	}
 }
 
-func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
+func responseToRunResult(body []byte, input *models.RunResult) error {
 	var brr models.BridgeRunResult
 	err := json.Unmarshal(body, &brr)
 	if err != nil {
-		return baRunResultError(input, "unmarshaling JSON", err)
+		return baRunResultError("unmarshaling JSON", err)
 	}
 
-	rr, err := input.Merge(brr.RunResult)
+	err = input.Merge(brr.RunResult)
 	if err != nil {
-		return baRunResultError(rr, "Unable to merge received payload", err)
+		return baRunResultError("Unable to merge received payload", err)
 	}
 
-	return rr
+	return nil
 }
 
-func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
+func (ba *Bridge) postToExternalAdapter(input *models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
 	in, err := json.Marshal(&bridgeOutgoing{
-		RunResult:   input,
+		RunResult:   *input,
 		ResponseURL: bridgeResponseURL,
 	})
 	if err != nil {
@@ -107,8 +114,8 @@ func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseUR
 	return ioutil.ReadAll(resp.Body)
 }
 
-func baRunResultError(in models.RunResult, str string, err error) models.RunResult {
-	return in.WithError(fmt.Errorf("ExternalBridge %v: %v", str, err))
+func baRunResultError(str string, err error) error {
+	return fmt.Errorf("ExternalBridge %v: %v", str, err)
 }
 
 type bridgeOutgoing struct {

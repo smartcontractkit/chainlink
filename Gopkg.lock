@@ -112,6 +112,7 @@
   packages = [
     ".",
     "accounts",
+    "accounts/abi",
     "accounts/keystore",
     "common",
     "common/hexutil",
@@ -1148,6 +1149,7 @@
     "github.com/bitly/go-simplejson",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",
+    "github.com/ethereum/go-ethereum/accounts/abi",
     "github.com/ethereum/go-ethereum/accounts/keystore",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
