@@ -199,65 +199,61 @@ type RunResult struct {
 
 // WithResult returns a copy of the RunResult, overriding the "result" field of
 // Data and setting the status to completed.
-func (rr RunResult) WithResult(val interface{}) RunResult {
+func (rr *RunResult) WithResult(val interface{}) {
 	rr.Status = RunStatusCompleted
-	return rr.Add("result", val)
+	rr.Add("result", val)
 }
 
 // Add adds a key and result to the RunResult's JSON payload.
-func (rr RunResult) Add(key string, result interface{}) RunResult {
+func (rr *RunResult) Add(key string, result interface{}) {
 	data, err := rr.Data.Add(key, result)
 	if err != nil {
-		return rr.WithError(err)
+		rr.WithError(err)
+		return
 	}
 	rr.Data = data
-	return rr
 }
 
 // WithNull returns a copy of the RunResult, overriding the "result" field of
 // Data to null.
-func (rr RunResult) WithNull() RunResult {
+func (rr *RunResult) WithNull() {
 	data, err := rr.Data.Add("result", nil)
 	if err != nil {
-		return rr.WithError(err)
+		rr.WithError(err)
+		return
 	}
 	rr.Data = data
-	return rr
 }
 
 // WithError returns a copy of the RunResult, setting the error field
 // and setting the status to in progress.
-func (rr RunResult) WithError(err error) RunResult {
+func (rr *RunResult) WithError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
 	rr.Status = RunStatusErrored
-	return rr
 }
 
 // MarkPendingBridge returns a copy of RunResult but with status set to pending_bridge.
-func (rr RunResult) MarkPendingBridge() RunResult {
+func (rr *RunResult) MarkPendingBridge() {
 	rr.Status = RunStatusPendingBridge
-	return rr
 }
 
 // MarkPendingConfirmations returns a copy of RunResult but with status set to pending_confirmations.
-func (rr RunResult) MarkPendingConfirmations() RunResult {
+func (rr *RunResult) MarkPendingConfirmations() {
 	rr.Status = RunStatusPendingConfirmations
-	return rr
 }
 
 // MarkPendingConnection returns a copy of RunResult but with status set to pending_connection.
-func (rr RunResult) MarkPendingConnection() RunResult {
+func (rr *RunResult) MarkPendingConnection() {
 	rr.Status = RunStatusPendingConnection
-	return rr
 }
 
 // Get searches for and returns the JSON at the given path.
-func (rr RunResult) Get(path string) gjson.Result {
+func (rr *RunResult) Get(path string) gjson.Result {
 	return rr.Data.Get(path)
 }
 
 // ResultString returns the string result of the Data JSON field.
-func (rr RunResult) ResultString() (string, error) {
+func (rr *RunResult) ResultString() (string, error) {
 	val := rr.Result()
 	if val.Type != gjson.String {
 		return "", fmt.Errorf("non string result")
@@ -266,22 +262,22 @@ func (rr RunResult) ResultString() (string, error) {
 }
 
 // Result returns the result as a gjson object
-func (rr RunResult) Result() gjson.Result {
+func (rr *RunResult) Result() gjson.Result {
 	return rr.Get("result")
 }
 
 // HasError returns true if the ErrorMessage is present.
-func (rr RunResult) HasError() bool {
+func (rr *RunResult) HasError() bool {
 	return rr.ErrorMessage.Valid
 }
 
 // Error returns the string value of the ErrorMessage field.
-func (rr RunResult) Error() string {
+func (rr *RunResult) Error() string {
 	return rr.ErrorMessage.String
 }
 
 // GetError returns the error of a RunResult if it is present.
-func (rr RunResult) GetError() error {
+func (rr *RunResult) GetError() error {
 	if rr.HasError() {
 		return fmt.Errorf("Run Result: %v", rr.Error())
 	}
@@ -294,26 +290,25 @@ func (rr RunResult) GetError() error {
 // respective zero value.
 //
 // Returns an error if called on a RunResult that already has an error.
-func (rr RunResult) Merge(in RunResult) (RunResult, error) {
+func (rr *RunResult) Merge(in RunResult) error {
 	if rr.HasError() {
-		err := fmt.Errorf("Cannot merge onto a RunResult with error: %v", rr.Error())
-		return rr, err
+		return fmt.Errorf("Cannot merge onto a RunResult with error: %v", rr.Error())
 	}
 
 	merged, err := rr.Data.Merge(in.Data)
 	if err != nil {
-		return in, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
+		return fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
 	}
-	in.Data = merged
+	rr.Data = merged
 	if len(in.CachedJobRunID) == 0 {
-		in.CachedJobRunID = rr.CachedJobRunID
+		rr.CachedJobRunID = in.CachedJobRunID
 	}
 	if in.Status.Errored() || rr.Status.Errored() {
-		in.Status = RunStatusErrored
+		rr.Status = RunStatusErrored
 	} else if in.Status.PendingBridge() || rr.Status.PendingBridge() {
-		in = in.MarkPendingBridge()
+		rr.MarkPendingBridge()
 	}
-	return in, nil
+	return nil
 }
 
 // BridgeRunResult handles the parsing of RunResults from external adapters.
