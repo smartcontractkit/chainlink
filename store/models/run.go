@@ -58,6 +58,10 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		output = append(output, "creation_height", jr.CreationHeight.ToInt())
 	}
 
+	if jr.ObservedHeight != nil {
+		output = append(output, "observed_height", jr.ObservedHeight.ToInt())
+	}
+
 	if jr.Result.HasError() {
 		output = append(output, "job_error", jr.Result.Error())
 	}
