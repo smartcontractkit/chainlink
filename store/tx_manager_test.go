@@ -684,7 +684,9 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	ethMock.EventuallyAllCalled(t)
 
-	targetLog := fmt.Sprintf("Confirmed tx %v", initialSuccessfulAttempt.Hash.String())
+	targetLog := fmt.Sprintf("Confirmed TX %d: %v",
+		initialSuccessfulAttempt.TxID,
+		initialSuccessfulAttempt.Hash.String())
 	targetLogSeen := false
 	for _, log := range logsToCheckForBalance.All() {
 		if strings.Contains(log.Entry.Message, targetLog) {
