@@ -6,6 +6,8 @@ contract RunLog is Chainlinked {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
   bytes32 private jobId;
+  bytes32 public requestId;
+  bytes32 public response;
 
   constructor(address _link, address _oracle, bytes32 _jobId) public {
     setLinkToken(_link);
@@ -19,9 +21,11 @@ contract RunLog is Chainlinked {
     chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
-  function fulfill(bytes32 _externalId, bytes32 _data)
+  function fulfill(bytes32 _requestId, bytes32 _data)
     public
-    recordChainlinkFulfillment(_externalId)
+    recordChainlinkFulfillment(_requestId)
   {
+    requestId = _requestId;
+    response = _data;
   }
 }
