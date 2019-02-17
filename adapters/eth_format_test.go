@@ -140,3 +140,30 @@ func TestEthUint256_Perform(t *testing.T) {
 		})
 	}
 }
+
+func TestEthBytesRaw_Perform(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		json     string
+		expected string
+	}{
+		{"string", `{"result":"00000000000000000000000000000000000aaaaa"}`, "0x00000000000000000000000000000000000000000000000000000000000aaaaa"},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			past := models.RunResult{
+				Data: cltest.JSONFromString(t, test.json),
+			}
+			adapter := adapters.EthBytesRaw{}
+			result := adapter.Perform(past, nil)
+
+			val, err := result.ResultString()
+			assert.NoError(t, err)
+			assert.NoError(t, result.GetError())
+			assert.Equal(t, test.expected, val)
+		})
+	}
+}

@@ -63,3 +63,27 @@ func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunRes
 
 	return input.WithResult(hexutil.Encode(value))
 }
+
+// EthBytesRaw holds no fields.
+type EthBytesRaw struct{}
+
+// Perform converts the string to the raw bytes equivalent as if it was hex.
+//
+// For example, "000aa"
+// ABI, it would be:
+// "0x00000000000000000000000000000000000000000000000000000000000000aa"
+func (*EthBytesRaw) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+	result := input.Result()
+	h, err := hexutil.Decode(utils.AddHexPrefix(result.String()))
+	if err != nil {
+		return input.WithError(err)
+	}
+	value := common.LeftPadBytes(h, utils.EVMWordByteLen)
+	hex := hexutil.Encode(value)
+
+	// hex encoded 0x
+	if len(hex) > utils.EVMWordHexLen+2 {
+		hex = hex[:utils.EVMWordHexLen+2]
+	}
+	return input.WithResult(hex)
+}
