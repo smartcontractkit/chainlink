@@ -37,12 +37,18 @@ func TestHttpGet_Perform(t *testing.T) {
 		want        string
 		wantErrored bool
 		response    string
+		headers     http.Header
 	}{
-		{"success", 200, "results!", false, `results!`},
-		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`},
-		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`},
-		{"not found", 400, "inputValue", true, `<html>so bad</html>`},
-		{"server error", 400, "inputValue", true, `Invalid request`},
+		{"success", 200, "results!", false, `results!`, nil},
+		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil},
+		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil},
+		{"success with headers", 200, "results!", false, `results!`,
+			http.Header{
+				"Key1": []string{"value"},
+				"Key2": []string{"value", "value"},
+			}},
+		{"not found", 400, "inputValue", true, `<html>so bad</html>`, nil},
+		{"server error", 400, "inputValue", true, `Invalid request`, nil},
 	}
 
 	for _, tt := range cases {
@@ -51,10 +57,15 @@ func TestHttpGet_Perform(t *testing.T) {
 			t.Parallel()
 			input := cltest.RunResultWithResult("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
-				func(_ http.Header, body string) { assert.Equal(t, ``, body) })
+				func(header http.Header, body string) {
+					assert.Equal(t, ``, body)
+					for key, values := range test.headers {
+						assert.Equal(t, values, header[key])
+					}
+				})
 			defer cleanup()
 
-			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL)}
+			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL), Headers: test.headers}
 			result := hga.Perform(input, nil)
 
 			val, err := result.ResultString()
@@ -73,12 +84,18 @@ func TestHttpPost_Perform(t *testing.T) {
 		want        string
 		wantErrored bool
 		response    string
+		headers     http.Header
 	}{
-		{"success", 200, "results!", false, `results!`},
-		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`},
-		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`},
-		{"not found", 400, "inputVal", true, `<html>so bad</html>`},
-		{"server error", 500, "inputVal", true, `big error`},
+		{"success", 200, "results!", false, `results!`, nil},
+		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil},
+		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil},
+		{"success with headers", 200, "results!", false, `results!`,
+			http.Header{
+				"Key1": []string{"value"},
+				"Key2": []string{"value", "value"},
+			}},
+		{"not found", 400, "inputVal", true, `<html>so bad</html>`, nil},
+		{"server error", 500, "inputVal", true, `big error`, nil},
 	}
 
 	for _, tt := range cases {
@@ -88,10 +105,15 @@ func TestHttpPost_Perform(t *testing.T) {
 			input := cltest.RunResultWithResult("inputVal")
 			wantedBody := `{"result":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
-				func(_ http.Header, body string) { assert.Equal(t, wantedBody, body) })
+				func(header http.Header, body string) {
+					assert.Equal(t, wantedBody, body)
+					for key, values := range test.headers {
+						assert.Equal(t, values, header[key])
+					}
+				})
 			defer cleanup()
 
-			hpa := adapters.HTTPPost{URL: cltest.WebURL(mock.URL)}
+			hpa := adapters.HTTPPost{URL: cltest.WebURL(mock.URL), Headers: test.headers}
 			result := hpa.Perform(input, nil)
 
 			val := result.Result()

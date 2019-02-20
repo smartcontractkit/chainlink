@@ -14,6 +14,7 @@ import (
 type HTTPGet struct {
 	URL models.WebURL `json:"url"`
 	GET models.WebURL `json:"get"`
+	Headers http.Header `json:"headers"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -23,7 +24,15 @@ func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
-	response, err := client.Get(hga.GetURL())
+	request, err := http.NewRequest("GET", hga.GetURL(), nil)
+	if err != nil {
+		input.SetError(err)
+		return input
+	}
+	if hga.Headers != nil {
+		request.Header = hga.Headers
+	}
+	response, err := client.Do(request)
 	if err != nil {
 		input.SetError(err)
 		return input
@@ -59,6 +68,7 @@ func (hga *HTTPGet) GetURL() string {
 type HTTPPost struct {
 	URL  models.WebURL `json:"url"`
 	POST models.WebURL `json:"post"`
+	Headers http.Header `json:"headers"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -69,7 +79,16 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 	}
 	client := &http.Client{Transport: tr}
 	reqBody := bytes.NewBufferString(input.Data.String())
-	response, err := client.Post(hpa.GetURL(), "application/json", reqBody)
+	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
+	if err != nil {
+		input.SetError(err)
+		return input
+	}
+	if hpa.Headers != nil {
+		request.Header = hpa.Headers
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
 	if err != nil {
 		input.SetError(err)
 		return input
