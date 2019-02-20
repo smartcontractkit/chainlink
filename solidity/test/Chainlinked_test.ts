@@ -1,9 +1,9 @@
 import { checkPublicABI } from './support/helpers'
 
 contract('Chainlinked', () => {
-  const sourcePath = 'Chainlinked.sol'
+  const SOURCE_PATH: string = 'Chainlinked.sol'
 
   it('has a limited public interface', () => {
-    checkPublicABI(artifacts.require(sourcePath), [])
+    checkPublicABI(artifacts.require(SOURCE_PATH), [])
   })
 })
