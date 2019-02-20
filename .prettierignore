@@ -1,0 +1,5 @@
+coverage
+.storybook
+gui/dist
+internal
+vendor

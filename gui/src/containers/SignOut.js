@@ -5,7 +5,9 @@ import { connect } from 'react-redux'
 import { useHooks, useEffect } from 'use-react-hooks'
 
 export const SignOut = useHooks(props => {
-  useEffect(() => { props.receiveSignoutSuccess() }, [])
+  useEffect(() => {
+    props.receiveSignoutSuccess()
+  }, [])
   return <React.Fragment />
 })
 

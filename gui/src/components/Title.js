@@ -12,8 +12,8 @@ const styles = theme => ({
 
 const Title = ({ children, classes, className }) => (
   <Typography
-    variant='h4'
-    color='inherit'
+    variant="h4"
+    color="inherit"
     className={classNames(className, classes.title)}
   >
     {children}

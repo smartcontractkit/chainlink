@@ -24,9 +24,6 @@ describe('selectors - jobs', () => {
     }
     const jobs = recentlyCreatedJobsSelector(state)
 
-    expect(jobs).toEqual([
-      { id: 'jobA' },
-      { id: 'jobB' }
-    ])
+    expect(jobs).toEqual([{ id: 'jobA' }, { id: 'jobB' }])
   })
 })

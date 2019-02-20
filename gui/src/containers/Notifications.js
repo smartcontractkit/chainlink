@@ -10,14 +10,18 @@ export const Notifications = props => {
 
   return (
     <div>
-      {errors.length > 0 &&
+      {errors.length > 0 && (
         <Flash error>
           {errors.map(({ component, props }, i) => {
             if (component) return <p key={i}>{component(props)}</p>
-            return <p key={i}><Unhandled /></p>
+            return (
+              <p key={i}>
+                <Unhandled />
+              </p>
+            )
           })}
         </Flash>
-      }
+      )}
       {successes.length > 0 && (
         <Flash success>
           {successes.map(({ component, props }, i) => (
@@ -34,10 +38,8 @@ const mapStateToProps = state => ({
   successes: state.notifications.successes
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators(
-  { receiveSignoutSuccess },
-  dispatch
-)
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ receiveSignoutSuccess }, dispatch)
 
 export const ConnectedNotifications = connect(
   mapStateToProps,

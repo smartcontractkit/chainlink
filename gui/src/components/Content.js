@@ -8,11 +8,7 @@ const styles = theme => ({
 })
 
 const Content = ({ children, classes }) => {
-  return (
-    <div className={classes.content}>
-      {children}
-    </div>
-  )
+  return <div className={classes.content}>{children}</div>
 }
 
 export default withStyles(styles)(Content)

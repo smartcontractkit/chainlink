@@ -16,14 +16,16 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 const buildInfo = extractBuildInfo()
 
 export const Configuration = useHooks(props => {
-  useEffect(() => { props.fetchConfiguration() }, [])
+  useEffect(() => {
+    props.fetchConfiguration()
+  }, [])
 
   return (
     <Content>
       <Grid container>
         <Grid item sm={12} md={8}>
           <KeyValueList
-            title='Configuration'
+            title="Configuration"
             entries={props.configs}
             error={props.error}
             showHead
@@ -33,20 +35,20 @@ export const Configuration = useHooks(props => {
           <Grid container>
             <Grid item xs={12}>
               <PaddedCard>
-                <Typography variant='h5' color='secondary'>
+                <Typography variant="h5" color="secondary">
                   Version
                 </Typography>
-                <Typography variant='body1' color='textSecondary'>
+                <Typography variant="body1" color="textSecondary">
                   {buildInfo.version}
                 </Typography>
               </PaddedCard>
             </Grid>
             <Grid item xs={12}>
               <PaddedCard>
-                <Typography variant='h5' color='secondary'>
+                <Typography variant="h5" color="secondary">
                   SHA
                 </Typography>
-                <Typography variant='body1' color='textSecondary'>
+                <Typography variant="body1" color="textSecondary">
                   {buildInfo.sha}
                 </Typography>
               </PaddedCard>
@@ -69,7 +71,8 @@ Configuration.propTypes = {
 const mapStateToProps = state => {
   let configError
   if (state.configuration.networkError) {
-    configError = 'There was an error fetching the configuration. Please reload the page.'
+    configError =
+      'There was an error fetching the configuration. Please reload the page.'
   }
 
   return {

@@ -34,7 +34,7 @@ const Form = ({
     <React.Fragment>
       <Prompt
         when={values.json !== '' && submitCount === 0}
-        message='You have not submitted the form, are you sure you want to leave?'
+        message="You have not submitted the form, are you sure you want to leave?"
       />
       <formik.Form noValidate>
         <Grid container>
@@ -44,22 +44,23 @@ const Form = ({
               onChange={handleChange}
               error={errors.json && touched.json}
               helperText={errors.json}
-              autoComplete='off'
+              autoComplete="off"
               fullWidth
-              label='JSON Blob'
+              label="JSON Blob"
               rows={10}
               rowsMax={25}
-              placeholder='Paste JSON'
-              multiline margin='normal'
-              name='json'
-              id='json'
-              variant='outlined'
+              placeholder="Paste JSON"
+              multiline
+              margin="normal"
+              name="json"
+              id="json"
+              variant="outlined"
             />
           </Grid>
           <Grid item xs={12}>
             <Button
-              variant='primary'
-              type='submit'
+              variant="primary"
+              type="submit"
               disabled={isSubmitting}
               className={classes.button}
             >
@@ -78,12 +79,12 @@ Form.propTypes = {
 }
 
 const formikOpts = {
-  mapPropsToValues ({ definition }) {
+  mapPropsToValues({ definition }) {
     const json = JSON.stringify(definition, null, '\t') || ''
     return { json }
   },
 
-  validate (values) {
+  validate(values) {
     const errors = {}
 
     try {
@@ -95,10 +96,12 @@ const formikOpts = {
     return errors
   },
 
-  handleSubmit (values, { props, setSubmitting }) {
+  handleSubmit(values, { props, setSubmitting }) {
     const definition = JSON.parse(values.json)
     props.onSubmit(definition, props.onSuccess, props.onError)
-    setTimeout(() => { setSubmitting(false) }, 1000)
+    setTimeout(() => {
+      setSubmitting(false)
+    }, 1000)
   }
 }
 

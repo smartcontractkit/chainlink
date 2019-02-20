@@ -17,14 +17,14 @@ const SignOut = universal(import('./containers/SignOut'), uniOpts)
 
 class Layout extends React.Component {
   // Remove the server-side injected CSS.
-  componentDidMount () {
+  componentDidMount() {
     const jssStyles = document.getElementById('jss-server-side')
     if (jssStyles && jssStyles.parentNode) {
       jssStyles.parentNode.removeChild(jssStyles)
     }
   }
 
-  render () {
+  render() {
     const { redirectTo } = this.props
 
     return (
@@ -32,8 +32,8 @@ class Layout extends React.Component {
         <CssBaseline />
 
         <Switch>
-          <Route exact path='/signin' component={SignIn} />
-          <PrivateRoute exact path='/signout' component={SignOut} />
+          <Route exact path="/signin" component={SignIn} />
+          <PrivateRoute exact path="/signout" component={SignOut} />
           {redirectTo && <Redirect to={redirectTo} />}
           <Route component={Private} />
           <Route render={() => <Routes />} />
@@ -47,10 +47,7 @@ const mapStateToProps = state => ({
   redirectTo: state.redirect.to
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators(
-  {},
-  dispatch
-)
+const mapDispatchToProps = dispatch => bindActionCreators({}, dispatch)
 
 export const ConnectedLayout = connect(
   mapStateToProps,

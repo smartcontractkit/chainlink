@@ -6,18 +6,15 @@ describe('selectors - jobRuns', () => {
       jobRuns: {
         currentPage: ['runA', 'runB'],
         items: {
-          'runA': { id: 'runA' },
-          'runB': { id: 'runB' },
-          'runC': { id: 'runC' }
+          runA: { id: 'runA' },
+          runB: { id: 'runB' },
+          runC: { id: 'runC' }
         }
       }
     }
     const runs = jobRunsSelector(state)
 
-    expect(runs).toEqual([
-      { id: 'runA' },
-      { id: 'runB' }
-    ])
+    expect(runs).toEqual([{ id: 'runA' }, { id: 'runB' }])
   })
 
   it('returns an empty array when the currentPage is empty', () => {
@@ -25,7 +22,7 @@ describe('selectors - jobRuns', () => {
       jobRuns: {
         currentPage: [],
         items: {
-          'runA': { id: 'runA' }
+          runA: { id: 'runA' }
         }
       }
     }
@@ -39,14 +36,12 @@ describe('selectors - jobRuns', () => {
       jobRuns: {
         currentPage: ['runA', 'runB'],
         items: {
-          'runA': { id: 'runA' }
+          runA: { id: 'runA' }
         }
       }
     }
     const runs = jobRunsSelector(state)
 
-    expect(runs).toEqual([
-      { id: 'runA' }
-    ])
+    expect(runs).toEqual([{ id: 'runA' }])
   })
 })

@@ -24,7 +24,10 @@ describe('connectors/reducers/create', () => {
   describe('RECEIVE_CREATE_SUCCESS', () => {
     it('assigns correct object and sets networkError to false', () => {
       const previousState = { create: { networkError: true } }
-      const action = { type: RECEIVE_CREATE_SUCCESS, response: { successful: 'success message' } }
+      const action = {
+        type: RECEIVE_CREATE_SUCCESS,
+        response: { successful: 'success message' }
+      }
       const state = reducer(previousState, action)
 
       expect(state.create.networkError).toEqual(false)
@@ -32,7 +35,7 @@ describe('connectors/reducers/create', () => {
   })
 
   describe('RECEIVE_CREATE_ERROR', () => {
-    it('does nothing because that\'s handled by global errors', () => {
+    it("does nothing because that's handled by global errors", () => {
       const previousState = { create: {} }
       const error = { errors: [{ detail: 'errored' }] }
       const action = { type: RECEIVE_CREATE_ERROR, error: error }

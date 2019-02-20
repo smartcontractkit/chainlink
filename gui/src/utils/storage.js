@@ -5,7 +5,9 @@ export const get = key => {
   let obj = {}
 
   if (localStorageItem) {
-    try { return JSON.parse(localStorageItem) } catch (e) {}
+    try {
+      return JSON.parse(localStorageItem)
+    } catch (e) {}
   }
 
   return obj

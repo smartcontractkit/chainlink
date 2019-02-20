@@ -1,8 +1,5 @@
 import reducer from 'connectors/redux/reducers'
-import {
-  MATCH_ROUTE,
-  REDIRECT
-} from 'actions'
+import { MATCH_ROUTE, REDIRECT } from 'actions'
 
 describe('connectors/reducers/redirect', () => {
   it('should return the initial state', () => {

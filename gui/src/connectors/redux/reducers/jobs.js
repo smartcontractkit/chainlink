@@ -25,16 +25,18 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        { recentlyCreated: action.data.meta['recentlyCreatedJobs'].data.map(j => j.id) },
+        {
+          recentlyCreated: action.data.meta['recentlyCreatedJobs'].data.map(
+            j => j.id
+          )
+        },
         { items: Object.assign({}, state.items, action.data.specs) }
       )
     }
     case UPSERT_JOB: {
-      return Object.assign(
-        {},
-        state,
-        { items: Object.assign({}, state.items, action.data.specs) }
-      )
+      return Object.assign({}, state, {
+        items: Object.assign({}, state.items, action.data.specs)
+      })
     }
     default:
       return state

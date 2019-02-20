@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Bridges/Show'
 
 const classes = {}
-const mountShow = (props) => (
+const mountShow = props =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>
@@ -15,22 +15,23 @@ const mountShow = (props) => (
       </MemoryRouter>
     </Provider>
   )
-)
 
 describe('containers/Bridges/Show', () => {
   it('renders the details of the bridge spec', async () => {
     expect.assertions(6)
-    const response = { data: {
-      id: 'tallbridge',
-      type: 'bridges',
-      attributes: {
-        name: 'Tall Bridge',
-        url: 'https://localhost.com:712/endpoint',
-        confirmations: 9,
-        incomingToken: 'incomingToken',
-        outgoingToken: 'outgoingToken'
+    const response = {
+      data: {
+        id: 'tallbridge',
+        type: 'bridges',
+        attributes: {
+          name: 'Tall Bridge',
+          url: 'https://localhost.com:712/endpoint',
+          confirmations: 9,
+          incomingToken: 'incomingToken',
+          outgoingToken: 'outgoingToken'
+        }
       }
-    } }
+    }
 
     global.fetch.getOnce(`/v2/bridge_types/tallbridge`, response)
 

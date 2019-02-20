@@ -40,13 +40,17 @@ const renderLatestRuns = (props, state, handleChangePage) => {
     <Card>
       <List jobSpecId={jobSpecId} runs={latestJobRuns} />
       <TablePagination
-        component='div'
+        component="div"
         count={jobRunsCount}
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
         page={state.page - 1}
-        onChangePage={() => { } /* handler required by component, so make it a no-op */}
-        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+        onChangePage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
+        onChangeRowsPerPage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
         ActionsComponent={TableButtonsWithProps}
       />
     </Card>
@@ -63,10 +67,12 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-export const Index = useHooks((props) => {
-  const [ page, setPage ] = useState(FIRST_PAGE)
+export const Index = useHooks(props => {
+  const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
-    const queryPage = props.match ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE : FIRST_PAGE
+    const queryPage = props.match
+      ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
+      : FIRST_PAGE
     setPage(queryPage)
     fetchJobRuns(jobSpecId, queryPage, pageSize)
   }, [])
@@ -79,9 +85,11 @@ export const Index = useHooks((props) => {
   return (
     <Content>
       <Breadcrumb className={classes.breadcrumb}>
-        <BreadcrumbItem href='/'>Dashboard</BreadcrumbItem>
+        <BreadcrumbItem href="/">Dashboard</BreadcrumbItem>
         <BreadcrumbItem>></BreadcrumbItem>
-        <BreadcrumbItem href={`/jobs/${jobSpecId}`}>Job ID: {jobSpecId}</BreadcrumbItem>
+        <BreadcrumbItem href={`/jobs/${jobSpecId}`}>
+          Job ID: {jobSpecId}
+        </BreadcrumbItem>
         <BreadcrumbItem>></BreadcrumbItem>
         <BreadcrumbItem>Runs</BreadcrumbItem>
       </Breadcrumb>
@@ -89,8 +97,7 @@ export const Index = useHooks((props) => {
       {renderDetails(props, { page }, handleChangePage)}
     </Content>
   )
-}
-)
+})
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,

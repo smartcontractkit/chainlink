@@ -38,7 +38,12 @@ const renderJobSpec = ({ job }) => {
   return <KeyValueList entries={Object.entries(info)} titleize />
 }
 
-const renderLatestRuns = ({ job, classes, latestJobRuns, showJobRunsCount }) => (
+const renderLatestRuns = ({
+  job,
+  classes,
+  latestJobRuns,
+  showJobRunsCount
+}) => (
   <React.Fragment>
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
@@ -70,18 +75,17 @@ const renderDetails = props => {
 }
 
 export const Show = useHooks(props => {
-  useEffect(() => { fetchJob(jobSpecId) }, [])
+  useEffect(() => {
+    fetchJob(jobSpecId)
+  }, [])
   const { jobSpecId, job, fetchJob } = props
   return (
     <div>
       <RegionalNav jobSpecId={jobSpecId} job={job} />
-      <Content>
-        {renderDetails(props)}
-      </Content>
+      <Content>{renderDetails(props)}</Content>
     </div>
   )
-}
-)
+})
 
 Show.propTypes = {
   classes: PropTypes.object.isRequired,
@@ -98,7 +102,11 @@ Show.defaultProps = {
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const job = jobSelector(state, jobSpecId)
-  const latestJobRuns = jobRunsByJobIdSelector(state, jobSpecId, ownProps.showJobRunsCount)
+  const latestJobRuns = jobRunsByJobIdSelector(
+    state,
+    jobSpecId,
+    ownProps.showJobRunsCount
+  )
 
   return { jobSpecId, job, latestJobRuns }
 }

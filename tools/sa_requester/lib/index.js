@@ -12,27 +12,24 @@ const FETCH_TIMEOUT = 5000
 const SERVICE_AGREEMENTS_PATH = '/v2/service_agreements'
 const ACCOUNT_BALANCE_PATH = '/v2/user/balances'
 
-function urlWithPath (t, path) {
+function urlWithPath(t, path) {
   const u = new URL(t)
   u.pathname = path
   return u.toString()
 }
 
 class SaRequester extends command.Command {
-  async run () {
+  async run() {
     const { args, flags } = this.parse(SaRequester)
     const agreement = JSON.parse(fs.readFileSync(flags.agreement, 'utf8'))
     const oracleURLs = args.file.split(/\s+/)
     const addresses = await getOracleAddresses(oracleURLs)
 
     createServiceAgreements(agreement, addresses, oracleURLs)
-      .then(signatures =>
-        console.table(
-          ['address', 'signature'],
-          signatures
-        )
+      .then(signatures => console.table(['address', 'signature'], signatures))
+      .catch(e =>
+        console.log('Unable to create SA, got error:\n\n\t%s\n', e.message)
       )
-      .catch(e => console.log('Unable to create SA, got error:\n\n\t%s\n', e.message))
   }
 }
 
@@ -50,18 +47,21 @@ const parseResponse = response => {
     if (contentType === CONTENT_TYPE_JSON) {
       return response.data.data
     } else {
-      throw new Error(`Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`)
+      throw new Error(
+        `Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`
+      )
     }
   }
 
   throw new Error(`Unexpected response: ${response.status}`)
 }
 
-async function getOracleAddresses (oracleURLs) {
+async function getOracleAddresses(oracleURLs) {
   return Promise.all(
     oracleURLs.map(baseURL => {
       const url = urlWithPath(baseURL, ACCOUNT_BALANCE_PATH)
-      return axios.get(url, { timeout: FETCH_TIMEOUT })
+      return axios
+        .get(url, { timeout: FETCH_TIMEOUT })
         .then(parseResponse)
         .then(data => data.id)
         .catch(parseError)
@@ -69,29 +69,32 @@ async function getOracleAddresses (oracleURLs) {
   )
 }
 
-async function createServiceAgreements (baseAgreement, addresses, oracleURLs) {
+async function createServiceAgreements(baseAgreement, addresses, oracleURLs) {
   return Promise.all(
     oracleURLs.map((u, i) => {
       const url = urlWithPath(u, SERVICE_AGREEMENTS_PATH)
-      const serviceAgreementRequest = Object.assign(
-        {},
-        baseAgreement,
-        { oracles: addresses }
-      )
+      const serviceAgreementRequest = Object.assign({}, baseAgreement, {
+        oracles: addresses
+      })
 
-      return axios.post(url, serviceAgreementRequest, { timeout: FETCH_TIMEOUT })
+      return axios
+        .post(url, serviceAgreementRequest, { timeout: FETCH_TIMEOUT })
         .then(parseResponse)
-        .then(data => ([addresses[i], data.attributes.signature]))
+        .then(data => [addresses[i], data.attributes.signature])
         .catch(parseError)
     })
   )
 }
 
-SaRequester.description = 'Collect the signatures for a service agreement from multiple chainlink nodes'
+SaRequester.description =
+  'Collect the signatures for a service agreement from multiple chainlink nodes'
 SaRequester.flags = {
   version: command.flags.version({ char: 'v' }),
   help: command.flags.help({ char: 'h' }),
-  agreement: command.flags.string({ char: 'a', description: 'Location of agreement' })
+  agreement: command.flags.string({
+    char: 'a',
+    description: 'Location of agreement'
+  })
 }
 SaRequester.args = [{ name: 'file' }]
 

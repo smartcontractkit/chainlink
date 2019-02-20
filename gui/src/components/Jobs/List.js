@@ -18,7 +18,7 @@ const renderBody = (jobs, error) => {
   if (error) {
     return (
       <TableRow>
-        <TableCell component='th' scope='row' colSpan={3}>
+        <TableCell component="th" scope="row" colSpan={3}>
           {error}
         </TableCell>
       </TableRow>
@@ -26,24 +26,25 @@ const renderBody = (jobs, error) => {
   } else if (jobs && jobs.length === 0) {
     return (
       <TableRow>
-        <TableCell component='th' scope='row' colSpan={3}>
-          You haven't created any jobs yet. Create a new job <Link to={`/jobs/new`}>here</Link>
+        <TableCell component="th" scope="row" colSpan={3}>
+          You haven't created any jobs yet. Create a new job{' '}
+          <Link to={`/jobs/new`}>here</Link>
         </TableCell>
       </TableRow>
     )
   } else if (jobs) {
     return jobs.map(j => (
       <TableRow key={j.id}>
-        <TableCell component='th' scope='row'>
+        <TableCell component="th" scope="row">
           <Link to={`/jobs/${j.id}`}>{j.id}</Link>
         </TableCell>
         <TableCell>
-          <Typography variant='body1'>
+          <Typography variant="body1">
             <TimeAgo>{j.createdAt}</TimeAgo>
           </Typography>
         </TableCell>
         <TableCell>
-          <Typography variant='body1'>
+          <Typography variant="body1">
             {formatInitiators(j.initiators)}
           </Typography>
         </TableCell>
@@ -53,7 +54,7 @@ const renderBody = (jobs, error) => {
 
   return (
     <TableRow>
-      <TableCell component='th' scope='row' colSpan={3}>
+      <TableCell component="th" scope="row" colSpan={3}>
         Loading...
       </TableCell>
     </TableRow>
@@ -61,9 +62,10 @@ const renderBody = (jobs, error) => {
 }
 
 export const List = useHooks(props => {
-  const [ page, setPage ] = useState(FIRST_PAGE)
+  const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
-    const queryPage = (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
+    const queryPage =
+      (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
     setPage(queryPage)
     fetchJobs(queryPage, pageSize)
   }, [])
@@ -89,34 +91,41 @@ export const List = useHooks(props => {
         <TableHead>
           <TableRow>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>ID</Typography>
+              <Typography variant="body1" color="textSecondary">
+                ID
+              </Typography>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>Created</Typography>
+              <Typography variant="body1" color="textSecondary">
+                Created
+              </Typography>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>Initiator</Typography>
+              <Typography variant="body1" color="textSecondary">
+                Initiator
+              </Typography>
             </TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>
-          {renderBody(jobs, error)}
-        </TableBody>
+        <TableBody>{renderBody(jobs, error)}</TableBody>
       </Table>
       <TablePagination
-        component='div'
+        component="div"
         count={jobCount}
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
         page={page - 1}
-        onChangePage={() => { } /* handler required by component, so make it a no-op */}
-        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+        onChangePage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
+        onChangeRowsPerPage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
         ActionsComponent={TableButtonsWithProps}
       />
     </Card>
   )
-}
-)
+})
 
 List.propTypes = {
   jobs: PropTypes.array,

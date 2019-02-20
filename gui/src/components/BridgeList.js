@@ -14,38 +14,37 @@ import { useHooks, useState, useEffect } from 'use-react-hooks'
 
 const renderFetching = () => (
   <TableRow>
-    <TableCell component='th' scope='row' colSpan={4}>...</TableCell>
+    <TableCell component="th" scope="row" colSpan={4}>
+      ...
+    </TableCell>
   </TableRow>
 )
 
 const renderError = error => (
   <TableRow>
-    <TableCell component='th' scope='row' colSpan={4}>
+    <TableCell component="th" scope="row" colSpan={4}>
       {error}
     </TableCell>
   </TableRow>
 )
 
-const renderBridges = bridges => (
+const renderBridges = bridges =>
   bridges.map(bridge => (
     <TableRow key={bridge.name}>
-      <TableCell scope='row' component='th'>
-        <Link to={`/bridges/${bridge.name}`}>
-          {bridge.name}
-        </Link>
+      <TableCell scope="row" component="th">
+        <Link to={`/bridges/${bridge.name}`}>{bridge.name}</Link>
       </TableCell>
       <TableCell>
-        <Typography variant='body1'>{bridge.url}</Typography>
+        <Typography variant="body1">{bridge.url}</Typography>
       </TableCell>
       <TableCell>
-        <Typography variant='body1'>{bridge.confirmations}</Typography>
+        <Typography variant="body1">{bridge.confirmations}</Typography>
       </TableCell>
       <TableCell>
-        <Typography variant='body1'>{bridge.minimumContractPayment}</Typography>
+        <Typography variant="body1">{bridge.minimumContractPayment}</Typography>
       </TableCell>
     </TableRow>
   ))
-)
 
 const renderBody = (bridges, fetching, error) => {
   if (fetching) {
@@ -60,12 +59,20 @@ const renderBody = (bridges, fetching, error) => {
 export const BridgeList = useHooks(props => {
   const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
-    const queryPage = (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
+    const queryPage =
+      (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
     setPage(queryPage)
     fetchBridges(queryPage, pageSize)
   }, [])
 
-  const { bridges, bridgeCount, fetchBridges, pageSize, fetching, error } = props
+  const {
+    bridges,
+    bridgeCount,
+    fetchBridges,
+    pageSize,
+    fetching,
+    error
+  } = props
   const TableButtonsWithProps = () => (
     <TableButtons
       {...props}
@@ -87,45 +94,46 @@ export const BridgeList = useHooks(props => {
         <TableHead>
           <TableRow>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>
+              <Typography variant="body1" color="textSecondary">
                 Name
               </Typography>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>
+              <Typography variant="body1" color="textSecondary">
                 URL
               </Typography>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>
+              <Typography variant="body1" color="textSecondary">
                 Default Confirmations
               </Typography>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>
+              <Typography variant="body1" color="textSecondary">
                 Minimum Contract Payment
               </Typography>
             </TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>
-          {renderBody(bridges, fetching, error)}
-        </TableBody>
+        <TableBody>{renderBody(bridges, fetching, error)}</TableBody>
       </Table>
       <TablePagination
-        component='div'
+        component="div"
         count={bridgeCount}
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
         page={page - 1}
-        onChangePage={() => { } /* handler required by component, so make it a no-op */}
-        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+        onChangePage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
+        onChangeRowsPerPage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
         ActionsComponent={TableButtonsWithProps}
       />
     </Card>
   )
-}
-)
+})
 
 BridgeList.propTypes = {
   bridges: PropTypes.array.isRequired,

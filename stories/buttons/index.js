@@ -11,19 +11,22 @@ storiesOf('Buttons', module)
   .addDecorator(muiTheme([customTheme]))
   .add('Contained', () => (
     <React.Fragment>
-      <Button variant='contained'>Default Button</Button>
-      <Button variant='contained' color='primary'>Primary Button</Button>
-      <Button variant='contained' color='secondary'>Secondary</Button>
-      <Button variant='contained' color='secondary' disabled>Disabled</Button>
-      <Button variant='contained' href='#contained-buttons'>Link</Button>
-      <input
-        accept='image/*'
-        id='contained-button-file'
-        multiple
-        type='file'
-      />
-      <label htmlFor='contained-button-file'>
-        <Button variant='contained' component='span'>
+      <Button variant="contained">Default Button</Button>
+      <Button variant="contained" color="primary">
+        Primary Button
+      </Button>
+      <Button variant="contained" color="secondary">
+        Secondary
+      </Button>
+      <Button variant="contained" color="secondary" disabled>
+        Disabled
+      </Button>
+      <Button variant="contained" href="#contained-buttons">
+        Link
+      </Button>
+      <input accept="image/*" id="contained-button-file" multiple type="file" />
+      <label htmlFor="contained-button-file">
+        <Button variant="contained" component="span">
           Upload
         </Button>
       </label>
@@ -31,19 +34,22 @@ storiesOf('Buttons', module)
   ))
   .add('Outlined', () => (
     <React.Fragment>
-      <Button variant='outlined'>Default Button</Button>
-      <Button variant='outlined' color='primary'>Primary Button</Button>
-      <Button variant='outlined' color='secondary'>Secondary</Button>
-      <Button variant='outlined' color='secondary' disabled>Disabled</Button>
-      <Button variant='outlined' href='#outlined-buttons'>Link</Button>
-      <input
-        accept='image/*'
-        id='outlined-button-file'
-        multiple
-        type='file'
-      />
-      <label htmlFor='outlined-button-file'>
-        <Button variant='outlined' component='span'>
+      <Button variant="outlined">Default Button</Button>
+      <Button variant="outlined" color="primary">
+        Primary Button
+      </Button>
+      <Button variant="outlined" color="secondary">
+        Secondary
+      </Button>
+      <Button variant="outlined" color="secondary" disabled>
+        Disabled
+      </Button>
+      <Button variant="outlined" href="#outlined-buttons">
+        Link
+      </Button>
+      <input accept="image/*" id="outlined-button-file" multiple type="file" />
+      <label htmlFor="outlined-button-file">
+        <Button variant="outlined" component="span">
           Upload
         </Button>
       </label>

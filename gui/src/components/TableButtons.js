@@ -26,16 +26,32 @@ const TableButtons = props => {
 
   return (
     <div className={props.classes.customButtons}>
-      <IconButton onClick={handlePage(firstPage)} disabled={currentPage <= firstPage} aria-label='First Page'>
+      <IconButton
+        onClick={handlePage(firstPage)}
+        disabled={currentPage <= firstPage}
+        aria-label="First Page"
+      >
         <FirstPageIcon />
       </IconButton>
-      <IconButton onClick={handlePage(currentPage - 1)} disabled={currentPage <= firstPage} aria-label='Previous Page'>
+      <IconButton
+        onClick={handlePage(currentPage - 1)}
+        disabled={currentPage <= firstPage}
+        aria-label="Previous Page"
+      >
         <KeyboardArrowLeft />
       </IconButton>
-      <IconButton onClick={handlePage(currentPage + 1)} disabled={currentPage >= lastPage} aria-label='Next Page'>
+      <IconButton
+        onClick={handlePage(currentPage + 1)}
+        disabled={currentPage >= lastPage}
+        aria-label="Next Page"
+      >
         <KeyboardArrowRight />
       </IconButton>
-      <IconButton onClick={handlePage(lastPage)} disabled={currentPage >= lastPage} aria-label='Last Page'>
+      <IconButton
+        onClick={handlePage(lastPage)}
+        disabled={currentPage >= lastPage}
+        aria-label="Last Page"
+      >
         <LastPageIcon />
       </IconButton>
     </div>

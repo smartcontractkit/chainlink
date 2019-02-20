@@ -13,10 +13,7 @@ describe('selectors - bridges', () => {
       }
     }
 
-    expect(bridgesSelector(state, 'a')).toEqual([
-      { name: 'C' },
-      { name: 'A' }
-    ])
+    expect(bridgesSelector(state, 'a')).toEqual([{ name: 'C' }, { name: 'A' }])
   })
 
   it('does not return items that cannot be found', () => {

@@ -6,11 +6,8 @@ import mountWithTheme from 'test-helpers/mountWithTheme'
 import Index from 'containers/Dashboards/Index'
 
 const classes = {}
-const mountIndex = (opts = {}) => (
-  mountWithTheme(
-    <Index classes={classes} pageSize={opts.pageSize} />
-  )
-)
+const mountIndex = (opts = {}) =>
+  mountWithTheme(<Index classes={classes} pageSize={opts.pageSize} />)
 
 describe('containers/Dashboards/Index', () => {
   it('renders the recent activity, account balances & recently created jobs', async () => {
@@ -23,7 +20,7 @@ describe('containers/Dashboards/Index', () => {
           type: 'runs',
           attributes: {
             id: 'runA',
-            createdAt: (new Date()).toISOString(),
+            createdAt: new Date().toISOString(),
             status: 'completed'
           }
         },
@@ -32,7 +29,7 @@ describe('containers/Dashboards/Index', () => {
           type: 'runs',
           attributes: {
             id: 'runB',
-            createdAt: (new Date()).toISOString(),
+            createdAt: new Date().toISOString(),
             status: 'completed'
           }
         }
@@ -47,7 +44,7 @@ describe('containers/Dashboards/Index', () => {
           type: 'specs',
           attributes: {
             id: 'job_b',
-            createdAt: (new Date()).toISOString()
+            createdAt: new Date().toISOString()
           }
         },
         {
@@ -55,12 +52,15 @@ describe('containers/Dashboards/Index', () => {
           type: 'specs',
           attributes: {
             id: 'job_a',
-            createdAt: (new Date()).toISOString()
+            createdAt: new Date().toISOString()
           }
         }
       ]
     }
-    global.fetch.getOnce('/v2/specs?size=2&sort=-createdAt', recentlyCreatedJobsResponse)
+    global.fetch.getOnce(
+      '/v2/specs?size=2&sort=-createdAt',
+      recentlyCreatedJobsResponse
+    )
 
     const accountBalanceResponse = accountBalanceFactory(
       '10123456000000000000000',

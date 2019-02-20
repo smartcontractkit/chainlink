@@ -9,7 +9,7 @@ import { Provider } from 'react-redux'
 import { ConnectedConfiguration as Configuration } from 'containers/Configuration'
 
 const classes = {}
-const mountConfiguration = (props) => (
+const mountConfiguration = props =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>
@@ -17,7 +17,6 @@ const mountConfiguration = (props) => (
       </MemoryRouter>
     </Provider>
   )
-)
 
 describe('containers/Configuration', () => {
   it('renders the list of configuration options', async () => {
@@ -41,7 +40,9 @@ describe('containers/Configuration', () => {
   it('displays an error message when the network requests fail', async () => {
     expect.assertions(1)
 
-    global.fetch.catch(() => { throw new TypeError('Failed to fetch') })
+    global.fetch.catch(() => {
+      throw new TypeError('Failed to fetch')
+    })
 
     const wrapper = mountConfiguration()
 

@@ -49,7 +49,9 @@ describe('connectors/reducers/notifications', () => {
     const state = reducer(undefined, action)
 
     expect(state.notifications).toEqual({
-      errors: [{ detail: 'Your email or password is incorrect. Please try again' }],
+      errors: [
+        { detail: 'Your email or password is incorrect. Please try again' }
+      ],
       successes: [],
       currentUrl: null
     })
