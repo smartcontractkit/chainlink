@@ -39,7 +39,70 @@ func TestIntegration_Scheduler(t *testing.T) {
 	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
-func TestIntegration_HelloWorld(t *testing.T) {
+func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
+	tickerHeaders := http.Header{
+		"Key1": []string{"value"},
+		"Key2": []string{"value", "value"},
+	}
+	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse,
+		func (header http.Header, _ string) {
+			for key, values := range tickerHeaders {
+				assert.Equal(t, values, header[key])
+			}
+		})
+	defer assertCalled()
+
+	app, cleanup := cltest.NewApplicationWithKey()
+	defer cleanup()
+	config := app.Config
+	eth := app.MockEthClient(cltest.Strict)
+
+	newHeads := make(chan models.BlockHeader)
+	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+	sentAt := uint64(23456)
+	confirmed := sentAt + config.EthGasBumpThreshold() + 1
+	safe := confirmed + config.MinOutgoingConfirmations() - 1
+	unconfirmedReceipt := store.TxReceipt{}
+	confirmedReceipt := store.TxReceipt{
+		Hash:        attempt1Hash,
+		BlockNumber: cltest.Int(confirmed),
+	}
+
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("newHeads", newHeads)
+		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
+	})
+	assert.NoError(t, app.Start())
+	eth.EventuallyAllCalled(t)
+
+	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+	})
+	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
+	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	eth.EventuallyAllCalled(t)
+	cltest.WaitForTxAttemptCount(t, app.Store, 1)
+
+	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_getBalance", "0x0100")
+		eth.Register("eth_call", "0x0100")
+	})
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
+	eth.EventuallyAllCalled(t)
+	cltest.WaitForTxAttemptCount(t, app.Store, 1)
+
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+
+	eth.EventuallyAllCalled(t)
+}
+
+func TestIntegration_FeeBump(t *testing.T) {
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
