@@ -8,18 +8,26 @@ import Notifications from 'containers/Notifications'
 const classes = {}
 const mockStore = configureStore()
 
-const mountNotifications = (store) => mount(
-  <Provider store={store}>
-    <MemoryRouter>
-      <Notifications classes={classes} />
-    </MemoryRouter>
-  </Provider>
-)
+const mountNotifications = store =>
+  mount(
+    <Provider store={store}>
+      <MemoryRouter>
+        <Notifications classes={classes} />
+      </MemoryRouter>
+    </Provider>
+  )
 
 describe('containers/Notifications', () => {
   it('renders success and error components', () => {
-    const successes = [{ component: ({ msg }) => <span>Success {msg}</span>, props: { msg: '1' } }]
-    const errors = [{ component: ({ msg }) => <span>Error {msg}</span>, props: { msg: '2' } }]
+    const successes = [
+      {
+        component: ({ msg }) => <span>Success {msg}</span>,
+        props: { msg: '1' }
+      }
+    ]
+    const errors = [
+      { component: ({ msg }) => <span>Error {msg}</span>, props: { msg: '2' } }
+    ]
     const state = {
       notifications: {
         successes: successes,
@@ -45,6 +53,8 @@ describe('containers/Notifications', () => {
     const store = mockStore(state)
     let wrapper = mountNotifications(store)
 
-    expect(wrapper.text()).toContain('Unhandled error. Please help us by opening a bug report')
+    expect(wrapper.text()).toContain(
+      'Unhandled error. Please help us by opening a bug report'
+    )
   })
 })

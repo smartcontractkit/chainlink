@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 
 const classes = {}
-const mountIndex = (props) => (
+const mountIndex = props =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>
@@ -20,7 +20,6 @@ const mountIndex = (props) => (
       </MemoryRouter>
     </Provider>
   )
-)
 
 describe('containers/JobRuns/Index', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
@@ -28,9 +27,14 @@ describe('containers/JobRuns/Index', () => {
   it('renders the runs for the job spec', async () => {
     expect.assertions(4)
 
-    const runsResponse = jsonApiJobSpecRunFactory([{
-      jobId: jobSpecId
-    }], jobSpecId)
+    const runsResponse = jsonApiJobSpecRunFactory(
+      [
+        {
+          jobId: jobSpecId
+        }
+      ],
+      jobSpecId
+    )
     global.fetch.getOnce(
       `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=10`,
       runsResponse

@@ -23,28 +23,37 @@ const styles = theme => ({
   }
 })
 
-const isDirty = ({ values, name, url, minimumContractPayment, confirmations, submitCount }) => {
+const isDirty = ({
+  values,
+  name,
+  url,
+  minimumContractPayment,
+  confirmations,
+  submitCount
+}) => {
   return (
-    values.name !== name ||
-    values.url !== url ||
-    values.minimumContractPayment.toString() !== minimumContractPayment.toString() ||
-    values.confirmations !== confirmations
-  ) && submitCount === 0
+    (values.name !== name ||
+      values.url !== url ||
+      values.minimumContractPayment.toString() !==
+        minimumContractPayment.toString() ||
+      values.confirmations !== confirmations) &&
+    submitCount === 0
+  )
 }
 
 const Form = props => (
   <React.Fragment>
     <Prompt
       when={isDirty(props)}
-      message='You have not submitted the form, are you sure you want to leave?'
+      message="You have not submitted the form, are you sure you want to leave?"
     />
     <formik.Form noValidate>
       <Grid container spacing={8}>
         <Grid item xs={12} md={7}>
           <TextField
-            label='Bridge Name'
-            name='name'
-            placeholder='name'
+            label="Bridge Name"
+            name="name"
+            placeholder="name"
             value={props.values.name}
             disabled={props.nameDisabled}
             onChange={props.handleChange}
@@ -54,9 +63,9 @@ const Form = props => (
         </Grid>
         <Grid item xs={12} md={7}>
           <TextField
-            label='Bridge URL'
-            name='url'
-            placeholder='https://'
+            label="Bridge URL"
+            name="url"
+            placeholder="https://"
             value={props.values.url}
             onChange={props.handleChange}
             className={props.classes.textfield}
@@ -67,11 +76,11 @@ const Form = props => (
           <Grid container spacing={8}>
             <Grid item xs={7}>
               <TextField
-                label='Minimum Contract Payment'
-                name='minimumContractPayment'
-                placeholder='0'
+                label="Minimum Contract Payment"
+                name="minimumContractPayment"
+                placeholder="0"
                 value={props.values.minimumContractPayment}
-                type='number'
+                type="number"
                 inputProps={{ min: 0 }}
                 onChange={props.handleChange}
                 className={props.classes.textfield}
@@ -80,11 +89,11 @@ const Form = props => (
             </Grid>
             <Grid item xs={7}>
               <TextField
-                label='Confirmations'
-                name='confirmations'
-                placeholder='0'
+                label="Confirmations"
+                name="confirmations"
+                placeholder="0"
                 value={props.values.confirmations}
-                type='number'
+                type="number"
                 inputProps={{ min: 0 }}
                 onChange={props.handleChange}
                 className={props.classes.textfield}
@@ -95,8 +104,8 @@ const Form = props => (
         </Grid>
         <Grid item xs={12} md={7}>
           <Button
-            variant='primary'
-            type='submit'
+            variant="primary"
+            type="submit"
             className={props.classes.button}
             disabled={props.isSubmitting}
           >
@@ -125,7 +134,7 @@ Form.propTypes = {
 }
 
 const formikOpts = {
-  mapPropsToValues ({ name, url, minimumContractPayment, confirmations }) {
+  mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
     return {
       name: name || '',
       url: url || '',
@@ -134,9 +143,11 @@ const formikOpts = {
     }
   },
 
-  handleSubmit (values, { props, setSubmitting }) {
+  handleSubmit(values, { props, setSubmitting }) {
     props.onSubmit(values, props.onSuccess, props.onError)
-    setTimeout(() => { setSubmitting(false) }, 1000)
+    setTimeout(() => {
+      setSubmitting(false)
+    }, 1000)
   }
 }
 

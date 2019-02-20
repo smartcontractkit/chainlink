@@ -17,7 +17,7 @@ const styles = theme => ({
 const SimpleListItem = ({ children, classes }) => {
   return (
     <TableRow>
-      <TableCell scope='row' className={classes.cell}>
+      <TableCell scope="row" className={classes.cell}>
         {children}
       </TableCell>
     </TableRow>

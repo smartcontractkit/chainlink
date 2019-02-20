@@ -38,8 +38,8 @@ describe('connectors/reducers/jobRuns', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'a': { id: 'a' },
-      'b': { id: 'b' }
+      a: { id: 'a' },
+      b: { id: 'b' }
     })
     expect(state.jobRuns.currentPage).toEqual(['b', 'a'])
     expect(state.jobRuns.currentJobRunsCount).toEqual(10)
@@ -58,7 +58,7 @@ describe('connectors/reducers/jobRuns', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'a': { id: 'a' }
+      a: { id: 'a' }
     })
   })
 
@@ -74,7 +74,7 @@ describe('connectors/reducers/jobRuns', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'a': { id: 'a' }
+      a: { id: 'a' }
     })
   })
 
@@ -90,7 +90,7 @@ describe('connectors/reducers/jobRuns', () => {
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      'b': { id: 'b' }
+      b: { id: 'b' }
     })
   })
 })

@@ -11,7 +11,7 @@ import { Provider } from 'react-redux'
 import { ConnectedIndex as Index } from 'containers/Jobs/Index'
 
 const classes = {}
-const mountIndex = (opts = {}) => (
+const mountIndex = (opts = {}) =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>
@@ -19,17 +19,18 @@ const mountIndex = (opts = {}) => (
       </MemoryRouter>
     </Provider>
   )
-)
 
 describe('containers/Jobs/Index', () => {
   it('renders the list of jobs', async () => {
     expect.assertions(3)
 
-    const jobSpecsResponse = jsonApiJobSpecsFactory([{
-      id: 'c60b9927eeae43168ddbe92584937b1b',
-      initiators: [{ 'type': 'web' }],
-      createdAt: (new Date()).toISOString()
-    }])
+    const jobSpecsResponse = jsonApiJobSpecsFactory([
+      {
+        id: 'c60b9927eeae43168ddbe92584937b1b',
+        initiators: [{ type: 'web' }],
+        createdAt: new Date().toISOString()
+      }
+    ])
     global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
 
     const wrapper = mountIndex()
@@ -43,7 +44,10 @@ describe('containers/Jobs/Index', () => {
   it('can page through the list of jobs', async () => {
     expect.assertions(6)
 
-    const pageOneResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-FIRST-PAGE' }], 2)
+    const pageOneResponse = jsonApiJobSpecsFactory(
+      [{ id: 'ID-ON-FIRST-PAGE' }],
+      2
+    )
     global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
 
     const wrapper = mountIndex({ pageSize: 1 })
@@ -52,7 +56,10 @@ describe('containers/Jobs/Index', () => {
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
-    const pageTwoResponse = jsonApiJobSpecsFactory([{ id: 'ID-ON-SECOND-PAGE' }], 2)
+    const pageTwoResponse = jsonApiJobSpecsFactory(
+      [{ id: 'ID-ON-SECOND-PAGE' }],
+      2
+    )
     global.fetch.getOnce('/v2/specs?page=2&size=1', pageTwoResponse)
     clickNextPage(wrapper)
 

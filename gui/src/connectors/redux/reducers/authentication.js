@@ -25,48 +25,29 @@ export default (state = initialState, action = {}) => {
   switch (action.type) {
     case REQUEST_SIGNOUT:
     case REQUEST_SIGNIN:
-      return Object.assign(
-        {},
-        state,
-        { networkError: false }
-      )
+      return Object.assign({}, state, { networkError: false })
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SIGNIN_SUCCESS: {
       const allowed = { allowed: action.authenticated }
       authenticationStorage.set(allowed)
-      return Object.assign(
-        {},
-        state,
-        allowed,
-        {
-          errors: action.errors || [],
-          networkError: false
-        }
-      )
+      return Object.assign({}, state, allowed, {
+        errors: action.errors || [],
+        networkError: false
+      })
     }
     case RECEIVE_SIGNIN_FAIL: {
       const allowed = { allowed: false }
       authenticationStorage.set(allowed)
-      return Object.assign(
-        {},
-        state,
-        allowed,
-        { errors: [] }
-      )
+      return Object.assign({}, state, allowed, { errors: [] })
     }
     case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR: {
       const allowed = { allowed: false }
       authenticationStorage.set(allowed)
-      return Object.assign(
-        {},
-        state,
-        allowed,
-        {
-          errors: action.errors || [],
-          networkError: action.networkError
-        }
-      )
+      return Object.assign({}, state, allowed, {
+        errors: action.errors || [],
+        networkError: action.networkError
+      })
     }
     default:
       return state

@@ -25,11 +25,9 @@ const LoadingBar = ({ classes, fetchCount }) => {
 
   return (
     <div className={classes.root}>
-      {fetchCount > 0 &&
-        <LinearProgress
-          variant='indeterminate'
-          classes={progressClasses}
-        />}
+      {fetchCount > 0 && (
+        <LinearProgress variant="indeterminate" classes={progressClasses} />
+      )}
     </div>
   )
 }

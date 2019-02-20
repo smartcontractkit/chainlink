@@ -3,9 +3,8 @@ import { Route, Redirect } from 'react-router-dom'
 import { connect } from 'react-redux'
 
 export class PrivateRoute extends Route {
-  render = props => (
-    this.props.authenticated ? super.render(props) : <Redirect to='/signin' />
-  )
+  render = props =>
+    this.props.authenticated ? super.render(props) : <Redirect to="/signin" />
 }
 
 const mapStateToProps = state => {

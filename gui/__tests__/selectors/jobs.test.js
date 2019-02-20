@@ -13,10 +13,7 @@ describe('selectors - jobs', () => {
     }
     const jobs = jobsSelector(state)
 
-    expect(jobs).toEqual([
-      { id: 'jobA' },
-      { id: 'jobB' }
-    ])
+    expect(jobs).toEqual([{ id: 'jobA' }, { id: 'jobB' }])
   })
 
   it('excludes job items that are not present', () => {
@@ -30,8 +27,6 @@ describe('selectors - jobs', () => {
     }
     const jobs = jobsSelector(state)
 
-    expect(jobs).toEqual([
-      { id: 'jobA' }
-    ])
+    expect(jobs).toEqual([{ id: 'jobA' }])
   })
 })

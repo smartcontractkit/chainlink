@@ -9,7 +9,7 @@ import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
 const classes = {}
-const mountShow = (props) => (
+const mountShow = props =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>
@@ -17,7 +17,6 @@ const mountShow = (props) => (
       </MemoryRouter>
     </Provider>
   )
-)
 
 describe('containers/Jobs/Show', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
@@ -28,7 +27,7 @@ describe('containers/Jobs/Show', () => {
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
       id: jobSpecId,
-      initiators: [{ 'type': 'web' }],
+      initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
       runs: [{ id: 'runA', result: { data: { value: '8400.00' } } }]
     })

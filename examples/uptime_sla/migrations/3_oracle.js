@@ -1,6 +1,6 @@
-let LINK = artifacts.require("LinkToken");
-let Oracle = artifacts.require("Oracle");
+let LINK = artifacts.require('LinkToken')
+let Oracle = artifacts.require('Oracle')
 
 module.exports = function(deployer) {
-  deployer.deploy(Oracle, LINK.address);
-};
+  deployer.deploy(Oracle, LINK.address)
+}

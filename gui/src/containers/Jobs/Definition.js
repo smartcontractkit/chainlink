@@ -33,7 +33,7 @@ const renderDetails = ({ job, classes }) => {
     return (
       <Grid container spacing={0}>
         <Grid item xs={12}>
-          <Typography variant='h5' className={classes.definitionTitle}>
+          <Typography variant="h5" className={classes.definitionTitle}>
             Definition
           </Typography>
         </Grid>
@@ -50,22 +50,23 @@ const renderDetails = ({ job, classes }) => {
   return <React.Fragment>Fetching ...</React.Fragment>
 }
 
-const Definition = useHooks((props) => {
-  useEffect(() => { props.fetchJob(props.jobSpecId) }, [])
+const Definition = useHooks(props => {
+  useEffect(() => {
+    props.fetchJob(props.jobSpecId)
+  }, [])
   const { jobSpecId, job } = props
 
-  return <div>
-    <RegionalNav jobSpecId={jobSpecId} job={job} />
-    <Content>
-      <Card>
-        <CardContent>
-          {renderDetails(props)}
-        </CardContent>
-      </Card>
-    </Content>
-  </div>
-}
-)
+  return (
+    <div>
+      <RegionalNav jobSpecId={jobSpecId} job={job} />
+      <Content>
+        <Card>
+          <CardContent>{renderDetails(props)}</CardContent>
+        </Card>
+      </Content>
+    </div>
+  )
+})
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId

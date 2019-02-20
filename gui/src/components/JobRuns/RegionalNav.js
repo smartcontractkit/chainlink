@@ -11,7 +11,7 @@ import Link from 'components/Link'
 import { fetchJob, createJobRun } from 'actions'
 
 const styles = theme => {
-  return ({
+  return {
     container: {
       backgroundColor: theme.palette.common.white,
       padding: theme.spacing.unit * 5,
@@ -39,7 +39,7 @@ const styles = theme => {
         borderBottomColor: theme.palette.primary.main
       }
     }
-  })
+  }
 }
 
 const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }) => {
@@ -47,24 +47,30 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }) => {
     <Card className={classes.container}>
       <Grid container spacing={0}>
         <Grid item xs={12}>
-          <Typography variant='h3' color='secondary'>
+          <Typography variant="h3" color="secondary">
             Job Run Detail
           </Typography>
         </Grid>
         <Grid item xs={12}>
-          <Typography variant='subtitle1' color='textSecondary'>
+          <Typography variant="subtitle1" color="textSecondary">
             #{jobRunId}
           </Typography>
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
             <ListItem className={classes.horizontalNavItem}>
-              <Link to={`/jobs/${jobSpecId}/runs/id/${jobRunId}`} className={classes.horizontalNavLink}>
+              <Link
+                to={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}
+                className={classes.horizontalNavLink}
+              >
                 Overview
               </Link>
             </ListItem>
             <ListItem className={classes.horizontalNavItem}>
-              <Link to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`} className={classes.horizontalNavLink}>
+              <Link
+                to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}
+                className={classes.horizontalNavLink}
+              >
                 JSON
               </Link>
             </ListItem>

@@ -12,8 +12,16 @@ import { fetchBridges } from 'actions'
 import Content from 'components/Content'
 import Button from 'components/Button'
 
-export const Index = (props) => {
-  const { bridges, bridgeCount, pageSize, bridgesError, fetchBridges, history, match } = props
+export const Index = props => {
+  const {
+    bridges,
+    bridgeCount,
+    pageSize,
+    bridgesError,
+    fetchBridges,
+    history,
+    match
+  } = props
   return (
     <Content>
       <Grid container spacing={8}>
@@ -21,10 +29,10 @@ export const Index = (props) => {
           <Title>Bridges</Title>
         </Grid>
         <Grid item xs={3}>
-          <Grid container justify='flex-end'>
+          <Grid container justify="flex-end">
             <Grid item>
               <Button
-                variant='secondary'
+                variant="secondary"
                 component={ReactStaticLinkComponent}
                 to={'/bridges/new'}
               >
@@ -65,7 +73,8 @@ Index.defaultProps = {
 const mapStateToProps = state => {
   let bridgesError
   if (state.bridges.networkError) {
-    bridgesError = 'There was an error fetching the bridges. Please reload the page.'
+    bridgesError =
+      'There was an error fetching the bridges. Please reload the page.'
   }
 
   return {

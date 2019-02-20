@@ -1,10 +1,6 @@
 import util from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
-import {
-  checkPublicABI,
-  decodeDietCBOR,
-  deploy
-} from './support/helpers'
+import { checkPublicABI, decodeDietCBOR, deploy } from './support/helpers'
 
 contract('ConcreteChainlink', () => {
   const sourcePath = 'examples/ConcreteChainlink.sol'
@@ -26,7 +22,7 @@ contract('ConcreteChainlink', () => {
     ])
   })
 
-  function parseCCLEvent (tx) {
+  function parseCCLEvent(tx) {
     const data = util.toBuffer(tx.receipt.logs[0].data)
     return abi.rawDecode(['bytes'], data)
   }
@@ -46,7 +42,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, { 'a': 'b' })
+      assert.deepEqual(decoded, { a: 'b' })
     })
   })
 
@@ -56,7 +52,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, { 'first': 'word!!' })
+      assert.deepEqual(decoded, { first: 'word!!' })
     })
 
     it('handles two entries', async () => {
@@ -67,8 +63,8 @@ contract('ConcreteChainlink', () => {
       const decoded = await decodeDietCBOR(payload)
 
       assert.deepEqual(decoded, {
-        'first': 'uno',
-        'second': 'dos'
+        first: 'uno',
+        second: 'dos'
       })
     })
   })
@@ -80,7 +76,7 @@ contract('ConcreteChainlink', () => {
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       const expected = util.toBuffer('0xaabbccddeeff')
-      assert.deepEqual(decoded, { 'first': expected })
+      assert.deepEqual(decoded, { first: expected })
     })
 
     it('handles two entries', async () => {
@@ -93,8 +89,8 @@ contract('ConcreteChainlink', () => {
       const expectedFirst = util.toBuffer('0x756E6F')
       const expectedSecond = util.toBuffer('0x646F73')
       assert.deepEqual(decoded, {
-        'first': expectedFirst,
-        'second': expectedSecond
+        first: expectedFirst,
+        second: expectedSecond
       })
     })
 
@@ -104,7 +100,7 @@ contract('ConcreteChainlink', () => {
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       const expected = util.toBuffer('apple')
-      assert.deepEqual(decoded, { 'first': expected })
+      assert.deepEqual(decoded, { first: expected })
     })
   })
 
@@ -114,7 +110,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, { 'first': 1 })
+      assert.deepEqual(decoded, { first: 1 })
     })
 
     it('handles two entries', async () => {
@@ -125,8 +121,8 @@ contract('ConcreteChainlink', () => {
       const decoded = await decodeDietCBOR(payload)
 
       assert.deepEqual(decoded, {
-        'first': 1,
-        'second': 2
+        first: 1,
+        second: 2
       })
     })
   })
@@ -137,7 +133,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      assert.deepEqual(decoded, { 'first': 1 })
+      assert.deepEqual(decoded, { first: 1 })
     })
 
     it('handles two entries', async () => {
@@ -148,8 +144,8 @@ contract('ConcreteChainlink', () => {
       const decoded = await decodeDietCBOR(payload)
 
       assert.deepEqual(decoded, {
-        'first': 1,
-        'second': 2
+        first: 1,
+        second: 2
       })
     })
   })
@@ -161,7 +157,7 @@ contract('ConcreteChainlink', () => {
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
 
-      assert.deepEqual(decoded, { 'word': ['seinfeld', '"4"', 'LIFE'] })
+      assert.deepEqual(decoded, { word: ['seinfeld', '"4"', 'LIFE'] })
     })
   })
 })

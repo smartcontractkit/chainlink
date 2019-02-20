@@ -16,16 +16,16 @@ const sheetsRegistry = new SheetsRegistry()
 const muiTheme = createMuiTheme(theme)
 const generateClassName = createGenerateClassName()
 
-export default (children, opts = {}) => (
+export default (children, opts = {}) =>
   mount(
-    <JssProvider registry={sheetsRegistry} generateClassName={generateClassName}>
+    <JssProvider
+      registry={sheetsRegistry}
+      generateClassName={generateClassName}
+    >
       <MuiThemeProvider theme={muiTheme} sheetsManager={new Map()}>
         <Provider store={createStore()}>
-          <MemoryRouter initialEntries={['/']}>
-            {children}
-          </MemoryRouter>
+          <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
         </Provider>
       </MuiThemeProvider>
     </JssProvider>
   )
-)

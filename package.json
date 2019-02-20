@@ -7,8 +7,8 @@
     "build": "cd gui && NODE_OPTIONS=--max_old_space_size=2048 react-static build",
     "serve": "cd gui && serve dist -p 3000",
     "storybook": "start-storybook -p 9001 -c .storybook",
-    "lint": "standard --fix --verbose | snazzy",
-    "lint-ci": "standard --verbose",
+    "lint": "prettier --config ./.prettierrc --write './**/*.js'",
+    "lint-ci": "prettier --loglevel warn --config ./.prettierrc './**/*.js'",
     "tslint": "tslint -c tslint.json '**/*.ts'",
     "test": "NODE_ENV=test jest",
     "test-ci": "NODE_ENV=test yarn jest gui/ --runInBand --coverage --reporters jest-silent-reporter",
@@ -58,7 +58,15 @@
     "enzyme": "^3.4.4",
     "enzyme-adapter-react-16": "^1.2.0",
     "enzyme-matchers": "^7.0.1",
+    "eslint": "^5.14.1",
+    "eslint-config-prettier": "^4.0.0",
     "eslint-config-react-tools": "1.x.x",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-node": "^8.0.1",
+    "eslint-plugin-prettier": "^3.0.1",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-standard": "^4.0.0",
     "eth-ens-namehash": "^2.0.8",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-tx": "^1.3.7",
@@ -82,6 +90,7 @@
     "moment": "^2.22.2",
     "numeral": "^2.0.6",
     "oclif": "^1.11.4",
+    "prettier": "^1.16.4",
     "promise.prototype.finally": "^3.1.0",
     "prop-types": "^15.6.2",
     "puppeteer": "^1.10.0",
@@ -110,7 +119,6 @@
     "snazzy": "^7.1.1",
     "solc": "0.4.24",
     "solium-plugin-zeppelin": "^0.0.2",
-    "standard": "^12.0.1",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
     "truffle": "^5.0.1",
     "truffle-contract": "^3.0.6",
@@ -127,26 +135,5 @@
     "/tools/sa_requester/lib",
     "/solidity",
     "/zos.json"
-  ],
-  "standard": {
-    "parser": "babel-eslint",
-    "globals": [
-      "assert",
-      "artifacts",
-      "before",
-      "context",
-      "contract",
-      "describe",
-      "web3"
-    ],
-    "env": [
-      "jest"
-    ],
-    "ignore": [
-      "**/gui/dist/",
-      "**/internal/",
-      "**/examples/",
-      "**/solidity/"
-    ]
-  }
+  ]
 }

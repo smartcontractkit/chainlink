@@ -54,11 +54,9 @@ const render = (summary, children, classes) => {
           classes={{ content: classes.content }}
           expandIcon={<ExpandMoreIcon />}
         >
-          <Typography variant='h5'>{summary}</Typography>
+          <Typography variant="h5">{summary}</Typography>
         </ExpansionPanelSummary>
-        <ExpansionPanelDetails>
-          {children}
-        </ExpansionPanelDetails>
+        <ExpansionPanelDetails>{children}</ExpansionPanelDetails>
       </ExpansionPanel>
     )
   }
@@ -69,11 +67,11 @@ const render = (summary, children, classes) => {
 const StatusItem = ({ status, summary, borderTop, children, classes }) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>
-      <StatusIcon width={38} height={38}>{status}</StatusIcon>
+      <StatusIcon width={38} height={38}>
+        {status}
+      </StatusIcon>
     </div>
-    <div className={classes.details}>
-      {render(summary, children, classes)}
-    </div>
+    <div className={classes.details}>{render(summary, children, classes)}</div>
   </div>
 )
 

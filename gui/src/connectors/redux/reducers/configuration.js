@@ -12,26 +12,14 @@ const initialState = {
 export default (state = initialState, action = {}) => {
   switch (action.type) {
     case REQUEST_CONFIGURATION:
-      return Object.assign(
-        {},
-        state,
-        { networkError: false }
-      )
+      return Object.assign({}, state, { networkError: false })
     case RECEIVE_CONFIGURATION_SUCCESS:
-      return Object.assign(
-        {},
-        state,
-        {
-          config: action.config,
-          networkError: false
-        }
-      )
+      return Object.assign({}, state, {
+        config: action.config,
+        networkError: false
+      })
     case RECEIVE_CONFIGURATION_ERROR:
-      return Object.assign(
-        {},
-        state,
-        { networkError: !!action.networkError }
-      )
+      return Object.assign({}, state, { networkError: !!action.networkError })
     default:
       return state
   }

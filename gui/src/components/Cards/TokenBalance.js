@@ -8,10 +8,13 @@ import PaddedCard from 'components/PaddedCard'
 
 const WEI_PER_TOKEN = new BigNumber(10 ** 18)
 
-const formatBalance = (val) => {
+const formatBalance = val => {
   const b = new BigNumber(val)
   const tokenBalance = b.dividedBy(WEI_PER_TOKEN).toNumber()
-  return { formatted: numeral(tokenBalance).format('0.200000a'), unformatted: tokenBalance }
+  return {
+    formatted: numeral(tokenBalance).format('0.200000a'),
+    unformatted: tokenBalance
+  }
 }
 
 const valAndTooltip = ({ value, error }) => {
@@ -37,11 +40,11 @@ const TokenBalance = props => {
 
   return (
     <PaddedCard>
-      <Typography variant='h5' color='secondary'>
+      <Typography variant="h5" color="secondary">
         {props.title}
       </Typography>
-      <Typography variant='body1' color='textSecondary'>
-        <StyledTooltip title={tooltip} placement='left'>
+      <Typography variant="body1" color="textSecondary">
+        <StyledTooltip title={tooltip} placement="left">
           <span>{val}</span>
         </StyledTooltip>
       </Typography>

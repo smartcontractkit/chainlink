@@ -13,9 +13,9 @@ const styles = theme => ({
 })
 
 const Loading = ({ classes }) => (
-  <Grid container alignItems='center'>
+  <Grid container alignItems="center">
     <Grid item xs={12} className={classes.wrapper}>
-      <Typography variant='h4' className={classes.text}>
+      <Typography variant="h4" className={classes.text}>
         Loading...
       </Typography>
     </Grid>

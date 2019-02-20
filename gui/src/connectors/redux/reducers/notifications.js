@@ -16,24 +16,20 @@ export default (state = initialState, action = {}) => {
   switch (action.type) {
     case MATCH_ROUTE: {
       if (action.match && state.currentUrl !== action.match.url) {
-        return Object.assign(
-          {},
-          state,
-          { errors: [], successes: [], currentUrl: action.match.url }
-        )
+        return Object.assign({}, state, {
+          errors: [],
+          successes: [],
+          currentUrl: action.match.url
+        })
       }
 
       return state
     }
     case RECEIVE_SIGNIN_FAIL: {
-      return Object.assign(
-        {},
-        state,
-        {
-          successes: [],
-          errors: [{ detail: SIGN_IN_FAIL_MSG }]
-        }
-      )
+      return Object.assign({}, state, {
+        successes: [],
+        errors: [{ detail: SIGN_IN_FAIL_MSG }]
+      })
     }
     case NOTIFY_SUCCESS: {
       const success = {
@@ -41,14 +37,10 @@ export default (state = initialState, action = {}) => {
         props: action.props
       }
 
-      return Object.assign(
-        {},
-        state,
-        {
-          successes: [success],
-          errors: []
-        }
-      )
+      return Object.assign({}, state, {
+        successes: [success],
+        errors: []
+      })
     }
     case NOTIFY_ERROR: {
       const { component, error } = action
@@ -60,22 +52,20 @@ export default (state = initialState, action = {}) => {
           props: { msg: e.detail }
         }))
       } else if (error.message) {
-        notifications = [{
-          component: component,
-          props: { msg: error.message }
-        }]
+        notifications = [
+          {
+            component: component,
+            props: { msg: error.message }
+          }
+        ]
       } else {
         notifications = [error]
       }
 
-      return Object.assign(
-        {},
-        state,
-        {
-          successes: [],
-          errors: notifications
-        }
-      )
+      return Object.assign({}, state, {
+        successes: [],
+        errors: notifications
+      })
     }
     default:
       return state

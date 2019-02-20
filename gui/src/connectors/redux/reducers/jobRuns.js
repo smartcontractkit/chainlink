@@ -16,18 +16,18 @@ export default (state = initialState, action = {}) => {
         {},
         state,
         { items: Object.assign({}, state.items, action.data.runs) },
-        { currentPage: action.data.meta.currentPageJobRuns.data.map(r => r.id) },
+        {
+          currentPage: action.data.meta.currentPageJobRuns.data.map(r => r.id)
+        },
         { currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count }
       )
     }
     case UPSERT_RECENT_JOB_RUNS:
     case UPSERT_JOB_RUN:
     case UPSERT_JOB: {
-      return Object.assign(
-        {},
-        state,
-        { items: Object.assign({}, state.items, action.data.runs) }
-      )
+      return Object.assign({}, state, {
+        items: Object.assign({}, state.items, action.data.runs)
+      })
     }
     default:
       return state

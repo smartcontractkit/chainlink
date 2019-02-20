@@ -18,7 +18,7 @@ import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJob, createJobRun } from 'actions'
 
 const styles = theme => {
-  return ({
+  return {
     container: {
       backgroundColor: theme.palette.common.white,
       padding: theme.spacing.unit * 5,
@@ -51,67 +51,90 @@ const styles = theme => {
       overflow: 'hidden',
       textOverflow: 'ellipsis'
     }
-  })
+  }
 }
 
 const SuccessNotification = ({ data }) => (
   <React.Fragment>
-    Successfully created job run <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>{data.id}</BaseLink>
+    Successfully created job run{' '}
+    <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
+      {data.id}
+    </BaseLink>
   </React.Fragment>
 )
 
 const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
-    createJobRun(job.id, SuccessNotification, ErrorMessage)
-      .then(() => fetchJob(job.id))
+    createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
+      fetchJob(job.id)
+    )
   }
 
   return (
     <Card className={classes.container}>
       <Grid container spacing={0}>
         <Grid item xs={12}>
-          <Typography variant='subtitle2' color='secondary' gutterBottom>
+          <Typography variant="subtitle2" color="secondary" gutterBottom>
             Job Spec Detail
           </Typography>
         </Grid>
         <Grid item xs={12}>
-          <Grid container spacing={0} alignItems='center'>
+          <Grid container spacing={0} alignItems="center">
             <Grid item xs={7}>
-              <Typography variant='h3' color='secondary' className={classes.jobSpecId} gutterBottom>
+              <Typography
+                variant="h3"
+                color="secondary"
+                className={classes.jobSpecId}
+                gutterBottom
+              >
                 {jobSpecId}
               </Typography>
             </Grid>
-            <Grid item align='right' xs={5}>
+            <Grid item align="right" xs={5}>
               {job && isWebInitiator(job.initiators) && (
                 <Button onClick={handleClick}>Run</Button>
               )}
-              {definition &&
+              {definition && (
                 <Button
-                  to={{ pathname: '/jobs/new', state: { definition: definition } }}
+                  to={{
+                    pathname: '/jobs/new',
+                    state: { definition: definition }
+                  }}
                   component={ReactStaticLinkComponent}
-                  className={classes.duplicate}>
+                  className={classes.duplicate}
+                >
                   Duplicate
                 </Button>
-              }
+              )}
               {definition && <CopyJobSpec JobSpec={definition} />}
             </Grid>
           </Grid>
         </Grid>
         <Grid item xs={12}>
-          <Typography variant='subtitle2' color='textSecondary'>
-            {job && <React.Fragment>Created <TimeAgo>{job.createdAt}</TimeAgo></React.Fragment>}
+          <Typography variant="subtitle2" color="textSecondary">
+            {job && (
+              <React.Fragment>
+                Created <TimeAgo>{job.createdAt}</TimeAgo>
+              </React.Fragment>
+            )}
           </Typography>
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
             <ListItem className={classes.horizontalNavItem}>
-              <Link to={`/jobs/${jobSpecId}`} className={classes.horizontalNavLink}>
+              <Link
+                to={`/jobs/${jobSpecId}`}
+                className={classes.horizontalNavLink}
+              >
                 Overview
               </Link>
             </ListItem>
             <ListItem className={classes.horizontalNavItem}>
-              <Link to={`/jobs/${jobSpecId}/definition`} className={classes.horizontalNavLink}>
+              <Link
+                to={`/jobs/${jobSpecId}/definition`}
+                className={classes.horizontalNavLink}
+              >
                 JSON
               </Link>
             </ListItem>

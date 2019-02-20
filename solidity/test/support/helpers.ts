@@ -14,7 +14,7 @@ process.env.SOLIDITY_INCLUDE = [
   'node_modules/link_token/contracts',
   'node_modules/openzeppelin-solidity/contracts/ownership/',
   'node_modules/@ensdomains/ens/contracts/',
-].map((p) => join(contractPathHead, p)).join(':')
+].map(p => join(contractPathHead, p)).join(':')
 
 // Relative paths needed for chainlink/examples/{uptime_sla,echo_server}
 // Note that these will be relative to the truffle script
@@ -22,7 +22,8 @@ process.env.SOLIDITY_INCLUDE = [
 process.env.SOLIDITY_INCLUDE += ':../../../../:../../contracts'
 
 // Key for defaultAccount, defined below.
-const PRIVATE_KEY = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
+const PRIVATE_KEY =
+  'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
 
 /* tslint:disable no-var-requires */
 const Wallet = require('../../app/wallet.js')
@@ -135,19 +136,22 @@ export const assertActionThrows = (action: any) => (
   Promise
     .resolve()
     .then(action)
-    .catch((error) => {
+    .catch(error => {
       assert(error, 'Expected an error to be raised')
       assert(error.message, 'Expected an error to be raised')
       return error.message
     })
-    .then((errorMessage) => {
+    .then(errorMessage => {
       assert(errorMessage, 'Expected an error to be raised')
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
-        'VM Exception while processing transaction: revert')
-      assert(invalidOpcode || reverted,
+        'VM Exception while processing transaction: revert'
+      )
+      assert(
+        invalidOpcode || reverted,
         'expected following error message to include "invalid JUMP" or ' +
-        `"revert": "${errorMessage}"`)
+          `"revert": "${errorMessage}"`
+      )
       // see https://github.com/ethereumjs/testrpc/issues/39
       // for why the "invalid JUMP" is the throw related error when using TestRPC
     })
@@ -176,12 +180,21 @@ export const decodeRunABI = (log: any): any => {
   return abi.rawDecode(types, runABI)
 }
 
-const startMapBuffer = Buffer.from([0xBF])
-const endMapBuffer = Buffer.from([0xFF])
+const startMapBuffer = Buffer.from([0xbf])
+const endMapBuffer = Buffer.from([0xff])
 
 export const decodeRunRequest = (log: any): any => {
   const runABI = util.toBuffer(log.data)
-  const types = ['address', 'bytes32', 'uint256', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
+  const types = [
+    'address',
+    'bytes32',
+    'uint256',
+    'address',
+    'bytes4',
+    'uint256',
+    'uint256',
+    'bytes'
+  ]
   const [
     requester,
     requestId,
@@ -211,7 +224,10 @@ const autoAddMapDelimiters = (data: any): Buffer => {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
-    buffer = Buffer.concat([startMapBuffer, buffer, endMapBuffer], buffer.length + 2)
+    buffer = Buffer.concat(
+      [startMapBuffer, buffer, endMapBuffer],
+      buffer.length + 2
+    )
   }
 
   return buffer
@@ -230,7 +246,9 @@ export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, d
   const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
-  const funcSelector = functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
+  const funcSelector = functionSelector(
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+  )
   return funcSelector + encoded
 }
 
@@ -304,7 +322,7 @@ export const concatTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): ArrayLike<
   const arrayCtor: any = arrays[0].constructor
   const result = new arrayCtor(size)
   let offset = 0
-  arrays.forEach((a) => {
+  arrays.forEach(a => {
     result.set(a, offset)
     offset += a.length
   })
@@ -312,18 +330,21 @@ export const concatTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): ArrayLike<
 }
 
 export const increaseTime5Minutes = async () => {
-  await web3.currentProvider.send({
-    id: 0,
-    jsonrpc: '2.0',
-    method: 'evm_increaseTime',
-    params: [300],
-  }, (error: any, result: any) => {
-    if (error) {
-      // tslint:disable-next-line:no-console
-      console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
-      throw error
+  await web3.currentProvider.send(
+    {
+      id: 0,
+      jsonrpc: '2.0',
+      method: 'evm_increaseTime',
+      params: [300],
+    },
+    (error: any, result: any) => {
+      if (error) {
+        // tslint:disable-next-line:no-console
+        console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
+        throw error
+      }
     }
-  })
+  )
 }
 
 export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDigest }: any): Uint8Array => {
@@ -345,7 +366,8 @@ export const recoverPersonalSignature = (message: Uint8Array, signature: any): a
     message,
   ))
   const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
-  const requestDigestPubKey = ethjsUtils.ecrecover(digest,
+  const requestDigestPubKey = ethjsUtils.ecrecover(
+    digest,
     signature.v,
     toBuffer(signature.r),
     toBuffer(signature.s),
@@ -437,7 +459,9 @@ export const checkServiceAgreementAbsent = async (coordinator: any, serviceAgree
   assertBigNum(sa[1], bigNum(0))
   assertBigNum(sa[2], bigNum(0))
   assert.equal(
-    sa[3], '0x0000000000000000000000000000000000000000000000000000000000000000')
+    sa[3],
+    '0x0000000000000000000000000000000000000000000000000000000000000000'
+  )
 }
 
 export const newServiceAgreement = async (params: any): Promise<any> => {
@@ -447,8 +471,11 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   agreement.expiration = params.expiration || 300
   agreement.endAt = params.endAt || sixMonthsFromNow()
   agreement.oracles = params.oracles || [oracleNode]
-  agreement.requestDigest = params.requestDigest ||
-    newHash('0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
+  agreement.requestDigest =
+    params.requestDigest ||
+    newHash(
+      '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5'
+    )
 
   const sAID = calculateSAID(agreement)
   agreement.id = toHex(sAID)
@@ -473,7 +500,8 @@ export const fulfillOracleRequest = async (oracle: any, request: any, response: 
     request.callbackFunc,
     request.expiration,
     response,
-    options)
+    options
+  )
 }
 
 export const cancelOracleRequest = async (oracle: any, request: any, options: any): Promise<any> => {
@@ -484,5 +512,6 @@ export const cancelOracleRequest = async (oracle: any, request: any, options: an
     request.payment,
     request.callbackFunc,
     request.expiration,
-    options)
+    options
+  )
 }

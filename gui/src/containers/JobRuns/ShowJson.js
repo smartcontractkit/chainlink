@@ -32,16 +32,16 @@ const renderDetails = ({ fetching, jobRun }) => {
         </PaddedCard>
       </Grid>
       <Grid item xs={4}>
-        <StatusCard>
-          {jobRun.status}
-        </StatusCard>
+        <StatusCard>{jobRun.status}</StatusCard>
       </Grid>
     </Grid>
   )
 }
 
 const Show = useHooks(props => {
-  useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
+  useEffect(() => {
+    props.fetchJobRun(props.jobRunId)
+  }, [])
 
   return (
     <div>
@@ -51,9 +51,7 @@ const Show = useHooks(props => {
         jobRun={props.jobRun}
       />
 
-      <Content>
-        {renderDetails(props)}
-      </Content>
+      <Content>{renderDetails(props)}</Content>
     </div>
   )
 })

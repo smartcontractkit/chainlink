@@ -16,9 +16,11 @@ const RecentlyCreated = ({ jobs }) => {
   if (!jobs) {
     status = (
       <TableRow>
-        <TableCell scope='row'>
+        <TableCell scope="row">
           <CardContent>
-            <Typography variant='body1' color='textSecondary'>...</Typography>
+            <Typography variant="body1" color="textSecondary">
+              ...
+            </Typography>
           </CardContent>
         </TableCell>
       </TableRow>
@@ -26,9 +28,9 @@ const RecentlyCreated = ({ jobs }) => {
   } else if (jobs.length === 0) {
     status = (
       <TableRow>
-        <TableCell scope='row'>
+        <TableCell scope="row">
           <CardContent>
-            <Typography variant='body1' color='textSecondary'>
+            <Typography variant="body1" color="textSecondary">
               No recently created jobs
             </Typography>
           </CardContent>
@@ -43,13 +45,13 @@ const RecentlyCreated = ({ jobs }) => {
             <Grid container spacing={0}>
               <Grid item xs={12}>
                 <Link to={`/jobs/${j.id}`}>
-                  <Typography variant='body1' component='span' color='primary'>
+                  <Typography variant="body1" component="span" color="primary">
                     {j.id}
                   </Typography>
                 </Link>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant='body1' color='textSecondary'>
+                <Typography variant="body1" color="textSecondary">
                   Created <TimeAgo>{j.createdAt}</TimeAgo>
                 </Typography>
               </Grid>
@@ -60,11 +62,7 @@ const RecentlyCreated = ({ jobs }) => {
     )
   }
 
-  return (
-    <SimpleListCard title='Recently Created Jobs'>
-      {status}
-    </SimpleListCard>
-  )
+  return <SimpleListCard title="Recently Created Jobs">{status}</SimpleListCard>
 }
 
 RecentlyCreated.propTypes = {
