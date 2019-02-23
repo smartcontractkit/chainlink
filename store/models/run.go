@@ -314,7 +314,13 @@ func (rr *RunResult) Merge(in RunResult) error {
 	if err != nil {
 		return fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
 	}
-	if len(in.CachedJobRunID) == 0 {
+
+	rr.ID = in.ID
+	rr.CachedTaskRunID = in.CachedTaskRunID
+	rr.ErrorMessage = in.ErrorMessage
+	rr.Amount = in.Amount
+
+	if len(in.CachedJobRunID) != 0 {
 		rr.CachedJobRunID = in.CachedJobRunID
 	}
 	if in.Status.Errored() || rr.Status.Errored() {

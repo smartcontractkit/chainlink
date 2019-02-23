@@ -243,6 +243,7 @@ func QueueSleepingTask(
 
 	if err != nil {
 		currentTaskRun.SetError(err)
+		run.TaskRuns[currentTaskRunIndex] = currentTaskRun
 		run.SetError(err)
 		return run, store.SaveJobRun(run)
 	}
