@@ -104,6 +104,13 @@ func (jr JobRun) TasksRemain() bool {
 	return runnable
 }
 
+// SetError sets this job run to failed and saves the error message
+func (jr *JobRun) SetError(err error) {
+	jr.Result.ErrorMessage = null.StringFrom(err.Error())
+	jr.Result.Status = RunStatusErrored
+	jr.Status = jr.Result.Status
+}
+
 // ApplyResult updates the JobRun's Result and Status
 func (jr JobRun) ApplyResult(result RunResult) JobRun {
 	id := jr.Result.ID
@@ -162,6 +169,13 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	return append(kvs, output...)
+}
+
+// SetError sets this task run to failed and saves the error message
+func (tr *TaskRun) SetError(err error) {
+	tr.Result.ErrorMessage = null.StringFrom(err.Error())
+	tr.Result.Status = RunStatusErrored
+	tr.Status = tr.Result.Status
 }
 
 // ApplyResult updates the TaskRun's Result and Status
@@ -295,11 +309,11 @@ func (rr *RunResult) Merge(in RunResult) error {
 		return fmt.Errorf("Cannot merge onto a RunResult with error: %v", rr.Error())
 	}
 
-	merged, err := rr.Data.Merge(in.Data)
+	var err error
+	rr.Data, err = rr.Data.Merge(in.Data)
 	if err != nil {
 		return fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
 	}
-	rr.Data = merged
 	if len(in.CachedJobRunID) == 0 {
 		rr.CachedJobRunID = in.CachedJobRunID
 	}

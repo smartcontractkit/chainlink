@@ -318,7 +318,7 @@ func TestJobRunsController_Update_WithMergeError(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
-	jr.Overrides = jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
+	jr.Overrides.WithError(errors.New("Already errored")) // easy way to force Merge error
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)

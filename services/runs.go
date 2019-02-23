@@ -70,7 +70,7 @@ func NewRun(
 		adapter, err := adapters.For(taskRun.TaskSpec, store)
 
 		if err != nil {
-			run = run.ApplyResult(run.Result.WithError(err))
+			run.SetError(err)
 			return &run, nil
 		}
 
@@ -100,7 +100,7 @@ func NewRun(
 				job.ID,
 				input.Amount,
 				store.Config.MinimumContractPayment().Text(10))
-			run = run.ApplyResult(input.WithError(err))
+			run.SetError(err)
 		}
 	}
 
@@ -202,10 +202,9 @@ func ResumePendingTask(
 	}
 	currentTaskRun := run.TaskRuns[currentTaskRunIndex]
 
-	var err error
-	if run.Overrides, err = run.Overrides.Merge(input); err != nil {
-		run.TaskRuns[currentTaskRunIndex] = currentTaskRun.ApplyResult(input.WithError(err))
-		*run = run.ApplyResult(input.WithError(err))
+	if err := run.Overrides.Merge(input); err != nil {
+		currentTaskRun.SetError(err)
+		run.SetError(err)
 		return run, store.SaveJobRun(run)
 	}
 
@@ -243,8 +242,8 @@ func QueueSleepingTask(
 	adapter, err := adapters.For(currentTaskRun.TaskSpec, store)
 
 	if err != nil {
-		run.TaskRuns[currentTaskRunIndex] = currentTaskRun.ApplyResult(run.Result.WithError(err))
-		*run = run.ApplyResult(run.Result.WithError(err))
+		currentTaskRun.SetError(err)
+		run.SetError(err)
 		return run, store.SaveJobRun(run)
 	}
 

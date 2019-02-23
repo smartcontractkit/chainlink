@@ -20,9 +20,11 @@ type EthBool struct{}
 func (*EthBool) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	r := input.Result()
 	if boolean(r.Type) {
-		return input.WithResult(evmTrue)
+		input.WithResult(evmTrue)
+		return input
 	}
-	return input.WithResult(evmFalse)
+	input.WithResult(evmFalse)
+	return input
 }
 
 func boolean(t gjson.Type) bool {

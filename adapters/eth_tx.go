@@ -34,18 +34,21 @@ type EthTx struct {
 // the blockchain.
 func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	if !store.TxManager.Connected() {
-		return input.MarkPendingConnection()
+		input.MarkPendingConnection()
+		return input
 	}
 
 	if !input.Status.PendingConfirmations() {
-		return createTxRunResult(etx, input, store)
+		createTxRunResult(etx, &input, store)
+		return input
 	}
-	return ensureTxRunResult(input, store)
+	ensureTxRunResult(&input, store)
+	return input
 }
 
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
-func getTxData(e *EthTx, input models.RunResult) ([]byte, error) {
+func getTxData(e *EthTx, input *models.RunResult) ([]byte, error) {
 	result := input.Result()
 	if e.DataFormat == "" {
 		return common.HexToHash(result.Str).Bytes(), nil
@@ -64,37 +67,42 @@ func getTxData(e *EthTx, input models.RunResult) ([]byte, error) {
 
 func createTxRunResult(
 	e *EthTx,
-	input models.RunResult,
+	input *models.RunResult,
 	store *store.Store,
-) models.RunResult {
+) {
 	value, err := getTxData(e, input)
 	if err != nil {
-		return input.WithError(err)
+		input.WithError(err)
+		return
 	}
 
 	data, err := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
 	if err != nil {
-		return input.WithError(err)
+		input.WithError(err)
+		return
 	}
 
 	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
 	if err != nil {
-		return input.WithError(err)
+		input.WithError(err)
+		return
 	}
 
-	sendResult := input.WithResult(tx.Hash.String())
-	return ensureTxRunResult(sendResult, store)
+	input.WithResult(tx.Hash.String())
+	ensureTxRunResult(input, store)
 }
 
-func ensureTxRunResult(input models.RunResult, str *store.Store) models.RunResult {
+func ensureTxRunResult(input *models.RunResult, str *store.Store) {
 	val, err := input.ResultString()
 	if err != nil {
-		return input.WithError(err)
+		input.WithError(err)
+		return
 	}
 
 	hash := common.HexToHash(val)
 	if err != nil {
-		return input.WithError(err)
+		input.WithError(err)
+		return
 	}
 
 	receipt, err := str.TxManager.BumpGasUntilSafe(hash)
@@ -102,16 +110,17 @@ func ensureTxRunResult(input models.RunResult, str *store.Store) models.RunResul
 		logger.Error("EthTx Adapter Perform Resuming: ", err)
 	}
 	if receipt == nil {
-		return input.MarkPendingConfirmations()
+		input.MarkPendingConfirmations()
+		return
 	}
-	return addReceiptToResult(receipt, input)
+	addReceiptToResult(receipt, input)
 }
 
-func addReceiptToResult(receipt *store.TxReceipt, in models.RunResult) models.RunResult {
+func addReceiptToResult(receipt *store.TxReceipt, in *models.RunResult) {
 	receipts := []store.TxReceipt{}
 
 	if !in.Get("ethereumReceipts").IsArray() {
-		in = in.Add("ethereumReceipts", receipts)
+		in.Add("ethereumReceipts", receipts)
 	}
 
 	if err := json.Unmarshal([]byte(in.Get("ethereumReceipts").String()), &receipts); err != nil {
@@ -119,6 +128,6 @@ func addReceiptToResult(receipt *store.TxReceipt, in models.RunResult) models.Ru
 	}
 
 	receipts = append(receipts, *receipt)
-	in = in.Add("ethereumReceipts", receipts)
-	return in.WithResult(receipt.Hash.String())
+	in.Add("ethereumReceipts", receipts)
+	in.WithResult(receipt.Hash.String())
 }

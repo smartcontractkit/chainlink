@@ -135,7 +135,7 @@ func TestRunResult_Add(t *testing.T) {
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &data))
 			rr := models.RunResult{Data: data}
 
-			rr = rr.Add(test.key, test.value)
+			rr.Add(test.key, test.value)
 
 			assert.JSONEq(t, test.want, rr.Data.String())
 		})
@@ -149,7 +149,7 @@ func TestRunResult_WithError(t *testing.T) {
 
 	assert.Equal(t, models.RunStatusUnstarted, rr.Status)
 
-	rr = rr.WithError(errors.New("this blew up"))
+	rr.WithError(errors.New("this blew up"))
 
 	assert.Equal(t, models.RunStatusErrored, rr.Status)
 	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)
@@ -224,8 +224,13 @@ func TestRunResult_Merge(t *testing.T) {
 				CachedJobRunID: test.inJRID,
 				Status:         test.inStatus,
 			}
-			merged, err := original.Merge(in)
-			assert.Equal(t, test.wantErrored, err != nil)
+			merged := original
+			err := merged.Merge(in)
+			if test.wantErrored {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 
 			assert.JSONEq(t, test.originalData, original.Data.String())
 			assert.Equal(t, test.originalError, original.ErrorMessage)
