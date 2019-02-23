@@ -200,19 +200,22 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 	var err error
 	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
-		return currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.WithError(err)
+		return currentTaskRun.Result
 	}
 
 	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
-		return currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.WithError(err)
+		return currentTaskRun.Result
 	}
 
 	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID}...)
 
 	input, err := prepareTaskInput(run, currentTaskRun)
 	if err != nil {
-		return currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.WithError(err)
+		return currentTaskRun.Result
 	}
 
 	result := adapter.Perform(input, store)

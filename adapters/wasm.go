@@ -16,5 +16,6 @@ type Wasm struct {
 
 // Perform ships the wasm representation to the SGX enclave where it is evaluated.
 func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	return input.WithError(fmt.Errorf("Wasm is not supported without SGX"))
+	input.WithError(fmt.Errorf("Wasm is not supported without SGX"))
+	return input
 }
