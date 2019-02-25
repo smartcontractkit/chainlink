@@ -155,7 +155,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan struct{}) {
 				logger.Errorw(fmt.Sprint("Error finding run ", runID), run.ForLogger("error", err)...)
 			}
 
-			if run, err := executeRun(&run, rm.store); err != nil {
+			if err := executeRun(&run, rm.store); err != nil {
 				logger.Errorw(fmt.Sprint("Error executing run ", runID), run.ForLogger("error", err)...)
 				return
 			}
@@ -229,16 +229,16 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	return result
 }
 
-func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) {
+func executeRun(run *models.JobRun, store *store.Store) error {
 	logger.Infow("Processing run", run.ForLogger()...)
 
 	if !run.Status.Runnable() {
-		return run, fmt.Errorf("Run triggered in non runnable state %s", run.Status)
+		return fmt.Errorf("Run triggered in non runnable state %s", run.Status)
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return run, errors.New("Run triggered with no remaining tasks")
+		return errors.New("Run triggered with no remaining tasks")
 	}
 
 	result := executeTask(run, currentTaskRun, store)
@@ -249,7 +249,7 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
 		if err := QueueSleepingTask(run, store); err != nil {
-			return run, err
+			return err
 		}
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
@@ -258,11 +258,11 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	}
 
 	if err := updateAndTrigger(run, store); err != nil {
-		return run, err
+		return err
 	}
 	logger.Infow("Run finished processing", run.ForLogger()...)
 
-	return run, nil
+	return nil
 }
 
 func queueNextTask(run *models.JobRun, store *store.Store) {
