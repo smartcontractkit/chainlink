@@ -11,6 +11,10 @@ import (
 // ParseCBOR attempts to coerce the input byte array into valid CBOR
 // and then coerces it into a JSON object.
 func ParseCBOR(b []byte) (JSON, error) {
+	if len(b) == 0 {
+		return JSON{}, nil
+	}
+
 	var m map[interface{}]interface{}
 
 	cbor := codec.NewDecoderBytes(autoAddMapDelimiters(b), new(codec.CborHandle))
