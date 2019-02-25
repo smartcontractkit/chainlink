@@ -65,7 +65,7 @@ install_gethnet() {
 }
 
 launch_gethnet() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for local geth"
+  printf -- "\033[34m%-50s\033[0m" "Checking for running ethereum node"
   if curl -s $ETH_HTTP_URL >/dev/null; then
     printf -- "[\033[32mrunning\033[0m]\n"
     return
@@ -78,6 +78,20 @@ launch_gethnet() {
   $SRCROOT/internal/bin/gethnet &>$SRCROOT/integration/gethnet.log &
   waitForResponse $ETH_HTTP_URL
   title "Geth is running."
+}
+
+launch_parity() {
+  printf -- "\033[34m%-50s\033[0m" "Checking for running ethereum node"
+  if curl -s $ETH_HTTP_URL >/dev/null; then
+    printf -- "[\033[32mrunning\033[0m]\n"
+    return
+  fi
+  printf -- "[\033[31mstopped\033[0m]\n"
+
+  title "Starting parity..."
+  $SRCROOT/internal/bin/devnet &>$SRCROOT/integration/devnet.log &
+  waitForResponse $ETH_HTTP_URL
+  title "Parity is running."
 }
 
 install_chainlink() {

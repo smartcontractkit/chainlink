@@ -122,6 +122,32 @@ jobs:
           paths:
             - ./vendor
       - run: ./internal/ci/ethereum_test
+  parity-postgres:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.16
+      - image: circleci/postgres:11-alpine
+        environment:
+          POSTGRES_USER: circleci_postgres
+          POSTGRES_DB: circleci_test
+      - image: smartcontract/devnet:latest
+    environment:
+      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
+      ETH_WS_PORT: 8546
+      ETH_HTTP_PORT: 8545
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+      - run: dep ensure -vendor-only
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - ./vendor
+      - run: ./internal/ci/ethereum_test parity
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -192,6 +218,7 @@ workflows:
       - go-postgres
       - truffle
       - geth-postgres
+      - parity-postgres
       - gui
       - rust
       - sgx
@@ -206,6 +233,7 @@ workflows:
             - go-postgres
             - truffle
             - geth-postgres
+            - parity-postgres
             - gui
           filters:
             branches:
