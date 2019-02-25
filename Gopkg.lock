@@ -591,11 +591,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7a4df523f2dcf1f86a32015b4735831ae90c064817426a3bea0f592d8f66b156"
+  digest = "1:095df71294973dc16be838945bbe0d471bd8495d353bbeec5a45251e7f44be78"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
   pruneopts = ""
-  revision = "4cb37250b60d3254997cc8b53d9951278bdf3059"
+  revision = "ad30583d8387ce8118f8605eaeb3b4f7b4ae0ee1"
 
 [[projects]]
   branch = "master"
