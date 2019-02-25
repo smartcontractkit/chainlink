@@ -3,7 +3,8 @@ const Deployer = require('../solidity/app/deployer.js')
 const Wallet = require('../solidity/app/wallet.js')
 const Utils = require('../solidity/app/utils.js')
 
-const utils = Utils(new Eth.HttpProvider('http://localhost:18545'))
+const port = process.env.ETH_HTTP_PORT || `18545`
+const utils = Utils(new Eth.HttpProvider(`http://localhost:${port}`))
 const privateKey = '34d2ee6c703f755f9a205e322c68b8ff3425d915072ca7483190ac69684e548c'
 const wallet = Wallet(privateKey, utils)
 

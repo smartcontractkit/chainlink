@@ -112,13 +112,14 @@ launch_chainlink() {
   fi
   printf -- "[\033[31mstopped\033[0m]\n"
 
-  install_chainlink
+  #install_chainlink
 
   title "Starting chainlink..."
 
   clroot=$(mktemp -d)
   trap "rm -rf $clroot" EXIT HUP TERM INT
   cp $SRCROOT/internal/clroot/{password.txt,apicredentials} $clroot/
+  echo running chainlink from ${clroot}
   chainlink node -d -p $clroot/password.txt -a $clroot/apicredentials &>$SRCROOT/integration/chainlink.log &
 
   waitForResponse $chainlink_url

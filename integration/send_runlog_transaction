@@ -43,8 +43,10 @@ const main = async () => {
   let Job = await request.post(specsUrl, {json: job})
     .catch(abort('Error creating Job'))
 
-  await RunLog.request(Job.data.id, {from: DEVNET_ADDRESS, gas: 2000000})
+  const tx = await RunLog.request(Job.data.id, {from: DEVNET_ADDRESS, gas: 2000000})
     .catch(abort('Error making RunLog request'))
+  console.log(`dispatched tx:`, tx)
+  console.log(`tx receipt:`, tx.receipt)
   console.log(`Made RunLog request`)
 }
 
