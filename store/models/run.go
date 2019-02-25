@@ -113,7 +113,7 @@ func (jr *JobRun) SetError(err error) {
 }
 
 // ApplyResult updates the JobRun's Result and Status
-func (jr JobRun) ApplyResult(result RunResult) JobRun {
+func (jr *JobRun) ApplyResult(result RunResult) {
 	id := jr.Result.ID
 
 	jr.Result = result
@@ -125,7 +125,6 @@ func (jr JobRun) ApplyResult(result RunResult) JobRun {
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	}
-	return jr
 }
 
 // MarkCompleted sets the JobRun's status to completed and records the

@@ -61,7 +61,7 @@ func NewRun(
 	run := job.NewRun(initiator)
 
 	run.Overrides = input
-	run = run.ApplyResult(input)
+	run.ApplyResult(input)
 	run.CreationHeight = models.NewBig(currentHeight.ToInt())
 	run.ObservedHeight = models.NewBig(currentHeight.ToInt())
 
@@ -211,7 +211,7 @@ func ResumePendingTask(
 	if currentTaskRun.Status.Finished() && run.TasksRemain() {
 		run.Status = models.RunStatusInProgress
 	} else {
-		*run = run.ApplyResult(input)
+		run.ApplyResult(input)
 	}
 
 	return run, updateAndTrigger(run, store)
