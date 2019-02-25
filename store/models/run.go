@@ -151,12 +151,12 @@ type TaskRun struct {
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
-func (tr TaskRun) String() string {
+func (tr *TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.TaskSpec.Type, tr.Status, tr.Result)
 }
 
 // ForLogger formats the TaskRun info for a common formatting in the log.
-func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"type", tr.TaskSpec.Type,
 		"params", tr.TaskSpec.Params,
@@ -185,17 +185,15 @@ func (tr *TaskRun) ApplyResult(result RunResult) {
 }
 
 // MarkCompleted marks the task's status as completed.
-func (tr TaskRun) MarkCompleted() TaskRun {
+func (tr *TaskRun) MarkCompleted() {
 	tr.Status = RunStatusCompleted
 	tr.Result.Status = RunStatusCompleted
-	return tr
 }
 
 // MarkPendingConfirmations marks the task's status as blocked.
-func (tr TaskRun) MarkPendingConfirmations() TaskRun {
+func (tr *TaskRun) MarkPendingConfirmations() {
 	tr.Status = RunStatusPendingConfirmations
 	tr.Result.Status = RunStatusPendingConfirmations
-	return tr
 }
 
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
