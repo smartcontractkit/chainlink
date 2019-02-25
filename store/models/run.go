@@ -31,12 +31,12 @@ type JobRun struct {
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (jr JobRun) GetID() string {
+func (jr *JobRun) GetID() string {
 	return jr.ID
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (jr JobRun) GetName() string {
+func (jr *JobRun) GetName() string {
 	return "runs"
 }
 
@@ -47,7 +47,7 @@ func (jr *JobRun) SetID(value string) error {
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.
-func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
+func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", jr.JobSpecID,
 		"run", jr.ID,
@@ -70,7 +70,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 }
 
 // NextTaskRunIndex returns the position of the next unfinished task
-func (jr JobRun) NextTaskRunIndex() (int, bool) {
+func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
 		if !(tr.Status.Completed() || tr.Status.Errored()) {
 			return index, true
@@ -81,7 +81,7 @@ func (jr JobRun) NextTaskRunIndex() (int, bool) {
 
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
-func (jr JobRun) NextTaskRun() *TaskRun {
+func (jr *JobRun) NextTaskRun() *TaskRun {
 	for _, tr := range jr.TaskRuns {
 		if !(tr.Status.Completed() || tr.Status.Errored()) {
 			return &tr
@@ -91,7 +91,7 @@ func (jr JobRun) NextTaskRun() *TaskRun {
 }
 
 // PreviousTaskRun returns the last task to be processed, if it exists
-func (jr JobRun) PreviousTaskRun() *TaskRun {
+func (jr *JobRun) PreviousTaskRun() *TaskRun {
 	index, runnable := jr.NextTaskRunIndex()
 	if runnable && index > 0 {
 		return &jr.TaskRuns[index-1]
@@ -100,7 +100,7 @@ func (jr JobRun) PreviousTaskRun() *TaskRun {
 }
 
 // TasksRemain returns true if there are unfinished tasks left for this job run
-func (jr JobRun) TasksRemain() bool {
+func (jr *JobRun) TasksRemain() bool {
 	_, runnable := jr.NextTaskRunIndex()
 	return runnable
 }
@@ -129,11 +129,10 @@ func (jr *JobRun) ApplyResult(result RunResult) {
 
 // MarkCompleted sets the JobRun's status to completed and records the
 // completed at time.
-func (jr JobRun) MarkCompleted() JobRun {
+func (jr *JobRun) MarkCompleted() {
 	jr.Status = RunStatusCompleted
 	jr.Result.Status = RunStatusCompleted
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
-	return jr
 }
 
 // TaskRun stores the Task and represents the status of the
