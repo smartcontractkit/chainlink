@@ -66,9 +66,9 @@ func TestPendingConnectionResumer(t *testing.T) {
 	defer cleanup()
 
 	resumedRuns := []string{}
-	resumer := func(run *models.JobRun, store *strpkg.Store) (*models.JobRun, error) {
+	resumer := func(run *models.JobRun, store *strpkg.Store) error {
 		resumedRuns = append(resumedRuns, run.ID)
-		return nil, nil
+		return nil
 	}
 	pcr := services.ExportedNewPendingConnectionResumer(store, resumer)
 
