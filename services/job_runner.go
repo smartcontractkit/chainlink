@@ -244,7 +244,7 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	result := executeTask(run, currentTaskRun, store)
 
 	currentTaskRun.ApplyResult(result)
-	*run = run.ApplyResult(result)
+	run.ApplyResult(result)
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
