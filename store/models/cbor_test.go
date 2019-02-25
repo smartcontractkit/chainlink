@@ -43,7 +43,7 @@ func Test_ParseCBOR(t *testing.T) {
 			false,
 		},
 		{"empty object", `0xa0`, jsonMustUnmarshal(`{}`), false},
-		{"empty string", `0x`, JSON{}, true},
+		{"empty string", `0x`, JSON{}, false},
 		{"invalid CBOR", `0xff`, JSON{}, true},
 	}
 
