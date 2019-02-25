@@ -254,7 +254,7 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
 	} else if run.TasksRemain() {
-		run = queueNextTask(run, store)
+		queueNextTask(run, store)
 	}
 
 	if err := updateAndTrigger(run, store); err != nil {
@@ -265,18 +265,14 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 	return run, nil
 }
 
-func queueNextTask(run *models.JobRun, store *store.Store) *models.JobRun {
-	futureTaskRunIndex, _ := run.NextTaskRunIndex()
-	futureTaskRun := run.TaskRuns[futureTaskRunIndex]
+func queueNextTask(run *models.JobRun, store *store.Store) {
+	futureTaskRun := run.NextTaskRun()
 
-	if meetsMinimumConfirmations(run, &futureTaskRun, run.ObservedHeight) {
+	if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
 		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID}...)
 		run.Status = models.RunStatusInProgress
 	} else {
 		logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
 		run.Status = models.RunStatusPendingConfirmations
 	}
-
-	run.TaskRuns[futureTaskRunIndex] = futureTaskRun
-	return run
 }
