@@ -9,7 +9,7 @@ func ExportedExecuteRunAtBlock(
 	run *models.JobRun,
 	store *store.Store,
 	input models.RunResult,
-) (*models.JobRun, error) {
+) error {
 	return executeRun(run, store)
 }
 
@@ -27,7 +27,7 @@ func ExportedWorkerCount(jr JobRunner) int {
 
 func ExportedNewPendingConnectionResumer(
 	store *store.Store,
-	resumer func(*models.JobRun, *store.Store) (*models.JobRun, error),
+	resumer func(*models.JobRun, *store.Store) error,
 ) store.HeadTrackable {
 	return &pendingConnectionResumer{
 		store:   store,

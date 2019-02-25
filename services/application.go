@@ -221,7 +221,7 @@ func (c *headTrackableCallback) OnNewHead(*models.BlockHeader) {}
 
 type pendingConnectionResumer struct {
 	store   *store.Store
-	resumer func(*models.JobRun, *store.Store) (*models.JobRun, error)
+	resumer func(*models.JobRun, *store.Store) error
 }
 
 func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
@@ -236,7 +236,7 @@ func (p *pendingConnectionResumer) Connect(head *models.IndexableBlockNumber) er
 
 	var merr error
 	for _, jr := range pendingRuns {
-		_, err := p.resumer(&jr, p.store)
+		err := p.resumer(&jr, p.store)
 		if err != nil {
 			merr = multierr.Append(merr, err)
 		}

@@ -124,21 +124,21 @@ func ResumeConfirmingTask(
 	run *models.JobRun,
 	store *store.Store,
 	currentBlockHeight *hexutil.Big,
-) (*models.JobRun, error) {
+) error {
 
 	logger.Debugw("New head resuming run", run.ForLogger()...)
 
 	if !run.Status.PendingConfirmations() {
-		return run, fmt.Errorf("Attempt to resume non confirming task")
+		return fmt.Errorf("Attempt to resume non confirming task")
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return run, fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
 	}
 
 	if currentBlockHeight == nil {
-		return run, fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
+		return fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
 	}
 
 	run.ObservedHeight = models.NewBig(currentBlockHeight.ToInt())
@@ -151,28 +151,28 @@ func ResumeConfirmingTask(
 		run.Status = models.RunStatusPendingConfirmations
 	}
 
-	return run, updateAndTrigger(run, store)
+	return updateAndTrigger(run, store)
 }
 
 // ResumeConnectingTask resumes a run that was left in pending_connection.
 func ResumeConnectingTask(
 	run *models.JobRun,
 	store *store.Store,
-) (*models.JobRun, error) {
+) error {
 
 	logger.Debugw("New connection resuming run", run.ForLogger()...)
 
 	if !run.Status.PendingConnection() {
-		return run, fmt.Errorf("Attempt to resume non connecting task")
+		return fmt.Errorf("Attempt to resume non connecting task")
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return run, fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID)
 	}
 
 	run.Status = models.RunStatusInProgress
-	return run, updateAndTrigger(run, store)
+	return updateAndTrigger(run, store)
 }
 
 // ResumePendingTask takes the body provided from an external adapter,
@@ -182,7 +182,7 @@ func ResumePendingTask(
 	run *models.JobRun,
 	store *store.Store,
 	input models.RunResult,
-) (*models.JobRun, error) {
+) error {
 
 	logger.Debugw("External adapter resuming job", []interface{}{
 		"run", run.ID,
@@ -193,18 +193,18 @@ func ResumePendingTask(
 	}...)
 
 	if !run.Status.PendingBridge() {
-		return run, fmt.Errorf("Attempting to resume non pending run %s", run.ID)
+		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return run, fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
 	if err := run.Overrides.Merge(input); err != nil {
 		currentTaskRun.SetError(err)
 		run.SetError(err)
-		return run, store.SaveJobRun(run)
+		return store.SaveJobRun(run)
 	}
 
 	currentTaskRun.ApplyResult(input)
@@ -214,7 +214,7 @@ func ResumePendingTask(
 		run.ApplyResult(input)
 	}
 
-	return run, updateAndTrigger(run, store)
+	return updateAndTrigger(run, store)
 }
 
 // QueueSleepingTask creates a go routine which will wake up the job runner
