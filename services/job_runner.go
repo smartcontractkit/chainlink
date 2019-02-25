@@ -88,7 +88,7 @@ func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 		return err
 	}
 	for _, run := range sleepingRuns {
-		if _, err := QueueSleepingTask(&run, rm.store); err != nil {
+		if err := QueueSleepingTask(&run, rm.store); err != nil {
 			logger.Errorw("Error resuming sleeping job", "error", err)
 		}
 	}
@@ -236,22 +236,19 @@ func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) 
 		return run, fmt.Errorf("Run triggered in non runnable state %s", run.Status)
 	}
 
-	if !run.TasksRemain() {
+	currentTaskRun := run.NextTaskRun()
+	if currentTaskRun == nil {
 		return run, errors.New("Run triggered with no remaining tasks")
 	}
 
-	currentTaskRunIndex, _ := run.NextTaskRunIndex()
-	currentTaskRun := run.TaskRuns[currentTaskRunIndex]
+	result := executeTask(run, currentTaskRun, store)
 
-	result := executeTask(run, &currentTaskRun, store)
-
-	currentTaskRun = currentTaskRun.ApplyResult(result)
-	run.TaskRuns[currentTaskRunIndex] = currentTaskRun
+	currentTaskRun.ApplyResult(result)
 	*run = run.ApplyResult(result)
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
-		if run, err := QueueSleepingTask(run, store); err != nil {
+		if err := QueueSleepingTask(run, store); err != nil {
 			return run, err
 		}
 	} else if !currentTaskRun.Status.Runnable() {

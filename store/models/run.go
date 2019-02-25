@@ -82,9 +82,10 @@ func (jr JobRun) NextTaskRunIndex() (int, bool) {
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
 func (jr JobRun) NextTaskRun() *TaskRun {
-	nextTaskIndex, runnable := jr.NextTaskRunIndex()
-	if runnable {
-		return &jr.TaskRuns[nextTaskIndex]
+	for _, tr := range jr.TaskRuns {
+		if !(tr.Status.Completed() || tr.Status.Errored()) {
+			return &tr
+		}
 	}
 	return nil
 }
@@ -179,10 +180,9 @@ func (tr *TaskRun) SetError(err error) {
 }
 
 // ApplyResult updates the TaskRun's Result and Status
-func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
+func (tr *TaskRun) ApplyResult(result RunResult) {
 	tr.Result = result
 	tr.Status = result.Status
-	return tr
 }
 
 // MarkCompleted marks the task's status as completed.
