@@ -25,7 +25,12 @@ trap exit_handler EXIT
 
 heading 'Setup...'
 
-launch_gethnet
+if [ "$1" == "parity" ]; then
+  launch_parity
+else
+  launch_gethnet
+fi
+
 launch_chainlink
 deploy_oracle_and_linktoken_contracts
 launch_echo_server
