@@ -330,12 +330,12 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	// reject a run with an invalid state
 	run := &models.JobRun{}
-	run, err := services.QueueSleepingTask(run, store)
+	err := services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
 	run = &models.JobRun{Status: models.RunStatusPendingSleep}
-	run, err = services.QueueSleepingTask(run, store)
+	err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
@@ -352,7 +352,7 @@ func TestQueueSleepingTask(t *testing.T) {
 		}},
 	}
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.QueueSleepingTask(run, store)
+	err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// error decoding params into adapter
@@ -374,7 +374,7 @@ func TestQueueSleepingTask(t *testing.T) {
 		},
 	}
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.QueueSleepingTask(run, store)
+	err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusErrored), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusErrored), string(run.Status))
@@ -391,7 +391,7 @@ func TestQueueSleepingTask(t *testing.T) {
 		}},
 	}
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.QueueSleepingTask(run, store)
+	err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
@@ -423,7 +423,7 @@ func TestQueueSleepingTask(t *testing.T) {
 		},
 	}
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.QueueSleepingTask(run, store)
+	err = services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.Status))
