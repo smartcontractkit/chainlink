@@ -149,7 +149,7 @@ func TestRunResult_WithError(t *testing.T) {
 
 	assert.Equal(t, models.RunStatusUnstarted, rr.Status)
 
-	rr.WithError(errors.New("this blew up"))
+	rr.SetError(errors.New("this blew up"))
 
 	assert.Equal(t, models.RunStatusErrored, rr.Status)
 	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)

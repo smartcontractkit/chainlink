@@ -41,7 +41,7 @@ type EthInt256 struct{}
 func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	value, err := utils.EVMTranscodeInt256(input.Result())
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return input
 	}
 
@@ -61,7 +61,7 @@ type EthUint256 struct{}
 func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	value, err := utils.EVMTranscodeUint256(input.Result())
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return input
 	}
 

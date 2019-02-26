@@ -42,7 +42,7 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	val := input.Result()
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		input.WithError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+		input.SetError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 		return input
 	}
 
