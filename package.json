@@ -116,7 +116,6 @@
     "redux-thunk": "^2.3.0",
     "request-promise": "^4.2.2",
     "serve": "^10.0.0",
-    "snazzy": "^7.1.1",
     "solc": "0.4.24",
     "solium-plugin-zeppelin": "^0.0.2",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
