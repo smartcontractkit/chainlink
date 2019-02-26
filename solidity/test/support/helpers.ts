@@ -1,7 +1,6 @@
 import cbor from 'cbor'
 import { resolve, join } from 'path'
 import { assertBigNum } from './matchers'
-import * as assert from 'assert'
 
 const contractPathHead = resolve(join(__dirname, '/../..'))
 
@@ -324,7 +323,7 @@ export const increaseTime5Minutes = async () => {
   })
 }
 
-export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDigest }: any) : any => {
+export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDigest }: any) : Uint8Array => {
     const serviceAgreementIDInput = concatTypedArrays(
       newHash(payment.toString()),
       newHash(expiration.toString()),
@@ -335,12 +334,12 @@ export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDige
     return newHash(toHex(serviceAgreementIDInputDigest))
   }
 
-export const recoverPersonalSignature = (message: string, signature: any) : any => {
+export const recoverPersonalSignature = (message: Uint8Array, signature: any) : any => {
   const personalSignPrefix = newUint8ArrayFromStr('\x19Ethereum Signed Message:\n')
   const personalSignMessage = Uint8Array.from(concatTypedArrays(
     personalSignPrefix,
     newUint8ArrayFromStr(message.length.toString()),
-    newUint8ArrayFromStr(message)
+    message
   ))
   const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
   const requestDigestPubKey = ethjsUtils.ecrecover(digest,
