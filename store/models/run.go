@@ -284,40 +284,13 @@ func (rr *RunResult) GetError() error {
 	return nil
 }
 
-// Merge returns a copy which is the result of joining the input RunResult
-// with the instance it is called on, preferring the RunResult results passed in,
-// but using the existing results if the input RunResult results are of their
-// respective zero value.
-//
-// Returns an error if called on a RunResult that already has an error.
-func (rr *RunResult) Merge(in RunResult) error {
-	if rr.HasError() {
-		return fmt.Errorf("Cannot merge onto a RunResult with error: %v", rr.Error())
-	}
-
-	var err error
-	rr.Data, err = rr.Data.Merge(in.Data)
-	if err != nil {
-		return fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
-	}
-
-	rr.ID = in.ID
-	rr.CachedTaskRunID = in.CachedTaskRunID
+// Merge saves the specified result's data onto the receiving RunResult. The
+// input result's data takes preference over the receivers'.
+func (rr *RunResult) Merge(in RunResult) {
+	rr.Data, _ = rr.Data.Merge(in.Data)
 	rr.ErrorMessage = in.ErrorMessage
 	rr.Amount = in.Amount
-
-	if len(in.CachedJobRunID) != 0 {
-		rr.CachedJobRunID = in.CachedJobRunID
-	}
-	if in.Status.Errored() || rr.Status.Errored() {
-		rr.Status = RunStatusErrored
-	} else if in.Status.PendingBridge() || rr.Status.PendingBridge() {
-		rr.MarkPendingBridge()
-	} else {
-		rr.Status = in.Status
-	}
-
-	return nil
+	rr.Status = in.Status
 }
 
 // BridgeRunResult handles the parsing of RunResults from external adapters.

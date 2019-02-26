@@ -74,11 +74,7 @@ func responseToRunResult(body []byte, input *models.RunResult) error {
 		return baRunResultError("unmarshaling JSON", err)
 	}
 
-	err = input.Merge(brr.RunResult)
-	if err != nil {
-		return baRunResultError("Unable to merge received payload", err)
-	}
-
+	input.Merge(brr.RunResult)
 	return nil
 }
 
