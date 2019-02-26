@@ -49,11 +49,13 @@ type Multiply struct {
 func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	adapterJSON, err := json.Marshal(ma)
 	if err != nil {
-		return input.WithError(err)
+		input.SetError(err)
+		return input
 	}
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		return input.WithError(err)
+		input.SetError(err)
+		return input
 	}
 
 	cAdapter := C.CString(string(adapterJSON))
@@ -68,13 +70,15 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	outputLenPtr := (*C.int)(unsafe.Pointer(&outputLen))
 
 	if _, err = C.multiply(cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
-		return input.WithError(fmt.Errorf("SGX multiply: %v", err))
+		input.SetError(fmt.Errorf("SGX multiply: %v", err))
+		return input
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
 	var result models.RunResult
 	if err := json.Unmarshal([]byte(sgxResult), &result); err != nil {
-		return input.WithError(fmt.Errorf("unmarshaling SGX result: %v", err))
+		input.SetError(fmt.Errorf("unmarshaling SGX result: %v", err))
+		return input
 	}
 
 	return result
