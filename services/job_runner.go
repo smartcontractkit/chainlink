@@ -231,7 +231,6 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 
 func executeRun(run *models.JobRun, store *store.Store) error {
 	logger.Infow("Processing run", run.ForLogger()...)
-	logger.Debug(fmt.Sprintf("TaskRuns %s", run.TaskRuns))
 
 	if !run.Status.Runnable() {
 		return fmt.Errorf("Run triggered in non runnable state %s", run.Status)
@@ -244,13 +243,8 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 
 	result := executeTask(run, currentTaskRun, store)
 
-	logger.Debug(fmt.Sprintf("Result %v", result))
 	currentTaskRun.ApplyResult(result)
 	run.ApplyResult(result)
-
-	logger.Debug(fmt.Sprintf("TaskRuns %s", run.TaskRuns))
-	logger.Debug(fmt.Sprintf("CurrentTaskRun %s", currentTaskRun))
-	logger.Debug(fmt.Sprintf("FutureTaskRun %s", run.NextTaskRun()))
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)

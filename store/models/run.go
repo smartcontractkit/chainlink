@@ -72,7 +72,6 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 // NextTaskRunIndex returns the position of the next unfinished task
 func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
-		fmt.Println("tr", tr, "tr.Status.Unstarted()", tr.Status.Unstarted())
 		if tr.Status.CanStart() {
 			return index, true
 		}
