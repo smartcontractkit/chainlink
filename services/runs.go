@@ -271,11 +271,12 @@ func performTaskSleep(
 	runCopy.TaskRuns = make([]models.TaskRun, len(run.TaskRuns))
 	copy(runCopy.TaskRuns, run.TaskRuns)
 
-	go func(run models.JobRun, task models.TaskRun) {
+	go func(run models.JobRun) {
 		logger.Debugw("Task sleeping...", run.ForLogger()...)
 
 		<-store.Clock.After(duration)
 
+		task := run.NextTaskRun()
 		task.Status = models.RunStatusCompleted
 		run.Status = models.RunStatusInProgress
 
@@ -284,7 +285,7 @@ func performTaskSleep(
 		if err := updateAndTrigger(&run, store); err != nil {
 			logger.Errorw("Error resuming sleeping job:", "error", err)
 		}
-	}(runCopy, *task)
+	}(runCopy)
 
 	return nil
 }
