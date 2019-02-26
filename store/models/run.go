@@ -218,7 +218,7 @@ func (rr *RunResult) WithResult(val interface{}) {
 func (rr *RunResult) Add(key string, result interface{}) {
 	data, err := rr.Data.Add(key, result)
 	if err != nil {
-		rr.WithError(err)
+		rr.SetError(err)
 		return
 	}
 	rr.Data = data
@@ -229,15 +229,15 @@ func (rr *RunResult) Add(key string, result interface{}) {
 func (rr *RunResult) WithNull() {
 	data, err := rr.Data.Add("result", nil)
 	if err != nil {
-		rr.WithError(err)
+		rr.SetError(err)
 		return
 	}
 	rr.Data = data
 }
 
-// WithError returns a copy of the RunResult, setting the error field
+// SetError returns a copy of the RunResult, setting the error field
 // and setting the status to in progress.
-func (rr *RunResult) WithError(err error) {
+func (rr *RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
 	rr.Status = RunStatusErrored
 }

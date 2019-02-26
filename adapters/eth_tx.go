@@ -72,19 +72,19 @@ func createTxRunResult(
 ) {
 	value, err := getTxData(e, input)
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return
 	}
 
 	data, err := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return
 	}
 
 	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return
 	}
 
@@ -95,13 +95,13 @@ func createTxRunResult(
 func ensureTxRunResult(input *models.RunResult, str *store.Store) {
 	val, err := input.ResultString()
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return
 	}
 
 	hash := common.HexToHash(val)
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return
 	}
 

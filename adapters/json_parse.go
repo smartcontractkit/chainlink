@@ -33,13 +33,13 @@ type JSONParse struct {
 func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.ResultString()
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return input
 	}
 
 	js, err := simplejson.NewJson([]byte(val))
 	if err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return input
 	}
 
@@ -71,7 +71,7 @@ func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 // i.e. Path = ["errorIfNonExistent", "nullIfNonExistent"]
 func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunResult {
 	if _, err := getEarlyPath(js, path); err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		return input
 	}
 	input.WithNull()

@@ -45,7 +45,7 @@ func (ba *Bridge) handleNewRun(input *models.RunResult, bridgeResponseURL *url.U
 	if ba.Params != nil {
 		input.Data, err = input.Data.Merge(*ba.Params)
 		if err != nil {
-			input.WithError(baRunResultError("handling data param", err))
+			input.SetError(baRunResultError("handling data param", err))
 			return
 		}
 	}
@@ -56,13 +56,13 @@ func (ba *Bridge) handleNewRun(input *models.RunResult, bridgeResponseURL *url.U
 	}
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
-		input.WithError(baRunResultError("post to external adapter", err))
+		input.SetError(baRunResultError("post to external adapter", err))
 		return
 	}
 
 	err = responseToRunResult(body, input)
 	if err != nil {
-		input.WithError(baRunResultError("post to external adapter", err))
+		input.SetError(baRunResultError("post to external adapter", err))
 		return
 	}
 }

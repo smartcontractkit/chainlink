@@ -156,7 +156,7 @@ func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 		Amount: payment,
 	}
 	if err := le.ValidateRequester(); err != nil {
-		input.WithError(err)
+		input.SetError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 

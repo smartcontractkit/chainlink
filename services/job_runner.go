@@ -200,13 +200,13 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 	var err error
 	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
-		currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
 
 	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
-		currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
 
@@ -214,7 +214,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 
 	input, err := prepareTaskInput(run, currentTaskRun)
 	if err != nil {
-		currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
 
