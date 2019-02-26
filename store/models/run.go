@@ -287,7 +287,7 @@ func (rr *RunResult) GetError() error {
 // Merge saves the specified result's data onto the receiving RunResult. The
 // input result's data takes preference over the receivers'.
 func (rr *RunResult) Merge(in RunResult) {
-	rr.Data, _ = rr.Data.Merge(in.Data)
+	rr.Data = rr.Data.Merge(in.Data)
 	rr.ErrorMessage = in.ErrorMessage
 	rr.Amount = in.Amount
 	rr.Status = in.Status
