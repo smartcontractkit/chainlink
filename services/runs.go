@@ -201,11 +201,7 @@ func ResumePendingTask(
 		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	if err := run.Overrides.Merge(input); err != nil {
-		currentTaskRun.SetError(err)
-		run.SetError(err)
-		return store.SaveJobRun(run)
-	}
+	run.Overrides.Merge(input)
 
 	currentTaskRun.ApplyResult(input)
 	if currentTaskRun.Status.Finished() && run.TasksRemain() {
