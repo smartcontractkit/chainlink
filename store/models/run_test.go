@@ -161,6 +161,7 @@ func TestRunResult_Merge(t *testing.T) {
 	inProgress := models.RunStatusInProgress
 	pending := models.RunStatusPendingBridge
 	errored := models.RunStatusErrored
+	completed := models.RunStatusCompleted
 
 	nullString := cltest.NullString(nil)
 	jrID := utils.NewBytes32ID()
@@ -184,6 +185,10 @@ func TestRunResult_Merge(t *testing.T) {
 			`{"result":"old&busted","unique":"1"}`, nullString, inProgress, jrID,
 			`{"result":"newHotness","and":"!"}`, nullString, inProgress, jrID,
 			`{"result":"newHotness","unique":"1","and":"!"}`, nullString, inProgress, jrID, false},
+		{"completed result",
+			`{"result":"old"}`, nullString, inProgress, jrID,
+			`{}`, nullString, completed, jrID,
+			`{"result":"old"}`, nullString, completed, jrID, false},
 		{"original error throws",
 			`{"result":"old"}`, cltest.NullString("old problem"), errored, jrID,
 			`{}`, nullString, inProgress, jrID,

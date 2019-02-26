@@ -323,7 +323,10 @@ func (rr *RunResult) Merge(in RunResult) error {
 		rr.Status = RunStatusErrored
 	} else if in.Status.PendingBridge() || rr.Status.PendingBridge() {
 		rr.MarkPendingBridge()
+	} else {
+		rr.Status = in.Status
 	}
+
 	return nil
 }
 
