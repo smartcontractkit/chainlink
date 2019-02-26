@@ -300,8 +300,8 @@ export const toBuffer = (uint8a: Uint8Array) : Buffer => {
 // TODO: Does not work recursively
 export const concatTypedArrays = <T>(...arrays: ArrayLike<T>[]) : ArrayLike<T> => {
   let size = lengthTypedArrays(...arrays)
-  let arrayType : any = typeof arrays[0]
-  let result = new arrayType(size)
+  let arrayCtor : any = arrays[0].constructor
+  let result = new arrayCtor(size)
   let offset = 0
   arrays.forEach((a) => {
     result.set(a, offset)
