@@ -200,8 +200,7 @@ type RunResult struct {
 	Amount          *assets.Link `json:"amount,omitempty" gorm:"type:varchar(255)"`
 }
 
-// ApplyResult returns a copy of the RunResult, overriding the "result" field of
-// Data and setting the status to completed.
+// ApplyResult saves a value to a RunResult and marks it as completed
 func (rr *RunResult) ApplyResult(val interface{}) {
 	rr.Status = RunStatusCompleted
 	rr.Add("result", val)
@@ -217,8 +216,7 @@ func (rr *RunResult) Add(key string, result interface{}) {
 	rr.Data = data
 }
 
-// ClearResult returns a copy of the RunResult, overriding the "result" field of
-// Data to null.
+// ClearResult sets the "result" field to null
 func (rr *RunResult) ClearResult() {
 	data, err := rr.Data.Add("result", nil)
 	if err != nil {
@@ -228,24 +226,23 @@ func (rr *RunResult) ClearResult() {
 	rr.Data = data
 }
 
-// SetError returns a copy of the RunResult, setting the error field
-// and setting the status to in progress.
+// SetError marks the result as errored and saves the specified error message
 func (rr *RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
 	rr.Status = RunStatusErrored
 }
 
-// MarkPendingBridge returns a copy of RunResult but with status set to pending_bridge.
+// MarkPendingBridge sets the status to pending_bridge
 func (rr *RunResult) MarkPendingBridge() {
 	rr.Status = RunStatusPendingBridge
 }
 
-// MarkPendingConfirmations returns a copy of RunResult but with status set to pending_confirmations.
+// MarkPendingConfirmations sets the status to pending_confirmations.
 func (rr *RunResult) MarkPendingConfirmations() {
 	rr.Status = RunStatusPendingConfirmations
 }
 
-// MarkPendingConnection returns a copy of RunResult but with status set to pending_connection.
+// MarkPendingConnection sets the status to pending_connection.
 func (rr *RunResult) MarkPendingConnection() {
 	rr.Status = RunStatusPendingConnection
 }
