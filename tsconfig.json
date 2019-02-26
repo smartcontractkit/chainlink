@@ -12,6 +12,6 @@
     "sourceMap": true,
     "removeComments": false,
     "strict": true,
-    "esModuleInterop": true,
-  },
+    "esModuleInterop": true
+  }
 }
