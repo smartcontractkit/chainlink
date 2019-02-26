@@ -1,6 +1,7 @@
 import cbor from 'cbor'
 import { resolve, join } from 'path'
 import { assertBigNum } from './matchers'
+import * as assert from 'assert'
 
 const contractPathHead = resolve(join(__dirname, '/../..'))
 
