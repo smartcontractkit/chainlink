@@ -4,7 +4,7 @@ import {
   checkPublicABI,
   decodeDietCBOR,
   deploy
-} from './support/helpers.js'
+} from './support/helpers'
 
 contract('ConcreteChainlink', () => {
   const sourcePath = 'examples/ConcreteChainlink.sol'

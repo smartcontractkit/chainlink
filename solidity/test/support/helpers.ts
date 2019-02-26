@@ -58,14 +58,14 @@ export const utils = Utils(web3.currentProvider)
 export const wallet = Wallet(PRIVATE_KEY, utils)
 export const deployer = Deployer(wallet, utils)
 
-const bNToStringOrIdentity = a => BN.isBN(a) ? a.toString() : a
+const bNToStringOrIdentity = (a: any) : any => BN.isBN(a) ? a.toString() : a
 
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
-export const wrappedERC20 = contract => ({
+export const wrappedERC20 = (contract: any) => ({
   ...contract,
-  transfer: async (address, amount) =>
+  transfer: async (address: any, amount: any) =>
     contract.transfer(address, bNToStringOrIdentity(amount)),
-  transferAndCall: async (address, amount, payload, options) =>
+  transferAndCall: async (address: any, amount: any, payload: any, options: any) =>
     contract.transferAndCall(
       address, bNToStringOrIdentity(amount), payload, options)
 })
@@ -74,62 +74,62 @@ export const linkContract = async () => {
   return wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
 }
 
-export const bigNum = number => web3.utils.toBN(number)
+export const bigNum = (number: any) : any => web3.utils.toBN(number)
 assertBigNum(bigNum('1'), bigNum(1), 'Different representations should give same BNs')
 
 // toWei(n) is n * 10**18, as a BN.
-export const toWei = number => bigNum(web3.utils.toWei(bigNum(number)))
+export const toWei = (number: any) => bigNum(web3.utils.toWei(bigNum(number)))
 assertBigNum(toWei('1'), toWei(1), 'Different representations should give same BNs')
 
 export const toUtf8 = web3.utils.toUtf8
 
 export const keccak = web3.utils.sha3
 
-export const hexToInt = string => bigNum(string).toNumber()
+export const hexToInt = (str: string) : any => bigNum(string).toNumber()
 
-export const toHexWithoutPrefix = arg => {
+export const toHexWithoutPrefix = (arg: any) : string => {
   if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
-    return Array.prototype.reduce.call(arg, (a, v) => a + v.toString('16').padStart(2, '0'), '')
+    return Array.prototype.reduce.call(arg, (a: any, v: any) => a + v.toString('16').padStart(2, '0'), '')
   } else {
     return Buffer.from(arg, 'ascii').toString('hex')
   }
 }
 
-export const toHex = value => {
+export const toHex = (value: any) : string => {
   return Ox(toHexWithoutPrefix(value))
 }
 
-export const Ox = value => (value.slice(0, 2) !== '0x') ? `0x${value}` : value
+export const Ox = (value: any) : string => (value.slice(0, 2) !== '0x') ? `0x${value}` : value
 
 // True if h is a standard representation of a byte array, false otherwise
-export const isByteRepresentation = h => {
+export const isByteRepresentation = (h: any) : boolean => {
   return (h instanceof Buffer || h instanceof BN || h instanceof Uint8Array)
 }
 
-export const deploy = async (filePath, ...args) =>
+export const deploy = async (filePath: any, ...args: any[]) =>
   deployer.perform(filePath, ...args)
 
-export const getEvents = contract =>
+export const getEvents = (contract: any) : Promise<any[]> =>
   new Promise((resolve, reject) => contract.allEvents()
-    .get((error, events) => (error ? reject(error) : resolve(events))))
+    .get((error: any, events: any) => (error ? reject(error) : resolve(events))))
 
-export const getLatestEvent = async (contract) => {
+export const getLatestEvent = async (contract: any) : Promise<any[]> => {
   let events = await getEvents(contract)
   return events[events.length - 1]
 }
 
 // link param must be from linkContract(), if amount is a BN
-export const requestDataFrom = (oc, link, amount, args, options) => {
+export const requestDataFrom = (oc: any, link: any, amount: any, args: any, options: any) => {
   if (!options) options = {}
   return link.transferAndCall(oc.address, amount, args, options)
 }
 
-export const functionSelector = signature =>
+export const functionSelector = (signature: any) : string =>
   '0x' + keccak(signature).slice(2).slice(0, 8)
 
-export const assertActionThrows = action => (
+export const assertActionThrows = (action: any) => (
   Promise
     .resolve()
     .then(action)
@@ -151,7 +151,7 @@ export const assertActionThrows = action => (
     })
 )
 
-export const checkPublicABI = (contract, expectedPublic) => {
+export const checkPublicABI = (contract: any, expectedPublic: any) => {
   let actualPublic = []
   for (const method of contract.abi) {
     if (method.type === 'function') actualPublic.push(method.name)
@@ -168,7 +168,7 @@ export const checkPublicABI = (contract, expectedPublic) => {
   }
 }
 
-export const decodeRunABI = log => {
+export const decodeRunABI = (log: any) : any => {
   const runABI = util.toBuffer(log.data)
   const types = ['bytes32', 'address', 'bytes4', 'bytes']
   return abi.rawDecode(types, runABI)
@@ -177,7 +177,7 @@ export const decodeRunABI = log => {
 const startMapBuffer = Buffer.from([0xBF])
 const endMapBuffer = Buffer.from([0xFF])
 
-export const decodeRunRequest = log => {
+export const decodeRunRequest = (log: any) : any => {
   const runABI = util.toBuffer(log.data)
   const types = ['address', 'bytes32', 'uint256', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const [
@@ -205,7 +205,7 @@ export const decodeRunRequest = log => {
   }
 }
 
-const autoAddMapDelimiters = (data) => {
+const autoAddMapDelimiters = (data: any) : Buffer => {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
@@ -215,16 +215,16 @@ const autoAddMapDelimiters = (data) => {
   return buffer
 }
 
-export const decodeDietCBOR = (data) => {
+export const decodeDietCBOR = (data: any) => {
   return cbor.decodeFirst(autoAddMapDelimiters(data))
 }
 
-export const runRequestId = log => {
-  const { requestId } = decodeRunRequest(log) // eslint-disable-line no-unused-vars, no-redeclare
+export const runRequestId = (log: any) => {
+  const { requestId } = decodeRunRequest(log)
   return requestId
 }
 
-export const requestDataBytes = (specId, to, fHash, nonce, data) => {
+export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, data: any) => {
   const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
@@ -232,18 +232,18 @@ export const requestDataBytes = (specId, to, fHash, nonce, data) => {
   return funcSelector + encoded
 }
 
-export const abiEncode = (types, values) => {
+export const abiEncode = (types: any, values: any) : string => {
   return abi.rawEncode(types, values).toString('hex')
 }
 
-export const newUint8ArrayFromStr = (str) => {
-  const codePoints = Array.prototype.map.call(str, c => c.charCodeAt(0))
+export const newUint8ArrayFromStr = (str: string) : Uint8Array => {
+  const codePoints = Array.prototype.map.call(str, (c: string) => c.charCodeAt(0))
   return Uint8Array.from(codePoints)
 }
 
 // newUint8Array returns a uint8array of count bytes from either a hex or
 // decimal string, hex strings must begin with 0x
-export const newUint8Array = (str, count) => {
+export const newUint8Array = (str: string, count: number) => {
   let result = new Uint8Array(count)
 
   if (str.startsWith('0x') || str.startsWith('0X')) {
@@ -261,7 +261,7 @@ export const newUint8Array = (str, count) => {
 }
 
 // newSignature returns a signature object with v, r, and s broken up
-export const newSignature = str => {
+export const newSignature = (str: string) : any => {
   const oracleSignature = newUint8Array(str, 65)
   let v = oracleSignature[64]
   if (v < 27) {
@@ -276,28 +276,28 @@ export const newSignature = str => {
 }
 
 // newHash returns a 65 byte Uint8Array for representing a hash
-export const newHash = str => {
+export const newHash = (str: string) : Uint8Array => {
   return newUint8Array(str, 32)
 }
 
 // newAddress returns a 20 byte Uint8Array for representing an address
-export const newAddress = str => {
+export const newAddress = (str: string) : Uint8Array => {
   return newUint8Array(str, 20)
 }
 
 // lengthTypedArrays sums the length of all specified TypedArrays
-export const lengthTypedArrays = (...arrays) => {
+export const lengthTypedArrays = (...arrays: any[]) : any[] => {
   return arrays.reduce((a, v) => a + v.length, 0)
 }
 
-export const toBuffer = uint8a => {
+export const toBuffer = (uint8a: Uint8Array) : Buffer => {
   return Buffer.from(uint8a)
 }
 
 // concatTypedArrays recursively concatenates TypedArrays into one big
 // TypedArray
 // TODO: Does not work recursively
-export const concatTypedArrays = (...arrays) => {
+export const concatTypedArrays = <T>(...arrays: Array<T>[]) : Array<T> => {
   let size = lengthTypedArrays(...arrays)
   let result = new arrays[0].constructor(size)
   let offset = 0
