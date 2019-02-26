@@ -73,8 +73,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
 		fmt.Println("tr", tr, "tr.Status.Unstarted()", tr.Status.Unstarted())
-		if tr.Status.Unstarted() {
-			//if !(tr.Status.Pending() || tr.Status.Errored()) {
+		if tr.Status.CanStart() {
 			return index, true
 		}
 	}
