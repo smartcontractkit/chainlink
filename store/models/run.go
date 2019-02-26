@@ -113,13 +113,7 @@ func (jr *JobRun) SetError(err error) {
 
 // ApplyResult updates the JobRun's Result and Status
 func (jr *JobRun) ApplyResult(result RunResult) {
-	id := jr.Result.ID
-
 	jr.Result = result
-	jr.Result.ID = id
-	jr.Result.CachedJobRunID = jr.ID
-	jr.Result.CachedTaskRunID = ""
-
 	jr.Status = result.Status
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
