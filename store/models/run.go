@@ -31,12 +31,12 @@ type JobRun struct {
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (jr *JobRun) GetID() string {
+func (jr JobRun) GetID() string {
 	return jr.ID
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (jr *JobRun) GetName() string {
+func (jr JobRun) GetName() string {
 	return "runs"
 }
 
@@ -47,7 +47,7 @@ func (jr *JobRun) SetID(value string) error {
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.
-func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
+func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", jr.JobSpecID,
 		"run", jr.ID,
@@ -72,7 +72,7 @@ func (jr *JobRun) ForLogger(kvs ...interface{}) []interface{} {
 // NextTaskRunIndex returns the position of the next unfinished task
 func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
-		if !(tr.Status.Completed() || tr.Status.Errored()) {
+		if tr.Status.Runnable() {
 			return index, true
 		}
 	}
@@ -82,10 +82,9 @@ func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
 func (jr *JobRun) NextTaskRun() *TaskRun {
-	for _, tr := range jr.TaskRuns {
-		if !(tr.Status.Completed() || tr.Status.Errored()) {
-			return &tr
-		}
+	nextTaskIndex, runnable := jr.NextTaskRunIndex()
+	if runnable {
+		return &jr.TaskRuns[nextTaskIndex]
 	}
 	return nil
 }
@@ -150,7 +149,7 @@ type TaskRun struct {
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
-func (tr *TaskRun) String() string {
+func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.TaskSpec.Type, tr.Status, tr.Result)
 }
 

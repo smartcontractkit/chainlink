@@ -180,12 +180,12 @@ func TestResumePendingTask(t *testing.T) {
 
 	// reject a run with an invalid state
 	run := &models.JobRun{}
-	run, err := services.ResumePendingTask(run, store, models.RunResult{})
+	err := services.ResumePendingTask(run, store, models.RunResult{})
 	assert.Error(t, err)
 
 	// reject a run with no tasks
 	run = &models.JobRun{Status: models.RunStatusPendingBridge}
-	run, err = services.ResumePendingTask(run, store, models.RunResult{})
+	err = services.ResumePendingTask(run, store, models.RunResult{})
 	assert.Error(t, err)
 
 	// input with error errors run
@@ -193,7 +193,7 @@ func TestResumePendingTask(t *testing.T) {
 		Status:   models.RunStatusPendingBridge,
 		TaskRuns: []models.TaskRun{models.TaskRun{}},
 	}
-	run, err = services.ResumePendingTask(run, store, models.RunResult{Status: models.RunStatusErrored})
+	err = services.ResumePendingTask(run, store, models.RunResult{Status: models.RunStatusErrored})
 	assert.Error(t, err)
 
 	// completed input with remaining tasks should put task into pending
@@ -202,7 +202,7 @@ func TestResumePendingTask(t *testing.T) {
 		TaskRuns: []models.TaskRun{models.TaskRun{}, models.TaskRun{}},
 	}
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-	run, err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
@@ -214,7 +214,7 @@ func TestResumePendingTask(t *testing.T) {
 		Status:   models.RunStatusPendingBridge,
 		TaskRuns: []models.TaskRun{models.TaskRun{}},
 	}
-	run, err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
@@ -228,12 +228,12 @@ func TestResumeConfirmingTask(t *testing.T) {
 
 	// reject a run with an invalid state
 	run := &models.JobRun{}
-	run, err := services.ResumeConfirmingTask(run, store, nil)
+	err := services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
 	run = &models.JobRun{Status: models.RunStatusPendingConfirmations}
-	run, err = services.ResumeConfirmingTask(run, store, nil)
+	err = services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
 	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
@@ -257,7 +257,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 	}
 	hexb := hexutil.Big(*creationHeight.ToInt())
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.ResumeConfirmingTask(run, store, &hexb)
+	err = services.ResumeConfirmingTask(run, store, &hexb)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
 
@@ -278,7 +278,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 	}
 	observedHeight := cltest.BigHexInt(1)
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.ResumeConfirmingTask(run, store, &observedHeight)
+	err = services.ResumeConfirmingTask(run, store, &observedHeight)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
@@ -289,12 +289,12 @@ func TestResumeConnectingTask(t *testing.T) {
 
 	// reject a run with an invalid state
 	run := &models.JobRun{}
-	run, err := services.ResumeConnectingTask(run, store)
+	err := services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
 	run = &models.JobRun{Status: models.RunStatusPendingConnection}
-	run, err = services.ResumeConnectingTask(run, store)
+	err = services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
 	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
@@ -312,7 +312,7 @@ func TestResumeConnectingTask(t *testing.T) {
 		}},
 	}
 	require.NoError(t, store.CreateJobRun(run))
-	run, err = services.ResumeConnectingTask(run, store)
+	err = services.ResumeConnectingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
