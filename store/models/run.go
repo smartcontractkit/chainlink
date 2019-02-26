@@ -200,9 +200,9 @@ type RunResult struct {
 	Amount          *assets.Link `json:"amount,omitempty" gorm:"type:varchar(255)"`
 }
 
-// WithResult returns a copy of the RunResult, overriding the "result" field of
+// ApplyResult returns a copy of the RunResult, overriding the "result" field of
 // Data and setting the status to completed.
-func (rr *RunResult) WithResult(val interface{}) {
+func (rr *RunResult) ApplyResult(val interface{}) {
 	rr.Status = RunStatusCompleted
 	rr.Add("result", val)
 }

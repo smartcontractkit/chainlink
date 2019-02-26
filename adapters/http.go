@@ -43,7 +43,7 @@ func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input
 	}
 
-	input.WithResult(body)
+	input.ApplyResult(body)
 	return input
 }
 
@@ -89,7 +89,7 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 		return input
 	}
 
-	input.WithResult(body)
+	input.ApplyResult(body)
 	return input
 }
 

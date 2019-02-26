@@ -48,7 +48,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return moldErrorOutput(js, jpa.Path, input)
 	}
 
-	input.WithResult(last.Interface())
+	input.ApplyResult(last.Interface())
 	return input
 }
 

@@ -47,6 +47,6 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	}
 
 	i.Mul(i, big.NewFloat(float64(ma.Times)))
-	input.WithResult(i.String())
+	input.ApplyResult(i.String())
 	return input
 }
