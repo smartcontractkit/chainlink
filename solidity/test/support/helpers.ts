@@ -70,7 +70,7 @@ export const wrappedERC20 = (contract: any) => ({
       address, bNToStringOrIdentity(amount), payload, options)
 })
 
-export const linkContract = async () => {
+export const linkContract = async () : Promise<any> => {
   return wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
 }
 
@@ -121,7 +121,7 @@ export const getLatestEvent = async (contract: any) : Promise<any[]> => {
 }
 
 // link param must be from linkContract(), if amount is a BN
-export const requestDataFrom = (oc: any, link: any, amount: any, args: any, options: any) => {
+export const requestDataFrom = (oc: any, link: any, amount: any, args: any, options: any) : any => {
   if (!options) options = {}
   return link.transferAndCall(oc.address, amount, args, options)
 }
@@ -215,16 +215,16 @@ const autoAddMapDelimiters = (data: any) : Buffer => {
   return buffer
 }
 
-export const decodeDietCBOR = (data: any) => {
+export const decodeDietCBOR = (data: any) : any => {
   return cbor.decodeFirst(autoAddMapDelimiters(data))
 }
 
-export const runRequestId = (log: any) => {
+export const runRequestId = (log: any) : any => {
   const { requestId } = decodeRunRequest(log)
   return requestId
 }
 
-export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, data: any) => {
+export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, data: any) : any => {
   const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
@@ -243,7 +243,7 @@ export const newUint8ArrayFromStr = (str: string) : Uint8Array => {
 
 // newUint8Array returns a uint8array of count bytes from either a hex or
 // decimal string, hex strings must begin with 0x
-export const newUint8Array = (str: string, count: number) => {
+export const newUint8Array = (str: string, count: number) : any => {
   let result = new Uint8Array(count)
 
   if (str.startsWith('0x') || str.startsWith('0X')) {
@@ -286,7 +286,7 @@ export const newAddress = (str: string) : Uint8Array => {
 }
 
 // lengthTypedArrays sums the length of all specified TypedArrays
-export const lengthTypedArrays = (...arrays: any[]) : any[] => {
+export const lengthTypedArrays = <T>(...arrays: ArrayLike<T>[]) : number => {
   return arrays.reduce((a, v) => a + v.length, 0)
 }
 
@@ -297,9 +297,10 @@ export const toBuffer = (uint8a: Uint8Array) : Buffer => {
 // concatTypedArrays recursively concatenates TypedArrays into one big
 // TypedArray
 // TODO: Does not work recursively
-export const concatTypedArrays = <T>(...arrays: Array<T>[]) : Array<T> => {
+export const concatTypedArrays = <T>(...arrays: ArrayLike<T>[]) : ArrayLike<T> => {
   let size = lengthTypedArrays(...arrays)
-  let result = new arrays[0].constructor(size)
+  let arrayType : any = typeof arrays[0]
+  let result = new arrayType(size)
   let offset = 0
   arrays.forEach((a) => {
     result.set(a, offset)
@@ -322,8 +323,7 @@ export const increaseTime5Minutes = async () => {
   })
 }
 
-export const calculateSAID =
-  ({ payment, expiration, endAt, oracles, requestDigest }: any) => {
+export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDigest }: any) : any => {
     const serviceAgreementIDInput = concatTypedArrays(
       newHash(payment.toString()),
       newHash(expiration.toString()),
@@ -334,13 +334,13 @@ export const calculateSAID =
     return newHash(toHex(serviceAgreementIDInputDigest))
   }
 
-export const recoverPersonalSignature = (message: any, signature: any) : any => {
+export const recoverPersonalSignature = (message: string, signature: any) : any => {
   const personalSignPrefix = newUint8ArrayFromStr('\x19Ethereum Signed Message:\n')
-  const personalSignMessage = concatTypedArrays(
+  const personalSignMessage = Uint8Array.from(concatTypedArrays(
     personalSignPrefix,
     newUint8ArrayFromStr(message.length.toString()),
-    message
-  )
+    newUint8ArrayFromStr(message)
+  ))
   const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
   const requestDigestPubKey = ethjsUtils.ecrecover(digest,
     signature.v,
@@ -350,7 +350,7 @@ export const recoverPersonalSignature = (message: any, signature: any) : any => 
   return ethjsUtils.pubToAddress(requestDigestPubKey)
 }
 
-export const personalSign = async (account: any, message: any) : any => {
+export const personalSign = async (account: any, message: any) : Promise<any> => {
   if (!isByteRepresentation(message)) {
     throw new Error(`Message ${message} is not a recognized representation of a byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended hexadecimal string.)`)
   }
@@ -367,12 +367,12 @@ export const executeServiceAgreementBytes = (sAID: any, to: any, fHash: any, non
 
 // Convenience functions for constructing hexadecimal representations of
 // binary serializations.
-export const padHexTo256Bit = (s: string) : string=> s.padStart(64, '0')
-export const strip0x = (s: string) : string=> s.startsWith('0x') ? s.slice(2) : s
-export const pad0xHexTo256Bit = (s: string) : string=> padHexTo256Bit(strip0x(s))
-export const padNumTo256Bit = (n: string) : string=> padHexTo256Bit(n.toString(16))
+export const padHexTo256Bit = (s: string) : string => s.padStart(64, '0')
+export const strip0x = (s: string) : string => s.startsWith('0x') ? s.slice(2) : s
+export const pad0xHexTo256Bit = (s: string) : string => padHexTo256Bit(strip0x(s))
+export const padNumTo256Bit = (n: number) : string => padHexTo256Bit(n.toString(16))
 
-export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracles, oracleSignature, requestDigest }: any) => [
+export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracles, oracleSignature, requestDigest }: any) : any[] => [
   toHex(newHash(payment.toString())),
   toHex(newHash(expiration.toString())),
   toHex(newHash(endAt.toString())),
@@ -385,16 +385,16 @@ export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracle
 
 /** Call coordinator contract to initiate the specified service agreement, and
  * get the return value. */
-export const initiateServiceAgreementCall = async (coordinator: any, args: any) =>
+export const initiateServiceAgreementCall = async (coordinator: any, args: any) : Promise<any> =>
   coordinator.initiateServiceAgreement.call(...initiateServiceAgreementArgs(args))
 
 /** Call coordinator contract to initiate the specified service agreement. */
-export const initiateServiceAgreement = async (coordinator: any, args: any) =>
+export const initiateServiceAgreement = async (coordinator: any, args: any) : Promise<any> =>
   coordinator.initiateServiceAgreement(...initiateServiceAgreementArgs(args))
 
 /** Check that the given service agreement was stored at the correct location */
 export const checkServiceAgreementPresent =
-  async (coordinator: any, { payment, expiration, endAt, requestDigest, id }: any) => {
+  async (coordinator: any, { payment, expiration, endAt, requestDigest, id }: any) : Promise<any> => {
     const sa = await coordinator.serviceAgreements.call(id)
     assertBigNum(sa[0], bigNum(payment))
     assertBigNum(sa[1], bigNum(expiration))
@@ -434,7 +434,7 @@ export const checkServiceAgreementAbsent = async (coordinator: any, serviceAgree
 }
 
 export const newServiceAgreement = async (params: any) : Promise<any> => {
-  const agreement = {}
+  const agreement : any = {}
   params = params || {}
   agreement.payment = params.payment || 1000000000000000000
   agreement.expiration = params.expiration || 300
@@ -456,7 +456,7 @@ export const newServiceAgreement = async (params: any) : Promise<any> => {
 
 export const sixMonthsFromNow = () : number => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
 
-export const fulfillOracleRequest = async (oracle: any, request: any, response: any, options: any) => {
+export const fulfillOracleRequest = async (oracle: any, request: any, response: any, options: any) : Promise<any> => {
   if (!options) options = {}
 
   return oracle.fulfillOracleRequest(
@@ -469,7 +469,7 @@ export const fulfillOracleRequest = async (oracle: any, request: any, response: 
     options)
 }
 
-export const cancelOracleRequest = async (oracle: any, request: any, options: any) => {
+export const cancelOracleRequest = async (oracle: any, request: any, options: any) : Promise<any> => {
   if (!options) options = {}
 
   return oracle.cancelOracleRequest(
@@ -479,5 +479,3 @@ export const cancelOracleRequest = async (oracle: any, request: any, options: an
     request.expiration,
     options)
 }
-
-export const hexToAddress = (hex: any) : string => Ox(bigNum(hex).toString('hex'))
