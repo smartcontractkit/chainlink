@@ -231,6 +231,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 
 func executeRun(run *models.JobRun, store *store.Store) error {
 	logger.Infow("Processing run", run.ForLogger()...)
+	logger.Debug(fmt.Sprintf("TaskRuns %s", run.TaskRuns))
 
 	if !run.Status.Runnable() {
 		return fmt.Errorf("Run triggered in non runnable state %s", run.Status)
@@ -243,8 +244,13 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 
 	result := executeTask(run, currentTaskRun, store)
 
+	logger.Debug(fmt.Sprintf("Result %v", result))
 	currentTaskRun.ApplyResult(result)
 	run.ApplyResult(result)
+
+	logger.Debug(fmt.Sprintf("TaskRuns %s", run.TaskRuns))
+	logger.Debug(fmt.Sprintf("CurrentTaskRun %s", currentTaskRun))
+	logger.Debug(fmt.Sprintf("FutureTaskRun %s", run.NextTaskRun()))
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
@@ -253,8 +259,14 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 		}
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
-	} else if run.TasksRemain() {
-		queueNextTask(run, store)
+	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
+		if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
+			logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID}...)
+			run.Status = models.RunStatusInProgress
+		} else {
+			logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
+			run.Status = models.RunStatusPendingConfirmations
+		}
 	}
 
 	if err := updateAndTrigger(run, store); err != nil {
@@ -263,16 +275,4 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 	logger.Infow("Run finished processing", run.ForLogger()...)
 
 	return nil
-}
-
-func queueNextTask(run *models.JobRun, store *store.Store) {
-	futureTaskRun := run.NextTaskRun()
-
-	if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
-		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID}...)
-		run.Status = models.RunStatusInProgress
-	} else {
-		logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
-		run.Status = models.RunStatusPendingConfirmations
-	}
 }
