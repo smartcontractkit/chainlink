@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"log"
-
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +43,6 @@ func TestCopy_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			input := cltest.RunResultWithData(test.result)
-			log.Print(input)
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.want, result.Data.String())

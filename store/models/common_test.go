@@ -19,21 +19,20 @@ func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		input       string
-		want        string
-		wantErrored bool
+		name  string
+		input string
+		want  string
 	}{
 		{"new field", `{"extra":"fields"}`,
-			`{"value":"OLD","other":1,"extra":"fields"}`, false},
+			`{"value":"OLD","other":1,"extra":"fields"}`},
 		{"overwritting fields", `{"value":["new","new"],"extra":2}`,
-			`{"value":["new","new"],"other":1,"extra":2}`, false},
+			`{"value":["new","new"],"other":1,"extra":2}`},
 		{"nested JSON", `{"extra":{"fields": ["more", 1]}}`,
-			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`, false},
+			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`},
 		{"empty JSON", `{}`,
-			`{"value":"OLD","other":1}`, false},
+			`{"value":"OLD","other":1}`},
 		{"null values", `{"value":null}`,
-			`{"value":null,"other":1}`, false},
+			`{"value":null,"other":1}`},
 	}
 
 	for _, test := range tests {
@@ -42,8 +41,7 @@ func TestJSON_Merge(t *testing.T) {
 			j1 := cltest.JSONFromString(t, orig)
 			j2 := cltest.JSONFromString(t, test.input)
 
-			merged, err := j1.Merge(j2)
-			assert.Equal(t, test.wantErrored, (err != nil))
+			merged := j1.Merge(j2)
 			assert.JSONEq(t, test.want, merged.String())
 			assert.JSONEq(t, orig, j1.String())
 		})

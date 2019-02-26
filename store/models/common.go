@@ -173,7 +173,7 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 }
 
 // Merge combines the given JSON with the existing JSON.
-func (j JSON) Merge(j2 JSON) (JSON, error) {
+func (j JSON) Merge(j2 JSON) JSON {
 	body := j.Map()
 	for key, value := range j2.Map() {
 		body[key] = value
@@ -184,13 +184,10 @@ func (j JSON) Merge(j2 JSON) (JSON, error) {
 		cleaned[k] = v.Value()
 	}
 
-	b, err := json.Marshal(cleaned)
-	if err != nil {
-		return JSON{}, err
-	}
-
+	b, _ := json.Marshal(cleaned)
 	var rval JSON
-	return rval, gjson.Unmarshal(b, &rval)
+	gjson.Unmarshal(b, &rval)
+	return rval
 }
 
 // Empty returns true if the JSON does not exist.
@@ -214,7 +211,8 @@ func (j JSON) Add(key string, val interface{}) (JSON, error) {
 	if err = json.Unmarshal([]byte(str), &j2); err != nil {
 		return j2, err
 	}
-	return j.Merge(j2)
+	j = j.Merge(j2)
+	return j, nil
 }
 
 // Delete returns a new instance of JSON with the specified key removed.

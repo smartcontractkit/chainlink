@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -164,92 +163,61 @@ func TestRunResult_Merge(t *testing.T) {
 	completed := models.RunStatusCompleted
 
 	nullString := cltest.NullString(nil)
-	jrID := utils.NewBytes32ID()
 	tests := []struct {
 		name             string
 		originalData     string
 		originalError    null.String
 		originalStatus   models.RunStatus
-		originalJRID     string
 		inData           string
 		inError          null.String
 		inStatus         models.RunStatus
-		inJRID           string
 		wantData         string
 		wantErrorMessage null.String
 		wantStatus       models.RunStatus
-		wantJRID         string
-		wantErrored      bool
 	}{
 		{"merging data",
-			`{"result":"old&busted","unique":"1"}`, nullString, inProgress, jrID,
-			`{"result":"newHotness","and":"!"}`, nullString, inProgress, jrID,
-			`{"result":"newHotness","unique":"1","and":"!"}`, nullString, inProgress, jrID, false},
+			`{"result":"old&busted","unique":"1"}`, nullString, inProgress,
+			`{"result":"newHotness","and":"!"}`, nullString, inProgress,
+			`{"result":"newHotness","unique":"1","and":"!"}`, nullString, inProgress},
 		{"completed result",
-			`{"result":"old"}`, nullString, inProgress, jrID,
-			`{}`, nullString, completed, jrID,
-			`{"result":"old"}`, nullString, completed, jrID, false},
-		{"original error throws",
-			`{"result":"old"}`, cltest.NullString("old problem"), errored, jrID,
-			`{}`, nullString, inProgress, jrID,
-			`{"result":"old"}`, cltest.NullString("old problem"), errored, jrID, true},
+			`{"result":"old"}`, nullString, inProgress,
+			`{}`, nullString, completed,
+			`{"result":"old"}`, nullString, completed},
 		{"error override",
-			`{"result":"old"}`, nullString, inProgress, jrID,
-			`{}`, cltest.NullString("new problem"), errored, jrID,
-			`{"result":"old"}`, cltest.NullString("new problem"), errored, jrID, false},
-		{"original job run ID",
-			`{"result":"old"}`, nullString, inProgress, jrID,
-			`{}`, nullString, inProgress, "",
-			`{"result":"old"}`, nullString, inProgress, jrID, false},
-		{"job run ID override",
-			`{"result":"old"}`, nullString, inProgress, utils.NewBytes32ID(),
-			`{}`, nullString, inProgress, jrID,
-			`{"result":"old"}`, nullString, inProgress, jrID, false},
-		{"original pending",
-			`{"result":"old"}`, nullString, pending, jrID,
-			`{}`, nullString, inProgress, jrID,
-			`{"result":"old"}`, nullString, pending, jrID, false},
+			`{"result":"old"}`, nullString, inProgress,
+			`{}`, cltest.NullString("new problem"), errored,
+			`{"result":"old"}`, cltest.NullString("new problem"), errored},
 		{"pending override",
-			`{"result":"old"}`, nullString, inProgress, jrID,
-			`{}`, nullString, pending, jrID,
-			`{"result":"old"}`, nullString, pending, jrID, false},
+			`{"result":"old"}`, nullString, inProgress,
+			`{}`, nullString, pending,
+			`{"result":"old"}`, nullString, pending},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			original := models.RunResult{
-				Data:           models.JSON{Result: gjson.Parse(test.originalData)},
-				ErrorMessage:   test.originalError,
-				CachedJobRunID: test.originalJRID,
-				Status:         test.originalStatus,
+				Data:         models.JSON{Result: gjson.Parse(test.originalData)},
+				ErrorMessage: test.originalError,
+				Status:       test.originalStatus,
 			}
 			in := models.RunResult{
-				Data:           cltest.JSONFromString(t, test.inData),
-				ErrorMessage:   test.inError,
-				CachedJobRunID: test.inJRID,
-				Status:         test.inStatus,
+				Data:         cltest.JSONFromString(t, test.inData),
+				ErrorMessage: test.inError,
+				Status:       test.inStatus,
 			}
 			merged := original
-			err := merged.Merge(in)
-			if test.wantErrored {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+			merged.Merge(in)
 
 			assert.JSONEq(t, test.originalData, original.Data.String())
 			assert.Equal(t, test.originalError, original.ErrorMessage)
-			assert.Equal(t, test.originalJRID, original.CachedJobRunID)
 			assert.Equal(t, test.originalStatus, original.Status)
 
 			assert.JSONEq(t, test.inData, in.Data.String())
 			assert.Equal(t, test.inError, in.ErrorMessage)
-			assert.Equal(t, test.inJRID, in.CachedJobRunID)
 			assert.Equal(t, test.inStatus, in.Status)
 
 			assert.JSONEq(t, test.wantData, merged.Data.String())
 			assert.Equal(t, test.wantErrorMessage, merged.ErrorMessage)
-			assert.Equal(t, test.wantJRID, merged.CachedJobRunID)
 			assert.Equal(t, test.wantStatus, merged.Status)
 		})
 	}
