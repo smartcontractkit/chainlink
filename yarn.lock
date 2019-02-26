@@ -15326,19 +15326,6 @@ snapdragon@^0.8.1:
     source-map-resolve "^0.5.0"
     use "^3.1.0"
 
-snazzy@^7.1.1:
-  version "7.1.1"
-  resolved "https://registry.npmjs.org/snazzy/-/snazzy-7.1.1.tgz#26639b19a72c4d542c762049f829d14a1ad16879"
-  integrity sha512-gJ46s+jcwOeRhO9uEkTyzcREFZ0c5LZOgcVakLxTPIvhRIywKvbvArvMg5e8bBbpWe4InC/8eyEQOGXgJVNOfw==
-  dependencies:
-    chalk "^2.3.0"
-    inherits "^2.0.1"
-    minimist "^1.1.1"
-    readable-stream "^2.0.6"
-    standard-json "^1.0.0"
-    strip-ansi "^4.0.0"
-    text-table "^0.2.0"
-
 socket.io-adapter@~1.1.0:
   version "1.1.1"
   resolved "https://registry.npmjs.org/socket.io-adapter/-/socket.io-adapter-1.1.1.tgz#2a805e8a14d6372124dd9159ad4502f8cb07f06b"
@@ -15728,13 +15715,6 @@ stack-utils@^1.0.1:
   version "1.0.2"
   resolved "https://registry.npmjs.org/stack-utils/-/stack-utils-1.0.2.tgz#33eba3897788558bebfc2db059dc158ec36cebb8"
   integrity sha512-MTX+MeG5U994cazkjd/9KNAapsHnibjMLnfXodlkXw76JEea0UiNzrqidzo1emMwk7w5Qhc9jd4Bn9TBb1MFwA==
-
-standard-json@^1.0.0:
-  version "1.0.3"
-  resolved "https://registry.npmjs.org/standard-json/-/standard-json-1.0.3.tgz#5b5b21d9418810dc5644c113d5163541dcd8faa6"
-  integrity sha512-lhMP+KREBcfyyMe2ObJlEjJ0lc0ItA9uny83d9ZL6ggYtB79DuaAKCxJVoiflg5EV3D2rpuWn+n4+zXjWXk0sQ==
-  dependencies:
-    concat-stream "^1.5.0"
 
 static-extend@^0.1.1:
   version "0.1.2"
