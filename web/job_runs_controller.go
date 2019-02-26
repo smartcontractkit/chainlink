@@ -109,7 +109,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(500, err)
 	} else if _, err := bt.Authenticate(utils.StripBearer(c.Request.Header.Get("Authorization"))); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
-	} else if _, err = services.ResumePendingTask(&jr, jrc.App.GetStore(), brr.RunResult); err != nil {
+	} else if err = services.ResumePendingTask(&jr, jrc.App.GetStore(), brr.RunResult); err != nil {
 		c.AbortWithError(500, err)
 	} else {
 		c.JSON(200, gin.H{"id": jr.ID})
