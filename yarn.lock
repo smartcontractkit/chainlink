@@ -1933,6 +1933,13 @@
     "@svgr/plugin-svgo" "^4.0.3"
     loader-utils "^1.1.0"
 
+"@types/cbor@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@types/cbor/-/cbor-2.0.0.tgz#c627afc2ee22f23f2337fecb34628a4f97c6afbb"
+  integrity sha1-xievwu4i8j8jN/7LNGKKT5fGr7s=
+  dependencies:
+    "@types/node" "*"
+
 "@types/jss@^9.5.6":
   version "9.5.7"
   resolved "https://registry.npmjs.org/@types/jss/-/jss-9.5.7.tgz#fa57a6d0b38a3abef8a425e3eb6a53495cb9d5a0"
@@ -1950,6 +1957,11 @@
   version "10.12.18"
   resolved "https://registry.npmjs.org/@types/node/-/node-10.12.18.tgz#1d3ca764718915584fcd9f6344621b7672665c67"
   integrity sha512-fh+pAqt4xRzPfqA6eh3Z2y6fyZavRIumvjhaCL753+TVkGKGhpPeyrJG2JftD0T9q4GF00KjefsQ+PQNDdWQaQ==
+
+"@types/node@^11.9.5":
+  version "11.9.5"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-11.9.5.tgz#011eece9d3f839a806b63973e228f85967b79ed3"
+  integrity sha512-vVjM0SVzgaOUpflq4GYBvCpozes8OgIIS5gVXVka+OfK3hvnkC1i93U8WiY2OtNE4XUWyyy/86Kf6e0IHTQw1Q==
 
 "@types/prop-types@*":
   version "15.5.8"
