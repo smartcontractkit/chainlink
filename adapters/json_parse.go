@@ -74,7 +74,7 @@ func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult)
 		input.SetError(err)
 		return input
 	}
-	input.WithNull()
+	input.ClearResult()
 	return input
 }
 

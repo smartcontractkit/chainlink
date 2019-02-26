@@ -224,9 +224,9 @@ func (rr *RunResult) Add(key string, result interface{}) {
 	rr.Data = data
 }
 
-// WithNull returns a copy of the RunResult, overriding the "result" field of
+// ClearResult returns a copy of the RunResult, overriding the "result" field of
 // Data to null.
-func (rr *RunResult) WithNull() {
+func (rr *RunResult) ClearResult() {
 	data, err := rr.Data.Add("result", nil)
 	if err != nil {
 		rr.SetError(err)
