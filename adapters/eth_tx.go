@@ -88,7 +88,7 @@ func createTxRunResult(
 		return
 	}
 
-	input.WithResult(tx.Hash.String())
+	input.ApplyResult(tx.Hash.String())
 	ensureTxRunResult(input, store)
 }
 
@@ -129,5 +129,5 @@ func addReceiptToResult(receipt *store.TxReceipt, in *models.RunResult) {
 
 	receipts = append(receipts, *receipt)
 	in.Add("ethereumReceipts", receipts)
-	in.WithResult(receipt.Hash.String())
+	in.ApplyResult(receipt.Hash.String())
 }
