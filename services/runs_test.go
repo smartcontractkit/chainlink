@@ -400,13 +400,23 @@ func TestQueueSleepingTask(t *testing.T) {
 	assert.True(t, open)
 	assert.Equal(t, run.ID, runRequest.ID)
 
+}
+
+func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	store.Clock = cltest.NeverClock{}
+
+	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	require.NoError(t, store.ORM.CreateJob(&jobSpec))
+
 	// queue up next run if duration has not elapsed yet
 	clock := cltest.UseSettableClock(store)
 	store.Clock = clock
 	clock.SetTime(time.Time{})
 
-	inputFromTheFuture = sleepAdapterParams(60)
-	run = &models.JobRun{
+	inputFromTheFuture := sleepAdapterParams(60)
+	run := &models.JobRun{
 		ID:        utils.NewBytes32ID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
@@ -423,14 +433,14 @@ func TestQueueSleepingTask(t *testing.T) {
 		},
 	}
 	require.NoError(t, store.CreateJobRun(run))
-	err = services.QueueSleepingTask(run, store)
+	err := services.QueueSleepingTask(run, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.Status))
 
 	// force the duration elapse
 	clock.SetTime((time.Time{}).Add(math.MaxInt64))
-	runRequest, open = <-store.RunChannel.Receive()
+	runRequest, open := <-store.RunChannel.Receive()
 	assert.True(t, open)
 	assert.Equal(t, run.ID, runRequest.ID)
 
