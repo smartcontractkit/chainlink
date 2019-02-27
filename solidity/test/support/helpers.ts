@@ -1,5 +1,5 @@
 import cbor from 'cbor'
-import { resolve, join } from 'path'
+import { join, resolve } from 'path'
 import { assertBigNum } from './matchers'
 
 const contractPathHead = resolve(join(__dirname, '/../..'))
@@ -13,8 +13,8 @@ process.env.SOLIDITY_INCLUDE = [
   'node_modules/',
   'node_modules/link_token/contracts',
   'node_modules/openzeppelin-solidity/contracts/ownership/',
-  'node_modules/@ensdomains/ens/contracts/'
-].map(p => join(contractPathHead, p)).join(':')
+  'node_modules/@ensdomains/ens/contracts/',
+].map((p) => join(contractPathHead, p)).join(':')
 
 // Relative paths needed for chainlink/examples/{uptime_sla,echo_server}
 // Note that these will be relative to the truffle script
@@ -45,11 +45,11 @@ const INVALIDVALUE = {
   // before they were initialized. Do any test initialization which requires
   // them in a callback passed to Mocha's `before` or `beforeEach`.
   // https://mochajs.org/#asynchronous-hooks
-  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null
+  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null,
 }
 export let [accounts, defaultAccount, oracleNode, stranger, consumer] =
   Array(1000).fill(INVALIDVALUE)
-before(async function queryEthClientForConstants () {
+before(async function queryEthClientForConstants() {
   accounts = (await eth.getAccounts());
   [defaultAccount, oracleNode, stranger, consumer] = accounts.slice(0, 4)
 })
@@ -58,7 +58,7 @@ export const utils = Utils(web3.currentProvider)
 export const wallet = Wallet(PRIVATE_KEY, utils)
 export const deployer = Deployer(wallet, utils)
 
-const bNToStringOrIdentity = (a: any) : any => BN.isBN(a) ? a.toString() : a
+const bNToStringOrIdentity = (a: any): any => BN.isBN(a) ? a.toString() : a
 
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
 export const wrappedERC20 = (contract: any) => ({
@@ -67,27 +67,27 @@ export const wrappedERC20 = (contract: any) => ({
     contract.transfer(address, bNToStringOrIdentity(amount)),
   transferAndCall: async (address: any, amount: any, payload: any, options: any) =>
     contract.transferAndCall(
-      address, bNToStringOrIdentity(amount), payload, options)
+      address, bNToStringOrIdentity(amount), payload, options),
 })
 
-export const linkContract = async () : Promise<any> => {
+export const linkContract = async (): Promise<any> => {
   return wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
 }
 
-export const bigNum = (number: any) : any => web3.utils.toBN(number)
+export const bigNum = (number: any): any => web3.utils.toBN(number)
 assertBigNum(bigNum('1'), bigNum(1), 'Different representations should give same BNs')
 
 // toWei(n) is n * 10**18, as a BN.
-export const toWei = (number: string | number) : any => bigNum(web3.utils.toWei(bigNum(number)))
+export const toWei = (number: string | number): any => bigNum(web3.utils.toWei(bigNum(number)))
 assertBigNum(toWei('1'), toWei(1), 'Different representations should give same BNs')
 
 export const toUtf8 = web3.utils.toUtf8
 
 export const keccak = web3.utils.sha3
 
-export const hexToInt = (str: string) : any => bigNum(str).toNumber()
+export const hexToInt = (str: string): any => bigNum(str).toNumber()
 
-export const toHexWithoutPrefix = (arg: any) : string => {
+export const toHexWithoutPrefix = (arg: any): string => {
   if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
@@ -97,48 +97,48 @@ export const toHexWithoutPrefix = (arg: any) : string => {
   }
 }
 
-export const toHex = (value: any) : string => {
+export const toHex = (value: any): string => {
   return Ox(toHexWithoutPrefix(value))
 }
 
-export const Ox = (value: any) : string => (value.slice(0, 2) !== '0x') ? `0x${value}` : value
+export const Ox = (value: any): string => (value.slice(0, 2) !== '0x') ? `0x${value}` : value
 
 // True if h is a standard representation of a byte array, false otherwise
-export const isByteRepresentation = (h: any) : boolean => {
+export const isByteRepresentation = (h: any): boolean => {
   return (h instanceof Buffer || h instanceof BN || h instanceof Uint8Array)
 }
 
 export const deploy = async (filePath: any, ...args: any[]) =>
   deployer.perform(filePath, ...args)
 
-export const getEvents = (contract: any) : Promise<any[]> =>
+export const getEvents = (contract: any): Promise<any[]> =>
   new Promise((resolve, reject) => contract.allEvents()
     .get((error: any, events: any) => (error ? reject(error) : resolve(events))))
 
-export const getLatestEvent = async (contract: any) : Promise<any[]> => {
-  let events = await getEvents(contract)
+export const getLatestEvent = async (contract: any): Promise<any[]> => {
+  const events = await getEvents(contract)
   return events[events.length - 1]
 }
 
 // link param must be from linkContract(), if amount is a BN
-export const requestDataFrom = (oc: any, link: any, amount: any, args: any, options: any) : any => {
-  if (!options) options = {}
+export const requestDataFrom = (oc: any, link: any, amount: any, args: any, options: any): any => {
+  if (!options) { options = {} }
   return link.transferAndCall(oc.address, amount, args, options)
 }
 
-export const functionSelector = (signature: any) : string =>
+export const functionSelector = (signature: any): string =>
   '0x' + keccak(signature).slice(2).slice(0, 8)
 
 export const assertActionThrows = (action: any) => (
   Promise
     .resolve()
     .then(action)
-    .catch(error => {
+    .catch((error) => {
       assert(error, 'Expected an error to be raised')
       assert(error.message, 'Expected an error to be raised')
       return error.message
     })
-    .then(errorMessage => {
+    .then((errorMessage) => {
       assert(errorMessage, 'Expected an error to be raised')
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
@@ -152,23 +152,23 @@ export const assertActionThrows = (action: any) => (
 )
 
 export const checkPublicABI = (contract: any, expectedPublic: any) => {
-  let actualPublic = []
+  const actualPublic = []
   for (const method of contract.abi) {
-    if (method.type === 'function') actualPublic.push(method.name)
+    if (method.type === 'function') { actualPublic.push(method.name) }
   }
 
   for (const method of actualPublic) {
-    let index = expectedPublic.indexOf(method)
+    const index = expectedPublic.indexOf(method)
     assert.isAtLeast(index, 0, (`#${method} is NOT expected to be public`))
   }
 
   for (const method of expectedPublic) {
-    let index = actualPublic.indexOf(method)
+    const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, (`#${method} is expected to be public`))
   }
 }
 
-export const decodeRunABI = (log: any) : any => {
+export const decodeRunABI = (log: any): any => {
   const runABI = util.toBuffer(log.data)
   const types = ['bytes32', 'address', 'bytes4', 'bytes']
   return abi.rawDecode(types, runABI)
@@ -177,7 +177,7 @@ export const decodeRunABI = (log: any) : any => {
 const startMapBuffer = Buffer.from([0xBF])
 const endMapBuffer = Buffer.from([0xFF])
 
-export const decodeRunRequest = (log: any) : any => {
+export const decodeRunRequest = (log: any): any => {
   const runABI = util.toBuffer(log.data)
   const types = ['address', 'bytes32', 'uint256', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const [
@@ -188,7 +188,7 @@ export const decodeRunRequest = (log: any) : any => {
     callbackFunc,
     expiration,
     version,
-    data
+    data,
   ] = abi.rawDecode(types, runABI)
 
   return {
@@ -201,11 +201,11 @@ export const decodeRunRequest = (log: any) : any => {
     callbackFunc: toHex(callbackFunc),
     expiration: toHex(expiration),
     dataVersion: version,
-    data: autoAddMapDelimiters(data)
+    data: autoAddMapDelimiters(data),
   }
 }
 
-const autoAddMapDelimiters = (data: any) : Buffer => {
+const autoAddMapDelimiters = (data: any): Buffer => {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
@@ -215,16 +215,16 @@ const autoAddMapDelimiters = (data: any) : Buffer => {
   return buffer
 }
 
-export const decodeDietCBOR = (data: any) : any => {
+export const decodeDietCBOR = (data: any): any => {
   return cbor.decodeFirst(autoAddMapDelimiters(data))
 }
 
-export const runRequestId = (log: any) : any => {
+export const runRequestId = (log: any): any => {
   const { requestId } = decodeRunRequest(log)
   return requestId
 }
 
-export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, data: any) : any => {
+export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, data: any): any => {
   const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
@@ -232,18 +232,18 @@ export const requestDataBytes = (specId: any, to: any, fHash: any, nonce: any, d
   return funcSelector + encoded
 }
 
-export const abiEncode = (types: any, values: any) : string => {
+export const abiEncode = (types: any, values: any): string => {
   return abi.rawEncode(types, values).toString('hex')
 }
 
-export const newUint8ArrayFromStr = (str: string) : Uint8Array => {
+export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   const codePoints = Array.prototype.map.call(str, (c: string) => c.charCodeAt(0))
   return Uint8Array.from(codePoints)
 }
 
 // newUint8Array returns a uint8array of count bytes from either a hex or
 // decimal string, hex strings must begin with 0x
-export const newUint8Array = (str: string, count: number) : any => {
+export const newUint8Array = (str: string, count: number): any => {
   let result = new Uint8Array(count)
 
   if (str.startsWith('0x') || str.startsWith('0X')) {
@@ -261,46 +261,46 @@ export const newUint8Array = (str: string, count: number) : any => {
 }
 
 // newSignature returns a signature object with v, r, and s broken up
-export const newSignature = (str: string) : any => {
+export const newSignature = (str: string): any => {
   const oracleSignature = newUint8Array(str, 65)
   let v = oracleSignature[64]
   if (v < 27) {
     v += 27
   }
   return {
-    v: v,
+    v,
     r: oracleSignature.slice(0, 32),
     s: oracleSignature.slice(32, 64),
-    full: oracleSignature
+    full: oracleSignature,
   }
 }
 
 // newHash returns a 65 byte Uint8Array for representing a hash
-export const newHash = (str: string) : Uint8Array => {
+export const newHash = (str: string): Uint8Array => {
   return newUint8Array(str, 32)
 }
 
 // newAddress returns a 20 byte Uint8Array for representing an address
-export const newAddress = (str: string) : Uint8Array => {
+export const newAddress = (str: string): Uint8Array => {
   return newUint8Array(str, 20)
 }
 
 // lengthTypedArrays sums the length of all specified TypedArrays
-export const lengthTypedArrays = <T>(...arrays: ArrayLike<T>[]) : number => {
+export const lengthTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): number => {
   return arrays.reduce((a, v) => a + v.length, 0)
 }
 
-export const toBuffer = (uint8a: Uint8Array) : Buffer => {
+export const toBuffer = (uint8a: Uint8Array): Buffer => {
   return Buffer.from(uint8a)
 }
 
 // concatTypedArrays recursively concatenates TypedArrays into one big
 // TypedArray
 // TODO: Does not work recursively
-export const concatTypedArrays = <T>(...arrays: ArrayLike<T>[]) : ArrayLike<T> => {
-  let size = lengthTypedArrays(...arrays)
-  let arrayCtor : any = arrays[0].constructor
-  let result = new arrayCtor(size)
+export const concatTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): ArrayLike<T> => {
+  const size = lengthTypedArrays(...arrays)
+  const arrayCtor: any = arrays[0].constructor
+  const result = new arrayCtor(size)
   let offset = 0
   arrays.forEach((a) => {
     result.set(a, offset)
@@ -314,7 +314,7 @@ export const increaseTime5Minutes = async () => {
     jsonrpc: '2.0',
     method: 'evm_increaseTime',
     params: [300],
-    id: 0
+    id: 0,
   }, (error: any, result: any) => {
     if (error) {
       console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
@@ -323,7 +323,7 @@ export const increaseTime5Minutes = async () => {
   })
 }
 
-export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDigest }: any) : Uint8Array => {
+export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDigest }: any): Uint8Array => {
     const serviceAgreementIDInput = concatTypedArrays(
       newHash(payment.toString()),
       newHash(expiration.toString()),
@@ -334,45 +334,45 @@ export const calculateSAID = ({ payment, expiration, endAt, oracles, requestDige
     return newHash(toHex(serviceAgreementIDInputDigest))
   }
 
-export const recoverPersonalSignature = (message: Uint8Array, signature: any) : any => {
+export const recoverPersonalSignature = (message: Uint8Array, signature: any): any => {
   const personalSignPrefix = newUint8ArrayFromStr('\x19Ethereum Signed Message:\n')
   const personalSignMessage = Uint8Array.from(concatTypedArrays(
     personalSignPrefix,
     newUint8ArrayFromStr(message.length.toString()),
-    message
+    message,
   ))
   const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
   const requestDigestPubKey = ethjsUtils.ecrecover(digest,
     signature.v,
     toBuffer(signature.r),
-    toBuffer(signature.s)
+    toBuffer(signature.s),
   )
   return ethjsUtils.pubToAddress(requestDigestPubKey)
 }
 
-export const personalSign = async (account: any, message: any) : Promise<any> => {
+export const personalSign = async (account: any, message: any): Promise<any> => {
   if (!isByteRepresentation(message)) {
     throw new Error(`Message ${message} is not a recognized representation of a byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended hexadecimal string.)`)
   }
   return newSignature(await web3.eth.sign(toHex(message), account))
 }
 
-export const executeServiceAgreementBytes = (sAID: any, to: any, fHash: any, nonce: any, data: any) : any => {
-  let types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
-  let values = [0, 0, sAID, to, fHash, nonce, 1, data]
-  let encoded = abiEncode(types, values)
-  let funcSelector = functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
+export const executeServiceAgreementBytes = (sAID: any, to: any, fHash: any, nonce: any, data: any): any => {
+  const types = ['address', 'uint256', 'bytes32', 'address', 'bytes4', 'uint256', 'uint256', 'bytes']
+  const values = [0, 0, sAID, to, fHash, nonce, 1, data]
+  const encoded = abiEncode(types, values)
+  const funcSelector = functionSelector('oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)')
   return funcSelector + encoded
 }
 
 // Convenience functions for constructing hexadecimal representations of
 // binary serializations.
-export const padHexTo256Bit = (s: string) : string => s.padStart(64, '0')
-export const strip0x = (s: string) : string => s.startsWith('0x') ? s.slice(2) : s
-export const pad0xHexTo256Bit = (s: string) : string => padHexTo256Bit(strip0x(s))
-export const padNumTo256Bit = (n: number) : string => padHexTo256Bit(n.toString(16))
+export const padHexTo256Bit = (s: string): string => s.padStart(64, '0')
+export const strip0x = (s: string): string => s.startsWith('0x') ? s.slice(2) : s
+export const pad0xHexTo256Bit = (s: string): string => padHexTo256Bit(strip0x(s))
+export const padNumTo256Bit = (n: number): string => padHexTo256Bit(n.toString(16))
 
-export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracles, oracleSignature, requestDigest }: any) : any[] => [
+export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracles, oracleSignature, requestDigest }: any): any[] => [
   toHex(newHash(payment.toString())),
   toHex(newHash(expiration.toString())),
   toHex(newHash(endAt.toString())),
@@ -380,21 +380,21 @@ export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracle
   [oracleSignature.v],
   [oracleSignature.r].map(toHex),
   [oracleSignature.s].map(toHex),
-  toHex(requestDigest)
+  toHex(requestDigest),
 ]
 
 /** Call coordinator contract to initiate the specified service agreement, and
  * get the return value. */
-export const initiateServiceAgreementCall = async (coordinator: any, args: any) : Promise<any> =>
+export const initiateServiceAgreementCall = async (coordinator: any, args: any): Promise<any> =>
   coordinator.initiateServiceAgreement.call(...initiateServiceAgreementArgs(args))
 
 /** Call coordinator contract to initiate the specified service agreement. */
-export const initiateServiceAgreement = async (coordinator: any, args: any) : Promise<any> =>
+export const initiateServiceAgreement = async (coordinator: any, args: any): Promise<any> =>
   coordinator.initiateServiceAgreement(...initiateServiceAgreementArgs(args))
 
 /** Check that the given service agreement was stored at the correct location */
 export const checkServiceAgreementPresent =
-  async (coordinator: any, { payment, expiration, endAt, requestDigest, id }: any) : Promise<any> => {
+  async (coordinator: any, { payment, expiration, endAt, requestDigest, id }: any): Promise<any> => {
     const sa = await coordinator.serviceAgreements.call(id)
     assertBigNum(sa[0], bigNum(payment))
     assertBigNum(sa[1], bigNum(expiration))
@@ -433,8 +433,8 @@ export const checkServiceAgreementAbsent = async (coordinator: any, serviceAgree
     sa[3], '0x0000000000000000000000000000000000000000000000000000000000000000')
 }
 
-export const newServiceAgreement = async (params: any) : Promise<any> => {
-  const agreement : any = {}
+export const newServiceAgreement = async (params: any): Promise<any> => {
+  const agreement: any = {}
   params = params || {}
   agreement.payment = params.payment || 1000000000000000000
   agreement.expiration = params.expiration || 300
@@ -454,10 +454,10 @@ export const newServiceAgreement = async (params: any) : Promise<any> => {
   return agreement
 }
 
-export const sixMonthsFromNow = () : number => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
+export const sixMonthsFromNow = (): number => Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
 
-export const fulfillOracleRequest = async (oracle: any, request: any, response: any, options: any) : Promise<any> => {
-  if (!options) options = {}
+export const fulfillOracleRequest = async (oracle: any, request: any, response: any, options: any): Promise<any> => {
+  if (!options) { options = {} }
 
   return oracle.fulfillOracleRequest(
     request.id,
@@ -469,8 +469,8 @@ export const fulfillOracleRequest = async (oracle: any, request: any, response: 
     options)
 }
 
-export const cancelOracleRequest = async (oracle: any, request: any, options: any) : Promise<any> => {
-  if (!options) options = {}
+export const cancelOracleRequest = async (oracle: any, request: any, options: any): Promise<any> => {
+  if (!options) { options = {} }
 
   return oracle.cancelOracleRequest(
     request.id,
