@@ -210,6 +210,14 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     emit NewServiceAgreement(serviceAgreementID, _requestDigest);
   }
 
+  /**
+   * @dev Validates that each signer address matches for the given oracles
+   * @param _serviceAgreementID Service agreement ID
+   * @param _oracles Array of oracle addresses which agreed to the service agreement
+   * @param _vs Array of recovery IDs of the oracle signatures
+   * @param _rs Array of first 32 bytes of the oracle signatures
+   * @param _ss Array of second 32 bytes of the oracle signatures
+   */
   function verifyOracleSignatures(
     bytes32 _serviceAgreementID,
     address[] _oracles,
