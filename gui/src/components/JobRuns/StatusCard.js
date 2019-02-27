@@ -4,6 +4,7 @@ import PaddedCard from 'components/PaddedCard'
 import StatusIcon from 'components/JobRuns/StatusIcon'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
+import { titleCase } from 'change-case'
 
 const styles = theme => ({
   completed: {
@@ -39,7 +40,7 @@ const StatusCard = ({ classes, children }) => {
         {children}
       </StatusIcon>
       <Typography className={classes.statusText} variant='h5' color='inherit'>
-        {children}
+        {titleCase(children)}
       </Typography>
     </PaddedCard>
   )
