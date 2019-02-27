@@ -16,7 +16,7 @@ const renderBody = (transactions, error) => {
   if (error) {
     return (
       <TableRow>
-        <TableCell component='th' scope='row' colSpan={3}>
+        <TableCell component="th" scope="row" colSpan={4}>
           {error}
         </TableCell>
       </TableRow>
@@ -24,7 +24,7 @@ const renderBody = (transactions, error) => {
   } else if (transactions && transactions.length === 0) {
     return (
       <TableRow>
-        <TableCell component='th' scope='row' colSpan={3}>
+        <TableCell component="th" scope="row" colSpan={4}>
           You haven't created any transactions yet.
         </TableCell>
       </TableRow>
@@ -32,11 +32,17 @@ const renderBody = (transactions, error) => {
   } else if (transactions) {
     return transactions.map(j => (
       <TableRow key={j.hash}>
-        <TableCell component='th' scope='row'>
+        <TableCell component="th" scope="row">
           <Link to={`/transactions/${j.hash}`}>{j.hash}</Link>
         </TableCell>
         <TableCell>
-          <Typography variant='body1'>{j.txId}</Typography>
+          <Typography variant="body1">{j.from}</Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body1">{j.to}</Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body1">{j.nonce}</Typography>
         </TableCell>
       </TableRow>
     ))
@@ -44,7 +50,7 @@ const renderBody = (transactions, error) => {
 
   return (
     <TableRow>
-      <TableCell component='th' scope='row' colSpan={3}>
+      <TableCell component="th" scope="row" colSpan={4}>
         Loading...
       </TableCell>
     </TableRow>
@@ -52,9 +58,11 @@ const renderBody = (transactions, error) => {
 }
 
 export const List = useHooks(props => {
-  const [ page, setPage ] = useState(FIRST_PAGE)
+  const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
-    const queryPage = (props.match && parseInt(props.match.params.transactionsPage, 10)) || FIRST_PAGE
+    const queryPage =
+      (props.match && parseInt(props.match.params.transactionsPage, 10)) ||
+      FIRST_PAGE
     setPage(queryPage)
     fetchTransactions(queryPage, pageSize)
   }, [])
@@ -80,25 +88,41 @@ export const List = useHooks(props => {
         <TableHead>
           <TableRow>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>Hash</Typography>
+              <Typography variant="body1" color="textSecondary">
+                Hash
+              </Typography>
             </TableCell>
             <TableCell>
-              <Typography variant='body1' color='textSecondary'>Nonce</Typography>
+              <Typography variant="body1" color="textSecondary">
+                From
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant="body1" color="textSecondary">
+                To
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant="body1" color="textSecondary">
+                Nonce
+              </Typography>
             </TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>
-          {renderBody(transactions, error)}
-        </TableBody>
+        <TableBody>{renderBody(transactions, error)}</TableBody>
       </Table>
       <TablePagination
-        component='div'
+        component="div"
         count={count}
         rowsPerPage={pageSize}
         rowsPerPageOptions={[pageSize]}
         page={page - 1}
-        onChangePage={() => { } /* handler required by component, so make it a no-op */}
-        onChangeRowsPerPage={() => { } /* handler required by component, so make it a no-op */}
+        onChangePage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
+        onChangeRowsPerPage={
+          () => {} /* handler required by component, so make it a no-op */
+        }
         ActionsComponent={TableButtonsWithProps}
       />
     </Card>
