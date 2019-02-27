@@ -182,7 +182,7 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 // Merge combines the given JSON with the existing JSON.
 func (j JSON) Merge(j2 JSON) (JSON, error) {
 	body := j.Map()
-	if body == nil || j.Type != gjson.JSON {
+	if body == nil || (j.Type != gjson.JSON && j.Type != gjson.Null) {
 		return JSON{}, ErrorCannotMergeNonObject
 	}
 

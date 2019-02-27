@@ -62,14 +62,14 @@ func TestJSON_Merge(t *testing.T) {
 			false,
 		},
 		{
-			"string value",
+			"string",
 			`"string"`,
 			`{}`,
 			"",
 			true,
 		},
 		{
-			"array value",
+			"array",
 			`["a1"]`,
 			`{"value": null}`,
 			"",
@@ -92,6 +92,12 @@ func TestJSON_Merge(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJSON_MergeNull(t *testing.T) {
+	merged, err := models.JSON{}.Merge(models.JSON{})
+	require.NoError(t, err)
+	assert.Equal(t, `{}`, merged.String())
 }
 
 func TestJSON_UnmarshalJSON(t *testing.T) {
