@@ -7,7 +7,11 @@ import capitalize from 'lodash/capitalize'
 
 const renderConfirmations = (confirmations, minimumConfirmations) => {
   if (minimumConfirmations) {
-    return <div>{confirmations}/{minimumConfirmations} confirmations</div>
+    return (
+      <div>
+        {confirmations}/{minimumConfirmations} confirmations
+      </div>
+    )
   }
 }
 
@@ -32,7 +36,10 @@ const TaskExpansionPanel = ({ children }) => {
             summary={capitalize(taskRun.task.type)}
             status={taskRun.status}
           >
-            {renderConfirmations(taskRun.task.confirmations, taskRun.minimumConfirmations)}
+            {renderConfirmations(
+              taskRun.task.confirmations,
+              taskRun.minimumConfirmations
+            )}
             <PrettyJson object={taskRun.task.params} />
           </StatusItem>
         </Grid>

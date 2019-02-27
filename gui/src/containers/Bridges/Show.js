@@ -14,36 +14,61 @@ import Content from 'components/Content'
 import Button from 'components/Button'
 import { useHooks, useEffect } from 'use-react-hooks'
 
-const renderLoading = () => (
-  <div>Loading...</div>
-)
+const renderLoading = () => <div>Loading...</div>
 
 const renderLoaded = props => (
   <CardContent>
-    <Typography variant='subtitle1' color='textSecondary'>Name</Typography>
-    <Typography variant='body1' color='inherit'>{props.bridge.name}</Typography>
+    <Typography variant="subtitle1" color="textSecondary">
+      Name
+    </Typography>
+    <Typography variant="body1" color="inherit">
+      {props.bridge.name}
+    </Typography>
 
-    <Typography variant='subtitle1' color='textSecondary'>URL</Typography>
-    <Typography variant='body1' color='inherit'>{props.bridge.url}</Typography>
+    <Typography variant="subtitle1" color="textSecondary">
+      URL
+    </Typography>
+    <Typography variant="body1" color="inherit">
+      {props.bridge.url}
+    </Typography>
 
-    <Typography variant='subtitle1' color='textSecondary'>Confirmations</Typography>
-    <Typography variant='body1' color='inherit'>{props.bridge.confirmations}</Typography>
+    <Typography variant="subtitle1" color="textSecondary">
+      Confirmations
+    </Typography>
+    <Typography variant="body1" color="inherit">
+      {props.bridge.confirmations}
+    </Typography>
 
-    <Typography variant='subtitle1' color='textSecondary'>Minimum Contract Payment</Typography>
-    <Typography variant='body1' color='inherit'>{props.bridge.minimumContractPayment}</Typography>
+    <Typography variant="subtitle1" color="textSecondary">
+      Minimum Contract Payment
+    </Typography>
+    <Typography variant="body1" color="inherit">
+      {props.bridge.minimumContractPayment}
+    </Typography>
 
-    <Typography variant='subtitle1' color='textSecondary'>Incoming Token</Typography>
-    <Typography variant='body1' color='inherit'>{props.bridge.incomingToken}</Typography>
+    <Typography variant="subtitle1" color="textSecondary">
+      Incoming Token
+    </Typography>
+    <Typography variant="body1" color="inherit">
+      {props.bridge.incomingToken}
+    </Typography>
 
-    <Typography variant='subtitle1' color='textSecondary'>Outgoing Token</Typography>
-    <Typography variant='body1' color='inherit'>{props.bridge.outgoingToken}</Typography>
+    <Typography variant="subtitle1" color="textSecondary">
+      Outgoing Token
+    </Typography>
+    <Typography variant="body1" color="inherit">
+      {props.bridge.outgoingToken}
+    </Typography>
   </CardContent>
 )
 
-const renderDetails = props => props.bridge ? renderLoaded(props) : renderLoading(props)
+const renderDetails = props =>
+  props.bridge ? renderLoaded(props) : renderLoading(props)
 
 export const Show = useHooks(props => {
-  useEffect(() => { props.fetchBridgeSpec(props.match.params.bridgeId) }, [])
+  useEffect(() => {
+    props.fetchBridgeSpec(props.match.params.bridgeId)
+  }, [])
   return (
     <Content>
       <Grid container>
@@ -52,22 +77,22 @@ export const Show = useHooks(props => {
             <CardContent>
               <Grid container>
                 <Grid item xs={9}>
-                  <Typography variant='h5' color='secondary'>
+                  <Typography variant="h5" color="secondary">
                     Bridge Info
                   </Typography>
                 </Grid>
                 <Grid item xs={3}>
-                  <Grid container justify='flex-end'>
+                  <Grid container justify="flex-end">
                     <Grid item>
-                      {props.bridge &&
+                      {props.bridge && (
                         <Button
-                          variant='secondary'
+                          variant="secondary"
                           component={ReactStaticLinkComponent}
                           to={`/bridges/${props.bridge.id}/edit`}
                         >
                           Edit
                         </Button>
-                      }
+                      )}
                     </Grid>
                   </Grid>
                 </Grid>
@@ -82,8 +107,7 @@ export const Show = useHooks(props => {
       </Grid>
     </Content>
   )
-}
-)
+})
 
 Show.propTypes = {
   bridge: PropTypes.object

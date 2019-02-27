@@ -1,6 +1,14 @@
 import uuid from 'uuid/v4'
 
-export default ({ id, jobId, initiator, taskRuns, status, result, createdAt }) => {
+export default ({
+  id,
+  jobId,
+  initiator,
+  taskRuns,
+  status,
+  result,
+  createdAt
+}) => {
   const _id = id || uuid().replace(/-/g, '')
   const _jobId = jobId || uuid().replace(/-/g, '')
   const _status = status || 'completed'
@@ -9,7 +17,8 @@ export default ({ id, jobId, initiator, taskRuns, status, result, createdAt }) =
   const _taskRuns = taskRuns || []
   const _result = result || {
     data: {
-      value: '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
+      value:
+        '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
     }
   }
 

@@ -11,18 +11,17 @@ import Divider from '@material-ui/core/Divider'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import Button from 'components/Button'
 import bridgeSelector from 'selectors/bridge'
-import {
-  fetchBridgeSpec,
-  updateBridge
-} from 'actions'
+import { fetchBridgeSpec, updateBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Content from 'components/Content'
 import { useHooks, useEffect } from 'use-react-hooks'
 
-const SuccessNotification = ({ name }) => (<React.Fragment>
-  Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
-</React.Fragment>)
+const SuccessNotification = ({ name }) => (
+  <React.Fragment>
+    Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
+  </React.Fragment>
+)
 
 export const Edit = useHooks(props => {
   useEffect(() => {
@@ -31,7 +30,7 @@ export const Edit = useHooks(props => {
   }, [])
   const { bridge, updateBridge } = props
   const checkLoaded = () => bridge
-  const onLoad = (buildLoadedComponent) => {
+  const onLoad = buildLoadedComponent => {
     if (checkLoaded()) return buildLoadedComponent(props)
     return <div>Loading...</div>
   }
@@ -44,21 +43,21 @@ export const Edit = useHooks(props => {
             <CardContent>
               <Grid container>
                 <Grid item xs={9}>
-                  <Typography variant='h5' color='secondary'>
+                  <Typography variant="h5" color="secondary">
                     Edit Bridge
                   </Typography>
                 </Grid>
                 <Grid item xs={3}>
-                  <Grid container justify='flex-end'>
+                  <Grid container justify="flex-end">
                     <Grid item>
-                      {bridge &&
+                      {bridge && (
                         <Button
                           component={ReactStaticLinkComponent}
                           to={`/bridges/${bridge.id}`}
                         >
                           Cancel
                         </Button>
-                      }
+                      )}
                     </Grid>
                   </Grid>
                 </Grid>
@@ -70,7 +69,7 @@ export const Edit = useHooks(props => {
             <CardContent>
               {onLoad(({ bridge }) => (
                 <Form
-                  actionText='Save Bridge'
+                  actionText="Save Bridge"
                   onSubmit={updateBridge}
                   name={bridge.name}
                   nameDisabled
@@ -87,8 +86,7 @@ export const Edit = useHooks(props => {
       </Grid>
     </Content>
   )
-}
-)
+})
 
 Edit.propTypes = {
   bridge: PropTypes.object

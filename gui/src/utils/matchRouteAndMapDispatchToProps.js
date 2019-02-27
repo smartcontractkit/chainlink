@@ -7,7 +7,7 @@
 import { bindActionCreators } from 'redux'
 import { matchRoute } from 'actions'
 
-export default (actionCreators) => (dispatch, ownProps) => {
+export default actionCreators => (dispatch, ownProps) => {
   dispatch(matchRoute(ownProps.match))
   return bindActionCreators(actionCreators, dispatch)
 }

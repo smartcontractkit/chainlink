@@ -2,8 +2,8 @@ const TruffleContract = require('truffle-contract')
 const ABI = require('ethereumjs-abi')
 const compile = require('./compile.js')
 
-module.exports = function Deployer (wallet, utils) {
-  function contractify (abi, address) {
+module.exports = function Deployer(wallet, utils) {
+  function contractify(abi, address) {
     const contract = TruffleContract({
       abi: abi,
       address: address
@@ -17,17 +17,17 @@ module.exports = function Deployer (wallet, utils) {
     return contract.at(address)
   }
 
-  function getBytecode (contract) {
+  function getBytecode(contract) {
     return contract.evm.bytecode.object.toString()
   }
 
-  function findConstructor (abi) {
+  function findConstructor(abi) {
     for (let method of abi) {
       if (method.type === 'constructor') return method
     }
   }
 
-  function constructorInputTypes (abi) {
+  function constructorInputTypes(abi) {
     const types = []
     for (let input of findConstructor(abi).inputs) {
       types.push(input.type)
@@ -35,7 +35,7 @@ module.exports = function Deployer (wallet, utils) {
     return types
   }
 
-  function encodeArgs (unencoded, abi) {
+  function encodeArgs(unencoded, abi) {
     if (unencoded.length === 0) {
       return ''
     }
@@ -44,7 +44,7 @@ module.exports = function Deployer (wallet, utils) {
   }
 
   return {
-    perform: async function perform (filename, ...contractArgs) {
+    perform: async function perform(filename, ...contractArgs) {
       const compiled = compile(filename)
       const encodedArgs = encodeArgs(contractArgs, compiled.abi)
 

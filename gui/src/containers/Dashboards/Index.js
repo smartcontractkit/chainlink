@@ -35,13 +35,13 @@ export const Index = useHooks(props => {
           <Grid container>
             <Grid item xs={12}>
               <TokenBalanceCard
-                title='Link Balance'
+                title="Link Balance"
                 value={props.accountBalance && props.accountBalance.linkBalance}
               />
             </Grid>
             <Grid item xs={12}>
               <TokenBalanceCard
-                title='Ether Balance'
+                title="Ether Balance"
                 value={props.accountBalance && props.accountBalance.ethBalance}
               />
             </Grid>
@@ -54,8 +54,7 @@ export const Index = useHooks(props => {
       <Footer />
     </Content>
   )
-}
-)
+})
 
 Index.propTypes = {
   accountBalance: PropTypes.object,

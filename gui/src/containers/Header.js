@@ -77,75 +77,77 @@ const SHARED_NAV_ITEMS = [
 ]
 
 class Header extends React.Component {
-  constructor (props) {
+  constructor(props) {
     super(props)
     this.state = { drawerOpen: false }
   }
 
-  setDrawerOpen (isOpen) {
+  setDrawerOpen(isOpen) {
     this.setState({
       drawerOpen: isOpen
     })
   }
 
-  render () {
+  render() {
     const toggleDrawer = () => this.setDrawerOpen(!this.state.drawerOpen)
     const signOut = () => this.props.submitSignOut()
     const { classes, fetchCount } = this.props
 
-    const drawer = (<Drawer
-      anchor='right'
-      open={this.state.drawerOpen}
-      classes={{
-        paper: classes.drawerPaper
-      }}
-      onClose={toggleDrawer}
-    >
-      <div
-        tabIndex={0}
-        role='button'
-        onClick={toggleDrawer}
+    const drawer = (
+      <Drawer
+        anchor="right"
+        open={this.state.drawerOpen}
+        classes={{
+          paper: classes.drawerPaper
+        }}
+        onClose={toggleDrawer}
       >
-        <List className={classes.drawerList}>
-          {SHARED_NAV_ITEMS.map(([to, text]) => (
-            <ListItem key={to} button component={Link} to={to} className={classes.menuitem}>
-              <ListItemText primary={text} />
-            </ListItem>
-          ))}
-          {this.props.authenticated &&
-            <ListItem button onClick={signOut} className={classes.menuitem}>
-              <ListItemText primary='Sign Out' />
-            </ListItem>
-          }
-        </List>
-      </div>
-    </Drawer>)
+        <div tabIndex={0} role="button" onClick={toggleDrawer}>
+          <List className={classes.drawerList}>
+            {SHARED_NAV_ITEMS.map(([to, text]) => (
+              <ListItem
+                key={to}
+                button
+                component={Link}
+                to={to}
+                className={classes.menuitem}
+              >
+                <ListItemText primary={text} />
+              </ListItem>
+            ))}
+            {this.props.authenticated && (
+              <ListItem button onClick={signOut} className={classes.menuitem}>
+                <ListItemText primary="Sign Out" />
+              </ListItem>
+            )}
+          </List>
+        </div>
+      </Drawer>
+    )
 
     const nav = (
-      <Typography variant='body1' component='div'>
+      <Typography variant="body1" component="div">
         <List className={classes.horizontalNav}>
           {SHARED_NAV_ITEMS.map(([to, text]) => (
             <ListItem key={to} className={classes.horizontalNavItem}>
-              <Link to={to} className={classes.horizontalNavLink}>{text}</Link>
+              <Link to={to} className={classes.horizontalNavLink}>
+                {text}
+              </Link>
             </ListItem>
           ))}
-          {this.props.authenticated &&
+          {this.props.authenticated && (
             <ListItem className={classes.horizontalNavItem}>
               <AvatarMenu />
             </ListItem>
-          }
+          )}
         </List>
       </Typography>
     )
 
     return (
-      <AppBar
-        className={classes.appBar}
-        color='default'
-        position='absolute'
-      >
+      <AppBar className={classes.appBar} color="default" position="absolute">
         <ReactResizeDetector
-          refreshMode='debounce'
+          refreshMode="debounce"
           refreshRate={200}
           onResize={this.props.onResize}
           handleHeight
@@ -153,32 +155,31 @@ class Header extends React.Component {
           <LoadingBar fetchCount={fetchCount} />
 
           <Toolbar className={classes.toolbar}>
-            <Grid container alignItems='center'>
+            <Grid container alignItems="center">
               <Grid item xs={11} sm={6} md={4}>
-                <Link to='/'>
+                <Link to="/">
                   <MainLogo width={200} />
                 </Link>
               </Grid>
               <Grid item xs={1} sm={6} md={8}>
-                <Grid container justify='flex-end'>
+                <Grid container justify="flex-end">
                   <Grid item>
                     <Hidden mdUp>
-                      <IconButton aria-label='open drawer' onClick={toggleDrawer}>
+                      <IconButton
+                        aria-label="open drawer"
+                        onClick={toggleDrawer}
+                      >
                         <MenuIcon />
                       </IconButton>
                     </Hidden>
-                    <Hidden smDown>
-                      {nav}
-                    </Hidden>
+                    <Hidden smDown>{nav}</Hidden>
                   </Grid>
                 </Grid>
               </Grid>
             </Grid>
           </Toolbar>
         </ReactResizeDetector>
-        <Portal container={this.props.drawerContainer}>
-          {drawer}
-        </Portal>
+        <Portal container={this.props.drawerContainer}>{drawer}</Portal>
       </AppBar>
     )
   }
@@ -194,11 +195,12 @@ const mapStateToProps = state => ({
   fetchCount: fetchCountSelector(state)
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators(
-  { submitSignOut },
-  dispatch
-)
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ submitSignOut }, dispatch)
 
-export const ConnectedHeader = connect(mapStateToProps, mapDispatchToProps)(Header)
+export const ConnectedHeader = connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Header)
 
 export default withStyles(styles)(ConnectedHeader)

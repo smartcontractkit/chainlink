@@ -86,17 +86,18 @@ fetchActions.bridgeSpec = {
   requestActionType: REQUEST_BRIDGE,
   receiveSuccess: json => ({
     type: RECEIVE_BRIDGE_SUCCESS,
-    item: Object.assign(
-      { id: json.data.id },
-      json.data.attributes
-    )
+    item: Object.assign({ id: json.data.id }, json.data.attributes)
   }),
   receiveErrorType: RECEIVE_BRIDGE_ERROR
 }
 
-function sendFetchActions (type, ...getArgs) {
+function sendFetchActions(type, ...getArgs) {
   return dispatch => {
-    const { requestActionType, receiveSuccess, receiveErrorType } = fetchActions[type]
+    const {
+      requestActionType,
+      receiveSuccess,
+      receiveErrorType
+    } = fetchActions[type]
     const apiGet = api['get' + pascalCase(type)]
 
     dispatch(createAction(requestActionType))
@@ -111,7 +112,7 @@ export const RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS'
 export const RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL'
 export const RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR'
 
-const receiveSignInSuccess = (json) => ({
+const receiveSignInSuccess = json => ({
   type: RECEIVE_SIGNIN_SUCCESS,
   authenticated: json.authenticated,
   errors: json.errors
@@ -119,10 +120,11 @@ const receiveSignInSuccess = (json) => ({
 
 const receiveSignInFail = () => ({ type: RECEIVE_SIGNIN_FAIL })
 
-function sendSignIn (data) {
+function sendSignIn(data) {
   return dispatch => {
     dispatch(createAction(REQUEST_SIGNIN))
-    return api.createSession(data)
+    return api
+      .createSession(data)
       .then(json => dispatch(receiveSignInSuccess(json)))
       .catch(error => {
         if (error instanceof AuthenticationError) {
@@ -143,10 +145,11 @@ export const receiveSignoutSuccess = () => ({
   authenticated: false
 })
 
-function sendSignOut () {
+function sendSignOut() {
   return dispatch => {
     dispatch(createAction(REQUEST_SIGNOUT))
-    return api.destroySession()
+    return api
+      .destroySession()
       .then(json => dispatch(receiveSignoutSuccess(json)))
       .catch(curryErrorHandler(dispatch, RECEIVE_SIGNIN_ERROR))
   }
@@ -171,7 +174,8 @@ const receiveUpdateSuccess = response => ({
 })
 
 export const fetchConfiguration = () => sendFetchActions('configuration')
-export const fetchBridges = (page, size) => sendFetchActions('bridges', page, size)
+export const fetchBridges = (page, size) =>
+  sendFetchActions('bridges', page, size)
 export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
 
 export const submitSignIn = data => sendSignIn(data)
@@ -180,7 +184,8 @@ export const submitSignOut = () => sendSignOut()
 export const createJobSpec = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
-    return api.createJobSpec(data)
+    return api
+      .createJobSpec(data)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
         dispatch(notifySuccess(successCallback, res))
@@ -195,7 +200,8 @@ export const createJobSpec = (data, successCallback, errorCallback) => {
 export const createJobRun = (id, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
-    return api.createJobSpecRun(id)
+    return api
+      .createJobSpecRun(id)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
         dispatch(notifySuccess(successCallback, res))
@@ -210,7 +216,8 @@ export const createJobRun = (id, successCallback, errorCallback) => {
 export const createBridge = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_CREATE))
-    return api.createBridge(data)
+    return api
+      .createBridge(data)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
         dispatch(notifySuccess(successCallback, data))
@@ -225,7 +232,8 @@ export const createBridge = (data, successCallback, errorCallback) => {
 export const updateBridge = (data, successCallback, errorCallback) => {
   return dispatch => {
     dispatch(createAction(REQUEST_UPDATE))
-    return api.updateBridge(data)
+    return api
+      .updateBridge(data)
       .then(res => {
         dispatch(receiveUpdateSuccess(res))
         dispatch(notifySuccess(successCallback, data))
@@ -298,66 +306,64 @@ const normalizeFetchJob = json => {
   return normalize(validJsonApi, { camelizeKeys: false })
 }
 
-export const fetchAccountBalance = () => request(
-  'ACCOUNT_BALANCE',
-  api.getAccountBalance,
-  json => normalize(json)
-)
+export const fetchAccountBalance = () =>
+  request('ACCOUNT_BALANCE', api.getAccountBalance, json => normalize(json))
 
-export const fetchJobs = (page, size) => request(
-  'JOBS',
-  api.getJobs,
-  json => normalize(json, { endpoint: 'currentPageJobs' }),
-  page, size
-)
+export const fetchJobs = (page, size) =>
+  request(
+    'JOBS',
+    api.getJobs,
+    json => normalize(json, { endpoint: 'currentPageJobs' }),
+    page,
+    size
+  )
 
-export const fetchRecentlyCreatedJobs = size => request(
-  'RECENTLY_CREATED_JOBS',
-  api.getRecentlyCreatedJobs,
-  json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
-  size
-)
+export const fetchRecentlyCreatedJobs = size =>
+  request(
+    'RECENTLY_CREATED_JOBS',
+    api.getRecentlyCreatedJobs,
+    json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
+    size
+  )
 
-export const fetchJob = id => request(
-  'JOB',
-  api.getJobSpec,
-  json => normalizeFetchJob(json),
-  id
-)
+export const fetchJob = id =>
+  request('JOB', api.getJobSpec, json => normalizeFetchJob(json), id)
 
-export const fetchJobRuns = (id, page, size) => request(
-  'JOB_RUNS',
-  api.getJobSpecRuns,
-  json => normalize(json, { endpoint: 'currentPageJobRuns' }),
-  id, page, size
-)
+export const fetchJobRuns = (id, page, size) =>
+  request(
+    'JOB_RUNS',
+    api.getJobSpecRuns,
+    json => normalize(json, { endpoint: 'currentPageJobRuns' }),
+    id,
+    page,
+    size
+  )
 
-export const fetchRecentJobRuns = size => request(
-  'RECENT_JOB_RUNS',
-  api.getRecentJobRuns,
-  json => normalize(json, { endpoint: 'recentJobRuns' }),
-  size
-)
+export const fetchRecentJobRuns = size =>
+  request(
+    'RECENT_JOB_RUNS',
+    api.getRecentJobRuns,
+    json => normalize(json, { endpoint: 'recentJobRuns' }),
+    size
+  )
 
-export const fetchJobRun = id => request(
-  'JOB_RUN',
-  api.getJobSpecRun,
-  json => normalize(json),
-  id
-)
+export const fetchJobRun = id =>
+  request('JOB_RUN', api.getJobSpecRun, json => normalize(json), id)
 
-export const deleteCompletedJobRuns = updatedBefore => request(
-  'DELETE_COMPLETED_JOB_RUNS',
-  api.bulkDeleteJobRuns,
-  normalize,
-  ['completed'],
-  updatedBefore
-)
+export const deleteCompletedJobRuns = updatedBefore =>
+  request(
+    'DELETE_COMPLETED_JOB_RUNS',
+    api.bulkDeleteJobRuns,
+    normalize,
+    ['completed'],
+    updatedBefore
+  )
 
-export const deleteErroredJobRuns = updatedBefore => request(
-  'DELETE_ERRORED_JOB_RUNS',
-  api.bulkDeleteJobRuns,
-  normalize,
-  ['errored'],
-  updatedBefore
-)
+export const deleteErroredJobRuns = updatedBefore =>
+  request(
+    'DELETE_ERRORED_JOB_RUNS',
+    api.bulkDeleteJobRuns,
+    normalize,
+    ['errored'],
+    updatedBefore
+  )

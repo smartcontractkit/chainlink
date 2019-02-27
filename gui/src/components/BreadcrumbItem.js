@@ -11,23 +11,15 @@ const styles = theme => ({
   }
 })
 
-const renderLink = ({ children, href }) => (
-  <Link to={href}>
-    {children}
-  </Link>
-)
+const renderLink = ({ children, href }) => <Link to={href}>{children}</Link>
 
 const renderNode = ({ classes, children }) => (
-  <Typography
-    variant='body1'
-    color='textSecondary'
-    className={classes.node}
-  >
+  <Typography variant="body1" color="textSecondary" className={classes.node}>
     {children}
   </Typography>
 )
 
-const BreadcrumbItem = (props) => {
+const BreadcrumbItem = props => {
   if (props.href) {
     return renderLink(props)
   } else {

@@ -13,51 +13,56 @@ const INCLUDE_PATHS = [
 ]
 const SCRIPT_PATH = path.dirname(process.argv[1])
 
-function solidityCompile (filename, lookupIncludeFile) {
+function solidityCompile(filename, lookupIncludeFile) {
   const inputBasename = path.basename(filename).toString()
   const input = {
     language: 'Solidity',
-    sources: {[inputBasename]: {'urls': [filename]}},
+    sources: { [inputBasename]: { urls: [filename] } },
     settings: {
       outputSelection: {
         [inputBasename]: {
-          '*': [ 'abi', 'evm.bytecode' ]
+          '*': ['abi', 'evm.bytecode']
         }
       }
     }
   }
 
-  const solOutput = solc.compileStandardWrapper(JSON.stringify(input), lookupIncludeFile)
+  const solOutput = solc.compileStandardWrapper(
+    JSON.stringify(input),
+    lookupIncludeFile
+  )
   return JSON.parse(solOutput)
 }
 
-function environmentPaths () {
+function environmentPaths() {
   return (process.env['SOLIDITY_INCLUDE'] || '').split(/:/)
 }
 
-function compile (filename) {
+function compile(filename) {
   // Include the relative path of the specified file in the lookup paths
   let lookupPaths = INCLUDE_PATHS.concat(path.dirname(filename))
 
   // Add any paths defined in the environment
   lookupPaths = lookupPaths.concat(environmentPaths())
 
-  function lookupIncludeFile (includeFile) {
+  function lookupIncludeFile(includeFile) {
     for (let lookupPath of lookupPaths) {
       // Do all path lookups relative to the script
       const fullPath = path.resolve(SCRIPT_PATH, lookupPath, includeFile)
       if (fs.existsSync(fullPath)) {
-        return {contents: fs.readFileSync(fullPath).toString()}
+        return { contents: fs.readFileSync(fullPath).toString() }
       }
     }
 
-    throw new Error(`Unable to load ${includeFile} searched in ${lookupPaths.join(' ')}`)
+    throw new Error(
+      `Unable to load ${includeFile} searched in ${lookupPaths.join(' ')}`
+    )
   }
 
   return solidityCompile(filename, lookupIncludeFile)
 }
 
-function checkCompilerErrors (errors) {
+function checkCompilerErrors(errors) {
   if (errors == null) {
     return
   }
@@ -75,7 +80,7 @@ function checkCompilerErrors (errors) {
   }
 }
 
-function getContract (output, contractName) {
+function getContract(output, contractName) {
   for (let [key, contract] of Object.entries(output.contracts)) {
     if (key === contractName) {
       return Object.values(contract)[0]
@@ -83,7 +88,7 @@ function getContract (output, contractName) {
   }
 }
 
-module.exports = (filename) => {
+module.exports = filename => {
   const contractName = path.basename(filename).toString()
   const compiled = compile(filename)
   checkCompilerErrors(compiled.errors)

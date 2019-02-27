@@ -33,10 +33,7 @@ describe('connectors/reducers/bridges', () => {
   it('RECEIVE_BRIDGES_SUCCESS stores the bridge items and the current page', () => {
     const action = {
       type: RECEIVE_BRIDGES_SUCCESS,
-      items: [
-        { id: 'a', name: 'A' },
-        { id: 'b', name: 'B' }
-      ]
+      items: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]
     }
     const state = reducer(undefined, action)
 

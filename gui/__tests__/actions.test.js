@@ -22,8 +22,14 @@ describe('actions', () => {
 
       await fetchJob(jobSpecId)(captureArgs)
       const [json] = actionsCaptured.filter(j => j.type === 'UPSERT_JOB')
-      expect(json).toHaveProperty(`data.jobSpec.${jobSpecId}.attributes.snake_case`, 'maintained')
-      expect(json).toHaveProperty(`data.jobSpec.${jobSpecId}.attributes.camelCase`, 'maintained')
+      expect(json).toHaveProperty(
+        `data.jobSpec.${jobSpecId}.attributes.snake_case`,
+        'maintained'
+      )
+      expect(json).toHaveProperty(
+        `data.jobSpec.${jobSpecId}.attributes.camelCase`,
+        'maintained'
+      )
     })
   })
 })

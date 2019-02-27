@@ -12,7 +12,8 @@ const styles = theme => {
       '&:hover': {
         backgroundColor: theme.palette.common.white,
         borderColor: '#BECAD6',
-        boxShadow: '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
+        boxShadow:
+          '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
       }
     },
     primary: {
@@ -21,7 +22,8 @@ const styles = theme => {
       color: theme.palette.common.white,
       '&:hover': {
         backgroundColor: theme.palette.primary.main,
-        boxShadow: '0 2px 4px 0 rgba(0,123,255,0.19), 0 2px 2px 0 rgba(0,0,0,0.15)'
+        boxShadow:
+          '0 2px 4px 0 rgba(0,123,255,0.19), 0 2px 2px 0 rgba(0,0,0,0.15)'
       }
     },
     secondary: {
@@ -35,7 +37,8 @@ const styles = theme => {
       '&:hover': {
         backgroundColor: theme.palette.common.white,
         borderColor: theme.palette.error.main,
-        boxShadow: '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
+        boxShadow:
+          '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
       }
     },
     defaultRipple: {
@@ -44,13 +47,7 @@ const styles = theme => {
   }
 }
 
-const PROPS_WHITELIST = [
-  'component',
-  'disabled',
-  'onClick',
-  'type',
-  'to'
-]
+const PROPS_WHITELIST = ['component', 'disabled', 'onClick', 'type', 'to']
 const DEFAULT = 'default'
 const PRIMARY = 'primary'
 const SECONDARY = 'secondary'
@@ -80,17 +77,13 @@ const buildMuiProps = props => {
     case DANGER:
       return DANGER_MUI_PROPS
     default: {
-      return Object.assign(
-        {},
-        DEFAULT_MUI_PROPS,
-        {
-          TouchRippleProps: {
-            classes: {
-              root: props.classes.defaultRipple
-            }
+      return Object.assign({}, DEFAULT_MUI_PROPS, {
+        TouchRippleProps: {
+          classes: {
+            root: props.classes.defaultRipple
           }
         }
-      )
+      })
     }
   }
 }

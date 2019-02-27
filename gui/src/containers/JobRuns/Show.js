@@ -39,19 +39,21 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
 }
 
 export const Show = useHooks(props => {
-  useEffect(() => { props.fetchJobRun(props.jobRunId) }, [])
+  useEffect(() => {
+    props.fetchJobRun(props.jobRunId)
+  }, [])
 
-  return (<div>
-    <RegionalNav
-      jobSpecId={props.jobSpecId}
-      jobRunId={props.jobRunId}
-      jobRun={props.jobRun}
-    />
+  return (
+    <div>
+      <RegionalNav
+        jobSpecId={props.jobSpecId}
+        jobRunId={props.jobRunId}
+        jobRun={props.jobRun}
+      />
 
-    <Content>
-      {renderDetails(props)}
-    </Content>
-  </div>)
+      <Content>{renderDetails(props)}</Content>
+    </div>
+  )
 })
 
 const mapStateToProps = (state, ownProps) => {

@@ -10,16 +10,15 @@ import Typography from '@material-ui/core/Typography'
 import CardTitle from 'components/Cards/Title'
 import { titleCase } from 'change-case'
 
-const renderKey = (k, titleize) => titleize ? titleCase(k) : k
+const renderKey = (k, titleize) => (titleize ? titleCase(k) : k)
 
-const renderEntries = (entries, titleize) => (
+const renderEntries = (entries, titleize) =>
   entries.map(([k, v]) => (
     <TableRow key={k}>
       <Col>{renderKey(k, titleize)}</Col>
       <Col>{v}</Col>
     </TableRow>
   ))
-)
 
 const renderBody = (entries, error, titleize) => {
   if (error) {
@@ -33,7 +32,9 @@ const renderBody = (entries, error, titleize) => {
 
 const SpanRow = ({ children }) => (
   <TableRow>
-    <TableCell component='th' scope='row' colSpan={3}>{children}</TableCell>
+    <TableCell component="th" scope="row" colSpan={3}>
+      {children}
+    </TableCell>
   </TableRow>
 )
 
@@ -43,13 +44,13 @@ const ErrorRow = ({ children }) => <SpanRow>{children}</SpanRow>
 
 const Col = ({ children }) => (
   <TableCell>
-    <Typography variant='body1'>{children}</Typography>
+    <Typography variant="body1">{children}</Typography>
   </TableCell>
 )
 
 const HeadCol = ({ children }) => (
   <TableCell>
-    <Typography variant='body1' color='textSecondary'>
+    <Typography variant="body1" color="textSecondary">
       {children}
     </Typography>
   </TableCell>
@@ -60,16 +61,15 @@ const KeyValueList = ({ entries, error, showHead, title, titleize }) => (
     {title && <CardTitle divider>{title}</CardTitle>}
 
     <Table>
-      {showHead &&
+      {showHead && (
         <TableHead>
           <TableRow>
             <HeadCol>Key</HeadCol>
             <HeadCol>Value</HeadCol>
           </TableRow>
-        </TableHead>}
-      <TableBody>
-        {renderBody(entries, error, titleize)}
-      </TableBody>
+        </TableHead>
+      )}
+      <TableBody>{renderBody(entries, error, titleize)}</TableBody>
     </Table>
   </Card>
 )

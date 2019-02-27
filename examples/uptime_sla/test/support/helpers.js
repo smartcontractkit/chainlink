@@ -1,6 +1,7 @@
 module.exports = {}
 
-web3.providers.HttpProvider.prototype.sendAsync = web3.providers.HttpProvider.prototype.send
+web3.providers.HttpProvider.prototype.sendAsync =
+  web3.providers.HttpProvider.prototype.send
 
 const getLatestTimestamp = async () => {
   const latestBlock = await web3.eth.getBlock('latest', false)
@@ -9,7 +10,7 @@ const getLatestTimestamp = async () => {
 
 module.exports.getLatestTimestamp = getLatestTimestamp
 
-const sendEth = (method, params) => (
+const sendEth = (method, params) =>
   new Promise((resolve, reject) => {
     web3.currentProvider.sendAsync(
       {
@@ -23,7 +24,6 @@ const sendEth = (method, params) => (
       () => {}
     )
   })
-)
 
 const fastForwardTo = async target => {
   const now = await getLatestTimestamp()
@@ -36,8 +36,8 @@ const fastForwardTo = async target => {
 module.exports.fastForwardTo = fastForwardTo
 
 const minutes = number => number * 60
-const hours = number => (number * minutes(60))
+const hours = number => number * minutes(60)
 
-const days = number => (number * hours(24))
+const days = number => number * hours(24)
 
 module.exports.days = days

@@ -18,9 +18,13 @@ export const Index = props => (
         <Title>Jobs</Title>
       </Grid>
       <Grid item xs={3}>
-        <Grid container justify='flex-end' >
+        <Grid container justify="flex-end">
           <Grid item>
-            <Button variant='secondary' component={ReactStaticLinkComponent} to={'/jobs/new'}>
+            <Button
+              variant="secondary"
+              component={ReactStaticLinkComponent}
+              to={'/jobs/new'}
+            >
               New Job
             </Button>
           </Grid>

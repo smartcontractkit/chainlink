@@ -10,9 +10,7 @@ const SimpleList = ({ children, title }) => {
       <CardTitle>{title}</CardTitle>
 
       <Table>
-        <TableBody>
-          {children}
-        </TableBody>
+        <TableBody>{children}</TableBody>
       </Table>
     </Card>
   )

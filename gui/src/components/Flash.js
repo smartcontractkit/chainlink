@@ -5,11 +5,11 @@ import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import { withStyles } from '@material-ui/core/styles'
 
-const styles = (theme) => {
+const styles = theme => {
   const success = theme.palette.success || {}
   const warning = theme.palette.warning || {}
 
-  return ({
+  return {
     base: {
       paddingLeft: theme.spacing.unit * 5,
       paddingRight: theme.spacing.unit * 5
@@ -26,7 +26,7 @@ const styles = (theme) => {
       backgroundColor: warning.contrastText,
       color: warning.main
     }
-  })
+  }
 }
 
 const applyClass = ({ success, error, warning, classes, className }) => {
@@ -43,9 +43,9 @@ const applyClass = ({ success, error, warning, classes, className }) => {
   return classNames(classes.base, className, type)
 }
 
-const Flash = (props) => (
+const Flash = props => (
   <Card className={applyClass(props)} square>
-    <Typography variant='body2' color='inherit' component='div'>
+    <Typography variant="body2" color="inherit" component="div">
       {props.children}
     </Typography>
   </Card>
