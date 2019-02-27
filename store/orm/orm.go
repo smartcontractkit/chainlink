@@ -620,6 +620,7 @@ func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit in
 
 	var runs []models.JobRun
 	err = orm.preloadJobRuns().
+		Where("job_spec_id = ?", id).
 		Order(fmt.Sprintf("created_at %s", order.String())).
 		Limit(limit).
 		Offset(offset).
