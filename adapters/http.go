@@ -2,7 +2,7 @@ package adapters
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -39,7 +39,7 @@ func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	}
 
 	if response.StatusCode >= 400 {
-		input.SetError(fmt.Errorf(body))
+		input.SetError(errors.New(body))
 		return input
 	}
 
@@ -85,7 +85,7 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 	}
 
 	if response.StatusCode >= 400 {
-		input.SetError(fmt.Errorf(body))
+		input.SetError(errors.New(body))
 		return input
 	}
 
