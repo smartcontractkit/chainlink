@@ -33,7 +33,10 @@ const JobRunsShowJson = universal(
   import('./containers/JobRuns/ShowJson'),
   uniOpts
 )
-const TransactionsIndex = universal(import('./containers/Transactions/Index'), uniOpts)
+const TransactionsIndex = universal(
+  import('./containers/Transactions/Index'),
+  uniOpts
+)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
 
 const styles = theme => {
@@ -146,8 +149,16 @@ class Private extends React.Component {
                   path="/bridges/:bridgeId/edit"
                   component={BridgesEdit}
                 />
-                <PrivateRoute exact path='/transactions' component={TransactionsIndex} />
-                <PrivateRoute exact path='/transactions/page/:transactionsPage' component={TransactionsIndex} />
+                <PrivateRoute
+                  exact
+                  path="/transactions"
+                  component={TransactionsIndex}
+                />
+                <PrivateRoute
+                  exact
+                  path="/transactions/page/:transactionsPage"
+                  component={TransactionsIndex}
+                />
                 <PrivateRoute exact path="/config" component={Configuration} />
               </Switch>
             </div>
