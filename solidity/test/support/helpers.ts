@@ -24,6 +24,7 @@ process.env.SOLIDITY_INCLUDE += ':../../../../:../../contracts'
 // Key for defaultAccount, defined below.
 const PRIVATE_KEY = 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
 
+/* tslint:disable no-var-requires */
 const Wallet = require('../../app/wallet.js')
 const Utils = require('../../app/utils.js')
 const Deployer = require('../../app/deployer.js')
@@ -32,6 +33,7 @@ const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
 const BN = require('bn.js')
 const ethjsUtils = require('ethereumjs-util')
+/* tslint:enable no-var-requires */
 
 const HEX_BASE = 16
 
@@ -74,11 +76,11 @@ export const linkContract = async (): Promise<any> => {
   return wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
 }
 
-export const bigNum = (number: any): any => web3.utils.toBN(number)
+export const bigNum = (num: any): any => web3.utils.toBN(num)
 assertBigNum(bigNum('1'), bigNum(1), 'Different representations should give same BNs')
 
 // toWei(n) is n * 10**18, as a BN.
-export const toWei = (number: string | number): any => bigNum(web3.utils.toWei(bigNum(number)))
+export const toWei = (num: string | number): any => bigNum(web3.utils.toWei(bigNum(num)))
 assertBigNum(toWei('1'), toWei(1), 'Different representations should give same BNs')
 
 export const toUtf8 = web3.utils.toUtf8
@@ -112,8 +114,8 @@ export const deploy = async (filePath: any, ...args: any[]) =>
   deployer.perform(filePath, ...args)
 
 export const getEvents = (contract: any): Promise<any[]> =>
-  new Promise((resolve, reject) => contract.allEvents()
-    .get((error: any, events: any) => (error ? reject(error) : resolve(events))))
+  new Promise((resolver, rejecter) => contract.allEvents()
+    .get((error: any, events: any) => (error ? rejecter(error) : resolver(events))))
 
 export const getLatestEvent = async (contract: any): Promise<any[]> => {
   const events = await getEvents(contract)
@@ -192,16 +194,16 @@ export const decodeRunRequest = (log: any): any => {
   ] = abi.rawDecode(types, runABI)
 
   return {
-    topic: log.topics[0],
-    jobId: log.topics[1],
-    requester: Ox(requester),
-    id: toHex(requestId),
-    payment: toHex(payment),
     callbackAddr: Ox(callbackAddress),
     callbackFunc: toHex(callbackFunc),
-    expiration: toHex(expiration),
-    dataVersion: version,
     data: autoAddMapDelimiters(data),
+    dataVersion: version,
+    expiration: toHex(expiration),
+    id: toHex(requestId),
+    jobId: log.topics[1],
+    payment: toHex(payment),
+    requester: Ox(requester),
+    topic: log.topics[0],
   }
 }
 
@@ -268,10 +270,10 @@ export const newSignature = (str: string): any => {
     v += 27
   }
   return {
-    v,
+    full: oracleSignature,
     r: oracleSignature.slice(0, 32),
     s: oracleSignature.slice(32, 64),
-    full: oracleSignature,
+    v,
   }
 }
 
@@ -311,12 +313,13 @@ export const concatTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): ArrayLike<
 
 export const increaseTime5Minutes = async () => {
   await web3.currentProvider.send({
+    id: 0,
     jsonrpc: '2.0',
     method: 'evm_increaseTime',
     params: [300],
-    id: 0,
   }, (error: any, result: any) => {
     if (error) {
+      // tslint:disable-next-line:no-console
       console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
       throw error
     }
@@ -352,7 +355,10 @@ export const recoverPersonalSignature = (message: Uint8Array, signature: any): a
 
 export const personalSign = async (account: any, message: any): Promise<any> => {
   if (!isByteRepresentation(message)) {
-    throw new Error(`Message ${message} is not a recognized representation of a byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended hexadecimal string.)`)
+    throw new Error(`Message ${
+      message
+    } is not a recognized representation of a byte array.
+    (Can be Buffer, BigNumber, Uint8Array, 0x-prepended hexadecimal string.)`)
   }
   return newSignature(await web3.eth.sign(toHex(message), account))
 }
@@ -372,7 +378,8 @@ export const strip0x = (s: string): string => s.startsWith('0x') ? s.slice(2) : 
 export const pad0xHexTo256Bit = (s: string): string => padHexTo256Bit(strip0x(s))
 export const padNumTo256Bit = (n: number): string => padHexTo256Bit(n.toString(16))
 
-export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracles, oracleSignature, requestDigest }: any): any[] => [
+export const initiateServiceAgreementArgs = (
+  {payment, expiration, endAt, oracles, oracleSignature, requestDigest }: any): any[] => [
   toHex(newHash(payment.toString())),
   toHex(newHash(expiration.toString())),
   toHex(newHash(endAt.toString())),
@@ -383,8 +390,8 @@ export const initiateServiceAgreementArgs = ({payment, expiration, endAt, oracle
   toHex(requestDigest),
 ]
 
-/** Call coordinator contract to initiate the specified service agreement, and
- * get the return value. */
+// Call coordinator contract to initiate the specified service agreement, and
+// get the return value
 export const initiateServiceAgreementCall = async (coordinator: any, args: any): Promise<any> =>
   coordinator.initiateServiceAgreement.call(...initiateServiceAgreementArgs(args))
 
@@ -422,8 +429,8 @@ export const checkServiceAgreementPresent =
     /// / )
   }
 
-/** Check that all values for the struct at this SAID have default
-    values. I.e., nothing was changed due to invalid request */
+// Check that all values for the struct at this SAID have default values. I.e.
+// nothing was changed due to invalid request
 export const checkServiceAgreementAbsent = async (coordinator: any, serviceAgreementID: any) => {
   const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
   assertBigNum(sa[0], bigNum(0))
