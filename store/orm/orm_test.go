@@ -71,8 +71,7 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&jr))
 
 	var err error
-	jr.TaskRuns[0].TaskSpec.Params, err =
-		jr.TaskRuns[0].TaskSpec.Params.Merge(cltest.JSONFromString(t, `{"random": "input"}`))
+	jr.TaskRuns[0].TaskSpec.Params = jr.TaskRuns[0].TaskSpec.Params.Merge(cltest.JSONFromString(t, `{"random": "input"}`))
 	require.NoError(t, err)
 	require.NoError(t, store.SaveJobRun(&jr))
 
