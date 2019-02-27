@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/ugorji/go/codec"
 )
 
@@ -19,31 +20,76 @@ func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input string
-		want  string
+		name      string
+		original  string
+		input     string
+		want      string
+		wantError bool
 	}{
-		{"new field", `{"extra":"fields"}`,
-			`{"value":"OLD","other":1,"extra":"fields"}`},
-		{"overwritting fields", `{"value":["new","new"],"extra":2}`,
-			`{"value":["new","new"],"other":1,"extra":2}`},
-		{"nested JSON", `{"extra":{"fields": ["more", 1]}}`,
-			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`},
-		{"empty JSON", `{}`,
-			`{"value":"OLD","other":1}`},
-		{"null values", `{"value":null}`,
-			`{"value":null,"other":1}`},
+		{
+			"new field",
+			`{"value":"OLD","other":1}`,
+			`{"extra":"fields"}`,
+			`{"value":"OLD","other":1,"extra":"fields"}`,
+			false,
+		},
+		{
+			"overwritting fields",
+			`{"value":"OLD","other":1}`,
+			`{"value":["new","new"],"extra":2}`,
+			`{"value":["new","new"],"other":1,"extra":2}`,
+			false,
+		},
+		{
+			"nested JSON",
+			`{"value":"OLD","other":1}`,
+			`{"extra":{"fields": ["more", 1]}}`,
+			`{"value":"OLD","other":1,"extra":{"fields":["more",1]}}`,
+			false,
+		},
+		{
+			"empty JSON",
+			`{"value":"OLD","other":1}`,
+			`{}`,
+			`{"value":"OLD","other":1}`,
+			false,
+		},
+		{
+			"null values",
+			`{"value":"OLD","other":1}`,
+			`{"value":null}`,
+			`{"value":null,"other":1}`,
+			false,
+		},
+		{
+			"string value",
+			`"string"`,
+			`{}`,
+			"",
+			true,
+		},
+		{
+			"array value",
+			`["a1"]`,
+			`{"value": null}`,
+			"",
+			true,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			orig := `{"value":"OLD","other":1}`
-			j1 := cltest.JSONFromString(t, orig)
+			j1 := cltest.JSONFromString(t, test.original)
 			j2 := cltest.JSONFromString(t, test.input)
 
-			merged := j1.Merge(j2)
-			assert.JSONEq(t, test.want, merged.String())
-			assert.JSONEq(t, orig, j1.String())
+			merged, err := j1.Merge(j2)
+			if test.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.JSONEq(t, test.want, merged.String())
+				assert.JSONEq(t, test.original, j1.String())
+			}
 		})
 	}
 }

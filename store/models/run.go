@@ -286,11 +286,16 @@ func (rr *RunResult) GetError() error {
 
 // Merge saves the specified result's data onto the receiving RunResult. The
 // input result's data takes preference over the receivers'.
-func (rr *RunResult) Merge(in RunResult) {
-	rr.Data = rr.Data.Merge(in.Data)
+func (rr *RunResult) Merge(in RunResult) error {
+	var err error
+	rr.Data, err = rr.Data.Merge(in.Data)
+	if err != nil {
+		return err
+	}
 	rr.ErrorMessage = in.ErrorMessage
 	rr.Amount = in.Amount
 	rr.Status = in.Status
+	return nil
 }
 
 // BridgeRunResult handles the parsing of RunResults from external adapters.
