@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -20,6 +21,12 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/ugorji/go/codec"
+)
+
+var (
+	// ErrorCannotMergeNonObject is returned if a Merge was attempted on a string
+	// or array JSON value
+	ErrorCannotMergeNonObject = errors.New("Cannot merge, expected object '{}'")
 )
 
 // RunStatus is a string that represents the run status
@@ -173,8 +180,12 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 }
 
 // Merge combines the given JSON with the existing JSON.
-func (j JSON) Merge(j2 JSON) JSON {
+func (j JSON) Merge(j2 JSON) (JSON, error) {
 	body := j.Map()
+	if body == nil || j.Type != gjson.JSON {
+		return JSON{}, ErrorCannotMergeNonObject
+	}
+
 	for key, value := range j2.Map() {
 		body[key] = value
 	}
@@ -184,10 +195,13 @@ func (j JSON) Merge(j2 JSON) JSON {
 		cleaned[k] = v.Value()
 	}
 
-	b, _ := json.Marshal(cleaned)
+	b, err := json.Marshal(cleaned)
+	if err != nil {
+		return JSON{}, err
+	}
+
 	var rval JSON
-	gjson.Unmarshal(b, &rval)
-	return rval
+	return rval, gjson.Unmarshal(b, &rval)
 }
 
 // Empty returns true if the JSON does not exist.
@@ -211,8 +225,7 @@ func (j JSON) Add(key string, val interface{}) (JSON, error) {
 	if err = json.Unmarshal([]byte(str), &j2); err != nil {
 		return j2, err
 	}
-	j = j.Merge(j2)
-	return j, nil
+	return j.Merge(j2)
 }
 
 // Delete returns a new instance of JSON with the specified key removed.

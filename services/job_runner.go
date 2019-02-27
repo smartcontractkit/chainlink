@@ -183,17 +183,27 @@ func prepareTaskInput(run *models.JobRun, currentTaskRun *models.TaskRun) (model
 	input := currentTaskRun.Result
 	previousTaskRun := run.PreviousTaskRun()
 
+	var err error
 	if previousTaskRun != nil {
-		input.Data = previousTaskRun.Result.Data.Merge(input.Data)
+		if input.Data, err = previousTaskRun.Result.Data.Merge(input.Data); err != nil {
+			return models.RunResult{}, err
+		}
 	}
 
-	input.Data = run.Overrides.Data.Merge(input.Data)
+	if input.Data, err = run.Overrides.Data.Merge(input.Data); err != nil {
+		return models.RunResult{}, err
+	}
 	return input, nil
 }
 
 func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
-	taskCopy.Params = taskCopy.Params.Merge(run.Overrides.Data)
+
+	var err error
+	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
+		currentTaskRun.Result.SetError(err)
+		return currentTaskRun.Result
+	}
 
 	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {

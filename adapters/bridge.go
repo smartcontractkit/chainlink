@@ -44,7 +44,11 @@ func (ba *Bridge) handleNewRun(input *models.RunResult, bridgeResponseURL *url.U
 	if ba.Params == nil {
 		ba.Params = new(models.JSON)
 	}
-	input.Data = input.Data.Merge(*ba.Params)
+	var err error
+	if input.Data, err = input.Data.Merge(*ba.Params); err != nil {
+		input.SetError(baRunResultError("handling data param", err))
+		return
+	}
 
 	responseURL := bridgeResponseURL
 	if *responseURL != *zeroURL {
