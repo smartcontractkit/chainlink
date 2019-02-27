@@ -52,6 +52,6 @@ describe('containers/JobRuns/Show', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Web')
     expect(wrapper.text()).toContain('Noop')
-    expect(wrapper.text()).toContain('completed')
+    expect(wrapper.text()).toContain('Completed')
   })
 })
