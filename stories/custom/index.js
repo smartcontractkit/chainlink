@@ -16,9 +16,7 @@ JavascriptTimeAgo.locale(en)
 
 storiesOf('Custom', module)
   .addDecorator(muiTheme([customTheme]))
-  .add('Logo', () => (
-    <Logo width={40} height={50} />
-  ))
+  .add('Logo', () => <Logo width={40} height={50} />)
   .add('TimeAgo', () => (
     <Typography>
       <TimeAgo>2018-11-27T02:26:42.014852Z</TimeAgo>

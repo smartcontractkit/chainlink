@@ -12,9 +12,11 @@ import Content from 'components/Content'
 import { createBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
-const SuccessNotification = ({ name }) => (<React.Fragment>
-  Successfully created bridge <Link to={`/bridges/${name}`}>{name}</Link>
-</React.Fragment>)
+const SuccessNotification = ({ name }) => (
+  <React.Fragment>
+    Successfully created bridge <Link to={`/bridges/${name}`}>{name}</Link>
+  </React.Fragment>
+)
 
 const New = props => (
   <Content>
@@ -22,7 +24,7 @@ const New = props => (
       <Grid item xs={12} md={11} lg={9}>
         <Card>
           <CardContent>
-            <Typography variant='h5' color='secondary'>
+            <Typography variant="h5" color="secondary">
               New Bridge
             </Typography>
           </CardContent>
@@ -31,7 +33,7 @@ const New = props => (
 
           <CardContent>
             <Form
-              actionText='Create Bridge'
+              actionText="Create Bridge"
               onSubmit={props.createBridge}
               onSuccess={SuccessNotification}
               onError={ErrorMessage}

@@ -27,7 +27,8 @@ describe('connectors/reducers/accountBalances', () => {
     }
     const state = reducer(previousState, action)
 
-    const balance = state.accountBalances['0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f']
+    const balance =
+      state.accountBalances['0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f']
     expect(balance).toEqual({
       id: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
       attributes: {

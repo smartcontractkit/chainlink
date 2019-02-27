@@ -59,34 +59,34 @@ const AvatarMenu = useHooks(({ classes }) => {
   return (
     <React.Fragment>
       <Fab
-        size='medium'
-        color='primary'
-        aria-label='Profile'
+        size="medium"
+        color="primary"
+        aria-label="Profile"
         className={classes.button}
         buttonRef={anchorEl}
         aria-owns={open ? 'menu-list-grow' : undefined}
-        aria-haspopup='true'
+        aria-haspopup="true"
         onClick={handleToggle}
       >
-        <Avatar alt='Profile' src={face} className={classes.avatar} />
+        <Avatar alt="Profile" src={face} className={classes.avatar} />
       </Fab>
       <Popper open={open} anchorEl={anchorEl.current} transition disablePortal>
         {({ TransitionProps, placement }) => (
           <Grow
             {...TransitionProps}
-            id='menu-list-grow'
+            id="menu-list-grow"
             className={classes.menuListGrow}
-            style={{ transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom' }}
+            style={{
+              transformOrigin:
+                placement === 'bottom' ? 'center top' : 'center bottom'
+            }}
           >
             <Paper square={false}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
                   <MenuItem onClick={handleClose} className={classes.menuItem}>
-                    <Link to='/signout' className={classes.link}>
-                      <Typography
-                        variant='body1'
-                        className={classes.link}
-                      >
+                    <Link to="/signout" className={classes.link}>
+                      <Typography variant="body1" className={classes.link}>
                         Log out
                       </Typography>
                     </Link>

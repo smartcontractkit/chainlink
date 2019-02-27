@@ -9,7 +9,7 @@ import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 
 const classes = {}
-const mountShow = (props) => (
+const mountShow = props =>
   mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>
@@ -17,7 +17,6 @@ const mountShow = (props) => (
       </MemoryRouter>
     </Provider>
   )
-)
 
 describe('containers/JobRuns/Show', () => {
   const jobSpecId = '942e8b218d414e10a053-000455fdd470'
@@ -36,17 +35,24 @@ describe('containers/JobRuns/Show', () => {
         params: {}
       },
       taskRuns: [
-        { id: 'taskRunA', status: 'completed', task: { type: 'noop', params: {} } }
+        {
+          id: 'taskRunA',
+          status: 'completed',
+          task: { type: 'noop', params: {} }
+        }
       ],
       result: {
         data: {
-          value: '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
+          value:
+            '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
         }
       }
     })
     global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
 
-    const props = { match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } } }
+    const props = {
+      match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } }
+    }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)

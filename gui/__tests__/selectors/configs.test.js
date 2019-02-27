@@ -11,10 +11,7 @@ describe('selectors - configs', () => {
       }
     }
 
-    let expectation = [
-      ['CAMEL_CASED', 'value'],
-      ['KEY', 'value']
-    ]
+    let expectation = [['CAMEL_CASED', 'value'], ['KEY', 'value']]
     expect(configsSelector(state)).toEqual(expectation)
   })
 })

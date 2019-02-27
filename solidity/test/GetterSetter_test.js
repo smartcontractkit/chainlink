@@ -3,7 +3,8 @@ import { assertBigNum } from './support/matchers'
 
 contract('GetterSetter', () => {
   const sourcePath = 'examples/GetterSetter.sol'
-  const requestId = '0x3bd198932d9cc01e2950ffc518fd38a303812200000000000000000000000000'
+  const requestId =
+    '0x3bd198932d9cc01e2950ffc518fd38a303812200000000000000000000000000'
   const bytes32 = 'Hi Mom!'
   const uint256 = 645746535432
   let gs

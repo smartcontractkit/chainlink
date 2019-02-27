@@ -24,7 +24,9 @@ describe('utils/storage', () => {
   describe('set', () => {
     it('saves the JS object as JSON keyed under "chainlink." in localStorage', () => {
       set('foo', { foo: 'FOO' })
-      expect(global.localStorage.getItem('chainlink.foo')).toEqual('{"foo":"FOO"}')
+      expect(global.localStorage.getItem('chainlink.foo')).toEqual(
+        '{"foo":"FOO"}'
+      )
     })
   })
 })

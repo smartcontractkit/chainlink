@@ -14,7 +14,10 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 
 const SuccessNotification = ({ data }) => (
   <React.Fragment>
-    Successfully created job <Link id='created-job' to={`/jobs/${data.id}`}>{data.id}</Link>
+    Successfully created job{' '}
+    <Link id="created-job" to={`/jobs/${data.id}`}>
+      {data.id}
+    </Link>
   </React.Fragment>
 )
 
@@ -24,7 +27,7 @@ const New = props => (
       <Grid item xs={12} md={11} lg={9}>
         <Card>
           <CardContent>
-            <Typography variant='h5' color='secondary'>
+            <Typography variant="h5" color="secondary">
               New Job
             </Typography>
           </CardContent>
@@ -33,11 +36,11 @@ const New = props => (
 
           <CardContent>
             <Form
-              actionText='Create Job'
+              actionText="Create Job"
               onSubmit={props.createJobSpec}
               onSuccess={SuccessNotification}
               onError={ErrorMessage}
-              {...(props.location && props.location.state)}
+              {...props.location && props.location.state}
             />
           </CardContent>
         </Card>

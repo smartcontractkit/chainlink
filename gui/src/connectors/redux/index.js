@@ -13,12 +13,5 @@ if (process.env.LOG_REDUX === 'true') {
 }
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose
 
-export default () => (
-  createStore(
-    reducer,
-    {},
-    composeEnhancers(
-      applyMiddleware(...middleware)
-    )
-  )
-)
+export default () =>
+  createStore(reducer, {}, composeEnhancers(applyMiddleware(...middleware)))

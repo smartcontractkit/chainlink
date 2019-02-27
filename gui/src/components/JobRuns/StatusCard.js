@@ -35,11 +35,16 @@ const styles = theme => ({
 
 const StatusCard = ({ classes, children }) => {
   return (
-    <PaddedCard className={classNames(classes.statusCard, classes[children] || classes.pending)}>
+    <PaddedCard
+      className={classNames(
+        classes.statusCard,
+        classes[children] || classes.pending
+      )}
+    >
       <StatusIcon className={classes.statusIcon} width={80}>
         {children}
       </StatusIcon>
-      <Typography className={classes.statusText} variant='h5' color='inherit'>
+      <Typography className={classes.statusText} variant="h5" color="inherit">
         {titleCase(children)}
       </Typography>
     </PaddedCard>

@@ -1,6 +1,5 @@
-let LINK = artifacts.require("LinkToken");
+let LINK = artifacts.require('LinkToken')
 
 module.exports = function(deployer) {
-  deployer.deploy(LINK);
-};
-
+  deployer.deploy(LINK)
+}

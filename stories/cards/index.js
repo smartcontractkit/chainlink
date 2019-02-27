@@ -21,7 +21,7 @@ storiesOf('Cards', module)
   .add('SimpleList', () => (
     <Grid container>
       <Grid xs={4}>
-        <SimpleList title='Recently Created'>
+        <SimpleList title="Recently Created">
           {['jobs', 'distribution', 'jump'].map(text => (
             <SimpleListItem>
               <Typography>{text}</Typography>
@@ -36,7 +36,7 @@ storiesOf('Cards', module)
       <Grid item xs={12}>
         <Grid container>
           <Grid item xs={4}>
-            <KeyValueList title='Loading' entries={[]} />
+            <KeyValueList title="Loading" entries={[]} />
           </Grid>
         </Grid>
       </Grid>
@@ -50,9 +50,10 @@ storiesOf('Cards', module)
       <Grid item xs={12}>
         <Grid container>
           <Grid item xs={4}>
-            <KeyValueList title='With Title' entries={[
-              ['WITHOUT_TITLE', 'false']
-            ]} />
+            <KeyValueList
+              title="With Title"
+              entries={[['WITHOUT_TITLE', 'false']]}
+            />
           </Grid>
         </Grid>
       </Grid>
@@ -61,7 +62,7 @@ storiesOf('Cards', module)
   .add('TokenBalance', () => (
     <Grid container>
       <Grid xs={4}>
-        <TokenBalance title='Ether Balance' value={'10000000000000000000000'} />
+        <TokenBalance title="Ether Balance" value={'10000000000000000000000'} />
       </Grid>
     </Grid>
   ))
@@ -83,9 +84,21 @@ storiesOf('Tabular Data', module)
   .addDecorator(muiTheme([customTheme]))
   .add('Job Runs', () => (
     <Router>
-      <JobRunsList runs={[
-        { id: 'f5b5c848b8154d5eab8cd9a36fe1d506', status: 'errored', createdAt: '2018-11-26T18:26:42.133809-08:00', result: { data: {}, error: 'server not responding' } },
-        { id: 'c1aeec88e8104424aa69deb383e76695', status: 'completed', createdAt: '2018-11-23T09:18:14.120683-08:00', result: { data: { price: 123.45 } } }
-      ]} />
+      <JobRunsList
+        runs={[
+          {
+            id: 'f5b5c848b8154d5eab8cd9a36fe1d506',
+            status: 'errored',
+            createdAt: '2018-11-26T18:26:42.133809-08:00',
+            result: { data: {}, error: 'server not responding' }
+          },
+          {
+            id: 'c1aeec88e8104424aa69deb383e76695',
+            status: 'completed',
+            createdAt: '2018-11-23T09:18:14.120683-08:00',
+            result: { data: { price: 123.45 } }
+          }
+        ]}
+      />
     </Router>
   ))

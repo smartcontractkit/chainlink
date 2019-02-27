@@ -8,23 +8,20 @@ import { MemoryRouter } from 'react-router'
 import SignIn from 'containers/SignIn'
 import fillIn from 'test-helpers/fillIn'
 
-const RedirectApp = () => (
-  <div>Behind authentication</div>
-)
-const mountSignIn = (store, props) => (
+const RedirectApp = () => <div>Behind authentication</div>
+const mountSignIn = (store, props) =>
   mount(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/signin']}>
         <Switch>
-          <Route exact path='/signin' component={SignIn} />
-          <Route exact path='/' component={RedirectApp} />
+          <Route exact path="/signin" component={SignIn} />
+          <Route exact path="/" component={RedirectApp} />
         </Switch>
       </MemoryRouter>
     </Provider>
   )
-)
 
-const submitForm = (wrapper) => {
+const submitForm = wrapper => {
   fillIn(wrapper, 'input#email', 'some@email.net')
   fillIn(wrapper, 'input#password', 'abracadabra')
   expect(wrapper.find('form button').getDOMNode().disabled).toEqual(false)
@@ -60,11 +57,15 @@ describe('containers/SignIn', () => {
 
     const newState = store.getState()
     expect(newState.notifications).toEqual({
-      errors: [{ detail: 'Your email or password is incorrect. Please try again' }],
+      errors: [
+        { detail: 'Your email or password is incorrect. Please try again' }
+      ],
       successes: [],
       currentUrl: '/signin'
     })
     expect(newState.authentication.allowed).toEqual(false)
-    expect(wrapper.text()).toContain('Your email or password is incorrect. Please try again')
+    expect(wrapper.text()).toContain(
+      'Your email or password is incorrect. Please try again'
+    )
   })
 })

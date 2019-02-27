@@ -1,9 +1,5 @@
 import { toBuffer } from 'ethereumjs-util'
-import {
-  days,
-  fastForwardTo,
-  getLatestTimestamp
-} from './support/helpers'
+import { days, fastForwardTo, getLatestTimestamp } from './support/helpers'
 import {
   assertActionThrows,
   decodeDietCBOR,
@@ -14,7 +10,7 @@ import {
 } from './support/moreHelpers'
 import { assertBigNum } from './support/matchers'
 
-contract('UptimeSLA', (accounts) => {
+contract('UptimeSLA', accounts => {
   const Oracle = artifacts.require('Oracle')
   const SLA = artifacts.require('UptimeSLA')
   const LinkToken = artifacts.require('LinkToken')
@@ -28,9 +24,16 @@ contract('UptimeSLA', (accounts) => {
     serviceProvider = '0xf000000000000000000000000000000000000002'
     link = await LinkToken.new()
     oc = await Oracle.new(link.address, { from: oracleNode })
-    sla = await SLA.new(client, serviceProvider, link.address, oc.address, specId, {
-      value: deposit
-    })
+    sla = await SLA.new(
+      client,
+      serviceProvider,
+      link.address,
+      oc.address,
+      specId,
+      {
+        value: deposit
+      }
+    )
     link.transfer(sla.address, web3.utils.toWei('1', 'ether'))
     startAt = await getLatestTimestamp()
   })
@@ -49,19 +52,22 @@ contract('UptimeSLA', (accounts) => {
 
       const events = await oc.getPastEvents('allEvents')
       assert.equal(1, events.length)
-      assert.equal(events[0].args.specId,
-        specId + '00000000000000000000000000000000')
+      assert.equal(
+        events[0].args.specId,
+        specId + '00000000000000000000000000000000'
+      )
 
       const decoded = await decodeDietCBOR(toBuffer(events[0].args.data))
-      assert.deepEqual(
-        decoded,
-        { 'url': 'https://status.heroku.com/api/ui/availabilities', 'path': ['data', '0', 'attributes', 'calculation'] }
-      )
+      assert.deepEqual(decoded, {
+        url: 'https://status.heroku.com/api/ui/availabilities',
+        path: ['data', '0', 'attributes', 'calculation']
+      })
     })
   })
 
   describe('#fulfillOracleRequest', () => {
-    const response = '0x00000000000000000000000000000000000000000000000000000000000f8c4c'
+    const response =
+      '0x00000000000000000000000000000000000000000000000000000000000f8c4c'
     let request
 
     beforeEach(async () => {
@@ -70,7 +76,8 @@ contract('UptimeSLA', (accounts) => {
     })
 
     context('when the value is below 9999', async () => {
-      const response = '0x000000000000000000000000000000000000000000000000000000000000270e'
+      const response =
+        '0x000000000000000000000000000000000000000000000000000000000000270e'
 
       it('sends the deposit to the client', async () => {
         await fulfillOracleRequest(oc, request, response, { from: oracleNode })
@@ -82,7 +89,8 @@ contract('UptimeSLA', (accounts) => {
     })
 
     context('when the value is 9999 or above', () => {
-      const response = '0x000000000000000000000000000000000000000000000000000000000000270f'
+      const response =
+        '0x000000000000000000000000000000000000000000000000000000000000270f'
       let originalClientBalance
 
       beforeEach(async () => {
@@ -103,7 +111,9 @@ contract('UptimeSLA', (accounts) => {
         })
 
         it('gives the money back to the service provider', async () => {
-          await fulfillOracleRequest(oc, request, response, { from: oracleNode })
+          await fulfillOracleRequest(oc, request, response, {
+            from: oracleNode
+          })
 
           assertBigNum(await web3.eth.getBalance(sla.address), 0)
           assertBigNum(await web3.eth.getBalance(client), originalClientBalance)

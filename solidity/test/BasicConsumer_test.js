@@ -41,8 +41,9 @@ contract('BasicConsumer', () => {
 
         const request = h.decodeRunRequest(log)
         const expected = {
-          'path': ['USD'],
-          'url': 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
+          path: ['USD'],
+          url:
+            'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
         }
 
         assert.equal(h.toHex(specId), request.jobId)
@@ -70,14 +71,18 @@ contract('BasicConsumer', () => {
     })
 
     it('records the data given to it by the oracle', async () => {
-      await h.fulfillOracleRequest(oc, request, response, { from: h.oracleNode })
+      await h.fulfillOracleRequest(oc, request, response, {
+        from: h.oracleNode
+      })
 
       const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      const tx = await h.fulfillOracleRequest(oc, request, response, { from: h.oracleNode })
+      const tx = await h.fulfillOracleRequest(oc, request, response, {
+        from: h.oracleNode
+      })
       assert.equal(2, tx.receipt.logs.length)
       const log = tx.receipt.logs[1]
 
@@ -89,13 +94,21 @@ contract('BasicConsumer', () => {
 
       beforeEach(async () => {
         const funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
-        const args = h.requestDataBytes(h.toHex(specId), cc.address, funcSig, 43, '')
+        const args = h.requestDataBytes(
+          h.toHex(specId),
+          cc.address,
+          funcSig,
+          43,
+          ''
+        )
         const tx = await h.requestDataFrom(oc, link, 0, args)
         otherRequest = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
       it('does not accept the data provided', async () => {
-        await h.fulfillOracleRequest(oc, otherRequest, response, { from: h.oracleNode })
+        await h.fulfillOracleRequest(oc, otherRequest, response, {
+          from: h.oracleNode
+        })
 
         const received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
@@ -127,11 +140,13 @@ contract('BasicConsumer', () => {
     context('before 5 minutes', () => {
       it('cant cancel the request', async () => {
         await h.assertActionThrows(async () => {
-          await cc.cancelRequest(request.id,
+          await cc.cancelRequest(
+            request.id,
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: h.consumer })
+            { from: h.consumer }
+          )
         })
       })
     })
@@ -140,11 +155,13 @@ contract('BasicConsumer', () => {
       it('can cancel the request', async () => {
         await h.increaseTime5Minutes()
 
-        await cc.cancelRequest(request.id,
+        await cc.cancelRequest(
+          request.id,
           request.payment,
           request.callbackFunc,
           request.expiration,
-          { from: h.consumer })
+          { from: h.consumer }
+        )
       })
     })
   })

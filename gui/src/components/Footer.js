@@ -21,7 +21,7 @@ const Footnote = ({ classes }) => {
   return (
     <Card className={classes.style}>
       <Typography>
-          Chainlink Node {version} at commit {sha}
+        Chainlink Node {version} at commit {sha}
       </Typography>
     </Card>
   )

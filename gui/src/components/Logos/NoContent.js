@@ -4,13 +4,7 @@ import Logo from '../Logo'
 import src from '../../images/no-activity-icon.svg'
 
 const NoContent = props => {
-  return (
-    <Logo
-      src={src}
-      alt='No Content'
-      {...props}
-    />
-  )
+  return <Logo src={src} alt="No Content" {...props} />
 }
 
 NoContent.propTypes = {

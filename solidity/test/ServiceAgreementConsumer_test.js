@@ -44,8 +44,9 @@ contract('ServiceAgreementConsumer', () => {
         assertBigNum(paymentAmount, h.bigNum(request.payment))
         assert.equal(cc.address, request.requester)
         assertBigNum(1, request.dataVersion)
-        const url = 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
-        assert.deepEqual(params, { 'path': currency, url: url })
+        const url =
+          'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
+        assert.deepEqual(params, { path: currency, url: url })
       })
 
       it('has a reasonable gas cost', async () => {
@@ -66,7 +67,9 @@ contract('ServiceAgreementConsumer', () => {
     })
 
     it('records the data given to it by the oracle', async () => {
-      await coord.fulfillOracleRequest(request.id, response, { from: h.oracleNode })
+      await coord.fulfillOracleRequest(request.id, response, {
+        from: h.oracleNode
+      })
 
       const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), response)
@@ -77,13 +80,21 @@ contract('ServiceAgreementConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
-        let args = h.executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 1, '')
+        let args = h.executeServiceAgreementBytes(
+          agreement.id,
+          cc.address,
+          funcSig,
+          1,
+          ''
+        )
         const tx = await h.requestDataFrom(coord, link, 0, args)
         request2 = h.decodeRunRequest(tx.receipt.logs[2])
       })
 
       it('does not accept the data provided', async () => {
-        await coord.fulfillOracleRequest(request2.id, response, { from: h.oracleNode })
+        await coord.fulfillOracleRequest(request2.id, response, {
+          from: h.oracleNode
+        })
 
         let received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
