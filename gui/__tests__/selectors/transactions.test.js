@@ -32,8 +32,6 @@ describe('selectors - transactions', () => {
     }
     const transactions = transactionsSelector(state)
 
-    expect(transactions).toEqual([
-      { id: 'transactionA' }
-    ])
+    expect(transactions).toEqual([{ id: 'transactionA' }])
   })
 })
