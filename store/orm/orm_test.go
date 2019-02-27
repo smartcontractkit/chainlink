@@ -116,6 +116,37 @@ func TestORM_JobRunsFor(t *testing.T) {
 	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
 }
 
+func TestORM_JobRunsSortedFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	includedJob := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&includedJob))
+
+	excludedJob := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&excludedJob))
+
+	i := includedJob.Initiators[0]
+	jr1 := includedJob.NewRun(i)
+	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
+	require.NoError(t, store.CreateJobRun(&jr1))
+	jr2 := includedJob.NewRun(i)
+	jr2.CreatedAt = time.Now().AddDate(0, 0, 1)
+	require.NoError(t, store.CreateJobRun(&jr2))
+
+	excludedJobRun := excludedJob.NewRun(excludedJob.Initiators[0])
+	excludedJobRun.CreatedAt = time.Now().AddDate(0, 0, -9)
+	require.NoError(t, store.CreateJobRun(&excludedJobRun))
+
+	runs, count, err := store.JobRunsSortedFor(includedJob.ID, orm.Descending, 0, 100)
+	assert.NoError(t, err)
+	require.Equal(t, 2, count)
+	actual := []string{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
+	assert.Equal(t, []string{jr2.ID, jr1.ID}, actual)
+}
+
 func TestORM_JobRunsWithStatus(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
