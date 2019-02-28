@@ -313,13 +313,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     isValidRequest(_requestId)
     returns (bool)
   {
-    bytes32 requestId = bytes32(_requestId);
-    callbacks[requestId].responses[msg.sender] = uint256(_data);
+    callbacks[_requestId].responses[msg.sender] = uint256(_data);
 
-    Callback memory callback = callbacks[requestId];
-    callbacks[requestId].responseCount += 1;
-    uint256 responseCount = callbacks[requestId].responseCount;
-    bytes32 sAId = callbacks[requestId].sAId;
+    Callback memory callback = callbacks[_requestId];
+    callbacks[_requestId].responseCount += 1;
+    uint256 responseCount = callbacks[_requestId].responseCount;
+    bytes32 sAId = callbacks[_requestId].sAId;
     address[] memory oracles = serviceAgreements[sAId].oracles;
     if (oracles.length > responseCount) {
       return true;
@@ -328,13 +327,13 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint256 result;
     uint256 oraclePayment = callback.amount.div(oracles.length);
     for (uint i = 0; i < responseCount; i++) {
-      result = result.add(callbacks[requestId].responses[oracles[i]]);
-      delete callbacks[requestId].responses[oracles[i]];
+      result = result.add(callbacks[_requestId].responses[oracles[i]]);
+      delete callbacks[_requestId].responses[oracles[i]];
       withdrawableTokens[oracles[i]] = withdrawableTokens[oracles[i]].add(oraclePayment);
     }
     result = result.div(responseCount);
-    delete callbacks[requestId];
-    return callback.addr.call(callback.functionId, requestId, result); // solium-disable-line security/no-low-level-calls
+    delete callbacks[_requestId];
+    return callback.addr.call(callback.functionId, _requestId, result); // solium-disable-line security/no-low-level-calls
   }
 
   /**
